@@ -49,7 +49,7 @@ export default function HomePage() {
           <a href="#congregacao">A congregação</a>
           <a href="#acesso">Acesso</a>
           <a href={withBasePath("/app/")}>Área interna</a>
-          <a href={withBasePath("/app/demo/")}>Conhecer a demonstração</a>
+          <a href={withBasePath("/app/membros/")}>Membros e famílias</a>
         </nav>
       </header>
 
@@ -86,8 +86,8 @@ export default function HomePage() {
             </p>
 
             <div className="hero-actions">
-              <a className="btn btn-primary" href={withBasePath("/app/demo/")}>
-                Explorar demonstração
+              <a className="btn btn-primary" href={withBasePath("/app/")}>
+                Abrir sistema
               </a>
               <a
                 className="btn btn-secondary"
@@ -133,49 +133,48 @@ export default function HomePage() {
           aria-labelledby="access-heading"
         >
           <div className="section-inner section-inner--wide">
-            <p className="section-kicker">Sistema de gestão · Demonstração F2</p>
+            <p className="section-kicker">Sistema de gestão da igreja</p>
             <h2 id="access-heading">Conheça a plataforma</h2>
             <p className="section-lede">
-              Explore o cadastro, a admissão de membros e as carteirinhas com dados
-              fictícios, sem login e sem dependência de servidor.
+              Acompanhe cadastros, admissões e carteirinhas nas telas do sistema,\n              com dados sintéticos durante a homologação visual.
             </p>
 
             <ul className="access-grid">
               <li>
-                <a className="access-tile" href={withBasePath("/app/demo/")}>
+                <a className="access-tile" href={withBasePath("/app/")}>
                   <span className="access-tile-label">Visão geral</span>
                   <span className="access-tile-desc">
-                    Indicadores demonstrativos e fluxo de acolhimento
+                    Indicadores, pessoas, famílias e acompanhamento
                   </span>
                 </a>
               </li>
               <li>
-                <a className="access-tile" href={withBasePath("/app/demo/")}>
+                <a className="access-tile" href={withBasePath("/app/membros/")}>
                   <span className="access-tile-label">Membros e famílias</span>
                   <span className="access-tile-desc">
-                    Pessoas, famílias e cadastros fictícios
+                    Diretório, prontuário e gestão de cadastros
                   </span>
                 </a>
               </li>
               <li>
                 <a
                   className="access-tile"
-                  href={withBasePath("/app/demo/")}
+                  href={withBasePath("/app/secretaria/")}
                 >
                   <span className="access-tile-label">Secretaria</span>
                   <span className="access-tile-desc">
-                    Checklist, conferência e aprovação simulados
+                    Protocolos, conferências e aprovações
                   </span>
                 </a>
               </li>
               <li>
                 <a
                   className="access-tile"
-                  href={withBasePath("/app/demo/")}
+                  href={withBasePath("/app/membros/carteirinha/")}
                 >
                   <span className="access-tile-label">Carteirinhas</span>
                   <span className="access-tile-desc">
-                    Emissão e revogação ilustrativas
+                    Emissão, consulta e controle
                   </span>
                 </a>
               </li>
@@ -229,7 +228,7 @@ export default function HomePage() {
             Fé · Família · Cuidado · Comunhão · Missão
           </p>
           <p className="site-footer-links">
-            <a href={withBasePath("/app/demo/")}>Demonstração</a>
+            <a href={withBasePath("/app/")}>Sistema de gestão</a>
             {" · "}
             <Link href="/status/">Status do projeto</Link>
             {" · "}
