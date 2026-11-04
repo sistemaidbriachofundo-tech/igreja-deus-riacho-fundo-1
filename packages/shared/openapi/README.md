@@ -14,3 +14,5 @@ Campos `x-implementation`:
 - `proposed` — FE pode mockar; backend na fila M1+
 
 Constante TS: `API_CONTRACT_VERSION` em `@idbrf/shared`.
+
+Handoff FE (tabela endpoints + seed + erros): `docs/handoff-frontend-api-f2.md`.
