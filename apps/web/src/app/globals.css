@@ -116,7 +116,14 @@ a {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--color-creme);
+  background:
+    linear-gradient(
+      180deg,
+      #1a0e08 0%,
+      var(--color-marrom) 18%,
+      color-mix(in srgb, var(--color-creme) 55%, #efe2d2) 42%,
+      var(--color-creme) 100%
+    );
 }
 
 .site-header {
@@ -132,10 +139,11 @@ a {
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-bronze) 18%, var(--color-marrom)),
-      var(--color-marrom)
+      color-mix(in srgb, var(--color-bronze) 22%, #1a0e08),
+      color-mix(in srgb, var(--color-marrom) 92%, #0d0704)
     );
   color: var(--color-on-dark);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-dourado) 28%, transparent);
   animation: fade-in 0.7s ease-out both;
 }
 
@@ -164,12 +172,13 @@ a {
 
 .site-brand-place {
   font-size: 0.78rem;
-  color: color-mix(in srgb, var(--color-on-dark) 74%, transparent);
+  color: color-mix(in srgb, var(--color-dourado) 70%, var(--color-on-dark));
 }
 
 .site-nav {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem 1.15rem;
   font-family: var(--font-title);
   font-size: 0.88rem;
@@ -186,7 +195,20 @@ a {
   color: var(--color-dourado);
 }
 
-/* —— Hero —— */
+.site-nav-ig {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-dourado) 18%, transparent);
+  color: var(--color-dourado) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-dourado) 45%, transparent);
+}
+
+.site-nav-ig:hover,
+.site-nav-ig:focus-visible {
+  background: color-mix(in srgb, var(--color-dourado) 28%, transparent);
+}
+
+/* —— Hero (full-bleed photo) —— */
 
 .hero {
   position: relative;
@@ -196,152 +218,140 @@ a {
   align-items: end;
   overflow: hidden;
   color: var(--color-on-dark);
-  background:
-    radial-gradient(
-      ellipse 55% 60% at 78% 42%,
-      color-mix(in srgb, var(--color-dourado) 28%, transparent),
-      transparent 68%
-    ),
-    linear-gradient(
-      165deg,
-      #2a150a 0%,
-      var(--color-marrom) 42%,
-      #3a1d0e 72%,
-      #241109 100%
-    );
+  background: #120a06;
 }
 
-.hero-atmosphere {
+.hero-media {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
-.hero-glow {
-  position: absolute;
-  width: min(52vw, 28rem);
-  height: min(52vw, 28rem);
-  right: 8%;
-  top: 18%;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-dourado) 55%, white) 0%,
-      color-mix(in srgb, var(--color-dourado) 28%, transparent) 38%,
-      transparent 70%
-    );
-  filter: blur(2px);
-  animation: glow-pulse 5.5s ease-in-out infinite;
-}
-
-.hero-cross {
-  position: absolute;
-  right: clamp(6%, 12vw, 16%);
-  top: 22%;
-  width: min(22vw, 9.5rem);
-  color: color-mix(in srgb, var(--color-dourado) 72%, white);
-  opacity: 0.55;
-  filter: drop-shadow(0 0 28px color-mix(in srgb, var(--color-dourado) 45%, transparent));
-  animation: cross-rise 1.1s ease-out 0.15s both;
-}
-
-.hero-cross svg {
+.hero-photo {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+  transform: scale(1.06);
+  animation: ken-burns 18s ease-out both;
 }
 
-.hero-haze {
+.hero-veil {
   position: absolute;
-  inset: auto 0 0;
-  height: 42%;
+  inset: 0;
   background:
     linear-gradient(
+      105deg,
+      color-mix(in srgb, #120a06 88%, transparent) 0%,
+      color-mix(in srgb, var(--color-marrom) 72%, transparent) 38%,
+      color-mix(in srgb, #1a0e08 42%, transparent) 68%,
+      color-mix(in srgb, var(--color-marrom) 55%, transparent) 100%
+    ),
+    linear-gradient(
       180deg,
-      transparent,
-      color-mix(in srgb, var(--color-marrom) 55%, transparent) 45%,
-      color-mix(in srgb, #1a0c06 88%, transparent)
+      color-mix(in srgb, #120a06 35%, transparent) 0%,
+      transparent 38%,
+      color-mix(in srgb, #120a06 82%, transparent) 100%
+    ),
+    radial-gradient(
+      ellipse 55% 50% at 78% 30%,
+      color-mix(in srgb, var(--color-dourado) 22%, transparent),
+      transparent 70%
     );
+}
+
+.hero-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--color-dourado) 18%, transparent), transparent 28%),
+    radial-gradient(circle at 80% 60%, color-mix(in srgb, var(--color-bronze) 14%, transparent), transparent 32%);
+  mix-blend-mode: soft-light;
 }
 
 .hero-content {
   position: relative;
   z-index: 1;
-  width: min(100%, 42rem);
+  width: min(100%, 44rem);
   padding:
-    clamp(3.5rem, 10vh, 6rem)
+    clamp(3.75rem, 12vh, 7rem)
     clamp(1.15rem, 4vw, 2.5rem)
-    clamp(2.75rem, 8vh, 4.5rem);
-  animation: rise 0.85s ease-out both;
+    clamp(3rem, 9vh, 5rem);
+  animation: rise 0.9s ease-out both;
 }
 
 .hero-brand {
   display: flex;
   align-items: center;
   gap: 0.95rem;
-  margin: 0 0 1.5rem;
-  animation: rise 0.85s ease-out 0.08s both;
+  margin: 0 0 1.65rem;
+  animation: rise 0.9s ease-out 0.08s both;
 }
 
 .hero-brand-copy {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.22rem;
 }
 
 .hero-brand-name {
   font-family: var(--font-title);
-  font-size: clamp(1.55rem, 4.2vw, 2.35rem);
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  line-height: 1.05;
+  line-height: 1.02;
+  text-shadow: 0 10px 36px color-mix(in srgb, #000 45%, transparent);
 }
 
 .hero-brand-place {
   font-family: var(--font-title);
-  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-dourado) 78%, var(--color-on-dark));
+  color: color-mix(in srgb, var(--color-dourado) 86%, white);
 }
 
 .hero-title {
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.95rem;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: clamp(1.65rem, 4.5vw, 2.55rem);
-  line-height: 1.15;
+  font-size: clamp(1.55rem, 4.2vw, 2.35rem);
+  line-height: 1.16;
   letter-spacing: -0.02em;
-  max-width: 16ch;
-  animation: rise 0.85s ease-out 0.16s both;
+  max-width: 18ch;
+  animation: rise 0.9s ease-out 0.16s both;
 }
 
 .hero-lede {
   margin: 0;
-  max-width: 34ch;
-  font-size: clamp(1.02rem, 2.2vw, 1.18rem);
-  color: color-mix(in srgb, var(--color-on-dark) 82%, transparent);
-  animation: rise 0.85s ease-out 0.24s both;
+  max-width: 32ch;
+  font-size: clamp(1.02rem, 2.2vw, 1.16rem);
+  color: color-mix(in srgb, var(--color-on-dark) 86%, transparent);
+  animation: rise 0.9s ease-out 0.24s both;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 1.75rem;
-  animation: rise 0.85s ease-out 0.32s both;
+  margin-top: 1.85rem;
+  animation: rise 0.9s ease-out 0.32s both;
 }
 
-.btn {
+.hero-actions .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.85rem;
-  padding: 0.7rem 1.25rem;
+  gap: 0.45rem;
+  min-height: 2.95rem;
+  padding: 0.75rem 1.3rem;
+  border: none;
   border-radius: var(--radius-md);
   font-family: var(--font-title);
   font-size: 0.95rem;
@@ -350,46 +360,77 @@ a {
   transition:
     transform 0.2s ease,
     background-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
 }
 
-.btn:hover,
-.btn:focus-visible {
+.hero-actions .btn:hover,
+.hero-actions .btn:focus-visible {
   transform: translateY(-1px);
 }
 
-.btn-primary {
-  background: var(--color-dourado);
-  color: var(--color-on-accent);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-dourado) 28%, transparent);
+.hero-actions .btn-primary {
+  background: linear-gradient(180deg, #e0c15a, var(--color-dourado) 55%, #b89220);
+  color: var(--color-marrom);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--color-dourado) 34%, transparent);
 }
 
-.btn-primary:hover,
-.btn-primary:focus-visible {
-  background: color-mix(in srgb, var(--color-dourado) 88%, white);
+.hero-actions .btn-primary:hover,
+.hero-actions .btn-primary:focus-visible {
+  filter: brightness(1.06);
 }
 
-.btn-secondary {
-  background: color-mix(in srgb, var(--color-on-dark) 10%, transparent);
+.hero-actions .btn-secondary {
+  background: color-mix(in srgb, #120a06 28%, transparent);
   color: var(--color-on-dark);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-on-dark) 42%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-on-dark) 48%, transparent);
+  backdrop-filter: blur(6px);
 }
 
-.btn-secondary:hover,
-.btn-secondary:focus-visible {
-  background: color-mix(in srgb, var(--color-on-dark) 16%, transparent);
+.hero-actions .btn-secondary:hover,
+.hero-actions .btn-secondary:focus-visible {
+  background: color-mix(in srgb, var(--color-on-dark) 14%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--color-dourado);
+}
+
+.icon-ig {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
 }
 
 /* —— Content sections —— */
 
 .section {
-  padding: clamp(3.25rem, 8vw, 5rem) clamp(1.15rem, 4vw, 2.5rem);
+  padding: clamp(3.5rem, 9vw, 5.5rem) clamp(1.15rem, 4vw, 2.5rem);
 }
 
 .section-inner {
-  width: min(100%, 38rem);
+  width: min(100%, 40rem);
   margin: 0 auto;
-  animation: rise 0.7s ease-out both;
+  animation: rise 0.75s ease-out both;
+}
+
+.section-inner--wide {
+  width: min(100%, 44rem);
+}
+
+.section-split {
+  width: min(100%, 68rem);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+  animation: rise 0.75s ease-out both;
+}
+
+.section-split--reverse .section-copy {
+  order: 2;
+}
+
+.section-split--reverse .section-visual {
+  order: 1;
 }
 
 .section-kicker {
@@ -406,7 +447,7 @@ a {
   margin: 0 0 0.85rem;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: clamp(1.55rem, 3.4vw, 2rem);
+  font-size: clamp(1.55rem, 3.4vw, 2.05rem);
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: var(--color-marrom);
@@ -418,52 +459,168 @@ a {
   color: var(--color-ink-muted);
 }
 
+.section-visual {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 0;
+  min-height: 18rem;
+  box-shadow:
+    0 18px 40px color-mix(in srgb, var(--color-marrom) 18%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-dourado) 22%, transparent);
+  animation: rise 0.85s ease-out 0.1s both;
+}
+
+.section-visual img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 18rem;
+  object-fit: cover;
+  object-position: center;
+}
+
+.section-visual--tall {
+  min-height: 22rem;
+}
+
+.section-visual--tall img {
+  min-height: 22rem;
+  object-position: center 40%;
+}
+
 .section-welcome {
   background:
     radial-gradient(
-      ellipse 60% 50% at 0% 0%,
-      color-mix(in srgb, var(--color-dourado) 14%, transparent),
-      transparent 55%
+      ellipse 55% 45% at 100% 0%,
+      color-mix(in srgb, var(--color-dourado) 16%, transparent),
+      transparent 58%
     ),
-    var(--color-creme);
+    linear-gradient(180deg, #f3e6d6, var(--color-creme));
 }
 
 .section-service {
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-bronze) 8%, var(--color-creme)),
-      var(--color-creme)
+      color-mix(in srgb, var(--color-bronze) 10%, var(--color-creme)),
+      color-mix(in srgb, var(--color-creme) 88%, white)
     );
   border-top: 1px solid var(--color-line);
   border-bottom: 1px solid var(--color-line);
 }
 
-.service-placeholder {
-  margin-top: 1.25rem !important;
-  padding: 0.95rem 1.1rem;
+.service-list {
+  list-style: none;
+  margin: 1.35rem 0 1.25rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.service-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem 0 0.85rem 1rem;
   border-left: 3px solid var(--color-dourado);
+}
+
+.service-label {
   font-family: var(--font-title);
-  font-weight: 600;
-  color: var(--color-marrom) !important;
-  background: color-mix(in srgb, var(--color-surface) 70%, var(--color-creme));
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-marrom);
+}
+
+.service-detail {
+  font-size: 0.95rem;
+  color: var(--color-ink-muted);
+}
+
+.text-link {
+  display: inline-flex;
+  margin-top: 0.25rem;
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-bronze);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  transition: color 0.2s ease;
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  color: var(--color-terracota);
 }
 
 .section-contact {
-  background: var(--color-creme);
+  background:
+    radial-gradient(
+      ellipse 50% 60% at 50% 100%,
+      color-mix(in srgb, var(--color-dourado) 12%, transparent),
+      transparent 65%
+    ),
+    var(--color-creme);
 }
 
-.contact-note {
-  margin-top: 1rem !important;
-  font-size: 0.98rem !important;
-  color: color-mix(in srgb, var(--color-marrom) 58%, transparent) !important;
+.contact-ig {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 1.5rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-marrom) 94%, black);
+  color: var(--color-on-dark);
+  box-shadow:
+    0 14px 32px color-mix(in srgb, var(--color-marrom) 18%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-dourado) 35%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.contact-ig:hover,
+.contact-ig:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 36px color-mix(in srgb, var(--color-marrom) 24%, transparent),
+    inset 0 0 0 1px var(--color-dourado);
+}
+
+.contact-ig .icon-ig {
+  width: 1.55rem;
+  height: 1.55rem;
+  color: var(--color-dourado);
+}
+
+.contact-ig span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.contact-ig strong {
+  font-family: var(--font-title);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.contact-ig-url {
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--color-on-dark) 72%, transparent);
 }
 
 .site-footer {
   margin-top: auto;
   padding: 2rem clamp(1.15rem, 4vw, 2.5rem) 2.25rem;
-  background: var(--color-marrom);
+  background: #160d08;
   color: var(--color-on-dark);
+  border-top: 1px solid color-mix(in srgb, var(--color-dourado) 22%, transparent);
 }
 
 .site-footer-inner {
@@ -998,32 +1155,35 @@ code {
   }
 }
 
-@keyframes glow-pulse {
-  0%,
-  100% {
-    opacity: 0.72;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.04);
-  }
-}
-
-@keyframes cross-rise {
+@keyframes ken-burns {
   from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.96);
+    transform: scale(1.06);
   }
   to {
-    opacity: 0.55;
-    transform: translateY(0) scale(1);
+    transform: scale(1.14);
   }
 }
 
 @media (max-width: 840px) {
-  .site-nav {
+  .site-nav a:not(.site-nav-ig) {
     display: none;
+  }
+
+  .section-split,
+  .section-split--reverse {
+    grid-template-columns: 1fr;
+  }
+
+  .section-split--reverse .section-copy,
+  .section-split--reverse .section-visual {
+    order: initial;
+  }
+
+  .section-visual,
+  .section-visual img,
+  .section-visual--tall,
+  .section-visual--tall img {
+    min-height: 14rem;
   }
 
   .shell {
@@ -1053,9 +1213,12 @@ code {
     padding: 1.35rem 1.1rem 2rem;
   }
 
-  .hero-cross {
-    opacity: 0.35;
-    top: 14%;
+  .hero-brand-name {
+    font-size: clamp(1.55rem, 8vw, 2.1rem);
+  }
+
+  .hero-photo {
+    object-position: center 28%;
   }
 }
 
@@ -1070,9 +1233,10 @@ code {
   .hero-title,
   .hero-lede,
   .hero-actions,
-  .hero-cross,
-  .hero-glow,
+  .hero-photo,
   .section-inner,
+  .section-split,
+  .section-visual,
   .sidebar-brand,
   .sidebar-nav,
   .sidebar-foot,
@@ -1081,9 +1245,16 @@ code {
     animation: none;
   }
 
+  .hero-photo {
+    transform: none;
+  }
+
   .btn,
+  .hero-actions .btn,
   .nav-item,
-  .site-nav a {
+  .site-nav a,
+  .contact-ig,
+  .text-link {
     transition: none;
   }
 }
