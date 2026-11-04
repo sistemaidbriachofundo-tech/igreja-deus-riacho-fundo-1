@@ -2,29 +2,25 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const demo = readFileSync(join(__dirname, "../app/app/demo/page.tsx"), "utf8");
-const home = readFileSync(join(__dirname, "../app/page.tsx"), "utf8");
-const overview = readFileSync(join(__dirname, "../app/app/page.tsx"), "utf8");
+// Estes testes são smoke checks de publicação; os fluxos são exercitados
+// por demo-domain.test.ts, não por busca de texto no JSX.
+const read = (relative: string) => readFileSync(join(__dirname, relative), "utf8");
+const demo = read("../app/app/demo/page.tsx");
+const home = read("../app/page.tsx");
+const overview = read("../app/app/page.tsx");
 
-describe("F2 GitHub Pages demonstration – static contract checks", () => {
-  it("makes the demo discoverable in the institutional portal and overview", () => {
+describe("F2: descoberta e separação entre demonstração e produção", () => {
+  it("oferece acesso navegável à demonstração nas páginas iniciais", () => {
     expect(home).toContain('withBasePath("/app/demo/")');
     expect(overview).toContain('withBasePath("/app/demo/")');
   });
-  it("clearly distinguishes fictitious demonstration from real authentication", () => {
+  it("deixa claro que os perfis ilustrativos não autenticam", () => {
     expect(demo).toContain("Dados 100% fictícios");
     expect(demo).toContain("a seleção de perfis não é login");
+  });
+  it("não faz chamadas diretas à API real a partir do modo de demonstração", () => {
     expect(demo).not.toContain("apiLogin(");
     expect(demo).not.toContain("apiPost(");
-  });
-  it("reflects proposed F2 admissions steps and keeps credential issuance gated", () => {
-    expect(demo).toContain('["modality", "documents", "secretaria", "pastor"]');
-    expect(demo).toContain('status === "ACTIVE" && STEP_ORDER.every');
-    expect(demo).toContain('step === "pastor" ? role !== "PASTOR"');
-    expect(demo).toContain('if (!p || (value === "ACTIVE" && !isEligible(p)))');
-  });
-  it("limits the member's displayed list to their fictitious person", () => {
-    expect(demo).toContain('people.filter((p) => p.id === "p-002")');
-    expect(demo).toContain('tabs.filter((t) => isStaff');
+    expect(demo).not.toContain("apiGet(");
   });
 });
