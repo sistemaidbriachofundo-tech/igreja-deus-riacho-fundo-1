@@ -9,8 +9,13 @@ export type {
   Role,
   Grant,
   AuditLog,
+  Household,
+  ChurchMembership,
+  MemberCredential,
   PersonStatus,
   UserStatus,
+  MembershipStatus,
+  CredentialStatus,
 } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {

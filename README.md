@@ -4,10 +4,10 @@ Monorepo do sistema de gestão eclesiástica (piloto). Skeleton **F1-SEC** + **F
 
 | Camada | Stack |
 |---|---|
-| API | NestJS (`apps/api`) — health + auth skeleton |
-| Web | Next.js com `output: 'export'` (`apps/web`) |
+| API | NestJS (`apps/api`) — health, auth, memberships, credentials |
+| Web | Next.js `output: 'export'` — landing `/` + área `/app/*` |
 | Dados | PostgreSQL + Prisma (`packages/db`) — opção A (local + CI) |
-| Shared | Tipos/helpers IAM (`packages/shared`) |
+| Shared | IAM, pilot RF1, token opaco da carteirinha |
 
 Preview Pages **não** hospeda API nem banco. Produção HML/PRD prevista: Hostinger VPS (depois desta pista).
 
@@ -92,15 +92,51 @@ Propriedades: `sonar-project.properties`.
 
 ```
 apps/
-  api/          NestJS — health + auth (JWT) + guards RBAC/escopo
-  web/          Next.js — página estática de progresso
+  api/          NestJS — health, auth JWT, memberships, credentials
+  web/          Next.js — landing (/) + /app/secretaria + /app/membros/carteirinha
 packages/
-  db/           Prisma + migrations + seed fictício (org/igreja/person/user/role/grant)
-  shared/       Tipos, person_id e helpers RBAC
+  db/           Prisma + migrations + seed fictício (RF1 only)
+  shared/       person_id, RBAC, pilot slug, opaque QR token
 .github/
   workflows/ci.yml
 docker-compose.yml
 ```
+
+## F2 slice — cadastro / secretaria / carteirinha (single church)
+
+Piloto **hard-scoped** a Riacho Fundo I (`PILOT_CHURCH_SLUG=riacho-fundo-1`). Sem UI multi-congregação.
+
+### Modelo novo
+
+| Entidade | Papel |
+|---|---|
+| `households` | Família leve (opcional no cadastro) |
+| `church_memberships` | Vínculo pessoa ↔ congregação piloto |
+| `member_credentials` | Carteirinha; `opaque_token` = único conteúdo do QR |
+
+### API (Nest — local / Hostinger; **não** no GitHub Pages)
+
+| Método | Rota | Quem |
+|---|---|---|
+| `GET` | `/memberships` | `SECRETARIA` (escopo RF1) |
+| `POST` | `/memberships` | `SECRETARIA` — cadastra pessoa+membresia |
+| `POST` | `/credentials/issue/:membershipId` | `SECRETARIA` |
+| `POST` | `/credentials/revoke/:credentialId` | `SECRETARIA` |
+| `GET` | `/credentials/me` | `MEMBRO` (própria carteirinha) |
+| `GET` | `/credentials/verify/:opaqueToken` | público mínimo (status, sem PII) |
+
+QR **nunca** carrega CPF/telefone/e-mail — só token base64url opaco.
+
+### Web — o que funciona onde
+
+| Superfície | O que roda |
+|---|---|
+| **GitHub Pages** (`/`) | Landing/status estático + links para `/app/*` |
+| **GitHub Pages** (`/app/secretaria`, `/app/membros/carteirinha`) | HTML/JS estático; login **falha** sem API |
+| **Local** `dev:api` + `dev:web` | Demo completa (login seed → listar/emitir/ver carteirinha) |
+| **Hostinger** (futuro) | Alvo para API+DB dinâmicos atrás do mesmo front |
+
+Contas seed (senha `admin`): `ana.demo@example.test` (secretaria), `bruno.demo@example.test` (membro com carteirinha).
 
 ## F1 IAM + `person_id`
 
@@ -139,12 +175,11 @@ npm run db:seed
 
 Cria org/igreja demo, papéis base, duas pessoas (`demoPersonRiacho01`, `demoPersonMembro01`) e usuários `ana.demo@example.test` / `bruno.demo@example.test` (senha demo: `admin`). **Proibido** colar PII real.
 
-### O que este PR não inclui
+### O que o IAM sozinho não inclui (ver slice F2 acima)
 
-- Cadastro único / secretaria / carteirinha (F2)  
 - WhatsApp, finanças, pastoral, escalas  
 - OIDC/MFA, Argon2id de produção, política completa de auditoria  
-- Alterações de branding em `apps/web` ou fluxos Pages  
+- Multi-congregação / multi-org UI  
 
 ## O que NÃO vai neste preview
 
