@@ -6,8 +6,8 @@ info:
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
 
-    - `x-implementation: implemented` — já na API Nest em `main`
-    - `x-implementation: proposed` — acordado; backend ainda não entrega (FE pode mockar)
+    - `x-implementation: implemented` — disponível na API Nest desta branch M1
+    - Endpoints de admissão/pessoas/famílias passaram de proposed → implemented no M1
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Auth: `Authorization: Bearer <accessToken>` salvo no login.
@@ -451,6 +451,34 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
 
+  /credentials/reissue/{membershipId}:
+    post:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Revogar ativa (se houver) e emitir nova carteirinha
+      description: Exige membership ACTIVE + admission APPROVED.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: membershipId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Nova carteirinha
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberCard" }
+        "409":
+          description: Não elegível
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                statusCode: 409
+                message: Carteirinha bloqueada
+                code: CREDENTIAL_NOT_ELIGIBLE
+
   /credentials/revoke/{credentialId}:
     post:
       tags: [credentials]
@@ -496,7 +524,7 @@ paths:
   /persons/search:
     get:
       tags: [persons]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Busca para dedupe assistida
       description: Retorna candidatos. **autoMergeForbidden=true** sempre — DAS proíbe merge automático por nome.
       security: [{ bearerAuth: [] }]
@@ -530,7 +558,7 @@ paths:
   /persons/{personId}:
     get:
       tags: [persons]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Detalhe de pessoa (escopo org/igreja)
       security: [{ bearerAuth: [] }]
       parameters:
@@ -553,7 +581,7 @@ paths:
   /households:
     post:
       tags: [households]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Criar família (piloto RF1)
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -571,7 +599,7 @@ paths:
   /households/{householdId}:
     get:
       tags: [households]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Obter família
       security: [{ bearerAuth: [] }]
       parameters:
@@ -589,7 +617,7 @@ paths:
   /admissions:
     get:
       tags: [admissions]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Listar protocolos de admissão
       description: SECRETARIA vê todos do piloto; PASTOR vê pendentes de aprovação pastoral.
       security: [{ bearerAuth: [] }]
@@ -620,7 +648,7 @@ paths:
                     items: { $ref: "#/components/schemas/Admission" }
     post:
       tags: [admissions]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Abrir protocolo de admissão
       description: |
         Cria pessoa se necessário + membership PENDING_ADMISSION + admission DRAFT/AWAITING_*.
@@ -661,7 +689,7 @@ paths:
   /admissions/{admissionId}:
     get:
       tags: [admissions]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Detalhe do protocolo
       security: [{ bearerAuth: [] }]
       parameters:
@@ -679,7 +707,7 @@ paths:
   /admissions/{admissionId}/advance:
     post:
       tags: [admissions]
-      x-implementation: proposed
+      x-implementation: implemented
       summary: Avançar etapa do checklist (ordem fixa)
       description: |
         Ordem obrigatória: modality → documents → secretaria → pastor.

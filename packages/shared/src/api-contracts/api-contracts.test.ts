@@ -36,11 +36,16 @@ describe("api contracts F2", () => {
     assert.equal(MEMBERSHIP_STATUSES.ACTIVE, "ACTIVE");
   });
 
-  it("marks admissions endpoints as proposed until backend ships", () => {
-    assert.equal(API_ENDPOINT_STATUS["POST /admissions"], "proposed");
+  it("marks F2 admissions and person endpoints as implemented", () => {
+    assert.equal(API_ENDPOINT_STATUS["POST /admissions"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /persons/search"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /auth/login"], "implemented");
     assert.equal(
       API_ENDPOINT_STATUS["POST /credentials/issue/:membershipId"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /credentials/reissue/:membershipId"],
       "implemented",
     );
   });

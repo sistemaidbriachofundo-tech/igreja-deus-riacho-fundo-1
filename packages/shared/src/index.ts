@@ -39,8 +39,18 @@ export {
 export {
   canManageMemberships,
   canViewOwnCredential,
+  canManageAdmissions,
+  canApprovePastoralAdmission,
+  canSearchPersons,
   type MembershipScopeTarget,
 } from "./membership-scope";
+
+export {
+  assertAdmissionStepAllowed,
+  nextAdmissionStep,
+  isCredentialEligible,
+  type AdmissionChecklistState,
+} from "./admission-rules";
 
 export {
   API_CONTRACT_VERSION,

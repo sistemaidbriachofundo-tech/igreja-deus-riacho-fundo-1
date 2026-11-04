@@ -106,6 +106,7 @@ async function main() {
       organizationId: org.id,
       householdId: household.id,
       status: "ACTIVE",
+      kind: "MEMBER",
     },
     create: {
       id: "demoPersonRiacho01",
@@ -115,6 +116,7 @@ async function main() {
       displayName: "Ana Demo Secretária",
       email: "ana.demo@example.test",
       status: "ACTIVE",
+      kind: "MEMBER",
     },
   });
 
@@ -126,6 +128,7 @@ async function main() {
       homeChurchId: church.id,
       organizationId: org.id,
       householdId: household.id,
+      kind: "MEMBER",
     },
     create: {
       id: "demoPersonMembro01",
@@ -135,6 +138,7 @@ async function main() {
       displayName: "Bruno Demo Membro",
       email: "bruno.demo@example.test",
       status: "ACTIVE",
+      kind: "MEMBER",
     },
   });
 
@@ -145,6 +149,7 @@ async function main() {
       email: "carla.demo@example.test",
       homeChurchId: church.id,
       organizationId: org.id,
+      kind: "VISITOR",
     },
     create: {
       id: "demoPersonVisit01",
@@ -153,6 +158,7 @@ async function main() {
       displayName: "Carla Demo Visitante",
       email: "carla.demo@example.test",
       status: "ACTIVE",
+      kind: "VISITOR",
     },
   });
 
@@ -270,13 +276,123 @@ async function main() {
         churchId: church.id,
       },
     },
-    update: { status: "ACTIVE", notes: "Visitante → membro (demo)" },
+    update: { status: "PENDING_ADMISSION", notes: "Visitante em admissão (demo)" },
     create: {
       personId: visitorPerson.id,
       churchId: church.id,
       organizationId: org.id,
+      status: "PENDING_ADMISSION",
+      notes: "Visitante em admissão (demo)",
+    },
+  });
+
+
+  const pastorPerson = await prisma.person.upsert({
+    where: { id: "demoPersonPastor01" },
+    update: {
+      displayName: "Daniel Demo Pastor",
+      email: "pastor.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      kind: "MEMBER",
       status: "ACTIVE",
-      notes: "Visitante → membro (demo)",
+    },
+    create: {
+      id: "demoPersonPastor01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Daniel Demo Pastor",
+      email: "pastor.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+
+  const pastorUser = await prisma.user.upsert({
+    where: { email: "pastor.demo@example.test" },
+    update: {
+      personId: pastorPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      personId: pastorPerson.id,
+      email: "pastor.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+
+  const pastorRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "PASTOR" },
+  });
+
+  await prisma.grant.upsert({
+    where: {
+      userId_roleId_organizationId_churchId: {
+        userId: pastorUser.id,
+        roleId: pastorRole.id,
+        organizationId: org.id,
+        churchId: church.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: pastorUser.id,
+      roleId: pastorRole.id,
+      organizationId: org.id,
+      churchId: church.id,
+    },
+  });
+
+  await prisma.churchMembership.upsert({
+    where: {
+      personId_churchId: {
+        personId: pastorPerson.id,
+        churchId: church.id,
+      },
+    },
+    update: { status: "ACTIVE", notes: "Pastor demo" },
+    create: {
+      personId: pastorPerson.id,
+      churchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      notes: "Pastor demo",
+    },
+  });
+
+  // Bruno: admissão APPROVED → credentialEligible para carteirinha demo
+  await prisma.admissionProtocol.upsert({
+    where: { id: "demoAdmissionBruno01" },
+    update: {
+      personId: memberPerson.id,
+      membershipId: brunoMembership.id,
+      organizationId: org.id,
+      churchId: church.id,
+      status: "APPROVED",
+      modality: "BATISMO",
+      currentStep: "pastor",
+      modalityRecorded: true,
+      documentsComplete: true,
+      secretariaApproved: true,
+      pastorApproved: true,
+      notes: "Admissão demo aprovada",
+    },
+    create: {
+      id: "demoAdmissionBruno01",
+      personId: memberPerson.id,
+      membershipId: brunoMembership.id,
+      organizationId: org.id,
+      churchId: church.id,
+      status: "APPROVED",
+      modality: "BATISMO",
+      currentStep: "pastor",
+      modalityRecorded: true,
+      documentsComplete: true,
+      secretariaApproved: true,
+      pastorApproved: true,
+      notes: "Admissão demo aprovada",
     },
   });
 
@@ -306,7 +422,7 @@ async function main() {
     church: church.slug,
     household: household.id,
     persons: [person.id, memberPerson.id, visitorPerson.id],
-    users: [adminUser.email, memberUser.email],
+    users: [adminUser.email, memberUser.email, pastorUser.email],
     memberships: [anaMembership.id, brunoMembership.id],
   });
 }

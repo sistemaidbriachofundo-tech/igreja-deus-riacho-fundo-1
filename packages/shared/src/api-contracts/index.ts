@@ -56,14 +56,15 @@ export const API_ENDPOINT_STATUS = {
   "POST /credentials/issue/:membershipId": "implemented",
   "POST /credentials/revoke/:credentialId": "implemented",
   "GET /credentials/verify/:opaqueToken": "implemented",
-  "GET /persons/search": "proposed",
-  "GET /persons/:personId": "proposed",
-  "POST /households": "proposed",
-  "GET /households/:householdId": "proposed",
-  "POST /admissions": "proposed",
-  "GET /admissions/:admissionId": "proposed",
-  "POST /admissions/:admissionId/advance": "proposed",
-  "GET /admissions": "proposed",
+  "GET /persons/search": "implemented",
+  "GET /persons/:personId": "implemented",
+  "POST /households": "implemented",
+  "GET /households/:householdId": "implemented",
+  "POST /admissions": "implemented",
+  "GET /admissions/:admissionId": "implemented",
+  "POST /admissions/:admissionId/advance": "implemented",
+  "GET /admissions": "implemented",
+  "POST /credentials/reissue/:membershipId": "implemented",
 } as const;
 
 export type ApiEndpointKey = keyof typeof API_ENDPOINT_STATUS;

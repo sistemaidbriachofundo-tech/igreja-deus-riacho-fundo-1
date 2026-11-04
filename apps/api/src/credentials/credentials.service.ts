@@ -11,6 +11,7 @@ import {
   generateOpaqueCredentialToken,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
@@ -21,7 +22,7 @@ export class CredentialsService {
     private readonly pilot: PilotService,
   ) {}
 
-  /** Emite carteirinha para membresia ativa (secretaria). */
+  /** Emite carteirinha para membresia ACTIVE + admissão APPROVED (credentialEligible). */
   async issue(actor: AuthUser, membershipId: string) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertCanManage(actor, pilot.organizationId, pilot.churchId);
@@ -41,6 +42,8 @@ export class CredentialsService {
       throw new NotFoundException("Membresia ativa não encontrada no piloto");
     }
 
+    await this.assertCredentialEligible(membership.id, pilot);
+
     const existingActive = await this.prisma.memberCredential.findFirst({
       where: {
         membershipId: membership.id,
@@ -49,38 +52,104 @@ export class CredentialsService {
     });
     if (existingActive) {
       throw new ConflictException(
-        "Já existe carteirinha ativa; revogue antes de emitir nova",
+        "Já existe carteirinha ativa; revogue ou use reissue",
       );
     }
 
-    const opaqueToken = generateOpaqueCredentialToken();
-    assertOpaqueCredentialPayload(opaqueToken);
+    return this.createCard(actor, membership, pilot);
+  }
 
-    const credential = await this.prisma.memberCredential.create({
-      data: {
-        membershipId: membership.id,
-        personId: membership.personId,
-        churchId: pilot.churchId,
-        organizationId: pilot.organizationId,
-        status: "ACTIVE",
-        opaqueToken,
-        issuedByUserId: actor.userId,
-      },
+  /**
+   * Revoga carteirinha ativa (se houver) e emite nova — secretaria.
+   * Mantém gate credentialEligible.
+   */
+  async reissue(actor: AuthUser, membershipId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertCanManage(actor, pilot.organizationId, pilot.churchId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const membership = await tx.churchMembership.findFirst({
+        where: {
+          id: membershipId,
+          churchId: pilot.churchId,
+          organizationId: pilot.organizationId,
+          status: "ACTIVE",
+        },
+        include: {
+          person: { select: { id: true, displayName: true } },
+        },
+      });
+      if (!membership) {
+        throw new NotFoundException("Membresia ativa não encontrada no piloto");
+      }
+
+      const approved = await tx.admissionProtocol.findFirst({
+        where: {
+          membershipId: membership.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          status: "APPROVED",
+        },
+      });
+      if (!approved) {
+        throw new BusinessException(
+          "Carteirinha bloqueada: admissão pastoral não aprovada (credentialEligible=false)",
+          "CREDENTIAL_NOT_ELIGIBLE",
+        );
+      }
+
+      const active = await tx.memberCredential.findFirst({
+        where: { membershipId: membership.id, status: "ACTIVE" },
+      });
+      if (active) {
+        await tx.memberCredential.update({
+          where: { id: active.id },
+          data: { status: "REVOKED", revokedAt: new Date() },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: "credential.revoke",
+            resourceType: "member_credential",
+            resourceId: active.id,
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            metadata: { reason: "reissue" },
+          },
+        });
+      }
+
+      const opaqueToken = generateOpaqueCredentialToken();
+      assertOpaqueCredentialPayload(opaqueToken);
+      const credential = await tx.memberCredential.create({
+        data: {
+          membershipId: membership.id,
+          personId: membership.personId,
+          churchId: pilot.churchId,
+          organizationId: pilot.organizationId,
+          status: "ACTIVE",
+          opaqueToken,
+          issuedByUserId: actor.userId,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "credential.reissue",
+          resourceType: "member_credential",
+          resourceId: credential.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { membershipId: membership.id },
+        },
+      });
+
+      return this.toPublicCard(
+        credential,
+        membership.person.displayName,
+        pilot.churchName,
+      );
     });
-
-    await this.prisma.auditLog.create({
-      data: {
-        actorUserId: actor.userId,
-        action: "credential.issue",
-        resourceType: "member_credential",
-        resourceId: credential.id,
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        metadata: { membershipId: membership.id, personId: membership.personId },
-      },
-    });
-
-    return this.toPublicCard(credential, membership.person.displayName, pilot.churchName);
   }
 
   /** Revoga carteirinha (secretaria). */
@@ -197,6 +266,76 @@ export class CredentialsService {
       revokedAt: credential.revokedAt?.toISOString() ?? null,
       // Nunca ecoar o token em lookups públicos além da confirmação de existência
     };
+  }
+
+  private async assertCredentialEligible(
+    membershipId: string,
+    pilot: { organizationId: string; churchId: string },
+  ): Promise<void> {
+    const approved = await this.prisma.admissionProtocol.findFirst({
+      where: {
+        membershipId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        status: "APPROVED",
+      },
+    });
+    if (!approved) {
+      throw new BusinessException(
+        "Carteirinha bloqueada: admissão pastoral não aprovada (credentialEligible=false)",
+        "CREDENTIAL_NOT_ELIGIBLE",
+      );
+    }
+  }
+
+  private async createCard(
+    actor: AuthUser,
+    membership: {
+      id: string;
+      personId: string;
+      person: { displayName: string };
+    },
+    pilot: {
+      organizationId: string;
+      churchId: string;
+      churchName: string;
+    },
+  ) {
+    const opaqueToken = generateOpaqueCredentialToken();
+    assertOpaqueCredentialPayload(opaqueToken);
+
+    const credential = await this.prisma.memberCredential.create({
+      data: {
+        membershipId: membership.id,
+        personId: membership.personId,
+        churchId: pilot.churchId,
+        organizationId: pilot.organizationId,
+        status: "ACTIVE",
+        opaqueToken,
+        issuedByUserId: actor.userId,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "credential.issue",
+        resourceType: "member_credential",
+        resourceId: credential.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: {
+          membershipId: membership.id,
+          personId: membership.personId,
+        },
+      },
+    });
+
+    return this.toPublicCard(
+      credential,
+      membership.person.displayName,
+      pilot.churchName,
+    );
   }
 
   private assertCanManage(
