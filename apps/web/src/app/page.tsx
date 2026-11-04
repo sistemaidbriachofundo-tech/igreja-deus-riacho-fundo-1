@@ -49,6 +49,7 @@ export default function HomePage() {
           <a href="#congregacao">A congregação</a>
           <a href="#acesso">Acesso</a>
           <a href={withBasePath("/app/")}>Área interna</a>
+          <a href={withBasePath("/app/demo/")}>Conhecer a demonstração</a>
         </nav>
       </header>
 
@@ -85,14 +86,14 @@ export default function HomePage() {
             </p>
 
             <div className="hero-actions">
-              <a className="btn btn-primary" href={withBasePath("/app/")}>
-                Entrar na área interna
+              <a className="btn btn-primary" href={withBasePath("/app/demo/")}>
+                Explorar demonstração
               </a>
               <a
                 className="btn btn-secondary"
-                href={withBasePath("/app/membros/carteirinha/")}
+                href={withBasePath("/app/")}
               >
-                Minha carteirinha
+                Área interna
               </a>
             </div>
           </div>
@@ -132,49 +133,49 @@ export default function HomePage() {
           aria-labelledby="access-heading"
         >
           <div className="section-inner section-inner--wide">
-            <p className="section-kicker">Protótipo v5 · Principal</p>
-            <h2 id="access-heading">Módulos deste ciclo (F2)</h2>
+            <p className="section-kicker">Sistema de gestão · Demonstração F2</p>
+            <h2 id="access-heading">Conheça a plataforma</h2>
             <p className="section-lede">
-              Nomenclatura e fluxos do protótipo navegável — só o recorte de
-              pessoas, secretaria e carteirinha.
+              Explore o cadastro, a admissão de membros e as carteirinhas com dados
+              fictícios, sem login e sem dependência de servidor.
             </p>
 
             <ul className="access-grid">
               <li>
-                <a className="access-tile" href={withBasePath("/app/")}>
+                <a className="access-tile" href={withBasePath("/app/demo/")}>
                   <span className="access-tile-label">Visão geral</span>
                   <span className="access-tile-desc">
-                    Painel de entrada da área interna
+                    Indicadores demonstrativos e fluxo de acolhimento
                   </span>
                 </a>
               </li>
               <li>
-                <a className="access-tile" href={withBasePath("/app/membros/")}>
+                <a className="access-tile" href={withBasePath("/app/demo/")}>
                   <span className="access-tile-label">Membros e famílias</span>
                   <span className="access-tile-desc">
-                    Cadastro único e vínculos (piloto RF1)
+                    Pessoas, famílias e cadastros fictícios
                   </span>
                 </a>
               </li>
               <li>
                 <a
                   className="access-tile"
-                  href={withBasePath("/app/secretaria/")}
+                  href={withBasePath("/app/demo/")}
                 >
                   <span className="access-tile-label">Secretaria</span>
                   <span className="access-tile-desc">
-                    Admissão, emissão e revogação de carteirinha
+                    Checklist, conferência e aprovação simulados
                   </span>
                 </a>
               </li>
               <li>
                 <a
                   className="access-tile"
-                  href={withBasePath("/app/membros/carteirinha/")}
+                  href={withBasePath("/app/demo/")}
                 >
                   <span className="access-tile-label">Carteirinhas</span>
                   <span className="access-tile-desc">
-                    Carteirinha digital com QR opaco
+                    Emissão e revogação ilustrativas
                   </span>
                 </a>
               </li>
@@ -228,7 +229,7 @@ export default function HomePage() {
             Fé · Família · Cuidado · Comunhão · Missão
           </p>
           <p className="site-footer-links">
-            <a href={withBasePath("/app/")}>Área interna</a>
+            <a href={withBasePath("/app/demo/")}>Demonstração</a>
             {" · "}
             <Link href="/status/">Status do projeto</Link>
             {" · "}

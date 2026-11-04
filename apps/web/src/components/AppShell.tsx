@@ -18,6 +18,15 @@ function CrossMark() {
   );
 }
 
+function IconDemo() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+      <path d="M12 2l2.1 7.3L21.5 12l-7.4 2.7L12 22l-2.1-7.3L2.5 12l7.4-2.7L12 2Z"
+        stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function IconOverview() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -86,32 +95,40 @@ function IconCard() {
 }
 
 /** Chaves alinhadas ao menu PRINCIPAL do protótipo v5 (escopo F2). */
-export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha";
+export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "demo";
 
 const NAV: {
   key: AppNavKey;
   href: string;
   label: string;
+  short: string;
   Icon: () => ReactNode;
 }[] = [
-  { key: "visao", href: "/app/", label: "Visão geral", Icon: IconOverview },
+  { key: "visao", href: "/app/", label: "Visão geral", short: "Início", Icon: IconOverview },
   {
     key: "membros",
     href: "/app/membros/",
     label: "Membros e famílias",
+    short: "Pessoas",
     Icon: IconPeople,
   },
   {
     key: "secretaria",
     href: "/app/secretaria/",
     label: "Secretaria",
+    short: "Secretaria",
     Icon: IconSec,
   },
   {
     key: "carteirinha",
     href: "/app/membros/carteirinha/",
     label: "Carteirinhas",
+    short: "Carteira",
     Icon: IconCard,
+  },
+  {
+    key: "demo", href: "/app/demo/", label: "Explorar demonstração",
+    short: "Testar", Icon: IconDemo,
   },
 ];
 
@@ -137,7 +154,7 @@ export function AppShell({
           </div>
         </div>
 
-        <p className="side-caption">Principal · F2</p>
+        <p className="side-caption">Gestão da igreja</p>
 
         <nav className="sidebar-nav" aria-label="Módulos">
           {NAV.map(({ key, href, label, Icon }) => (
@@ -155,16 +172,28 @@ export function AppShell({
 
         <p className="sidebar-foot">
           <a href={withBasePath("/")}>← Site público</a>
-          <span>Protótipo v5 · dados fictícios</span>
+          <span>Plataforma em implantação</span>
         </p>
       </aside>
+
+      <nav className="mobile-bottom-nav" aria-label="Navegação principal no celular">
+        {NAV.map(({ key, href, short, Icon }) => (
+          <a key={key}
+            className={`mobile-bottom-link${active === key ? " is-active" : ""}`}
+            href={withBasePath(href)}
+            aria-current={active === key ? "page" : undefined}>
+            <Icon />
+            <span>{short}</span>
+          </a>
+        ))}
+      </nav>
 
       <div className="shell-main">
         <header className="topbar">
           <div className="topbar-left">
             <p className="topbar-title">{APP_NAME}</p>
             <span className="preview-chip" title="Ambiente demonstrativo">
-              Dados fictícios · sem integrações reais
+              Ambiente em implantação
             </span>
           </div>
           <p className="topbar-meta">{meta}</p>

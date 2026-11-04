@@ -24,8 +24,8 @@ describe("public portal + F2 shells (DAS / protótipo v5)", () => {
     expect(homePage).toContain("Igreja de Deus");
     expect(homePage).toContain("no Riacho Fundo I");
     expect(homePage).toContain("Uma igreja para Deus, pelas famílias");
-    expect(homePage).toContain("Entrar na área interna");
-    expect(homePage).toContain("Minha carteirinha");
+    expect(homePage).toContain("Explorar demonstração");
+    expect(homePage).toContain("Área interna");
     expect(homePage).not.toMatch(/multi-?igreja|trocar congregação|church switcher/i);
   });
 
