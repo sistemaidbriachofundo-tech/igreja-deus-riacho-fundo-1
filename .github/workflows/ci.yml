@@ -146,6 +146,17 @@ jobs:
           cache: npm
       - if: steps.gate.outputs.skip == 'false'
         run: npm ci
+      - name: Build packages for coverage tests
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          npm run build -w @idbrf/shared
+          npx prisma generate --schema packages/db/prisma/schema.prisma
+          npm run build -w @idbrf/db
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+      - name: API unit tests with coverage (LCOV for Sonar)
+        if: steps.gate.outputs.skip == 'false'
+        run: npm run test -w @idbrf/api -- --coverage --coverageReporters=lcov --coverageReporters=text-summary
       - name: SonarCloud Scan
         if: steps.gate.outputs.skip == 'false'
         uses: SonarSource/sonarcloud-github-action@master

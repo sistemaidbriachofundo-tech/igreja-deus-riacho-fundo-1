@@ -121,11 +121,6 @@ export function hashPasswordLegacySha256(password: string): string {
   return `sha256:${hex}`;
 }
 
-/** @deprecated Use hashPassword (Argon2id) ou hashPasswordLegacySha256. */
-export function hashPasswordDemo(password: string): string {
-  return hashPasswordLegacySha256(password);
-}
-
 export async function verifyPassword(
   password: string,
   storedHash: string | null | undefined,

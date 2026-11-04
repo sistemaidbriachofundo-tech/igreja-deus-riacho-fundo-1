@@ -29,6 +29,13 @@ describe("AuthService password helpers", () => {
     expect(await verifyPassword("admin", null)).toBe(false);
     expect(await verifyPassword("admin", "bcrypt:xyz")).toBe(false);
   });
+
+  it("rejects malformed argon2 and truncated sha256 hashes", async () => {
+    expect(await verifyPassword("admin", "$argon2id$not-a-valid-phc")).toBe(
+      false,
+    );
+    expect(await verifyPassword("admin", "sha256:abcd")).toBe(false);
+  });
 });
 
 describe("resolveJwtSecret", () => {
