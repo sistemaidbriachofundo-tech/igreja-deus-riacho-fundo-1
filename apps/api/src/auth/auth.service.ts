@@ -103,7 +103,7 @@ export class AuthService {
   }
 }
 
-/** Hash canônico (Argon2id). Usar em seeds/novas contas após rotação. */
+/** Hash canônico (Argon2id) — seed e novas contas. */
 export async function hashPassword(password: string): Promise<string> {
   return argon2.hash(password, {
     type: argon2.argon2id,
@@ -114,8 +114,7 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * Hash legado do seed (`sha256:<hex>`).
- * Mantido só para ler demos já gravadas até o seed migrar para Argon2id.
+ * Hash legado (`sha256:<hex>`) — só para bases locais antigas pré-rotação do seed.
  */
 export function hashPasswordLegacySha256(password: string): string {
   const hex = createHash("sha256").update(password, "utf8").digest("hex");

@@ -9,11 +9,11 @@ const prisma = new PrismaClient();
 
 /**
  * Seed fictício apenas — sem dados reais da igreja.
- * Senha demo: "admin" (hash placeholder SHA-256 hex — trocar por Argon2id em F1 IAM completo).
+ * Senha demo: "admin" (Argon2id; params alinhados a apps/api hashPassword).
  * Piloto hard-scoped: só Riacho Fundo I (sem multi-congregação).
  */
 const DEMO_PASSWORD_HASH =
-  "sha256:8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"; // "admin" — só demo
+  "$argon2id$v=19$m=19456,t=2,p=1$Orwb01GobNLUv7ZiWJ0tbA$YzvnXjzMn5ffs7FYEHuw3xfoTmkQsD0KZXcBDS/fsgQ"; // "admin" — só demo
 
 const ROLE_DEFS = [
   {
