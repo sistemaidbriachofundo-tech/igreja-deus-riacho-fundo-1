@@ -136,7 +136,8 @@ export default function HomePage() {
             <p className="section-kicker">Sistema de gestão da igreja</p>
             <h2 id="access-heading">Conheça a plataforma</h2>
             <p className="section-lede">
-              Acompanhe cadastros, admissões e carteirinhas nas telas do sistema,\n              com dados sintéticos durante a homologação visual.
+              Acompanhe cadastros, admissões e carteirinhas nas telas do sistema,
+              com dados sintéticos durante a homologação visual.
             </p>
 
             <ul className="access-grid">
