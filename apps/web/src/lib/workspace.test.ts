@@ -2,54 +2,55 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-function source(relativePath: string) {
-  return readFileSync(join(__dirname, "..", relativePath), "utf8");
-}
-
+const source = (relative: string) => readFileSync(join(__dirname, "..", relative), "utf8");
+const main = source("components/ChurchWorkspace.tsx");
+const shell = source("components/AppShell.tsx");
+const style = source("components/church-workspace.module.css");
 const members = source("app/app/membros/page.tsx");
 const secretary = source("app/app/secretaria/page.tsx");
-const credentials = source("app/app/membros/carteirinha/page.tsx");
-const login = source("components/DemoLogin.tsx");
-const workspaceStyles = source("app/app/workspace.module.css");
-const visualIdentity = source("../IDENTIDADE_VISUAL.md");
+const cards = source("app/app/membros/carteirinha/page.tsx");
+const overview = source("app/app/page.tsx");
+const brand = source("../IDENTIDADE_VISUAL.md");
 
-describe("F2 visual workspace and real API boundaries", () => {
-  it("reuses the same design language and official congregation photos", () => {
-    for (const page of [members, secretary, credentials]) {
-      expect(page).toContain("workspace.module.css");
-      expect(page).toContain("heroImage");
-      expect(page).toContain("heroShade");
-      expect(page).toContain("app/demo/");
-      expect(page).toContain("AppShell");
-    }
-    expect(workspaceStyles).toContain(".bigCard");
-    expect(visualIdentity).toContain("#4A2612");
-    expect(visualIdentity).toContain("#D4AF37");
+describe("gestão operacional sintética e identidade da igreja", () => {
+  it("usa as quatro telas reais, sem depender de navegação para exemplos de fluxo", () => {
+    expect(overview).toContain('view="overview"');
+    expect(members).toContain('view="members"');
+    expect(secretary).toContain('view="secretary"');
+    expect(cards).toContain('view="cards"');
+    expect(shell).not.toContain('label: "Explorar demonstração"');
   });
 
-  it("does not bypass backend admissions approval in the Secretary UI", () => {
-    expect(secretary).not.toContain("apiPost");
-    expect(secretary).toContain("temporariamente indisponíveis");
-    expect(secretary).toContain("aprovação pastoral");
+  it("compartilha a mesma base sintética nos módulos", () => {
+    expect(main).toContain("SYNTHETIC_STORE_KEY");
+    expect(main).toContain("localStorage");
+    expect(main).toContain("initialMembers()");
+    expect(main).toContain("filterMembers(members");
+    expect(main).toContain("createMember(members");
+    expect(main).toContain("advanceAdmission(members");
+    expect(main).toContain("setMemberCard(members");
+    expect(main).toContain("Dados sintéticos");
   });
 
-  it("keeps API login hidden on static Pages and never prepopulates its password", () => {
-    expect(login).toContain('process.env.NODE_ENV === "development"');
-    expect(login).toContain('useState("")');
-    expect(login).toContain("apiConfigured");
-    expect(login).toContain("/app/demo/");
+  it("separa a simulação local das operações autenticadas", () => {
+    expect(main).not.toContain("apiPost(");
+    expect(main).not.toContain("apiLogin(");
+    expect(main).not.toContain("apiGet(");
+    expect(main).toContain("nenhuma decisão oficial");
   });
 
-  it("renders membership data only after API authentication", () => {
-    expect(members).toContain("!token ?");
-    expect(members).toContain("apiGet<MembershipListResponse>");
-    expect(members).toContain("rows.filter");
+  it("mantém a identidade visual exclusiva da igreja", () => {
+    expect(brand).toContain("#4A2612");
+    expect(brand).toContain("#D4AF37");
+    expect(style).toContain(".identityCard");
+    expect(style).toContain(".sidebar");
+    expect(main).toContain("IGREJA DE DEUS");
+    expect(main).not.toContain("Só para Moças");
   });
 
-  it("does not send the opaque credential token to an external QR service", () => {
-    expect(credentials).toContain("containsSensitiveCredentialPayload");
-    expect(credentials).toContain("token opaco");
-    expect(credentials).not.toContain("api.qrserver.com");
-    expect(credentials).not.toContain("chart.googleapis.com");
+  it("apresenta responsividade e validações de acessibilidade", () => {
+    expect(style).toContain("@media(max-width:690px)");
+    expect(main).toContain('role="dialog"');
+    expect(main).toContain("aria-label");
   });
 });
