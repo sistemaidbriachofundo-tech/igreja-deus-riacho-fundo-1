@@ -27,7 +27,7 @@ describe("navegação e renderização real de componentes", () => {
     expect(html).toContain("Conteúdo renderizado");
     expect(html).toContain("Secretaria · teste");
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
-    expect(html).toContain("Explorar demonstração");
+    expect(html).toContain("Membros e famílias");
   });
 
   it("não marca uma seção como ativa se nenhum item foi selecionado", () => {
@@ -40,9 +40,9 @@ describe("navegação e renderização real de componentes", () => {
   it("respeita o basePath do GitHub Pages nos links do menu", () => {
     process.env.NEXT_PUBLIC_BASE_PATH = "/igreja-deus-riacho-fundo-1";
     const html = renderToStaticMarkup(
-      <AppShell active="demo" meta="Exemplo">Teste</AppShell>,
+      <AppShell active="membros" meta="Exemplo">Teste</AppShell>,
     );
-    expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/demo/"');
+    expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/membros/"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
   });
 
