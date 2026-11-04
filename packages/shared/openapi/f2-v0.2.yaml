@@ -9,13 +9,14 @@ info:
     - `x-implementation: implemented` — já na API Nest em `main`
     - `x-implementation: proposed` — acordado; backend ainda não entrega (FE pode mockar)
 
-    Base URL DEV: `http://localhost:3001`
+    Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Auth: `Authorization: Bearer <accessToken>` salvo no login.
+    Constante compartilhada: `API_PATH_PREFIX === ""` (Nest sem `setGlobalPrefix`).
   contact:
     name: Backend IDBRF
 servers:
   - url: http://localhost:3001
-    description: API Nest local (Docker Postgres + seed fictício)
+    description: API Nest local — paths raiz /auth /memberships /credentials (Docker Postgres + seed fictício)
 tags:
   - name: health
   - name: auth

@@ -7,5 +7,9 @@ export const API_CONTRACT_VERSION = "0.2.0-f2" as const;
 
 export type ApiContractVersion = typeof API_CONTRACT_VERSION;
 
-/** Prefixos estáveis. */
-export const API_PATH_PREFIX = "/api" as const;
+/**
+ * Prefixo HTTP real da API Nest nesta fase.
+ * Nest escuta na raiz (`/auth/login`, `/memberships`, …) — sem global prefix `/api`.
+ * `NEXT_PUBLIC_API_URL` já aponta para a origem (ex.: http://localhost:3001).
+ */
+export const API_PATH_PREFIX = "" as const;
