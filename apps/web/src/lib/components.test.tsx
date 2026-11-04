@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import React, { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppShell } from "../components/AppShell";
 import { DemoLogin } from "../components/DemoLogin";
@@ -17,9 +17,11 @@ afterEach(() => {
 
 describe("navegação e renderização real de componentes", () => {
   it("renderiza sidebar e barra inferior com o mesmo item selecionado", () => {
-    const html = renderToStaticMarkup(createElement(AppShell, {
-      active: "secretaria", meta: "Secretaria · teste",
-    }, createElement("p", null, "Conteúdo renderizado")));
+    const html = renderToStaticMarkup(
+      <AppShell active="secretaria" meta="Secretaria · teste">
+        <p>Conteúdo renderizado</p>
+      </AppShell>,
+    );
     expect(html).toContain('aria-label="Navegação principal"');
     expect(html).toContain('aria-label="Navegação principal no celular"');
     expect(html).toContain("Conteúdo renderizado");
@@ -29,17 +31,17 @@ describe("navegação e renderização real de componentes", () => {
   });
 
   it("não marca uma seção como ativa se nenhum item foi selecionado", () => {
-    const html = renderToStaticMarkup(createElement(AppShell, {
-      meta: "Exemplo",
-    }, createElement("span", null, "Conteúdo")));
+    const html = renderToStaticMarkup(
+      <AppShell meta="Exemplo"><span>Conteúdo</span></AppShell>,
+    );
     expect(html).not.toContain('aria-current="page"');
   });
 
   it("respeita o basePath do GitHub Pages nos links do menu", () => {
     process.env.NEXT_PUBLIC_BASE_PATH = "/igreja-deus-riacho-fundo-1";
-    const html = renderToStaticMarkup(createElement(AppShell, {
-      active: "demo", meta: "Exemplo",
-    }, "Teste"));
+    const html = renderToStaticMarkup(
+      <AppShell active="demo" meta="Exemplo">Teste</AppShell>,
+    );
     expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/demo/"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
   });
