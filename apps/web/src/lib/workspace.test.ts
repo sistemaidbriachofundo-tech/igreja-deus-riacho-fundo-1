@@ -6,6 +6,7 @@ const source = (relative: string) => readFileSync(join(__dirname, "..", relative
 const main = source("components/ChurchWorkspace.tsx");
 const shell = source("components/AppShell.tsx");
 const style = source("components/church-workspace.module.css");
+const globalStyle = source("app/globals.css");
 const members = source("app/app/membros/page.tsx");
 const secretary = source("app/app/secretaria/page.tsx");
 const cards = source("app/app/membros/carteirinha/page.tsx");
@@ -43,7 +44,7 @@ describe("gestão operacional sintética e identidade da igreja", () => {
     expect(brand).toContain("#4A2612");
     expect(brand).toContain("#D4AF37");
     expect(style).toContain(".identityCard");
-    expect(style).toContain(".sidebar");
+    expect(globalStyle).toContain(".sidebar");
     expect(main).toContain("IGREJA DE DEUS");
     expect(main).not.toContain("Só para Moças");
   });
