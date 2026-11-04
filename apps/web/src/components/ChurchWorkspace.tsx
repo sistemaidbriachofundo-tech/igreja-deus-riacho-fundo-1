@@ -52,7 +52,7 @@ function SmallAvatar({ name, large = false }: { name: string; large?: boolean })
   const sum = [...name].reduce((n, c) => n + c.charCodeAt(0), 0);
   return <span className={large ? styles.avatarLarge : styles.avatar} style={{ background: palette[sum % palette.length] }} aria-hidden="true">{initials(name)}</span>;
 }
-function Kpi({ label, value, sub, icon, trend }: { label: string; value: number; sub: string; icon: "users" | "heart" | "file" | "card"; trend?: string }) {
+function Kpi({ label, value, sub, icon, trend }: { label: string; value: number; sub: string; icon: Parameters<typeof Icon>[0]["name"]; trend?: string }) {
   return <article className={styles.kpi}>
     <div className={styles.kpiTop}><span>{label}</span><span className={styles.kpiIcon}><Icon name={icon} /></span></div>
     <div className={styles.kpiValue}>{value}<span className={styles.kpiTrend}>{trend ?? ""}</span></div>
@@ -243,7 +243,7 @@ export function ChurchWorkspace({ view }: { view: WorkspaceView }) {
           </div>
           <div className={styles.protocolList}>{pending.filter((p) => (admissionFilter === "ALL" || p.stage === admissionFilter) && p.name.toLowerCase().includes(query.toLowerCase())).map((p) => <article className={styles.protocolCard} key={p.id}>
             <div className={styles.protocolProfile}><SmallAvatar name={p.name}/><div><strong>{p.name}</strong><small>{p.id} · {MODALITY_LABEL[p.modality]}</small></div></div>
-            <div className={styles.stepTrack} aria-label={"Etapa atual: " + STAGE_LABEL[p.stage]}>{["DOCUMENTS", "SECRETARIA", "PASTOR"].map((step, index) => <span key={step} className={["DOCUMENTS", "SECRETARIA", "PASTOR"].indexOf(p.stage) >= index ? styles.stepLive : styles.stepDone} title={STAGE_LABEL[step as keyof typeof STAGE_LABEL]}/>)}</div>
+            <div className={styles.stepTrack} aria-label={"Etapa atual: " + STAGE_LABEL[p.stage]}>{["DOCUMENTS", "SECRETARIA", "PASTOR"].map((step, index) => <span key={step} className={["DOCUMENTS", "SECRETARIA", "PASTOR"].indexOf(p.stage) <= index ? styles.stepLive : styles.stepDone} title={STAGE_LABEL[step as keyof typeof STAGE_LABEL]}/>)}</div>
             <span className={styles.stageName}>{STAGE_LABEL[p.stage]}</span>
             <button type="button" className={styles.miniButton} onClick={() => run(advanceAdmission(members, p.id, responsible), "Etapa registrada na base sintética.")}>Concluir etapa <Icon name="arrow" size={15}/></button>
           </article>)}</div>
