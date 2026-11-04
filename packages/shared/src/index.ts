@@ -42,6 +42,45 @@ export {
   type MembershipScopeTarget,
 } from "./membership-scope";
 
+export {
+  API_CONTRACT_VERSION,
+  API_PATH_PREFIX,
+  ADMISSION_STATUSES,
+  ADMISSION_MODALITIES,
+  ADMISSION_STEP_ORDER,
+  MEMBERSHIP_STATUSES,
+  CREDENTIAL_STATUSES,
+  API_ENDPOINT_STATUS,
+  type ApiContractVersion,
+  type AdmissionStatus,
+  type AdmissionModality,
+  type AdmissionStep,
+  type MembershipStatusContract,
+  type CredentialStatusContract,
+  type ApiEndpointKey,
+  type ApiErrorBody,
+  type AuthUserDto,
+  type LoginRequest,
+  type LoginResponse,
+  type PersonSummaryDto,
+  type MembershipDto,
+  type MembershipListResponse,
+  type RegisterMembershipRequest,
+  type MemberCardDto,
+  type CredentialMeResponse,
+  type CredentialVerifyResponse,
+  type HouseholdDto,
+  type CreateHouseholdRequest,
+  type PersonSearchRequest,
+  type PersonSearchHit,
+  type PersonSearchResponse,
+  type AdmissionChecklistDto,
+  type AdmissionDto,
+  type CreateAdmissionRequest,
+  type AdvanceAdmissionRequest,
+  type HealthResponse,
+} from "./api-contracts";
+
 export interface HealthStatus {
   status: "ok" | "degraded" | "down";
   service: string;
