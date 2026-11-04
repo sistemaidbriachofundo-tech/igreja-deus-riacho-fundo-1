@@ -1,5 +1,5 @@
-// F1 fundação — IAM + person_id (sem módulos de produto).
-// Dados reais só após backup/restore comprovados.
+// F1 IAM + F2 slice: membresia / secretaria / carteirinha (piloto single-church).
+// Dados reais só após backup/restore comprovados. Seed = fictício.
 
 generator client {
   provider = "prisma-client-js"
@@ -20,6 +20,17 @@ enum UserStatus {
   DISABLED
 }
 
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  TRANSFERRED
+}
+
+enum CredentialStatus {
+  ACTIVE
+  REVOKED
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -27,10 +38,13 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  churches Church[]
-  persons  Person[]
-  grants   Grant[]
-  auditLogs AuditLog[]
+  churches    Church[]
+  persons     Person[]
+  households  Household[]
+  memberships ChurchMembership[]
+  credentials MemberCredential[]
+  grants      Grant[]
+  auditLogs   AuditLog[]
 
   @@map("organizations")
 }
@@ -43,8 +57,11 @@ model Church {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  homePersons  Person[]     @relation("PersonHomeChurch")
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  homePersons  Person[]           @relation("PersonHomeChurch")
+  households   Household[]
+  memberships  ChurchMembership[]
+  credentials  MemberCredential[]
   grants       Grant[]
   auditLogs    AuditLog[]
 
@@ -52,23 +69,45 @@ model Church {
   @@map("churches")
 }
 
+/// Família leve (F2 slice) — vínculo opcional; regras de menores ficam para depois.
+model Household {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  label          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  persons      Person[]
+
+  @@index([organizationId, churchId])
+  @@map("households")
+}
+
 /// Pessoa única do domínio. A PK `id` é o `person_id` estável (DAS).
 model Person {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
   homeChurchId   String?      @map("home_church_id")
+  householdId    String?      @map("household_id")
   displayName    String       @map("display_name")
   email          String?
   status         PersonStatus @default(ACTIVE)
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  homeChurch   Church?      @relation("PersonHomeChurch", fields: [homeChurchId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  homeChurch   Church?            @relation("PersonHomeChurch", fields: [homeChurchId], references: [id])
+  household    Household?         @relation(fields: [householdId], references: [id])
   user         User?
+  memberships  ChurchMembership[]
+  credentials  MemberCredential[]
 
   @@index([organizationId])
   @@index([homeChurchId])
+  @@index([householdId])
   @@map("persons")
 }
 
@@ -82,9 +121,10 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  person    Person     @relation(fields: [personId], references: [id])
-  grants    Grant[]
-  auditLogs AuditLog[]
+  person           Person             @relation(fields: [personId], references: [id])
+  grants           Grant[]
+  auditLogs        AuditLog[]
+  issuedCredentials MemberCredential[] @relation("CredentialIssuer")
 
   @@map("users")
 }
@@ -120,6 +160,58 @@ model Grant {
   @@index([userId])
   @@index([organizationId, churchId])
   @@map("grants")
+}
+
+/// Vínculo pessoa ↔ congregação (cadastro / secretaria). Piloto: só Riacho Fundo I.
+model ChurchMembership {
+  id             String           @id @default(cuid())
+  personId       String           @map("person_id")
+  churchId       String           @map("church_id")
+  organizationId String           @map("organization_id")
+  status         MembershipStatus @default(ACTIVE)
+  joinedAt       DateTime         @default(now()) @map("joined_at")
+  leftAt         DateTime?        @map("left_at")
+  notes          String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  person       Person             @relation(fields: [personId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  credentials  MemberCredential[]
+
+  @@unique([personId, churchId])
+  @@index([churchId, status])
+  @@index([organizationId, churchId])
+  @@map("church_memberships")
+}
+
+/// Carteirinha digital: QR = token opaco (sem CPF/telefone/PII).
+model MemberCredential {
+  id             String           @id @default(cuid())
+  membershipId   String           @map("membership_id")
+  personId       String           @map("person_id")
+  churchId       String           @map("church_id")
+  organizationId String           @map("organization_id")
+  status         CredentialStatus @default(ACTIVE)
+  /// Token opaco base64url — único conteúdo do QR.
+  opaqueToken    String           @unique @map("opaque_token")
+  issuedAt       DateTime         @default(now()) @map("issued_at")
+  revokedAt      DateTime?        @map("revoked_at")
+  issuedByUserId String?          @map("issued_by_user_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  membership   ChurchMembership @relation(fields: [membershipId], references: [id])
+  person       Person           @relation(fields: [personId], references: [id])
+  church       Church           @relation(fields: [churchId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  issuedBy     User?            @relation("CredentialIssuer", fields: [issuedByUserId], references: [id])
+
+  @@index([personId, status])
+  @@index([churchId, status])
+  @@index([membershipId, status])
+  @@map("member_credentials")
 }
 
 model AuditLog {

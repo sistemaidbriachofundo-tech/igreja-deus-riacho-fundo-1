@@ -22,6 +22,26 @@ export {
   type AccessCheck,
 } from "./rbac";
 
+export {
+  PILOT_ORG_SLUG,
+  PILOT_CHURCH_SLUG,
+  PILOT_CHURCH_NAME,
+} from "./pilot";
+
+export {
+  OPAQUE_TOKEN_BYTES,
+  generateOpaqueCredentialToken,
+  isOpaqueCredentialToken,
+  containsSensitiveCredentialPayload,
+  assertOpaqueCredentialPayload,
+} from "./credential-token";
+
+export {
+  canManageMemberships,
+  canViewOwnCredential,
+  type MembershipScopeTarget,
+} from "./membership-scope";
+
 export interface HealthStatus {
   status: "ok" | "degraded" | "down";
   service: string;

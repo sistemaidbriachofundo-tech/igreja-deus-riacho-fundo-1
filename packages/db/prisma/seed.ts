@@ -1,10 +1,16 @@
 import { PrismaClient } from "@prisma/client";
+import {
+  generateOpaqueCredentialToken,
+  PILOT_CHURCH_SLUG,
+  PILOT_ORG_SLUG,
+} from "@idbrf/shared";
 
 const prisma = new PrismaClient();
 
 /**
  * Seed fictício apenas — sem dados reais da igreja.
- * Senha demo: "demo-password-not-real" (hash placeholder SHA-256 hex — trocar por Argon2id em F1 IAM completo).
+ * Senha demo: "admin" (hash placeholder SHA-256 hex — trocar por Argon2id em F1 IAM completo).
+ * Piloto hard-scoped: só Riacho Fundo I (sem multi-congregação).
  */
 const DEMO_PASSWORD_HASH =
   "sha256:8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"; // "admin" — só demo
@@ -45,11 +51,11 @@ const ROLE_DEFS = [
 /** Seed fictício apenas — sem dados reais da igreja. */
 async function main() {
   const org = await prisma.organization.upsert({
-    where: { slug: "igreja-de-deus" },
+    where: { slug: PILOT_ORG_SLUG },
     update: {},
     create: {
       name: "Igreja de Deus (demo)",
-      slug: "igreja-de-deus",
+      slug: PILOT_ORG_SLUG,
     },
   });
 
@@ -57,14 +63,14 @@ async function main() {
     where: {
       organizationId_slug: {
         organizationId: org.id,
-        slug: "riacho-fundo-1",
+        slug: PILOT_CHURCH_SLUG,
       },
     },
     update: {},
     create: {
       organizationId: org.id,
       name: "Riacho Fundo I (demo)",
-      slug: "riacho-fundo-1",
+      slug: PILOT_CHURCH_SLUG,
     },
   });
 
@@ -76,6 +82,21 @@ async function main() {
     });
   }
 
+  const household = await prisma.household.upsert({
+    where: { id: "demoHousehold01" },
+    update: {
+      label: "Família Demo (fictícia)",
+      organizationId: org.id,
+      churchId: church.id,
+    },
+    create: {
+      id: "demoHousehold01",
+      organizationId: org.id,
+      churchId: church.id,
+      label: "Família Demo (fictícia)",
+    },
+  });
+
   const person = await prisma.person.upsert({
     where: { id: "demoPersonRiacho01" },
     update: {
@@ -83,12 +104,14 @@ async function main() {
       email: "ana.demo@example.test",
       homeChurchId: church.id,
       organizationId: org.id,
+      householdId: household.id,
       status: "ACTIVE",
     },
     create: {
       id: "demoPersonRiacho01",
       organizationId: org.id,
       homeChurchId: church.id,
+      householdId: household.id,
       displayName: "Ana Demo Secretária",
       email: "ana.demo@example.test",
       status: "ACTIVE",
@@ -102,13 +125,33 @@ async function main() {
       email: "bruno.demo@example.test",
       homeChurchId: church.id,
       organizationId: org.id,
+      householdId: household.id,
     },
     create: {
       id: "demoPersonMembro01",
       organizationId: org.id,
       homeChurchId: church.id,
+      householdId: household.id,
       displayName: "Bruno Demo Membro",
       email: "bruno.demo@example.test",
+      status: "ACTIVE",
+    },
+  });
+
+  const visitorPerson = await prisma.person.upsert({
+    where: { id: "demoPersonVisit01" },
+    update: {
+      displayName: "Carla Demo Visitante",
+      email: "carla.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+    },
+    create: {
+      id: "demoPersonVisit01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Carla Demo Visitante",
+      email: "carla.demo@example.test",
       status: "ACTIVE",
     },
   });
@@ -186,11 +229,85 @@ async function main() {
     },
   });
 
-  console.log("Seed OK (fictício):", {
+  const anaMembership = await prisma.churchMembership.upsert({
+    where: {
+      personId_churchId: {
+        personId: person.id,
+        churchId: church.id,
+      },
+    },
+    update: { status: "ACTIVE", notes: "Secretaria demo" },
+    create: {
+      personId: person.id,
+      churchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      notes: "Secretaria demo",
+    },
+  });
+
+  const brunoMembership = await prisma.churchMembership.upsert({
+    where: {
+      personId_churchId: {
+        personId: memberPerson.id,
+        churchId: church.id,
+      },
+    },
+    update: { status: "ACTIVE", notes: "Membro demo" },
+    create: {
+      personId: memberPerson.id,
+      churchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      notes: "Membro demo",
+    },
+  });
+
+  await prisma.churchMembership.upsert({
+    where: {
+      personId_churchId: {
+        personId: visitorPerson.id,
+        churchId: church.id,
+      },
+    },
+    update: { status: "ACTIVE", notes: "Visitante → membro (demo)" },
+    create: {
+      personId: visitorPerson.id,
+      churchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      notes: "Visitante → membro (demo)",
+    },
+  });
+
+  const existingCard = await prisma.memberCredential.findFirst({
+    where: {
+      membershipId: brunoMembership.id,
+      status: "ACTIVE",
+    },
+  });
+
+  if (!existingCard) {
+    await prisma.memberCredential.create({
+      data: {
+        membershipId: brunoMembership.id,
+        personId: memberPerson.id,
+        churchId: church.id,
+        organizationId: org.id,
+        status: "ACTIVE",
+        opaqueToken: generateOpaqueCredentialToken(),
+        issuedByUserId: adminUser.id,
+      },
+    });
+  }
+
+  console.log("Seed OK (fictício, single-church RF1):", {
     org: org.slug,
     church: church.slug,
-    persons: [person.id, memberPerson.id],
+    household: household.id,
+    persons: [person.id, memberPerson.id, visitorPerson.id],
     users: [adminUser.email, memberUser.email],
+    memberships: [anaMembership.id, brunoMembership.id],
   });
 }
 
