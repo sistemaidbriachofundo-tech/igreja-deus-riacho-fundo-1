@@ -167,7 +167,23 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: API unit tests with coverage (LCOV for Sonar)
         if: steps.gate.outputs.skip == 'false'
-        run: npm run test -w @idbrf/api -- --coverage --coverageReporters=lcov --coverageReporters=text-summary
+        run: npm run test -w @idbrf/api -- --coverage
+      - name: Shared unit tests with coverage (LCOV for Sonar)
+        if: steps.gate.outputs.skip == 'false'
+        run: npm run test:coverage -w @idbrf/shared
+      - name: Normalize LCOV paths for Sonar (repo-root relative)
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          # c8 emite SF:src/... a partir de packages/shared — Sonar precisa do prefixo do monorepo
+          sed -i 's|^SF:src/|SF:packages/shared/src/|' packages/shared/coverage/lcov.info
+          # defensivo: se algum SF absoluto do runner aparecer, corta até o repo
+          for f in apps/api/coverage/lcov.info packages/shared/coverage/lcov.info; do
+            sed -i "s|^SF:${GITHUB_WORKSPACE}/|SF:|" "$f"
+          done
+          test -s apps/api/coverage/lcov.info
+          test -s packages/shared/coverage/lcov.info
+          echo "LCOV sample (api):"; rg -m3 '^SF:' apps/api/coverage/lcov.info || true
+          echo "LCOV sample (shared):"; rg -m3 '^SF:' packages/shared/coverage/lcov.info || true
       - name: SonarCloud Scan
         if: steps.gate.outputs.skip == 'false'
         uses: SonarSource/sonarcloud-github-action@master
