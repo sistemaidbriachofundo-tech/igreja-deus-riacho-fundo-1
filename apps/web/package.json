@@ -12,16 +12,18 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/montserrat": "^5.3.0",
     "@idbrf/shared": "*",
     "next": "^15.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.0",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.11",
     "@types/react-dom": "^19.0.4",
-    "@eslint/eslintrc": "^3.3.0",
     "eslint": "^9.22.0",
     "eslint-config-next": "^15.2.3",
     "typescript": "^5.8.2",

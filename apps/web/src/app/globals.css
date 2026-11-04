@@ -18,8 +18,8 @@
 
   --shadow-soft: 0 10px 28px color-mix(in srgb, var(--color-marrom) 10%, transparent);
 
-  --font-title: var(--font-montserrat), "Montserrat", system-ui, sans-serif;
-  --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-title: "Montserrat", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
 
   --sidebar-width: 15.5rem;
   --header-height: 4rem;
