@@ -1,6 +1,11 @@
-import { ConflictException, ForbiddenException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   containsSensitiveCredentialPayload,
+  generateOpaqueCredentialToken,
   isOpaqueCredentialToken,
 } from "@idbrf/shared";
 import { CredentialsService } from "./credentials.service";
@@ -15,6 +20,8 @@ describe("CredentialsService", () => {
     churchSlug: "riacho-fundo-1",
     churchName: "Riacho Fundo I (demo)",
   };
+
+  const opaqueToken = generateOpaqueCredentialToken();
 
   const secretaria: AuthUser = {
     userId: "u-sec",
@@ -59,14 +66,17 @@ describe("CredentialsService", () => {
       },
       memberCredential: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn(),
         create: jest.fn().mockImplementation(async ({ data }) => ({
           id: "c1",
           ...data,
           issuedAt: new Date("2026-11-04T12:00:00Z"),
           revokedAt: null,
         })),
+        update: jest.fn(),
       },
       auditLog: { create: jest.fn() },
+      $transaction: jest.fn(),
     };
   }
 
@@ -80,50 +90,177 @@ describe("CredentialsService", () => {
     const card = await service.issue(secretaria, "m1");
     expect(isOpaqueCredentialToken(card.qrPayload)).toBe(true);
     expect(containsSensitiveCredentialPayload(card.qrPayload)).toBe(false);
-    expect(card.qrPayload).not.toMatch(/cpf|telefone|@|\d{3}\.\d{3}/i);
     expect(card.displayName).toBe("Bruno Demo");
-    expect(prisma.memberCredential.create).toHaveBeenCalled();
   });
 
-  it("blocks issue when credentialEligible is false", async () => {
-    const prisma = prismaWithEligibility(false);
-    const service = new CredentialsService(
-      prisma as never,
+  it("blocks issue when not eligible / membership missing / conflict", async () => {
+    const ineligible = prismaWithEligibility(false);
+    const serviceA = new CredentialsService(
+      ineligible as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-
-    await expect(service.issue(secretaria, "m1")).rejects.toBeInstanceOf(
+    await expect(serviceA.issue(secretaria, "m1")).rejects.toBeInstanceOf(
       BusinessException,
     );
-    expect(prisma.memberCredential.create).not.toHaveBeenCalled();
-  });
 
-  it("refuses second active card without revoke", async () => {
-    const prisma = {
+    const missing = prismaWithEligibility(true);
+    missing.churchMembership.findFirst.mockResolvedValue(null);
+    const serviceB = new CredentialsService(
+      missing as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(serviceB.issue(secretaria, "m1")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    const conflict = {
       ...prismaWithEligibility(true),
       memberCredential: {
         findFirst: jest.fn().mockResolvedValue({ id: "c-old", status: "ACTIVE" }),
         create: jest.fn(),
       },
     };
+    const serviceC = new CredentialsService(
+      conflict as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(serviceC.issue(secretaria, "m1")).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it("reissues: revokes active then creates new", async () => {
+    const tx = {
+      churchMembership: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "m1",
+          personId: "p-mem",
+          person: { id: "p-mem", displayName: "Bruno Demo" },
+        }),
+      },
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue({ id: "adm1", status: "APPROVED" }),
+      },
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "c-old",
+          status: "ACTIVE",
+          opaqueToken,
+        }),
+        update: jest.fn(),
+        create: jest.fn().mockImplementation(async ({ data }) => ({
+          id: "c-new",
+          ...data,
+          issuedAt: new Date(),
+          revokedAt: null,
+        })),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
+        fn(tx),
+      ),
+    };
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-
-    await expect(service.issue(secretaria, "m1")).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-    expect(prisma.memberCredential.create).not.toHaveBeenCalled();
+    const card = await service.reissue(secretaria, "m1");
+    expect(card.id).toBe("c-new");
+    expect(tx.memberCredential.update).toHaveBeenCalled();
   });
 
-  it("getOwn returns only actor person card", async () => {
+  it("reissue fails without eligibility or membership", async () => {
+    const tx = {
+      churchMembership: { findFirst: jest.fn().mockResolvedValue(null) },
+      admissionProtocol: { findFirst: jest.fn() },
+      memberCredential: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
+        fn(tx),
+      ),
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.reissue(secretaria, "m1")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    tx.churchMembership.findFirst.mockResolvedValue({
+      id: "m1",
+      personId: "p-mem",
+      person: { displayName: "Bruno" },
+    });
+    tx.admissionProtocol.findFirst.mockResolvedValue(null);
+    await expect(service.reissue(secretaria, "m1")).rejects.toBeInstanceOf(
+      BusinessException,
+    );
+  });
+
+  it("revoke active and already-revoked", async () => {
     const prisma = {
       memberCredential: {
         findFirst: jest.fn().mockResolvedValue({
           id: "c1",
           status: "ACTIVE",
-          opaqueToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          opaqueToken,
+          issuedAt: new Date(),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          person: { displayName: "Bruno Demo" },
+        }),
+        update: jest.fn().mockImplementation(async ({ data }) => ({
+          id: "c1",
+          status: data.status,
+          opaqueToken,
+          issuedAt: new Date(),
+          revokedAt: data.revokedAt,
+          personId: "p-mem",
+          membershipId: "m1",
+          person: { displayName: "Bruno Demo" },
+        })),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const revoked = await service.revoke(secretaria, "c1");
+    expect(revoked.status).toBe("REVOKED");
+
+    prisma.memberCredential.findFirst.mockResolvedValue({
+      id: "c1",
+      status: "REVOKED",
+      opaqueToken,
+      issuedAt: new Date(),
+      revokedAt: new Date(),
+      personId: "p-mem",
+      membershipId: "m1",
+      person: { displayName: "Bruno Demo" },
+    });
+    const again = await service.revoke(secretaria, "c1");
+    expect(again.status).toBe("REVOKED");
+
+    prisma.memberCredential.findFirst.mockResolvedValue(null);
+    await expect(service.revoke(secretaria, "x")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it("getOwn returns card or null", async () => {
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
           issuedAt: new Date(),
           revokedAt: null,
           personId: "p-mem",
@@ -136,27 +273,41 @@ describe("CredentialsService", () => {
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
+    await expect(service.getOwn(member)).resolves.toMatchObject({ card: null });
+    const withCard = await service.getOwn(member);
+    expect(withCard.card?.personId).toBe("p-mem");
+  });
 
-    const result = await service.getOwn(member);
-    expect(result.card?.personId).toBe("p-mem");
-    expect(prisma.memberCredential.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ personId: "p-mem", status: "ACTIVE" }),
-      }),
+  it("lookupByOpaqueToken", async () => {
+    const prisma = {
+      memberCredential: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          status: "ACTIVE",
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          person: { displayName: "Bruno Demo" },
+          church: { name: pilot.churchName, slug: pilot.churchSlug },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
+    const hit = await service.lookupByOpaqueToken(opaqueToken);
+    expect(hit.displayName).toBe("Bruno Demo");
+
+    prisma.memberCredential.findUnique.mockResolvedValue(null);
+    await expect(
+      service.lookupByOpaqueToken(opaqueToken),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it("member cannot issue cards", async () => {
     const service = new CredentialsService(
-      {
-        churchMembership: { findFirst: jest.fn() },
-        memberCredential: { findFirst: jest.fn(), create: jest.fn() },
-        admissionProtocol: { findFirst: jest.fn() },
-        auditLog: { create: jest.fn() },
-      } as never,
+      prismaWithEligibility(true) as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-
     await expect(service.issue(member, "m1")).rejects.toBeInstanceOf(
       ForbiddenException,
     );

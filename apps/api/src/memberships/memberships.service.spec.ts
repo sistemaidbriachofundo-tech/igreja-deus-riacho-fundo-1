@@ -1,4 +1,9 @@
-import { ForbiddenException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import { MembershipsService } from "./memberships.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
@@ -117,5 +122,83 @@ describe("MembershipsService scope", () => {
     await expect(service.listForPilot(otherChurchSec)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it("register creates person + membership (+ household label)", async () => {
+    const { service, prisma } = buildService();
+    prisma.household.create.mockResolvedValue({ id: "h1" });
+    prisma.person.create.mockResolvedValue({ id: "p-new" });
+    prisma.churchMembership.findUnique.mockResolvedValue(null);
+    prisma.churchMembership.create.mockResolvedValue({
+      id: "m-new",
+      status: "ACTIVE",
+      joinedAt: new Date("2026-11-04T12:00:00Z"),
+      notes: null,
+      churchId: pilot.churchId,
+      organizationId: pilot.organizationId,
+      person: {
+        id: "p-new",
+        displayName: "Nova",
+        email: null,
+        status: "ACTIVE",
+        householdId: "h1",
+      },
+    });
+
+    const result = await service.register(secretaria, {
+      displayName: " Nova ",
+      householdLabel: "Família Nova",
+    });
+    expect(result.id).toBe("m-new");
+    expect(prisma.auditLog.create).toHaveBeenCalled();
+  });
+
+  it("register links existing person and rejects errors", async () => {
+    const { service, prisma } = buildService();
+    prisma.person.findFirst.mockResolvedValue({ id: "p-mem" });
+    prisma.churchMembership.findUnique.mockResolvedValue(null);
+    prisma.churchMembership.create.mockResolvedValue({
+      id: "m2",
+      status: "ACTIVE",
+      joinedAt: new Date(),
+      notes: "n",
+      churchId: pilot.churchId,
+      organizationId: pilot.organizationId,
+      person: {
+        id: "p-mem",
+        displayName: "Bruno",
+        email: null,
+        status: "ACTIVE",
+        householdId: null,
+      },
+    });
+    await expect(
+      service.register(secretaria, {
+        displayName: "Bruno",
+        personId: "p-mem",
+        notes: "ok",
+      }),
+    ).resolves.toMatchObject({ id: "m2" });
+
+    await expect(
+      service.register(secretaria, { displayName: "  " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.person.findFirst.mockResolvedValue(null);
+    await expect(
+      service.register(secretaria, {
+        displayName: "X",
+        personId: "ghost",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    prisma.person.findFirst.mockResolvedValue({ id: "p-mem" });
+    prisma.churchMembership.findUnique.mockResolvedValue({ id: "dup" });
+    await expect(
+      service.register(secretaria, {
+        displayName: "Bruno",
+        personId: "p-mem",
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
