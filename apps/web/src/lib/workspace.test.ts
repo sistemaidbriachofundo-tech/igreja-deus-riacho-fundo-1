@@ -11,7 +11,7 @@ const secretary = source("app/app/secretaria/page.tsx");
 const credentials = source("app/app/membros/carteirinha/page.tsx");
 const login = source("components/DemoLogin.tsx");
 const workspaceStyles = source("app/app/workspace.module.css");
-const visualIdentity = source("../../IDENTIDADE_VISUAL.md");
+const visualIdentity = source("../IDENTIDADE_VISUAL.md");
 
 describe("F2 visual workspace and real API boundaries", () => {
   it("reuses the same design language and official congregation photos", () => {
