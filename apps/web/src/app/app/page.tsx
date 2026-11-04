@@ -18,6 +18,14 @@ export default function VisaoGeralPage() {
         </p>
       </header>
 
+      <section className="tint-banner" aria-label="Demonstração navegável">
+        <div>
+          <h2>Explore a plataforma sem instalar nada</h2>
+          <p>Teste cadastro de visitantes, aprovação de membresia e carteirinhas com dados fictícios. A demonstração funciona aqui no GitHub Pages, sem login.</p>
+        </div>
+        <a className="btn btn-primary" href={withBasePath("/app/demo/")}>Abrir demonstração</a>
+      </section>
+
       <section className="tint-banner" aria-label="Boas-vindas">
         <div>
           <h2>Central de membresia</h2>
