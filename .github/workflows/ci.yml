@@ -108,6 +108,7 @@ jobs:
       - run: npm run build -w @idbrf/web
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ env.NEXT_PUBLIC_BASE_PATH }}
+      # Único caminho de deploy Pages: export estático de apps/web (monorepo).
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
@@ -149,6 +150,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+  # Deploy Pages somente via este job (não há workflow nextjs.yml separado).
   deploy-pages:
     name: Deploy GitHub Pages
     runs-on: ubuntu-latest
@@ -160,4 +162,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
