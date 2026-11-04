@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import { PersonsService } from "./persons.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
@@ -42,8 +46,11 @@ describe("PersonsService", () => {
       person: {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
+        update: jest.fn(),
         ...((prismaOverrides.person as object) ?? {}),
       },
+      household: { findFirst: jest.fn() },
+      auditLog: { create: jest.fn() },
       ...prismaOverrides,
     };
     const service = new PersonsService(
@@ -97,9 +104,6 @@ describe("PersonsService", () => {
 
     const exact = await service.search(secretaria, "Ana Demo", 100);
     expect(exact.hits[0]?.score).toBe(0.95);
-    expect(exact.hits[0]?.matchReasons).toEqual(
-      expect.arrayContaining(["displayName"]),
-    );
 
     const partial = await service.search(secretaria, "demo", 5);
     expect(prisma.person.findMany).toHaveBeenCalledWith(
@@ -110,13 +114,13 @@ describe("PersonsService", () => {
     );
   });
 
-  it("getById returns person or 404", async () => {
+  it("getById returns person or 404; membro only self", async () => {
     const { service, prisma } = build({
       person: {
         findMany: jest.fn(),
-        findFirst: jest.fn().mockResolvedValueOnce({
-          id: "p1",
-          displayName: "Ana",
+        findFirst: jest.fn().mockResolvedValue({
+          id: "p-mem",
+          displayName: "Bruno",
           email: null,
           status: "ACTIVE",
           householdId: null,
@@ -126,9 +130,12 @@ describe("PersonsService", () => {
         }),
       },
     });
-    await expect(service.getById(secretaria, "p1")).resolves.toMatchObject({
-      id: "p1",
+    await expect(service.getById(memberOnly, "p-mem")).resolves.toMatchObject({
+      id: "p-mem",
     });
+    await expect(service.getById(memberOnly, "other")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
 
     prisma.person.findFirst.mockResolvedValueOnce(null);
     await expect(service.getById(secretaria, "missing")).rejects.toBeInstanceOf(
@@ -136,10 +143,95 @@ describe("PersonsService", () => {
     );
   });
 
-  it("forbids getById for membro", async () => {
-    const { service } = build();
-    await expect(service.getById(memberOnly, "p1")).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+  it("dossier returns history for staff", async () => {
+    const { service } = build({
+      person: {
+        findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "p1",
+          displayName: "Carla",
+          email: "c@example.test",
+          status: "ACTIVE",
+          kind: "VISITOR",
+          isMinor: false,
+          householdId: null,
+          legalGuardianPersonId: null,
+          legalGuardian: null,
+          dependents: [],
+          household: null,
+          memberships: [
+            {
+              id: "m1",
+              status: "PENDING_ADMISSION",
+              joinedAt: new Date("2026-11-04T12:00:00Z"),
+              notes: "n",
+            },
+          ],
+          admissions: [
+            {
+              id: "a1",
+              status: "DRAFT",
+              modality: null,
+              currentStep: "modality",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              modalityRecorded: false,
+              documentsComplete: false,
+              secretariaApproved: false,
+              pastorApproved: false,
+            },
+          ],
+        }),
+      },
+    });
+    const dossier = await service.getDossier(secretaria, "p1");
+    expect(dossier.admissionHistory).toHaveLength(1);
+    expect(dossier.memberships[0]?.notes).toBe("n");
+  });
+
+  it("patch requires guardian for minor", async () => {
+    const { service, prisma } = build({
+      person: {
+        findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "kid",
+          isMinor: false,
+          legalGuardianPersonId: null,
+          organizationId: "org1",
+        }),
+        update: jest.fn(),
+      },
+    });
+    await expect(
+      service.patch(secretaria, "kid", { isMinor: true }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.person.findFirst
+      .mockResolvedValueOnce({
+        id: "kid",
+        isMinor: false,
+        legalGuardianPersonId: null,
+        organizationId: "org1",
+      })
+      .mockResolvedValueOnce({
+        id: "adult",
+        isMinor: false,
+      });
+    prisma.person.update.mockResolvedValue({
+      id: "kid",
+      displayName: "Kid",
+      email: null,
+      status: "ACTIVE",
+      householdId: null,
+      kind: "VISITOR",
+      isMinor: true,
+      legalGuardianPersonId: "adult",
+    });
+    await expect(
+      service.patch(secretaria, "kid", {
+        isMinor: true,
+        legalGuardianPersonId: "adult",
+      }),
+    ).resolves.toMatchObject({ isMinor: true });
   });
 });

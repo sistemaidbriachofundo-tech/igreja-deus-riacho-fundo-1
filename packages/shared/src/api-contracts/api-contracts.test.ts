@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.2.0-f2");
+    assert.equal(API_CONTRACT_VERSION, "0.2.1-f2");
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -46,6 +46,14 @@ describe("api contracts F2", () => {
     );
     assert.equal(
       API_ENDPOINT_STATUS["POST /credentials/reissue/:membershipId"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["GET /persons/:personId/dossier"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /admissions/:admissionId/documents"],
       "implemented",
     );
   });

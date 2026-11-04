@@ -1,0 +1,46 @@
+# Homologação — NÃO publicar na internet sem autorização explícita.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.hml.yml --env-file .env.hml up -d --build
+# TLS: reverse proxy na frente; este compose sobe API+Postgres em loopback.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: idbrf-api-hml
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: "3001"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-idbrf}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-idbrf}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set_JWT_SECRET_min_32_no_dev_only}
+      JWT_EXPIRES_SECONDS: ${JWT_EXPIRES_SECONDS:-3600}
+      CORS_ORIGIN: ${CORS_ORIGIN:?set_CORS_ORIGIN_fe_hml}
+      STORAGE_ROOT: /var/lib/idbrf/private-storage
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-30}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+    volumes:
+      - idbrf_private_storage:/var/lib/idbrf/private-storage
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  idbrf_private_storage:

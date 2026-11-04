@@ -41,11 +41,15 @@ describe("controller wiring (delegates to services)", () => {
     const persons = {
       search: jest.fn().mockResolvedValue({ hits: [] }),
       getById: jest.fn().mockResolvedValue({ id: "p1" }),
+      getDossier: jest.fn().mockResolvedValue({ person: { id: "p1" } }),
+      patch: jest.fn().mockResolvedValue({ id: "p1" }),
     };
     const c = new PersonsController(persons as never);
     await c.search(user, "an", "5");
     expect(persons.search).toHaveBeenCalledWith(user, "an", 5);
     await c.get(user, "p1");
+    await c.dossier(user, "p1");
+    await c.patch(user, "p1", { isMinor: false });
     expect(persons.getById).toHaveBeenCalledWith(user, "p1");
   });
 
@@ -53,10 +57,14 @@ describe("controller wiring (delegates to services)", () => {
     const households = {
       create: jest.fn().mockResolvedValue({ id: "h1" }),
       getById: jest.fn().mockResolvedValue({ id: "h1" }),
+      addMembers: jest.fn().mockResolvedValue({ id: "h1" }),
+      removeMember: jest.fn().mockResolvedValue({ id: "h1" }),
     };
     const c = new HouseholdsController(households as never);
     await c.create(user, { label: "x" });
     await c.get(user, "h1");
+    await c.addMembers(user, "h1", { memberPersonIds: ["p1"] });
+    await c.removeMember(user, "h1", "p1");
     expect(households.create).toHaveBeenCalled();
     expect(households.getById).toHaveBeenCalledWith(user, "h1");
   });
@@ -68,11 +76,17 @@ describe("controller wiring (delegates to services)", () => {
       create: jest.fn(),
       advance: jest.fn(),
     };
-    const c = new AdmissionsController(admissions as never);
+    const documents = {
+      list: jest.fn(),
+      upload: jest.fn(),
+      download: jest.fn(),
+    };
+    const c = new AdmissionsController(admissions as never, documents as never);
     await c.list(user, "DRAFT");
     await c.get(user, "a1");
     await c.create(user, { displayName: "X" } as never);
     await c.advance(user, "a1", { completeStep: "documents" } as never);
+    await c.listDocuments(user, "a1");
     expect(admissions.list).toHaveBeenCalledWith(user, "DRAFT");
     expect(admissions.advance).toHaveBeenCalled();
   });

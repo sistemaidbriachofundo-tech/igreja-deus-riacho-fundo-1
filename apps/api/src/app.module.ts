@@ -15,10 +15,12 @@ import { MembershipsModule } from "./memberships/memberships.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { StorageModule } from "./storage/storage.module";
 
 @Module({
   imports: [
     PrismaModule,
+    StorageModule,
     PilotModule,
     AuthModule,
     MembershipsModule,

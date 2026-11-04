@@ -39,6 +39,10 @@ export type {
   CreateAdmissionRequest,
   AdvanceAdmissionRequest,
   HealthResponse,
+  PatchPersonRequest,
+  PersonDossierResponse,
+  AdmissionDocumentMetaDto,
+  AdmissionDocumentsListResponse,
 } from "./dto";
 
 /**
@@ -58,12 +62,19 @@ export const API_ENDPOINT_STATUS = {
   "GET /credentials/verify/:opaqueToken": "implemented",
   "GET /persons/search": "implemented",
   "GET /persons/:personId": "implemented",
+  "GET /persons/:personId/dossier": "implemented",
+  "PATCH /persons/:personId": "implemented",
   "POST /households": "implemented",
   "GET /households/:householdId": "implemented",
+  "POST /households/:householdId/members": "implemented",
+  "DELETE /households/:householdId/members/:personId": "implemented",
   "POST /admissions": "implemented",
   "GET /admissions/:admissionId": "implemented",
   "POST /admissions/:admissionId/advance": "implemented",
   "GET /admissions": "implemented",
+  "GET /admissions/:admissionId/documents": "implemented",
+  "POST /admissions/:admissionId/documents": "implemented",
+  "GET /admissions/:admissionId/documents/:documentId": "implemented",
   "POST /credentials/reissue/:membershipId": "implemented",
 } as const;
 

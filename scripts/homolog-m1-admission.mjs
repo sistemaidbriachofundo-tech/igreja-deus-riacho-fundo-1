@@ -155,6 +155,40 @@ async function main() {
     assert(hh.status < 300, `household ${hh.status}`);
     log("POST /households", true, hh.json.id);
 
+    const dossier = await req("GET", `/persons/${created.json.personId}/dossier`, {
+      token: ana.accessToken,
+    });
+    assert(dossier.status === 200, `dossier ${dossier.status}`);
+    assert(Array.isArray(dossier.json.admissionHistory), "admissionHistory");
+    log("GET /persons/:id/dossier", true, `admissions=${dossier.json.admissionHistory.length}`);
+
+    const ownDenied = await req("GET", `/persons/${created.json.personId}/dossier`, {
+      token: bruno.accessToken,
+    });
+    assert(ownDenied.status === 403, `membro alien dossier → ${ownDenied.status}`);
+    log("MEMBRO dossier alheio → 403", true);
+
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([Buffer.from("%PDF-FAKE-HOMOLOG")], { type: "application/pdf" }),
+      "homolog-demo.pdf",
+    );
+    const upRes = await fetch(`${BASE}/admissions/${admissionId}/documents`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${ana.accessToken}` },
+      body: form,
+    });
+    const upJson = await upRes.json();
+    assert(upRes.status < 300, `upload doc ${upRes.status} ${JSON.stringify(upJson)}`);
+    log("POST /admissions/:id/documents", true, upJson.id);
+
+    const listed = await req("GET", `/admissions/${admissionId}/documents`, {
+      token: pastor.accessToken,
+    });
+    assert(listed.status === 200 && listed.json.documents?.length >= 1, "list docs");
+    log("GET documents (pastor)", true, `n=${listed.json.documents.length}`);
+
     const noAuth = await req("GET", "/admissions");
     assert(noAuth.status === 401, `no jwt → ${noAuth.status}`);
     log("GET /admissions sem JWT → 401", true);

@@ -1,15 +1,17 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.2.0-f2
+  version: 0.2.1-f2
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
 
-    - `x-implementation: implemented` — disponível na API Nest desta branch M1
-    - Endpoints de admissão/pessoas/famílias passaram de proposed → implemented no M1
+    - `x-implementation: implemented` — disponível na API Nest
+    - 0.2.1: prontuário (`/persons/:id/dossier`), PATCH pessoa (guardião), membros de família,
+      documentos de admissão com storage privado (DEV/HML)
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
+    Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
     Auth: `Authorization: Bearer <accessToken>` salvo no login.
     Constante compartilhada: `API_PATH_PREFIX === ""` (Nest sem `setGlobalPrefix`).
   contact:
@@ -17,6 +19,8 @@ info:
 servers:
   - url: http://localhost:3001
     description: API Nest local — paths raiz /auth /memberships /credentials (Docker Postgres + seed fictício)
+  - url: https://api-hml.example.invalid
+    description: Placeholder HML — substituir quando ambiente for autorizado/publicável
 tags:
   - name: health
   - name: auth
@@ -577,6 +581,34 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+    patch:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Atualizar flags de menor / responsável legal / família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isMinor: { type: boolean }
+                legalGuardianPersonId: { type: string, nullable: true }
+                householdId: { type: string, nullable: true }
+            example:
+              isMinor: true
+              legalGuardianPersonId: demoPersonRiacho01
+      responses:
+        "200":
+          description: Pessoa atualizada
+        "400":
+          description: Menor sem guardião ou guardião inválido
 
   /households:
     post:
@@ -783,3 +815,135 @@ paths:
                 statusCode: 409
                 message: Etapa pastor bloqueada até secretaria aprovar
                 code: ADMISSION_STEP_LOCKED
+
+  /persons/{personId}/dossier:
+    get:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Prontuário individual (vínculos + histórico de admissão)
+      description: |
+        SECRETARIA/PASTOR no piloto. MEMBRO somente o próprio `personId`.
+        Sem merge automático. E-mails de terceiros omitidos para MEMBRO.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dossier
+        "403":
+          description: Sem permissão
+
+  /households/{householdId}/members:
+    post:
+      tags: [households]
+      x-implementation: implemented
+      summary: Vincular pessoas à família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: householdId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberPersonIds]
+              properties:
+                memberPersonIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Família atualizada
+
+  /households/{householdId}/members/{personId}:
+    delete:
+      tags: [households]
+      x-implementation: implemented
+      summary: Remover pessoa da família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: householdId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Família atualizada
+
+  /admissions/{admissionId}/documents:
+    get:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Listar metadados de documentos (sem bytes)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista de metadados
+    post:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Upload multipart (PDF/JPEG/PNG ≤5MiB) para storage privado
+      description: |
+        Campo form `file`. Bytes em `STORAGE_ROOT` (não público). Auditoria com sha256.
+        Documentos **fictícios** apenas em HML.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Metadados do documento
+        "400":
+          description: Tipo/tamanho inválido
+
+  /admissions/{admissionId}/documents/{documentId}:
+    get:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Download autorizado (SECRETARIA/PASTOR)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bytes do arquivo
+          content:
+            application/pdf: {}
+            image/jpeg: {}
+            image/png: {}

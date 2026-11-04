@@ -176,3 +176,53 @@ export interface HealthResponse {
   service: string;
   timestamp: string;
 }
+
+export interface PatchPersonRequest {
+  isMinor?: boolean;
+  legalGuardianPersonId?: string | null;
+  householdId?: string | null;
+}
+
+export interface PersonDossierResponse {
+  person: PersonSummaryDto & {
+    kind: string;
+    isMinor: boolean;
+    legalGuardianPersonId: string | null;
+  };
+  legalGuardian: { id: string; displayName: string; email: string | null } | null;
+  dependents: Array<{ id: string; displayName: string; isMinor: boolean }>;
+  household: {
+    id: string;
+    label: string | null;
+    members: Array<{ id: string; displayName: string; isMinor: boolean }>;
+  } | null;
+  memberships: Array<{
+    id: string;
+    status: string;
+    joinedAt: string;
+    notes: string | null;
+  }>;
+  admissionHistory: Array<{
+    id: string;
+    status: string;
+    modality: string | null;
+    currentStep: string;
+    checklist: AdmissionChecklistDto;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+}
+
+export interface AdmissionDocumentMetaDto {
+  id: string;
+  admissionId: string;
+  displayName: string;
+  contentType: string;
+  byteSize: number;
+  createdAt: string;
+}
+
+export interface AdmissionDocumentsListResponse {
+  admissionId: string;
+  documents: AdmissionDocumentMetaDto[];
+}

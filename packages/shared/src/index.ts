@@ -89,6 +89,10 @@ export {
   type CreateAdmissionRequest,
   type AdvanceAdmissionRequest,
   type HealthResponse,
+  type PatchPersonRequest,
+  type PersonDossierResponse,
+  type AdmissionDocumentMetaDto,
+  type AdmissionDocumentsListResponse,
 } from "./api-contracts";
 
 export interface HealthStatus {

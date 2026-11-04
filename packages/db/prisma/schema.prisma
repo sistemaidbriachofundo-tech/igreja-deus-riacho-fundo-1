@@ -248,11 +248,34 @@ model AdmissionProtocol {
   membership   ChurchMembership? @relation(fields: [membershipId], references: [id])
   organization Organization      @relation(fields: [organizationId], references: [id])
   church       Church            @relation(fields: [churchId], references: [id])
+  documents    AdmissionDocument[]
 
   @@index([churchId, status])
   @@index([personId])
   @@index([organizationId, churchId])
   @@map("admission_protocols")
+}
+
+/// Metadados de documento de admissão — bytes em storage privado (não público).
+model AdmissionDocument {
+  id               String   @id @default(cuid())
+  admissionId      String   @map("admission_id")
+  organizationId   String   @map("organization_id")
+  churchId         String   @map("church_id")
+  uploadedByUserId String   @map("uploaded_by_user_id")
+  /// Nome sanitizado para UI (sem path).
+  displayName      String   @map("display_name")
+  contentType      String   @map("content_type")
+  byteSize         Int      @map("byte_size")
+  /// Chave opaca no STORAGE_ROOT (nunca URL pública).
+  storageKey       String   @unique @map("storage_key")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  admission AdmissionProtocol @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+
+  @@index([admissionId])
+  @@index([organizationId, churchId])
+  @@map("admission_documents")
 }
 
 model MemberCredential {
