@@ -54,6 +54,16 @@ export default function HomePage() {
       </header>
 
       <main id="conteudo">
+        <section className="release-strip" aria-label="Nova versão do sistema">
+          <div className="release-strip-copy">
+            <span className="release-strip-label">NOVA VERSÃO DISPONÍVEL</span>
+            <span className="release-strip-message">Conheça o novo painel, a Central de Membresia e as carteirinhas.</span>
+          </div>
+          <div className="release-strip-actions">
+            <a href={withBasePath("/app/demo/")}>Testar agora <span aria-hidden="true">↗</span></a>
+            <a href={withBasePath("/status/")}>Ver o progresso</a>
+          </div>
+        </section>
         <section className="hero" aria-label="Apresentação">
           <div className="hero-media" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -106,7 +116,7 @@ export default function HomePage() {
         >
           <div className="section-split">
             <div className="section-copy">
-              <p className="section-kicker">Portal público · DAS</p>
+              <p className="section-kicker">Nossa congregação</p>
               <h2 id="congregation-heading">Riacho Fundo I</h2>
               <p>
                 Unidade piloto da Igreja de Deus. Este site é a face pública da
@@ -133,7 +143,7 @@ export default function HomePage() {
           aria-labelledby="access-heading"
         >
           <div className="section-inner section-inner--wide">
-            <p className="section-kicker">Sistema de gestão · Demonstração F2</p>
+            <p className="section-kicker">Conheça o sistema</p>
             <h2 id="access-heading">Conheça a plataforma</h2>
             <p className="section-lede">
               Explore o cadastro, a admissão de membros e as carteirinhas com dados
@@ -231,7 +241,7 @@ export default function HomePage() {
           <p className="site-footer-links">
             <a href={withBasePath("/app/demo/")}>Demonstração</a>
             {" · "}
-            <Link href="/status/">Status do projeto</Link>
+            <Link href="/status/">Acompanhar desenvolvimento</Link>
             {" · "}
             <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">
               Instagram
