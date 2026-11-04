@@ -4,6 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../components/AppShell";
 import { withBasePath } from "../../../lib/paths";
 import styles from "./demo.module.css";
+import {
+  KEY, STEP_ORDER, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, MODALITY_LABEL,
+  seed, nextStep, isEligible, isPersonList, selectVisible,
+  createVisitor, beginAdmission, advanceAdmission, setCredential,
+  type Role, type Tab, type MembershipStatus, type Modality, type Step,
+  type Person, type DemoError,
+} from "../../../lib/demo-domain";
+
 
 /**
  * Demonstração F2 estática para GitHub Pages.
@@ -11,73 +19,19 @@ import styles from "./demo.module.css";
  * Estados seguem a proposta de contrato 0.2.0-f2 do backend.
  * A implantação real deve substituir este repositório local por chamadas autenticadas.
  */
-type Role = "SECRETARIA" | "PASTOR" | "MEMBRO";
-type Tab = "painel" | "pessoas" | "admissoes" | "carteirinhas";
-type MembershipStatus = "VISITOR" | "PENDING_ADMISSION" | "ACTIVE";
-type Modality = "BATISMO" | "TRANSFERENCIA" | "RECONCILIACAO" | "OUTRO";
-type Step = "modality" | "documents" | "secretaria" | "pastor";
-type Person = {
-  id: string;
-  name: string;
-  email: string;
-  household: string;
-  status: MembershipStatus;
-  modality: Modality | null;
-  checklist: Record<Step, boolean>;
-  credential: "NONE" | "ACTIVE" | "REVOKED";
-  token: string;
-};
-const KEY = "idbrf_f2_demo_2026_11";
-const STEP_ORDER: Step[] = ["modality", "documents", "secretaria", "pastor"];
-const STEP_LABEL: Record<Step, string> = {
-  modality: "Modalidade",
-  documents: "Documentação",
-  secretaria: "Conferência da Secretaria",
-  pastor: "Aprovação pastoral",
-};
-const ROLE_LABEL: Record<Role, string> = {
-  SECRETARIA: "Secretaria",
-  PASTOR: "Pastor",
-  MEMBRO: "Membro",
-};
-const STATUS_LABEL: Record<MembershipStatus, string> = {
-  VISITOR: "Visitante",
-  PENDING_ADMISSION: "Em admissão",
-  ACTIVE: "Membro ativo",
-};
-const MODALITY_LABEL: Record<Modality, string> = {
-  BATISMO: "Batismo",
-  TRANSFERENCIA: "Transferência",
-  RECONCILIACAO: "Reconciliação",
-  OUTRO: "Outro",
-};
-const complete: Record<Step, boolean> = {
-  modality: true, documents: true, secretaria: true, pastor: true,
-};
-const empty: Record<Step, boolean> = {
-  modality: false, documents: false, secretaria: false, pastor: false,
-};
-const SEED: Person[] = [
-  { id: "p-001", name: "Ana Demo", email: "ana@example.test", household: "Família Demo", status: "ACTIVE", modality: "TRANSFERENCIA", checklist: { ...complete }, credential: "NONE", token: "" },
-  { id: "p-002", name: "Bruno Demo", email: "bruno@example.test", household: "Família Demo", status: "ACTIVE", modality: "BATISMO", checklist: { ...complete }, credential: "ACTIVE", token: "IDBRF-DEMO-002" },
-  { id: "p-003", name: "Carla Demo", email: "carla@example.test", household: "Família Exemplo", status: "VISITOR", modality: null, checklist: { ...empty }, credential: "NONE", token: "" },
-  { id: "p-004", name: "Davi Demo", email: "davi@example.test", household: "Família Exemplo", status: "PENDING_ADMISSION", modality: "BATISMO", checklist: { modality: true, documents: true, secretaria: false, pastor: false }, credential: "NONE", token: "" },
-];
-function nextStep(person: Person): Step | null {
-  return STEP_ORDER.find((step) => !person.checklist[step]) ?? null;
-}
-function isEligible(person: Person): boolean {
-  return person.status === "ACTIVE" && STEP_ORDER.every((s) => person.checklist[s]);
-}
 function badge(status: MembershipStatus) {
   return status === "ACTIVE" ? styles.ok : status === "VISITOR" ? styles.neutral : styles.wait;
 }
-function seed(): Person[] {
-  return SEED.map((p) => ({ ...p, checklist: { ...p.checklist } }));
-}
-function isPersonList(value: unknown): value is Person[] {
-  return Array.isArray(value) && value.every((p) => typeof p?.id === "string" && typeof p?.name === "string" && typeof p?.checklist === "object");
-}
+const ERROR_MESSAGES: Record<DemoError, string> = {
+  ROLE_REQUIRED: "Operação bloqueada para este perfil ilustrativo.",
+  INVALID_PERSON: "Confira o cadastro da pessoa.",
+  DUPLICATE_EMAIL: "E-mail já cadastrado na demonstração. Verifique antes de incluir uma nova pessoa.",
+  INVALID_STATE: "O registro não está na situação adequada para esta operação.",
+  STEP_LOCKED: "Etapa fora de ordem: conclua as anteriores.",
+  NOT_ELIGIBLE: "Emissão bloqueada: é necessário concluir a aprovação e manter membresia ativa.",
+  CARD_NOT_ACTIVE: "Não há carteirinha ativa para revogar.",
+  CARD_ALREADY_ACTIVE: "A carteirinha já está ativa.",
+};
 
 export default function DemoF2Page() {
   const [people, setPeople] = useState<Person[]>(seed);
@@ -108,10 +62,7 @@ export default function DemoF2Page() {
   }, [people, hydrated]);
 
   const isStaff = role !== "MEMBRO";
-  const visible = useMemo(
-    () => isStaff ? people.filter((p) => (p.name + " " + p.email + " " + p.household).toLowerCase().includes(search.toLowerCase())) : people.filter((p) => p.id === "p-002"),
-    [people, search, isStaff],
-  );
+  const visible = useMemo(() => selectVisible(people, role, search), [people, role, search]);
   const activeCount = people.filter((p) => p.status === "ACTIVE").length;
   const pendingCount = people.filter((p) => p.status === "PENDING_ADMISSION").length;
   const visitorCount = people.filter((p) => p.status === "VISITOR").length;
@@ -123,48 +74,31 @@ export default function DemoF2Page() {
   }
   function addVisitor(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (role !== "SECRETARIA" || !name.trim()) return;
-    if (people.some((p) => p.email && email.trim() && p.email.toLowerCase() === email.trim().toLowerCase())) {
-      setNotice("E-mail já cadastrado na demonstração. Verifique antes de incluir uma nova pessoa.");
-      return;
-    }
-    const newPerson: Person = {
-      id: "p-" + Date.now(), name: name.trim(), email: email.trim(),
-      household: household.trim() || "Sem família vinculada", status: "VISITOR",
-      modality: null, checklist: { ...empty }, credential: "NONE", token: "",
-    };
-    setPeople((prev) => [...prev, newPerson]);
-    setName(""); setEmail(""); setHousehold(""); setNotice("Visitante cadastrado na demonstração. Nenhuma informação foi enviada a um servidor.");
+    const result = createVisitor(people, role, { name, email, household }, "p-" + Date.now());
+    if (!result.ok) { setNotice(ERROR_MESSAGES[result.code]); return; }
+    setPeople(result.value);
+    setName(""); setEmail(""); setHousehold("");
+    setNotice("Visitante cadastrado na demonstração. Nenhuma informação foi enviada a um servidor.");
     setTab("pessoas");
   }
   function startAdmission(id: string) {
-    if (role !== "SECRETARIA") return;
-    update(id, (p) => ({ ...p, status: "PENDING_ADMISSION", modality, checklist: { ...empty, modality: true } }), "Protocolo demonstrativo criado. A documentação é a próxima etapa.");
+    const result = beginAdmission(people.find((p) => p.id === id), role, modality);
+    if (!result.ok) { setNotice(ERROR_MESSAGES[result.code]); return; }
+    update(id, () => result.value, "Protocolo demonstrativo criado. A documentação é a próxima etapa.");
   }
   function completeStep(id: string, step: Step) {
-    const person = people.find((p) => p.id === id);
-    if (!person || person.status !== "PENDING_ADMISSION" || nextStep(person) !== step) return;
-    if (step === "pastor" ? role !== "PASTOR" : role !== "SECRETARIA") {
-      setNotice("Etapa bloqueada: perfil insuficiente.");
-      return;
-    }
-    update(id, (p) => {
-      const checklist = { ...p.checklist, [step]: true };
-      const status: MembershipStatus = step === "pastor" ? "ACTIVE" : p.status;
-      return { ...p, checklist, status };
-    }, step === "pastor" ? "Membresia aprovada na simulação. Carteirinha agora elegível." : STEP_LABEL[step] + " concluída na simulação.");
+    const result = advanceAdmission(people.find((p) => p.id === id), role, step);
+    if (!result.ok) { setNotice(ERROR_MESSAGES[result.code]); return; }
+    update(id, () => result.value, step === "pastor"
+      ? "Membresia aprovada na simulação. Carteirinha agora elegível."
+      : STEP_LABEL[step] + " concluída na simulação.");
   }
   function changeCard(id: string, value: "ACTIVE" | "REVOKED") {
-    if (role !== "SECRETARIA") return;
-    const p = people.find((x) => x.id === id);
-    if (!p || (value === "ACTIVE" && !isEligible(p))) {
-      setNotice("Emissão bloqueada: é necessário concluir a aprovação e manter membresia ativa.");
-      return;
-    }
-    update(id, (x) => ({
-      ...x, credential: value,
-      token: value === "ACTIVE" ? "IDBRF-DEMO-" + x.id : x.token,
-    }), value === "ACTIVE" ? "Carteirinha demonstrativa emitida." : "Carteirinha demonstrativa revogada.");
+    const result = setCredential(people.find((p) => p.id === id), role, value);
+    if (!result.ok) { setNotice(ERROR_MESSAGES[result.code]); return; }
+    update(id, () => result.value, value === "ACTIVE"
+      ? "Carteirinha demonstrativa emitida."
+      : "Carteirinha demonstrativa revogada.");
   }
   function reset() {
     setPeople(seed()); setNotice("Dados fictícios restaurados."); setTab("painel"); setSearch("");
