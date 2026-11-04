@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description:
-    "Igreja de Deus no Riacho Fundo I — fé, família, cuidado, comunhão e missão.",
+    "Igreja de Deus no Riacho Fundo I — uma igreja para Deus, pelas famílias. Cultos, comunhão e Instagram @idbriacho_.",
 };
 
 export default function RootLayout({
