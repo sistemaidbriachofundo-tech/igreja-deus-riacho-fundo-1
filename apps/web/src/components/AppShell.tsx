@@ -18,6 +18,15 @@ function CrossMark() {
   );
 }
 
+function IconDemo() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
+      <path d="M12 2l2.1 7.3L21.5 12l-7.4 2.7L12 22l-2.1-7.3L2.5 12l7.4-2.7L12 2Z"
+        stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function IconOverview() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -119,7 +128,7 @@ const NAV: {
   },
   {
     key: "demo", href: "/app/demo/", label: "Explorar demonstração",
-    short: "Testar", Icon: IconOverview,
+    short: "Testar", Icon: IconDemo,
   },
 ];
 
@@ -145,7 +154,7 @@ export function AppShell({
           </div>
         </div>
 
-        <p className="side-caption">Principal · F2</p>
+        <p className="side-caption">Gestão da igreja</p>
 
         <nav className="sidebar-nav" aria-label="Módulos">
           {NAV.map(({ key, href, label, Icon }) => (
@@ -163,7 +172,7 @@ export function AppShell({
 
         <p className="sidebar-foot">
           <a href={withBasePath("/")}>← Site público</a>
-          <span>Protótipo v5 · dados fictícios</span>
+          <span>Plataforma em implantação</span>
         </p>
       </aside>
 
@@ -184,7 +193,7 @@ export function AppShell({
           <div className="topbar-left">
             <p className="topbar-title">{APP_NAME}</p>
             <span className="preview-chip" title="Ambiente demonstrativo">
-              Dados fictícios · sem integrações reais
+              Ambiente em implantação
             </span>
           </div>
           <p className="topbar-meta">{meta}</p>
