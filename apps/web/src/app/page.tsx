@@ -136,7 +136,7 @@ export default function HomePage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={welcomeSrc}
-                alt="Interior de templo iluminado, atmosfera de culto"
+                alt="Congregação em adoração, mãos erguidas no culto"
                 width={1600}
                 height={1064}
                 loading="lazy"
@@ -186,9 +186,9 @@ export default function HomePage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={cultoSrc}
-                alt="Velas acesas em clima de oração e culto"
-                width={1600}
-                height={2400}
+                alt="Bíblia aberta em momento de leitura e culto"
+                width={1400}
+                height={933}
                 loading="lazy"
               />
             </figure>
