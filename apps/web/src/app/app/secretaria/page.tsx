@@ -108,11 +108,12 @@ export default function SecretariaPage() {
   return (
     <AppShell active="secretaria" meta="Secretaria · piloto RF1">
       <header className="page-hero">
-        <p className="eyebrow">Cadastro · single church</p>
+        <p className="eyebrow">Principal · protótipo v5</p>
         <h1>Secretaria</h1>
         <p className="lede">
-          Lista e registra membresias em {churchName}. Emite ou revoga
-          carteirinha com QR opaco — sem CPF/telefone no token.
+          Protocolo de membresia em {churchName}: cadastrar, emitir e revogar
+          carteirinha com QR opaco — sem CPF/telefone no token (DAS RF
+          carteirinha).
         </p>
       </header>
 
