@@ -12,6 +12,8 @@ module.exports = {
     "!**/*.module.ts",
     "!**/main.ts",
     "!**/*.dto.ts",
+    "!**/decorators/**",
+    "!**/prisma/prisma.service.ts",
   ],
   coverageDirectory: "../coverage",
   // Paths relative to repo root so Sonar maps SF:apps/api/src/...

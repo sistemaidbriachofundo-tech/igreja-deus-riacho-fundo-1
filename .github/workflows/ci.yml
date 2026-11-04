@@ -182,8 +182,8 @@ jobs:
           done
           test -s apps/api/coverage/lcov.info
           test -s packages/shared/coverage/lcov.info
-          echo "LCOV sample (api):"; rg -m3 '^SF:' apps/api/coverage/lcov.info || true
-          echo "LCOV sample (shared):"; rg -m3 '^SF:' packages/shared/coverage/lcov.info || true
+          echo "LCOV sample (api):"; grep -m3 '^SF:' apps/api/coverage/lcov.info || true
+          echo "LCOV sample (shared):"; grep -m3 '^SF:' packages/shared/coverage/lcov.info || true
       - name: SonarCloud Scan
         if: steps.gate.outputs.skip == 'false'
         uses: SonarSource/sonarcloud-github-action@master
