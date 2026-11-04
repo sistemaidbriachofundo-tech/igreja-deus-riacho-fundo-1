@@ -70,15 +70,15 @@ Pipeline em `.github/workflows/ci.yml`:
 
 ## GitHub Pages
 
-URL típica (após habilitar Pages e merge em `main`):
+URL (export estático de `apps/web`, deploy pelo job **Deploy GitHub Pages** em `ci.yml`):
 
 `https://sistemaidbriachofundo-tech.github.io/igreja-deus-riacho-fundo-1/`
 
-**Setup humano (uma vez):**
+**Setup humano (uma vez) — Settings → Pages:**
 
-1. Repo → **Settings → Pages**
-2. Source: **GitHub Actions**
-3. Após o primeiro deploy em `main`, confirmar a URL real
+1. **Source:** GitHub Actions (não “Deploy from a branch”)
+2. Confirmar que o workflow **CI** publica o artefato (`apps/web/out`) em push para `main`
+3. Após o primeiro deploy bem-sucedido, abrir a URL acima e validar o site
 
 ## SonarCloud
 
