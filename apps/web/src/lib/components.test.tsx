@@ -19,8 +19,7 @@ describe("navegação e renderização real de componentes", () => {
   it("renderiza sidebar e barra inferior com o mesmo item selecionado", () => {
     const html = renderToStaticMarkup(createElement(AppShell, {
       active: "secretaria", meta: "Secretaria · teste",
-      children: createElement("p", null, "Conteúdo renderizado"),
-    }));
+    }, createElement("p", null, "Conteúdo renderizado")));
     expect(html).toContain('aria-label="Navegação principal"');
     expect(html).toContain('aria-label="Navegação principal no celular"');
     expect(html).toContain("Conteúdo renderizado");
@@ -31,16 +30,16 @@ describe("navegação e renderização real de componentes", () => {
 
   it("não marca uma seção como ativa se nenhum item foi selecionado", () => {
     const html = renderToStaticMarkup(createElement(AppShell, {
-      meta: "Exemplo", children: createElement("span", null, "Conteúdo"),
-    }));
+      meta: "Exemplo",
+    }, createElement("span", null, "Conteúdo")));
     expect(html).not.toContain('aria-current="page"');
   });
 
   it("respeita o basePath do GitHub Pages nos links do menu", () => {
     process.env.NEXT_PUBLIC_BASE_PATH = "/igreja-deus-riacho-fundo-1";
     const html = renderToStaticMarkup(createElement(AppShell, {
-      active: "demo", meta: "Exemplo", children: "Teste",
-    }));
+      active: "demo", meta: "Exemplo",
+    }, "Teste"));
     expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/demo/"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
   });
