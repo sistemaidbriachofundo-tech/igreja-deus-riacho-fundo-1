@@ -12,7 +12,8 @@ export class HealthService {
 
   getHello(): { message: string; app: string } {
     return {
-      message: "Olá — API do sistema Igreja de Deus Riacho Fundo I (skeleton F1-SEC)",
+      message:
+        "Olá — API do sistema Igreja de Deus Riacho Fundo I (skeleton F1 IAM)",
       app: APP_NAME,
     };
   }
