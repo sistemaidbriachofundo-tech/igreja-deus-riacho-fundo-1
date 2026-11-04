@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../../components/AppShell";
+import { withBasePath } from "../../../lib/paths";
 import styles from "./demo.module.css";
 
 /**
@@ -176,13 +177,15 @@ export default function DemoF2Page() {
   ];
   const member = people.find((p) => p.id === "p-002");
   return (
-    <AppShell meta="Ambiente demonstrativo · F2">
+    <AppShell active="demo" meta="Ambiente demonstrativo · F2">
       <div className={styles.root}>
         <header className={styles.head}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.heroPhoto} src={withBasePath("/images/hero-oficial.jpg")} alt="" width={928} height={1192} />
           <div>
             <p className={styles.eyebrow}>Igreja de Deus no Riacho Fundo 1 · Demonstração</p>
             <h1>Central de Membresia</h1>
-            <p>Uma experiência para conhecer os processos antes de conectarmos o backend real.</p>
+            <p>Cuidar de pessoas começa por conhecê-las. Explore a jornada de admissão e os serviços da Secretaria em uma experiência interativa.</p>
           </div>
           <span className={styles.flag}>Dados 100% fictícios</span>
         </header>
