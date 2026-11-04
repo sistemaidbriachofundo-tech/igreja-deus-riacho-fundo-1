@@ -108,9 +108,20 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
       - run: npm run build -w @idbrf/db
       - run: npm run build -w @idbrf/api
-      - run: npm run build -w @idbrf/web
+      # next/font/google can flake on Fonts API fetch in CI — retry a few times.
+      - name: Build web
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ env.NEXT_PUBLIC_BASE_PATH }}
+        run: |
+          for attempt in 1 2 3; do
+            if npm run build -w @idbrf/web; then
+              exit 0
+            fi
+            echo "Web build failed (attempt ${attempt}/3); retrying…"
+            sleep $((attempt * 5))
+          done
+          echo "Web build failed after 3 attempts"
+          exit 1
       # Único caminho de deploy Pages: export estático de apps/web (monorepo).
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
