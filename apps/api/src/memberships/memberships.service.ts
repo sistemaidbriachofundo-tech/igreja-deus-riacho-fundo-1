@@ -54,6 +54,11 @@ export class MembershipsService {
           },
           take: 1,
         },
+        admissions: {
+          select: { id: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: { joinedAt: "desc" },
     });
@@ -71,6 +76,7 @@ export class MembershipsService {
         notes: row.notes,
         person: row.person,
         activeCredentialId: row.credentials[0]?.id ?? null,
+        admissionId: row.admissions?.[0]?.id ?? null,
       })),
     };
   }

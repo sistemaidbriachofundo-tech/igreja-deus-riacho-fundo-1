@@ -192,6 +192,43 @@ async function main() {
   const membro = await prisma.role.findUniqueOrThrow({
     where: { code: "MEMBRO" },
   });
+  const pastorRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "PASTOR" },
+  });
+
+  const pastorPerson = await prisma.person.upsert({
+    where: { id: "demoPersonPastor01" },
+    update: {
+      displayName: "Paulo Demo Pastor",
+      email: "paulo.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoPersonPastor01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Paulo Demo Pastor",
+      email: "paulo.demo@example.test",
+      status: "ACTIVE",
+    },
+  });
+
+  const pastorUser = await prisma.user.upsert({
+    where: { email: "paulo.demo@example.test" },
+    update: {
+      personId: pastorPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      personId: pastorPerson.id,
+      email: "paulo.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
 
   await prisma.grant.upsert({
     where: {
@@ -224,6 +261,24 @@ async function main() {
     create: {
       userId: memberUser.id,
       roleId: membro.id,
+      organizationId: org.id,
+      churchId: church.id,
+    },
+  });
+
+  await prisma.grant.upsert({
+    where: {
+      userId_roleId_organizationId_churchId: {
+        userId: pastorUser.id,
+        roleId: pastorRole.id,
+        organizationId: org.id,
+        churchId: church.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: pastorUser.id,
+      roleId: pastorRole.id,
       organizationId: org.id,
       churchId: church.id,
     },
@@ -306,7 +361,7 @@ async function main() {
     church: church.slug,
     household: household.id,
     persons: [person.id, memberPerson.id, visitorPerson.id],
-    users: [adminUser.email, memberUser.email],
+    users: [adminUser.email, memberUser.email, pastorUser.email],
     memberships: [anaMembership.id, brunoMembership.id],
   });
 }

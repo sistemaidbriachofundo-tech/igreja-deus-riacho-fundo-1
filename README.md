@@ -4,10 +4,10 @@ Monorepo do sistema de gestão eclesiástica (piloto). Skeleton **F1-SEC** + **F
 
 | Camada | Stack |
 |---|---|
-| API | NestJS (`apps/api`) — health, auth, memberships, credentials |
+| API | NestJS (`apps/api`) — health, auth, memberships, admissions, credentials |
 | Web | Next.js `output: 'export'` — landing `/` + área `/app/*` |
 | Dados | PostgreSQL + Prisma (`packages/db`) — opção A (local + CI) |
-| Shared | IAM, pilot RF1, token opaco da carteirinha |
+| Shared | IAM, pilot RF1, contratos OpenAPI 0.3.0-f2, token opaco da carteirinha |
 
 Preview Pages **não** hospeda API nem banco. Produção HML/PRD prevista: Hostinger VPS (depois desta pista).
 
@@ -111,21 +111,45 @@ Piloto **hard-scoped** a Riacho Fundo I (`PILOT_CHURCH_SLUG=riacho-fundo-1`). Se
 | Entidade | Papel |
 |---|---|
 | `households` | Família leve (opcional no cadastro) |
-| `church_memberships` | Vínculo pessoa ↔ congregação piloto |
+| `church_memberships` | Vínculo pessoa ↔ congregação piloto (`PENDING_ADMISSION` até o pastor) |
+| `admissions` | Protocolo modality → documents → secretaria → pastor |
 | `member_credentials` | Carteirinha; `opaque_token` = único conteúdo do QR |
 
 ### API (Nest — local / Hostinger; **não** no GitHub Pages)
 
-| Método | Rota | Quem |
-|---|---|---|
-| `GET` | `/memberships` | `SECRETARIA` (escopo RF1) |
-| `POST` | `/memberships` | `SECRETARIA` — cadastra pessoa+membresia |
-| `POST` | `/credentials/issue/:membershipId` | `SECRETARIA` |
-| `POST` | `/credentials/revoke/:credentialId` | `SECRETARIA` |
-| `GET` | `/credentials/me` | `MEMBRO` (própria carteirinha) |
-| `GET` | `/credentials/verify/:opaqueToken` | público mínimo (status, sem PII) |
+Não há prefixo `/api`. A origem é `http://localhost:3001` e o path é raiz (`/auth/login`). `API_PATH_PREFIX` em `@idbrf/shared` é `""`. O contrato `0.2.0-f2` (PR #20) com prefixo `/api` está incorreto e não deve ser integrado.
+
+| Método | Rota | Quem | Estado |
+|---|---|---|---|
+| `GET` | `/memberships` | `SECRETARIA` (escopo RF1) | implementado |
+| `POST` | `/memberships` | `SECRETARIA` — cadastro rápido ACTIVE (sem carteirinha) | implementado |
+| `POST` | `/admissions` | `SECRETARIA` | implementado |
+| `GET` | `/admissions` | `SECRETARIA` (todos) / `PASTOR` (fila pastoral) | implementado |
+| `GET` | `/admissions/:id` | mesmos papéis, no escopo da igreja | implementado |
+| `POST` | `/admissions/:id/advance` | etapa da secretaria ou `PASTOR` na última | implementado |
+| `POST` | `/credentials/issue/:membershipId` | `SECRETARIA`, só se `credentialEligible` | implementado |
+| `POST` | `/credentials/revoke/:credentialId` | `SECRETARIA` | implementado |
+| `GET` | `/credentials/me` | `MEMBRO` (própria carteirinha) | implementado |
+| `GET` | `/credentials/verify/:opaqueToken` | público mínimo (status, sem PII) | implementado |
+| `GET` | `/persons/search`, `/households` | — | **proposto** (sem backend) |
 
 QR **nunca** carrega CPF/telefone/e-mail — só token base64url opaco.
+
+### Admissão (M1)
+
+Ordem obrigatória, sem pular etapa: `modality → documents → secretaria → pastor`.
+
+- Abrir protocolo cria membresia `PENDING_ADMISSION` (ou reutiliza `PENDING_ADMISSION` / `ACTIVE` legado).
+- `POST /admissions/:id/advance` com etapa errada → **409** `ADMISSION_STEP_LOCKED`.
+- Papel errado para a etapa (secretaria aprovando como pastor, ou o inverso) → **403** `ADMISSION_ROLE_REQUIRED`.
+- `pastor` + `APPROVE` grava auditoria `admission.pastor_approve`, passa a membresia para `ACTIVE` e liga `credentialEligible`.
+- `REJECT` encerra o protocolo, não ativa a membresia e não libera carteirinha.
+- Emissão exige admissão `APPROVED` com `pastorDecidedAt` / `pastorDecidedByUserId` e membresia `ACTIVE`. Senão **409** `CREDENTIAL_NOT_ELIGIBLE`. Revogação e verificação opaca permanecem.
+- A etapa `documents` é atestação da secretaria. Não há upload de arquivo.
+- Acolhimento e discipulado **não** bloqueiam este fluxo (aguarda decisão da liderança).
+- `CANCELLED` existe no enum e não tem rota. Busca de pessoas e famílias continuam só no contrato.
+
+Erros seguem `{ statusCode, message, error, code? }`. Exemplos fictícios: `MOCK_ADMISSION_*` em `@idbrf/shared` e `packages/shared/openapi/f2-v0.3.yaml`.
 
 ### Web — o que funciona onde
 
@@ -136,11 +160,11 @@ QR **nunca** carrega CPF/telefone/e-mail — só token base64url opaco.
 | **Local** `dev:api` + `dev:web` | Demo completa (login seed → listar/emitir/ver carteirinha) |
 | **Hostinger** (futuro) | Alvo para API+DB dinâmicos atrás do mesmo front |
 
-Contas seed (senha `admin`): `ana.demo@example.test` (secretaria), `bruno.demo@example.test` (membro com carteirinha).
+Contas seed (senha `admin`, só demo): `ana.demo@example.test` (secretaria), `paulo.demo@example.test` (pastor), `bruno.demo@example.test` (membro com carteirinha já emitida). Bruno continua verificável. Uma **nova** emissão passa pelo protocolo pastoral — revogar e reemitir a dele também.
 
 ## F1 IAM + `person_id`
 
-Fundação de identidade e autorização **no servidor** (sem módulos de produto: WhatsApp, finanças, pastoral, etc.).
+Fundação de identidade e autorização **no servidor** (sem módulos de produto: WhatsApp, finanças, escalas, etc.). A aprovação pastoral do M1 é só o gate da admissão, não o módulo de cuidado pastoral.
 
 ### Modelo (Prisma)
 
@@ -160,6 +184,7 @@ Fundação de identidade e autorização **no servidor** (sem módulos de produt
 - **Não** usamos cookie/session store neste PR.
 - **Depois (decisão aberta):** OIDC + MFA para privilegiados — o módulo `auth` está preparado para trocar o emissor de tokens sem reescrever guards RBAC/escopo.
 - Hash de senha no seed: `sha256:…` **somente demo**. Alvo DAS: **Argon2id** antes de HML com contas reais.
+- Endurecimento Argon2id + `JWT_SECRET` obrigatório em produção está no PR #17 (aberto, **não** mergeado aqui para não sobrepor aquele diff). `main` ainda aceita o fallback de desenvolvimento fora de `NODE_ENV=production`. Não usar essas contas demo em HML/PRD.
 
 ### Autorização
 

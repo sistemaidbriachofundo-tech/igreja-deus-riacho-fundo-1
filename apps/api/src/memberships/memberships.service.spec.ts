@@ -89,12 +89,14 @@ describe("MembershipsService scope", () => {
           householdId: null,
         },
         credentials: [],
+        admissions: [{ id: "adm1" }],
       },
     ]);
 
     const result = await service.listForPilot(secretaria);
     expect(result.church.slug).toBe("riacho-fundo-1");
     expect(result.memberships).toHaveLength(1);
+    expect(result.memberships[0]?.admissionId).toBe("adm1");
     expect(prisma.churchMembership.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {

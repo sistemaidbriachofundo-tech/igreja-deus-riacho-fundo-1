@@ -21,9 +21,27 @@ enum UserStatus {
 }
 
 enum MembershipStatus {
+  PENDING_ADMISSION
   ACTIVE
   INACTIVE
   TRANSFERRED
+}
+
+enum AdmissionStatus {
+  DRAFT
+  AWAITING_DOCUMENTS
+  AWAITING_SECRETARIA
+  AWAITING_PASTOR
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AdmissionModality {
+  BATISMO
+  TRANSFERENCIA
+  RECONCILIACAO
+  OUTRO
 }
 
 enum CredentialStatus {
@@ -43,6 +61,7 @@ model Organization {
   households  Household[]
   memberships ChurchMembership[]
   credentials MemberCredential[]
+  admissions  Admission[]
   grants      Grant[]
   auditLogs   AuditLog[]
 
@@ -62,6 +81,7 @@ model Church {
   households   Household[]
   memberships  ChurchMembership[]
   credentials  MemberCredential[]
+  admissions   Admission[]
   grants       Grant[]
   auditLogs    AuditLog[]
 
@@ -104,6 +124,7 @@ model Person {
   user         User?
   memberships  ChurchMembership[]
   credentials  MemberCredential[]
+  admissions   Admission[]
 
   @@index([organizationId])
   @@index([homeChurchId])
@@ -125,6 +146,9 @@ model User {
   grants           Grant[]
   auditLogs        AuditLog[]
   issuedCredentials MemberCredential[] @relation("CredentialIssuer")
+  admissionsDocumentsCompleted Admission[] @relation("AdmissionDocumentsBy")
+  admissionsSecretariaDecided  Admission[] @relation("AdmissionSecretariaBy")
+  admissionsPastorDecided      Admission[] @relation("AdmissionPastorBy")
 
   @@map("users")
 }
@@ -179,6 +203,7 @@ model ChurchMembership {
   church       Church             @relation(fields: [churchId], references: [id])
   organization Organization       @relation(fields: [organizationId], references: [id])
   credentials  MemberCredential[]
+  admissions   Admission[]
 
   @@unique([personId, churchId])
   @@index([churchId, status])
@@ -212,6 +237,44 @@ model MemberCredential {
   @@index([churchId, status])
   @@index([membershipId, status])
   @@map("member_credentials")
+}
+
+/// Protocolo de admissão (M1). Carteirinha só após APPROVED + membresia ACTIVE.
+model Admission {
+  id             String              @id @default(cuid())
+  personId       String              @map("person_id")
+  membershipId   String?             @map("membership_id")
+  churchId       String              @map("church_id")
+  organizationId String              @map("organization_id")
+  status         AdmissionStatus     @default(DRAFT)
+  modality       AdmissionModality?
+  notes          String?
+  rejectionReason String?            @map("rejection_reason")
+
+  modalityRecordedAt         DateTime? @map("modality_recorded_at")
+  documentsCompletedAt       DateTime? @map("documents_completed_at")
+  documentsCompletedByUserId String?   @map("documents_completed_by_user_id")
+  secretariaDecidedAt        DateTime? @map("secretaria_decided_at")
+  secretariaDecidedByUserId  String?   @map("secretaria_decided_by_user_id")
+  pastorDecidedAt            DateTime? @map("pastor_decided_at")
+  pastorDecidedByUserId      String?   @map("pastor_decided_by_user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person                 Person            @relation(fields: [personId], references: [id])
+  membership             ChurchMembership? @relation(fields: [membershipId], references: [id])
+  church                 Church            @relation(fields: [churchId], references: [id])
+  organization           Organization      @relation(fields: [organizationId], references: [id])
+  documentsCompletedBy   User?             @relation("AdmissionDocumentsBy", fields: [documentsCompletedByUserId], references: [id])
+  secretariaDecidedBy    User?             @relation("AdmissionSecretariaBy", fields: [secretariaDecidedByUserId], references: [id])
+  pastorDecidedBy        User?             @relation("AdmissionPastorBy", fields: [pastorDecidedByUserId], references: [id])
+
+  @@index([churchId, status])
+  @@index([organizationId, churchId])
+  @@index([personId])
+  @@index([membershipId])
+  @@map("admissions")
 }
 
 model AuditLog {

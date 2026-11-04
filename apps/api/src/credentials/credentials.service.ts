@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -11,6 +12,7 @@ import {
   generateOpaqueCredentialToken,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import { httpError } from "../common/http-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
@@ -31,14 +33,20 @@ export class CredentialsService {
         id: membershipId,
         churchId: pilot.churchId,
         organizationId: pilot.organizationId,
-        status: "ACTIVE",
       },
       include: {
         person: { select: { id: true, displayName: true } },
       },
     });
     if (!membership) {
-      throw new NotFoundException("Membresia ativa não encontrada no piloto");
+      throw new NotFoundException("Membresia não encontrada no piloto");
+    }
+    if (membership.status !== "ACTIVE") {
+      throw httpError(
+        HttpStatus.CONFLICT,
+        "Carteirinha exige admissão aprovada pelo pastor e membresia ACTIVE",
+        "CREDENTIAL_NOT_ELIGIBLE",
+      );
     }
 
     const existingActive = await this.prisma.memberCredential.findFirst({
@@ -50,6 +58,24 @@ export class CredentialsService {
     if (existingActive) {
       throw new ConflictException(
         "Já existe carteirinha ativa; revogue antes de emitir nova",
+      );
+    }
+
+    const approvedAdmission = await this.prisma.admission.findFirst({
+      where: {
+        membershipId: membership.id,
+        churchId: pilot.churchId,
+        organizationId: pilot.organizationId,
+        status: "APPROVED",
+        pastorDecidedAt: { not: null },
+        pastorDecidedByUserId: { not: null },
+      },
+    });
+    if (!approvedAdmission) {
+      throw httpError(
+        HttpStatus.CONFLICT,
+        "Carteirinha exige admissão aprovada pelo pastor e membresia ACTIVE",
+        "CREDENTIAL_NOT_ELIGIBLE",
       );
     }
 
@@ -76,7 +102,12 @@ export class CredentialsService {
         resourceId: credential.id,
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
-        metadata: { membershipId: membership.id, personId: membership.personId },
+        metadata: {
+          membershipId: membership.id,
+          personId: membership.personId,
+          admissionId: approvedAdmission.id,
+          credentialEligible: true,
+        },
       },
     });
 

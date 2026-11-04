@@ -16,6 +16,9 @@ export type {
   UserStatus,
   MembershipStatus,
   CredentialStatus,
+  Admission,
+  AdmissionStatus,
+  AdmissionModality,
 } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {

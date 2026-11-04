@@ -1,4 +1,8 @@
-import { ConflictException, ForbiddenException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+} from "@nestjs/common";
 import {
   containsSensitiveCredentialPayload,
   isOpaqueCredentialToken,
@@ -60,6 +64,14 @@ describe("CredentialsService", () => {
           revokedAt: null,
         })),
       },
+      admission: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "adm-approved",
+          status: "APPROVED",
+          pastorDecidedAt: new Date("2026-11-04T11:00:00.000Z"),
+          pastorDecidedByUserId: "u-pas",
+        }),
+      },
       auditLog: { create: jest.fn() },
     };
     const service = new CredentialsService(
@@ -73,6 +85,53 @@ describe("CredentialsService", () => {
     expect(card.qrPayload).not.toMatch(/cpf|telefone|@|\d{3}\.\d{3}/i);
     expect(card.displayName).toBe("Bruno Demo");
     expect(prisma.memberCredential.create).toHaveBeenCalled();
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            admissionId: "adm-approved",
+            credentialEligible: true,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("refuses a card when pastoral approval is missing", async () => {
+    const prisma = {
+      churchMembership: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "m1",
+          personId: "p-mem",
+          status: "ACTIVE",
+          person: { id: "p-mem", displayName: "Bruno Demo" },
+        }),
+      },
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
+      admission: { findFirst: jest.fn().mockResolvedValue(null) },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    try {
+      await service.issue(secretaria, "m1");
+      throw new Error("deveria falhar");
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpException);
+      const body = (error as HttpException).getResponse() as {
+        statusCode: number;
+        code?: string;
+      };
+      expect(body.statusCode).toBe(409);
+      expect(body.code).toBe("CREDENTIAL_NOT_ELIGIBLE");
+    }
+    expect(prisma.memberCredential.create).not.toHaveBeenCalled();
   });
 
   it("refuses second active card without revoke", async () => {
