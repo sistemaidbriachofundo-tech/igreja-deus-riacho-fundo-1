@@ -159,7 +159,7 @@ Fundação de identidade e autorização **no servidor** (sem módulos de produt
 - Rotas públicas: `@Public()` (ex.: `GET /health`, `POST /auth/login`).
 - **Não** usamos cookie/session store neste PR.
 - **Depois (decisão aberta):** OIDC + MFA para privilegiados — o módulo `auth` está preparado para trocar o emissor de tokens sem reescrever guards RBAC/escopo.
-- Hash de senha no seed: `sha256:…` **somente demo**. Alvo DAS: **Argon2id** antes de HML com contas reais.
+- Hash de senha no seed: **Argon2id** (senha demo `admin`). A API ainda aceita hashes legados `sha256:` se existirem em bases locais antigas.
 
 ### Autorização
 
@@ -178,7 +178,7 @@ Cria org/igreja demo, papéis base, duas pessoas (`demoPersonRiacho01`, `demoPer
 ### O que o IAM sozinho não inclui (ver slice F2 acima)
 
 - WhatsApp, finanças, pastoral, escalas  
-- OIDC/MFA, Argon2id de produção, política completa de auditoria  
+- OIDC/MFA, política completa de auditoria / leituras sensíveis  
 - Multi-congregação / multi-org UI  
 
 ## O que NÃO vai neste preview

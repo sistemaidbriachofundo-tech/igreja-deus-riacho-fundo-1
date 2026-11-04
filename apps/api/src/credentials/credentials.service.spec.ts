@@ -5,6 +5,7 @@ import {
 } from "@idbrf/shared";
 import { CredentialsService } from "./credentials.service";
 import type { AuthUser } from "../auth/types/auth-user";
+import { BusinessException } from "../common/business.exception";
 
 describe("CredentialsService", () => {
   const pilot = {
@@ -41,8 +42,8 @@ describe("CredentialsService", () => {
     ],
   };
 
-  it("issues card with opaque QR payload (no CPF/phone)", async () => {
-    const prisma = {
+  function prismaWithEligibility(eligible: boolean) {
+    return {
       churchMembership: {
         findFirst: jest.fn().mockResolvedValue({
           id: "m1",
@@ -50,6 +51,11 @@ describe("CredentialsService", () => {
           status: "ACTIVE",
           person: { id: "p-mem", displayName: "Bruno Demo" },
         }),
+      },
+      admissionProtocol: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue(eligible ? { id: "adm1", status: "APPROVED" } : null),
       },
       memberCredential: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -62,6 +68,10 @@ describe("CredentialsService", () => {
       },
       auditLog: { create: jest.fn() },
     };
+  }
+
+  it("issues card with opaque QR when admission APPROVED", async () => {
+    const prisma = prismaWithEligibility(true);
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
@@ -75,21 +85,26 @@ describe("CredentialsService", () => {
     expect(prisma.memberCredential.create).toHaveBeenCalled();
   });
 
+  it("blocks issue when credentialEligible is false", async () => {
+    const prisma = prismaWithEligibility(false);
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(service.issue(secretaria, "m1")).rejects.toBeInstanceOf(
+      BusinessException,
+    );
+    expect(prisma.memberCredential.create).not.toHaveBeenCalled();
+  });
+
   it("refuses second active card without revoke", async () => {
     const prisma = {
-      churchMembership: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: "m1",
-          personId: "p-mem",
-          status: "ACTIVE",
-          person: { id: "p-mem", displayName: "Bruno Demo" },
-        }),
-      },
+      ...prismaWithEligibility(true),
       memberCredential: {
         findFirst: jest.fn().mockResolvedValue({ id: "c-old", status: "ACTIVE" }),
         create: jest.fn(),
       },
-      auditLog: { create: jest.fn() },
     };
     const service = new CredentialsService(
       prisma as never,
@@ -136,6 +151,7 @@ describe("CredentialsService", () => {
       {
         churchMembership: { findFirst: jest.fn() },
         memberCredential: { findFirst: jest.fn(), create: jest.fn() },
+        admissionProtocol: { findFirst: jest.fn() },
         auditLog: { create: jest.fn() },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,

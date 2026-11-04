@@ -1,20 +1,65 @@
 import {
-  hashPasswordDemo,
+  hashPassword,
+  hashPasswordLegacySha256,
   verifyPassword,
+  resolveJwtSecret,
   AuthService,
 } from "./auth.service";
+import {
+  JWT_DEV_FALLBACK_SECRET,
+  JWT_SECRET_MIN_LENGTH,
+} from "./auth.constants";
 
 describe("AuthService password helpers", () => {
-  it("hashes and verifies demo passwords", () => {
-    const hash = hashPasswordDemo("admin");
-    expect(hash.startsWith("sha256:")).toBe(true);
-    expect(verifyPassword("admin", hash)).toBe(true);
-    expect(verifyPassword("wrong", hash)).toBe(false);
+  it("hashes and verifies Argon2id passwords", async () => {
+    const hash = await hashPassword("admin");
+    expect(hash.startsWith("$argon2id$")).toBe(true);
+    expect(await verifyPassword("admin", hash)).toBe(true);
+    expect(await verifyPassword("wrong", hash)).toBe(false);
   });
 
-  it("rejects missing or unknown hash schemes", () => {
-    expect(verifyPassword("admin", null)).toBe(false);
-    expect(verifyPassword("admin", "argon2:xyz")).toBe(false);
+  it("still verifies legacy sha256 demo hashes", async () => {
+    const hash = hashPasswordLegacySha256("admin");
+    expect(hash.startsWith("sha256:")).toBe(true);
+    expect(await verifyPassword("admin", hash)).toBe(true);
+    expect(await verifyPassword("wrong", hash)).toBe(false);
+  });
+
+  it("rejects missing or unknown hash schemes", async () => {
+    expect(await verifyPassword("admin", null)).toBe(false);
+    expect(await verifyPassword("admin", "bcrypt:xyz")).toBe(false);
+  });
+
+  it("rejects malformed argon2 and truncated sha256 hashes", async () => {
+    expect(await verifyPassword("admin", "$argon2id$not-a-valid-phc")).toBe(
+      false,
+    );
+    expect(await verifyPassword("admin", "sha256:abcd")).toBe(false);
+  });
+});
+
+describe("resolveJwtSecret", () => {
+  it("accepts strong secrets in any env", () => {
+    const secret = "a".repeat(JWT_SECRET_MIN_LENGTH);
+    expect(resolveJwtSecret(secret, "production")).toBe(secret);
+    expect(resolveJwtSecret(secret, "development")).toBe(secret);
+  });
+
+  it("falls back in non-production when secret is missing or short", () => {
+    expect(resolveJwtSecret(undefined, "development")).toBe(
+      JWT_DEV_FALLBACK_SECRET,
+    );
+    expect(resolveJwtSecret("short", "test")).toBe(JWT_DEV_FALLBACK_SECRET);
+  });
+
+  it("rejects weak or missing secrets in production", () => {
+    expect(() => resolveJwtSecret(undefined, "production")).toThrow(
+      /JWT_SECRET/,
+    );
+    expect(() => resolveJwtSecret("short", "production")).toThrow(/JWT_SECRET/);
+    expect(() =>
+      resolveJwtSecret(JWT_DEV_FALLBACK_SECRET, "production"),
+    ).toThrow(/desenvolvimento/);
   });
 });
 
@@ -23,7 +68,8 @@ describe("AuthService JWT helpers", () => {
   const service = new AuthService(prismaStub);
 
   beforeAll(() => {
-    process.env.JWT_SECRET = "unit-test-jwt-secret";
+    process.env.JWT_SECRET = "unit-test-jwt-secret-32chars-ok!!";
+    process.env.NODE_ENV = "test";
   });
 
   it("signs and verifies token with personId", () => {

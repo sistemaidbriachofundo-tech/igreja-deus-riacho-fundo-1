@@ -17,7 +17,7 @@ export class CredentialsController {
     return this.credentials.getOwn(user);
   }
 
-  /** Secretaria: emitir carteirinha para membresia. */
+  /** Secretaria: emitir carteirinha (exige admissão APPROVED). */
   @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Post("issue/:membershipId")
   issue(
@@ -25,6 +25,16 @@ export class CredentialsController {
     @Param("membershipId") membershipId: string,
   ) {
     return this.credentials.issue(user, membershipId);
+  }
+
+  /** Secretaria: revogar ativa (se houver) e emitir nova. */
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Post("reissue/:membershipId")
+  reissue(
+    @CurrentUser() user: AuthUser,
+    @Param("membershipId") membershipId: string,
+  ) {
+    return this.credentials.reissue(user, membershipId);
   }
 
   /** Secretaria: revogar carteirinha. */

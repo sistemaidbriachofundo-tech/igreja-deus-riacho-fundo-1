@@ -1,0 +1,785 @@
+openapi: 3.1.0
+info:
+  title: Igreja de Deus Riacho Fundo I — API F1/F2
+  version: 0.2.0-f2
+  description: |
+    Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
+    Dados **fictícios** apenas. Sem deploy de produção neste contrato.
+
+    - `x-implementation: implemented` — disponível na API Nest desta branch M1
+    - Endpoints de admissão/pessoas/famílias passaram de proposed → implemented no M1
+
+    Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
+    Auth: `Authorization: Bearer <accessToken>` salvo no login.
+    Constante compartilhada: `API_PATH_PREFIX === ""` (Nest sem `setGlobalPrefix`).
+  contact:
+    name: Backend IDBRF
+servers:
+  - url: http://localhost:3001
+    description: API Nest local — paths raiz /auth /memberships /credentials (Docker Postgres + seed fictício)
+tags:
+  - name: health
+  - name: auth
+  - name: memberships
+  - name: credentials
+  - name: persons
+  - name: households
+  - name: admissions
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiError:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode: { type: integer, example: 403 }
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+          example: Sem permissão de secretaria nesta congregação
+        error: { type: string, example: Forbidden }
+        code: { type: string, example: ADMISSION_STEP_LOCKED }
+    AuthGrant:
+      type: object
+      required: [roleCode]
+      properties:
+        roleCode:
+          type: string
+          enum: [PLATFORM_ADMIN, SECRETARIA, PASTOR, TESOURARIA, LIDER_MINISTERIO, MEMBRO]
+        organizationId: { type: string, nullable: true }
+        churchId: { type: string, nullable: true }
+    AuthUser:
+      type: object
+      required: [userId, personId, email, grants]
+      properties:
+        userId: { type: string, example: usr_ana_demo }
+        personId: { type: string, example: per_ana_demo }
+        email: { type: string, format: email, example: ana.demo@example.test }
+        grants:
+          type: array
+          items: { $ref: "#/components/schemas/AuthGrant" }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: ana.demo@example.test }
+        password: { type: string, format: password, example: admin }
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresInSeconds, user]
+      properties:
+        accessToken: { type: string, example: eyJhbGciOiJIUzI1NiJ9... }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresInSeconds: { type: integer, example: 3600 }
+        user: { $ref: "#/components/schemas/AuthUser" }
+    PersonSummary:
+      type: object
+      required: [id, displayName, email, status, householdId]
+      properties:
+        id: { type: string, example: per_carla_demo }
+        displayName: { type: string, example: Carla Demo }
+        email: { type: string, nullable: true, example: carla.demo@example.test }
+        status: { type: string, example: ACTIVE }
+        householdId: { type: string, nullable: true }
+    Membership:
+      type: object
+      required: [id, status, joinedAt, notes, person, activeCredentialId]
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [PENDING_ADMISSION, ACTIVE, INACTIVE, TRANSFERRED]
+          description: PENDING_ADMISSION entra no contrato 0.2 com /admissions
+        joinedAt: { type: string, format: date-time }
+        notes: { type: string, nullable: true }
+        person: { $ref: "#/components/schemas/PersonSummary" }
+        activeCredentialId: { type: string, nullable: true }
+        admissionId: { type: string, nullable: true }
+    MembershipListResponse:
+      type: object
+      required: [church, memberships]
+      properties:
+        church:
+          type: object
+          required: [id, slug, name]
+          properties:
+            id: { type: string }
+            slug: { type: string, example: riacho-fundo-1 }
+            name: { type: string, example: Riacho Fundo I }
+        memberships:
+          type: array
+          items: { $ref: "#/components/schemas/Membership" }
+    RegisterMembershipRequest:
+      type: object
+      required: [displayName]
+      description: Legado v0.1 — preferir POST /admissions no 0.2
+      properties:
+        displayName: { type: string, example: Novo Membro Demo }
+        email: { type: string, format: email }
+        notes: { type: string }
+        householdLabel: { type: string }
+        personId: { type: string }
+    MemberCard:
+      type: object
+      required: [id, status, displayName, churchName, qrPayload, issuedAt, revokedAt, personId, membershipId]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [ACTIVE, REVOKED] }
+        displayName: { type: string, example: Bruno Demo }
+        churchName: { type: string, example: Riacho Fundo I }
+        qrPayload:
+          type: string
+          description: Token opaco base64url — único conteúdo do QR (sem CPF/telefone)
+          example: xYz9OpaqueTokenDemoOnlyNotPII_
+        issuedAt: { type: string, format: date-time }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        personId: { type: string }
+        membershipId: { type: string }
+    CredentialMeResponse:
+      type: object
+      required: [card, church]
+      properties:
+        card:
+          oneOf:
+            - { $ref: "#/components/schemas/MemberCard" }
+            - { type: "null" }
+        church:
+          type: object
+          required: [name, slug]
+          properties:
+            name: { type: string }
+            slug: { type: string }
+    CredentialVerifyResponse:
+      type: object
+      required: [status, displayName, churchName, issuedAt, revokedAt]
+      properties:
+        status: { type: string, enum: [ACTIVE, REVOKED] }
+        displayName: { type: string }
+        churchName: { type: string }
+        issuedAt: { type: string, format: date-time }
+        revokedAt: { type: string, format: date-time, nullable: true }
+    PersonSearchResponse:
+      type: object
+      required: [query, hits, autoMergeForbidden]
+      properties:
+        query: { type: string, example: Carla }
+        autoMergeForbidden: { type: boolean, enum: [true] }
+        hits:
+          type: array
+          items:
+            type: object
+            required: [person, score, matchReasons]
+            properties:
+              person: { $ref: "#/components/schemas/PersonSummary" }
+              score: { type: number, minimum: 0, maximum: 1, example: 0.92 }
+              matchReasons:
+                type: array
+                items: { type: string, enum: [displayName, email] }
+    Household:
+      type: object
+      required: [id, label, churchId, organizationId, memberPersonIds, createdAt]
+      properties:
+        id: { type: string }
+        label: { type: string, nullable: true, example: Família Demo }
+        churchId: { type: string }
+        organizationId: { type: string }
+        memberPersonIds:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+    CreateHouseholdRequest:
+      type: object
+      properties:
+        label: { type: string }
+        memberPersonIds:
+          type: array
+          items: { type: string }
+    AdmissionChecklist:
+      type: object
+      required: [modalityRecorded, documentsComplete, secretariaApproved, pastorApproved]
+      properties:
+        modalityRecorded: { type: boolean }
+        documentsComplete: { type: boolean }
+        secretariaApproved: { type: boolean }
+        pastorApproved: { type: boolean }
+    Admission:
+      type: object
+      required:
+        - id
+        - personId
+        - membershipId
+        - status
+        - modality
+        - currentStep
+        - checklist
+        - notes
+        - createdAt
+        - updatedAt
+        - credentialEligible
+      properties:
+        id: { type: string, example: adm_demo_001 }
+        personId: { type: string }
+        membershipId: { type: string, nullable: true }
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - AWAITING_DOCUMENTS
+            - AWAITING_SECRETARIA
+            - AWAITING_PASTOR
+            - APPROVED
+            - REJECTED
+            - CANCELLED
+        modality:
+          type: string
+          nullable: true
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+        currentStep:
+          type: string
+          enum: [modality, documents, secretaria, pastor]
+        checklist: { $ref: "#/components/schemas/AdmissionChecklist" }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        credentialEligible:
+          type: boolean
+          description: true somente se status=APPROVED e membresia ACTIVE
+    CreateAdmissionRequest:
+      type: object
+      properties:
+        personId: { type: string }
+        displayName: { type: string, example: Visitante Demo }
+        email: { type: string, format: email }
+        householdId: { type: string }
+        modality:
+          type: string
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+        notes: { type: string }
+    AdvanceAdmissionRequest:
+      type: object
+      required: [completeStep]
+      properties:
+        completeStep:
+          type: string
+          enum: [modality, documents, secretaria, pastor]
+        modality:
+          type: string
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+        notes: { type: string }
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+          description: Obrigatório nas etapas secretaria e pastor
+        rejectionReason: { type: string }
+    Health:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status: { type: string, enum: [ok, degraded, down] }
+        service: { type: string, example: api }
+        timestamp: { type: string, format: date-time }
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      x-implementation: implemented
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+              example:
+                status: ok
+                service: api
+                timestamp: "2026-11-04T19:00:00.000Z"
+
+  /auth/login:
+    post:
+      tags: [auth]
+      x-implementation: implemented
+      summary: Login demo (JWT)
+      description: |
+        Seed fictício — senha `admin`. Hash atual SHA-256 demo; alvo DAS Argon2id (módulo IAM).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Token emitido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "401":
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                statusCode: 401
+                message: Credenciais inválidas
+                error: Unauthorized
+
+  /auth/me:
+    get:
+      tags: [auth]
+      x-implementation: implemented
+      summary: Usuário autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Perfil do token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthUser" }
+        "401":
+          description: Sem token / inválido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /memberships:
+    get:
+      tags: [memberships]
+      x-implementation: implemented
+      summary: Lista membresias do piloto RF1
+      description: Papéis SECRETARIA ou PLATFORM_ADMIN no escopo da igreja piloto.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Lista
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MembershipListResponse" }
+        "403":
+          description: Sem grant de secretaria
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    post:
+      tags: [memberships]
+      x-implementation: implemented
+      summary: Cadastro rápido de membresia (legado v0.1)
+      description: |
+        Cria pessoa+membresia ACTIVE imediatamente.
+        **Contrato 0.2:** FE deve preferir `POST /admissions` (aprovação pastoral antes de ACTIVE/carteirinha).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterMembershipRequest" }
+      responses:
+        "201":
+          description: Membresia criada (API atual pode responder 200)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Membership" }
+        "409":
+          description: Membresia já existe para personId+church
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /credentials/me:
+    get:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Carteirinha do membro autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Card ou null
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CredentialMeResponse" }
+              examples:
+                withCard:
+                  value:
+                    card:
+                      id: cred_bruno
+                      status: ACTIVE
+                      displayName: Bruno Demo
+                      churchName: Riacho Fundo I
+                      qrPayload: OpaqueTokenDemoOnly_no_PII_abc123
+                      issuedAt: "2026-11-04T12:00:00.000Z"
+                      revokedAt: null
+                      personId: per_bruno_demo
+                      membershipId: mem_bruno
+                    church: { name: Riacho Fundo I, slug: riacho-fundo-1 }
+                withoutCard:
+                  value:
+                    card: null
+                    church: { name: Riacho Fundo I, slug: riacho-fundo-1 }
+
+  /credentials/issue/{membershipId}:
+    post:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Emitir carteirinha (secretaria)
+      description: |
+        Hoje emite se membresia ACTIVE.
+        **Regra DAS 0.2 (a implementar):** recusar se admission não APPROVED (`code: CREDENTIAL_NOT_ELIGIBLE`).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: membershipId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Carteirinha emitida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberCard" }
+        "409":
+          description: Já existe carteirinha ativa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /credentials/reissue/{membershipId}:
+    post:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Revogar ativa (se houver) e emitir nova carteirinha
+      description: Exige membership ACTIVE + admission APPROVED.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: membershipId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Nova carteirinha
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberCard" }
+        "409":
+          description: Não elegível
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                statusCode: 409
+                message: Carteirinha bloqueada
+                code: CREDENTIAL_NOT_ELIGIBLE
+
+  /credentials/revoke/{credentialId}:
+    post:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Revogar carteirinha
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Revogada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberCard" }
+
+  /credentials/verify/{opaqueToken}:
+    get:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Validar QR (público mínimo)
+      description: Não devolve CPF/telefone; não ecoa o token.
+      security: []
+      parameters:
+        - name: opaqueToken
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Status da carteirinha
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CredentialVerifyResponse" }
+        "404":
+          description: Token desconhecido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /persons/search:
+    get:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Busca para dedupe assistida
+      description: Retorna candidatos. **autoMergeForbidden=true** sempre — DAS proíbe merge automático por nome.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 2 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        "200":
+          description: Hits
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonSearchResponse" }
+              example:
+                query: Carla
+                autoMergeForbidden: true
+                hits:
+                  - person:
+                      id: per_carla_demo
+                      displayName: Carla Demo
+                      email: carla.demo@example.test
+                      status: ACTIVE
+                      householdId: hh_demo
+                    score: 0.94
+                    matchReasons: [displayName, email]
+
+  /persons/{personId}:
+    get:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Detalhe de pessoa (escopo org/igreja)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Pessoa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonSummary" }
+        "404":
+          description: Não encontrada no escopo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /households:
+    post:
+      tags: [households]
+      x-implementation: implemented
+      summary: Criar família (piloto RF1)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateHouseholdRequest" }
+      responses:
+        "201":
+          description: Família criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Household" }
+
+  /households/{householdId}:
+    get:
+      tags: [households]
+      x-implementation: implemented
+      summary: Obter família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: householdId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Família
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Household" }
+
+  /admissions:
+    get:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Listar protocolos de admissão
+      description: SECRETARIA vê todos do piloto; PASTOR vê pendentes de aprovação pastoral.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - DRAFT
+              - AWAITING_DOCUMENTS
+              - AWAITING_SECRETARIA
+              - AWAITING_PASTOR
+              - APPROVED
+              - REJECTED
+              - CANCELLED
+      responses:
+        "200":
+          description: Lista
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [admissions]
+                properties:
+                  admissions:
+                    type: array
+                    items: { $ref: "#/components/schemas/Admission" }
+    post:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Abrir protocolo de admissão
+      description: |
+        Cria pessoa se necessário + membership PENDING_ADMISSION + admission DRAFT/AWAITING_*.
+        **Não** emite carteirinha.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateAdmissionRequest" }
+            example:
+              displayName: Visitante Demo
+              email: visitante.demo@example.test
+              modality: BATISMO
+      responses:
+        "201":
+          description: Protocolo aberto
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+              example:
+                id: adm_demo_001
+                personId: per_visit_demo
+                membershipId: mem_pending_001
+                status: AWAITING_DOCUMENTS
+                modality: BATISMO
+                currentStep: documents
+                checklist:
+                  modalityRecorded: true
+                  documentsComplete: false
+                  secretariaApproved: false
+                  pastorApproved: false
+                notes: null
+                createdAt: "2026-11-04T15:00:00.000Z"
+                updatedAt: "2026-11-04T15:00:00.000Z"
+                credentialEligible: false
+
+  /admissions/{admissionId}:
+    get:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Detalhe do protocolo
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Protocolo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+
+  /admissions/{admissionId}/advance:
+    post:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Avançar etapa do checklist (ordem fixa)
+      description: |
+        Ordem obrigatória: modality → documents → secretaria → pastor.
+        - `secretaria` + APPROVE → AWAITING_PASTOR (papel SECRETARIA)
+        - `pastor` + APPROVE → APPROVED + membresia ACTIVE + credentialEligible=true (papel PASTOR)
+        - REJECT em qualquer alçada → REJECTED (não emite carteirinha)
+        Código de erro se pular etapa: `ADMISSION_STEP_LOCKED`
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdvanceAdmissionRequest" }
+            examples:
+              secretariaApprove:
+                value:
+                  completeStep: secretaria
+                  decision: APPROVE
+                  notes: Documentos conferidos
+              pastorApprove:
+                value:
+                  completeStep: pastor
+                  decision: APPROVE
+              pastorReject:
+                value:
+                  completeStep: pastor
+                  decision: REJECT
+                  rejectionReason: Pendência pastoral (demo)
+      responses:
+        "200":
+          description: Protocolo atualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+              examples:
+                afterPastor:
+                  value:
+                    id: adm_demo_001
+                    personId: per_visit_demo
+                    membershipId: mem_pending_001
+                    status: APPROVED
+                    modality: BATISMO
+                    currentStep: pastor
+                    checklist:
+                      modalityRecorded: true
+                      documentsComplete: true
+                      secretariaApproved: true
+                      pastorApproved: true
+                    notes: null
+                    createdAt: "2026-11-04T15:00:00.000Z"
+                    updatedAt: "2026-11-04T16:00:00.000Z"
+                    credentialEligible: true
+        "403":
+          description: Papel inadequado para a etapa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                statusCode: 403
+                message: Aprovação pastoral requer papel PASTOR
+                code: ADMISSION_ROLE_REQUIRED
+        "409":
+          description: Etapa fora de ordem
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+              example:
+                statusCode: 409
+                message: Etapa pastor bloqueada até secretaria aprovar
+                code: ADMISSION_STEP_LOCKED
