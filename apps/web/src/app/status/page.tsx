@@ -57,7 +57,7 @@ const ROADMAP = [
 export default function StatusPage() {
   return (
     <AppShell meta="Acompanhe a evolução · Riacho Fundo I">
-      <main className={styles.root} id="conteudo">
+      <div className={styles.root} id="conteudo">
         <header className={styles.hero}>
           <div className={styles.glow} aria-hidden="true" />
           <div className={styles.heroCopy}>
@@ -144,7 +144,7 @@ export default function StatusPage() {
             <p>Os nomes e números são inventados e ficam somente neste navegador. Nenhum cadastro realizado ali corresponde a uma pessoa real da igreja.</p>
           </div>
         </section>
-      </main>
+      </div>
     </AppShell>
   );
 }
