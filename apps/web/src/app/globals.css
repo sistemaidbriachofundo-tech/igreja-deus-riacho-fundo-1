@@ -1278,3 +1278,16 @@ code {
   .mobile-bottom-link span{white-space:nowrap;font-size:clamp(.58rem,2vw,.7rem)}
 }
 @media(prefers-reduced-motion:reduce){.nav-item{transition:none}}
+
+/* New-release notice: makes the current software preview immediately discoverable. */
+.release-strip{display:flex;align-items:center;justify-content:space-between;gap:1rem 1.5rem;background:linear-gradient(105deg,#f3db9e,#faeacc 58%,#f4e0b2);padding:.85rem clamp(1rem,4vw,2.5rem);border-bottom:1px solid #dabb75;color:#472811}
+.release-strip-copy{display:flex;align-items:center;flex-wrap:wrap;gap:.55rem 1.1rem;min-width:0}
+.release-strip-label{display:inline-flex;align-items:center;gap:.45rem;white-space:nowrap;background:#48250f;color:#f6dc93;border-radius:99px;padding:.35rem .7rem;letter-spacing:.07em;font:800 .68rem var(--font-title)}
+.release-strip-label:before{content:"";height:6px;width:6px;border-radius:50%;background:#f6c765}
+.release-strip-message{font-size:.83rem;font-weight:700;line-height:1.5;color:#614325}
+.release-strip-actions{display:flex;align-items:center;gap:.6rem 1rem;flex-shrink:0;flex-wrap:wrap}
+.release-strip-actions a{font:800 .78rem var(--font-title);text-decoration:underline;text-underline-offset:.2em;color:#603915;white-space:nowrap}
+.release-strip-actions a:first-child{background:#492613;color:#fff6df;border-radius:8px;padding:.6rem .9rem;text-decoration:none}
+.release-strip-actions a:focus-visible{outline:3px solid #ad7a23;outline-offset:3px}
+@media(max-width:850px){.release-strip{flex-direction:column;align-items:flex-start}.release-strip-actions{width:100%}}
+@media(max-width:460px){.release-strip-actions a:first-child{flex:1;text-align:center}}

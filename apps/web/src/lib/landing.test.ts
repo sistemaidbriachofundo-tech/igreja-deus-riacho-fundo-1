@@ -64,7 +64,8 @@ describe("public portal + F2 shells (DAS / protótipo v5)", () => {
   it("moves engineering status off the homepage", () => {
     expect(homePage).not.toContain("Skeleton F1-SEC");
     expect(homePage).toContain('href="/status/"');
-    expect(statusPage).toContain("Status do bootstrap");
-    expect(statusPage).toContain("CI: lint → typecheck → test → build");
+    expect(statusPage).toContain("Veja o sistema ganhando vida.");
+    expect(statusPage).toContain("Acompanhe pelo GitHub");
+    expect(statusPage).not.toContain("Status do bootstrap");
   });
 });
