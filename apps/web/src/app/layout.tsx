@@ -17,9 +17,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: APP_NAME,
+  title: {
+    default: APP_NAME,
+    template: `%s · ${APP_NAME}`,
+  },
   description:
-    "Preview estático F1-SEC — sistema de gestão eclesiástica (dados fictícios)",
+    "Igreja de Deus no Riacho Fundo I — fé, família, cuidado, comunhão e missão.",
 };
 
 export default function RootLayout({
