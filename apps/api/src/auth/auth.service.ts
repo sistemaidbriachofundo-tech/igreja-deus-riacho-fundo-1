@@ -2,9 +2,14 @@ import {
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
+import * as argon2 from "argon2";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { assertPersonId, type AuthGrant } from "@idbrf/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  JWT_DEV_FALLBACK_SECRET,
+  JWT_SECRET_MIN_LENGTH,
+} from "./auth.constants";
 import type { AuthUser, JwtPayload } from "./types/auth-user";
 
 interface LoginInput {
@@ -45,7 +50,7 @@ export class AuthService {
       throw new UnauthorizedException("Credenciais inválidas");
     }
 
-    if (!verifyPassword(input.password, user.passwordHash)) {
+    if (!(await verifyPassword(input.password, user.passwordHash))) {
       throw new UnauthorizedException("Credenciais inválidas");
     }
 
@@ -94,34 +99,90 @@ export class AuthService {
   }
 
   private jwtSecret(): string {
-    const secret = process.env.JWT_SECRET;
-    if (!secret || secret.length < 16) {
-      // DEV/CI only — produção deve definir JWT_SECRET forte
-      return "dev-only-jwt-secret-change-me";
-    }
-    return secret;
+    return resolveJwtSecret(process.env.JWT_SECRET, process.env.NODE_ENV);
   }
 }
 
-/** Hash demo compatível com o seed (`sha256:<hex>`). Trocar por Argon2id. */
-export function hashPasswordDemo(password: string): string {
+/** Hash canônico (Argon2id). Usar em seeds/novas contas após rotação. */
+export async function hashPassword(password: string): Promise<string> {
+  return argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 19456,
+    timeCost: 2,
+    parallelism: 1,
+  });
+}
+
+/**
+ * Hash legado do seed (`sha256:<hex>`).
+ * Mantido só para ler demos já gravadas até o seed migrar para Argon2id.
+ */
+export function hashPasswordLegacySha256(password: string): string {
   const hex = createHash("sha256").update(password, "utf8").digest("hex");
   return `sha256:${hex}`;
 }
 
-export function verifyPassword(
+/** @deprecated Use hashPassword (Argon2id) ou hashPasswordLegacySha256. */
+export function hashPasswordDemo(password: string): string {
+  return hashPasswordLegacySha256(password);
+}
+
+export async function verifyPassword(
   password: string,
   storedHash: string | null | undefined,
-): boolean {
-  if (!storedHash?.startsWith("sha256:")) {
+): Promise<boolean> {
+  if (!storedHash) {
     return false;
   }
-  const expected = storedHash.slice("sha256:".length);
-  const actual = createHash("sha256").update(password, "utf8").digest("hex");
-  if (expected.length !== actual.length) {
-    return false;
+
+  if (storedHash.startsWith("$argon2id$") || storedHash.startsWith("$argon2i$") || storedHash.startsWith("$argon2d$")) {
+    try {
+      return await argon2.verify(storedHash, password);
+    } catch {
+      return false;
+    }
   }
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(actual));
+
+  if (storedHash.startsWith("sha256:")) {
+    const expected = storedHash.slice("sha256:".length);
+    const actual = createHash("sha256").update(password, "utf8").digest("hex");
+    if (expected.length !== actual.length) {
+      return false;
+    }
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(actual));
+  }
+
+  return false;
+}
+
+/** Política JWT: produção exige secret ≥ 32 chars e sem prefixo de desenvolvimento. */
+export function resolveJwtSecret(
+  secret: string | undefined,
+  nodeEnv: string | undefined,
+): string {
+  const isProd = nodeEnv === "production";
+  const value = secret?.trim() ?? "";
+
+  if (isProd) {
+    if (value.length < JWT_SECRET_MIN_LENGTH) {
+      throw new Error(
+        `JWT_SECRET deve ter pelo menos ${JWT_SECRET_MIN_LENGTH} caracteres em produção`,
+      );
+    }
+    if (value.startsWith("dev-only-")) {
+      throw new Error(
+        "JWT_SECRET de desenvolvimento não é permitido em produção",
+      );
+    }
+    return value;
+  }
+
+  if (value.length >= JWT_SECRET_MIN_LENGTH) {
+    return value;
+  }
+
+  // DEV/CI only — produção falha acima
+  return JWT_DEV_FALLBACK_SECRET;
 }
 
 function signJwt(
