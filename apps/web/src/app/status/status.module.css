@@ -1,0 +1,63 @@
+.root{max-width:1320px;margin:0 auto;padding-bottom:3rem;color:#442a1a}
+.hero{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr);align-items:center;gap:1.6rem;min-height:368px;padding:clamp(1.5rem,4.6vw,3.4rem);background:linear-gradient(115deg,#291208,#4b2511 62%,#74451c);color:#fff7e9;border-radius:18px;box-shadow:0 22px 44px rgba(58,22,5,.12)}
+.glow{position:absolute;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(ellipse at 87% 3%,rgba(226,173,66,.32),transparent 52%),radial-gradient(ellipse at 42% 96%,rgba(125,60,22,.45),transparent 65%)}
+.heroCopy{position:relative;z-index:1}
+.eyebrow,.sectionKicker{margin:0 0 .65rem;text-transform:uppercase;letter-spacing:.15em;font:800 .68rem/1.4 var(--font-title);color:#dcb263}
+.hero h1{font:800 clamp(1.8rem,4.5vw,3.2rem)/1.12 var(--font-title);letter-spacing:-.045em;color:#fff7e9;max-width:560px;margin:0 0 1rem}
+.lead{max-width:580px;color:#e9d6bd;font-size:1rem;line-height:1.72;margin:0}
+.heroActions{display:flex;flex-wrap:wrap;gap:.75rem;margin:1.6rem 0 1.2rem}
+.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:45px;padding:.73rem 1.13rem;border-radius:9px;font:750 .84rem var(--font-title);text-decoration:none}
+.primary{color:#3a210e;background:linear-gradient(125deg,#ecc76c,#c58d2b);border:1px solid #e8bf5b}
+.secondary{color:#fff1d9;border:1px solid rgba(246,218,164,.52);background:rgba(0,0,0,.13)}
+.primary:hover,.secondary:hover{filter:brightness(1.09)}
+.release{margin:0;color:#cdb79d;font-size:.73rem}
+.heroArt{width:min(100%,376px);justify-self:center;transform:rotate(-3deg);border:1px solid rgba(246,210,134,.33);border-radius:17px;background:#fffaf1;box-shadow:0 27px 50px rgba(18,8,3,.32);padding:1.1rem;color:#552e15;min-height:242px}
+.artTop{height:34px;display:flex;align-items:center;gap:.6rem;border-bottom:1px solid #ecdcc6;color:#6f4830;font:750 .7rem var(--font-title)}
+.artDot{width:17px;height:17px;display:inline-block;border-radius:50%;background:linear-gradient(120deg,#f3ca68,#be8623)}
+.artBars{display:flex;flex-direction:column;gap:.55rem;padding:1.2rem 0 .7rem}
+.artBars span{display:block;height:11px;border-radius:3px;background:#ead6b3}
+.artBars .artBig{width:75%;background:#5f321b;height:16px}
+.artBars .artMedium{width:94%}
+.artBars .artShort{width:64%}
+.artCards{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;margin:.4rem 0 1rem}
+.artCards span{height:65px;border-radius:9px;background:linear-gradient(135deg,#fff9eb,#f1ddbb);border:1px solid #ebd9b9}
+.artCards span:nth-child(2){background:linear-gradient(120deg,#f1d28b,#c99431)}
+.artFooter{display:flex;align-items:center;gap:.55rem;border-top:1px solid #eddfca;padding-top:.75rem}
+.artFooter i{height:22px;width:22px;border-radius:50%;background:#d6b065}
+.artFooter span{width:64px;height:7px;border-radius:4px;background:#e8d8bd}
+.artFooter span:last-child{width:38px}
+.section{margin:2rem 0}
+.sectionHead{display:flex;justify-content:space-between;align-items:end;gap:1rem;margin-bottom:1rem}
+.sectionKicker{color:#a36c1f;margin:0 0 .45rem}
+.section h2,.endNote h2{font:750 clamp(1.25rem,2.6vw,1.65rem)/1.3 var(--font-title);color:#402619;margin:0}
+.subtle{color:#8a7869;font-size:.77rem}
+.moduleGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
+.moduleCard{min-height:226px;border-radius:14px;background:#fffdf9;border:1px solid #eadccb;box-shadow:0 8px 23px rgba(67,30,7,.04);padding:1.25rem;display:flex;flex-direction:column;gap:.65rem}
+.moduleTop{display:flex;justify-content:space-between;align-items:start;gap:.6rem}
+.moduleNumber{display:grid;place-items:center;border-radius:10px;width:38px;height:38px;background:#f1e0ba;color:#8d5919;font:800 .91rem var(--font-title)}
+.moduleState{font:700 .63rem var(--font-title);color:#7e5a22;background:#fff3d8;border:1px solid #ecd6a9;padding:.35rem .5rem;border-radius:99px;text-align:center}
+.moduleCard h3{font:750 1.03rem/1.36 var(--font-title);margin:.1rem 0 0;color:#462a1b}
+.moduleCard p{font-size:.82rem;line-height:1.55;margin:0 0 1.1rem;color:#7c6a57;flex:1}
+.moduleCard a{font:.8rem var(--font-title);font-weight:800;color:#8e5b15;text-decoration:underline;text-underline-offset:.22em}
+.timeline{list-style:none;margin:0;padding:0;border:1px solid #e7d9c5;background:#fffdf9;border-radius:15px;overflow:hidden}
+.milestone{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:1.1rem;padding:1.25rem 1.5rem;border-bottom:1px solid #f0e7dc}
+.milestone:last-child{border-bottom:0}
+.timelineDone,.timelinePending{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;font:800 .9rem var(--font-title)}
+.timelineDone{background:#e6f3e5;color:#35734b}
+.timelinePending{background:#f4e8d4;color:#916319}
+.milestoneLabel{font:750 .67rem var(--font-title);text-transform:uppercase;letter-spacing:.09em;color:#a17543}
+.milestone h3{font:750 1rem/1.4 var(--font-title);margin:.3rem 0 .3rem;color:#493023}
+.milestone p{margin:0;color:#7e6958;font-size:.83rem;line-height:1.6}
+.milestoneStatus{font-size:.74rem;font-weight:750;color:#816443}
+.endNote{display:grid;grid-template-columns:1.25fr .75fr;gap:1.4rem;align-items:center;background:linear-gradient(115deg,#f6ead5,#fff9ed);border-radius:15px;border:1px solid #e7d4b2;padding:1.7rem}
+.endNote h2{margin:0 0 .6rem}
+.endNote p{color:#775e48;font-size:.86rem;line-height:1.65;margin:0}
+.links{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1.25rem}
+.links a{font-size:.81rem;font-weight:750;color:#835319;text-decoration:underline;text-underline-offset:.23em}
+.safety{background:#fffdf9;border:1px solid #e9d6b4;border-radius:12px;padding:1.2rem}
+.safety strong{font:800 .88rem var(--font-title);color:#563617}
+.safety p{margin:.5rem 0 0;font-size:.82rem}
+@media(max-width:1130px){.moduleGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{grid-template-columns:1fr minmax(200px,.75fr)}}
+@media(max-width:780px){.hero{display:block}.heroArt{display:none}.endNote{grid-template-columns:1fr}.milestone{grid-template-columns:34px minmax(0,1fr)}.milestoneStatus{grid-column:2}}
+@media(max-width:540px){.moduleGrid{grid-template-columns:1fr}.moduleCard{min-height:178px}.sectionHead{align-items:start;flex-direction:column}.milestone{padding:1.1rem}.hero{padding:1.5rem 1.2rem}.hero h1{font-size:1.9rem}.heroActions>*{flex:1}}
+@media(prefers-reduced-motion:reduce){.heroArt{transform:none}}
