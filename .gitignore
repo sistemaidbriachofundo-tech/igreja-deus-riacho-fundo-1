@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build / output
+dist/
+build/
+out/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs / debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Prisma
+packages/db/prisma/*.db
+packages/db/prisma/*.db-journal
+
+# Test / tooling
+.turbo/
+.cache/
+playwright-report/
+test-results/
+
+# Sonar
+.scannerwork/
+.sonar/
+
+# Misc
+*.pem
+*.key
+tmp/
+temp/

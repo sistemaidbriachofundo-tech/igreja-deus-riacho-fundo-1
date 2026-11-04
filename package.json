@@ -1,0 +1,26 @@
+{
+  "name": "igreja-deus-riacho-fundo-1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de gestão eclesiástica — Igreja de Deus Riacho Fundo I (piloto)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build -w @idbrf/shared && npm run build -w @idbrf/db && npm run build -w @idbrf/api && npm run build -w @idbrf/web",
+    "dev:api": "npm run start:dev -w @idbrf/api",
+    "dev:web": "npm run dev -w @idbrf/web",
+    "db:generate": "npm run generate -w @idbrf/db",
+    "db:migrate": "npm run migrate:dev -w @idbrf/db",
+    "db:migrate:deploy": "npm run migrate:deploy -w @idbrf/db",
+    "db:seed": "npm run seed -w @idbrf/db"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.9.9"
+}
