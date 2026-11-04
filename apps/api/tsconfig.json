@@ -9,7 +9,7 @@
     "experimentalDecorators": true,
     "declaration": false,
     "declarationMap": false,
-    "incremental": true,
+    "incremental": false,
     "strictPropertyInitialization": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false

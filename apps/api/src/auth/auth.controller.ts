@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
+import { IsEmail, IsString, MinLength } from "class-validator";
 import { AuthService } from "./auth.service";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { Public } from "./decorators/public.decorator";
@@ -7,7 +8,11 @@ import { Roles } from "./decorators/roles.decorator";
 import type { AuthUser } from "./types/auth-user";
 
 class LoginBody {
+  @IsEmail()
   email!: string;
+
+  @IsString()
+  @MinLength(1)
   password!: string;
 }
 

@@ -17,7 +17,9 @@
     "db:generate": "npm run generate -w @idbrf/db",
     "db:migrate": "npm run migrate:dev -w @idbrf/db",
     "db:migrate:deploy": "npm run migrate:deploy -w @idbrf/db",
-    "db:seed": "npm run seed -w @idbrf/db"
+    "db:seed": "npm run seed -w @idbrf/db",
+    "homolog:m1": "node scripts/homolog-m1-admission.mjs",
+    "homolog:backup": "bash scripts/pg-backup-restore-smoke.sh"
   },
   "engines": {
     "node": ">=20"

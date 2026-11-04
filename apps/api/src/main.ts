@@ -4,9 +4,20 @@ import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const isProd = process.env.NODE_ENV === "production";
+  const corsOrigin = process.env.CORS_ORIGIN?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (isProd && (!corsOrigin || corsOrigin.length === 0)) {
+    throw new Error(
+      "CORS_ORIGIN é obrigatório quando NODE_ENV=production (lista CSV de origens FE)",
+    );
+  }
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(",") ?? true,
+    origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true,
   });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
