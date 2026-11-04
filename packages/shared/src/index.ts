@@ -1,9 +1,26 @@
-/** Identidade estável da pessoa no domínio (DAS). */
-export type PersonId = string;
+export type {
+  PersonId,
+  OrganizationId,
+  ChurchId,
+  UserId,
+  RoleCode,
+} from "./ids";
 
-/** Escopo multi-congregação. */
-export type OrganizationId = string;
-export type ChurchId = string;
+export {
+  isPersonId,
+  assertPersonId,
+  samePersonId,
+} from "./person-id";
+
+export {
+  ROLE_CODES,
+  grantMatchesScope,
+  hasAccess,
+  type BuiltInRoleCode,
+  type GrantScope,
+  type AuthGrant,
+  type AccessCheck,
+} from "./rbac";
 
 export interface HealthStatus {
   status: "ok" | "degraded" | "down";

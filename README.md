@@ -1,13 +1,13 @@
 # Igreja de Deus — Riacho Fundo I
 
-Monorepo do sistema de gestão eclesiástica (piloto). Skeleton **F1-SEC**: CI, SonarCloud (opcional) e preview estático no **GitHub Pages** — **sem dados reais**.
+Monorepo do sistema de gestão eclesiástica (piloto). Skeleton **F1-SEC** + **F1 IAM / `person_id`**: CI, SonarCloud (opcional), preview estático no **GitHub Pages**, modelo Prisma de pessoas/usuários/papéis e auth JWT na API — **sem dados reais**.
 
 | Camada | Stack |
 |---|---|
-| API | NestJS (`apps/api`) |
+| API | NestJS (`apps/api`) — health + auth skeleton |
 | Web | Next.js com `output: 'export'` (`apps/web`) |
 | Dados | PostgreSQL + Prisma (`packages/db`) — opção A (local + CI) |
-| Shared | Tipos/utilitários (`packages/shared`) |
+| Shared | Tipos/helpers IAM (`packages/shared`) |
 
 Preview Pages **não** hospeda API nem banco. Produção HML/PRD prevista: Hostinger VPS (depois desta pista).
 
@@ -92,15 +92,59 @@ Propriedades: `sonar-project.properties`.
 
 ```
 apps/
-  api/          NestJS — health/hello
+  api/          NestJS — health + auth (JWT) + guards RBAC/escopo
   web/          Next.js — página estática de progresso
 packages/
-  db/           Prisma + migrations + seed fictício
-  shared/       Tipos e helpers
+  db/           Prisma + migrations + seed fictício (org/igreja/person/user/role/grant)
+  shared/       Tipos, person_id e helpers RBAC
 .github/
   workflows/ci.yml
 docker-compose.yml
 ```
+
+## F1 IAM + `person_id`
+
+Fundação de identidade e autorização **no servidor** (sem módulos de produto: WhatsApp, finanças, pastoral, etc.).
+
+### Modelo (Prisma)
+
+| Entidade | Papel |
+|---|---|
+| `organizations` / `churches` | Escopo multi-congregação (já existiam; relações estendidas) |
+| `persons` | Pessoa única — a PK `id` **é** o `person_id` estável (DAS) |
+| `users` | Conta de login, **1:1** com `person_id` |
+| `roles` / `grants` | RBAC + escopo opcional `organization_id` / `church_id` (ABAC mínimo) |
+| `audit_logs` | Trilha mínima (sem política completa ainda) |
+
+### Estratégia de autenticação (JWT)
+
+- **Agora (skeleton):** JWT **HMAC-SHA256** emitido pela API (`POST /auth/login`), validado em `JwtAuthGuard` global.
+- Claims mínimas: `sub` (userId), `personId`, `email`, `grants[]`.
+- Rotas públicas: `@Public()` (ex.: `GET /health`, `POST /auth/login`).
+- **Não** usamos cookie/session store neste PR.
+- **Depois (decisão aberta):** OIDC + MFA para privilegiados — o módulo `auth` está preparado para trocar o emissor de tokens sem reescrever guards RBAC/escopo.
+- Hash de senha no seed: `sha256:…` **somente demo**. Alvo DAS: **Argon2id** antes de HML com contas reais.
+
+### Autorização
+
+- `RolesGuard` — stub RBAC via `@Roles(...)`.
+- `ScopeGuard` — stub de escopo via `@RequireScope(...)` + helpers `hasAccess` / `grantMatchesScope` em `@idbrf/shared`.
+- Smoke: `GET /auth/me` (JWT) e `GET /auth/rbac-smoke` (exige `SECRETARIA`).
+
+### Seed fictício
+
+```bash
+npm run db:seed
+```
+
+Cria org/igreja demo, papéis base, duas pessoas (`demoPersonRiacho01`, `demoPersonMembro01`) e usuários `ana.demo@example.test` / `bruno.demo@example.test` (senha demo: `admin`). **Proibido** colar PII real.
+
+### O que este PR não inclui
+
+- Cadastro único / secretaria / carteirinha (F2)  
+- WhatsApp, finanças, pastoral, escalas  
+- OIDC/MFA, Argon2id de produção, política completa de auditoria  
+- Alterações de branding em `apps/web` ou fluxos Pages  
 
 ## O que NÃO vai neste preview
 

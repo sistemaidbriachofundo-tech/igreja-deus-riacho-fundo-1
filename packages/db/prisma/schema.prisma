@@ -1,5 +1,5 @@
-// Schema inicial F1-SEC — skeleton sem dados reais.
-// Domínio completo (persons, households, grants…) chega em F1 núcleo.
+// F1 fundação — IAM + person_id (sem módulos de produto).
+// Dados reais só após backup/restore comprovados.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,13 +10,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PersonStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  churches  Church[]
+
+  churches Church[]
+  persons  Person[]
+  grants   Grant[]
+  auditLogs AuditLog[]
 
   @@map("organizations")
 }
@@ -28,8 +42,102 @@ model Church {
   slug           String
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  homePersons  Person[]     @relation("PersonHomeChurch")
+  grants       Grant[]
+  auditLogs    AuditLog[]
 
   @@unique([organizationId, slug])
   @@map("churches")
+}
+
+/// Pessoa única do domínio. A PK `id` é o `person_id` estável (DAS).
+model Person {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  homeChurchId   String?      @map("home_church_id")
+  displayName    String       @map("display_name")
+  email          String?
+  status         PersonStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  homeChurch   Church?      @relation("PersonHomeChurch", fields: [homeChurchId], references: [id])
+  user         User?
+
+  @@index([organizationId])
+  @@index([homeChurchId])
+  @@map("persons")
+}
+
+/// Conta de autenticação. Sempre ligada a um Person (`person_id`).
+model User {
+  id           String     @id @default(cuid())
+  personId     String     @unique @map("person_id")
+  email        String     @unique
+  passwordHash String?    @map("password_hash")
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  person    Person     @relation(fields: [personId], references: [id])
+  grants    Grant[]
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  grants Grant[]
+
+  @@map("roles")
+}
+
+/// Concessão RBAC com escopo opcional (ABAC mínimo: org / igreja).
+model Grant {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  roleId         String   @map("role_id")
+  organizationId String?  @map("organization_id")
+  churchId       String?  @map("church_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role          @relation(fields: [roleId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  church       Church?       @relation(fields: [churchId], references: [id])
+
+  @@unique([userId, roleId, organizationId, churchId])
+  @@index([userId])
+  @@index([organizationId, churchId])
+  @@map("grants")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  actorUserId    String?  @map("actor_user_id")
+  action         String
+  resourceType   String   @map("resource_type")
+  resourceId     String?  @map("resource_id")
+  organizationId String?  @map("organization_id")
+  churchId       String?  @map("church_id")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  actorUser    User?         @relation(fields: [actorUserId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  church       Church?       @relation(fields: [churchId], references: [id])
+
+  @@index([createdAt])
+  @@index([organizationId, churchId])
+  @@map("audit_logs")
 }
