@@ -7,32 +7,58 @@ const statusPage = readFileSync(
   join(__dirname, "../app/status/page.tsx"),
   "utf8",
 );
+const visaoPage = readFileSync(join(__dirname, "../app/app/page.tsx"), "utf8");
+const membrosPage = readFileSync(
+  join(__dirname, "../app/app/membros/page.tsx"),
+  "utf8",
+);
+const appShell = readFileSync(
+  join(__dirname, "../components/AppShell.tsx"),
+  "utf8",
+);
 const globalsCss = readFileSync(join(__dirname, "../app/globals.css"), "utf8");
 const publicImages = join(__dirname, "../../public/images");
 
-describe("public landing", () => {
-  it("keeps a single-congregation Portuguese hero with CTAs", () => {
+describe("public portal + F2 shells (DAS / protótipo v5)", () => {
+  it("keeps a single-congregation Portuguese hero with product CTAs", () => {
     expect(homePage).toContain("Igreja de Deus");
     expect(homePage).toContain("no Riacho Fundo I");
     expect(homePage).toContain("Uma igreja para Deus, pelas famílias");
-    expect(homePage).toContain("Nossos cultos");
-    expect(homePage).toContain("@idbriacho_");
-    expect(homePage).toContain("https://www.instagram.com/idbriacho_/");
+    expect(homePage).toContain("Entrar na área interna");
+    expect(homePage).toContain("Minha carteirinha");
     expect(homePage).not.toMatch(/multi-?igreja|trocar congregação|church switcher/i);
   });
 
-  it("uses full-bleed photo hero instead of empty placeholders", () => {
-    expect(homePage).toContain("hero-worship.jpg");
-    expect(homePage).toContain("welcome-gathering.jpg");
-    expect(homePage).toContain("culto-light.jpg");
-    expect(homePage).not.toContain("Em breve");
-    expect(homePage).not.toContain("service-placeholder");
-    expect(homePage).not.toContain("hero-glow");
+  it("uses official congregation photos, not Unsplash stock", () => {
+    expect(homePage).toContain("hero-oficial.jpg");
+    expect(homePage).toContain("comunidade-oficial.jpg");
+    expect(homePage).toContain("adoracao-oficial.jpg");
+    expect(homePage).not.toContain("hero-worship.jpg");
+    expect(homePage).not.toContain("unsplash");
+    expect(existsSync(join(publicImages, "hero-oficial.jpg"))).toBe(true);
+    expect(existsSync(join(publicImages, "comunidade-oficial.jpg"))).toBe(true);
+    expect(existsSync(join(publicImages, "adoracao-oficial.jpg"))).toBe(true);
     expect(globalsCss).toContain(".hero-photo");
     expect(globalsCss).toContain("ken-burns");
-    expect(existsSync(join(publicImages, "hero-worship.jpg"))).toBe(true);
-    expect(existsSync(join(publicImages, "welcome-gathering.jpg"))).toBe(true);
-    expect(existsSync(join(publicImages, "culto-light.jpg"))).toBe(true);
+  });
+
+  it("exposes F2 modules from prototype PRINCIPAL menu", () => {
+    expect(homePage).toContain("Visão geral");
+    expect(homePage).toContain("Membros e famílias");
+    expect(homePage).toContain("Secretaria");
+    expect(homePage).toContain("Carteirinhas");
+    expect(homePage).toContain('id="acesso"');
+    expect(appShell).toContain("Visão geral");
+    expect(appShell).toContain("Membros e famílias");
+    expect(appShell).toContain("Carteirinhas");
+    expect(appShell).toContain('href: "/app/"');
+    expect(visaoPage).toContain("Central de membresia");
+    expect(membrosPage).toContain("Membros e famílias");
+  });
+
+  it("does not invent F3+ modules in this slice", () => {
+    expect(appShell).not.toMatch(/Financ|Escalas|Células|Eventos|Patrimônio|IA da/);
+    expect(homePage).not.toMatch(/Finanças|Escalas|Dashboards interativos/);
   });
 
   it("moves engineering status off the homepage", () => {

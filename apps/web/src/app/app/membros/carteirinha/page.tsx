@@ -53,13 +53,13 @@ export default function CarteirinhaPage() {
   }
 
   return (
-    <AppShell active="carteirinha" meta="Membro · carteirinha digital">
+    <AppShell active="carteirinha" meta="Carteirinhas · piloto RF1">
       <header className="page-hero">
-        <p className="eyebrow">Área do membro</p>
-        <h1>Minha carteirinha</h1>
+        <p className="eyebrow">Principal · protótipo v5</p>
+        <h1>Carteirinhas</h1>
         <p className="lede">
-          Visualização da carteirinha digital com QR opaco (sem CPF ou telefone
-          no código).
+          Carteirinha digital condicionada à membresia aprovada. QR/token opaco
+          revogável — sem CPF, telefone ou dados sensíveis (DAS).
         </p>
       </header>
 

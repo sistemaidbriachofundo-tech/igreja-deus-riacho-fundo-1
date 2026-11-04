@@ -3,7 +3,7 @@ import { AppShell } from "../../components/AppShell";
 
 export default function StatusPage() {
   return (
-    <AppShell active="home" meta="Engenharia · F1-SEC / F2">
+    <AppShell meta="Engenharia · F1-SEC / F2">
       <header className="page-hero">
         <p className="eyebrow">Infraestrutura</p>
         <h1>Status do bootstrap</h1>

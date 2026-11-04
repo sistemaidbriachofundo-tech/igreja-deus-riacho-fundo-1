@@ -70,7 +70,7 @@ a {
   top: 1rem;
 }
 
-/* —— Shared brand mark —— */
+/* —— Shared brand mark (board) —— */
 
 .brand-mark {
   flex-shrink: 0;
@@ -110,20 +110,13 @@ a {
   height: 1.7rem;
 }
 
-/* —— Public site shell —— */
+/* —— Portal público (DAS) —— */
 
 .site {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    linear-gradient(
-      180deg,
-      #1a0e08 0%,
-      var(--color-marrom) 18%,
-      color-mix(in srgb, var(--color-creme) 55%, #efe2d2) 42%,
-      var(--color-creme) 100%
-    );
+  background: var(--color-creme);
 }
 
 .site-header {
@@ -136,15 +129,10 @@ a {
   gap: 1rem;
   min-height: var(--site-header-height);
   padding: 0.75rem clamp(1rem, 4vw, 2.5rem);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-bronze) 22%, #1a0e08),
-      color-mix(in srgb, var(--color-marrom) 92%, #0d0704)
-    );
+  background: var(--color-marrom);
   color: var(--color-on-dark);
   border-bottom: 1px solid color-mix(in srgb, var(--color-dourado) 28%, transparent);
-  animation: fade-in 0.7s ease-out both;
+  animation: fade-in 0.55s ease-out both;
 }
 
 .site-brand {
@@ -195,20 +183,7 @@ a {
   color: var(--color-dourado);
 }
 
-.site-nav-ig {
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-dourado) 18%, transparent);
-  color: var(--color-dourado) !important;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-dourado) 45%, transparent);
-}
-
-.site-nav-ig:hover,
-.site-nav-ig:focus-visible {
-  background: color-mix(in srgb, var(--color-dourado) 28%, transparent);
-}
-
-/* —— Hero (full-bleed photo) —— */
+/* Hero — foto oficial + brand board */
 
 .hero {
   position: relative;
@@ -218,7 +193,7 @@ a {
   align-items: end;
   overflow: hidden;
   color: var(--color-on-dark);
-  background: #120a06;
+  background: var(--color-marrom);
 }
 
 .hero-media {
@@ -234,9 +209,9 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 35%;
-  transform: scale(1.06);
-  animation: ken-burns 18s ease-out both;
+  object-position: center 40%;
+  transform: scale(1.04);
+  animation: ken-burns 20s ease-out both;
 }
 
 .hero-veil {
@@ -245,51 +220,34 @@ a {
   background:
     linear-gradient(
       105deg,
-      color-mix(in srgb, #120a06 88%, transparent) 0%,
-      color-mix(in srgb, var(--color-marrom) 72%, transparent) 38%,
-      color-mix(in srgb, #1a0e08 42%, transparent) 68%,
-      color-mix(in srgb, var(--color-marrom) 55%, transparent) 100%
+      color-mix(in srgb, var(--color-marrom) 92%, #120a06) 0%,
+      color-mix(in srgb, var(--color-marrom) 78%, transparent) 42%,
+      color-mix(in srgb, #120a06 55%, transparent) 100%
     ),
     linear-gradient(
       180deg,
-      color-mix(in srgb, #120a06 35%, transparent) 0%,
-      transparent 38%,
-      color-mix(in srgb, #120a06 82%, transparent) 100%
-    ),
-    radial-gradient(
-      ellipse 55% 50% at 78% 30%,
-      color-mix(in srgb, var(--color-dourado) 22%, transparent),
-      transparent 70%
+      transparent 20%,
+      color-mix(in srgb, var(--color-marrom) 88%, #120a06) 100%
     );
-}
-
-.hero-grain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.18;
-  background-image:
-    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--color-dourado) 18%, transparent), transparent 28%),
-    radial-gradient(circle at 80% 60%, color-mix(in srgb, var(--color-bronze) 14%, transparent), transparent 32%);
-  mix-blend-mode: soft-light;
 }
 
 .hero-content {
   position: relative;
   z-index: 1;
-  width: min(100%, 44rem);
+  width: min(100%, 42rem);
   padding:
-    clamp(3.75rem, 12vh, 7rem)
+    clamp(3.5rem, 11vh, 6.5rem)
     clamp(1.15rem, 4vw, 2.5rem)
-    clamp(3rem, 9vh, 5rem);
-  animation: rise 0.9s ease-out both;
+    clamp(2.75rem, 8vh, 4.5rem);
+  animation: rise 0.85s ease-out both;
 }
 
 .hero-brand {
   display: flex;
   align-items: center;
   gap: 0.95rem;
-  margin: 0 0 1.65rem;
-  animation: rise 0.9s ease-out 0.08s both;
+  margin: 0 0 1.5rem;
+  animation: rise 0.85s ease-out 0.06s both;
 }
 
 .hero-brand-copy {
@@ -300,129 +258,95 @@ a {
 
 .hero-brand-name {
   font-family: var(--font-title);
-  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  font-size: clamp(1.7rem, 4.8vw, 2.6rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.02;
-  text-shadow: 0 10px 36px color-mix(in srgb, #000 45%, transparent);
 }
 
 .hero-brand-place {
   font-family: var(--font-title);
-  font-size: clamp(1rem, 2.4vw, 1.25rem);
+  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-dourado) 86%, white);
+  color: color-mix(in srgb, var(--color-dourado) 88%, white);
 }
 
 .hero-title {
-  margin: 0 0 0.95rem;
+  margin: 0 0 0.9rem;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: clamp(1.55rem, 4.2vw, 2.35rem);
-  line-height: 1.16;
+  font-size: clamp(1.45rem, 3.8vw, 2.15rem);
+  line-height: 1.18;
   letter-spacing: -0.02em;
-  max-width: 18ch;
-  animation: rise 0.9s ease-out 0.16s both;
+  max-width: 20ch;
+  animation: rise 0.85s ease-out 0.12s both;
 }
 
 .hero-lede {
   margin: 0;
-  max-width: 32ch;
-  font-size: clamp(1.02rem, 2.2vw, 1.16rem);
-  color: color-mix(in srgb, var(--color-on-dark) 86%, transparent);
-  animation: rise 0.9s ease-out 0.24s both;
+  max-width: 36ch;
+  font-size: clamp(1rem, 2vw, 1.12rem);
+  color: color-mix(in srgb, var(--color-on-dark) 88%, transparent);
+  animation: rise 0.85s ease-out 0.18s both;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 1.85rem;
-  animation: rise 0.9s ease-out 0.32s both;
+  margin-top: 1.75rem;
+  animation: rise 0.85s ease-out 0.24s both;
 }
 
 .hero-actions .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 2.95rem;
-  padding: 0.75rem 1.3rem;
-  border: none;
-  border-radius: var(--radius-md);
-  font-family: var(--font-title);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  transition:
-    transform 0.2s ease,
-    background-color 0.2s ease,
-    box-shadow 0.2s ease,
-    filter 0.2s ease;
-}
-
-.hero-actions .btn:hover,
-.hero-actions .btn:focus-visible {
-  transform: translateY(-1px);
+  min-height: 2.9rem;
+  padding: 0.7rem 1.25rem;
 }
 
 .hero-actions .btn-primary {
-  background: linear-gradient(180deg, #e0c15a, var(--color-dourado) 55%, #b89220);
-  color: var(--color-marrom);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--color-dourado) 34%, transparent);
-}
-
-.hero-actions .btn-primary:hover,
-.hero-actions .btn-primary:focus-visible {
-  filter: brightness(1.06);
+  background: var(--color-dourado);
+  color: var(--color-on-accent);
 }
 
 .hero-actions .btn-secondary {
-  background: color-mix(in srgb, #120a06 28%, transparent);
+  background: transparent;
   color: var(--color-on-dark);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-on-dark) 48%, transparent);
-  backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-on-dark) 55%, transparent);
 }
 
 .hero-actions .btn-secondary:hover,
 .hero-actions .btn-secondary:focus-visible {
-  background: color-mix(in srgb, var(--color-on-dark) 14%, transparent);
   box-shadow: inset 0 0 0 1.5px var(--color-dourado);
+  color: var(--color-dourado);
 }
 
-.icon-ig {
-  width: 1.05rem;
-  height: 1.05rem;
-  flex-shrink: 0;
-}
-
-/* —— Content sections —— */
+/* Sections below the fold */
 
 .section {
-  padding: clamp(3.5rem, 9vw, 5.5rem) clamp(1.15rem, 4vw, 2.5rem);
+  padding: clamp(3.25rem, 8vw, 5rem) clamp(1.15rem, 4vw, 2.5rem);
 }
 
 .section-inner {
   width: min(100%, 40rem);
   margin: 0 auto;
-  animation: rise 0.75s ease-out both;
+  animation: rise 0.7s ease-out both;
 }
 
 .section-inner--wide {
-  width: min(100%, 44rem);
+  width: min(100%, 56rem);
 }
 
 .section-split {
-  width: min(100%, 68rem);
+  width: min(100%, 64rem);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: clamp(1.5rem, 4vw, 3rem);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: clamp(1.5rem, 4vw, 2.75rem);
   align-items: center;
-  animation: rise 0.75s ease-out both;
+  animation: rise 0.7s ease-out both;
 }
 
 .section-split--reverse .section-copy {
@@ -434,7 +358,7 @@ a {
 }
 
 .section-kicker {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.5rem;
   font-family: var(--font-title);
   font-size: 0.72rem;
   font-weight: 700;
@@ -444,181 +368,123 @@ a {
 }
 
 .section h2 {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.8rem;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: clamp(1.55rem, 3.4vw, 2.05rem);
+  font-size: clamp(1.5rem, 3.2vw, 2rem);
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: var(--color-marrom);
 }
 
-.section p {
+.section p,
+.section-lede {
   margin: 0;
   font-size: 1.05rem;
   color: var(--color-ink-muted);
 }
 
+.section-lede {
+  margin-bottom: 1.5rem;
+  max-width: 46rem;
+}
+
+.section-note {
+  margin-top: 1rem !important;
+  font-size: 0.95rem !important;
+}
+
+.section-note a {
+  color: var(--color-bronze);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
 .section-visual {
   margin: 0;
   overflow: hidden;
-  border-radius: 0;
-  min-height: 18rem;
-  box-shadow:
-    0 18px 40px color-mix(in srgb, var(--color-marrom) 18%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-dourado) 22%, transparent);
-  animation: rise 0.85s ease-out 0.1s both;
+  min-height: 17rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  animation: rise 0.8s ease-out 0.08s both;
 }
 
 .section-visual img {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 18rem;
+  min-height: 17rem;
   object-fit: cover;
   object-position: center;
 }
 
-.section-visual--tall {
-  min-height: 22rem;
-}
-
-.section-visual--tall img {
-  min-height: 22rem;
-  object-position: center 40%;
-}
-
-.section-welcome {
-  background:
-    radial-gradient(
-      ellipse 55% 45% at 100% 0%,
-      color-mix(in srgb, var(--color-dourado) 16%, transparent),
-      transparent 58%
-    ),
-    linear-gradient(180deg, #f3e6d6, var(--color-creme));
-}
-
-.section-service {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-bronze) 10%, var(--color-creme)),
-      color-mix(in srgb, var(--color-creme) 88%, white)
-    );
-  border-top: 1px solid var(--color-line);
+.section-congregation {
+  background: var(--color-creme);
   border-bottom: 1px solid var(--color-line);
 }
 
-.service-list {
+.section-access {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bronze) 8%, var(--color-creme)),
+      var(--color-creme)
+    );
+}
+
+.section-atmosphere {
+  background: color-mix(in srgb, var(--color-creme) 92%, white);
+  border-top: 1px solid var(--color-line);
+}
+
+.access-grid {
   list-style: none;
-  margin: 1.35rem 0 1.25rem;
+  margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.access-tile {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.35rem;
+  min-height: 7rem;
+  padding: 1.15rem 1.2rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease;
 }
 
-.service-list li {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.85rem 0 0.85rem 1rem;
-  border-left: 3px solid var(--color-dourado);
+.access-tile:hover,
+.access-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-dourado) 55%, var(--color-line));
 }
 
-.service-label {
+.access-tile-label {
   font-family: var(--font-title);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--color-marrom);
 }
 
-.service-detail {
-  font-size: 0.95rem;
+.access-tile-desc {
+  font-size: 0.92rem;
   color: var(--color-ink-muted);
-}
-
-.text-link {
-  display: inline-flex;
-  margin-top: 0.25rem;
-  font-family: var(--font-title);
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--color-bronze);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-  transition: color 0.2s ease;
-}
-
-.text-link:hover,
-.text-link:focus-visible {
-  color: var(--color-terracota);
-}
-
-.section-contact {
-  background:
-    radial-gradient(
-      ellipse 50% 60% at 50% 100%,
-      color-mix(in srgb, var(--color-dourado) 12%, transparent),
-      transparent 65%
-    ),
-    var(--color-creme);
-}
-
-.contact-ig {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 1.5rem;
-  padding: 1rem 1.15rem;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-marrom) 94%, black);
-  color: var(--color-on-dark);
-  box-shadow:
-    0 14px 32px color-mix(in srgb, var(--color-marrom) 18%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-dourado) 35%, transparent);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.contact-ig:hover,
-.contact-ig:focus-visible {
-  transform: translateY(-2px);
-  box-shadow:
-    0 18px 36px color-mix(in srgb, var(--color-marrom) 24%, transparent),
-    inset 0 0 0 1px var(--color-dourado);
-}
-
-.contact-ig .icon-ig {
-  width: 1.55rem;
-  height: 1.55rem;
-  color: var(--color-dourado);
-}
-
-.contact-ig span {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.contact-ig strong {
-  font-family: var(--font-title);
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.contact-ig-url {
-  font-size: 0.86rem;
-  color: color-mix(in srgb, var(--color-on-dark) 72%, transparent);
+  line-height: 1.45;
 }
 
 .site-footer {
   margin-top: auto;
   padding: 2rem clamp(1.15rem, 4vw, 2.5rem) 2.25rem;
-  background: #160d08;
+  background: var(--color-marrom);
   color: var(--color-on-dark);
   border-top: 1px solid color-mix(in srgb, var(--color-dourado) 22%, transparent);
 }
@@ -656,37 +522,21 @@ a {
   text-underline-offset: 0.2em;
 }
 
-.site-footer-links a:hover,
-.site-footer-links a:focus-visible {
-  color: color-mix(in srgb, var(--color-dourado) 80%, white);
-}
-
-/* —— App shell (status / internal pages) —— */
+/* —— App shell (brand board + protótipo IA) —— */
 
 .shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
-  background:
-    radial-gradient(
-      ellipse 70% 45% at 100% 0%,
-      color-mix(in srgb, var(--color-dourado) 18%, transparent),
-      transparent 60%
-    ),
-    linear-gradient(160deg, var(--color-creme), #efe2d2 55%, var(--color-creme));
+  background: var(--color-creme);
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  padding: 1.35rem 1rem 1.5rem;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-bronze) 22%, var(--color-marrom)),
-      var(--color-marrom) 35%
-    );
+  gap: 1.1rem;
+  padding: 1.35rem 0.85rem 1.5rem;
+  background: var(--color-marrom);
   color: var(--color-on-dark);
 }
 
@@ -694,8 +544,8 @@ a {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.25rem 0.5rem;
-  animation: rise 0.65s ease-out both;
+  padding: 0.25rem 0.55rem 0.5rem;
+  animation: rise 0.55s ease-out both;
 }
 
 .brand-copy {
@@ -721,11 +571,21 @@ a {
   color: color-mix(in srgb, var(--color-on-dark) 72%, transparent);
 }
 
+.side-caption {
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.15rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-dourado) 70%, var(--color-on-dark));
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  animation: rise 0.65s ease-out 0.08s both;
+  gap: 0.3rem;
+  animation: rise 0.55s ease-out 0.06s both;
 }
 
 .nav-item {
@@ -735,13 +595,12 @@ a {
   padding: 0.7rem 0.85rem;
   border-radius: var(--radius-md);
   font-family: var(--font-title);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: color-mix(in srgb, var(--color-on-dark) 88%, transparent);
   transition:
     background-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
+    color 0.2s ease;
 }
 
 .nav-item:hover {
@@ -764,9 +623,17 @@ a {
   margin-top: auto;
   padding: 0.85rem 0.75rem 0.25rem;
   border-top: 1px solid color-mix(in srgb, var(--color-on-dark) 16%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   font-size: 0.75rem;
   color: color-mix(in srgb, var(--color-on-dark) 65%, transparent);
-  animation: rise 0.65s ease-out 0.16s both;
+  animation: rise 0.55s ease-out 0.12s both;
+}
+
+.sidebar-foot a {
+  color: var(--color-dourado);
+  font-weight: 600;
 }
 
 .shell-main {
@@ -785,7 +652,15 @@ a {
   padding: 0.85rem 1.5rem;
   background: var(--color-marrom);
   color: var(--color-on-dark);
-  animation: rise 0.65s ease-out 0.05s both;
+  animation: rise 0.55s ease-out 0.04s both;
+}
+
+.topbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  min-width: 0;
 }
 
 .topbar-title {
@@ -794,6 +669,19 @@ a {
   font-size: 1rem;
   font-weight: 650;
   letter-spacing: 0.02em;
+}
+
+.preview-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7b5a1b;
+  background: #fff5dc;
+  border: 1px solid #f3e4b9;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .topbar-meta {
@@ -805,19 +693,19 @@ a {
 .content {
   flex: 1;
   padding: 1.75rem 1.5rem 2.25rem;
-  animation: rise 0.7s ease-out 0.12s both;
+  animation: rise 0.65s ease-out 0.08s both;
 }
 
 .page-hero {
   margin-bottom: 1.75rem;
-  max-width: 40rem;
+  max-width: 42rem;
 }
 
 .page-hero h1 {
   margin: 0 0 0.75rem;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: clamp(1.85rem, 4vw, 2.55rem);
+  font-size: clamp(1.75rem, 3.6vw, 2.35rem);
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--color-marrom);
@@ -827,7 +715,7 @@ a {
   margin: 0;
   font-size: 1.05rem;
   color: var(--color-ink-muted);
-  max-width: 42ch;
+  max-width: 46ch;
 }
 
 .eyebrow {
@@ -838,6 +726,82 @@ a {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-bronze);
+}
+
+.tint-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.35rem;
+  padding: 1.5rem 1.6rem;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      105deg,
+      var(--color-marrom),
+      color-mix(in srgb, var(--color-bronze) 35%, var(--color-marrom))
+    );
+  color: var(--color-on-dark);
+  animation: rise 0.65s ease-out both;
+}
+
+.tint-banner h2 {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.tint-banner p {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--color-on-dark) 82%, transparent);
+  line-height: 1.55;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.overview-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.2rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.overview-tile:hover,
+.overview-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-dourado) 50%, var(--color-line));
+}
+
+.overview-tile h3 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-marrom);
+}
+
+.overview-tile p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+  line-height: 1.45;
 }
 
 .status-panel {
@@ -910,7 +874,7 @@ code {
   border-radius: 0.35rem;
 }
 
-/* —— App / secretaria / carteirinha —— */
+/* —— Buttons / panels (board) —— */
 
 .cta-row {
   display: flex;
@@ -976,7 +940,7 @@ code {
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-surface) 88%, var(--color-creme));
   box-shadow: var(--shadow-soft);
-  animation: rise 0.65s ease-out both;
+  animation: rise 0.55s ease-out both;
 }
 
 .panel h2 {
@@ -1091,7 +1055,7 @@ code {
       color-mix(in srgb, var(--color-creme) 70%, var(--color-bronze))
     );
   border: 1px solid color-mix(in srgb, var(--color-dourado) 35%, transparent);
-  animation: rise 0.7s ease-out 0.08s both;
+  animation: rise 0.6s ease-out 0.06s both;
 }
 
 .member-card-church {
@@ -1135,6 +1099,13 @@ code {
   color: var(--color-ink-muted);
 }
 
+.pages-caveat a {
+  color: var(--color-bronze);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -1157,16 +1128,17 @@ code {
 
 @keyframes ken-burns {
   from {
-    transform: scale(1.06);
+    transform: scale(1.04);
   }
   to {
-    transform: scale(1.14);
+    transform: scale(1.1);
   }
 }
 
-@media (max-width: 840px) {
-  .site-nav a:not(.site-nav-ig) {
-    display: none;
+@media (max-width: 900px) {
+  .access-grid,
+  .overview-grid {
+    grid-template-columns: 1fr;
   }
 
   .section-split,
@@ -1180,9 +1152,7 @@ code {
   }
 
   .section-visual,
-  .section-visual img,
-  .section-visual--tall,
-  .section-visual--tall img {
+  .section-visual img {
     min-height: 14rem;
   }
 
@@ -1191,7 +1161,7 @@ code {
   }
 
   .sidebar {
-    gap: 1rem;
+    gap: 0.75rem;
     padding-bottom: 1rem;
   }
 
@@ -1203,8 +1173,11 @@ code {
   .nav-item {
     flex: 1 1 auto;
     justify-content: center;
+    font-size: 0.78rem;
+    padding: 0.55rem 0.6rem;
   }
 
+  .side-caption,
   .sidebar-foot {
     display: none;
   }
@@ -1213,12 +1186,22 @@ code {
     padding: 1.35rem 1.1rem 2rem;
   }
 
+  .preview-chip {
+    display: none;
+  }
+
   .hero-brand-name {
-    font-size: clamp(1.55rem, 8vw, 2.1rem);
+    font-size: clamp(1.5rem, 7.5vw, 2rem);
   }
 
   .hero-photo {
-    object-position: center 28%;
+    object-position: center 32%;
+  }
+}
+
+@media (max-width: 640px) {
+  .site-nav {
+    display: none;
   }
 }
 
@@ -1241,7 +1224,10 @@ code {
   .sidebar-nav,
   .sidebar-foot,
   .topbar,
-  .content {
+  .content,
+  .tint-banner,
+  .panel,
+  .member-card {
     animation: none;
   }
 
@@ -1250,11 +1236,10 @@ code {
   }
 
   .btn,
-  .hero-actions .btn,
   .nav-item,
   .site-nav a,
-  .contact-ig,
-  .text-link {
+  .access-tile,
+  .overview-tile {
     transition: none;
   }
 }

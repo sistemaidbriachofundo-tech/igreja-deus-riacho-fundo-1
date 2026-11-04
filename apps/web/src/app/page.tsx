@@ -3,7 +3,6 @@ import { APP_NAME } from "@idbrf/shared";
 import { withBasePath } from "../lib/paths";
 
 const INSTAGRAM_URL = "https://www.instagram.com/idbriacho_/";
-const INSTAGRAM_HANDLE = "@idbriacho_";
 
 function BrandMark({ className }: { className?: string }) {
   return (
@@ -23,21 +22,14 @@ function BrandMark({ className }: { className?: string }) {
   );
 }
 
-function InstagramIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="icon-ig">
-      <path
-        fill="currentColor"
-        d="M12 7.2A4.8 4.8 0 1 0 12 16.8 4.8 4.8 0 0 0 12 7.2Zm0 7.9a3.1 3.1 0 1 1 0-6.2 3.1 3.1 0 0 1 0 6.2Zm6.1-8.2a1.12 1.12 0 1 1-2.24 0 1.12 1.12 0 0 1 2.24 0ZM12 3.5c-2.3 0-2.6 0-3.5.05-.9.04-1.5.2-2.04.41a4.1 4.1 0 0 0-1.5 1.5c-.22.53-.37 1.14-.41 2.04C4.5 8.4 4.5 8.7 4.5 11s0 2.6.05 3.5c.04.9.2 1.5.41 2.04a4.1 4.1 0 0 0 1.5 1.5c.53.22 1.14.37 2.04.41.9.05 1.2.05 3.5.05s2.6 0 3.5-.05c.9-.04 1.5-.2 2.04-.41a4.1 4.1 0 0 0 1.5-1.5c.22-.53.37-1.14.41-2.04.05-.9.05-1.2.05-3.5s0-2.6-.05-3.5c-.04-.9-.2-1.5-.41-2.04a4.1 4.1 0 0 0-1.5-1.5c-.53-.22-1.14-.37-2.04-.41C14.6 3.5 14.3 3.5 12 3.5Zm0 1.53c2.26 0 2.53 0 3.42.05.83.04 1.28.18 1.58.3.4.15.68.34.98.64.3.3.49.58.64.98.12.3.26.75.3 1.58.04.89.05 1.16.05 3.42s0 2.53-.05 3.42c-.04.83-.18 1.28-.3 1.58-.15.4-.34.68-.64.98-.3.3-.58.49-.98.64-.3.12-.75.26-1.58.3-.89.04-1.16.05-3.42.05s-2.53 0-3.42-.05c-.83-.04-1.28-.18-1.58-.3a2.6 2.6 0 0 1-.98-.64 2.6 2.6 0 0 1-.64-.98c-.12-.3-.26-.75-.3-1.58-.04-.89-.05-1.16-.05-3.42s0-2.53.05-3.42c.04-.83.18-1.28.3-1.58.15-.4.34-.68.64-.98.3-.3.58-.49.98-.64.3-.12.75-.26 1.58-.3.89-.04 1.16-.05 3.42-.05Z"
-      />
-    </svg>
-  );
-}
-
+/**
+ * Portal público (DAS) — estrutura de produto, não revista Instagram.
+ * Fotos oficiais só como atmosfera; IA dos módulos = protótipo v5 (F2).
+ */
 export default function HomePage() {
-  const heroSrc = withBasePath("/images/hero-worship.jpg");
-  const welcomeSrc = withBasePath("/images/welcome-gathering.jpg");
-  const cultoSrc = withBasePath("/images/culto-light.jpg");
+  const heroSrc = withBasePath("/images/hero-oficial.jpg");
+  const communitySrc = withBasePath("/images/comunidade-oficial.jpg");
+  const worshipSrc = withBasePath("/images/adoracao-oficial.jpg");
 
   return (
     <div className="site">
@@ -53,17 +45,10 @@ export default function HomePage() {
             <span className="site-brand-place">no Riacho Fundo I</span>
           </span>
         </Link>
-        <nav className="site-nav" aria-label="Seções da página">
-          <a href="#cultos">Cultos</a>
-          <a href="#contato">Contato</a>
-          <a
-            className="site-nav-ig"
-            href={INSTAGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Instagram
-          </a>
+        <nav className="site-nav" aria-label="Portal">
+          <a href="#congregacao">A congregação</a>
+          <a href="#acesso">Acesso</a>
+          <a href={withBasePath("/app/")}>Área interna</a>
         </nav>
       </header>
 
@@ -75,12 +60,11 @@ export default function HomePage() {
               className="hero-photo"
               src={heroSrc}
               alt=""
-              width={2400}
-              height={1600}
+              width={928}
+              height={1192}
               fetchPriority="high"
             />
             <span className="hero-veil" />
-            <span className="hero-grain" />
           </div>
 
           <div className="hero-content">
@@ -96,49 +80,46 @@ export default function HomePage() {
               Uma igreja para Deus, pelas famílias
             </h1>
             <p className="hero-lede">
-              Casa de adoração e comunhão no Riacho Fundo I — venha
-              caminhar conosco.
+              Portal da congregação piloto — fé, família, cuidado, comunhão e
+              missão.
             </p>
 
             <div className="hero-actions">
-              <a className="btn btn-primary" href="#cultos">
-                Nossos cultos
+              <a className="btn btn-primary" href={withBasePath("/app/")}>
+                Entrar na área interna
               </a>
               <a
                 className="btn btn-secondary"
-                href={INSTAGRAM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={withBasePath("/app/membros/carteirinha/")}
               >
-                <InstagramIcon />
-                {INSTAGRAM_HANDLE}
+                Minha carteirinha
               </a>
             </div>
           </div>
         </section>
 
         <section
-          id="bem-vindo"
-          className="section section-welcome"
-          aria-labelledby="welcome-heading"
+          id="congregacao"
+          className="section section-congregation"
+          aria-labelledby="congregation-heading"
         >
           <div className="section-split">
             <div className="section-copy">
-              <p className="section-kicker">Comunidade</p>
-              <h2 id="welcome-heading">Acolher para conectar</h2>
+              <p className="section-kicker">Portal público · DAS</p>
+              <h2 id="congregation-heading">Riacho Fundo I</h2>
               <p>
-                Somos a Igreja de Deus no Riacho Fundo I. Vivemos fé,
-                família, cuidado, comunhão e missão — com coração aberto a
-                quem chega.
+                Unidade piloto da Igreja de Deus. Este site é a face pública da
+                plataforma de gestão — cadastro único, secretaria e carteirinha
+                digital sob a identidade da congregação.
               </p>
             </div>
             <figure className="section-visual">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={welcomeSrc}
-                alt="Congregação em adoração, mãos erguidas no culto"
-                width={1600}
-                height={1064}
+                src={communitySrc}
+                alt="Comunidade da Igreja de Deus no Riacho Fundo I"
+                width={932}
+                height={1180}
                 loading="lazy"
               />
             </figure>
@@ -146,82 +127,96 @@ export default function HomePage() {
         </section>
 
         <section
-          id="cultos"
-          className="section section-service"
-          aria-labelledby="service-heading"
+          id="acesso"
+          className="section section-access"
+          aria-labelledby="access-heading"
+        >
+          <div className="section-inner section-inner--wide">
+            <p className="section-kicker">Protótipo v5 · Principal</p>
+            <h2 id="access-heading">Módulos deste ciclo (F2)</h2>
+            <p className="section-lede">
+              Nomenclatura e fluxos do protótipo navegável — só o recorte de
+              pessoas, secretaria e carteirinha.
+            </p>
+
+            <ul className="access-grid">
+              <li>
+                <a className="access-tile" href={withBasePath("/app/")}>
+                  <span className="access-tile-label">Visão geral</span>
+                  <span className="access-tile-desc">
+                    Painel de entrada da área interna
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a className="access-tile" href={withBasePath("/app/membros/")}>
+                  <span className="access-tile-label">Membros e famílias</span>
+                  <span className="access-tile-desc">
+                    Cadastro único e vínculos (piloto RF1)
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a
+                  className="access-tile"
+                  href={withBasePath("/app/secretaria/")}
+                >
+                  <span className="access-tile-label">Secretaria</span>
+                  <span className="access-tile-desc">
+                    Admissão, emissão e revogação de carteirinha
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a
+                  className="access-tile"
+                  href={withBasePath("/app/membros/carteirinha/")}
+                >
+                  <span className="access-tile-label">Carteirinhas</span>
+                  <span className="access-tile-desc">
+                    Carteirinha digital com QR opaco
+                  </span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section
+          id="comunhao"
+          className="section section-atmosphere"
+          aria-labelledby="atmosphere-heading"
         >
           <div className="section-split section-split--reverse">
             <div className="section-copy">
-              <p className="section-kicker">Cultos</p>
-              <h2 id="service-heading">Encontros para adorar juntos</h2>
+              <p className="section-kicker">Comunhão</p>
+              <h2 id="atmosphere-heading">Casa de adoração</h2>
               <p>
-                Nossos cultos são momentos de adoração, Palavra e comunhão.
-                Os horários e avisos da semana são publicados no Instagram
-                da congregação.
+                Fotografia real da congregação — a atmosfera do culto, não um
+                template genérico. Programação e avisos seguem os canais
+                oficiais.
               </p>
-              <ul className="service-list">
-                <li>
-                  <span className="service-label">Culto de adoração</span>
-                  <span className="service-detail">
-                    Confira data e horário em {INSTAGRAM_HANDLE}
-                  </span>
-                </li>
-                <li>
-                  <span className="service-label">Família e juventude</span>
-                  <span className="service-detail">
-                    Encontros e programações especiais anunciados no feed
-                  </span>
-                </li>
-              </ul>
-              <a
-                className="text-link"
-                href={INSTAGRAM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Ver programação no Instagram →
-              </a>
+              <p className="section-note">
+                Instagram{" "}
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  @idbriacho_
+                </a>
+              </p>
             </div>
-            <figure className="section-visual section-visual--tall">
+            <figure className="section-visual">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={cultoSrc}
-                alt="Bíblia aberta em momento de leitura e culto"
-                width={1400}
-                height={933}
+                src={worshipSrc}
+                alt="Adoração na Igreja de Deus no Riacho Fundo I"
+                width={932}
+                height={1180}
                 loading="lazy"
               />
             </figure>
-          </div>
-        </section>
-
-        <section
-          id="contato"
-          className="section section-contact"
-          aria-labelledby="contact-heading"
-        >
-          <div className="section-inner section-inner--wide">
-            <p className="section-kicker">Contato</p>
-            <h2 id="contact-heading">Fale com a congregação</h2>
-            <p>
-              Quer conhecer a igreja, pedir oração ou saber do próximo
-              encontro? Fale conosco pelo Instagram — teremos alegria em
-              receber você.
-            </p>
-            <a
-              className="contact-ig"
-              href={INSTAGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <InstagramIcon />
-              <span>
-                <strong>Instagram {INSTAGRAM_HANDLE}</strong>
-                <span className="contact-ig-url">
-                  instagram.com/idbriacho_
-                </span>
-              </span>
-            </a>
           </div>
         </section>
       </main>
@@ -233,17 +228,13 @@ export default function HomePage() {
             Fé · Família · Cuidado · Comunhão · Missão
           </p>
           <p className="site-footer-links">
-            <a
-              href={INSTAGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Instagram
-            </a>
+            <a href={withBasePath("/app/")}>Área interna</a>
             {" · "}
             <Link href="/status/">Status do projeto</Link>
             {" · "}
-            <a href={withBasePath("/app/secretaria/")}>Área interna</a>
+            <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">
+              Instagram
+            </a>
           </p>
         </div>
       </footer>
