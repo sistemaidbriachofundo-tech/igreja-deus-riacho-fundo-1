@@ -86,32 +86,40 @@ function IconCard() {
 }
 
 /** Chaves alinhadas ao menu PRINCIPAL do protótipo v5 (escopo F2). */
-export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha";
+export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "demo";
 
 const NAV: {
   key: AppNavKey;
   href: string;
   label: string;
+  short: string;
   Icon: () => ReactNode;
 }[] = [
-  { key: "visao", href: "/app/", label: "Visão geral", Icon: IconOverview },
+  { key: "visao", href: "/app/", label: "Visão geral", short: "Início", Icon: IconOverview },
   {
     key: "membros",
     href: "/app/membros/",
     label: "Membros e famílias",
+    short: "Pessoas",
     Icon: IconPeople,
   },
   {
     key: "secretaria",
     href: "/app/secretaria/",
     label: "Secretaria",
+    short: "Secretaria",
     Icon: IconSec,
   },
   {
     key: "carteirinha",
     href: "/app/membros/carteirinha/",
     label: "Carteirinhas",
+    short: "Carteira",
     Icon: IconCard,
+  },
+  {
+    key: "demo", href: "/app/demo/", label: "Explorar demonstração",
+    short: "Testar", Icon: IconOverview,
   },
 ];
 
@@ -158,6 +166,18 @@ export function AppShell({
           <span>Protótipo v5 · dados fictícios</span>
         </p>
       </aside>
+
+      <nav className="mobile-bottom-nav" aria-label="Navegação principal no celular">
+        {NAV.map(({ key, href, short, Icon }) => (
+          <a key={key}
+            className={`mobile-bottom-link${active === key ? " is-active" : ""}`}
+            href={withBasePath(href)}
+            aria-current={active === key ? "page" : undefined}>
+            <Icon />
+            <span>{short}</span>
+          </a>
+        ))}
+      </nav>
 
       <div className="shell-main">
         <header className="topbar">
