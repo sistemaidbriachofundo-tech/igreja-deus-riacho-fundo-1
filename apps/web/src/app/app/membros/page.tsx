@@ -30,7 +30,7 @@ function statusName(status: string) {
 export default function MembrosPage() {
   const [token, setToken] = useState<string | null>(null);
   const [rows, setRows] = useState<MembershipRow[]>([]);
-  const [churchName, setChurchName] = useState(PILOT_CHURCH_NAME);
+  const [churchName, setChurchName] = useState<string>(PILOT_CHURCH_NAME);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
