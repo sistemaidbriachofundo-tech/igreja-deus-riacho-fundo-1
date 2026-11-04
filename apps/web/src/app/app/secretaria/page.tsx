@@ -33,7 +33,7 @@ function situation(status: string) {
 export default function SecretariaPage() {
   const [token, setToken] = useState<string | null>(null);
   const [rows, setRows] = useState<MembershipRow[]>([]);
-  const [churchName, setChurchName] = useState(PILOT_CHURCH_NAME);
+  const [churchName, setChurchName] = useState<string>(PILOT_CHURCH_NAME);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
