@@ -1,9 +1,11 @@
 import { AdmissionsController } from "./admissions/admissions.controller";
+import { AuditController } from "./audit/audit.controller";
 import { AuthController } from "./auth/auth.controller";
 import { CredentialsController } from "./credentials/credentials.controller";
 import { HealthController } from "./health.controller";
 import { HouseholdsController } from "./households/households.controller";
 import { MembershipsController } from "./memberships/memberships.controller";
+import { MetaController } from "./meta/meta.controller";
 import { PersonsController } from "./persons/persons.controller";
 import type { AuthUser } from "./auth/types/auth-user";
 
@@ -120,5 +122,29 @@ describe("controller wiring (delegates to services)", () => {
     await c.list(user);
     await c.register(user, { displayName: "X" });
     expect(memberships.register).toHaveBeenCalled();
+  });
+
+  it("MetaController", () => {
+    const c = new MetaController();
+    const meta = c.getMeta();
+    expect(meta).toMatchObject({
+      contractVersion: expect.any(String),
+      apiPathPrefix: "",
+      pilot: true,
+      endpoints: expect.any(Object),
+    });
+    expect(meta.endpoints["GET /meta"]).toBe("implemented");
+    expect(meta.endpoints["GET /households"]).toBe("implemented");
+  });
+
+  it("AuditController", async () => {
+    const audit = {
+      listRecent: jest.fn().mockResolvedValue({ logs: [] }),
+    };
+    const c = new AuditController(audit as never);
+    await c.list(user, "10");
+    expect(audit.listRecent).toHaveBeenCalledWith(user, 10);
+    await c.list(user);
+    expect(audit.listRecent).toHaveBeenCalledWith(user, 50);
   });
 });

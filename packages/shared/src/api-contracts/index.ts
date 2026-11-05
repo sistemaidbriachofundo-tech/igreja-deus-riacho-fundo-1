@@ -48,8 +48,8 @@ export type {
 
 /**
  * Matriz de implementação vs contrato (FE usa para feature flags).
- * `implemented` = disponível na API Nest atual em `main`.
- * `proposed` = contrato 0.2 acordado; backend ainda não entrega.
+ * `implemented` = disponível na API Nest deste contrato (ver `API_CONTRACT_VERSION`).
+ * `proposed` = contrato acordado; backend ainda não entrega.
  */
 export const API_ENDPOINT_STATUS = {
   "GET /health": "implemented",

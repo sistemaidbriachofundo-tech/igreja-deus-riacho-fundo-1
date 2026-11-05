@@ -28,6 +28,20 @@ const enabled = process.env.RUN_PG_INTEGRATION === "1";
     assert.equal(rows.length, 1);
   });
 
+  it("church_memberships status default is PENDING_ADMISSION", async () => {
+    const rows = await prisma.$queryRaw<Array<{ column_default: string }>>`
+      SELECT column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'church_memberships'
+        AND column_name = 'status'
+    `;
+    assert.ok(
+      rows[0]?.column_default?.includes("PENDING_ADMISSION"),
+      rows[0]?.column_default,
+    );
+  });
+
   it("seed menor has adult legal guardian in same org", async () => {
     const menor = await prisma.person.findUnique({
       where: { id: "demoPersonMenor01" },

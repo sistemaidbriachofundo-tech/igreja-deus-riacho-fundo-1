@@ -56,5 +56,8 @@ describe("api contracts F2", () => {
       API_ENDPOINT_STATUS["POST /admissions/:admissionId/documents"],
       "implemented",
     );
+    assert.equal(API_ENDPOINT_STATUS["GET /meta"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /audit-logs"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /households"], "implemented");
   });
 });
