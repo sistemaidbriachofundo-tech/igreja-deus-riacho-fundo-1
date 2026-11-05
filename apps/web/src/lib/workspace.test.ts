@@ -33,8 +33,10 @@ describe("Church OS: experiência institucional", () => {
     expect(brand).toContain("#4A2612");
     expect(brand).toContain("#D4AF37");
     expect(shell).toContain("logo-igreja-aprovada.webp");
-    expect(directory).toContain("pessoas-sinteticas.webp");
-    expect(dashboard).toContain("hero-oficial.jpg");
+    expect(directory).not.toContain("pessoas-sinteticas.webp");
+    expect(directory).toContain("Avatar fictício");
+    expect(dashboard).not.toContain("hero-oficial.jpg");
+    expect(dashboard).toContain("VISÃO DE COMUNIDADE");
     expect(dashboard).not.toContain("Só para Moças");
   });
   it("mantém a mesma fonte de dados fictícios para as quatro telas", () => {
