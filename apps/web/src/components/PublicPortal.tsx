@@ -81,8 +81,12 @@ export function SectionHeading({ eyebrow, title, description, href, linkLabel }:
 export function MinistryCard({ ministry, featured = false, index }: { ministry: PortalMinistry; featured?: boolean; index: number }) {
   return (
     <Link href={"/ministerios/" + ministry.slug + "/"} className={featured ? s.ministryCardFeatured : s.ministryCard} data-tone={ministry.tone}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={withBasePath(ministry.image)} alt="" loading="lazy" className={s.ministryCardImage} />
+      {ministry.slug === "atmosfera" ? (
+        <span className={s.atmosphereArtwork} aria-hidden="true" />
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={withBasePath(ministry.image)} alt="" loading="lazy" className={s.ministryCardImage} />
+      )}
       <span className={s.ministryCardShade} />
       <span className={s.ministryCardTop}><span>0{index + 1} / MINISTÉRIOS</span><span aria-hidden="true">↗</span></span>
       <span className={s.ministryCardBottom}><span className={s.ministryCardKicker}>{ministry.eyebrow}</span><strong>{ministry.name}</strong><span className={s.ministryCardSummary}>{ministry.summary}</span></span>
