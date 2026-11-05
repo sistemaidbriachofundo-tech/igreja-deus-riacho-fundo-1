@@ -7,6 +7,8 @@ const main = source("components/ChurchWorkspace.tsx");
 const shell = source("components/AppShell.tsx");
 const style = source("components/church-workspace.module.css");
 const globalStyle = source("app/globals.css");
+const membersUI = source("components/MemberDirectory.tsx");
+const membersStyle = source("components/member-directory.module.css");
 const members = source("app/app/membros/page.tsx");
 const secretary = source("app/app/secretaria/page.tsx");
 const cards = source("app/app/membros/carteirinha/page.tsx");
@@ -16,7 +18,7 @@ const brand = source("../IDENTIDADE_VISUAL.md");
 describe("gestão operacional sintética e identidade da igreja", () => {
   it("usa as quatro telas reais, sem depender de navegação para exemplos de fluxo", () => {
     expect(overview).toContain('view="overview"');
-    expect(members).toContain('view="members"');
+    expect(members).toContain("<MemberDirectory />");
     expect(secretary).toContain('view="secretary"');
     expect(cards).toContain('view="cards"');
     expect(shell).not.toContain('label: "Explorar demonstração"');
@@ -51,6 +53,10 @@ describe("gestão operacional sintética e identidade da igreja", () => {
 
   it("apresenta responsividade e validações de acessibilidade", () => {
     expect(style).toContain("@media(max-width:690px)");
+    expect(membersStyle).toContain("@media(max-width:390px)");
+    expect(membersUI).toContain("filterMembers(people");
+    expect(membersUI).toContain("createMember(people");
+    expect(membersUI).toContain("Dados sintéticos");
     expect(main).toContain('role="dialog"');
     expect(main).toContain("aria-label");
   });
