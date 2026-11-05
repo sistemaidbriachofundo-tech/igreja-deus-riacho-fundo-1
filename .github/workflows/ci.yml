@@ -176,6 +176,22 @@ jobs:
           test -s portal-screenshots/ministerios-1440.png
           test -s portal-screenshots/home-ministerios-1440.png
           test -s portal-screenshots/agenda-390.png
+          # Capturas estendidas para revisar ritmo e composição abaixo da primeira dobra.
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,3200" \
+            --screenshot=portal-screenshots/home-flow-1440.png \
+            "${URL}/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,2600" \
+            --screenshot=portal-screenshots/ministerios-flow-1440.png \
+            "${URL}/ministerios/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,2500" \
+            --screenshot=portal-screenshots/home-flow-390.png \
+            "${URL}/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          test -s portal-screenshots/home-flow-1440.png
+          test -s portal-screenshots/ministerios-flow-1440.png
+          test -s portal-screenshots/home-flow-390.png
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
