@@ -53,7 +53,7 @@ describe("public portal + F2 shells (DAS / protótipo v5)", () => {
     expect(appShell).toContain("Carteirinhas");
     expect(appShell).toContain('href: "/app/"');
     expect(visaoPage).toContain('view="overview"');
-    expect(membrosPage).toContain('view="members"');
+    expect(membrosPage).toContain("<MemberDirectory />");
   });
 
   it("does not invent F3+ modules in this slice", () => {
