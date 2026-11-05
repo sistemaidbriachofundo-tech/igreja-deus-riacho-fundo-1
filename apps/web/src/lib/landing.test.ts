@@ -56,7 +56,10 @@ describe("portal público da igreja", () => {
     for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
       expect(existsSync(join(images, image))).toBe(true);
     }
-    expect(home).toContain("hero-oficial.jpg");
+    expect(home).toContain("adoracao-oficial.jpg");
+    expect(shell).toContain("ministryJourneyItem");
+    expect(css).toContain(".immersiveHero");
+    expect(css).toContain(".ministryJourneyItem");
     expect(about).toContain("adoracao-oficial.jpg");
     expect(contact).toContain("instagramUrl");
   });

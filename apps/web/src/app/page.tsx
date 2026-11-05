@@ -1,86 +1,117 @@
 import Link from "next/link";
 import { withBasePath } from "../lib/paths";
 import { events, instagramUrl } from "../lib/portal-content";
-import { PublicPage, Eyebrow, SectionHeading, MinistryGrid, EventCard, DemoNote, ContactCTA, portalStyles as s } from "../components/PublicPortal";
+import {
+  PublicPage, Eyebrow, MinistryGrid, EventCard, DemoNote, ContactCTA,
+  portalStyles as s,
+} from "../components/PublicPortal";
 
 export default function HomePage() {
   return (
     <PublicPage>
       <main id="conteudo">
-        <section className={s.hero} aria-labelledby="hero-title">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={s.heroImage} src={withBasePath("/images/hero-oficial.jpg")} alt="" width={928} height={1192} fetchPriority="high" />
-          <div className={s.heroScrim} />
-          <div className={s.heroInner}>
-            <div className={s.heroContent}>
-              <div className={s.heroStamp}>IGREJA DE DEUS <span aria-hidden="true">/</span> RIACHO FUNDO I</div>
-              <h1 id="hero-title" className={s.heroTitle}>Existe um lugar <em>para você</em> aqui.</h1>
-              <p className={s.heroLead}>Mais que um endereço, uma comunidade de fé. Gente de verdade, histórias diferentes e o mesmo propósito: caminhar com Deus e cuidar de pessoas.</p>
-              <div className={s.heroActions}>
-                <Link className={s.primaryButton} href="/contato/">Planeje sua visita <span aria-hidden="true">↗</span></Link>
-                <Link className={s.outlineButton} href="/a-igreja/">Conheça nossa igreja <span aria-hidden="true">↗</span></Link>
+        <section className={s.immersiveHero} aria-labelledby="hero-title">
+          <div className={s.immersiveHeroGlow} aria-hidden="true" />
+          <div className={s.immersiveHeroOrbit} aria-hidden="true" />
+          <div className={s.immersiveHeroVisual} aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={withBasePath("/images/adoracao-oficial.jpg")} alt="" width={932} height={1180} fetchPriority="high" />
+            <span className={s.heroVisualGrain} />
+          </div>
+          <div className={s.immersiveHeroContent}>
+            <span className={s.immersiveHeroIndex}>IGREJA DE DEUS <span>—</span> RIACHO FUNDO I</span>
+            <h1 id="hero-title" className={s.immersiveHeadline}>
+              Existe um lugar
+              <span>onde a fé</span>
+              <em>vira encontro<span className={s.heroPeriod}>.</span></em>
+            </h1>
+            <div className={s.immersiveHeroDetails}>
+              <p>Não é só sobre estar em um lugar. É sobre encontrar pessoas, compartilhar a caminhada e viver uma fé que faz sentido no dia a dia.</p>
+              <div className={s.immersiveHeroActions}>
+                <Link href="/contato/" className={s.roundedPrimary}>Planeje sua visita <span aria-hidden="true">↗</span></Link>
+                <Link href="/a-igreja/" className={s.roundedText}>Conheça a igreja <span aria-hidden="true">↗</span></Link>
               </div>
-              <div className={s.heroMeta}><span>FÉ <b>·</b> FAMÍLIA</span><span>COMUNHÃO <b>·</b> MISSÃO</span></div>
             </div>
           </div>
-          <div className={s.heroSide}><span>DESÇA PARA EXPLORAR</span><span className={s.heroSideNumber}>↓</span></div>
+          <div className={s.immersiveHeroBottom}>
+            <span><i aria-hidden="true" /> UMA COMUNIDADE DE PORTAS ABERTAS</span>
+            <a href="#ministries-title">DESÇA PARA CONHECER <span aria-hidden="true">↓</span></a>
+          </div>
         </section>
 
-        <div className={s.marquee}>
-          <div className={s.marqueeInner}>
-            <span>UMA CASA DE PORTAS ABERTAS</span>
-            <span>Venha como você está. Há lugar para caminhar conosco.</span>
-            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhe os avisos oficiais ↗</a>
-          </div>
+        <div className={s.openingRibbon} aria-hidden="true">
+          <div>GENTE QUE ACOLHE <span>✳</span> FÉ QUE TRANSFORMA <span>✳</span> UM LUGAR PARA PERTENCER <span>✳</span></div>
         </div>
 
-        <section className={s.mainSection + " " + s.sectionWhite} aria-labelledby="welcome-title">
-          <div className={s.missionGrid}>
-            <div className={s.missionCopy}>
-              <Eyebrow>QUEM SOMOS</Eyebrow>
-              <h2 id="welcome-title">Uma igreja viva. <span>Uma família em construção.</span></h2>
-              <p>Acreditamos que a fé também se expressa em acolhimento, serviço, amizades e cuidado. Cada pessoa tem uma história — e toda história merece ser recebida com amor e respeito.</p>
-              <p>Queremos que sua primeira visita seja o começo de uma conexão verdadeira, no seu ritmo e com espaço para suas perguntas.</p>
-              <Link href="/a-igreja/" className={s.textLink}>Descubra nossa comunidade <span aria-hidden="true">↗</span></Link>
-            </div>
-            <div className={s.missionPhoto}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={s.missionPhotoFrame} src={withBasePath("/images/adoracao-oficial.jpg")} width={932} height={1180} alt="Momento de adoração na Igreja de Deus no Riacho Fundo I" loading="lazy" />
-              <div className={s.missionBadge}><small>MAIS QUE UM LUGAR</small><strong>Uma comunidade para pertencer.</strong></div>
-            </div>
+        <section className={s.editorialStory} aria-labelledby="welcome-title">
+          <div className={s.editorialStoryLead}>
+            <Eyebrow>QUEM SOMOS • NOSSA ESSÊNCIA</Eyebrow>
+            <h2 id="welcome-title">Uma igreja que não cabe <em>entre quatro paredes.</em></h2>
           </div>
-          <div className={s.statStrip} aria-label="Valores da comunidade">
-            <div className={s.statItem}><strong>Fé que aproxima</strong><span>Uma caminhada que pode ser compartilhada.</span></div>
-            <div className={s.statItem}><strong>Cuidado que acolhe</strong><span>Gente cuidando de gente, em cada fase da vida.</span></div>
-            <div className={s.statItem}><strong>Serviço que transforma</strong><span>Dons e talentos colocados em movimento.</span></div>
+          <div className={s.editorialStoryStage}>
+            <div className={s.editorialStoryMark} aria-hidden="true">
+              <span className={s.editorialStoryHalo} />
+              <span className={s.editorialStoryLarge}>JUNTOS</span>
+              <span className={s.editorialStorySmall}>01 / FÉ <b>•</b> 02 / COMUNHÃO <b>•</b> 03 / SERVIÇO</span>
+            </div>
+            <div className={s.editorialStoryCopy}>
+              <span className={s.editorialStoryNumber}>01 — A IGREJA</span>
+              <p>Acreditamos que toda história merece ser ouvida. Que comunhão se constrói na vida real. E que servir é uma das formas mais bonitas de demonstrar amor.</p>
+              <p>Se você está chegando agora, aqui não precisa ter todas as respostas. Existe espaço para conhecer, conversar e caminhar no seu ritmo.</p>
+              <Link href="/a-igreja/" className={s.editorialUnderline}>Nossa história e nossa comunidade <span aria-hidden="true">↗</span></Link>
+            </div>
           </div>
         </section>
 
-        <section className={s.mainSection} aria-labelledby="ministries-title">
-          <SectionHeading id="ministries-title" eyebrow="NOSSOS MINISTÉRIOS" title="Muitos caminhos. Um mesmo propósito." description="Encontre pessoas com quem caminhar. Cada ministério é uma porta para conexão, crescimento e serviço." href="/ministerios/" linkLabel="Conheça todos" />
+        <section className={s.openMinistries} aria-labelledby="ministries-title">
+          <div className={s.openMinistriesHead}>
+            <div><Eyebrow>VIDA EM COMUNIDADE / 05 MINISTÉRIOS</Eyebrow>
+              <h2 id="ministries-title">Seu jeito de viver. <em>Um lugar para florescer.</em></h2>
+            </div>
+            <p>Jovens, homens, adolescentes, mulheres e voluntários. Não são departamentos. São pessoas caminhando juntas.</p>
+          </div>
           <MinistryGrid />
+          <Link href="/ministerios/" className={s.journeyAllLink}>Explore os cinco ministérios <span aria-hidden="true">↗</span></Link>
         </section>
 
-        <section className={s.mainSection + " " + s.sectionMuted} aria-label="Agenda demonstrativa">
-          <div className={s.eventListShell}>
-            <div className={s.eventAside}>
-              <Eyebrow>O QUE VEM POR AÍ</Eyebrow>
-              <h2>Momentos para viver juntos.</h2>
-              <p>Veja como será a experiência de agenda pública. Os encontros abaixo são exemplos para avaliação visual, não convites para eventos confirmados.</p>
-              <Link href="/eventos/" className={s.textLink}>Ver agenda demonstrativa <span aria-hidden="true">↗</span></Link>
-              <DemoNote compact />
+        <section className={s.atmosphereSpotlight} aria-labelledby="atmosphere-title">
+          <div className={s.atmosphereSpotlightArt} aria-hidden="true">
+            <span className={s.atmosphereSpotlightOrbit} />
+            <span className={s.atmosphereSpotlightWord}>SERVIR</span>
+            <span className={s.atmosphereSpotlightSmall}>O EXTRAORDINÁRIO ACONTECE NOS DETALHES</span>
+          </div>
+          <div className={s.atmosphereSpotlightCopy}>
+            <Eyebrow light>ATMOSFERA / VOLUNTARIADO</Eyebrow>
+            <h2 id="atmosphere-title">Tem gente que faz a diferença <em>sem subir ao palco.</em></h2>
+            <p>O Atmosfera é o espaço de quem transforma disponibilidade em cuidado. Cada detalhe, cada gesto e cada pessoa importam.</p>
+            <Link href="/ministerios/atmosfera/" className={s.roundedPrimary}>Descubra como servir <span aria-hidden="true">↗</span></Link>
+          </div>
+        </section>
+
+        <section className={s.editorialAgenda} aria-label="Agenda demonstrativa">
+          <div className={s.editorialAgendaHead}>
+            <div>
+              <Eyebrow>ENCONTROS / AGENDA</Eyebrow>
+              <h2>Histórias começam <em>quando a gente se encontra.</em></h2>
             </div>
+            <Link href="/eventos/" className={s.editorialUnderline}>Explorar a agenda <span aria-hidden="true">↗</span></Link>
+          </div>
+          <div className={s.editorialAgendaGrid}>
+            <p className={s.editorialAgendaCaption}>Uma demonstração de como ficará a programação pública da igreja. Os eventos e horários abaixo são fictícios.</p>
             <div className={s.eventList}>
               {events.slice(0, 3).map((event) => <EventCard event={event} key={event.id} />)}
+              <DemoNote compact />
             </div>
           </div>
         </section>
 
-        <section className={s.quoteSection} aria-label="Nosso compromisso">
-          <p className={s.quoteText}>A igreja é feita de pessoas. <span>E pessoas não são números: são histórias para acolher.</span></p>
+        <section className={s.editorialPromise} aria-label="Uma comunidade de pessoas">
+          <div className={s.editorialPromiseOrbit} aria-hidden="true" />
+          <p>Antes de qualquer programação, <em>existem pessoas.</em> E cada pessoa importa.</p>
+          <span>FÉ • FAMÍLIA • COMUNHÃO • MISSÃO</span>
         </section>
 
-        <ContactCTA />
+        <ContactCTA title="A sua história pode começar aqui." text="Há espaço para conhecer, se aproximar e descobrir como fazer parte da nossa comunidade." />
       </main>
     </PublicPage>
   );

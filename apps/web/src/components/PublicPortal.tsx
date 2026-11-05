@@ -78,27 +78,33 @@ export function SectionHeading({ id, eyebrow, title, description, href, linkLabe
   return <div className={s.sectionHeading}><div><Eyebrow>{eyebrow}</Eyebrow><h2 id={id}>{title}</h2>{description && <p>{description}</p>}</div>{href && <Link href={href} className={s.textLink}>{linkLabel || "Ver mais"} <span aria-hidden="true">↗</span></Link>}</div>;
 }
 
-export function MinistryCard({ ministry, featured = false, index }: { ministry: PortalMinistry; featured?: boolean; index: number }) {
+export function MinistryCard({ ministry, featured: _featured = false, index }: { ministry: PortalMinistry; featured?: boolean; index: number }) {
+  const decorativeImage = ministry.slug === "atmosfera" ? (
+    <span className={s.atmosphereArtwork} aria-hidden="true" />
+  ) : ministry.slug === "homens" || ministry.slug === "mulheres" ? (
+    <span className={s.ministryArtwork} data-tone={ministry.tone} aria-hidden="true"><span>{ministry.name}</span></span>
+  ) : (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img src={withBasePath(ministry.image)} alt="" loading="lazy" className={s.journeyPortraitImage} />
+  );
+
   return (
-    <Link href={"/ministerios/" + ministry.slug + "/"} className={featured ? s.ministryCardFeatured : s.ministryCard} data-tone={ministry.tone}>
-      {ministry.slug === "atmosfera" ? (
-        <span className={s.atmosphereArtwork} aria-hidden="true" />
-      ) : ministry.slug === "homens" || ministry.slug === "mulheres" ? (
-        <span className={s.ministryArtwork} data-tone={ministry.tone} aria-hidden="true"><span>{ministry.name}</span></span>
-      ) : (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={withBasePath(ministry.image)} alt="" loading="lazy" className={s.ministryCardImage} />
-      )}
-      <span className={s.ministryCardShade} />
-      <span className={s.ministryCardTop}><span>0{index + 1} / MINISTÉRIOS</span><span aria-hidden="true">↗</span></span>
-      <span className={s.ministryCardBottom}><span className={s.ministryCardKicker}>{ministry.eyebrow}</span><strong>{ministry.name}</strong><span className={s.ministryCardSummary}>{ministry.summary}</span></span>
+    <Link href={"/ministerios/" + ministry.slug + "/"} className={s.ministryJourneyItem} data-tone={ministry.tone}>
+      <span className={s.journeyNumber}>0{index + 1}</span>
+      <span className={s.journeyName}>
+        <span className={s.journeyKicker}>{ministry.eyebrow}</span>
+        <strong>{ministry.name}</strong>
+      </span>
+      <span className={s.journeyPortrait} aria-hidden="true">{decorativeImage}</span>
+      <span className={s.journeySummary}>{ministry.summary}</span>
+      <span className={s.journeyArrow} aria-hidden="true">↗</span>
     </Link>
   );
 }
 
 export function MinistryGrid({ showAll = true }: { showAll?: boolean }) {
   const items = showAll ? ministries : ministries.slice(0, 3);
-  return <div className={s.ministryGrid}>{items.map((ministry, index) => <MinistryCard key={ministry.slug} ministry={ministry} index={index} featured={showAll && index === 0} />)}</div>;
+  return <div className={s.ministryJourney}>{items.map((ministry, index) => <MinistryCard key={ministry.slug} ministry={ministry} index={index} />)}</div>;
 }
 
 export function DemoNote({ compact = false }: { compact?: boolean }) {

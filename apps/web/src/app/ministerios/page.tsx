@@ -11,18 +11,18 @@ export default function MinisteriosPage() {
   return (
     <PublicPage>
       <main id="conteudo">
-        <section className={s.subhero}>
+        <section className={s.subhero + " " + s.fluidMinistriesHero}>
           <span className={s.ministriesBannerArt} aria-hidden="true" />
           <span className={s.subheroOverlay} />
           <div className={s.subheroContent}>
             <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span><span>Ministérios</span></div>
             <Eyebrow light>PERTENCER É O COMEÇO</Eyebrow>
-            <h1 className={s.subheroTitle}>Seu lugar. Seus dons. Nossa caminhada.</h1>
+            <h1 className={s.subheroTitle}>Um propósito. Muitas formas de viver.</h1>
             <p className={s.subheroLead}>Pessoas de diferentes idades e histórias encontrando comunhão, propósito e oportunidades de servir.</p>
           </div>
         </section>
-        <section className={s.mainSection}>
-          <div className={s.sectionHeading}><div><Eyebrow>UMA IGREJA, MUITAS EXPRESSÕES</Eyebrow><h2>Descubra onde conectar sua história.</h2><p>Explore as páginas dos ministérios e conheça a proposta de cada comunidade.</p></div></div>
+        <section className={s.mainSection + " " + s.fluidMinistriesSection}>
+          <div className={s.sectionHeading}><div><Eyebrow>UMA IGREJA, MUITAS EXPRESSÕES</Eyebrow><h2>Não é sobre encaixar. É sobre pertencer.</h2><p>Explore as páginas dos ministérios e conheça a proposta de cada comunidade.</p></div></div>
           <MinistryGrid />
         </section>
         <section className={s.mainSection + " " + s.sectionWhite}>
