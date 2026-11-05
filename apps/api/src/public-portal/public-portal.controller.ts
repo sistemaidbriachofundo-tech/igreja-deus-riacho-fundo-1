@@ -35,4 +35,10 @@ export class PublicPortalController {
   getEvent(@Param("slug") slug: string) {
     return this.portal.getEventBySlug(slug);
   }
+
+  @Public()
+  @Get("content/:slug")
+  getContent(@Param("slug") slug: string) {
+    return this.portal.getContentBySlug(slug);
+  }
 }

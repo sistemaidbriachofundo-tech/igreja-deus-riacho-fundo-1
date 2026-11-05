@@ -696,7 +696,99 @@ async function main() {
     },
   });
 
-  console.log("Seed OK (fictício RF1 + portal ministries/events):", {
+  const atmosferaMinistry = await prisma.ministry.findUniqueOrThrow({
+    where: { churchId_slug: { churchId: church.id, slug: "atmosfera" } },
+  });
+
+  const cmsSeeds = [
+    {
+      id: "demoCmsHome01",
+      kind: "HOME_BLOCK" as const,
+      slug: "home-boas-vindas",
+      title: "Bem-vindo à casa (demo)",
+      summary: "Bloco institucional fictício da home.",
+      body: "Conteúdo sintético — sem dados reais.",
+      sortOrder: 1,
+      ministryId: null as string | null,
+    },
+    {
+      id: "demoCmsBanner01",
+      kind: "BANNER" as const,
+      slug: "banner-culto-familia",
+      title: "Culto em Família (banner demo)",
+      summary: "Destaque de agenda",
+      body: null,
+      sortOrder: 1,
+      ministryId: null as string | null,
+      imageUrl: "/images/events/culto-familia-demo.jpg",
+    },
+    {
+      id: "demoCmsNews01",
+      kind: "NEWS" as const,
+      slug: "aviso-voluntariado-atmosfera",
+      title: "Voluntariado Atmosfera (demo)",
+      summary: "Abertas as manifestações de interesse.",
+      body: "Formulário público /public/volunteer-interests — dados fictícios.",
+      sortOrder: 2,
+      ministryId: atmosferaMinistry.id,
+    },
+    {
+      id: "demoCmsPage01",
+      kind: "PAGE" as const,
+      slug: "sobre-nos",
+      title: "Sobre nós (demo)",
+      summary: "Página institucional sintética.",
+      body: "História e missão fictícias da congregação piloto.",
+      sortOrder: 0,
+      ministryId: null as string | null,
+    },
+    {
+      id: "demoCmsMinistryJovens01",
+      kind: "MINISTRY_CONTENT" as const,
+      slug: "jovens-trilhas",
+      title: "Trilhas de Jovens (demo)",
+      summary: "Conteúdo ligado ao ministério jovens.",
+      body: "Material sintético de formação.",
+      sortOrder: 1,
+      ministryId: jovensMinistry.id,
+    },
+  ];
+
+  for (const c of cmsSeeds) {
+    await prisma.cmsContent.upsert({
+      where: { churchId_slug: { churchId: church.id, slug: c.slug } },
+      update: {
+        title: c.title,
+        summary: c.summary,
+        body: c.body,
+        kind: c.kind,
+        sortOrder: c.sortOrder,
+        ministryId: c.ministryId,
+        status: "PUBLICADO",
+        publishedAt: new Date("2026-11-05T12:00:00.000Z"),
+        imageUrl: "imageUrl" in c ? c.imageUrl : null,
+      },
+      create: {
+        id: c.id,
+        organizationId: org.id,
+        churchId: church.id,
+        ministryId: c.ministryId,
+        kind: c.kind,
+        slug: c.slug,
+        title: c.title,
+        summary: c.summary,
+        body: c.body,
+        imageUrl: "imageUrl" in c ? c.imageUrl ?? null : null,
+        sortOrder: c.sortOrder,
+        status: "PUBLICADO",
+        publishedAt: new Date("2026-11-05T12:00:00.000Z"),
+        createdByUserId: adminUser.id,
+        updatedByUserId: adminUser.id,
+      },
+    });
+  }
+
+  console.log("Seed OK (fictício RF1 + portal B–E):", {
     org: org.slug,
     church: church.slug,
     churchDest: churchDest.slug,
@@ -724,6 +816,7 @@ async function main() {
     portal: {
       ministries: portalMinistries.map((m) => m.slug),
       events: ["encontro-jovens-demo", "culto-familia-demo"],
+      cms: cmsSeeds.map((c) => c.slug),
     },
   });
 }

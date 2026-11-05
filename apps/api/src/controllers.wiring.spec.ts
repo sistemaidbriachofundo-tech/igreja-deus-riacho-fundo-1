@@ -15,11 +15,13 @@ import {
   RostersController,
   RosterSlotsController,
 } from "./ministries/ministries.controller";
+import { CmsController } from "./cms/cms.controller";
 import { EventsController } from "./events/events.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
 import { PublicPortalController } from "./public-portal/public-portal.controller";
 import { TransfersController } from "./transfers/transfers.controller";
+import { VolunteersController } from "./volunteers/volunteers.controller";
 import type { AuthUser } from "./auth/types/auth-user";
 
 describe("controller wiring (delegates to services)", () => {
@@ -327,6 +329,7 @@ describe("controller wiring (delegates to services)", () => {
       getMinistryBySlug: jest.fn(),
       listEvents: jest.fn(),
       getEventBySlug: jest.fn(),
+      getContentBySlug: jest.fn(),
     };
     const c = new PublicPortalController(portal as never);
     await c.home();
@@ -334,6 +337,41 @@ describe("controller wiring (delegates to services)", () => {
     await c.getMinistry("jovens");
     await c.listEvents();
     await c.getEvent("encontro-jovens-demo");
-    expect(portal.getEventBySlug).toHaveBeenCalledWith("encontro-jovens-demo");
+    await c.getContent("sobre-nos");
+    expect(portal.getContentBySlug).toHaveBeenCalledWith("sobre-nos");
+  });
+
+  it("CmsController", async () => {
+    const cms = {
+      create: jest.fn(),
+      list: jest.fn(),
+      get: jest.fn(),
+      patch: jest.fn(),
+    };
+    const c = new CmsController(cms as never);
+    await c.create(user, { kind: "PAGE", slug: "sobre", title: "Sobre" });
+    await c.list(user, "PAGE");
+    await c.get(user, "c1");
+    await c.patch(user, "c1", { status: "REVISAO" });
+    await c.advance(user, "c1", { toStatus: "APROVADO" });
+    expect(cms.patch).toHaveBeenCalled();
+  });
+
+  it("VolunteersController", async () => {
+    const volunteers = {
+      submitPublicInterest: jest.fn(),
+      listAdmin: jest.fn(),
+      getAdmin: jest.fn(),
+      advance: jest.fn(),
+    };
+    const c = new VolunteersController(volunteers as never);
+    await c.submitPublic({
+      displayName: "Vol",
+      email: "vol@example.test",
+    });
+    await c.list(user, "m1");
+    await c.get(user, "vi1");
+    await c.advance(user, "vi1", { stage: "AVALIACAO" });
+    expect(volunteers.advance).toHaveBeenCalled();
   });
 });

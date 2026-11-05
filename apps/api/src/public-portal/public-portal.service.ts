@@ -16,28 +16,49 @@ export class PublicPortalService {
 
   async home() {
     const pilot = await this.pilot.getPilotChurch();
-    const [ministries, featuredEvents] = await Promise.all([
-      this.prisma.ministry.findMany({
-        where: {
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          publishStatus: "PUBLISHED",
-          visibility: "PUBLIC",
-        },
-        orderBy: { name: "asc" },
-        take: 12,
-      }),
-      this.prisma.portalEvent.findMany({
-        where: {
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          status: "PUBLISHED",
-          featuredOnHome: true,
-        },
-        orderBy: { startsAt: "asc" },
-        take: 6,
-      }),
-    ]);
+    const [ministries, featuredEvents, homeBlocks, banners] =
+      await Promise.all([
+        this.prisma.ministry.findMany({
+          where: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            publishStatus: "PUBLISHED",
+            visibility: "PUBLIC",
+          },
+          orderBy: { name: "asc" },
+          take: 12,
+        }),
+        this.prisma.portalEvent.findMany({
+          where: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            status: "PUBLISHED",
+            featuredOnHome: true,
+          },
+          orderBy: { startsAt: "asc" },
+          take: 6,
+        }),
+        this.prisma.cmsContent.findMany({
+          where: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            status: "PUBLICADO",
+            kind: { in: ["HOME_BLOCK", "NEWS"] },
+          },
+          orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
+          take: 12,
+        }),
+        this.prisma.cmsContent.findMany({
+          where: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            status: "PUBLICADO",
+            kind: "BANNER",
+          },
+          orderBy: [{ sortOrder: "asc" }],
+          take: 6,
+        }),
+      ]);
 
     return {
       church: {
@@ -47,12 +68,26 @@ export class PublicPortalService {
       },
       ministries: ministries.map((m) => this.toPublicMinistrySummary(m)),
       featuredEvents: featuredEvents.map((e) => this.toPublicEvent(e)),
-      contentBlocks: [],
-      notes: [
-        "Stub /public/home — blocos CMS (banners/notícias) entram na Frente D",
-        "Sem PII pastoral/família/telefone",
-      ],
+      contentBlocks: homeBlocks.map((c) => this.toPublicContent(c)),
+      banners: banners.map((c) => this.toPublicContent(c)),
+      notes: ["Sem PII pastoral/família/telefone na superfície pública"],
     };
+  }
+
+  async getContentBySlug(slug: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const row = await this.prisma.cmsContent.findFirst({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        slug: slug.trim().toLowerCase(),
+        status: "PUBLICADO",
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Conteúdo público não encontrado");
+    }
+    return this.toPublicContent(row);
   }
 
   async listMinistries() {
@@ -87,21 +122,34 @@ export class PublicPortalService {
       throw new NotFoundException("Ministério público não encontrado");
     }
 
-    const relatedEvents = await this.prisma.portalEvent.findMany({
-      where: {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        ministryId: ministry.id,
-        status: "PUBLISHED",
-      },
-      orderBy: { startsAt: "asc" },
-      take: 12,
-    });
+    const [relatedEvents, relatedContent] = await Promise.all([
+      this.prisma.portalEvent.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          ministryId: ministry.id,
+          status: "PUBLISHED",
+        },
+        orderBy: { startsAt: "asc" },
+        take: 12,
+      }),
+      this.prisma.cmsContent.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          ministryId: ministry.id,
+          status: "PUBLICADO",
+          kind: "MINISTRY_CONTENT",
+        },
+        orderBy: [{ sortOrder: "asc" }],
+        take: 12,
+      }),
+    ]);
 
     return {
       ...this.toPublicMinistryDetail(ministry),
       relatedEvents: relatedEvents.map((e) => this.toPublicEvent(e)),
-      relatedContent: [],
+      relatedContent: relatedContent.map((c) => this.toPublicContent(c)),
     };
   }
 
@@ -200,6 +248,32 @@ export class PublicPortalService {
       endsAt: row.endsAt?.toISOString() ?? null,
       locationText: row.locationText,
       featuredOnHome: row.featuredOnHome,
+    };
+  }
+
+  private toPublicContent(row: {
+    id: string;
+    kind: string;
+    slug: string;
+    title: string;
+    summary: string | null;
+    body: string | null;
+    imageUrl: string | null;
+    ministryId: string | null;
+    sortOrder: number;
+    publishedAt: Date | null;
+  }) {
+    return {
+      id: row.id,
+      kind: row.kind,
+      slug: row.slug,
+      title: row.title,
+      summary: row.summary,
+      body: row.body,
+      imageUrl: row.imageUrl,
+      ministryId: row.ministryId,
+      sortOrder: row.sortOrder,
+      publishedAt: row.publishedAt?.toISOString() ?? null,
     };
   }
 }

@@ -131,6 +131,16 @@ export const API_ENDPOINT_STATUS = {
   "GET /public/ministries/:slug": "implemented",
   "GET /public/events": "implemented",
   "GET /public/events/:slug": "implemented",
+  "GET /public/content/:slug": "implemented",
+  "POST /public/volunteer-interests": "implemented",
+  "GET /cms/contents": "implemented",
+  "POST /cms/contents": "implemented",
+  "GET /cms/contents/:contentId": "implemented",
+  "PATCH /cms/contents/:contentId": "implemented",
+  "POST /cms/contents/:contentId/advance": "implemented",
+  "GET /volunteer-interests": "implemented",
+  "GET /volunteer-interests/:interestId": "implemented",
+  "PATCH /volunteer-interests/:interestId": "implemented",
 } as const;
 
 export type ApiEndpointKey = keyof typeof API_ENDPOINT_STATUS;

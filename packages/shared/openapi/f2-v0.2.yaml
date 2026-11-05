@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.4.0-portal
+  version: 0.5.0-portal
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -10,6 +10,7 @@ info:
     - 0.2.1–0.2.3: pessoas, famílias, docs, meta, audit, list households
     - 0.3.0-f3: transferências, cartas versionadas, pastoral, discipulado, células, escalas
     - 0.4.0-portal: perfil público Ministry, eventos portal, GET /public/*
+    - 0.5.0-portal: CMS workflow + volunteer-interests Atmosfera
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -40,6 +41,8 @@ tags:
   - name: ministries
   - name: events
   - name: public
+  - name: cms
+  - name: volunteers
 
 components:
   securitySchemes:
@@ -1940,3 +1943,200 @@ paths:
           description: Evento público
         "404":
           description: Não publicado / inexistente
+
+  /public/content/{slug}:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Conteúdo CMS PUBLICADO por slug
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Content público (sem PII)
+        "404":
+          description: Não publicado / inexistente
+
+  /public/volunteer-interests:
+    post:
+      tags: [volunteers]
+      x-implementation: implemented
+      summary: Interesse público Atmosfera (rate-limited; sem eco de email)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, email]
+              properties:
+                displayName: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                message: { type: string }
+                ministrySlug: { type: string, default: atmosfera }
+      responses:
+        "201":
+          description: "{ received, id, stage, ministrySlug }"
+        "429":
+          description: RATE_LIMITED
+
+  /cms/contents:
+    get:
+      tags: [cms]
+      x-implementation: implemented
+      summary: Lista conteúdos CMS (admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope contents[]
+    post:
+      tags: [cms]
+      x-implementation: implemented
+      summary: Cria conteúdo em RASCUNHO
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, slug, title]
+              properties:
+                kind: { type: string, enum: [HOME_BLOCK, PAGE, NEWS, BANNER, MINISTRY_CONTENT] }
+                slug: { type: string }
+                title: { type: string }
+                summary: { type: string }
+                body: { type: string }
+                imageUrl: { type: string }
+                ministryId: { type: string }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Conteúdo criado
+
+  /cms/contents/{contentId}:
+    get:
+      tags: [cms]
+      x-implementation: implemented
+      summary: Detalhe + histórico de revisões
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Content + revisions[]
+    patch:
+      tags: [cms]
+      x-implementation: implemented
+      summary: Patch editorial / transição de workflow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                status: { type: string, enum: [RASCUNHO, REVISAO, APROVADO, PUBLICADO, ARQUIVADO] }
+                note: { type: string }
+      responses:
+        "200":
+          description: Atualizado
+
+  /cms/contents/{contentId}/advance:
+    post:
+      tags: [cms]
+      x-implementation: implemented
+      summary: Avança workflow CMS
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toStatus]
+              properties:
+                toStatus: { type: string, enum: [RASCUNHO, REVISAO, APROVADO, PUBLICADO, ARQUIVADO] }
+                note: { type: string }
+      responses:
+        "200":
+          description: Status atualizado
+
+  /volunteer-interests:
+    get:
+      tags: [volunteers]
+      x-implementation: implemented
+      summary: Lista interesses (admin; líder só do próprio ministry)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: ministryId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope interests[] (inclui email — só admin)
+
+  /volunteer-interests/{interestId}:
+    get:
+      tags: [volunteers]
+      x-implementation: implemented
+      summary: Detalhe interesse
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: interestId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Interest admin DTO
+    patch:
+      tags: [volunteers]
+      x-implementation: implemented
+      summary: Avança jornada Interesse→…→Escala / rejeita
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: interestId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stage: { type: string, enum: [INTERESSE, AVALIACAO, APROVACAO, EQUIPE, DISPONIBILIDADE, ESCALA] }
+                status: { type: string, enum: [OPEN, REJECTED, CLOSED] }
+                personId: { type: string }
+                rosterId: { type: string }
+                notesInternal: { type: string }
+      responses:
+        "200":
+          description: Interest atualizado

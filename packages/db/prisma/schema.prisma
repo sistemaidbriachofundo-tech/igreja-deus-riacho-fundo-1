@@ -85,6 +85,8 @@ model Organization {
   discipleshipTracks DiscipleshipTrack[]
   rosters        Roster[]
   portalEvents   PortalEvent[]
+  cmsContents    CmsContent[]
+  volunteerInterests VolunteerInterest[]
 
   @@map("organizations")
 }
@@ -114,6 +116,8 @@ model Church {
   discipleshipTracks DiscipleshipTrack[]
   rosters       Roster[]
   portalEvents  PortalEvent[]
+  cmsContents   CmsContent[]
+  volunteerInterests VolunteerInterest[]
 
   @@unique([organizationId, slug])
   @@map("churches")
@@ -170,6 +174,7 @@ model Person {
   discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
+  volunteerInterests VolunteerInterest[]
 
   @@index([organizationId])
   @@index([homeChurchId])
@@ -597,6 +602,8 @@ model Ministry {
   rosters      Roster[]
   grants       Grant[]
   portalEvents PortalEvent[]
+  cmsContents  CmsContent[]
+  volunteerInterests VolunteerInterest[]
 
   @@unique([churchId, slug])
   @@index([organizationId, churchId])
@@ -634,6 +641,117 @@ model PortalEvent {
   @@index([ministryId])
   @@index([featuredOnHome, status])
   @@map("portal_events")
+}
+
+/// Workflow editorial CMS (Frente D) — API pública só PUBLICADO.
+enum CmsContentKind {
+  HOME_BLOCK
+  PAGE
+  NEWS
+  BANNER
+  MINISTRY_CONTENT
+}
+
+enum CmsWorkflowStatus {
+  RASCUNHO
+  REVISAO
+  APROVADO
+  PUBLICADO
+  ARQUIVADO
+}
+
+model CmsContent {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  churchId       String           @map("church_id")
+  ministryId     String?          @map("ministry_id")
+  kind           CmsContentKind
+  slug           String
+  title          String
+  summary        String?
+  body           String?
+  imageUrl       String?          @map("image_url")
+  sortOrder      Int              @default(0) @map("sort_order")
+  status         CmsWorkflowStatus @default(RASCUNHO)
+  publishedAt    DateTime?        @map("published_at")
+  createdByUserId String?         @map("created_by_user_id")
+  updatedByUserId String?         @map("updated_by_user_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  ministry     Ministry?    @relation(fields: [ministryId], references: [id])
+  revisions    CmsContentRevision[]
+
+  @@unique([churchId, slug])
+  @@index([organizationId, churchId])
+  @@index([churchId, status, kind])
+  @@index([ministryId])
+  @@map("cms_contents")
+}
+
+model CmsContentRevision {
+  id          String            @id @default(cuid())
+  contentId   String            @map("content_id")
+  fromStatus  CmsWorkflowStatus @map("from_status")
+  toStatus    CmsWorkflowStatus @map("to_status")
+  actorUserId String?           @map("actor_user_id")
+  note        String?
+  /// Snapshot mínimo dos campos editoriais no momento da mudança.
+  snapshot    Json
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  content CmsContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, createdAt])
+  @@map("cms_content_revisions")
+}
+
+/// Jornada Atmosfera (Frente E) — Interesse→…→Escala; PII só admin.
+enum VolunteerJourneyStage {
+  INTERESSE
+  AVALIACAO
+  APROVACAO
+  EQUIPE
+  DISPONIBILIDADE
+  ESCALA
+}
+
+enum VolunteerInterestStatus {
+  OPEN
+  REJECTED
+  CLOSED
+}
+
+model VolunteerInterest {
+  id             String                   @id @default(cuid())
+  organizationId String                   @map("organization_id")
+  churchId       String                   @map("church_id")
+  ministryId     String                   @map("ministry_id")
+  /// Nome de preferência público — sem documentos.
+  displayName    String                   @map("display_name")
+  /// Contato só admin; nunca ecoado em API pública.
+  email          String
+  phone          String?
+  message        String?
+  personId       String?                  @map("person_id")
+  stage          VolunteerJourneyStage    @default(INTERESSE)
+  status         VolunteerInterestStatus  @default(OPEN)
+  notesInternal  String?                  @map("notes_internal")
+  rosterId       String?                  @map("roster_id")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  ministry     Ministry     @relation(fields: [ministryId], references: [id])
+  person       Person?      @relation(fields: [personId], references: [id])
+
+  @@index([organizationId, churchId])
+  @@index([ministryId, stage, status])
+  @@index([email])
+  @@map("volunteer_interests")
 }
 
 model SmallGroup {

@@ -1,99 +1,56 @@
-# Handoff FE ← BE — Portal público (0.4.0-portal)
+# Handoff FE ← BE — Portal público (0.5.0-portal)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.4.0-portal"`  
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.0-portal"`  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
-**Base DEV:** `http://localhost:3001`  
-**Base HML:** **TBD** — ver `docs/hml-runbook.md`  
-**Descoberta:** `GET /meta` devolve `contractVersion` + mapa `endpoints`.
+**Base DEV:** `http://localhost:3001` · **HML:** TBD  
+**Descoberta:** `GET /meta`
 
-> Backend **não** altera `apps/web`. Sem pastoral/telefone/menor/família/docs na superfície pública.
+> Backend **não** altera `apps/web`. Sem pastoral/telefone/menor/família/docs na superfície pública (exceto email no POST de interesse, que **não é ecoado**).
 
-## Público (sem JWT)
+## Critérios públicos (1–9)
 
-| Método | Path | Status | Notas |
-|--------|------|--------|-------|
-| GET | `/public/home` | **implemented** | Stub: church + ministries publicados + `featuredEvents`; `contentBlocks: []` (CMS = Frente D) |
-| GET | `/public/ministries` | **implemented** | Só `visibility=PUBLIC` + `publishStatus=PUBLISHED` |
-| GET | `/public/ministries/:slug` | **implemented** | Perfil + `relatedEvents` + `relatedContent: []` |
-| GET | `/public/events` | **implemented** | Só `status=PUBLISHED` (cancelados/arquivados ocultos) |
-| GET | `/public/events/:slug` | **implemented** | Detalhe público |
+| # | Endpoint | Status |
+|---|----------|--------|
+| 1 | `GET /public/home` | **ok** — ministries + featuredEvents + `contentBlocks` + `banners` |
+| 2 | `GET /public/ministries` | **ok** |
+| 3 | `GET /public/ministries/:slug` | **ok** — + relatedEvents + relatedContent |
+| 4 | `GET /public/events` | **ok** |
+| 5 | `GET /public/events/:slug` | **ok** |
+| 6 | `GET /public/content/:slug` | **ok** — só `PUBLICADO` |
+| 7 | `POST /public/volunteer-interests` | **ok** — rate-limit; ack sem email |
+| 8 | Admin estendido | **ok** — ministries/events/cms/volunteer-interests |
+| 9 | OpenAPI + handoff | **ok** — este doc + YAML |
 
-### Ministry público (shape)
+## CMS (Frente D)
 
-```json
-{
-  "id": "...",
-  "name": "Ministério de Jovens",
-  "slug": "jovens",
-  "description": "...",
-  "coverImageUrl": "/images/ministries/jovens-demo.jpg",
-  "galleryUrls": ["..."],
-  "scheduleText": "...",
-  "leadership": [{ "displayName": "Líder Demo Jovens", "roleTitle": "Coordenação" }],
-  "participationInfo": "...",
-  "publishedAt": "...",
-  "relatedEvents": [],
-  "relatedContent": []
-}
-```
+**Kinds:** `HOME_BLOCK` · `PAGE` · `NEWS` · `BANNER` · `MINISTRY_CONTENT`  
+**Workflow:** `RASCUNHO → REVISAO → APROVADO → PUBLICADO → ARQUIVADO` (transições validadas; histórico em `revisions[]`)
 
-### Event público (shape)
+| Método | Path |
+|--------|------|
+| GET/POST | `/cms/contents` |
+| GET/PATCH | `/cms/contents/:id` |
+| POST | `/cms/contents/:id/advance` `{ toStatus }` |
 
-```json
-{
-  "id": "...",
-  "ministryId": "...|null",
-  "name": "...",
-  "slug": "encontro-jovens-demo",
-  "description": "...",
-  "imageUrl": "...",
-  "startsAt": "...",
-  "endsAt": null,
-  "locationText": "...",
-  "featuredOnHome": true
-}
-```
+Público só `status=PUBLICADO`. Líder só `MINISTRY_CONTENT` do próprio ministry.
 
-### Seed slugs
+## Atmosfera / voluntariado (Frente E)
 
-`jovens` · `homens` · `adolescentes` · `mulheres` · `atmosfera` (todos PUBLIC+PUBLISHED)  
-Eventos demo: `encontro-jovens-demo`, `culto-familia-demo` (featured).
+**Jornada:** `INTERESSE → AVALIACAO → APROVACAO → EQUIPE → DISPONIBILIDADE → ESCALA`  
+Reusa `Person` (obrigatório a partir de EQUIPE) e `Roster` (obrigatório em ESCALA). Sem import Kairos.
 
-## Admin (Bearer)
+| Método | Path | Notas |
+|--------|------|-------|
+| POST | `/public/volunteer-interests` | body: displayName, email, phone?, message?, ministrySlug? (default `atmosfera`) → `{ received, id, stage, ministrySlug }` |
+| GET | `/volunteer-interests` | admin; líder filtra próprio |
+| GET/PATCH | `/volunteer-interests/:id` | advance stage/status/personId/rosterId |
 
-### Ministérios (estende F3)
+## Seed útil
 
-| Método | Path | Papéis |
-|--------|------|--------|
-| GET/POST | `/ministries` | create = secretaria/pastor/admin; list = líder vê só o próprio |
-| GET/PATCH | `/ministries/:id` | líder **só** próprio (`Grant.ministryId` ou `leaderPersonId`) |
-| POST | `/ministries/:id/publish` | PUBLIC + PUBLISHED |
-| POST | `/ministries/:id/archive` | ARCHIVED |
+- Ministries: `jovens|homens|adolescentes|mulheres|atmosfera`
+- CMS: `home-boas-vindas`, `banner-culto-familia`, `aviso-voluntariado-atmosfera`, `sobre-nos`, `jovens-trilhas`
+- Líder jovens: `lider.jovens.demo@example.test` / `admin`
 
-### Eventos (núcleo portal — sem inscrição/financeiro/check-in)
+## Fora de escopo / não mergear
 
-| Método | Path | Papéis |
-|--------|------|--------|
-| GET/POST | `/events` | secretaria/pastor/admin; líder com `ministryId` do próprio |
-| GET/PATCH | `/events/:id` | idem |
-| POST | `/events/:id/publish\|cancel\|archive` | lifecycle |
-
-Campos: `name`, `slug`, `description`, `imageUrl`, `startsAt`, `endsAt`, `locationText`, `ministryId`, `featuredOnHome`, `status`.
-
-## Auth demo extra
-
-| Email | Senha | Escopo |
-|-------|-------|--------|
-| `lider.jovens.demo@example.test` | `admin` | `LIDER_MINISTERIO` + `ministryId` = jovens |
-
-## Fora deste handoff (SIDD-30 / Frentes D+E)
-
-- CMS: páginas, notícias, banners, workflow `RASCUNHO→…→PUBLICADO`, histórico
-- `GET /public/content/:slug` rico (hoje `relatedContent`/`contentBlocks` vazios)
-- `POST /public/volunteer-interests` (Atmosfera) + rate-limit/privacy
-- HML URL pública
-
-## Relacionado
-
-- Contratos F2/F3 internos: `docs/handoff-frontend-api-f2.md`
-- Diagnóstico: Project Store `docs/portal-hml-diagnostico.md`
+- HML URL pública, merge produção, IA/canais WhatsApp, financeiro/inscrição eventos

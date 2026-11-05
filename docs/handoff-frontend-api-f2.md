@@ -1,6 +1,6 @@
 # Handoff FE ← BE — contratos F2 (ChatGPT / `apps/web`)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.4.0-portal"` (F2/F3 + portal B/C)  
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.0-portal"` (F2/F3 + portal B–E)  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
 **Base DEV:** `http://localhost:3001`  
 **Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md`  
@@ -101,15 +101,16 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 | GET/POST | `/ministries`, `/rosters` (+ slots/assignments) | líder/secretaria/pastor | **implemented** |
 | GET/PATCH | `/ministries/:id` (+ publish/archive) | líder **só próprio** ministry | **implemented** (0.4.0-portal) |
 
-## Portal público (0.4.0-portal) — ver handoff dedicado
+## Portal público (0.5.0-portal) — ver handoff dedicado
 
 Detalhe FE: **`docs/handoff-frontend-portal-publico.md`**
 
 | Método | Path | Status |
 |--------|------|--------|
 | GET | `/public/home`, `/public/ministries`, `/public/ministries/:slug` | **implemented** |
-| GET | `/public/events`, `/public/events/:slug` | **implemented** |
-| CRUD | `/events` (+ publish/cancel/archive) | **implemented** (sem inscrição/financeiro) |
+| GET | `/public/events`, `/public/events/:slug`, `/public/content/:slug` | **implemented** |
+| POST | `/public/volunteer-interests` | **implemented** (rate-limit) |
+| CRUD | `/events`, `/cms/contents`, `/volunteer-interests` | **implemented** |
 
 ## Pendente / precisa aprovação
 
@@ -118,8 +119,7 @@ Detalhe FE: **`docs/handoff-frontend-portal-publico.md`**
 | URL HML HTTPS pública | **pendente autorização** (`TBD` no runbook) |
 | Object storage gerenciado (S3) | arquitetura local pronta; migração cloud pendente |
 | OIDC/MFA | proposed |
-| FE consumindo 0.4.0-portal | ChatGPT / `apps/web` |
-| CMS / voluntariado (D+E) | SIDD-30 |
+| FE consumindo 0.5.0-portal | ChatGPT / `apps/web` |
 | F4 finanças / F5 canais-IA | fora do portal |
 
 ## Como testar

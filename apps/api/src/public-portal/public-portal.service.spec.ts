@@ -36,10 +36,29 @@ describe("PublicPortalService", () => {
     featuredOnHome: true,
   };
 
-  it("home returns published ministries and featured events only", async () => {
+  const cmsBlock = {
+    id: "c1",
+    kind: "HOME_BLOCK",
+    slug: "home-boas-vindas",
+    title: "Bem-vindo",
+    summary: "demo",
+    body: "texto",
+    imageUrl: null,
+    ministryId: null,
+    sortOrder: 1,
+    publishedAt: new Date("2026-11-05T12:00:00Z"),
+  };
+
+  it("home returns published ministries, featured events and CMS blocks", async () => {
     const prisma = {
       ministry: { findMany: jest.fn().mockResolvedValue([ministry]) },
       portalEvent: { findMany: jest.fn().mockResolvedValue([event]) },
+      cmsContent: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([cmsBlock])
+          .mockResolvedValueOnce([]),
+      },
     };
     const service = new PublicPortalService(
       prisma as never,
@@ -48,7 +67,8 @@ describe("PublicPortalService", () => {
     const home = await service.home();
     expect(home.ministries).toHaveLength(1);
     expect(home.featuredEvents[0].slug).toBe("encontro-jovens-demo");
-    expect(home.contentBlocks).toEqual([]);
+    expect(home.contentBlocks[0].slug).toBe("home-boas-vindas");
+    expect(home.banners).toEqual([]);
     expect(prisma.ministry.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -56,6 +76,27 @@ describe("PublicPortalService", () => {
           visibility: "PUBLIC",
         }),
       }),
+    );
+  });
+
+  it("getContentBySlug only returns PUBLICADO", async () => {
+    const prisma = {
+      cmsContent: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(cmsBlock)
+          .mockResolvedValueOnce(null),
+      },
+    };
+    const service = new PublicPortalService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.getContentBySlug("home-boas-vindas")).resolves.toMatchObject(
+      { slug: "home-boas-vindas" },
+    );
+    await expect(service.getContentBySlug("rascunho")).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 
@@ -72,10 +113,15 @@ describe("PublicPortalService", () => {
     );
   });
 
-  it("getMinistryBySlug includes related published events", async () => {
+  it("getMinistryBySlug includes related published events and CMS", async () => {
     const prisma = {
       ministry: { findFirst: jest.fn().mockResolvedValue(ministry) },
       portalEvent: { findMany: jest.fn().mockResolvedValue([event]) },
+      cmsContent: {
+        findMany: jest.fn().mockResolvedValue([
+          { ...cmsBlock, kind: "MINISTRY_CONTENT", slug: "jovens-trilhas" },
+        ]),
+      },
     };
     const service = new PublicPortalService(
       prisma as never,
@@ -85,7 +131,7 @@ describe("PublicPortalService", () => {
     expect(detail.slug).toBe("jovens");
     expect(detail.leadership).toHaveLength(1);
     expect(detail.relatedEvents).toHaveLength(1);
-    expect(detail.relatedContent).toEqual([]);
+    expect(detail.relatedContent[0].slug).toBe("jovens-trilhas");
   });
 
   it("lists and gets published events", async () => {
