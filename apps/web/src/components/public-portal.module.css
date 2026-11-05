@@ -492,3 +492,17 @@
 .portal .eventArrow{border-radius:50%}
 @media(max-width:750px){.header,.headerInner{min-height:70px}.headerInner{padding:0 20px}.header .headerVisit{padding:11px 14px}.portal .eventCard{grid-template-columns:60px 1fr 35px}}
 @media(max-width:420px){.header,.headerInner{min-height:67px}.headerInner{padding:0 13px}.header .headerVisit{font-size:9px;padding:11px 10px}.portal .eventCard{grid-template-columns:49px 1fr 29px;gap:10px}.portal .eventInfo h3{font-size:17px}}
+
+/* V3+ — assinatura futurista sóbria: navegação flutuante e microinterações. */
+.portal .header{position:fixed;z-index:95;top:0;left:0;right:0;width:100%;background:linear-gradient(180deg,rgba(9,28,35,.84),rgba(9,28,35,.52));border-bottom:1px solid rgba(244,215,161,.19);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);transition:min-height .25s,background .25s,box-shadow .25s}
+.portal .header[data-scrolled="true"]{background:rgba(11,31,38,.94);box-shadow:0 18px 38px rgba(0,20,25,.25);border-color:rgba(236,196,137,.27)}
+.portal .header[data-scrolled="true"] .headerInner{min-height:70px}
+.portal .header .headerVisit{border:1px solid rgba(253,225,180,.4);background:linear-gradient(120deg,#f3d095,#edb975);transition:transform .25s,box-shadow .25s,background .25s}
+.portal .header .headerVisit:hover{transform:translateY(-2px);box-shadow:0 7px 30px #d6ad6940}
+.portal .desktopNav a{position:relative;transition:color .22s}
+.portal .desktopNav a::after{position:absolute;content:"";height:2px;width:100%;bottom:-10px;left:0;background:#edc985;transform:scaleX(0);transform-origin:left;transition:transform .25s}
+.portal .desktopNav a:hover::after,.portal .desktopNav a:focus-visible::after{transform:scaleX(1)}
+.portal :global([data-portal-reveal][data-portal-visible="true"]){animation:portal-rise .8s cubic-bezier(.18,.65,.24,1) both}
+@keyframes portal-rise{from{opacity:.84;transform:translateY(19px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:750px){.portal .header[data-scrolled="true"] .headerInner{min-height:64px}.portal .desktopNav a::after{display:none}}
+@media(prefers-reduced-motion:reduce){.portal .header,.portal .headerVisit,.portal .desktopNav a,.portal .desktopNav a::after{transition:none}.portal :global([data-portal-reveal][data-portal-visible="true"]){animation:none}}

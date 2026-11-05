@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ministries, instagramUrl, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
+import { PortalMotion } from "./PortalMotion";
 
 export { s as portalStyles };
 
@@ -67,7 +68,7 @@ export function PortalFooter() {
 }
 
 export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={s.portal}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} />{children}<PortalFooter /></div>;
+  return <div className={s.portal}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PortalMotion />{children}<PortalFooter /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {
