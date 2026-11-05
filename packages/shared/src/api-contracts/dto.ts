@@ -41,6 +41,8 @@ export interface PersonSummaryDto {
   email: string | null;
   status: string;
   householdId: string | null;
+  kind?: string;
+  isMinor?: boolean;
 }
 
 export interface MembershipDto {
@@ -100,7 +102,13 @@ export interface HouseholdDto {
   churchId: string;
   organizationId: string;
   memberPersonIds: string[];
+  members?: Array<{ id: string; displayName: string; isMinor: boolean }>;
   createdAt: string;
+}
+
+export interface HouseholdListResponse {
+  churchId: string;
+  households: HouseholdDto[];
 }
 
 export interface CreateHouseholdRequest {
@@ -175,4 +183,80 @@ export interface HealthResponse {
   status: "ok" | "degraded" | "down";
   service: string;
   timestamp: string;
+}
+
+export interface PatchPersonRequest {
+  isMinor?: boolean;
+  legalGuardianPersonId?: string | null;
+  householdId?: string | null;
+}
+
+export interface PersonDossierResponse {
+  person: PersonSummaryDto & {
+    kind: string;
+    isMinor: boolean;
+    legalGuardianPersonId: string | null;
+  };
+  legalGuardian: { id: string; displayName: string; email: string | null } | null;
+  dependents: Array<{ id: string; displayName: string; isMinor: boolean }>;
+  household: {
+    id: string;
+    label: string | null;
+    members: Array<{ id: string; displayName: string; isMinor: boolean }>;
+  } | null;
+  memberships: Array<{
+    id: string;
+    status: string;
+    joinedAt: string;
+    notes: string | null;
+  }>;
+  admissionHistory: Array<{
+    id: string;
+    status: string;
+    modality: string | null;
+    currentStep: string;
+    checklist: AdmissionChecklistDto;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+}
+
+export interface AdmissionDocumentMetaDto {
+  id: string;
+  admissionId: string;
+  displayName: string;
+  contentType: string;
+  byteSize: number;
+  createdAt: string;
+}
+
+export interface AdmissionDocumentsListResponse {
+  admissionId: string;
+  documents: AdmissionDocumentMetaDto[];
+}
+
+export interface MetaResponse {
+  app: string;
+  slug: string;
+  contractVersion: string;
+  apiPathPrefix: string;
+  pilot: boolean;
+  endpoints: Record<string, "implemented" | "proposed">;
+  hmlPublicUrl: string | null;
+  notes: string[];
+}
+
+export interface AuditLogEntryDto {
+  id: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  actorUserId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface AuditLogsResponse {
+  churchId: string;
+  logs: AuditLogEntryDto[];
 }

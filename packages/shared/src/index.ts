@@ -42,6 +42,9 @@ export {
   canManageAdmissions,
   canApprovePastoralAdmission,
   canSearchPersons,
+  canManageTransfers,
+  canAccessPastoralCare,
+  canLeadMinistry,
   type MembershipScopeTarget,
 } from "./membership-scope";
 
@@ -80,6 +83,7 @@ export {
   type CredentialMeResponse,
   type CredentialVerifyResponse,
   type HouseholdDto,
+  type HouseholdListResponse,
   type CreateHouseholdRequest,
   type PersonSearchRequest,
   type PersonSearchHit,
@@ -89,6 +93,13 @@ export {
   type CreateAdmissionRequest,
   type AdvanceAdmissionRequest,
   type HealthResponse,
+  type PatchPersonRequest,
+  type PersonDossierResponse,
+  type AdmissionDocumentMetaDto,
+  type AdmissionDocumentsListResponse,
+  type MetaResponse,
+  type AuditLogEntryDto,
+  type AuditLogsResponse,
 } from "./api-contracts";
 
 export interface HealthStatus {

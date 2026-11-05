@@ -1,0 +1,31 @@
+import { Controller, Get } from "@nestjs/common";
+import {
+  API_CONTRACT_VERSION,
+  API_PATH_PREFIX,
+  API_ENDPOINT_STATUS,
+  APP_NAME,
+  APP_SLUG,
+} from "@idbrf/shared";
+import { Public } from "../auth/decorators/public.decorator";
+
+@Controller("meta")
+export class MetaController {
+  /** Contrato e capacidade da API — útil para o FE detectar versão. */
+  @Public()
+  @Get()
+  getMeta() {
+    return {
+      app: APP_NAME,
+      slug: APP_SLUG,
+      contractVersion: API_CONTRACT_VERSION,
+      apiPathPrefix: API_PATH_PREFIX,
+      pilot: true,
+      endpoints: API_ENDPOINT_STATUS,
+      hmlPublicUrl: process.env.HML_PUBLIC_API_URL?.trim() || null,
+      notes: [
+        "Dados fictícios em DEV/HML",
+        "HML_PUBLIC_API_URL só após autorização de publicação",
+      ],
+    };
+  }
+}

@@ -1,25 +1,25 @@
 # Handoff FE ← BE — contratos F2 (ChatGPT / `apps/web`)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · versão TS `API_CONTRACT_VERSION = "0.2.0-f2"`  
-**Prefixo:** nenhum (`API_PATH_PREFIX = ""`) — paths na raiz Nest.  
-**Base DEV local:** `http://localhost:3001`  
-**Base HML (quando provisionada):** definir `NEXT_PUBLIC_API_URL` apontando para a API HML (HTTPS). Pages estático **não** embute API.
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.3.0-f3"`  
+**Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
+**Base DEV:** `http://localhost:3001`  
+**Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md`  
+**Descoberta:** `GET /meta` (público) devolve `contractVersion` + mapa `endpoints`.
 
-> Backend **não** altera `apps/web`. FE consome este contrato.
+> Backend **não** altera `apps/web`.
 
 ## Auth
 
-| Método | Path | Auth | Papéis | Status |
-|--------|------|------|--------|--------|
-| POST | `/auth/login` | público | — | **implemented** |
-| GET | `/auth/me` | Bearer | qualquer autenticado | **implemented** |
-| GET | `/auth/rbac-smoke` | Bearer | SECRETARIA | **implemented** (dev smoke) |
+| Método | Path | Auth | Status |
+|--------|------|------|--------|
+| POST | `/auth/login` | público | **implemented** |
+| GET | `/auth/me` | Bearer | **implemented** |
+| GET | `/auth/rbac-smoke` | SECRETARIA | **implemented** (smoke) |
 
-**Login body:** `{ "email": string, "password": string }`  
-**Login 201:** `{ accessToken, tokenType: "Bearer", expiresInSeconds, user: { userId, personId, email, grants[] } }`  
-**Header:** `Authorization: Bearer <accessToken>`
+Login body `{ email, password }` → 201 `{ accessToken, tokenType, expiresInSeconds, user }`  
+Header: `Authorization: Bearer <token>`
 
-### Seed fictício (nunca dados reais)
+### Seed fictício
 
 | Email | Senha | Papel |
 |-------|-------|-------|
@@ -27,82 +27,95 @@
 | `pastor.demo@example.test` | `admin` | PASTOR |
 | `bruno.demo@example.test` | `admin` | MEMBRO |
 
-## Admissão (M1)
-
-| Método | Path | Papéis | Status |
-|--------|------|--------|--------|
-| GET | `/admissions` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
-| GET | `/admissions/:admissionId` | idem | **implemented** |
-| POST | `/admissions` | SECRETARIA, PLATFORM_ADMIN | **implemented** |
-| POST | `/admissions/:admissionId/advance` | SECRETARIA e/ou PASTOR conforme etapa | **implemented** |
-
-**Fluxo:** `modality → documents → secretaria → pastor`  
-**Resposta inclui:** `checklist`, `credentialEligible` (true só com status `APPROVED`).
-
-### Erros esperados (negócio)
-
-| HTTP | `code` | Quando |
-|------|--------|--------|
-| 401 | — | JWT ausente/inválido |
-| 403 | — / `ADMISSION_ROLE_REQUIRED` | papel inadequado |
-| 404 | — | protocolo/pessoa inexistente no piloto |
-| 409 | `ADMISSION_STEP_LOCKED` | etapa fora de ordem |
-| 409 | `ADMISSION_ALREADY_OPEN` | já há protocolo aberto |
-| 409 | `ADMISSION_CLOSED` | APPROVED/REJECTED/CANCELLED |
-| 409 | `MEMBERSHIP_ALREADY_ACTIVE` | create com membership ACTIVE |
-| 400 | — | body inválido / modality ausente / decision ausente |
-| 429 | `RATE_LIMITED` | excesso em login/verify |
-
-## Pessoas / famílias
+## Pessoas / famílias (0.2.1–0.2.3)
 
 | Método | Path | Papéis | Status |
 |--------|------|--------|--------|
 | GET | `/persons/search?q=&limit=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
-| GET | `/persons/:personId` | idem | **implemented** |
-| POST | `/households` | SECRETARIA, PLATFORM_ADMIN | **implemented** |
-| GET | `/households/:householdId` | SECRETARIA, PLATFORM_ADMIN | **implemented** |
+| GET | `/persons/:personId` | staff ou próprio MEMBRO | **implemented** |
+| GET | `/persons/:personId/dossier` | staff ou próprio MEMBRO | **implemented** |
+| PATCH | `/persons/:personId` | SECRETARIA | **implemented** — `isMinor`, `legalGuardianPersonId`, `householdId` |
+| GET | `/households` | SECRETARIA | **implemented** (0.2.3) |
+| POST | `/households` | SECRETARIA | **implemented** |
+| GET | `/households/:id` | SECRETARIA | **implemented** |
+| POST | `/households/:id/members` | SECRETARIA | **implemented** |
+| DELETE | `/households/:id/members/:personId` | SECRETARIA | **implemented** |
 
-- `autoMergeForbidden: true` sempre na busca (anti-merge automático).
-- Menor sem `legalGuardianPersonId` **não** vincula a família / bloqueia admissão.
+- Busca: `autoMergeForbidden: true` sempre  
+- Menor **exige** responsável legal adulto no mesmo org  
+- Seed: `demoPersonMenor01` (Eduardo) com guardião `demoPersonRiacho01` (Ana)
 
-## Membresia (legado — preferir admissão)
+## Admissão + documentos
 
-| Método | Path | Status | Nota |
-|--------|------|--------|------|
-| GET | `/memberships` | **implemented** | listagem secretaria |
-| POST | `/memberships` | **implemented** | legado; FE deve preferir `POST /admissions` |
+| Método | Path | Status |
+|--------|------|--------|
+| GET/POST | `/admissions` | **implemented** |
+| GET | `/admissions/:id` | **implemented** |
+| POST | `/admissions/:id/advance` | **implemented** |
+| GET/POST | `/admissions/:id/documents` | **implemented** (multipart `file`) |
+| GET | `/admissions/:id/documents/:documentId` | **implemented** (download autorizado) |
 
-## Carteirinha
+Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL pública**.
 
-| Método | Path | Auth | Status |
-|--------|------|------|--------|
-| GET | `/credentials/me` | Bearer (MEMBRO+) | **implemented** |
-| POST | `/credentials/issue/:membershipId` | SECRETARIA | **implemented** — exige admissão APPROVED |
-| POST | `/credentials/reissue/:membershipId` | SECRETARIA | **implemented** |
-| POST | `/credentials/revoke/:credentialId` | SECRETARIA | **implemented** |
-| GET | `/credentials/verify/:opaqueToken` | **público** | **implemented** — só status/nome/igreja; rate-limited |
+### Erros de negócio
 
-**Gate:** sem `credentialEligible` / admissão APPROVED → `409 CREDENTIAL_NOT_ELIGIBLE`.  
-**QR:** apenas `qrPayload` opaco — sem CPF/telefone/e-mail.
+| HTTP | `code` |
+|------|--------|
+| 401 | JWT |
+| 403 | papel / `ADMISSION_ROLE_REQUIRED` |
+| 404 | recurso fora do piloto |
+| 409 | `ADMISSION_STEP_LOCKED`, `ADMISSION_ALREADY_OPEN`, `ADMISSION_CLOSED`, `MEMBERSHIP_ALREADY_ACTIVE`, `CREDENTIAL_NOT_ELIGIBLE` |
+| 429 | `RATE_LIMITED` |
 
-## Pendente / proposed (não bloquear FE mock)
+## Membresia / carteirinha
 
-- OIDC / MFA
-- Object storage de documentos da admissão
-- Transferência entre igrejas
-- Rate limit distribuído (Redis) — hoje in-memory DEV/HML
-- Multi-congregação (piloto = RF1 only)
+| Path | Status | Nota |
+|------|--------|------|
+| GET/POST `/memberships` | **implemented** | preferir `/admissions` |
+| GET `/credentials/me` | **implemented** | |
+| POST `/credentials/issue|reissue|revoke/...` | **implemented** | gate pastoral |
+| GET `/credentials/verify/:opaqueToken` | **implemented** | público + rate limit |
 
-## Como testar a API
+## Auditoria
+
+| Método | Path | Papéis | Status |
+|--------|------|--------|--------|
+| GET | `/audit-logs?limit=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
+
+## Transferências / cartas (F2 completo)
+
+| Método | Path | Status |
+|--------|------|--------|
+| GET/POST | `/transfers` | **implemented** — mesmo `personId`; destino seed `demoChurchDest02` |
+| POST | `/transfers/:id/advance` | **implemented** — APPROVE/REJECT |
+| GET/POST | `/letters` | **implemented** — versionadas |
+| POST | `/letters/:id/issue\|revoke` | **implemented** |
+
+## F3 — Cuidado e escalas
+
+| Método | Path | Papéis | Status |
+|--------|------|--------|--------|
+| GET/POST | `/pastoral-cases` | só PASTOR (sigilo; secretaria e PLATFORM_ADMIN 403) | **implemented** |
+| GET/POST | `/discipleship/tracks`, `/discipleship/enrollments` | líder/secretaria/pastor | **implemented** |
+| GET/POST | `/small-groups` (+ members/meetings) | líder/secretaria/pastor | **implemented** |
+| GET/POST | `/ministries`, `/rosters` (+ slots/assignments) | líder/secretaria/pastor | **implemented** |
+
+## Pendente / precisa aprovação
+
+| Item | Status |
+|------|--------|
+| URL HML HTTPS pública | **pendente autorização** (`TBD` no runbook) |
+| Object storage gerenciado (S3) | arquitetura local pronta; migração cloud pendente |
+| OIDC/MFA | proposed |
+| FE consumindo 0.3.0-f3 | ChatGPT / `apps/web` |
+| F4+ finanças/eventos/canais | fora deste contrato |
+
+## Como testar
 
 ```bash
-docker compose up -d postgres   # ou Postgres local
-cp .env.example .env
-npm ci && npm run build -w @idbrf/shared && npm run build -w @idbrf/db
+npm run build -w @idbrf/shared && npm run build -w @idbrf/db
 npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
 npm run db:seed
 npm run build -w @idbrf/api && npm run start:prod -w @idbrf/api
-node scripts/homolog-m1-admission.mjs
+npm run homolog:m1
 ```
-
-OpenAPI completo: `packages/shared/openapi/f2-v0.2.yaml`.

@@ -1,15 +1,17 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.2.0-f2
+  version: 0.3.0-f3
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
 
-    - `x-implementation: implemented` — disponível na API Nest desta branch M1
-    - Endpoints de admissão/pessoas/famílias passaram de proposed → implemented no M1
+    - `x-implementation: implemented` — disponível na API Nest
+    - 0.2.1–0.2.3: pessoas, famílias, docs, meta, audit, list households
+    - 0.3.0-f3: transferências, cartas versionadas, pastoral, discipulado, células, escalas
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
+    Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
     Auth: `Authorization: Bearer <accessToken>` salvo no login.
     Constante compartilhada: `API_PATH_PREFIX === ""` (Nest sem `setGlobalPrefix`).
   contact:
@@ -17,6 +19,8 @@ info:
 servers:
   - url: http://localhost:3001
     description: API Nest local — paths raiz /auth /memberships /credentials (Docker Postgres + seed fictício)
+  - url: https://api-hml.example.invalid
+    description: Placeholder HML — substituir quando ambiente for autorizado/publicável
 tags:
   - name: health
   - name: auth
@@ -25,6 +29,14 @@ tags:
   - name: persons
   - name: households
   - name: admissions
+  - name: meta
+  - name: audit
+  - name: transfers
+  - name: letters
+  - name: pastoral
+  - name: discipleship
+  - name: groups
+  - name: ministries
 
 components:
   securitySchemes:
@@ -88,6 +100,45 @@ components:
         email: { type: string, nullable: true, example: carla.demo@example.test }
         status: { type: string, example: ACTIVE }
         householdId: { type: string, nullable: true }
+        kind: { type: string, enum: [VISITOR, MEMBER] }
+        isMinor: { type: boolean }
+    MetaResponse:
+      type: object
+      required: [app, slug, contractVersion, apiPathPrefix, pilot, endpoints, hmlPublicUrl, notes]
+      properties:
+        app: { type: string }
+        slug: { type: string }
+        contractVersion: { type: string, example: 0.2.3-f2 }
+        apiPathPrefix: { type: string }
+        pilot: { type: boolean }
+        endpoints:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [implemented, proposed]
+        hmlPublicUrl: { type: string, nullable: true }
+        notes:
+          type: array
+          items: { type: string }
+    AuditLogEntry:
+      type: object
+      required: [id, action, resourceType, resourceId, actorUserId, metadata, createdAt]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        resourceType: { type: string }
+        resourceId: { type: string, nullable: true }
+        actorUserId: { type: string, nullable: true }
+        metadata: {}
+        createdAt: { type: string, format: date-time }
+    AuditLogsResponse:
+      type: object
+      required: [churchId, logs]
+      properties:
+        churchId: { type: string }
+        logs:
+          type: array
+          items: { $ref: "#/components/schemas/AuditLogEntry" }
     Membership:
       type: object
       required: [id, status, joinedAt, notes, person, activeCredentialId]
@@ -193,6 +244,15 @@ components:
         memberPersonIds:
           type: array
           items: { type: string }
+        members:
+          type: array
+          items:
+            type: object
+            required: [id, displayName, isMinor]
+            properties:
+              id: { type: string }
+              displayName: { type: string }
+              isMinor: { type: boolean }
         createdAt: { type: string, format: date-time }
     CreateHouseholdRequest:
       type: object
@@ -577,8 +637,54 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+    patch:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Atualizar flags de menor / responsável legal / família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isMinor: { type: boolean }
+                legalGuardianPersonId: { type: string, nullable: true }
+                householdId: { type: string, nullable: true }
+            example:
+              isMinor: true
+              legalGuardianPersonId: demoPersonRiacho01
+      responses:
+        "200":
+          description: Pessoa atualizada
+        "400":
+          description: Menor sem guardião ou guardião inválido
 
   /households:
+    get:
+      tags: [households]
+      x-implementation: implemented
+      summary: Listar famílias do piloto
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Lista de famílias
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [churchId, households]
+                properties:
+                  churchId: { type: string }
+                  households:
+                    type: array
+                    items: { $ref: "#/components/schemas/Household" }
     post:
       tags: [households]
       x-implementation: implemented
@@ -783,3 +889,775 @@ paths:
                 statusCode: 409
                 message: Etapa pastor bloqueada até secretaria aprovar
                 code: ADMISSION_STEP_LOCKED
+
+  /meta:
+    get:
+      tags: [health]
+      x-implementation: implemented
+      summary: Versão do contrato e mapa de endpoints (público)
+      responses:
+        "200":
+          description: Meta da API
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MetaResponse" }
+
+  /audit-logs:
+    get:
+      tags: [auth]
+      x-implementation: implemented
+      summary: Auditoria recente do piloto (SECRETARIA/PASTOR)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Lista de logs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditLogsResponse" }
+        "403":
+          description: Sem permissão
+
+  /persons/{personId}/dossier:
+    get:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Prontuário individual (vínculos + histórico de admissão)
+      description: |
+        SECRETARIA/PASTOR no piloto. MEMBRO somente o próprio `personId`.
+        Sem merge automático. E-mails de terceiros omitidos para MEMBRO.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dossier
+        "403":
+          description: Sem permissão
+
+  /households/{householdId}/members:
+    post:
+      tags: [households]
+      x-implementation: implemented
+      summary: Vincular pessoas à família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: householdId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberPersonIds]
+              properties:
+                memberPersonIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Família atualizada
+
+  /households/{householdId}/members/{personId}:
+    delete:
+      tags: [households]
+      x-implementation: implemented
+      summary: Remover pessoa da família
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: householdId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Família atualizada
+
+  /admissions/{admissionId}/documents:
+    get:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Listar metadados de documentos (sem bytes)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista de metadados
+    post:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Upload multipart (PDF/JPEG/PNG ≤5MiB) para storage privado
+      description: |
+        Campo form `file`. Bytes em `STORAGE_ROOT` (não público). Auditoria com sha256.
+        Documentos **fictícios** apenas em HML.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Metadados do documento
+        "400":
+          description: Tipo/tamanho inválido
+
+  /admissions/{admissionId}/documents/{documentId}:
+    get:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Download autorizado (SECRETARIA/PASTOR)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bytes do arquivo
+          content:
+            application/pdf: {}
+            image/jpeg: {}
+            image/png: {}
+
+  /transfers:
+    get:
+      tags: [transfers]
+      x-implementation: implemented
+      summary: Lista transferências da congregação piloto
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope com transfers[]
+    post:
+      tags: [transfers]
+      x-implementation: implemented
+      summary: Inicia transferência (personId preservado; origem ACTIVE)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, toChurchId]
+              properties:
+                personId: { type: string }
+                toChurchId: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Transferência AWAITING_ORIGIN
+
+  /transfers/{transferId}:
+    get:
+      tags: [transfers]
+      x-implementation: implemented
+      summary: Detalhe da transferência
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Transferência
+
+  /transfers/{transferId}/advance:
+    post:
+      tags: [transfers]
+      x-implementation: implemented
+      summary: APPROVE/REJECT (origem → destino; destino PENDING_ADMISSION)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [APPROVE, REJECT] }
+                rejectionReason: { type: string }
+      responses:
+        "200":
+          description: Status atualizado
+
+  /letters:
+    get:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Lista cartas oficiais (SECRETARIA)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope letters[]
+    post:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Cria draft versionado (supersedes versão anterior do mesmo tipo)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, letterType, title, bodyText]
+              properties:
+                personId: { type: string }
+                letterType: { type: string }
+                title: { type: string }
+                bodyText: { type: string }
+      responses:
+        "201":
+          description: Carta DRAFT
+
+  /letters/{letterId}/issue:
+    post:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Emite carta (DRAFT → ISSUED)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: letterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Carta ISSUED
+
+  /letters/{letterId}/revoke:
+    post:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Revoga carta ISSUED
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: letterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Carta REVOKED
+
+  /pastoral-cases:
+    get:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Lista casos pastorais (somente PASTOR — sigilo)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope cases[]
+        "403":
+          description: SECRETARIA/PLATFORM_ADMIN sem acesso
+    post:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Abre caso pastoral (somente PASTOR)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, kind, title]
+              properties:
+                personId: { type: string }
+                kind: { type: string }
+                title: { type: string }
+                summary: { type: string }
+                assignedToUserId: { type: string }
+                dueAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Caso OPEN
+
+  /pastoral-cases/{caseId}:
+    get:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Detalhe do caso pastoral
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Caso com tasks[]
+
+  /pastoral-cases/{caseId}/status:
+    patch:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Atualiza status do caso
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [OPEN, IN_PROGRESS, DONE, CANCELLED] }
+      responses:
+        "200":
+          description: Caso atualizado
+
+  /pastoral-cases/{caseId}/assign:
+    patch:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Atribui responsável
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignedToUserId]
+              properties:
+                assignedToUserId: { type: string }
+      responses:
+        "200":
+          description: Caso atualizado
+
+  /pastoral-cases/{caseId}/tasks:
+    post:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Adiciona tarefa ao caso
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                dueAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Tarefa criada
+
+  /pastoral-cases/{caseId}/tasks/{taskId}:
+    patch:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Marca tarefa done/undone
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [done]
+              properties:
+                done: { type: boolean }
+      responses:
+        "200":
+          description: Tarefa atualizada
+
+  /discipleship/tracks:
+    get:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Lista trilhas de discipulado
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope tracks[]
+    post:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Cria trilha
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        "201":
+          description: Trilha criada
+
+  /discipleship/enrollments:
+    post:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Matricula pessoa em trilha
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trackId, personId]
+              properties:
+                trackId: { type: string }
+                personId: { type: string }
+                mentorPersonId: { type: string }
+      responses:
+        "201":
+          description: Matrícula ACTIVE
+
+  /discipleship/enrollments/{enrollmentId}:
+    patch:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Atualiza status da matrícula
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [ACTIVE, COMPLETED, PAUSED, CANCELLED] }
+      responses:
+        "200":
+          description: Matrícula atualizada
+
+  /small-groups:
+    get:
+      tags: [groups]
+      x-implementation: implemented
+      summary: Lista células/grupos
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope groups[]
+    post:
+      tags: [groups]
+      x-implementation: implemented
+      summary: Cria célula
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                leaderPersonId: { type: string }
+                meetsAtHint: { type: string }
+      responses:
+        "201":
+          description: Grupo criado
+
+  /small-groups/{groupId}/members:
+    post:
+      tags: [groups]
+      x-implementation: implemented
+      summary: Adiciona membro à célula
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId]
+              properties:
+                personId: { type: string }
+                role: { type: string, enum: [LEADER, MEMBER] }
+      responses:
+        "201":
+          description: Membro adicionado
+
+  /small-groups/{groupId}/meetings:
+    post:
+      tags: [groups]
+      x-implementation: implemented
+      summary: Registra reunião + presença
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [occurredAt]
+              properties:
+                occurredAt: { type: string, format: date-time }
+                notes: { type: string }
+                attendance:
+                  type: array
+                  items:
+                    type: object
+                    required: [personId]
+                    properties:
+                      personId: { type: string }
+                      present: { type: boolean }
+      responses:
+        "201":
+          description: Reunião criada
+
+  /ministries:
+    get:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Lista ministérios
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope ministries[]
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Cria ministério
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                leaderPersonId: { type: string }
+      responses:
+        "201":
+          description: Ministério criado
+
+  /rosters:
+    get:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Lista escalas com slots/assignments
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope rosters[]
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Cria escala
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, serviceAt]
+              properties:
+                title: { type: string }
+                serviceAt: { type: string, format: date-time }
+                ministryId: { type: string }
+      responses:
+        "201":
+          description: Escala criada
+
+  /rosters/{rosterId}/slots:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Adiciona slot (função) na escala
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: rosterId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleLabel]
+              properties:
+                roleLabel: { type: string }
+                requiresCouple: { type: boolean }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Slot criado
+
+  /slots/{slotId}/assignments:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Designa pessoa (conflito de horário / casal)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: slotId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId]
+              properties:
+                personId: { type: string }
+                partnerPersonId: { type: string }
+      responses:
+        "201":
+          description: Assignment PENDING
+        "409":
+          description: Conflito de escala no mesmo serviceAt
+
+  /assignments/{assignmentId}/confirm:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Confirma designação (próprio MEMBRO ou líder)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CONFIRMED
+
+  /assignments/{assignmentId}/decline:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Recusa designação
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: DECLINED
+
+  /assignments/{assignmentId}/substitute:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Substitui designação (líder)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId]
+              properties:
+                personId: { type: string }
+                partnerPersonId: { type: string }
+      responses:
+        "201":
+          description: Novo assignment PENDING; original SUBSTITUTED

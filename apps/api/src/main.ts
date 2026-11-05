@@ -26,10 +26,28 @@ async function bootstrap() {
     }),
   );
 
-  // Rotas na raiz (sem setGlobalPrefix) — alinhado a API_PATH_PREFIX="" / OpenAPI 0.2.0-f2
+  // Headers básicos (sem dependência extra). TLS/HTTPS fica no reverse proxy HML.
+  app.use(
+    (
+      _req: { url?: string },
+      res: {
+        setHeader: (k: string, v: string) => void;
+      },
+      next: () => void,
+    ) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Frame-Options", "DENY");
+      res.setHeader("Referrer-Policy", "no-referrer");
+      res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+      next();
+    },
+  );
+
+  // Rotas na raiz (sem setGlobalPrefix) — alinhado a API_PATH_PREFIX="" / OpenAPI 0.2.1-f2
   const port = Number(process.env.API_PORT ?? 3001);
   await app.listen(port);
   console.log(`API listening on http://localhost:${port}`);
 }
+
 
 void bootstrap();

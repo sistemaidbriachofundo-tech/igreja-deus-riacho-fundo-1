@@ -1,0 +1,27 @@
+# API Nest — imagem HML/DEV (não produção pública sem autorização)
+FROM node:22-bookworm-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
+COPY packages/db/package.json packages/db/
+RUN npm ci
+
+FROM deps AS build
+COPY . .
+RUN npm run build -w @idbrf/shared \
+  && npx prisma generate --schema packages/db/prisma/schema.prisma \
+  && npm run build -w @idbrf/db \
+  && npm run build -w @idbrf/api
+
+FROM node:22-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV API_PORT=3001
+RUN useradd -m -u 10001 apiuser
+COPY --from=build /app /app
+RUN mkdir -p /var/lib/idbrf/private-storage && chown -R apiuser:apiuser /var/lib/idbrf
+USER apiuser
+EXPOSE 3001
+# Migrate on boot (HML). Seed só se SEED_ON_BOOT=1 (dados fictícios).
+CMD ["sh", "-c", "npx prisma migrate deploy --schema packages/db/prisma/schema.prisma && if [ \"$SEED_ON_BOOT\" = \"1\" ]; then npm run seed -w @idbrf/db; fi && node apps/api/dist/main.js"]

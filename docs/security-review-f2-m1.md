@@ -11,9 +11,13 @@ Data: 2026-11-04 (America/Sao_Paulo). Escopo: API Nest + Prisma pós-#24/#25.
 | Validação | `ValidationPipe` whitelist + forbidNonWhitelisted |
 | CORS | Livre em DEV; **obrigatório `CORS_ORIGIN` se `NODE_ENV=production`** |
 | Rate limit | In-memory em `POST /auth/login` e `GET /credentials/verify/:token` |
+| Headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` |
 | Carteirinha | Gate `credentialEligible`; QR opaco; verify público sem PII no token |
 | Busca pessoas | Sem merge automático (`autoMergeForbidden`) |
-| Auditoria | `audit_logs` em admissão/carteirinha/família/membresia (sem senha) |
+| Menores | Guardião adulto obrigatório; sem auto-guardião |
+| Documentos | Storage privado `STORAGE_ROOT`; download só staff; audit sha256 |
+| Prontuário | MEMBRO só o próprio `personId` |
+| Auditoria | `audit_logs` sem senha / sem bytes de arquivo |
 | Dados | Seed fictício only |
 
 ## Riscos / mitigações

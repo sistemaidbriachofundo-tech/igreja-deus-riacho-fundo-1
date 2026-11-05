@@ -52,3 +52,4 @@ test-results/
 *.key
 tmp/
 temp/
+.data/

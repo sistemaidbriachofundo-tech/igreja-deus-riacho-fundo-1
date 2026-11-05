@@ -73,3 +73,42 @@ export function canSearchPersons(
     canApprovePastoralAdmission(grants, target)
   );
 }
+
+/** Transferência e cartas oficiais — secretaria/admin no escopo. */
+export function canManageTransfers(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return canManageMemberships(grants, target);
+}
+
+/**
+ * Casos pastorais: só PASTOR no escopo.
+ * SECRETARIA e PLATFORM_ADMIN NÃO leem por padrão (sigilo DAS).
+ */
+export function canAccessPastoralCare(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return hasAccess(grants, {
+    roleCodes: [ROLE_CODES.PASTOR],
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  });
+}
+
+/** Ministérios / escalas / células — líder, secretaria, pastor ou admin. */
+export function canLeadMinistry(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return (
+    canManageMemberships(grants, target) ||
+    canApprovePastoralAdmission(grants, target) ||
+    hasAccess(grants, {
+      roleCodes: [ROLE_CODES.LIDER_MINISTERIO],
+      organizationId: target.organizationId,
+      churchId: target.churchId,
+    })
+  );
+}
