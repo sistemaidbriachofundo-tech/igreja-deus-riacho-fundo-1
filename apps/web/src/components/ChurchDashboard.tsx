@@ -25,7 +25,6 @@ export function ChurchDashboard() {
   const { members } = useChurchRecords();
   const stats = useMemo(() => summarize(members), [members]);
   const pending = members.filter(p => p.status === "PENDING_ADMISSION");
-  const visitors = members.filter(p => p.status === "VISITOR");
   const cardQueue = members.filter(p => p.status === "ACTIVE" && p.card !== "ACTIVE");
   const statusData = [
     { label:"Membros ativos", count:stats.active, color:"#c69c51" },
@@ -50,7 +49,7 @@ export function ChurchDashboard() {
   return <AppShell active="visao" meta="Visão geral">
     <div className={s.dashboard}>
       <div className={s.pageTop}>
-        <div><p className={s.eyebrow}><span className={s.eyebrowLine}/> VISÃO INSTITUCIONAL / RIA CHO FUNDO I</p>
+        <div><p className={s.eyebrow}><span className={s.eyebrowLine}/> VISÃO INSTITUCIONAL / RIACHO FUNDO I</p>
           <h1>Um lugar para <em>cuidar.</em></h1>
           <p className={s.lead}>O que importa na sua igreja, com clareza em cada detalhe.</p>
         </div>
@@ -111,7 +110,7 @@ export function ChurchDashboard() {
             <div className={s.queueHeader}><div><span className={s.blockKicker}>PRIORIDADE DE CUIDADO</span><h2 id="queue-heading">Na sua atenção</h2></div><span className={s.queueCount}>{pending.length}</span></div>
             <p className={s.queueIntro}>Pessoas que aguardam uma etapa de admissão.</p>
             <div className={s.queueList}>
-              {nextItems.map(({person,label,type}) => <div key={person.id} className={s.queueItem}>
+              {nextItems.map(({person,label}) => <div key={person.id} className={s.queueItem}>
                 <InitialAvatar person={person}/><span><strong>{person.name}</strong><small>{label}</small></span>
                 <span className={s.queueArrow}><UIIcon name="chevron" size={17}/></span>
               </div>)}
