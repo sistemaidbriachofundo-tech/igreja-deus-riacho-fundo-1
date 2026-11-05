@@ -82,12 +82,19 @@ export function canManageTransfers(
   return canManageMemberships(grants, target);
 }
 
-/** Casos pastorais: PASTOR/admin — secretaria NÃO lê (sigilo). */
+/**
+ * Casos pastorais: só PASTOR no escopo.
+ * SECRETARIA e PLATFORM_ADMIN NÃO leem por padrão (sigilo DAS).
+ */
 export function canAccessPastoralCare(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return canApprovePastoralAdmission(grants, target);
+  return hasAccess(grants, {
+    roleCodes: [ROLE_CODES.PASTOR],
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  });
 }
 
 /** Ministérios / escalas / células — líder, secretaria, pastor ou admin. */

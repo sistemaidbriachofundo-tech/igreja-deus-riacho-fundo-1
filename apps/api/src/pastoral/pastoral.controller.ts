@@ -69,25 +69,25 @@ class UpdateTaskBody {
 export class PastoralController {
   constructor(private readonly pastoral: PastoralService) {}
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() body: CreatePastoralCaseBody) {
     return this.pastoral.create(user, body);
   }
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.pastoral.list(user);
   }
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Get(":caseId")
   get(@CurrentUser() user: AuthUser, @Param("caseId") caseId: string) {
     return this.pastoral.getById(user, caseId);
   }
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Patch(":caseId/status")
   updateStatus(
     @CurrentUser() user: AuthUser,
@@ -97,7 +97,7 @@ export class PastoralController {
     return this.pastoral.updateStatus(user, caseId, body.status);
   }
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Patch(":caseId/assign")
   assign(
     @CurrentUser() user: AuthUser,
@@ -107,7 +107,7 @@ export class PastoralController {
     return this.pastoral.assign(user, caseId, body.assignedToUserId);
   }
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Post(":caseId/tasks")
   addTask(
     @CurrentUser() user: AuthUser,
@@ -117,7 +117,7 @@ export class PastoralController {
     return this.pastoral.addTask(user, caseId, body);
   }
 
-  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR)
   @Patch(":caseId/tasks/:taskId")
   updateTask(
     @CurrentUser() user: AuthUser,

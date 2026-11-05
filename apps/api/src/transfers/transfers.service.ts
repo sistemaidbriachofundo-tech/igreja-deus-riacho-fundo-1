@@ -211,6 +211,7 @@ export class TransfersService {
         data: { status: "REVOKED", revokedAt: new Date() },
       });
 
+      // Destino entra em admissão — não ativa membresia plena sem protocolo local.
       const destMembership = await tx.churchMembership.upsert({
         where: {
           personId_churchId: {
@@ -219,14 +220,14 @@ export class TransfersService {
           },
         },
         update: {
-          status: "ACTIVE",
+          status: "PENDING_ADMISSION",
           leftAt: null,
         },
         create: {
           personId: row.personId,
           churchId: row.toChurchId,
           organizationId: row.organizationId,
-          status: "ACTIVE",
+          status: "PENDING_ADMISSION",
         },
       });
 

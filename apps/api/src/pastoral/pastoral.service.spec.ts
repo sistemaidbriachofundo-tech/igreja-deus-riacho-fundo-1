@@ -53,6 +53,26 @@ describe("PastoralService", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it("forbids PLATFORM_ADMIN from pastoral care by default", async () => {
+    const admin: AuthUser = {
+      userId: "u-admin",
+      personId: "p-admin",
+      email: "admin@example.test",
+      grants: [
+        {
+          roleCode: "PLATFORM_ADMIN",
+          organizationId: "org1",
+          churchId: "church-rf1",
+        },
+      ],
+    };
+    const service = new PastoralService(
+      { $transaction: jest.fn() } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.list(admin)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it("creates pastoral case for pastor and audits", async () => {
     const tx = {
       pastoralCase: {

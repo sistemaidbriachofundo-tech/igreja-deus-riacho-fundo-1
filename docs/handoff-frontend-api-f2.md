@@ -95,7 +95,7 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 
 | Método | Path | Papéis | Status |
 |--------|------|--------|--------|
-| GET/POST | `/pastoral-cases` | PASTOR (sigilo; secretaria 403) | **implemented** |
+| GET/POST | `/pastoral-cases` | só PASTOR (sigilo; secretaria e PLATFORM_ADMIN 403) | **implemented** |
 | GET/POST | `/discipleship/tracks`, `/discipleship/enrollments` | líder/secretaria/pastor | **implemented** |
 | GET/POST | `/small-groups` (+ members/meetings) | líder/secretaria/pastor | **implemented** |
 | GET/POST | `/ministries`, `/rosters` (+ slots/assignments) | líder/secretaria/pastor | **implemented** |
