@@ -83,6 +83,8 @@ export function MinistryCard({ ministry, featured = false, index }: { ministry: 
     <Link href={"/ministerios/" + ministry.slug + "/"} className={featured ? s.ministryCardFeatured : s.ministryCard} data-tone={ministry.tone}>
       {ministry.slug === "atmosfera" ? (
         <span className={s.atmosphereArtwork} aria-hidden="true" />
+      ) : ministry.slug === "homens" || ministry.slug === "mulheres" ? (
+        <span className={s.ministryArtwork} data-tone={ministry.tone} aria-hidden="true"><span>{ministry.name}</span></span>
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={withBasePath(ministry.image)} alt="" loading="lazy" className={s.ministryCardImage} />

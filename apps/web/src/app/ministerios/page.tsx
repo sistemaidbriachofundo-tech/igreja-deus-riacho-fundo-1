@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { withBasePath } from "../../lib/paths";
 import { PublicPage, Eyebrow, MinistryGrid, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
 
 export const metadata: Metadata = {
@@ -13,8 +12,7 @@ export default function MinisteriosPage() {
     <PublicPage>
       <main id="conteudo">
         <section className={s.subhero}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={withBasePath("/images/comunidade-oficial.jpg")} className={s.subheroImage} alt="" />
+          <span className={s.ministriesBannerArt} aria-hidden="true" />
           <span className={s.subheroOverlay} />
           <div className={s.subheroContent}>
             <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span><span>Ministérios</span></div>

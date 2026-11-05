@@ -37,7 +37,7 @@ export const ministries: PortalMinistry[] = [
     headline: "Uma geração que não assiste. Vive.",
     summary: "Encontros, amizades e conversas que apontam para uma vida com propósito.",
     purpose: "Um espaço para crescer na fé, construir conexões verdadeiras e descobrir como viver o evangelho no dia a dia.",
-    image: "/images/comunidade-oficial.jpg",
+    image: "/images/hero-oficial.jpg",
     imageAlt: "Comunidade reunida em um momento de comunhão",
     tone: "gold",
     pillars: [

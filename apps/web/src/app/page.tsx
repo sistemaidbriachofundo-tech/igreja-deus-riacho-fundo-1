@@ -45,7 +45,7 @@ export default function HomePage() {
             </div>
             <div className={s.missionPhoto}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={s.missionPhotoFrame} src={withBasePath("/images/comunidade-oficial.jpg")} width={932} height={1180} alt="Registro da comunhão da Igreja de Deus no Riacho Fundo I" loading="lazy" />
+              <img className={s.missionPhotoFrame} src={withBasePath("/images/adoracao-oficial.jpg")} width={932} height={1180} alt="Momento de adoração na Igreja de Deus no Riacho Fundo I" loading="lazy" />
               <div className={s.missionBadge}><small>MAIS QUE UM LUGAR</small><strong>Uma comunidade para pertencer.</strong></div>
             </div>
           </div>
