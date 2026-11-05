@@ -2,22 +2,6 @@ import { APP_NAME } from "@idbrf/shared";
 import type { ReactNode } from "react";
 import { withBasePath } from "../lib/paths";
 
-function CrossMark() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path
-        fill="currentColor"
-        d="M10.2 3.2h3.6v6.4h6v3.6h-6v7.6h-3.6v-7.6h-6V9.6h6z"
-      />
-      <path
-        fill="currentColor"
-        opacity="0.9"
-        d="M15.6 5.2c1.3 1.05 2.2 2.55 2.2 4.2 0 1.1-.4 2-.95 2.7-.55-1.7-1.6-3.1-3.05-4.05.55-.95 1.2-1.9 1.8-2.85z"
-      />
-    </svg>
-  );
-}
-
 function IconOverview() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -132,9 +116,7 @@ export function AppShell({
     <div className="shell">
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="sidebar-brand">
-          <div className="brand-mark" aria-hidden="true">
-            <CrossMark />
-          </div>
+          <div className="brand-mark brand-mark--original" role="img" aria-label="Símbolo da Igreja de Deus: cruz e chama" style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
           <div className="brand-copy">
             <p className="brand-name">Igreja de Deus</p>
             <p className="brand-tag">no Riacho Fundo I</p>

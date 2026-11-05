@@ -1,5 +1,5 @@
-import { ChurchWorkspace } from "../../../components/ChurchWorkspace";
+import { MemberDirectory } from "../../../components/MemberDirectory";
 
 export default function MembrosPage() {
-  return <ChurchWorkspace view="members" />;
+  return <MemberDirectory />;
 }

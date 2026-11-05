@@ -1315,3 +1315,23 @@ code {
   .mobile-bottom-link{font-weight:750;color:#867057;min-height:51px}
   .mobile-bottom-link.is-active{color:#52341e;background:#f2e6d0}
 }
+
+/* Marca fornecida pelo usuário — prevalece sobre qualquer SVG ilustrativo anterior. */
+.brand-mark.brand-mark--original{
+  display:block;
+  background-color:transparent;
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+  border:0;
+  border-radius:50%;
+  box-shadow:none;
+  width:52px;
+  height:52px;
+}
+.sidebar .brand-mark.brand-mark--original{
+  border:0;
+  background-color:transparent;
+  box-shadow:none;
+}
+@media(max-width:900px){.brand-mark.brand-mark--original{width:42px;height:42px}}
