@@ -197,6 +197,22 @@ jobs:
             --screenshot=portal-screenshots/ministerios-390.png \
             "${URL}/ministerios/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
           test -s portal-screenshots/ministerios-390.png
+          # Capturas da experiência abaixo da primeira dobra.
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,900" \
+            --screenshot=portal-screenshots/primeira-visita-1440.png \
+            "${URL}/#primeira-visita" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,920" \
+            --screenshot=portal-screenshots/primeira-visita-390.png \
+            "${URL}/#primeira-visita" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,920" \
+            --screenshot=portal-screenshots/perguntas-390.png \
+            "${URL}/contato/#visit-questions-title" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          test -s portal-screenshots/primeira-visita-1440.png
+          test -s portal-screenshots/primeira-visita-390.png
+          test -s portal-screenshots/perguntas-390.png
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
