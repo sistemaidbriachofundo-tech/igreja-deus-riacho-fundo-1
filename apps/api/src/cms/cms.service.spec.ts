@@ -178,4 +178,189 @@ describe("CmsService", () => {
       NotFoundException,
     );
   });
+
+  it("lists filtering for lider and rejects membro", async () => {
+    const rows = [
+      { ...draft, id: "c1", ministryId: "m-jovens" },
+      { ...draft, id: "c2", ministryId: null, slug: "home" },
+      { ...draft, id: "c3", ministryId: "m-homens", slug: "h" },
+    ];
+    const prisma = {
+      cmsContent: { findMany: jest.fn().mockResolvedValue(rows) },
+    };
+    const service = new CmsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const list = await service.list(lider, "MINISTRY_CONTENT");
+    expect(list.contents.map((c) => c.id)).toEqual(["c1"]);
+
+    const membro: AuthUser = {
+      userId: "u-m",
+      personId: "p-m",
+      email: "m@test",
+      grants: [
+        {
+          roleCode: "MEMBRO",
+          organizationId: "org1",
+          churchId: "church-rf1",
+        },
+      ],
+    };
+    await expect(service.list(membro)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it("get returns revisions; patch fields + advance + archive path", async () => {
+    const tx = {
+      cmsContent: {
+        update: jest.fn().mockResolvedValue({
+          ...draft,
+          title: "Novo",
+          status: "REVISAO",
+          summary: "s",
+          body: "b",
+          imageUrl: "/i.jpg",
+          sortOrder: 2,
+        }),
+      },
+      cmsContentRevision: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      cmsContent: {
+        findFirst: jest.fn().mockResolvedValue(draft),
+      },
+      cmsContentRevision: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "r1",
+            fromStatus: "RASCUNHO",
+            toStatus: "RASCUNHO",
+            actorUserId: "u-sec",
+            note: "create",
+            snapshot: {},
+            createdAt: now,
+          },
+        ]),
+      },
+      ...withTx(tx),
+    };
+    const service = new CmsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const detail = await service.get(secretaria, "c1");
+    expect(detail.revisions).toHaveLength(1);
+
+    await expect(
+      service.patch(secretaria, "c1", {
+        title: " Novo ",
+        summary: "s",
+        body: "b",
+        imageUrl: "/i.jpg",
+        sortOrder: 2,
+        status: "REVISAO",
+        note: "enviar",
+      }),
+    ).resolves.toMatchObject({ status: "REVISAO", title: "Novo" });
+
+    await expect(
+      service.advance(secretaria, "c1", "REVISAO"),
+    ).resolves.toBeTruthy();
+
+    await expect(
+      service.create(secretaria, {
+        kind: "MINISTRY_CONTENT",
+        slug: "x",
+        title: "x",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.create(secretaria, {
+        kind: "PAGE" as never,
+        slug: " ",
+        title: "t",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects invalid kind and slug change by lider", async () => {
+    const prisma = {
+      cmsContent: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...draft,
+          ministryId: "m-jovens",
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new CmsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.patch(lider, "c1", { slug: "hack" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.create(secretaria, {
+        kind: "NOPE" as never,
+        slug: "x",
+        title: "t",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("patch validates slug/kind/ministry/status and unpublishes to RASCUNHO", async () => {
+    const archived = {
+      ...draft,
+      status: "ARQUIVADO",
+      publishedAt: now,
+    };
+    const tx = {
+      cmsContent: {
+        update: jest.fn().mockResolvedValue({
+          ...archived,
+          status: "RASCUNHO",
+          publishedAt: null,
+          slug: "sobre-2",
+          kind: "NEWS",
+          ministryId: "m-jovens",
+        }),
+      },
+      cmsContentRevision: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      cmsContent: { findFirst: jest.fn().mockResolvedValue(archived) },
+      ministry: { findFirst: jest.fn().mockResolvedValue({ id: "m-jovens" }) },
+      ...withTx(tx),
+    };
+    const service = new CmsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.patch(secretaria, "c1", { slug: " " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.patch(secretaria, "c1", { kind: "NOPE" as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.patch(secretaria, "c1", { status: "NOPE" as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.patch(secretaria, "c1", {
+        slug: " Sobre-2 ",
+        kind: "NEWS",
+        ministryId: "m-jovens",
+        status: "RASCUNHO",
+        note: "voltar",
+      }),
+    ).resolves.toMatchObject({ status: "RASCUNHO", slug: "sobre-2" });
+  });
 });

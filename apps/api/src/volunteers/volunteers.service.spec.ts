@@ -119,6 +119,18 @@ describe("VolunteersService", () => {
         email: "sem-arroba",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.submitPublicInterest({
+        displayName: "Voluntario",
+        email: "sem-arroba",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.submitPublicInterest({
+        displayName: "Voluntario",
+        email: `${"a".repeat(190)}@b.co`,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("advances journey one stage at a time and requires person/roster later", async () => {
@@ -194,5 +206,190 @@ describe("VolunteersService", () => {
     await expect(service.getAdmin(secretaria, "x")).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it("covers public validation and EQUIPE/ESCALA requirements", async () => {
+    const prismaMissing = {
+      ministry: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const serviceMissing = new VolunteersService(
+      prismaMissing as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      serviceMissing.submitPublicInterest({
+        displayName: "A",
+        email: "a@b.co",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      serviceMissing.submitPublicInterest({
+        displayName: "Ab",
+        email: "a@b.co",
+        cpf: "000",
+      } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const prismaPhone = {
+      ministry: {
+        findFirst: jest.fn().mockResolvedValue({ id: "m-atmosfera" }),
+      },
+    };
+    const servicePhone = new VolunteersService(
+      prismaPhone as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      servicePhone.submitPublicInterest({
+        displayName: "Ab",
+        email: "a@b.co",
+        phone: "x".repeat(50),
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const tx = {
+      volunteerInterest: {
+        update: jest.fn().mockResolvedValue({
+          ...interest,
+          stage: "EQUIPE",
+          personId: "p1",
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      volunteerInterest: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...interest,
+          stage: "APROVACAO",
+        }),
+        findMany: jest.fn().mockResolvedValue([interest]),
+      },
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p1" }) },
+      roster: { findFirst: jest.fn().mockResolvedValue({ id: "r1" }) },
+      ...withTx(tx),
+    };
+    const service = new VolunteersService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.advance(secretaria, "vi1", {
+        stage: "EQUIPE",
+        personId: "p1",
+        status: "OPEN",
+        notesInternal: "ok",
+      }),
+    ).resolves.toMatchObject({ stage: "EQUIPE" });
+
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce({
+      ...interest,
+      stage: "DISPONIBILIDADE",
+      personId: "p1",
+    });
+    tx.volunteerInterest.update.mockResolvedValueOnce({
+      ...interest,
+      stage: "ESCALA",
+      personId: "p1",
+      rosterId: "r1",
+    });
+    await expect(
+      service.advance(secretaria, "vi1", {
+        stage: "ESCALA",
+        rosterId: "r1",
+      }),
+    ).resolves.toMatchObject({ stage: "ESCALA" });
+
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce({
+      ...interest,
+      stage: "DISPONIBILIDADE",
+      personId: "p1",
+    });
+    await expect(
+      service.advance(secretaria, "vi1", { stage: "ESCALA" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.person.findFirst.mockResolvedValueOnce(null);
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce({
+      ...interest,
+      stage: "APROVACAO",
+    });
+    await expect(
+      service.advance(secretaria, "vi1", {
+        stage: "EQUIPE",
+        personId: "missing",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const membro: AuthUser = {
+      userId: "u-m",
+      personId: "p-m",
+      email: "m@test",
+      grants: [
+        {
+          roleCode: "MEMBRO",
+          organizationId: "org1",
+          churchId: "church-rf1",
+        },
+      ],
+    };
+    await expect(service.listAdmin(membro)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+
+    await expect(
+      service.advance(secretaria, "vi1", { status: "NOPE" as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.advance(secretaria, "vi1", { stage: "NOPE" as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce({
+      ...interest,
+      stage: "ESCALA",
+      personId: "p1",
+      rosterId: "r1",
+    });
+    await expect(
+      service.advance(secretaria, "vi1", { stage: "INTERESSE" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.roster.findFirst.mockResolvedValueOnce(null);
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce({
+      ...interest,
+      stage: "DISPONIBILIDADE",
+      personId: "p1",
+    });
+    await expect(
+      service.advance(secretaria, "vi1", {
+        stage: "ESCALA",
+        rosterId: "missing",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce({
+      ...interest,
+      stage: "AVALIACAO",
+    });
+    tx.volunteerInterest.update.mockResolvedValueOnce({
+      ...interest,
+      stage: "APROVACAO",
+      status: "OPEN",
+    });
+    await expect(
+      service.advance(secretaria, "vi1", { stage: "APROVACAO" }),
+    ).resolves.toMatchObject({ stage: "APROVACAO" });
+
+    const listScoped = await service.listAdmin(liderAtmosfera, "m-atmosfera");
+    expect(listScoped.churchId).toBe(pilot.churchId);
+    await expect(
+      service.listAdmin(liderAtmosfera, "m-jovens"),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    prisma.volunteerInterest.findFirst.mockResolvedValueOnce(interest);
+    await expect(service.getAdmin(secretaria, "vi1")).resolves.toMatchObject({
+      id: "vi1",
+    });
   });
 });

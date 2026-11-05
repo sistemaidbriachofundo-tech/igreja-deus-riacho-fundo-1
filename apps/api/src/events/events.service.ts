@@ -4,11 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import {
-  canAdministerMinistries,
-  canManageSpecificMinistry,
-} from "@idbrf/shared";
+import { canAdministerMinistries } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import {
+  assertMinistryScopedWrite,
+  filterRowsForMinistryLeader,
+  requireMinistryInPilot,
+} from "../common/ministry-access";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
@@ -34,7 +36,7 @@ export class EventsService {
 
   async create(actor: AuthUser, input: EventInput) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertCanWrite(actor, pilot, input.ministryId ?? null);
+    this.assertEventWrite(actor, pilot, input.ministryId ?? null);
 
     const name = input.name?.trim();
     const slug = input.slug?.trim().toLowerCase();
@@ -51,7 +53,7 @@ export class EventsService {
         : parseDate(input.endsAt, "endsAt");
 
     if (input.ministryId) {
-      await this.requireMinistry(input.ministryId, pilot);
+      await requireMinistryInPilot(this.prisma, input.ministryId, pilot);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -103,18 +105,7 @@ export class EventsService {
       orderBy: { startsAt: "desc" },
     });
 
-    const admin = canAdministerMinistries(actor.grants, pilot);
-    const visible = admin
-      ? rows
-      : rows.filter((row) =>
-          row.ministryId
-            ? canManageSpecificMinistry(actor.grants, actor.personId, {
-                organizationId: pilot.organizationId,
-                churchId: pilot.churchId,
-                ministryId: row.ministryId,
-              })
-            : false,
-        );
+    const visible = filterRowsForMinistryLeader(rows, actor, pilot);
 
     return {
       churchId: pilot.churchId,
@@ -125,14 +116,14 @@ export class EventsService {
   async get(actor: AuthUser, eventId: string) {
     const pilot = await this.pilot.getPilotChurch();
     const event = await this.requireEvent(eventId, pilot);
-    this.assertCanWrite(actor, pilot, event.ministryId);
+    this.assertEventWrite(actor, pilot, event.ministryId);
     return this.toDto(event);
   }
 
   async patch(actor: AuthUser, eventId: string, input: EventInput) {
     const pilot = await this.pilot.getPilotChurch();
     const existing = await this.requireEvent(eventId, pilot);
-    this.assertCanWrite(actor, pilot, existing.ministryId);
+    this.assertEventWrite(actor, pilot, existing.ministryId);
 
     const data: Record<string, unknown> = {};
     if (input.name !== undefined) {
@@ -160,8 +151,8 @@ export class EventsService {
     }
     if (input.ministryId !== undefined) {
       if (input.ministryId) {
-        await this.requireMinistry(input.ministryId, pilot);
-        this.assertCanWrite(actor, pilot, input.ministryId);
+        await requireMinistryInPilot(this.prisma, input.ministryId, pilot);
+        this.assertEventWrite(actor, pilot, input.ministryId);
       }
       data.ministryId = input.ministryId;
     }
@@ -226,45 +217,15 @@ export class EventsService {
     }
   }
 
-  private assertCanWrite(
+  private assertEventWrite(
     actor: AuthUser,
     pilot: { organizationId: string; churchId: string },
     ministryId: string | null,
   ): void {
-    if (canAdministerMinistries(actor.grants, pilot)) {
-      return;
-    }
-    if (!ministryId) {
-      throw new ForbiddenException(
-        "Líder precisa vincular ministryId para operar eventos",
-      );
-    }
-    if (
-      !canManageSpecificMinistry(actor.grants, actor.personId, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        ministryId,
-      })
-    ) {
-      throw new ForbiddenException("Sem permissão neste ministério/evento");
-    }
-  }
-
-  private async requireMinistry(
-    ministryId: string,
-    pilot: { organizationId: string; churchId: string },
-  ) {
-    const ministry = await this.prisma.ministry.findFirst({
-      where: {
-        id: ministryId,
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      },
+    assertMinistryScopedWrite(actor, pilot, ministryId, {
+      missingMinistry: "Líder precisa vincular ministryId para operar eventos",
+      forbidden: "Sem permissão neste ministério/evento",
     });
-    if (!ministry) {
-      throw new BadRequestException("Ministério não encontrado neste escopo");
-    }
-    return ministry;
   }
 
   private async requireEvent(

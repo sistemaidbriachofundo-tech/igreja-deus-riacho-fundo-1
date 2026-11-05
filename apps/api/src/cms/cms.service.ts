@@ -4,11 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import {
-  canAdministerMinistries,
-  canManageSpecificMinistry,
-} from "@idbrf/shared";
+import { canAdministerMinistries } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import {
+  assertMinistryScopedWrite,
+  filterRowsForMinistryLeader,
+  requireMinistryInPilot,
+} from "../common/ministry-access";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
@@ -58,7 +60,7 @@ export class CmsService {
 
   async create(actor: AuthUser, input: CmsInput) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertWrite(actor, pilot, input.ministryId ?? null);
+    this.assertCmsWrite(actor, pilot, input.ministryId ?? null);
 
     const kind = input.kind;
     const title = input.title?.trim();
@@ -75,7 +77,7 @@ export class CmsService {
       );
     }
     if (input.ministryId) {
-      await this.requireMinistry(input.ministryId, pilot);
+      await requireMinistryInPilot(this.prisma, input.ministryId, pilot);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -139,18 +141,7 @@ export class CmsService {
       orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     });
 
-    const admin = canAdministerMinistries(actor.grants, pilot);
-    const visible = admin
-      ? rows
-      : rows.filter((row) =>
-          row.ministryId
-            ? canManageSpecificMinistry(actor.grants, actor.personId, {
-                organizationId: pilot.organizationId,
-                churchId: pilot.churchId,
-                ministryId: row.ministryId,
-              })
-            : false,
-        );
+    const visible = filterRowsForMinistryLeader(rows, actor, pilot);
 
     return {
       churchId: pilot.churchId,
@@ -161,7 +152,7 @@ export class CmsService {
   async get(actor: AuthUser, contentId: string) {
     const pilot = await this.pilot.getPilotChurch();
     const row = await this.requireContent(contentId, pilot);
-    this.assertWrite(actor, pilot, row.ministryId);
+    this.assertCmsWrite(actor, pilot, row.ministryId);
     const revisions = await this.prisma.cmsContentRevision.findMany({
       where: { contentId },
       orderBy: { createdAt: "desc" },
@@ -184,7 +175,7 @@ export class CmsService {
   async patch(actor: AuthUser, contentId: string, input: CmsInput) {
     const pilot = await this.pilot.getPilotChurch();
     const existing = await this.requireContent(contentId, pilot);
-    this.assertWrite(actor, pilot, existing.ministryId);
+    this.assertCmsWrite(actor, pilot, existing.ministryId);
 
     const data: Record<string, unknown> = {
       updatedByUserId: actor.userId,
@@ -212,8 +203,8 @@ export class CmsService {
     }
     if (input.ministryId !== undefined) {
       if (input.ministryId) {
-        await this.requireMinistry(input.ministryId, pilot);
-        this.assertWrite(actor, pilot, input.ministryId);
+        await requireMinistryInPilot(this.prisma, input.ministryId, pilot);
+        this.assertCmsWrite(actor, pilot, input.ministryId);
       }
       data.ministryId = input.ministryId;
     }
@@ -273,43 +264,16 @@ export class CmsService {
     return this.patch(actor, contentId, { status: toStatus });
   }
 
-  private assertWrite(
+  private assertCmsWrite(
     actor: AuthUser,
     pilot: { organizationId: string; churchId: string },
     ministryId: string | null,
   ): void {
-    if (canAdministerMinistries(actor.grants, pilot)) return;
-    if (!ministryId) {
-      throw new ForbiddenException(
+    assertMinistryScopedWrite(actor, pilot, ministryId, {
+      missingMinistry:
         "Líder só edita conteúdo vinculado ao próprio ministério",
-      );
-    }
-    if (
-      !canManageSpecificMinistry(actor.grants, actor.personId, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        ministryId,
-      })
-    ) {
-      throw new ForbiddenException("Sem permissão neste conteúdo/ministério");
-    }
-  }
-
-  private async requireMinistry(
-    ministryId: string,
-    pilot: { organizationId: string; churchId: string },
-  ) {
-    const ministry = await this.prisma.ministry.findFirst({
-      where: {
-        id: ministryId,
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      },
+      forbidden: "Sem permissão neste conteúdo/ministério",
     });
-    if (!ministry) {
-      throw new BadRequestException("Ministério não encontrado neste escopo");
-    }
-    return ministry;
   }
 
   private async requireContent(

@@ -180,6 +180,12 @@ describe("EventsService", () => {
         startsAt: "bad",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create(secretaria, {
+        name: "X",
+        slug: "x",
+      } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.get(secretaria, "missing")).rejects.toBeInstanceOf(
       NotFoundException,
     );
@@ -222,5 +228,106 @@ describe("EventsService", () => {
     await expect(service.archive(secretaria, "e1")).resolves.toMatchObject({
       status: "ARCHIVED",
     });
+  });
+
+  it("lists for lider and patches fields including draft reset", async () => {
+    const rows = [
+      eventRow,
+      { ...eventRow, id: "e2", ministryId: "m-homens", slug: "h" },
+      { ...eventRow, id: "e3", ministryId: null, slug: "g" },
+    ];
+    const listPrisma = {
+      portalEvent: { findMany: jest.fn().mockResolvedValue(rows) },
+    };
+    const listService = new EventsService(
+      listPrisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const listed = await listService.list(lider);
+    expect(listed.events.map((e) => e.id)).toEqual(["e1"]);
+
+    const membro: AuthUser = {
+      userId: "u-m",
+      personId: "p-m",
+      email: "m@test",
+      grants: [
+        {
+          roleCode: "MEMBRO",
+          organizationId: "org1",
+          churchId: "church-rf1",
+        },
+      ],
+    };
+    await expect(listService.list(membro)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+
+    const draftRow = {
+      ...eventRow,
+      status: "PUBLISHED",
+      publishedAt: now,
+      featuredOnHome: true,
+    };
+    const tx = {
+      portalEvent: {
+        update: jest.fn().mockResolvedValue({
+          ...draftRow,
+          status: "DRAFT",
+          publishedAt: null,
+          cancelledAt: null,
+          name: "Novo",
+          slug: "novo",
+          description: "d",
+          imageUrl: "/x",
+          locationText: "L",
+          featuredOnHome: false,
+          endsAt: startsAt,
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      ministry: { findFirst: jest.fn().mockResolvedValue({ id: "m-jovens" }) },
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(draftRow) },
+      ...withTx(tx),
+    };
+    const service = new EventsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.get(secretaria, "e1")).resolves.toMatchObject({
+      id: "e1",
+    });
+    await expect(
+      service.patch(secretaria, "e1", {
+        name: " Novo ",
+        slug: "Novo",
+        description: "d",
+        imageUrl: "/x",
+        locationText: "L",
+        featuredOnHome: false,
+        startsAt: startsAt.toISOString(),
+        endsAt: startsAt.toISOString(),
+        ministryId: "m-jovens",
+        status: "DRAFT",
+      }),
+    ).resolves.toMatchObject({ status: "DRAFT", slug: "novo" });
+
+    await expect(
+      service.create(secretaria, {
+        name: " ",
+        slug: "x",
+        startsAt: startsAt.toISOString(),
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.patch(secretaria, "e1", { name: " " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.patch(secretaria, "e1", { slug: " " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.patch(secretaria, "e1", { status: "NOPE" as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

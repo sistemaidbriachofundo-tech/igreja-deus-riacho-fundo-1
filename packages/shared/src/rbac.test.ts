@@ -81,4 +81,39 @@ describe("rbac helpers", () => {
       false,
     );
   });
+
+  it("ministry-scoped grant matches church-wide and specific ministry", () => {
+    const grant = {
+      roleCode: ROLE_CODES.LIDER_MINISTERIO,
+      organizationId: "org1",
+      churchId: "ch1",
+      ministryId: "m1",
+    };
+    assert.equal(
+      grantMatchesScope(grant, {
+        roleCodes: [ROLE_CODES.LIDER_MINISTERIO],
+        organizationId: "org1",
+        churchId: "ch1",
+      }),
+      true,
+    );
+    assert.equal(
+      grantMatchesScope(grant, {
+        roleCodes: [ROLE_CODES.LIDER_MINISTERIO],
+        organizationId: "org1",
+        churchId: "ch1",
+        ministryId: "m1",
+      }),
+      true,
+    );
+    assert.equal(
+      grantMatchesScope(grant, {
+        roleCodes: [ROLE_CODES.LIDER_MINISTERIO],
+        organizationId: "org1",
+        churchId: "ch1",
+        ministryId: "m2",
+      }),
+      false,
+    );
+  });
 });

@@ -4,11 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import {
-  canAdministerMinistries,
-  canManageSpecificMinistry,
-} from "@idbrf/shared";
+import { canAdministerMinistries } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import {
+  actorIsMinistryLeader,
+  assertMinistryScopedWrite,
+  filterRowsForMinistryLeader,
+} from "../common/ministry-access";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
@@ -132,13 +134,7 @@ export class VolunteersService {
   async listAdmin(actor: AuthUser, ministryId?: string) {
     const pilot = await this.pilot.getPilotChurch();
     const admin = canAdministerMinistries(actor.grants, pilot);
-    const isLider = actor.grants.some(
-      (g) =>
-        g.roleCode === "LIDER_MINISTERIO" &&
-        (!g.organizationId || g.organizationId === pilot.organizationId) &&
-        (!g.churchId || g.churchId === pilot.churchId),
-    );
-    if (!admin && !isLider) {
+    if (!admin && !actorIsMinistryLeader(actor, pilot)) {
       throw new ForbiddenException("Sem permissão para listar interesses");
     }
     if (ministryId && !admin) {
@@ -155,15 +151,7 @@ export class VolunteersService {
       take: 200,
     });
 
-    const visible = admin
-      ? rows
-      : rows.filter((row) =>
-          canManageSpecificMinistry(actor.grants, actor.personId, {
-            organizationId: pilot.organizationId,
-            churchId: pilot.churchId,
-            ministryId: row.ministryId,
-          }),
-        );
+    const visible = filterRowsForMinistryLeader(rows, actor, pilot);
 
     return {
       churchId: pilot.churchId,
@@ -306,21 +294,10 @@ export class VolunteersService {
     pilot: { organizationId: string; churchId: string },
     ministryId: string | null,
   ): void {
-    if (canAdministerMinistries(actor.grants, pilot)) return;
-    if (!ministryId) {
-      throw new ForbiddenException("Informe ministryId ou use papel admin");
-    }
-    if (
-      !canManageSpecificMinistry(actor.grants, actor.personId, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        ministryId,
-      })
-    ) {
-      throw new ForbiddenException(
-        "Líder só revisa interesses do próprio ministério",
-      );
-    }
+    assertMinistryScopedWrite(actor, pilot, ministryId, {
+      missingMinistry: "Informe ministryId ou use papel admin",
+      forbidden: "Líder só revisa interesses do próprio ministério",
+    });
   }
 
   private async requireInterest(

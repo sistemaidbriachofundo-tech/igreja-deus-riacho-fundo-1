@@ -50,6 +50,13 @@ describe("PublicPortalService", () => {
   };
 
   it("home returns published ministries, featured events and CMS blocks", async () => {
+    const banner = {
+      ...cmsBlock,
+      id: "b1",
+      kind: "BANNER",
+      slug: "banner-capa",
+      title: "Capa",
+    };
     const prisma = {
       ministry: { findMany: jest.fn().mockResolvedValue([ministry]) },
       portalEvent: { findMany: jest.fn().mockResolvedValue([event]) },
@@ -57,18 +64,24 @@ describe("PublicPortalService", () => {
         findMany: jest
           .fn()
           .mockResolvedValueOnce([cmsBlock])
-          .mockResolvedValueOnce([]),
+          .mockResolvedValueOnce([banner]),
       },
     };
     const service = new PublicPortalService(
       prisma as never,
-      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        getPilotChurch: jest.fn().mockResolvedValue({
+          ...pilot,
+          churchName: "",
+        }),
+      } as never,
     );
     const home = await service.home();
     expect(home.ministries).toHaveLength(1);
     expect(home.featuredEvents[0].slug).toBe("encontro-jovens-demo");
     expect(home.contentBlocks[0].slug).toBe("home-boas-vindas");
-    expect(home.banners).toEqual([]);
+    expect(home.banners[0].slug).toBe("banner-capa");
+    expect(home.church.name).toBeTruthy();
     expect(prisma.ministry.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -156,5 +169,17 @@ describe("PublicPortalService", () => {
     await expect(service.getEventBySlug("missing")).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it("lists public ministries", async () => {
+    const prisma = {
+      ministry: { findMany: jest.fn().mockResolvedValue([ministry]) },
+    };
+    const service = new PublicPortalService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const list = await service.listMinistries();
+    expect(list.ministries[0].slug).toBe("jovens");
   });
 });
