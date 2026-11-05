@@ -208,4 +208,131 @@ describe("MinistriesService", () => {
     expect(result.status).toBe("CONFIRMED");
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
+
+  it("lists ministries/rosters, adds slot/assignment, declines and substitutes", async () => {
+    const roster = {
+      id: "r1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      ministryId: null,
+      title: "Culto",
+      serviceAt,
+      status: "DRAFT",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const slot = {
+      id: "slot1",
+      rosterId: "r1",
+      roleLabel: "Vocal",
+      requiresCouple: false,
+      sortOrder: 0,
+    };
+    const assignment = {
+      id: "a1",
+      slotId: "slot1",
+      personId: "p-mem",
+      partnerPersonId: null,
+      status: "PENDING",
+      substituteForId: null,
+      confirmedAt: null,
+      declinedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      slot: {
+        id: "slot1",
+        requiresCouple: false,
+        roster,
+      },
+    };
+    const tx = {
+      roster: {
+        create: jest.fn().mockResolvedValue(roster),
+      },
+      rosterSlot: {
+        create: jest.fn().mockResolvedValue(slot),
+      },
+      rosterAssignment: {
+        create: jest.fn().mockResolvedValue({
+          ...assignment,
+          id: "a2",
+          personId: "p2",
+          substituteForId: "a1",
+        }),
+        update: jest.fn().mockResolvedValue({
+          ...assignment,
+          status: "DECLINED",
+          declinedAt: now,
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      ministry: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "m1",
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            name: "Louvor",
+            slug: "louvor",
+            leaderPersonId: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ]),
+      },
+      roster: {
+        findMany: jest.fn().mockResolvedValue([
+          { ...roster, slots: [{ ...slot, assignments: [] }] },
+        ]),
+        findFirst: jest.fn().mockResolvedValue(roster),
+      },
+      rosterSlot: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...slot,
+          roster,
+        }),
+      },
+      rosterAssignment: {
+        findFirst: jest.fn().mockResolvedValue(assignment),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      person: {
+        findFirst: jest.fn().mockResolvedValue({ id: "p2" }),
+      },
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
+        fn(tx),
+      ),
+    };
+    const service = new MinistriesService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(service.listMinistries(lider)).resolves.toMatchObject({
+      ministries: [{ id: "m1" }],
+    });
+    await expect(
+      service.createRoster(lider, {
+        title: "Culto",
+        serviceAt: serviceAt.toISOString(),
+      }),
+    ).resolves.toMatchObject({ id: "r1" });
+    await expect(service.listRosters(lider)).resolves.toMatchObject({
+      rosters: [{ id: "r1" }],
+    });
+    await expect(
+      service.addSlot(lider, "r1", { roleLabel: "Vocal" }),
+    ).resolves.toMatchObject({ id: "slot1" });
+    await expect(
+      service.addAssignment(lider, "slot1", { personId: "p2" }),
+    ).resolves.toMatchObject({ personId: "p2" });
+    await expect(service.declineAssignment(membro, "a1")).resolves.toMatchObject(
+      { status: "DECLINED" },
+    );
+    await expect(
+      service.substituteAssignment(lider, "a1", { personId: "p2" }),
+    ).resolves.toMatchObject({ substituteForId: "a1" });
+  });
 });

@@ -2,11 +2,22 @@ import { AdmissionsController } from "./admissions/admissions.controller";
 import { AuditController } from "./audit/audit.controller";
 import { AuthController } from "./auth/auth.controller";
 import { CredentialsController } from "./credentials/credentials.controller";
+import { DiscipleshipController } from "./discipleship/discipleship.controller";
+import { GroupsController } from "./groups/groups.controller";
 import { HealthController } from "./health.controller";
 import { HouseholdsController } from "./households/households.controller";
+import { LettersController } from "./letters/letters.controller";
 import { MembershipsController } from "./memberships/memberships.controller";
 import { MetaController } from "./meta/meta.controller";
+import {
+  MinistriesController,
+  RosterAssignmentsController,
+  RostersController,
+  RosterSlotsController,
+} from "./ministries/ministries.controller";
+import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
+import { TransfersController } from "./transfers/transfers.controller";
 import type { AuthUser } from "./auth/types/auth-user";
 
 describe("controller wiring (delegates to services)", () => {
@@ -146,5 +157,131 @@ describe("controller wiring (delegates to services)", () => {
     expect(audit.listRecent).toHaveBeenCalledWith(user, 10);
     await c.list(user);
     expect(audit.listRecent).toHaveBeenCalledWith(user, 50);
+  });
+
+  it("TransfersController", async () => {
+    const transfers = {
+      list: jest.fn(),
+      getById: jest.fn(),
+      create: jest.fn(),
+      advance: jest.fn(),
+    };
+    const c = new TransfersController(transfers as never);
+    await c.list(user);
+    await c.get(user, "t1");
+    await c.create(user, { personId: "p1", toChurchId: "c2" });
+    await c.advance(user, "t1", { decision: "APPROVE" });
+    expect(transfers.advance).toHaveBeenCalledWith(user, "t1", {
+      decision: "APPROVE",
+    });
+  });
+
+  it("LettersController", async () => {
+    const letters = {
+      list: jest.fn(),
+      create: jest.fn(),
+      issue: jest.fn(),
+      revoke: jest.fn(),
+    };
+    const c = new LettersController(letters as never);
+    await c.list(user, "p1");
+    await c.create(user, {
+      personId: "p1",
+      letterType: "MEMBRESIA",
+      title: "t",
+      bodyText: "b",
+    });
+    await c.issue(user, "L1");
+    await c.revoke(user, "L1");
+    expect(letters.issue).toHaveBeenCalledWith(user, "L1");
+  });
+
+  it("PastoralController", async () => {
+    const pastoral = {
+      create: jest.fn(),
+      list: jest.fn(),
+      getById: jest.fn(),
+      updateStatus: jest.fn(),
+      assign: jest.fn(),
+      addTask: jest.fn(),
+      updateTaskDone: jest.fn(),
+    };
+    const c = new PastoralController(pastoral as never);
+    await c.create(user, { personId: "p1", kind: "VISITA", title: "x" });
+    await c.list(user);
+    await c.get(user, "pc1");
+    await c.updateStatus(user, "pc1", { status: "DONE" });
+    await c.assign(user, "pc1", { assignedToUserId: "u2" });
+    await c.addTask(user, "pc1", { title: "task" });
+    await c.updateTask(user, "pc1", "tk1", { done: true });
+    expect(pastoral.updateTaskDone).toHaveBeenCalledWith(user, "pc1", "tk1", true);
+  });
+
+  it("DiscipleshipController", async () => {
+    const discipleship = {
+      createTrack: jest.fn(),
+      listTracks: jest.fn(),
+      enroll: jest.fn(),
+      updateEnrollmentStatus: jest.fn(),
+    };
+    const c = new DiscipleshipController(discipleship as never);
+    await c.createTrack(user, { name: "Fundamentos" });
+    await c.listTracks(user);
+    await c.enroll(user, { trackId: "tr1", personId: "p1" });
+    await c.updateEnrollmentStatus(user, "e1", { status: "COMPLETED" });
+    expect(discipleship.updateEnrollmentStatus).toHaveBeenCalledWith(
+      user,
+      "e1",
+      "COMPLETED",
+    );
+  });
+
+  it("GroupsController", async () => {
+    const groups = {
+      create: jest.fn(),
+      list: jest.fn(),
+      addMember: jest.fn(),
+      createMeeting: jest.fn(),
+    };
+    const c = new GroupsController(groups as never);
+    await c.create(user, { name: "Célula" });
+    await c.list(user);
+    await c.addMember(user, "g1", { personId: "p1", role: "MEMBER" });
+    await c.createMeeting(user, "g1", {
+      occurredAt: "2026-11-05T20:00:00Z",
+      attendance: [{ personId: "p1", present: true }],
+    });
+    expect(groups.createMeeting).toHaveBeenCalled();
+  });
+
+  it("Ministries/Rosters controllers", async () => {
+    const ministries = {
+      createMinistry: jest.fn(),
+      listMinistries: jest.fn(),
+      createRoster: jest.fn(),
+      listRosters: jest.fn(),
+      addSlot: jest.fn(),
+      addAssignment: jest.fn(),
+      confirmAssignment: jest.fn(),
+      declineAssignment: jest.fn(),
+      substituteAssignment: jest.fn(),
+    };
+    const m = new MinistriesController(ministries as never);
+    await m.create(user, { name: "Louvor", slug: "louvor" });
+    await m.list(user);
+    const r = new RostersController(ministries as never);
+    await r.create(user, {
+      title: "Culto",
+      serviceAt: "2026-11-09T10:00:00Z",
+    });
+    await r.list(user);
+    await r.addSlot(user, "ro1", { roleLabel: "Vocal" });
+    const s = new RosterSlotsController(ministries as never);
+    await s.addAssignment(user, "sl1", { personId: "p1" });
+    const a = new RosterAssignmentsController(ministries as never);
+    await a.confirm(user, "as1");
+    await a.decline(user, "as1");
+    await a.substitute(user, "as1", { personId: "p2" });
+    expect(ministries.substituteAssignment).toHaveBeenCalled();
   });
 });
