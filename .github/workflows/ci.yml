@@ -132,6 +132,44 @@ jobs:
           path: apps/web/out
           if-no-files-found: error
           retention-days: 7
+      # Capturas do HTML/CSS compilado. Apenas PRs; não modifica GitHub Pages.
+      - name: Capture real portal screenshots (PR only)
+        id: portal_screen
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v google-chrome >/dev/null 2>&1; then
+            CHROME="$(command -v google-chrome)"
+          elif command -v chromium >/dev/null 2>&1; then
+            CHROME="$(command -v chromium)"
+          else
+            echo "No Chrome/Chromium binary available"
+            exit 1
+          fi
+          mkdir -p portal-screenshots/host/igreja-deus-riacho-fundo-1
+          cp -a apps/web/out/. portal-screenshots/host/igreja-deus-riacho-fundo-1/
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory portal-screenshots/host >/tmp/portal-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 2
+          URL=http://127.0.0.1:8765/igreja-deus-riacho-fundo-1
+          for WIDTH in 1440 768 390; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage               --hide-scrollbars --window-size="${WIDTH},1000"               --screenshot="portal-screenshots/home-${WIDTH}.png"               "${URL}/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            test -s "portal-screenshots/home-${WIDTH}.png"
+          done
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage             --hide-scrollbars --window-size="390,1000"             --screenshot=portal-screenshots/atmosfera-390.png             "${URL}/ministerios/atmosfera/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          test -s portal-screenshots/atmosfera-390.png
+          rm -rf portal-screenshots/host
+      - name: Archive portal screenshots
+        if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-pr-screenshots
+          path: portal-screenshots/*.png
+          if-no-files-found: error
+          retention-days: 7
       # Único caminho de deploy Pages: export estático de apps/web (monorepo).
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
