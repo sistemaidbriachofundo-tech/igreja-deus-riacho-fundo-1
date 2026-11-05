@@ -147,3 +147,14 @@
 @media(max-width:520px){.eyebrow{font-size:8px}.pageHeader h1{font-size:30px}.pageHeader p{font-size:11px}.controls{flex-direction:column;align-items:stretch}.sort{align-self:flex-end}.stripMetric{padding:10px 8px}.stripMetric>span:last-child{font-size:8px}.stripMetric strong{font-size:19px}.peopleGrid{grid-template-columns:1fr 1fr;gap:8px;padding:10px}.personCard{padding:12px}.personCardTop .avatarLarge{height:50px;width:50px}.personCard>strong{font-size:11px}.status{font-size:8px;padding:5px 6px}.identity strong{font-size:10px}.identity small{font-size:8px}.family strong,.family small{font-size:9px}.pagination{flex-direction:column;align-items:flex-start}.form{grid-template-columns:1fr}.form>label,.form>label:nth-child(1),.form>label:nth-child(2),.form>p,.formActions{grid-column:1}}
 @media(max-width:365px){.headingActions{width:100%;flex-direction:column}.addButton,.exportButton{width:100%}.personRow,.personSelected{padding:11px 8px}.status{font-size:7px}.identity{gap:7px}.identity .avatar{height:38px;width:38px}.family{padding-left:45px}.filters{gap:3px}}
 @media(prefers-reduced-motion:reduce){.personCard,.personRow,.personSelected{transition:none}.personCard:hover{transform:none}}
+
+/* Fallback sintético legível — evita retratos quebrados e preserva identidades fictícias. */
+.avatar,.avatarSmall,.avatarLarge{
+  display:inline-grid;place-items:center;
+  background:linear-gradient(145deg,#edd4a5,#bf9257)!important;
+  color:#50361f;flex:none;
+  font:800 12px/1 var(--font-title);
+  letter-spacing:-.02em;
+}
+.avatarSmall{font-size:10px}
+.avatarLarge{font-size:22px}
