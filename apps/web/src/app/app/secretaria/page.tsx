@@ -1,5 +1,5 @@
-import { ChurchWorkspace } from "../../../components/ChurchWorkspace";
+import { ChurchSecretary } from "../../../components/ChurchSecretary";
 
 export default function SecretariaPage() {
-  return <ChurchWorkspace view="secretary" />;
+  return <ChurchSecretary />;
 }
