@@ -21,10 +21,10 @@ const FILTERS: {key:Filter;label:string}[]=[
 ];
 
 function PersonAvatar({person,size="normal"}:{person:Member;size?:"normal"|"large"|"small"}){
-  const index=(Math.max(0,Number(person.id.split("-").at(-1))-1))%6;
+  const words=person.name.trim().split(/\s+/);
+  const initials=[words[0]?.[0],words.at(-1)?.[0]].filter(Boolean).join("").toUpperCase();
   return <span className={size==="large"?s.avatarLarge:size==="small"?s.avatarSmall:s.avatar}
-    role="img" aria-label={"Retrato fictício de "+person.name}
-    style={{backgroundImage:`url("${withBasePath("/images/pessoas-sinteticas.webp")}")`,backgroundPosition:`${index*20}% center`}}/>;
+    role="img" aria-label={"Avatar fictício de "+person.name}>{initials}</span>;
 }
 function Status({value}:{value:MemberStatus}){
   return <span className={s.status+" "+s["status"+value]}><i/>{STATUS_LABEL[value]}</span>;
