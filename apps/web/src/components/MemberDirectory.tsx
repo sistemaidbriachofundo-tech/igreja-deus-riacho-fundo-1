@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, CSSProperties } from "react";
 import { AppShell } from "./AppShell";
 import {
   SYNTHETIC_STORE_KEY, STATUS_LABEL, MODALITY_LABEL, initialMembers,
@@ -149,7 +149,7 @@ export function MemberDirectory() {
         </div>
       </header>
 
-      <section className={styles.banner} aria-label="Mensagem institucional" style={{ "--banner-photo": `url("${withBasePath("/images/comunidade-oficial.jpg")}")` } as React.CSSProperties}>
+      <section className={styles.banner} aria-label="Mensagem institucional" style={{ "--banner-photo": `url("${withBasePath("/images/comunidade-oficial.jpg")}")` } as CSSProperties}>
         <div className={styles.bannerContent}>
           <span className={styles.bannerOverline}>IGREJA DE DEUS · RIACHO FUNDO I</span>
           <h2>Mais que registros.<br/><em>Pessoas e histórias.</em></h2>
