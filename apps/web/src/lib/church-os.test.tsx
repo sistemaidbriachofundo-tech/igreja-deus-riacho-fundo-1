@@ -35,7 +35,7 @@ describe("Church OS: renderização real de páginas", () => {
     const html=renderToStaticMarkup(<ChurchCredentials />);
     expect(html).toContain("Uma identidade que");
     expect(html).toContain("AMBIENTE DE TESTE");
-    expect(html).toContain("Emitir carteirinha");
+    expect(html).toContain("Revogar carteirinha");
     expect(html).toContain("QR de verificação");
   });
   it("fornece comando de busca global, rotas e logomarca correta", () => {
