@@ -122,6 +122,16 @@ jobs:
           done
           echo "Web build failed after 3 attempts"
           exit 1
+      # Preview de revisão: o build exato do PR fica disponível como artefato,
+      # sem publicar ou substituir o GitHub Pages da igreja.
+      - name: Archive web preview (pull requests only)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: church-os-pr-preview
+          path: apps/web/out
+          if-no-files-found: error
+          retention-days: 7
       # Único caminho de deploy Pages: export estático de apps/web (monorepo).
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
