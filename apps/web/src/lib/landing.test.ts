@@ -52,7 +52,7 @@ describe("public portal + F2 shells (DAS / protótipo v5)", () => {
     expect(appShell).toContain("Membros e famílias");
     expect(appShell).toContain("Carteirinhas");
     expect(appShell).toContain('href: "/app/"');
-    expect(visaoPage).toContain('view="overview"');
+    expect(visaoPage).toContain("<ChurchDashboard />");
     expect(membrosPage).toContain("<MemberDirectory />");
   });
 
