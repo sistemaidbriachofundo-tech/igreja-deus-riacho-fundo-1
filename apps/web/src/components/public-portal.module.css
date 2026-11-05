@@ -1,0 +1,181 @@
+/* Public experience only: Church OS admin styles stay untouched. */
+.portal{--paper:#f6f2eb;--white:#fffdf8;--dark:#251c18;--ink:#2e251f;--muted:#74685e;--gold:#cfaa61;--line:#e4dace;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif}
+.portal *{box-sizing:border-box}
+.portal h1,.portal h2,.portal h3,.portal p{margin-top:0}
+.portal h1,.portal h2,.portal h3{font-family:Montserrat,Arial,sans-serif}
+.portal a{text-decoration:none}
+.portal a:focus-visible,.portal button:focus-visible,.portal summary:focus-visible{outline:3px solid #d6ab50;outline-offset:4px}
+.skipLink{position:absolute;top:-100px;left:20px;background:#fff;padding:12px 18px;z-index:300;border-radius:5px;color:#211713}
+.skipLink:focus{top:12px}
+.header,.headerLight{position:relative;z-index:50;min-height:88px;background:#231b18;color:#fffaf1;border-bottom:1px solid rgba(255,255,255,.11)}
+.headerLight{background:#f8f3eb;color:#2e251e;border-bottom:1px solid #e3d8c9}
+.headerInner{max-width:1450px;margin:auto;min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:30px;padding:0 clamp(22px,5vw,72px)}
+.brand,.brandInverse{display:inline-flex;align-items:center;gap:12px;flex-shrink:0;color:#33271e}
+.brandInverse{color:#fff8ef}
+.logo{width:45px;height:45px;object-fit:contain;border-radius:50%}
+.brand strong,.brandInverse strong{display:block;font-family:Montserrat,Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:.12em;line-height:1.35}
+.brand small,.brandInverse small{display:block;font-size:9px;font-weight:700;letter-spacing:.28em;margin-top:2px;opacity:.7}
+.desktopNav{display:flex;align-items:center;gap:clamp(18px,2.8vw,40px);margin-left:auto}
+.desktopNav a{font-size:13px;font-weight:600;color:inherit;opacity:.8;transition:opacity .2s}
+.desktopNav a:hover{opacity:1}
+.headerActions{display:flex;align-items:center;gap:16px}
+.headerVisit{display:inline-flex;align-items:center;gap:27px;padding:13px 17px;background:#d7b271;color:#241b15;font-size:12px;font-weight:800;border-radius:3px;white-space:nowrap;transition:transform .2s}
+.headerVisit:hover,.primaryButton:hover,.lightButton:hover{transform:translateY(-2px)}
+.mobileMenu{display:none;position:relative}
+.mobileMenu summary{cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;list-style:none}
+.mobileMenu summary::-webkit-details-marker{display:none}
+.menuIcon{display:grid;gap:5px;width:22px}
+.menuIcon i{display:block;height:2px;background:currentColor;width:100%}
+.mobileMenuPanel{position:absolute;right:0;top:45px;width:min(84vw,330px);background:#fffaf3;color:#2d211c;border:1px solid #e6d9ca;box-shadow:0 20px 45px rgba(0,0,0,.18);padding:14px;display:grid;gap:1px}
+.mobileMenuPanel a{padding:12px;font-size:14px;font-weight:600;border-bottom:1px solid #eee4d8}
+.mobileMenuPanel a:last-child{border:0}
+.eyebrow,.eyebrowLight{display:inline-flex;align-items:center;gap:11px;font-size:10px;letter-spacing:.26em;font-weight:800;color:#8d683c;text-transform:uppercase}
+.eyebrowLight{color:#e6c389}
+.eyebrowDot{width:7px;height:7px;border-radius:50%;background:#c7954f;flex-shrink:0}
+.hero{position:relative;min-height:min(790px,calc(100svh - 88px));background:#201915;color:#fff;overflow:hidden;display:flex;align-items:center}
+.heroImage,.heroScrim{position:absolute;inset:0;width:100%;height:100%}
+.heroImage{object-fit:cover;object-position:center 43%;opacity:.75}
+.heroScrim{background:linear-gradient(90deg,rgba(25,19,16,.96) 0%,rgba(25,19,16,.80) 42%,rgba(25,19,16,.14) 100%),linear-gradient(0deg,rgba(27,18,14,.46),transparent 35%)}
+.heroInner{position:relative;z-index:1;max-width:1450px;width:100%;padding:88px clamp(22px,6vw,88px) 100px;margin:auto}
+.heroContent{max-width:860px}
+.heroStamp{display:flex;align-items:center;gap:12px;font-size:10px;letter-spacing:.23em;text-transform:uppercase;color:#dfc69e;font-weight:700;margin-bottom:36px}
+.heroStamp:before{content:"";width:42px;height:1px;background:#d0a85f}
+.heroTitle{font-size:clamp(50px,7.1vw,116px);max-width:990px;letter-spacing:-.073em;line-height:.99;font-weight:800;margin-bottom:28px}
+.heroTitle em{font-style:normal;color:#e4c18b}
+.heroLead{max-width:560px;font-size:clamp(16px,1.5vw,20px);line-height:1.7;color:#e9ddd0;margin-bottom:35px}
+.heroActions{display:flex;align-items:center;flex-wrap:wrap;gap:13px}
+.primaryButton,.outlineButton,.lightButton{display:inline-flex;align-items:center;justify-content:space-between;gap:35px;padding:17px 22px;font-size:12px;font-weight:800;letter-spacing:.015em;border-radius:3px;transition:transform .2s}
+.primaryButton{background:#d7b271;color:#271c15}
+.outlineButton{border:1px solid rgba(255,255,255,.5);color:#fff;background:rgba(255,255,255,.04)}
+.outlineButton:hover{background:rgba(255,255,255,.12)}
+.heroMeta{margin-top:58px;display:flex;gap:45px;flex-wrap:wrap;align-items:center;color:#e2d1ba}
+.heroMeta span{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.heroMeta b{color:#fdf7e8}
+.heroSide{position:absolute;right:clamp(22px,6vw,88px);bottom:48px;display:flex;align-items:center;gap:16px;color:#ead2a7;font-size:10px;letter-spacing:.22em;font-weight:700;writing-mode:vertical-rl}
+.heroSideNumber{font-family:Montserrat,sans-serif;font-size:21px;font-weight:700}
+.marquee{background:#d7b575;color:#2c211a;border-bottom:1px solid #c6a365}
+.marqueeInner{max-width:1450px;margin:auto;padding:17px clamp(22px,6vw,88px);display:flex;justify-content:space-between;gap:24px;align-items:center;flex-wrap:wrap}
+.marqueeInner span{font-weight:700;font-size:12px}
+.marqueeInner span:first-child{letter-spacing:.15em;text-transform:uppercase;font-size:10px}
+.marqueeInner a{font-size:12px;font-weight:800;border-bottom:1px solid #4b3926;padding-bottom:3px}
+.mainSection,.sectionWide{padding:clamp(64px,8vw,120px) clamp(22px,6vw,88px)}
+.mainSection>* ,.sectionWide>*{max-width:1290px;margin-left:auto;margin-right:auto}
+.sectionWhite{background:#fffdf8}
+.sectionMuted{background:#efe7dc}
+.sectionDark{background:#241b17;color:#fff7e9}
+.sectionHeading{display:flex;justify-content:space-between;align-items:end;gap:30px;margin-bottom:38px}
+.sectionHeading h2{font-size:clamp(34px,4.4vw,67px);font-weight:800;letter-spacing:-.06em;line-height:1.08;max-width:800px;margin:17px 0 0}
+.sectionHeading p{max-width:620px;margin:18px 0 0;font-size:15px;line-height:1.8;color:#73665b}
+.textLink{display:inline-flex;align-items:center;gap:18px;white-space:nowrap;border-bottom:1px solid #9b7957;padding-bottom:9px;font-size:12px;font-weight:800;color:#563924}
+.ministryGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+.ministryCard,.ministryCardFeatured{position:relative;min-height:425px;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;border-radius:4px;color:#fff;isolation:isolate}
+.ministryCardFeatured{grid-column:span 2;min-height:455px}
+.ministryCardImage{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;transition:transform .6s ease}
+.ministryCard:hover .ministryCardImage,.ministryCardFeatured:hover .ministryCardImage{transform:scale(1.065)}
+.ministryCardShade{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(21,17,13,.52),rgba(21,17,13,.04) 26%,rgba(21,17,13,.90) 100%)}
+.ministryCard[data-tone="clay"] .ministryCardShade,.ministryCardFeatured[data-tone="clay"] .ministryCardShade{background:linear-gradient(180deg,rgba(54,28,19,.56),rgba(79,38,21,.15) 37%,rgba(42,22,19,.96))}
+.ministryCard[data-tone="olive"] .ministryCardShade{background:linear-gradient(180deg,rgba(27,33,24,.63),rgba(30,42,34,.14) 37%,rgba(29,38,28,.93))}
+.ministryCard[data-tone="rose"] .ministryCardShade{background:linear-gradient(180deg,rgba(54,29,36,.55),rgba(55,20,35,.09) 37%,rgba(52,27,39,.94))}
+.ministryCard[data-tone="night"] .ministryCardShade{background:linear-gradient(180deg,rgba(23,30,32,.59),rgba(21,25,28,.09) 37%,rgba(23,27,30,.96))}
+.ministryCardTop{display:flex;align-items:center;justify-content:space-between;padding:23px 25px 0;color:#eee5d8;font-size:9px;font-weight:800;letter-spacing:.16em}
+.ministryCardTop span:last-child{font-size:24px;font-weight:400}
+.ministryCardBottom{display:grid;gap:8px;padding:18px 28px 29px}
+.ministryCardKicker{font-size:10px;font-weight:800;letter-spacing:.19em;color:#eac990}
+.ministryCardBottom strong{font-family:Montserrat,Arial,sans-serif;font-size:clamp(29px,3vw,46px);line-height:1.06;letter-spacing:-.05em}
+.ministryCardSummary{max-width:410px;font-size:13px;line-height:1.65;color:#e9e1d8}
+.missionGrid{display:grid;grid-template-columns:.93fr 1.07fr;gap:clamp(38px,7vw,105px);align-items:center}
+.missionCopy h2{font-size:clamp(35px,4.1vw,60px);line-height:1.12;letter-spacing:-.06em;margin:21px 0}
+.missionCopy p{font-size:16px;color:#6f6156;line-height:1.9;max-width:540px}
+.missionCopy .textLink{margin-top:17px}
+.missionPhoto{position:relative;min-height:450px}
+.missionPhotoFrame{width:100%;height:540px;max-height:60vw;object-fit:cover;border-radius:4px}
+.missionBadge{position:absolute;bottom:-22px;left:-25px;max-width:290px;padding:30px 32px;background:#d5b174;color:#2e2117;box-shadow:0 20px 40px #271f1b1c}
+.missionBadge strong{font-family:Montserrat,sans-serif;display:block;font-size:22px;line-height:1.2;letter-spacing:-.04em}
+.missionBadge small{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.statStrip{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #ddd0c2;margin-top:80px!important;padding-top:33px;gap:24px}
+.statItem{display:grid;gap:8px;padding-right:20px;border-right:1px solid #d9ccbd}
+.statItem:last-child{border-right:0}
+.statItem strong{font-family:Montserrat,sans-serif;font-size:22px;letter-spacing:-.04em}
+.statItem span{font-size:12px;color:#88796c;line-height:1.65}
+.eventListShell{display:grid;grid-template-columns:.65fr 1.35fr;gap:60px;align-items:start}
+.eventAside h2{font-size:clamp(36px,4vw,58px);line-height:1.08;letter-spacing:-.06em;margin:18px 0}
+.eventAside p{font-size:14px;line-height:1.8;color:#796b5f}
+.eventList{border-top:1px solid #d8cbbd}
+.eventCard{display:grid;grid-template-columns:73px 1fr 50px;align-items:center;gap:20px;padding:26px 0;border-bottom:1px solid #d8cbbd}
+.eventDate{width:69px;border-right:1px solid #d3c3ae;padding-right:16px;display:grid;justify-items:start}
+.eventDate strong{font-family:Montserrat,sans-serif;font-size:39px;line-height:1;font-weight:700;letter-spacing:-.05em}
+.eventDate span{font-size:10px;font-weight:800;color:#946c3c;letter-spacing:.16em;margin-top:7px}
+.eventInfo h3{font-size:19px;font-weight:750;letter-spacing:-.03em;margin:5px 0 5px}
+.eventInfo p{margin:0;color:#7a6f64;font-size:12px;line-height:1.65}
+.eventCategory{font-size:9px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:#9a7553}
+.eventArrow{border:1px solid #d2bfa8;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:18px;transition:background .2s}
+.eventArrow:hover{background:#dec49d}
+.demoNote,.demoNoteCompact{display:flex;align-items:center;gap:8px;font-size:11px;color:#806c5a;line-height:1.6;margin:20px 0 0}
+.demoNoteCompact{font-size:10px;margin-top:13px}
+.demoNote span,.demoNoteCompact span{font-size:16px;color:#aa824c}
+.quoteSection{padding:100px clamp(22px,6vw,88px);background:#a7804e;color:#fffaf1}
+.quoteText{max-width:1090px;margin:auto;font-family:Montserrat,sans-serif;font-size:clamp(32px,4.8vw,69px);font-weight:750;line-height:1.15;letter-spacing:-.065em}
+.quoteText span{color:#ead2af}
+.contactCta{position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:end;gap:35px;padding:clamp(56px,8vw,105px) clamp(22px,6vw,88px);background:#30251e;color:#fffaf2}
+.contactCta>*{position:relative;z-index:1}
+.contactCtaHalo{position:absolute;z-index:0;right:-160px;top:-250px;width:640px;height:640px;border:1px solid rgba(223,188,128,.25);border-radius:50%;box-shadow:0 0 0 95px rgba(223,188,128,.035),0 0 0 195px rgba(223,188,128,.03)}
+.contactCta h2{max-width:690px;font-size:clamp(34px,4.9vw,70px);line-height:1.12;letter-spacing:-.065em;margin:18px 0}
+.contactCta p{max-width:530px;color:#cfbfae;line-height:1.75;font-size:14px;margin:0}
+.lightButton{background:#e2bd7a;color:#251b14;white-space:nowrap;flex-shrink:0}
+.footer{background:#1f1916;color:#fff7ea;padding:70px clamp(22px,6vw,88px) 25px}
+.footerTop,.footerBottom{max-width:1290px;margin:auto}
+.footerTop{display:grid;grid-template-columns:1fr 1.5fr;gap:80px;padding-bottom:70px}
+.footerAbout p{font-size:13px;line-height:1.9;color:#bfae9c;max-width:320px;margin-top:25px}
+.footerLinks{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.footerLinks>div{display:flex;flex-direction:column;gap:14px}
+.footerLinks a{font-size:12px;color:#f2e6d5}
+.footerLinks a:hover{color:#dab579}
+.footerLabel{color:#bc9360;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
+.footerNote{max-width:145px;color:#9c8d7e;font-size:11px;line-height:1.6}
+.footerBottom{border-top:1px solid #564a3d;display:flex;justify-content:space-between;gap:20px;padding-top:26px;color:#9d8d7d;font-size:10px;letter-spacing:.08em;flex-wrap:wrap}
+.subhero{position:relative;isolation:isolate;min-height:405px;background:#2f261f;color:#fff9ed;display:flex;align-items:center;overflow:hidden}
+.subheroImage,.subheroOverlay{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover}
+.subheroOverlay{z-index:-1;background:linear-gradient(90deg,rgba(29,22,18,.96),rgba(35,24,17,.75) 50%,rgba(39,26,18,.28))}
+.subheroContent{max-width:1290px;width:100%;margin:auto;padding:72px clamp(22px,6vw,88px)}
+.subheroTitle{font-size:clamp(49px,6vw,85px);letter-spacing:-.07em;line-height:1.08;max-width:890px;margin:20px 0}
+.subheroLead{max-width:650px;color:#e2d5c5;font-size:16px;line-height:1.8;margin:0}
+.breadcrumbs{display:flex;gap:9px;align-items:center;color:#cdbb9e;font-size:11px;margin-bottom:18px}
+.breadcrumbs a:hover{text-decoration:underline}
+.ministryIntro{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start}
+.ministryIntro h2{font-size:clamp(38px,4vw,62px);letter-spacing:-.06em;line-height:1.16;margin:16px 0}
+.ministryIntroBody{padding-top:35px;color:#726358;font-size:17px;line-height:1.85}
+.ministryIntroBody p{margin:0}
+.featureNumber{font-family:Montserrat,sans-serif;color:#bf9664;font-weight:800;font-size:12px;letter-spacing:.1em}
+.pillarGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pillarCard{padding:38px 32px;background:#fffdf8;min-height:270px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid #e5dbcd}
+.pillarCard span{color:#a47d4a;font-size:12px;font-weight:800}
+.pillarCard h3{font-size:24px;line-height:1.2;letter-spacing:-.045em;margin:12px 0}
+.pillarCard p{font-size:13px;color:#73665a;line-height:1.75;margin:0}
+.ministryDetailHero{position:relative;background:#241b17;color:#fffaf3;min-height:620px;isolation:isolate;display:flex;align-items:flex-end;overflow:hidden}
+.ministryHeroImage,.ministryHeroTint{position:absolute;inset:0;width:100%;height:100%;z-index:-2;object-fit:cover;object-position:center}
+.ministryHeroTint{z-index:-1;background:linear-gradient(90deg,rgba(26,19,14,.93),rgba(32,22,18,.68) 55%,rgba(45,29,17,.18)),linear-gradient(0deg,rgba(25,17,14,.52),transparent)}
+.ministryDetailHero[data-tone="rose"] .ministryHeroTint{background:linear-gradient(90deg,rgba(53,26,38,.93),rgba(53,29,38,.65),rgba(45,29,17,.14))}
+.ministryDetailHero[data-tone="olive"] .ministryHeroTint{background:linear-gradient(90deg,rgba(30,40,31,.94),rgba(35,41,30,.65),rgba(45,29,17,.1))}
+.ministryDetailHero[data-tone="night"] .ministryHeroTint{background:linear-gradient(90deg,rgba(16,25,28,.96),rgba(21,27,31,.7),rgba(37,34,25,.12))}
+.ministryHeroInner{max-width:1290px;width:100%;margin:auto;padding:85px clamp(22px,6vw,88px) 90px}
+.ministryHeroKicker{color:#efcb8e;letter-spacing:.2em;font-size:11px;font-weight:800;margin:22px 0}
+.ministryHeroTitle{font-size:clamp(52px,7vw,104px);letter-spacing:-.075em;line-height:1;max-width:960px;margin:0 0 24px}
+.ministryHeroSummary{font-size:17px;line-height:1.75;color:#e5d9c9;max-width:570px}
+.ministryHeroInner .primaryButton{margin-top:18px}
+.ministryIndex{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#d4c8b7;border-top:1px solid #d4c8b7;border-bottom:1px solid #d4c8b7}
+.ministryIndex a{background:#efe7dc;padding:18px 12px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.04em}
+.ministryIndex a:hover{background:#ddc7aa}
+.ministryDetailLabel{text-transform:uppercase;font-size:10px;letter-spacing:.17em;color:#977347;font-weight:800}
+.eventBadge{display:inline-block;border:1px solid #ad8760;border-radius:3px;padding:5px 9px;font-size:10px;color:#89613b;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.contactGrid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.contactCard{padding:42px;background:#fffdf8;border:1px solid #e4d9cb;min-height:300px;display:flex;flex-direction:column;align-items:flex-start}
+.contactCard span{font-size:10px;letter-spacing:.16em;color:#9b7a52;font-weight:800;text-transform:uppercase}
+.contactCard h2{font-size:29px;letter-spacing:-.05em;line-height:1.17;margin:22px 0 12px}
+.contactCard p{color:#73675c;font-size:14px;line-height:1.75}
+.contactCard a{margin-top:auto;font-size:12px;font-weight:800;border-bottom:1px solid #ba966b;padding-bottom:7px}
+.contactNote{font-size:13px;line-height:1.7;color:#796b5d}
+.smallPreheading{display:flex;gap:8px;align-items:center;text-transform:uppercase;letter-spacing:.17em;color:#a47e4b;font-size:10px;font-weight:800;margin-bottom:18px}
+@media(max-width:1050px){.desktopNav{gap:18px}.headerVisit{gap:12px;padding:12px}.heroTitle{font-size:clamp(48px,8vw,86px)}.eventListShell{gap:35px}.footerTop{gap:35px}.ministryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.ministryCardFeatured{grid-column:span 2}}
+@media(max-width:750px){.header,.headerLight,.headerInner{min-height:73px}.headerInner{gap:12px;padding:0 20px}.desktopNav{display:none}.mobileMenu{display:block}.brand strong,.brandInverse strong{font-size:11px}.brand small,.brandInverse small{font-size:8px}.logo{width:39px;height:39px}.headerVisit{padding:10px 12px;font-size:10px;gap:6px}.hero{min-height:660px}.heroImage{object-position:60% center}.heroScrim{background:linear-gradient(90deg,rgba(25,19,16,.94),rgba(25,19,16,.6)),linear-gradient(0deg,rgba(27,18,14,.55),transparent)}.heroInner{padding:65px 25px 85px}.heroStamp{margin-bottom:24px}.heroTitle{font-size:clamp(45px,11vw,76px);letter-spacing:-.06em}.heroLead{font-size:15px}.heroSide{display:none}.heroMeta{margin-top:40px;gap:20px}.marqueeInner{padding:15px 23px}.mainSection,.sectionWide{padding:70px 23px}.sectionHeading{align-items:start;flex-direction:column;margin-bottom:30px;gap:18px}.sectionHeading h2{font-size:clamp(33px,9vw,52px)}.ministryGrid{gap:12px}.ministryCard,.ministryCardFeatured{min-height:330px}.ministryCardBottom{padding:18px}.ministryCardTop{padding:18px}.ministryCardBottom strong{font-size:30px}.ministryCardSummary{font-size:11px}.missionGrid,.ministryIntro,.eventListShell,.contactGrid{grid-template-columns:1fr;gap:30px}.missionPhotoFrame{height:440px;max-height:none}.missionBadge{left:0;bottom:-15px}.statStrip{margin-top:65px!important}.eventAside h2{max-width:530px}.contactCta{align-items:start;flex-direction:column}.footerTop{grid-template-columns:1fr;gap:40px;padding-bottom:50px}.footerLinks{gap:25px}.subhero{min-height:350px}.subheroContent{padding:62px 24px}.subheroTitle{font-size:clamp(44px,9vw,72px)}.ministryIntroBody{padding-top:0}.pillarGrid{grid-template-columns:1fr}.pillarCard{min-height:205px;padding:25px}.ministryDetailHero{min-height:560px}.ministryHeroInner{padding:70px 24px}.ministryHeroTitle{font-size:clamp(48px,9vw,72px)}.ministryIndex{grid-template-columns:repeat(3,1fr)}.ministryIndex a{padding:15px 9px}}
+@media(max-width:480px){.headerInner{padding:0 14px}.brand,.brandInverse{gap:7px}.brand strong,.brandInverse strong{font-size:9.5px}.brand small,.brandInverse small{font-size:7px}.logo{width:35px;height:35px}.headerVisit{font-size:9px;padding:10px 8px}.mobileMenu summary>span:last-child{display:none}.hero{min-height:640px}.heroInner{padding:64px 22px}.heroTitle{font-size:clamp(43px,12vw,62px)}.heroLead{font-size:14px}.primaryButton,.outlineButton{width:100%;padding:15px 18px}.heroMeta{gap:15px}.heroMeta span{font-size:9px}.marqueeInner{gap:8px}.marqueeInner span{font-size:11px}.ministryGrid{grid-template-columns:1fr}.ministryCardFeatured{grid-column:auto}.ministryCard,.ministryCardFeatured{min-height:370px}.ministryCardBottom strong{font-size:39px}.missionPhotoFrame{height:370px}.statStrip{grid-template-columns:1fr;gap:13px}.statItem{border-right:0;border-bottom:1px solid #d9ccbd;padding:0 0 16px}.eventCard{grid-template-columns:53px 1fr 30px;gap:11px;padding:22px 0}.eventDate{width:53px;padding-right:7px}.eventDate strong{font-size:30px}.eventInfo h3{font-size:16px}.eventArrow{width:29px;height:29px;font-size:15px}.eventInfo p{font-size:11px}.footerLinks{grid-template-columns:repeat(2,1fr)}.footerBottom{flex-direction:column}.contactCta h2{font-size:37px}.lightButton{white-space:normal;width:100%}.ministryIndex{grid-template-columns:repeat(2,1fr)}.ministryHeroTitle{font-size:clamp(45px,12vw,65px)}.contactCard{padding:27px;min-height:270px}}
+@media(prefers-reduced-motion:reduce){.portal *, .portal *::before,.portal *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
