@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { events, instagramUrl } from "../lib/portal-content";
+import { instagramUrl } from "../lib/portal-content";
 import { portalVisuals } from "../lib/portal-visuals";
-import { PublicPage, EventCard, DemoNote } from "../components/PublicPortal";
+import { PublicPage } from "../components/PublicPortal";
+import { FirstVisitFeature } from "../components/FirstVisit";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { PortalJourney } from "../components/PortalJourney";
 import s from "./home-v3.module.css";
@@ -70,19 +71,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="agenda" className={s.agenda} aria-label="Agenda demonstrativa">
-          <div className={s.agendaIntro} data-portal-reveal>
-            <div><span className={s.overline}>04 / VIDA QUE ACONTECE</span><h2>Próximos <em>encontros.</em></h2></div>
-            <div><p>Veja como aparecerão aqui os encontros e eventos da igreja. A agenda abaixo é exclusivamente demonstrativa.</p><Link href="/eventos/" className={s.underlined}>Explorar a agenda <span aria-hidden="true">↗</span></Link></div>
-          </div>
-          <div className={s.agendaList}>{events.slice(0,3).map(event => <EventCard event={event} key={event.id} />)}</div>
-          <DemoNote compact />
-        </section>
+        <FirstVisitFeature />
 
         <section className={s.visit} aria-labelledby="visit-title" data-portal-reveal>
-          <span>O COMEÇO DE UMA NOVA HISTÓRIA</span>
-          <h2 id="visit-title">A próxima pessoa<br/>que chega <em>pode ser você.</em></h2>
-          <div className={s.visitActions}><Link href="/contato/">Prepare sua primeira visita <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
+          <span>UMA COMUNIDADE DE PORTAS ABERTAS</span>
+          <h2 id="visit-title">Essa história também<br/><em>pode ser sua.</em></h2>
+          <div className={s.visitActions}><Link href="/contato/">Fale com a igreja <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
         </section>
 
       </main>

@@ -45,7 +45,9 @@ describe("portal público da igreja", () => {
     expect(events).toHaveLength(5);
     expect(events.every((event) => event.date && event.time && event.ministry)).toBe(true);
     expect(agenda).toContain("<DemoNote");
-    expect(home).toContain("<DemoNote");
+    expect(home).toContain("<FirstVisitFeature");
+    expect(home).not.toContain("events.slice");
+    expect(home).not.toContain("Próximos encontros");
     expect(ministryPage).toContain("<DemoNote");
     expect(shell).toContain("não são programação oficial");
   });
