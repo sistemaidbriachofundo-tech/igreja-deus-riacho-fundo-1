@@ -458,3 +458,18 @@
   .ministryJourneyItem,.ministryJourneyItem:before,.journeyPortrait,.journeyArrow,
   .roundedPrimary,.editorialUnderline{transition:none}
 }
+
+
+/* Final mobile typography and ministry tab navigation: avoid orphaned words. */
+@media(max-width:700px){
+  .ministryHeroTitle{font-size:clamp(34px,8vw,49px);letter-spacing:-.078em;line-height:1.09;text-wrap:balance;overflow-wrap:normal}
+  .ministryHeroInner{padding-top:155px;padding-bottom:85px}
+  .ministryDetailHero{min-height:620px}
+  .ministryIndex{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:0;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+  .ministryIndex a{flex:0 0 auto;order:1;scroll-snap-align:start;white-space:nowrap;border-right:0;border-bottom:2px solid transparent;padding:19px 22px;font-size:12px}
+  .ministryIndex a[aria-current="page"]{order:0;border-color:#a87d50;font-weight:800;background:#e3d1b7}
+}
+@media(max-width:380px){
+  .ministryHeroTitle{font-size:clamp(32px,8.4vw,38px)}
+  .ministryHeroInner{padding-left:19px;padding-right:19px}
+}
