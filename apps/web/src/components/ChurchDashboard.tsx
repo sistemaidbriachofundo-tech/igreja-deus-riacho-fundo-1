@@ -8,11 +8,9 @@ import { useChurchRecords } from "../lib/use-church-records";
 import s from "./church-dashboard.module.css";
 
 function InitialAvatar({ person, tiny = false }: { person: Member; tiny?: boolean }) {
-  const index = Math.max(0, Number(person.id.split("-").at(-1)) - 1) % 6;
-  return <span className={tiny ? s.avatarSmall : s.avatar} style={{
-    backgroundImage: `url("${withBasePath("/images/pessoas-sinteticas.webp")}")`,
-    backgroundPosition: `${index * 20}% center`,
-  }} role="img" aria-label={"Retrato sintético ilustrativo de " + person.name} />;
+  const nameParts = person.name.trim().split(/\\s+/);
+  const initials = [nameParts[0]?.[0], nameParts.at(-1)?.[0]].filter(Boolean).join("").toUpperCase();
+  return <span className={tiny ? s.avatarSmall : s.avatar} role="img" aria-label={"Avatar ilustrativo de " + person.name}>{initials}</span>;
 }
 function Metric({ tag, label, value, hint, icon, accent = false }: { tag: string; label: string; value: number; hint: string; icon: "people" | "family" | "layers" | "badge"; accent?: boolean }) {
   return <article className={accent ? s.metricAccent : s.metric}>
@@ -56,13 +54,23 @@ export function ChurchDashboard() {
         <a className={s.buttonLight} href={withBasePath("/app/membros/")}><UIIcon name="people" size={17}/> Diretório de pessoas <UIIcon name="arrow" size={16}/></a>
       </div>
 
-      <section className={s.hero} style={{ backgroundImage:`linear-gradient(90deg,rgba(28,20,15,.97) 0%,rgba(39,27,17,.92) 33%,rgba(41,28,18,.37) 72%,rgba(36,24,13,.19) 100%),url("${withBasePath("/images/hero-oficial.jpg")}")` }}>
+      <section className={s.hero}>
         <div className={s.heroOrnament} aria-hidden="true"><span/><span/><span/></div>
         <div className={s.heroContent}>
           <div className={s.heroOverline}><UIIcon name="spark" size={15}/> PLATAFORMA IGREJA DE DEUS <span className={s.heroDivider}/> EDIÇÃO 2026</div>
           <h2>Mais presença.<br/><span>Mais propósito.</span></h2>
           <p>A tecnologia a serviço de pessoas, famílias e da missão da igreja.</p>
           <a href={withBasePath("/app/secretaria/")} className={s.heroAction}>Ver processos em andamento <UIIcon name="arrow" size={18}/></a>
+        </div>
+        <div className={s.heroVisual} aria-label={stats.active + " membros ativos e " + stats.pending + " admissões em andamento"}>
+          <div className={s.orbitOuter}><span className={s.orbitSatA}/><span className={s.orbitSatB}/></div>
+          <div className={s.orbitMid}/>
+          <div className={s.orbitCore}>
+            <UIIcon name="spark" size={22}/>
+            <strong>{String(stats.active).padStart(2,"0")}</strong>
+            <span>MEMBROS ATIVOS</span>
+          </div>
+          <div className={s.orbitCaption}><span className={s.orbitCaptionDot}/> VISÃO DE COMUNIDADE <UIIcon name="activity" size={14}/></div>
         </div>
         <div className={s.heroCounter}><span className={s.heroCounterIcon}><UIIcon name="activity" size={17}/></span><span><strong>{String(stats.pending).padStart(2,"0")}</strong><small>admissões exigem<br/>acompanhamento</small></span></div>
       </section>
