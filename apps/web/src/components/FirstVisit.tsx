@@ -26,7 +26,7 @@ export function FirstVisitFeature() {
           <li><span>03</span><div><strong>Venha nos conhecer.</strong><p>Entre em contato para confirmar os detalhes da sua visita.</p></div></li>
         </ol>
         <div className={s.actions}>
-          <Link href="/contato/" className={s.primary}>Planejar minha primeira visita <span aria-hidden="true">↗</span></Link>
+          <Link href="/visita/" className={s.primary}>Planejar minha primeira visita <span aria-hidden="true">↗</span></Link>
           <a href={instagramUrl} rel="noopener noreferrer" target="_blank" className={s.secondary}>Ver canais oficiais <span aria-hidden="true">↗</span></a>
         </div>
       </div>

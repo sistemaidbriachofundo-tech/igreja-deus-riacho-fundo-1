@@ -22,7 +22,7 @@ export default function HomePage() {
             <h1 id="hero-title">Existe um lugar<br/>para a <em>sua história.</em></h1>
             <p>Uma comunidade para pertencer, crescer na fé e descobrir que caminhar junto transforma tudo.</p>
             <div className={s.heroButtons}>
-              <Link className={s.actionMain} href="/contato/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link>
+              <Link className={s.actionMain} href="/visita/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link>
               <Link className={s.actionGhost} href="/ministerios/">Explorar ministérios <span aria-hidden="true">→</span></Link>
             </div>
           </div>
@@ -76,7 +76,7 @@ export default function HomePage() {
         <section className={s.visit} aria-labelledby="visit-title" data-portal-reveal>
           <span>UMA COMUNIDADE DE PORTAS ABERTAS</span>
           <h2 id="visit-title">Essa história também<br/><em>pode ser sua.</em></h2>
-          <div className={s.visitActions}><Link href="/contato/">Fale com a igreja <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
+          <div className={s.visitActions}><Link href="/visita/">Planejar uma visita <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
         </section>
 
       </main>

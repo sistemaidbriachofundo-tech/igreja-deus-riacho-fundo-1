@@ -36,7 +36,7 @@ export default async function MinistryPage({ params }: MinistryPageProps) {
             <span className={s.label}>{ministry.eyebrow}</span>
             <h1>{ministry.headline}</h1>
             <p>{ministry.summary}</p>
-            <Link href="/contato/" className={s.detailHeroButton}>Quero participar <span aria-hidden="true">↗</span></Link>
+            <Link href={"/visita/?ministerio=" + ministry.slug} className={s.detailHeroButton}>Quero participar <span aria-hidden="true">↗</span></Link>
           </div>
           <span className={s.photoDisclosure}>IMAGEM ILUSTRATIVA</span>
         </section>

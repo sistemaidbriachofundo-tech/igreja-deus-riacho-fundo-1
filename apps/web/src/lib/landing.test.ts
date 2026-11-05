@@ -8,6 +8,7 @@ const home = read("app/page.tsx");
 const hub = read("app/ministerios/page.tsx");
 const ministryPage = read("app/ministerios/[slug]/page.tsx");
 const agenda = read("app/eventos/page.tsx");
+const visit = read("app/visita/page.tsx");
 const about = read("app/a-igreja/page.tsx");
 const contact = read("app/contato/page.tsx");
 const shell = read("components/PublicPortal.tsx");
@@ -73,6 +74,8 @@ describe("portal público da igreja", () => {
     expect(shell).toContain('aria-label="Navegação principal"');
     expect(shell).toContain('aria-label="Menu mobile"');
     expect(shell).toContain("Pular para o conteúdo");
+    expect(shell).toContain('href="/visita/"');
+    expect(visit).toContain("<VisitPlanner");
     expect(about).toContain('id="conteudo"');
   });
 });
