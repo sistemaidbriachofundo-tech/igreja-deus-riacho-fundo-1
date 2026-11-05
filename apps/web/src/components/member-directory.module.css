@@ -108,6 +108,7 @@
 .detailGrid dt{font-size:9px;color:#9c8c7d}
 .detailGrid dd{font:750 10px var(--font-title);color:#5a4535;margin:0;overflow-wrap:anywhere}
 .separator{height:1px;background:#eee9e0;margin:22px 0}
+.familySection{display:block}
 .familyBubble{display:flex;align-items:center;gap:10px;background:#faf5eb;border:1px solid #f0e2cd;border-radius:11px;padding:12px;color:#90683a}
 .familyBubble>span{display:flex;flex-direction:column;gap:5px}
 .familyBubble strong{font:750 11px var(--font-title);color:#5b412c}
