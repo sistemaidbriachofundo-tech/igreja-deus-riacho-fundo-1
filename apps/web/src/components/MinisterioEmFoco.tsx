@@ -42,7 +42,7 @@ export function MinisterioEmFoco() {
           <p>Escolha uma área e descubra como fazer parte.</p>
         </div>
         <p className={s.swipeHint}>Escolha um ministério. No celular, deslize para ver todos.</p>
-        <div className={s.tabs} role="tablist" aria-label="Escolha o ministério" aria-orientation="vertical">
+        <div className={s.tabs} role="tablist" aria-label="Escolha o ministério">
           {ministries.map((item,i) => (
             <button
               key={item.slug}
