@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
-import { dirname, join, normalize, resolve, sep } from "node:path";
+import { dirname, normalize, resolve, sep } from "node:path";
 
 /**
  * Storage privado local (DEV/HML). Não serve arquivos via URL pública.
