@@ -76,7 +76,7 @@ export function AppShell({ active, meta, children }: { active?: AppNavKey | null
       <aside className={s.rail} aria-label="Navegação principal">
         <a href={withBasePath("/app/")} className={s.brand} aria-label="Igreja de Deus no Riacho Fundo I — início">
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
-          <span className={s.brandText}><strong>IGREJA DE DEUS</strong><small>RIÂCHO FUNDO I · GESTÃO</small></span>
+          <span className={s.brandText}><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I · GESTÃO</small></span>
         </a>
 
         <div className={s.railContext}><span className={s.railOnline} /><span><strong>Ambiente de avaliação</strong><small>Base exclusivamente sintética</small></span></div>
