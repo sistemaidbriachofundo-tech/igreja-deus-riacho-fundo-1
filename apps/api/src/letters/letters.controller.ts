@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsIn, IsOptional, IsString, MinLength } from "class-validator";
+import { IsIn, IsString, MinLength } from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
