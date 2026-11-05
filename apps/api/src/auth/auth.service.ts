@@ -59,6 +59,7 @@ export class AuthService {
       roleCode: g.role.code,
       organizationId: g.organizationId,
       churchId: g.churchId,
+      ministryId: g.ministryId ?? null,
     }));
 
     const authUser: AuthUser = {

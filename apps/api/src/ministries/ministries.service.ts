@@ -5,10 +5,35 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canLeadMinistry, ROLE_CODES, hasAccess } from "@idbrf/shared";
+import {
+  canAdministerMinistries,
+  canLeadMinistry,
+  canManageSpecificMinistry,
+  ROLE_CODES,
+  hasAccess,
+} from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+
+export type LeadershipPublicEntry = {
+  displayName: string;
+  roleTitle: string;
+};
+
+export type MinistryProfileInput = {
+  name?: string;
+  slug?: string;
+  leaderPersonId?: string | null;
+  description?: string | null;
+  coverImageUrl?: string | null;
+  galleryUrls?: string[];
+  scheduleText?: string | null;
+  leadershipPublic?: LeadershipPublicEntry[] | null;
+  participationInfo?: string | null;
+  visibility?: "PUBLIC" | "INTERNAL";
+  publishStatus?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+};
 
 @Injectable()
 export class MinistriesService {
@@ -22,7 +47,7 @@ export class MinistriesService {
     input: { name: string; slug: string; leaderPersonId?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    this.assertAdminister(actor, pilot.organizationId, pilot.churchId);
 
     const name = input.name?.trim();
     const slug = input.slug?.trim().toLowerCase();
@@ -42,6 +67,8 @@ export class MinistriesService {
           name,
           slug,
           leaderPersonId: input.leaderPersonId ?? null,
+          visibility: "INTERNAL",
+          publishStatus: "DRAFT",
         },
       });
       await tx.auditLog.create({
@@ -71,10 +98,123 @@ export class MinistriesService {
       orderBy: { createdAt: "desc" },
     });
 
+    const admin = canAdministerMinistries(actor.grants, {
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    });
+    const visible = admin
+      ? rows
+      : rows.filter((row) =>
+          canManageSpecificMinistry(actor.grants, actor.personId, {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            ministryId: row.id,
+            leaderPersonId: row.leaderPersonId,
+          }),
+        );
+
     return {
       churchId: pilot.churchId,
-      ministries: rows.map((row) => this.toMinistryDto(row)),
+      ministries: visible.map((row) => this.toMinistryDto(row)),
     };
+  }
+
+  async getMinistry(actor: AuthUser, ministryId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    this.assertManageMinistry(actor, ministry);
+    return this.toMinistryDto(ministry);
+  }
+
+  async patchMinistry(
+    actor: AuthUser,
+    ministryId: string,
+    input: MinistryProfileInput,
+  ) {
+    const pilot = await this.pilot.getPilotChurch();
+    const existing = await this.requireMinistry(ministryId, pilot);
+    this.assertManageMinistry(actor, existing);
+
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) {
+      const name = input.name?.trim();
+      if (!name) throw new BadRequestException("name inválido");
+      data.name = name;
+    }
+    if (input.slug !== undefined) {
+      if (!canAdministerMinistries(actor.grants, pilot)) {
+        throw new ForbiddenException("Só secretaria/pastor pode alterar slug");
+      }
+      const slug = input.slug?.trim().toLowerCase();
+      if (!slug) throw new BadRequestException("slug inválido");
+      data.slug = slug;
+    }
+    if (input.leaderPersonId !== undefined) {
+      if (!canAdministerMinistries(actor.grants, pilot)) {
+        throw new ForbiddenException(
+          "Só secretaria/pastor pode alterar o líder titular",
+        );
+      }
+      if (input.leaderPersonId) {
+        await this.requirePerson(input.leaderPersonId, pilot.organizationId);
+      }
+      data.leaderPersonId = input.leaderPersonId;
+    }
+    if (input.description !== undefined) data.description = input.description;
+    if (input.coverImageUrl !== undefined) {
+      data.coverImageUrl = input.coverImageUrl;
+    }
+    if (input.galleryUrls !== undefined) {
+      data.galleryUrls = sanitizeGallery(input.galleryUrls);
+    }
+    if (input.scheduleText !== undefined) data.scheduleText = input.scheduleText;
+    if (input.leadershipPublic !== undefined) {
+      data.leadershipPublic = sanitizeLeadership(input.leadershipPublic);
+    }
+    if (input.participationInfo !== undefined) {
+      data.participationInfo = input.participationInfo;
+    }
+    if (input.visibility !== undefined) {
+      if (!["PUBLIC", "INTERNAL"].includes(input.visibility)) {
+        throw new BadRequestException("visibility inválida");
+      }
+      data.visibility = input.visibility;
+    }
+    if (input.publishStatus !== undefined) {
+      this.applyPublishStatus(data, input.publishStatus, existing.publishStatus);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const ministry = await tx.ministry.update({
+        where: { id: ministryId },
+        data,
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ministry.patch",
+          resourceType: "ministry",
+          resourceId: ministryId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { fields: Object.keys(data) },
+        },
+      });
+      return this.toMinistryDto(ministry);
+    });
+  }
+
+  async publishMinistry(actor: AuthUser, ministryId: string) {
+    return this.patchMinistry(actor, ministryId, {
+      publishStatus: "PUBLISHED",
+      visibility: "PUBLIC",
+    });
+  }
+
+  async archiveMinistry(actor: AuthUser, ministryId: string) {
+    return this.patchMinistry(actor, ministryId, {
+      publishStatus: "ARCHIVED",
+    });
   }
 
   async createRoster(
@@ -82,7 +222,6 @@ export class MinistriesService {
     input: { title: string; serviceAt: string; ministryId?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
 
     const title = input.title?.trim();
     if (!title) {
@@ -94,16 +233,10 @@ export class MinistriesService {
     }
 
     if (input.ministryId) {
-      const ministry = await this.prisma.ministry.findFirst({
-        where: {
-          id: input.ministryId,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-        },
-      });
-      if (!ministry) {
-        throw new BadRequestException("Ministério não encontrado neste escopo");
-      }
+      const ministry = await this.requireMinistry(input.ministryId, pilot);
+      this.assertManageMinistry(actor, ministry);
+    } else {
+      this.assertLead(actor, pilot.organizationId, pilot.churchId);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -416,6 +549,75 @@ export class MinistriesService {
     }
   }
 
+  private assertAdminister(
+    actor: AuthUser,
+    organizationId: string,
+    churchId: string,
+  ): void {
+    if (!canAdministerMinistries(actor.grants, { organizationId, churchId })) {
+      throw new ForbiddenException(
+        "Sem permissão administrativa de ministérios nesta congregação",
+      );
+    }
+  }
+
+  private assertManageMinistry(
+    actor: AuthUser,
+    ministry: {
+      id: string;
+      organizationId: string;
+      churchId: string;
+      leaderPersonId: string | null;
+    },
+  ): void {
+    if (
+      !canManageSpecificMinistry(actor.grants, actor.personId, {
+        organizationId: ministry.organizationId,
+        churchId: ministry.churchId,
+        ministryId: ministry.id,
+        leaderPersonId: ministry.leaderPersonId,
+      })
+    ) {
+      throw new ForbiddenException(
+        "Sem permissão neste ministério (líder só opera o próprio)",
+      );
+    }
+  }
+
+  private applyPublishStatus(
+    data: Record<string, unknown>,
+    next: "DRAFT" | "PUBLISHED" | "ARCHIVED",
+    current: string,
+  ): void {
+    if (!["DRAFT", "PUBLISHED", "ARCHIVED"].includes(next)) {
+      throw new BadRequestException("publishStatus inválido");
+    }
+    data.publishStatus = next;
+    if (next === "PUBLISHED" && current !== "PUBLISHED") {
+      data.publishedAt = new Date();
+    }
+    if (next === "DRAFT") {
+      data.publishedAt = null;
+    }
+  }
+
+  private async requireMinistry(
+    ministryId: string,
+    pilot: { organizationId: string; churchId: string },
+  ) {
+    const ministry = await this.prisma.ministry.findFirst({
+      where: {
+        id: ministryId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!ministry) {
+      throw new NotFoundException("Ministério não encontrado");
+    }
+    return ministry;
+  }
+
   private assertCanRespondOwnOrLead(
     actor: AuthUser,
     assignmentPersonId: string,
@@ -540,6 +742,15 @@ export class MinistriesService {
     name: string;
     slug: string;
     leaderPersonId: string | null;
+    description?: string | null;
+    coverImageUrl?: string | null;
+    galleryUrls?: string[];
+    scheduleText?: string | null;
+    leadershipPublic?: unknown;
+    participationInfo?: string | null;
+    visibility?: string;
+    publishStatus?: string;
+    publishedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -550,6 +761,17 @@ export class MinistriesService {
       name: row.name,
       slug: row.slug,
       leaderPersonId: row.leaderPersonId,
+      description: row.description ?? null,
+      coverImageUrl: row.coverImageUrl ?? null,
+      galleryUrls: row.galleryUrls ?? [],
+      scheduleText: row.scheduleText ?? null,
+      leadershipPublic: sanitizeLeadership(
+        (row.leadershipPublic as LeadershipPublicEntry[] | null) ?? null,
+      ),
+      participationInfo: row.participationInfo ?? null,
+      visibility: row.visibility ?? "INTERNAL",
+      publishStatus: row.publishStatus ?? "DRAFT",
+      publishedAt: row.publishedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -620,4 +842,25 @@ export class MinistriesService {
       updatedAt: row.updatedAt.toISOString(),
     };
   }
+}
+
+function sanitizeGallery(urls: string[] | undefined): string[] {
+  if (!urls) return [];
+  return urls
+    .map((u) => (typeof u === "string" ? u.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 24);
+}
+
+function sanitizeLeadership(
+  entries: LeadershipPublicEntry[] | null | undefined,
+): LeadershipPublicEntry[] {
+  if (!entries?.length) return [];
+  return entries
+    .map((e) => ({
+      displayName: String(e?.displayName ?? "").trim(),
+      roleTitle: String(e?.roleTitle ?? "").trim(),
+    }))
+    .filter((e) => e.displayName && e.roleTitle)
+    .slice(0, 20);
 }

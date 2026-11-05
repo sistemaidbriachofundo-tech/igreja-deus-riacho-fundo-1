@@ -15,9 +15,13 @@ import {
   RostersController,
   RosterSlotsController,
 } from "./ministries/ministries.controller";
+import { CmsController } from "./cms/cms.controller";
+import { EventsController } from "./events/events.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
+import { PublicPortalController } from "./public-portal/public-portal.controller";
 import { TransfersController } from "./transfers/transfers.controller";
+import { VolunteersController } from "./volunteers/volunteers.controller";
 import type { AuthUser } from "./auth/types/auth-user";
 
 describe("controller wiring (delegates to services)", () => {
@@ -258,6 +262,10 @@ describe("controller wiring (delegates to services)", () => {
     const ministries = {
       createMinistry: jest.fn(),
       listMinistries: jest.fn(),
+      getMinistry: jest.fn(),
+      patchMinistry: jest.fn(),
+      publishMinistry: jest.fn(),
+      archiveMinistry: jest.fn(),
       createRoster: jest.fn(),
       listRosters: jest.fn(),
       addSlot: jest.fn(),
@@ -269,6 +277,10 @@ describe("controller wiring (delegates to services)", () => {
     const m = new MinistriesController(ministries as never);
     await m.create(user, { name: "Louvor", slug: "louvor" });
     await m.list(user);
+    await m.get(user, "m1");
+    await m.patch(user, "m1", { description: "x" });
+    await m.publish(user, "m1");
+    await m.archive(user, "m1");
     const r = new RostersController(ministries as never);
     await r.create(user, {
       title: "Culto",
@@ -283,5 +295,83 @@ describe("controller wiring (delegates to services)", () => {
     await a.decline(user, "as1");
     await a.substitute(user, "as1", { personId: "p2" });
     expect(ministries.substituteAssignment).toHaveBeenCalled();
+  });
+
+  it("EventsController", async () => {
+    const events = {
+      create: jest.fn(),
+      list: jest.fn(),
+      get: jest.fn(),
+      patch: jest.fn(),
+      publish: jest.fn(),
+      cancel: jest.fn(),
+      archive: jest.fn(),
+    };
+    const c = new EventsController(events as never);
+    await c.create(user, {
+      name: "Encontro",
+      slug: "encontro",
+      startsAt: "2026-11-15T22:00:00Z",
+    });
+    await c.list(user);
+    await c.get(user, "e1");
+    await c.patch(user, "e1", { featuredOnHome: true });
+    await c.publish(user, "e1");
+    await c.cancel(user, "e1");
+    await c.archive(user, "e1");
+    expect(events.archive).toHaveBeenCalledWith(user, "e1");
+  });
+
+  it("PublicPortalController", async () => {
+    const portal = {
+      home: jest.fn().mockResolvedValue({ ministries: [] }),
+      listMinistries: jest.fn(),
+      getMinistryBySlug: jest.fn(),
+      listEvents: jest.fn(),
+      getEventBySlug: jest.fn(),
+      getContentBySlug: jest.fn(),
+    };
+    const c = new PublicPortalController(portal as never);
+    await c.home();
+    await c.listMinistries();
+    await c.getMinistry("jovens");
+    await c.listEvents();
+    await c.getEvent("encontro-jovens-demo");
+    await c.getContent("sobre-nos");
+    expect(portal.getContentBySlug).toHaveBeenCalledWith("sobre-nos");
+  });
+
+  it("CmsController", async () => {
+    const cms = {
+      create: jest.fn(),
+      list: jest.fn(),
+      get: jest.fn(),
+      patch: jest.fn(),
+    };
+    const c = new CmsController(cms as never);
+    await c.create(user, { kind: "PAGE", slug: "sobre", title: "Sobre" });
+    await c.list(user, "PAGE");
+    await c.get(user, "c1");
+    await c.patch(user, "c1", { status: "REVISAO" });
+    await c.advance(user, "c1", { toStatus: "APROVADO" });
+    expect(cms.patch).toHaveBeenCalled();
+  });
+
+  it("VolunteersController", async () => {
+    const volunteers = {
+      submitPublicInterest: jest.fn(),
+      listAdmin: jest.fn(),
+      getAdmin: jest.fn(),
+      advance: jest.fn(),
+    };
+    const c = new VolunteersController(volunteers as never);
+    await c.submitPublic({
+      displayName: "Vol",
+      email: "vol@example.test",
+    });
+    await c.list(user, "m1");
+    await c.get(user, "vi1");
+    await c.advance(user, "vi1", { stage: "AVALIACAO" });
+    expect(volunteers.advance).toHaveBeenCalled();
   });
 });

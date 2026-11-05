@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.3.0-f3");
+    assert.equal(API_CONTRACT_VERSION, "0.5.0-portal");
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -72,6 +72,27 @@ describe("api contracts F2", () => {
     );
     assert.equal(
       API_ENDPOINT_STATUS["POST /small-groups/:groupId/meetings"],
+      "implemented",
+    );
+    assert.equal(API_ENDPOINT_STATUS["GET /public/ministries"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /public/events"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /public/home"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /events"], "implemented");
+    assert.equal(
+      API_ENDPOINT_STATUS["PATCH /ministries/:ministryId"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["GET /public/content/:slug"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /public/volunteer-interests"],
+      "implemented",
+    );
+    assert.equal(API_ENDPOINT_STATUS["POST /cms/contents"], "implemented");
+    assert.equal(
+      API_ENDPOINT_STATUS["PATCH /volunteer-interests/:interestId"],
       "implemented",
     );
   });

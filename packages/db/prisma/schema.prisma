@@ -84,6 +84,9 @@ model Organization {
   smallGroups    SmallGroup[]
   discipleshipTracks DiscipleshipTrack[]
   rosters        Roster[]
+  portalEvents   PortalEvent[]
+  cmsContents    CmsContent[]
+  volunteerInterests VolunteerInterest[]
 
   @@map("organizations")
 }
@@ -112,6 +115,9 @@ model Church {
   smallGroups   SmallGroup[]
   discipleshipTracks DiscipleshipTrack[]
   rosters       Roster[]
+  portalEvents  PortalEvent[]
+  cmsContents   CmsContent[]
+  volunteerInterests VolunteerInterest[]
 
   @@unique([organizationId, slug])
   @@map("churches")
@@ -168,6 +174,7 @@ model Person {
   discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
+  volunteerInterests VolunteerInterest[]
 
   @@index([organizationId])
   @@index([homeChurchId])
@@ -217,16 +224,20 @@ model Grant {
   roleId         String   @map("role_id")
   organizationId String?  @map("organization_id")
   churchId       String?  @map("church_id")
+  /// Escopo opcional de ministério (LIDER_MINISTERIO só opera o próprio).
+  ministryId     String?  @map("ministry_id")
   createdAt      DateTime @default(now()) @map("created_at")
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   role         Role          @relation(fields: [roleId], references: [id])
   organization Organization? @relation(fields: [organizationId], references: [id])
   church       Church?       @relation(fields: [churchId], references: [id])
+  ministry     Ministry?     @relation(fields: [ministryId], references: [id], onDelete: SetNull)
 
-  @@unique([userId, roleId, organizationId, churchId])
+  @@unique([userId, roleId, organizationId, churchId, ministryId])
   @@index([userId])
   @@index([organizationId, churchId])
+  @@index([ministryId])
   @@map("grants")
 }
 
@@ -547,24 +558,200 @@ model DiscipleshipEnrollment {
   @@map("discipleship_enrollments")
 }
 
+enum MinistryVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum MinistryPublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PortalEventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  ARCHIVED
+}
+
 model Ministry {
-  id             String   @id @default(cuid())
-  organizationId String   @map("organization_id")
-  churchId       String   @map("church_id")
-  name           String
-  slug           String
-  leaderPersonId String?  @map("leader_person_id")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id               String                @id @default(cuid())
+  organizationId   String                @map("organization_id")
+  churchId         String                @map("church_id")
+  name             String
+  slug             String
+  leaderPersonId   String?               @map("leader_person_id")
+  description      String?
+  coverImageUrl    String?               @map("cover_image_url")
+  galleryUrls      String[]              @default([]) @map("gallery_urls")
+  scheduleText     String?               @map("schedule_text")
+  /// JSON público: [{ "displayName": string, "roleTitle": string }] — sem telefone/docs.
+  leadershipPublic Json?                 @map("leadership_public")
+  participationInfo String?              @map("participation_info")
+  visibility       MinistryVisibility    @default(INTERNAL)
+  publishStatus    MinistryPublishStatus @default(DRAFT)
+  publishedAt      DateTime?             @map("published_at")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
   leader       Person?      @relation("MinistryLeader", fields: [leaderPersonId], references: [id])
   rosters      Roster[]
+  grants       Grant[]
+  portalEvents PortalEvent[]
+  cmsContents  CmsContent[]
+  volunteerInterests VolunteerInterest[]
 
   @@unique([churchId, slug])
   @@index([organizationId, churchId])
+  @@index([churchId, publishStatus, visibility])
   @@map("ministries")
+}
+
+/// Núcleo de eventos do portal (F4 fatia pública) — sem inscrição/financeiro/check-in.
+model PortalEvent {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  churchId       String            @map("church_id")
+  ministryId     String?           @map("ministry_id")
+  name           String
+  slug           String
+  description    String?
+  imageUrl       String?           @map("image_url")
+  startsAt       DateTime          @map("starts_at")
+  endsAt         DateTime?         @map("ends_at")
+  locationText   String?           @map("location_text")
+  status         PortalEventStatus @default(DRAFT)
+  featuredOnHome Boolean           @default(false) @map("featured_on_home")
+  publishedAt    DateTime?         @map("published_at")
+  cancelledAt    DateTime?         @map("cancelled_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  ministry     Ministry?    @relation(fields: [ministryId], references: [id])
+
+  @@unique([churchId, slug])
+  @@index([organizationId, churchId])
+  @@index([churchId, status, startsAt])
+  @@index([ministryId])
+  @@index([featuredOnHome, status])
+  @@map("portal_events")
+}
+
+/// Workflow editorial CMS (Frente D) — API pública só PUBLICADO.
+enum CmsContentKind {
+  HOME_BLOCK
+  PAGE
+  NEWS
+  BANNER
+  MINISTRY_CONTENT
+}
+
+enum CmsWorkflowStatus {
+  RASCUNHO
+  REVISAO
+  APROVADO
+  PUBLICADO
+  ARQUIVADO
+}
+
+model CmsContent {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  churchId       String           @map("church_id")
+  ministryId     String?          @map("ministry_id")
+  kind           CmsContentKind
+  slug           String
+  title          String
+  summary        String?
+  body           String?
+  imageUrl       String?          @map("image_url")
+  sortOrder      Int              @default(0) @map("sort_order")
+  status         CmsWorkflowStatus @default(RASCUNHO)
+  publishedAt    DateTime?        @map("published_at")
+  createdByUserId String?         @map("created_by_user_id")
+  updatedByUserId String?         @map("updated_by_user_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  ministry     Ministry?    @relation(fields: [ministryId], references: [id])
+  revisions    CmsContentRevision[]
+
+  @@unique([churchId, slug])
+  @@index([organizationId, churchId])
+  @@index([churchId, status, kind])
+  @@index([ministryId])
+  @@map("cms_contents")
+}
+
+model CmsContentRevision {
+  id          String            @id @default(cuid())
+  contentId   String            @map("content_id")
+  fromStatus  CmsWorkflowStatus @map("from_status")
+  toStatus    CmsWorkflowStatus @map("to_status")
+  actorUserId String?           @map("actor_user_id")
+  note        String?
+  /// Snapshot mínimo dos campos editoriais no momento da mudança.
+  snapshot    Json
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  content CmsContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, createdAt])
+  @@map("cms_content_revisions")
+}
+
+/// Jornada Atmosfera (Frente E) — Interesse→…→Escala; PII só admin.
+enum VolunteerJourneyStage {
+  INTERESSE
+  AVALIACAO
+  APROVACAO
+  EQUIPE
+  DISPONIBILIDADE
+  ESCALA
+}
+
+enum VolunteerInterestStatus {
+  OPEN
+  REJECTED
+  CLOSED
+}
+
+model VolunteerInterest {
+  id             String                   @id @default(cuid())
+  organizationId String                   @map("organization_id")
+  churchId       String                   @map("church_id")
+  ministryId     String                   @map("ministry_id")
+  /// Nome de preferência público — sem documentos.
+  displayName    String                   @map("display_name")
+  /// Contato só admin; nunca ecoado em API pública.
+  email          String
+  phone          String?
+  message        String?
+  personId       String?                  @map("person_id")
+  stage          VolunteerJourneyStage    @default(INTERESSE)
+  status         VolunteerInterestStatus  @default(OPEN)
+  notesInternal  String?                  @map("notes_internal")
+  rosterId       String?                  @map("roster_id")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  ministry     Ministry     @relation(fields: [ministryId], references: [id])
+  person       Person?      @relation(fields: [personId], references: [id])
+
+  @@index([organizationId, churchId])
+  @@index([ministryId, stage, status])
+  @@index([email])
+  @@map("volunteer_interests")
 }
 
 model SmallGroup {

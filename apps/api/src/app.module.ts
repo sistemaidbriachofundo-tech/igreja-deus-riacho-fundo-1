@@ -9,7 +9,9 @@ import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { CredentialsModule } from "./credentials/credentials.module";
 import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware";
+import { CmsModule } from "./cms/cms.module";
 import { DiscipleshipModule } from "./discipleship/discipleship.module";
+import { EventsModule } from "./events/events.module";
 import { GroupsModule } from "./groups/groups.module";
 import { HealthController } from "./health.controller";
 import { HealthService } from "./health.service";
@@ -22,8 +24,10 @@ import { PastoralModule } from "./pastoral/pastoral.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { PublicPortalModule } from "./public-portal/public-portal.module";
 import { StorageModule } from "./storage/storage.module";
 import { TransfersModule } from "./transfers/transfers.module";
+import { VolunteersModule } from "./volunteers/volunteers.module";
 
 @Module({
   imports: [
@@ -42,6 +46,10 @@ import { TransfersModule } from "./transfers/transfers.module";
     DiscipleshipModule,
     GroupsModule,
     MinistriesModule,
+    EventsModule,
+    CmsModule,
+    VolunteersModule,
+    PublicPortalModule,
     AuditModule,
   ],
   controllers: [HealthController, MetaController],
@@ -52,6 +60,7 @@ export class AppModule implements NestModule {
     consumer.apply(SimpleRateLimitMiddleware).forRoutes(
       { path: "auth/login", method: RequestMethod.POST },
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
+      { path: "public/volunteer-interests", method: RequestMethod.POST },
     );
   }
 }

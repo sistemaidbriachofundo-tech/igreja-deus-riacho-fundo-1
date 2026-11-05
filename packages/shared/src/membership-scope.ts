@@ -97,7 +97,7 @@ export function canAccessPastoralCare(
   });
 }
 
-/** Ministérios / escalas / células — líder, secretaria, pastor ou admin. */
+/** Ministérios / escalas / células — líder, secretaria, pastor ou admin (church-wide). */
 export function canLeadMinistry(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
@@ -110,5 +110,69 @@ export function canLeadMinistry(
       organizationId: target.organizationId,
       churchId: target.churchId,
     })
+  );
+}
+
+export interface MinistryScopeTarget extends MembershipScopeTarget {
+  ministryId: string;
+  leaderPersonId?: string | null;
+}
+
+/**
+ * Opera um ministério específico:
+ * - secretaria / pastor / platform admin no escopo da igreja; ou
+ * - LIDER_MINISTERIO com grant.ministryId == ministry; ou
+ * - personId do ator == leaderPersonId do ministério (e papel LIDER na igreja).
+ *
+ * LIDER sem ministryId no grant NÃO opera todos os ministérios.
+ */
+export function canManageSpecificMinistry(
+  grants: AuthGrant[],
+  actorPersonId: string | null | undefined,
+  target: MinistryScopeTarget,
+): boolean {
+  if (
+    canManageMemberships(grants, target) ||
+    canApprovePastoralAdmission(grants, target)
+  ) {
+    return true;
+  }
+
+  const isLiderInChurch = grants.some(
+    (g) =>
+      g.roleCode === ROLE_CODES.LIDER_MINISTERIO &&
+      (!g.organizationId || g.organizationId === target.organizationId) &&
+      (!g.churchId || g.churchId === target.churchId),
+  );
+  if (!isLiderInChurch) {
+    return false;
+  }
+
+  const grantCoversMinistry = grants.some(
+    (g) =>
+      g.roleCode === ROLE_CODES.LIDER_MINISTERIO &&
+      (!g.organizationId || g.organizationId === target.organizationId) &&
+      (!g.churchId || g.churchId === target.churchId) &&
+      g.ministryId === target.ministryId,
+  );
+  if (grantCoversMinistry) {
+    return true;
+  }
+
+  return Boolean(
+    target.leaderPersonId &&
+      actorPersonId &&
+      actorPersonId === target.leaderPersonId,
+  );
+}
+
+/** Criar ministérios / publicar church-wide — não líder de um só ministry. */
+export function canAdministerMinistries(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return (
+    canManageMemberships(grants, target) ||
+    canApprovePastoralAdmission(grants, target)
   );
 }
