@@ -1,0 +1,11 @@
+.journey{position:fixed;top:50%;right:20px;transform:translateY(-50%);z-index:65;display:flex;align-items:center;flex-direction:column;gap:12px;background:#0b2126cb;border:1px solid #ffffff27;border-radius:99px;padding:19px 12px 21px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 10px 34px #081d2640}
+.journeyLabel{font-size:8px;letter-spacing:.13em;font-weight:800;color:#e2c28b;writing-mode:vertical-rl;margin:0 0 11px}
+.stop,.active{height:17px;width:18px;display:grid;place-items:center;position:relative;color:#fff}
+.marker{display:block;width:6px;height:6px;border-radius:50%;background:#c1c9c49e;transition:background .2s,transform .2s,box-shadow .2s}
+.active .marker{background:#f4ce8b;transform:scale(1.55);box-shadow:0 0 0 3px #ecc47f36,0 0 17px #efd19c8a}
+.stopName{position:absolute;right:29px;top:50%;transform:translate(6px,-50%);background:#112a2fe8;padding:9px 14px;border:1px solid #e1bf7f4a;border-radius:9px;color:#f1e9db;font-size:10px;font-weight:750;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.stop:hover .stopName,.active:hover .stopName,.stop:focus-visible .stopName,.active:focus-visible .stopName{opacity:1;transform:translate(0,-50%)}
+.journeyLine{height:33px;width:1px;background:linear-gradient(#ddbc79,transparent);margin-top:3px}
+.stop:focus-visible,.active:focus-visible{outline:2px solid #f2cf8e;outline-offset:3px;border-radius:50%}
+@media(max-width:1180px){.journey{display:none}}
+@media(prefers-reduced-motion:reduce){.marker,.stopName{transition:none}}

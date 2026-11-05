@@ -1,244 +1,91 @@
 import Link from "next/link";
-import { APP_NAME } from "@idbrf/shared";
-import { withBasePath } from "../lib/paths";
+import { events, instagramUrl } from "../lib/portal-content";
+import { portalVisuals } from "../lib/portal-visuals";
+import { PublicPage, EventCard, DemoNote } from "../components/PublicPortal";
+import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
+import { PortalJourney } from "../components/PortalJourney";
+import s from "./home-v3.module.css";
 
-const INSTAGRAM_URL = "https://www.instagram.com/idbriacho_/";
-
-function BrandMark({ className }: { className?: string }) {
-  return (
-    <span className={className ?? "brand-mark"} aria-hidden="true">
-      <svg viewBox="0 0 48 48" focusable="false">
-        <path
-          fill="currentColor"
-          d="M22.2 6h3.6v14.2H40v3.6H25.8V42h-3.6V23.8H8v-3.6h14.2z"
-        />
-        <path
-          fill="currentColor"
-          opacity="0.92"
-          d="M31.2 11.2c2.6 2.1 4.4 5.1 4.4 8.4 0 2.2-.8 4-2.1 5.4-1.1-3.4-3.2-6.2-6.1-8.1 1.1-1.9 2.5-3.8 3.8-5.7z"
-        />
-      </svg>
-    </span>
-  );
-}
-
-/**
- * Portal público (DAS) — estrutura de produto, não revista Instagram.
- * Fotos oficiais só como atmosfera; IA dos módulos = protótipo v5 (F2).
- */
 export default function HomePage() {
-  const heroSrc = withBasePath("/images/hero-oficial.jpg");
-  const communitySrc = withBasePath("/images/comunidade-oficial.jpg");
-  const worshipSrc = withBasePath("/images/adoracao-oficial.jpg");
-
   return (
-    <div className="site">
-      <a className="skip-link" href="#conteudo">
-        Ir para o conteúdo
-      </a>
-
-      <header className="site-header">
-        <Link className="site-brand" href="/">
-          <BrandMark className="brand-mark brand-mark--header" />
-          <span className="site-brand-text">
-            <span className="site-brand-name">Igreja de Deus</span>
-            <span className="site-brand-place">no Riacho Fundo I</span>
-          </span>
-        </Link>
-        <nav className="site-nav" aria-label="Portal">
-          <a href="#congregacao">A congregação</a>
-          <a href="#acesso">Acesso</a>
-          <a href={withBasePath("/app/")}>Área interna</a>
-          <a href={withBasePath("/app/membros/")}>Membros e famílias</a>
-        </nav>
-      </header>
-
+    <PublicPage>
       <main id="conteudo">
-        <section className="hero" aria-label="Apresentação">
-          <div className="hero-media" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="hero-photo"
-              src={heroSrc}
-              alt=""
-              width={928}
-              height={1192}
-              fetchPriority="high"
-            />
-            <span className="hero-veil" />
-          </div>
-
-          <div className="hero-content">
-            <p className="hero-brand">
-              <BrandMark className="brand-mark brand-mark--hero" />
-              <span className="hero-brand-copy">
-                <span className="hero-brand-name">Igreja de Deus</span>
-                <span className="hero-brand-place">no Riacho Fundo I</span>
-              </span>
-            </p>
-
-            <h1 className="hero-title">
-              Uma igreja para Deus, pelas famílias
-            </h1>
-            <p className="hero-lede">
-              Portal da congregação piloto — fé, família, cuidado, comunhão e
-              missão.
-            </p>
-
-            <div className="hero-actions">
-              <a className="btn btn-primary" href={withBasePath("/app/")}>
-                Abrir sistema
-              </a>
-              <a
-                className="btn btn-secondary"
-                href={withBasePath("/app/")}
-              >
-                Área interna
-              </a>
+        <PortalJourney />
+        <section id="inicio" className={s.hero} aria-labelledby="hero-title">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={portalVisuals.hero} alt="" className={s.heroImage} fetchPriority="high" />
+          <div className={s.heroOverlay} />
+          <div className={s.heroHalo} aria-hidden="true"><span /><span /></div>
+          <div className={s.heroContent}>
+            <div className={s.heroIntro}><span className={s.dot} /> IGREJA DE DEUS <span className={s.bar}>/</span> RIACHO FUNDO I</div>
+            <h1 id="hero-title">Existe um lugar<br/>para a <em>sua história.</em></h1>
+            <p>Uma comunidade para pertencer, crescer na fé e descobrir que caminhar junto transforma tudo.</p>
+            <div className={s.heroButtons}>
+              <Link className={s.actionMain} href="/contato/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link>
+              <Link className={s.actionGhost} href="/ministerios/">Explorar ministérios <span aria-hidden="true">→</span></Link>
             </div>
           </div>
+          <div className={s.heroBottom}><span>SEJA BEM-VINDO À NOSSA CASA</span><a href="#quem-somos">CONHEÇA-NOS <span aria-hidden="true">↓</span></a><span>IMAGEM ILUSTRATIVA</span></div>
         </section>
 
-        <section
-          id="congregacao"
-          className="section section-congregation"
-          aria-labelledby="congregation-heading"
-        >
-          <div className="section-split">
-            <div className="section-copy">
-              <p className="section-kicker">Portal público · DAS</p>
-              <h2 id="congregation-heading">Riacho Fundo I</h2>
-              <p>
-                Unidade piloto da Igreja de Deus. Este site é a face pública da
-                plataforma de gestão — cadastro único, secretaria e carteirinha
-                digital sob a identidade da congregação.
-              </p>
+        <section className={s.statement} id="quem-somos" aria-labelledby="statement-title">
+          <div className={s.statementLabel}><span>01 / NOSSA ESSÊNCIA</span><span>FÉ QUE VIRA VIDA</span></div>
+          <div className={s.statementLayout}>
+            <div className={s.statementCopy} data-portal-reveal>
+              <h2 id="statement-title">Mais do que um lugar.<br/><em>Uma família</em> em construção.</h2>
+              <p>Acreditamos em uma igreja feita de gente de verdade: que se encontra, acolhe, cuida e cresce junto. Aqui, sua história tem espaço.</p>
+              <Link href="/a-igreja/" className={s.underlined}>Conheça nossa comunidade <span aria-hidden="true">↗</span></Link>
             </div>
-            <figure className="section-visual">
+            <figure className={s.statementPhoto} data-portal-reveal>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={communitySrc}
-                alt="Comunidade da Igreja de Deus no Riacho Fundo I"
-                width={932}
-                height={1180}
-                loading="lazy"
-              />
+              <img src={portalVisuals.encounter} alt="Grupo de jovens celebrando juntos — imagem ilustrativa" loading="lazy" />
+              <figcaption>JUNTOS TEM OUTRO SIGNIFICADO. <small>IMAGEM ILUSTRATIVA</small></figcaption>
             </figure>
           </div>
-        </section>
-
-        <section
-          id="acesso"
-          className="section section-access"
-          aria-labelledby="access-heading"
-        >
-          <div className="section-inner section-inner--wide">
-            <p className="section-kicker">Sistema de gestão da igreja</p>
-            <h2 id="access-heading">Conheça a plataforma</h2>
-            <p className="section-lede">
-              Acompanhe cadastros, admissões e carteirinhas nas telas do sistema,
-              com dados sintéticos durante a homologação visual.
-            </p>
-
-            <ul className="access-grid">
-              <li>
-                <a className="access-tile" href={withBasePath("/app/")}>
-                  <span className="access-tile-label">Visão geral</span>
-                  <span className="access-tile-desc">
-                    Indicadores, pessoas, famílias e acompanhamento
-                  </span>
-                </a>
-              </li>
-              <li>
-                <a className="access-tile" href={withBasePath("/app/membros/")}>
-                  <span className="access-tile-label">Membros e famílias</span>
-                  <span className="access-tile-desc">
-                    Diretório, prontuário e gestão de cadastros
-                  </span>
-                </a>
-              </li>
-              <li>
-                <a
-                  className="access-tile"
-                  href={withBasePath("/app/secretaria/")}
-                >
-                  <span className="access-tile-label">Secretaria</span>
-                  <span className="access-tile-desc">
-                    Protocolos, conferências e aprovações
-                  </span>
-                </a>
-              </li>
-              <li>
-                <a
-                  className="access-tile"
-                  href={withBasePath("/app/membros/carteirinha/")}
-                >
-                  <span className="access-tile-label">Carteirinhas</span>
-                  <span className="access-tile-desc">
-                    Emissão, consulta e controle
-                  </span>
-                </a>
-              </li>
-            </ul>
+          <div className={s.values}>
+            <span><b>01.</b> FÉ</span><span><b>02.</b> FAMÍLIA</span><span><b>03.</b> COMUNHÃO</span><span><b>04.</b> PROPÓSITO</span>
           </div>
         </section>
 
-        <section
-          id="comunhao"
-          className="section section-atmosphere"
-          aria-labelledby="atmosphere-heading"
-        >
-          <div className="section-split section-split--reverse">
-            <div className="section-copy">
-              <p className="section-kicker">Comunhão</p>
-              <h2 id="atmosphere-heading">Casa de adoração</h2>
-              <p>
-                Fotografia real da congregação — a atmosfera do culto, não um
-                template genérico. Programação e avisos seguem os canais
-                oficiais.
-              </p>
-              <p className="section-note">
-                Instagram{" "}
-                <a
-                  href={INSTAGRAM_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  @idbriacho_
-                </a>
-              </p>
-            </div>
-            <figure className="section-visual">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={worshipSrc}
-                alt="Adoração na Igreja de Deus no Riacho Fundo I"
-                width={932}
-                height={1180}
-                loading="lazy"
-              />
-            </figure>
+        <section className={s.ministries} aria-labelledby="ministries-title" id="ministerios">
+          <div className={s.ministriesHeading}>
+            <div className={s.overline}>02 / VIDA EM COMUNIDADE</div>
+            <h2 id="ministries-title" data-portal-reveal>Para cada fase da vida,<br/><em>um lugar para pertencer.</em></h2>
+            <p>Não é sobre encontrar um departamento. É sobre encontrar pessoas. Escolha um ministério e descubra novas conexões.</p>
+          </div>
+          <MinisterioEmFoco />
+          <div className={s.ministriesBottom}><span>CINCO MINISTÉRIOS. UMA IGREJA.</span><Link href="/ministerios/">Ver todos os ministérios <span aria-hidden="true">↗</span></Link></div>
+        </section>
+
+        <section id="atmosfera" className={s.atmosfera} aria-labelledby="atmosfera-title">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={portalVisuals.atmosfera} className={s.atmosferaImage} alt="" loading="lazy" />
+          <div className={s.atmosferaOverlay} />
+          <div className={s.atmosferaInner} data-portal-reveal>
+            <span className={s.atmosferaLabel}>03 / ATMOSFERA • VOLUNTARIADO</span>
+            <h2 id="atmosfera-title">O amor também<br/>se vê em <em>ação.</em></h2>
+            <p>É nos detalhes, no acolhimento e na disposição de servir que a nossa comunidade ganha vida. Seu dom pode fazer a diferença.</p>
+            <Link href="/ministerios/atmosfera/" className={s.lightAction}>Conheça o Atmosfera <span aria-hidden="true">↗</span></Link>
+            <span className={s.imageNote}>IMAGEM ILUSTRATIVA</span>
           </div>
         </section>
+
+        <section id="agenda" className={s.agenda} aria-label="Agenda demonstrativa">
+          <div className={s.agendaIntro} data-portal-reveal>
+            <div><span className={s.overline}>04 / VIDA QUE ACONTECE</span><h2>Próximos <em>encontros.</em></h2></div>
+            <div><p>Veja como aparecerão aqui os encontros e eventos da igreja. A agenda abaixo é exclusivamente demonstrativa.</p><Link href="/eventos/" className={s.underlined}>Explorar a agenda <span aria-hidden="true">↗</span></Link></div>
+          </div>
+          <div className={s.agendaList}>{events.slice(0,3).map(event => <EventCard event={event} key={event.id} />)}</div>
+          <DemoNote compact />
+        </section>
+
+        <section className={s.visit} aria-labelledby="visit-title" data-portal-reveal>
+          <span>O COMEÇO DE UMA NOVA HISTÓRIA</span>
+          <h2 id="visit-title">A próxima pessoa<br/>que chega <em>pode ser você.</em></h2>
+          <div className={s.visitActions}><Link href="/contato/">Prepare sua primeira visita <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
+        </section>
+
       </main>
-
-      <footer className="site-footer">
-        <div className="site-footer-inner">
-          <p className="site-footer-brand">{APP_NAME}</p>
-          <p className="site-footer-meta">
-            Fé · Família · Cuidado · Comunhão · Missão
-          </p>
-          <p className="site-footer-links">
-            <a href={withBasePath("/app/")}>Sistema de gestão</a>
-            {" · "}
-            <Link href="/status/">Status do projeto</Link>
-            {" · "}
-            <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">
-              Instagram
-            </a>
-          </p>
-        </div>
-      </footer>
-    </div>
+    </PublicPage>
   );
 }

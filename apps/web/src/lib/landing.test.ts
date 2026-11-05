@@ -1,70 +1,76 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { events, getMinistry, ministries } from "./portal-content";
 
-const homePage = readFileSync(join(__dirname, "../app/page.tsx"), "utf8");
-const statusPage = readFileSync(
-  join(__dirname, "../app/status/page.tsx"),
-  "utf8",
-);
-const visaoPage = readFileSync(join(__dirname, "../app/app/page.tsx"), "utf8");
-const membrosPage = readFileSync(
-  join(__dirname, "../app/app/membros/page.tsx"),
-  "utf8",
-);
-const appShell = readFileSync(
-  join(__dirname, "../components/AppShell.tsx"),
-  "utf8",
-);
-const globalsCss = readFileSync(join(__dirname, "../app/globals.css"), "utf8");
-const publicImages = join(__dirname, "../../public/images");
+const read = (path: string) => readFileSync(join(__dirname, "..", path), "utf8");
+const home = read("app/page.tsx");
+const hub = read("app/ministerios/page.tsx");
+const ministryPage = read("app/ministerios/[slug]/page.tsx");
+const agenda = read("app/eventos/page.tsx");
+const about = read("app/a-igreja/page.tsx");
+const contact = read("app/contato/page.tsx");
+const shell = read("components/PublicPortal.tsx");
+const css = read("components/public-portal.module.css");
+const appShell = read("components/AppShell.tsx");
 
-describe("public portal + F2 shells (DAS / protótipo v5)", () => {
-  it("keeps a single-congregation Portuguese hero with product CTAs", () => {
-    expect(homePage).toContain("Igreja de Deus");
-    expect(homePage).toContain("no Riacho Fundo I");
-    expect(homePage).toContain("Uma igreja para Deus, pelas famílias");
-    expect(homePage).toContain("Abrir sistema");
-    expect(homePage).toContain("Área interna");
-    expect(homePage).not.toMatch(/multi-?igreja|trocar congregação|church switcher/i);
-  });
-
-  it("uses official congregation photos, not Unsplash stock", () => {
-    expect(homePage).toContain("hero-oficial.jpg");
-    expect(homePage).toContain("comunidade-oficial.jpg");
-    expect(homePage).toContain("adoracao-oficial.jpg");
-    expect(homePage).not.toContain("hero-worship.jpg");
-    expect(homePage).not.toContain("unsplash");
-    expect(existsSync(join(publicImages, "hero-oficial.jpg"))).toBe(true);
-    expect(existsSync(join(publicImages, "comunidade-oficial.jpg"))).toBe(true);
-    expect(existsSync(join(publicImages, "adoracao-oficial.jpg"))).toBe(true);
-    expect(globalsCss).toContain(".hero-photo");
-    expect(globalsCss).toContain("ken-burns");
-  });
-
-  it("exposes F2 modules from prototype PRINCIPAL menu", () => {
-    expect(homePage).toContain("Visão geral");
-    expect(homePage).toContain("Membros e famílias");
-    expect(homePage).toContain("Secretaria");
-    expect(homePage).toContain("Carteirinhas");
-    expect(homePage).toContain('id="acesso"');
-    expect(appShell).toContain("Visão geral");
+describe("portal público da igreja", () => {
+  it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
+    expect(home).toContain("Existe um lugar");
+    expect(home).toContain("Quero conhecer a igreja");
+    expect(home).toContain("<MinisterioEmFoco");
+    expect(home).toContain("Quero conhecer a igreja");
+    expect(home).not.toContain("Abrir sistema");
+    expect(home).not.toContain('href="/app/membros/"');
+    expect(shell).toContain("Área interna");
+    expect(shell).toContain("/app/");
     expect(appShell).toContain("Membros e famílias");
-    expect(appShell).toContain("Carteirinhas");
-    expect(appShell).toContain('href: "/app/"');
-    expect(visaoPage).toContain("<ChurchDashboard />");
-    expect(membrosPage).toContain("<MemberDirectory />");
   });
 
-  it("does not invent F3+ modules in this slice", () => {
-    expect(appShell).not.toMatch(/Financ|Escalas|Células|Eventos|Patrimônio|IA da/);
-    expect(homePage).not.toMatch(/Finanças|Escalas|Dashboards interativos/);
+  it("oferece cinco ministérios com caminhos públicos estáticos", () => {
+    const slugs = ["jovens", "homens", "adolescentes", "mulheres", "atmosfera"];
+    expect(ministries.map(({ slug }) => slug)).toEqual(slugs);
+    expect(new Set(ministries.map(({ slug }) => slug)).size).toBe(5);
+    for (const ministry of ministries) {
+      expect(ministry.name.length).toBeGreaterThan(3);
+      expect(ministry.pillars).toHaveLength(3);
+      expect(getMinistry(ministry.slug)).toBe(ministry);
+    }
+    expect(ministryPage).toContain("generateStaticParams");
+    expect(ministryPage).toContain("getMinistry(slug)");
+    expect(hub).toContain("ministries.map");
   });
 
-  it("moves engineering status off the homepage", () => {
-    expect(homePage).not.toContain("Skeleton F1-SEC");
-    expect(homePage).toContain('href="/status/"');
-    expect(statusPage).toContain("Status do bootstrap");
-    expect(statusPage).toContain("CI: lint → typecheck → test → build");
+  it("marca explicitamente toda a agenda como demonstrativa", () => {
+    expect(events).toHaveLength(5);
+    expect(events.every((event) => event.date && event.time && event.ministry)).toBe(true);
+    expect(agenda).toContain("<DemoNote");
+    expect(home).toContain("<DemoNote");
+    expect(ministryPage).toContain("<DemoNote");
+    expect(shell).toContain("não são programação oficial");
+  });
+
+  it("preserva a logo aprovada e imagens existentes", () => {
+    const images = join(__dirname, "../../public/images");
+    expect(shell).toContain("logo-igreja-aprovada.webp");
+    for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
+      expect(existsSync(join(images, image))).toBe(true);
+    }
+    expect(home).toContain("portalVisuals.hero");
+    expect(shell).toContain("ministryJourneyItem");
+    expect(css).toContain(".immersiveHero");
+    expect(css).toContain(".ministryJourneyItem");
+    expect(about).toContain("portalVisuals.hero");
+    expect(contact).toContain("instagramUrl");
+  });
+
+  it("mantém estilos próprios, navegação mobile e acessibilidade", () => {
+    expect(css).toContain("@media(max-width:750px)");
+    expect(css).toContain("@media(max-width:480px)");
+    expect(css).toContain("prefers-reduced-motion");
+    expect(shell).toContain('aria-label="Navegação principal"');
+    expect(shell).toContain('aria-label="Menu mobile"');
+    expect(shell).toContain("Pular para o conteúdo");
+    expect(about).toContain('id="conteudo"');
   });
 });

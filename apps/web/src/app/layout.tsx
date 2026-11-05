@@ -11,10 +11,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: {
     default: APP_NAME,
-    template: `%s · ${APP_NAME}`,
+    template: "%s · " + APP_NAME,
   },
   description:
-    "Igreja de Deus no Riacho Fundo I — portal público e área de membresia (cadastro, secretaria, carteirinha).",
+    "Igreja de Deus no Riacho Fundo I — conheça nossa comunidade, ministérios, agenda e portal de gestão Church OS.",
 };
 
 export default function RootLayout({
