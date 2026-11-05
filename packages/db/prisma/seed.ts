@@ -74,6 +74,23 @@ async function main() {
     },
   });
 
+  // Segunda congregação fictícia — destino de transferências (mesmo person_id).
+  const churchDest = await prisma.church.upsert({
+    where: {
+      organizationId_slug: {
+        organizationId: org.id,
+        slug: "riacho-fundo-2-demo",
+      },
+    },
+    update: { name: "Riacho Fundo II (demo destino)" },
+    create: {
+      id: "demoChurchDest02",
+      organizationId: org.id,
+      name: "Riacho Fundo II (demo destino)",
+      slug: "riacho-fundo-2-demo",
+    },
+  });
+
   for (const role of ROLE_DEFS) {
     await prisma.role.upsert({
       where: { code: role.code },
@@ -443,9 +460,52 @@ async function main() {
     });
   }
 
-  console.log("Seed OK (fictício, single-church RF1):", {
+  // F3 demo: trilha, ministério, célula
+  await prisma.discipleshipTrack.upsert({
+    where: { id: "demoTrack01" },
+    update: { name: "Fundamentos da Fé (demo)" },
+    create: {
+      id: "demoTrack01",
+      organizationId: org.id,
+      churchId: church.id,
+      name: "Fundamentos da Fé (demo)",
+      description: "Trilha fictícia F3",
+    },
+  });
+
+  await prisma.ministry.upsert({
+    where: {
+      churchId_slug: { churchId: church.id, slug: "louvor-demo" },
+    },
+    update: { name: "Louvor (demo)" },
+    create: {
+      id: "demoMinistry01",
+      organizationId: org.id,
+      churchId: church.id,
+      name: "Louvor (demo)",
+      slug: "louvor-demo",
+      leaderPersonId: memberPerson.id,
+    },
+  });
+
+  await prisma.smallGroup.upsert({
+    where: { id: "demoGroup01" },
+    update: { name: "Célula Centro (demo)" },
+    create: {
+      id: "demoGroup01",
+      organizationId: org.id,
+      churchId: church.id,
+      name: "Célula Centro (demo)",
+      leaderPersonId: memberPerson.id,
+      meetsAtHint: "Terças 20h",
+    },
+  });
+
+  console.log("Seed OK (fictício RF1 + destino transfer + F3 demos):", {
     org: org.slug,
     church: church.slug,
+    churchDest: churchDest.slug,
+    churchDestId: churchDest.id,
     household: household.id,
     persons: [
       person.id,
@@ -455,6 +515,11 @@ async function main() {
     ],
     users: [adminUser.email, memberUser.email, pastorUser.email],
     memberships: [anaMembership.id, brunoMembership.id],
+    f3: {
+      track: "demoTrack01",
+      ministry: "demoMinistry01",
+      group: "demoGroup01",
+    },
   });
 }
 

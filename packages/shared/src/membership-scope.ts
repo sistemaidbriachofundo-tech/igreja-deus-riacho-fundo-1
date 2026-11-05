@@ -73,3 +73,35 @@ export function canSearchPersons(
     canApprovePastoralAdmission(grants, target)
   );
 }
+
+/** Transferência e cartas oficiais — secretaria/admin no escopo. */
+export function canManageTransfers(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return canManageMemberships(grants, target);
+}
+
+/** Casos pastorais: PASTOR/admin — secretaria NÃO lê (sigilo). */
+export function canAccessPastoralCare(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return canApprovePastoralAdmission(grants, target);
+}
+
+/** Ministérios / escalas / células — líder, secretaria, pastor ou admin. */
+export function canLeadMinistry(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return (
+    canManageMemberships(grants, target) ||
+    canApprovePastoralAdmission(grants, target) ||
+    hasAccess(grants, {
+      roleCodes: [ROLE_CODES.LIDER_MINISTERIO],
+      organizationId: target.organizationId,
+      churchId: target.churchId,
+    })
+  );
+}

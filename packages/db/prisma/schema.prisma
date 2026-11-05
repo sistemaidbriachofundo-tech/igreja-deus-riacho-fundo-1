@@ -69,14 +69,21 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  churches    Church[]
-  persons     Person[]
-  households  Household[]
-  memberships ChurchMembership[]
-  credentials MemberCredential[]
-  admissions  AdmissionProtocol[]
-  grants      Grant[]
-  auditLogs   AuditLog[]
+  churches       Church[]
+  persons        Person[]
+  households     Household[]
+  memberships    ChurchMembership[]
+  credentials    MemberCredential[]
+  admissions     AdmissionProtocol[]
+  grants         Grant[]
+  auditLogs      AuditLog[]
+  transfers      MembershipTransfer[]
+  churchLetters  ChurchLetter[]
+  pastoralCases  PastoralCase[]
+  ministries     Ministry[]
+  smallGroups    SmallGroup[]
+  discipleshipTracks DiscipleshipTrack[]
+  rosters        Roster[]
 
   @@map("organizations")
 }
@@ -97,6 +104,14 @@ model Church {
   admissions   AdmissionProtocol[]
   grants       Grant[]
   auditLogs    AuditLog[]
+  transfersFrom MembershipTransfer[] @relation("TransferFromChurch")
+  transfersTo   MembershipTransfer[] @relation("TransferToChurch")
+  churchLetters ChurchLetter[]
+  pastoralCases PastoralCase[]
+  ministries    Ministry[]
+  smallGroups   SmallGroup[]
+  discipleshipTracks DiscipleshipTrack[]
+  rosters       Roster[]
 
   @@unique([organizationId, slug])
   @@map("churches")
@@ -143,6 +158,16 @@ model Person {
   memberships   ChurchMembership[]
   credentials   MemberCredential[]
   admissions    AdmissionProtocol[]
+  transfers     MembershipTransfer[]
+  churchLetters ChurchLetter[]
+  pastoralCases PastoralCase[]
+  ministryLeads Ministry[] @relation("MinistryLeader")
+  smallGroupLeads SmallGroup[] @relation("SmallGroupLeader")
+  smallGroupMemberships SmallGroupMember[]
+  discipleshipEnrollments DiscipleshipEnrollment[]
+  discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
+  rosterAssignments RosterAssignment[] @relation("RosterAssignee")
+  rosterPartnerships RosterAssignment[] @relation("RosterPartner")
 
   @@index([organizationId])
   @@index([homeChurchId])
@@ -165,6 +190,10 @@ model User {
   grants            Grant[]
   auditLogs         AuditLog[]
   issuedCredentials MemberCredential[] @relation("CredentialIssuer")
+  transfersRequested MembershipTransfer[] @relation("TransferRequester")
+  lettersIssued     ChurchLetter[]     @relation("LetterIssuer")
+  pastoralCreated   PastoralCase[]     @relation("PastoralCreator")
+  pastoralAssigned  PastoralCase[]     @relation("PastoralAssignee")
 
   @@map("users")
 }
@@ -322,4 +351,356 @@ model AuditLog {
   @@index([createdAt])
   @@index([organizationId, churchId])
   @@map("audit_logs")
+}
+
+// —— F2 restante: transferência + cartas ——
+
+enum TransferStatus {
+  DRAFT
+  AWAITING_ORIGIN
+  AWAITING_DESTINATION
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum ChurchLetterType {
+  TRANSFERENCIA
+  RECOMENDACAO
+  MEMBRESIA
+  OUTRO
+}
+
+enum ChurchLetterStatus {
+  DRAFT
+  ISSUED
+  REVOKED
+}
+
+/// Transferência entre congregações — mesmo person_id (sem duplicar pessoa).
+model MembershipTransfer {
+  id                 String         @id @default(cuid())
+  personId           String         @map("person_id")
+  organizationId     String         @map("organization_id")
+  fromChurchId       String         @map("from_church_id")
+  toChurchId         String         @map("to_church_id")
+  fromMembershipId   String         @map("from_membership_id")
+  toMembershipId     String?        @map("to_membership_id")
+  status             TransferStatus @default(DRAFT)
+  notes              String?
+  rejectionReason    String?        @map("rejection_reason")
+  requestedByUserId  String         @map("requested_by_user_id")
+  approvedOriginAt   DateTime?      @map("approved_origin_at")
+  approvedDestAt     DateTime?      @map("approved_dest_at")
+  completedAt        DateTime?      @map("completed_at")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  person      Person       @relation(fields: [personId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  fromChurch  Church       @relation("TransferFromChurch", fields: [fromChurchId], references: [id])
+  toChurch    Church       @relation("TransferToChurch", fields: [toChurchId], references: [id])
+  requestedBy User         @relation("TransferRequester", fields: [requestedByUserId], references: [id])
+
+  @@index([personId, status])
+  @@index([organizationId, fromChurchId])
+  @@index([organizationId, toChurchId])
+  @@map("membership_transfers")
+}
+
+/// Carta/certificado versionado (secretaria) — corpo texto; PDF opcional via STORAGE_ROOT.
+model ChurchLetter {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  churchId       String             @map("church_id")
+  personId       String             @map("person_id")
+  letterType     ChurchLetterType   @map("letter_type")
+  status         ChurchLetterStatus @default(DRAFT)
+  title          String
+  bodyText       String             @map("body_text")
+  version        Int                @default(1)
+  supersedesId   String?            @map("supersedes_id")
+  issuedByUserId String?            @map("issued_by_user_id")
+  issuedAt       DateTime?          @map("issued_at")
+  revokedAt      DateTime?          @map("revoked_at")
+  /// Metadado de PDF privado (opcional); nunca URL pública.
+  storageKey     String?            @unique @map("storage_key")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+  issuedBy     User?        @relation("LetterIssuer", fields: [issuedByUserId], references: [id])
+  supersedes   ChurchLetter?  @relation("LetterVersions", fields: [supersedesId], references: [id])
+  successors   ChurchLetter[] @relation("LetterVersions")
+
+  @@index([churchId, letterType, status])
+  @@index([personId])
+  @@map("church_letters")
+}
+
+// —— F3: cuidado, discipulado, células, ministérios, escalas ——
+
+enum PastoralCaseStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum PastoralCaseKind {
+  VISITA
+  ORACAO
+  ACOLHIMENTO
+  ACOMPANHAMENTO
+  OUTRO
+}
+
+/// Caso pastoral administrativo (sem prontuário clínico irrestrito).
+model PastoralCase {
+  id               String              @id @default(cuid())
+  organizationId   String              @map("organization_id")
+  churchId         String              @map("church_id")
+  personId         String              @map("person_id")
+  kind             PastoralCaseKind
+  status           PastoralCaseStatus  @default(OPEN)
+  title            String
+  /// Resumo operacional — não substitui prontuário sensível.
+  summary          String?
+  assignedToUserId String?             @map("assigned_to_user_id")
+  createdByUserId  String              @map("created_by_user_id")
+  dueAt            DateTime?           @map("due_at")
+  closedAt         DateTime?           @map("closed_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+  assignedTo   User?        @relation("PastoralAssignee", fields: [assignedToUserId], references: [id])
+  createdBy    User         @relation("PastoralCreator", fields: [createdByUserId], references: [id])
+  tasks        PastoralTask[]
+
+  @@index([churchId, status])
+  @@index([personId])
+  @@index([assignedToUserId])
+  @@map("pastoral_cases")
+}
+
+model PastoralTask {
+  id             String    @id @default(cuid())
+  caseId         String    @map("case_id")
+  title          String
+  done           Boolean   @default(false)
+  dueAt          DateTime? @map("due_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  case PastoralCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("pastoral_tasks")
+}
+
+model DiscipleshipTrack {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  name           String
+  description    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  enrollments  DiscipleshipEnrollment[]
+
+  @@index([organizationId, churchId])
+  @@map("discipleship_tracks")
+}
+
+enum DiscipleshipEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+model DiscipleshipEnrollment {
+  id             String                       @id @default(cuid())
+  trackId        String                       @map("track_id")
+  personId       String                       @map("person_id")
+  mentorPersonId String?                      @map("mentor_person_id")
+  status         DiscipleshipEnrollmentStatus @default(ACTIVE)
+  startedAt      DateTime                     @default(now()) @map("started_at")
+  completedAt    DateTime?                    @map("completed_at")
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  updatedAt      DateTime                     @updatedAt @map("updated_at")
+
+  track   DiscipleshipTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  person  Person            @relation(fields: [personId], references: [id])
+  mentor  Person?           @relation("DiscipleshipMentor", fields: [mentorPersonId], references: [id])
+
+  @@unique([trackId, personId])
+  @@index([personId])
+  @@map("discipleship_enrollments")
+}
+
+model Ministry {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  name           String
+  slug           String
+  leaderPersonId String?  @map("leader_person_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  leader       Person?      @relation("MinistryLeader", fields: [leaderPersonId], references: [id])
+  rosters      Roster[]
+
+  @@unique([churchId, slug])
+  @@index([organizationId, churchId])
+  @@map("ministries")
+}
+
+model SmallGroup {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  name           String
+  leaderPersonId String?  @map("leader_person_id")
+  meetsAtHint    String?  @map("meets_at_hint")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  leader       Person?      @relation("SmallGroupLeader", fields: [leaderPersonId], references: [id])
+  members      SmallGroupMember[]
+  meetings     GroupMeeting[]
+
+  @@index([organizationId, churchId])
+  @@map("small_groups")
+}
+
+enum SmallGroupMemberRole {
+  LEADER
+  MEMBER
+}
+
+model SmallGroupMember {
+  id        String               @id @default(cuid())
+  groupId   String               @map("group_id")
+  personId  String               @map("person_id")
+  role      SmallGroupMemberRole @default(MEMBER)
+  joinedAt  DateTime             @default(now()) @map("joined_at")
+
+  group  SmallGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person Person     @relation(fields: [personId], references: [id])
+
+  @@unique([groupId, personId])
+  @@index([personId])
+  @@map("small_group_members")
+}
+
+model GroupMeeting {
+  id         String   @id @default(cuid())
+  groupId    String   @map("group_id")
+  occurredAt DateTime @map("occurred_at")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  group       SmallGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  attendances GroupMeetingAttendance[]
+
+  @@index([groupId, occurredAt])
+  @@map("group_meetings")
+}
+
+model GroupMeetingAttendance {
+  id        String  @id @default(cuid())
+  meetingId String  @map("meeting_id")
+  personId  String  @map("person_id")
+  present   Boolean @default(true)
+
+  meeting GroupMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, personId])
+  @@index([personId])
+  @@map("group_meeting_attendances")
+}
+
+enum RosterStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum RosterAssignmentStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  SUBSTITUTED
+}
+
+model Roster {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  churchId       String       @map("church_id")
+  ministryId     String?      @map("ministry_id")
+  title          String
+  serviceAt      DateTime     @map("service_at")
+  status         RosterStatus @default(DRAFT)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  ministry     Ministry?    @relation(fields: [ministryId], references: [id])
+  slots        RosterSlot[]
+
+  @@index([churchId, serviceAt])
+  @@index([ministryId])
+  @@map("rosters")
+}
+
+model RosterSlot {
+  id            String  @id @default(cuid())
+  rosterId      String  @map("roster_id")
+  roleLabel     String  @map("role_label")
+  requiresCouple Boolean @default(false) @map("requires_couple")
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  roster       Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  assignments  RosterAssignment[]
+
+  @@index([rosterId])
+  @@map("roster_slots")
+}
+
+model RosterAssignment {
+  id                      String                 @id @default(cuid())
+  slotId                  String                 @map("slot_id")
+  personId                String                 @map("person_id")
+  partnerPersonId         String?                @map("partner_person_id")
+  status                  RosterAssignmentStatus @default(PENDING)
+  substituteForId         String?                @map("substitute_for_id")
+  confirmedAt             DateTime?              @map("confirmed_at")
+  declinedAt              DateTime?              @map("declined_at")
+  createdAt               DateTime               @default(now()) @map("created_at")
+  updatedAt               DateTime               @updatedAt @map("updated_at")
+
+  slot          RosterSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  person        Person     @relation("RosterAssignee", fields: [personId], references: [id])
+  partner       Person?    @relation("RosterPartner", fields: [partnerPersonId], references: [id])
+  substituteFor RosterAssignment?  @relation("RosterSubstitution", fields: [substituteForId], references: [id])
+  substitutes   RosterAssignment[] @relation("RosterSubstitution")
+
+  @@index([slotId, status])
+  @@index([personId])
+  @@map("roster_assignments")
 }

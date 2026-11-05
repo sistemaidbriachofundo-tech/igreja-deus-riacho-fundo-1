@@ -42,6 +42,9 @@ export {
   canManageAdmissions,
   canApprovePastoralAdmission,
   canSearchPersons,
+  canManageTransfers,
+  canAccessPastoralCare,
+  canLeadMinistry,
   type MembershipScopeTarget,
 } from "./membership-scope";
 

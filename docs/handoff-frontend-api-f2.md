@@ -1,6 +1,6 @@
 # Handoff FE ← BE — contratos F2 (ChatGPT / `apps/web`)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.2.3-f2"`  
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.3.0-f3"`  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
 **Base DEV:** `http://localhost:3001`  
 **Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md`  
@@ -82,6 +82,24 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 |--------|------|--------|--------|
 | GET | `/audit-logs?limit=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
 
+## Transferências / cartas (F2 completo)
+
+| Método | Path | Status |
+|--------|------|--------|
+| GET/POST | `/transfers` | **implemented** — mesmo `personId`; destino seed `demoChurchDest02` |
+| POST | `/transfers/:id/advance` | **implemented** — APPROVE/REJECT |
+| GET/POST | `/letters` | **implemented** — versionadas |
+| POST | `/letters/:id/issue\|revoke` | **implemented** |
+
+## F3 — Cuidado e escalas
+
+| Método | Path | Papéis | Status |
+|--------|------|--------|--------|
+| GET/POST | `/pastoral-cases` | PASTOR (sigilo; secretaria 403) | **implemented** |
+| GET/POST | `/discipleship/tracks`, `/discipleship/enrollments` | líder/secretaria/pastor | **implemented** |
+| GET/POST | `/small-groups` (+ members/meetings) | líder/secretaria/pastor | **implemented** |
+| GET/POST | `/ministries`, `/rosters` (+ slots/assignments) | líder/secretaria/pastor | **implemented** |
+
 ## Pendente / precisa aprovação
 
 | Item | Status |
@@ -89,7 +107,8 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 | URL HML HTTPS pública | **pendente autorização** (`TBD` no runbook) |
 | Object storage gerenciado (S3) | arquitetura local pronta; migração cloud pendente |
 | OIDC/MFA | proposed |
-| Transferência entre igrejas | proposed |
+| FE consumindo 0.3.0-f3 | ChatGPT / `apps/web` |
+| F4+ finanças/eventos/canais | fora deste contrato |
 
 ## Como testar
 
