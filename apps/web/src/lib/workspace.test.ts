@@ -1,65 +1,72 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const source = (relative: string) => readFileSync(join(__dirname, "..", relative), "utf8");
-const main = source("components/ChurchWorkspace.tsx");
-const shell = source("components/AppShell.tsx");
-const style = source("components/church-workspace.module.css");
-const globalStyle = source("app/globals.css");
-const membersUI = source("components/MemberDirectory.tsx");
-const membersStyle = source("components/member-directory.module.css");
-const members = source("app/app/membros/page.tsx");
-const secretary = source("app/app/secretaria/page.tsx");
-const cards = source("app/app/membros/carteirinha/page.tsx");
-const overview = source("app/app/page.tsx");
-const brand = source("../IDENTIDADE_VISUAL.md");
+const read = (relative: string) => readFileSync(join(__dirname, "..", relative), "utf8");
+const overview = read("app/app/page.tsx");
+const members = read("app/app/membros/page.tsx");
+const secretary = read("app/app/secretaria/page.tsx");
+const credentials = read("app/app/membros/carteirinha/page.tsx");
+const shell = read("components/AppShell.tsx");
+const dashboard = read("components/ChurchDashboard.tsx");
+const directory = read("components/MemberDirectory.tsx");
+const admissions = read("components/ChurchSecretary.tsx");
+const cards = read("components/ChurchCredentials.tsx");
+const brand = read("../IDENTIDADE_VISUAL.md");
+const uiStyles = [
+  "components/app-shell.module.css",
+  "components/church-dashboard.module.css",
+  "components/member-directory.module.css",
+  "components/church-secretary.module.css",
+  "components/church-credentials.module.css",
+];
 
-describe("gestão operacional sintética e identidade da igreja", () => {
-  it("usa as quatro telas reais, sem depender de navegação para exemplos de fluxo", () => {
-    expect(overview).toContain('view="overview"');
+describe("Church OS: experiência institucional", () => {
+  it("usa experiências independentes para os quatro módulos oficiais", () => {
+    expect(overview).toContain("<ChurchDashboard />");
     expect(members).toContain("<MemberDirectory />");
-    expect(secretary).toContain('view="secretary"');
-    expect(cards).toContain('view="cards"');
+    expect(secretary).toContain("<ChurchSecretary />");
+    expect(credentials).toContain("<ChurchCredentials />");
     expect(shell).not.toContain('label: "Explorar demonstração"');
   });
-
-  it("compartilha a mesma base sintética nos módulos", () => {
-    expect(main).toContain("SYNTHETIC_STORE_KEY");
-    expect(main).toContain("localStorage");
-    expect(main).toContain("initialMembers()");
-    expect(main).toContain("filterMembers(members");
-    expect(main).toContain("createMember(members");
-    expect(main).toContain("advanceAdmission(members");
-    expect(main).toContain("setMemberCard(members");
-    expect(main).toContain("Dados sintéticos");
-  });
-
-  it("separa a simulação local das operações autenticadas", () => {
-    expect(main).not.toContain("apiPost(");
-    expect(main).not.toContain("apiLogin(");
-    expect(main).not.toContain("apiGet(");
-    expect(main).toContain("nenhuma decisão oficial");
-  });
-
-  it("mantém a identidade visual exclusiva da igreja", () => {
+  it("preserva a identidade visual exclusiva da Igreja de Deus", () => {
     expect(brand).toContain("#4A2612");
     expect(brand).toContain("#D4AF37");
-    expect(style).toContain(".identityCard");
-    expect(globalStyle).toContain(".sidebar");
-    expect(main).toContain("IGREJA DE DEUS");
-    expect(main).not.toContain("Só para Moças");
-  });
-
-  it("apresenta responsividade e validações de acessibilidade", () => {
-    expect(style).toContain("@media(max-width:690px)");
-    expect(membersStyle).toContain("@media(max-width:390px)");
-    expect(membersUI).toContain("pessoas-sinteticas.webp");
     expect(shell).toContain("logo-igreja-aprovada.webp");
-    expect(membersUI).toContain("filterMembers(people");
-    expect(membersUI).toContain("createMember(people");
-    expect(membersUI).toContain("dados sintéticos");
-    expect(main).toContain('role="dialog"');
-    expect(main).toContain("aria-label");
+    expect(directory).toContain("pessoas-sinteticas.webp");
+    expect(dashboard).toContain("hero-oficial.jpg");
+    expect(dashboard).not.toContain("Só para Moças");
+  });
+  it("mantém a mesma fonte de dados fictícios para as quatro telas", () => {
+    const hook = read("lib/use-church-records.ts");
+    expect(hook).toContain("SYNTHETIC_STORE_KEY");
+    expect(hook).toContain("isMembersDataset");
+    for (const source of [dashboard,directory,admissions,cards]) {
+      expect(source).toContain("useChurchRecords");
+      expect(source).not.toContain("apiPost(");
+      expect(source).not.toContain("apiLogin(");
+    }
+    expect(admissions).toContain("advanceAdmission(members");
+    expect(cards).toContain("setMemberCard(members");
+    expect(directory).toContain("createMember(members");
+  });
+  it("entrega ações reais para cada área, não botões decorativos", () => {
+    expect(shell).toContain("Ctrl K");
+    expect(shell).toContain("paletteOpen");
+    expect(directory).toContain("downloadCsv(filtered)");
+    expect(directory).toContain('view==="GRID"');
+    expect(admissions).toContain("complete(activeMember)");
+    expect(cards).toContain("changeCard(selected");
+  });
+  it("oferece responsividade com navegabilidade mobile e foco", () => {
+    for (const file of uiStyles) {
+      expect(existsSync(join(__dirname,"..",file))).toBe(true);
+      const css = read(file);
+      expect(css).toMatch(/@media\s*\(max-width:/);
+      expect(css).toContain("border-radius");
+    }
+    expect(shell).toContain('aria-label="Navegação principal no celular"');
+    expect(shell).toContain('role="dialog"');
+    expect(directory).toContain('aria-label="Buscar pessoa, família ou ministério"');
   });
 });
