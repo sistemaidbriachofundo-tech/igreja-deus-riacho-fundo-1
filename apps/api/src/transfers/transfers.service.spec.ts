@@ -42,7 +42,9 @@ describe("TransfersService", () => {
     ],
   };
 
-  const baseRow = {
+  const now = new Date("2026-11-05T00:00:00Z");
+
+  const baseTransfer = {
     id: "t1",
     personId: "p1",
     organizationId: pilot.organizationId,
@@ -53,7 +55,7 @@ describe("TransfersService", () => {
     status: "AWAITING_ORIGIN",
     notes: null as string | null,
     rejectionReason: null as string | null,
-    createdAt: new Date("2026-11-05T00:00:00Z"),
+    createdAt: now,
     completedAt: null as Date | null,
   };
 
@@ -68,17 +70,16 @@ describe("TransfersService", () => {
   it("lists transfers for secretaria", async () => {
     const prisma = {
       membershipTransfer: {
-        findMany: jest.fn().mockResolvedValue([baseRow]),
+        findMany: jest.fn().mockResolvedValue([baseTransfer]),
       },
     };
     const service = new TransfersService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    await expect(service.list(secretaria)).resolves.toMatchObject({
-      churchId: pilot.churchId,
-      transfers: [{ id: "t1" }],
-    });
+    const result = await service.list(secretaria);
+    expect(result.transfers).toHaveLength(1);
+    expect(result.transfers[0].createdAt).toBe(now.toISOString());
   });
 
   it("creates transfer for ACTIVE membership", async () => {
@@ -95,7 +96,7 @@ describe("TransfersService", () => {
       },
       membershipTransfer: {
         findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue(baseRow),
+        create: jest.fn().mockResolvedValue(baseTransfer),
       },
       auditLog: { create: jest.fn() },
     };
@@ -107,57 +108,44 @@ describe("TransfersService", () => {
       service.create(secretaria, {
         personId: "p1",
         toChurchId: "church-other",
-        notes: "demo",
+        notes: "  move  ",
       }),
     ).resolves.toMatchObject({ id: "t1", status: "AWAITING_ORIGIN" });
+    expect(prisma.auditLog.create).toHaveBeenCalled();
   });
 
-  it("rejects create to same church or missing dest", async () => {
+  it("rejects create validation errors", async () => {
     const prisma = {
-      church: { findFirst: jest.fn().mockResolvedValue(null) },
+      church: { findFirst: jest.fn() },
       churchMembership: { findFirst: jest.fn() },
-      membershipTransfer: { findFirst: jest.fn() },
+      membershipTransfer: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      auditLog: { create: jest.fn() },
     };
     const service = new TransfersService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
+
     await expect(
       service.create(secretaria, {
         personId: "p1",
         toChurchId: pilot.churchId,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+
+    prisma.church.findFirst.mockResolvedValueOnce(null);
     await expect(
       service.create(secretaria, {
         personId: "p1",
         toChurchId: "missing",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
-  });
 
-  it("404 when membership or get missing; 409 when open transfer", async () => {
-    const prisma = {
-      church: {
-        findFirst: jest.fn().mockResolvedValue({ id: "church-other" }),
-      },
-      churchMembership: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValueOnce(null)
-          .mockResolvedValue({ id: "m1" }),
-      },
-      membershipTransfer: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValueOnce(baseRow)
-          .mockResolvedValueOnce(null),
-      },
-    };
-    const service = new TransfersService(
-      prisma as never,
-      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
-    );
+    prisma.church.findFirst.mockResolvedValueOnce({ id: "church-other" });
+    prisma.churchMembership.findFirst.mockResolvedValueOnce(null);
     await expect(
       service.create(secretaria, {
         personId: "p1",
@@ -165,79 +153,119 @@ describe("TransfersService", () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
 
+    prisma.church.findFirst.mockResolvedValueOnce({ id: "church-other" });
+    prisma.churchMembership.findFirst.mockResolvedValueOnce({ id: "m1" });
+    prisma.membershipTransfer.findFirst.mockResolvedValueOnce({ id: "open" });
     await expect(
       service.create(secretaria, {
         personId: "p1",
         toChurchId: "church-other",
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
 
+  it("404 when get missing", async () => {
+    const prisma = {
+      membershipTransfer: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new TransfersService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
     await expect(service.getById(secretaria, "x")).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 
-  it("advances origin approve then completes destination", async () => {
+  it("gets transfer by id", async () => {
+    const prisma = {
+      membershipTransfer: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...baseTransfer,
+          completedAt: now,
+        }),
+      },
+    };
+    const service = new TransfersService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.getById(secretaria, "t1")).resolves.toMatchObject({
+      id: "t1",
+      completedAt: now.toISOString(),
+    });
+  });
+
+  it("advances APPROVE origin → destination → complete", async () => {
     const awaitingDest = {
-      ...baseRow,
+      ...baseTransfer,
       status: "AWAITING_DESTINATION",
-      approvedOriginAt: new Date(),
     };
     const completed = {
-      ...awaitingDest,
+      ...baseTransfer,
       status: "COMPLETED",
-      toMembershipId: "m2",
-      completedAt: new Date("2026-11-05T01:00:00Z"),
+      toMembershipId: "m-dest",
+      completedAt: now,
     };
+
+    const tx = {
+      churchMembership: {
+        update: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({ id: "m-dest" }),
+      },
+      memberCredential: { updateMany: jest.fn() },
+      person: { update: jest.fn() },
+      membershipTransfer: {
+        update: jest.fn().mockResolvedValue(completed),
+      },
+    };
+
     const prisma = {
       membershipTransfer: {
         findFirst: jest
           .fn()
-          .mockResolvedValueOnce(baseRow)
+          .mockResolvedValueOnce(baseTransfer)
           .mockResolvedValueOnce(awaitingDest),
-        update: jest
-          .fn()
-          .mockResolvedValueOnce(awaitingDest)
-          .mockResolvedValueOnce(completed),
+        update: jest.fn().mockResolvedValue(awaitingDest),
       },
-      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          churchMembership: {
-            update: jest.fn(),
-            upsert: jest.fn().mockResolvedValue({ id: "m2" }),
-          },
-          memberCredential: { updateMany: jest.fn() },
-          person: { update: jest.fn() },
-          membershipTransfer: {
-            update: jest.fn().mockResolvedValue(completed),
-          },
-        };
-        return fn(tx);
-      }),
       auditLog: { create: jest.fn() },
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
+        fn(tx),
+      ),
     };
     const service = new TransfersService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
 
-    await expect(
-      service.advance(secretaria, "t1", { decision: "APPROVE" }),
-    ).resolves.toMatchObject({ status: "AWAITING_DESTINATION" });
+    const origin = await service.advance(secretaria, "t1", {
+      decision: "APPROVE",
+    });
+    expect(origin.status).toBe("AWAITING_DESTINATION");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "transfer.approve_origin" }),
+      }),
+    );
 
-    await expect(
-      service.advance(secretaria, "t1", { decision: "APPROVE" }),
-    ).resolves.toMatchObject({ status: "COMPLETED", toMembershipId: "m2" });
+    const done = await service.advance(secretaria, "t1", {
+      decision: "APPROVE",
+    });
+    expect(done.status).toBe("COMPLETED");
+    expect(done.toMembershipId).toBe("m-dest");
+    expect(tx.churchMembership.update).toHaveBeenCalled();
+    expect(tx.memberCredential.updateMany).toHaveBeenCalled();
+    expect(tx.person.update).toHaveBeenCalled();
   });
 
-  it("rejects transfer", async () => {
+  it("advances REJECT with reason", async () => {
     const prisma = {
       membershipTransfer: {
-        findFirst: jest.fn().mockResolvedValue(baseRow),
+        findFirst: jest.fn().mockResolvedValue(baseTransfer),
         update: jest.fn().mockResolvedValue({
-          ...baseRow,
+          ...baseTransfer,
           status: "REJECTED",
-          rejectionReason: "Não",
+          rejectionReason: "Não aprovado",
         }),
       },
       auditLog: { create: jest.fn() },
@@ -246,29 +274,73 @@ describe("TransfersService", () => {
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    await expect(
-      service.advance(secretaria, "t1", {
-        decision: "REJECT",
-        rejectionReason: "Não",
+
+    const result = await service.advance(secretaria, "t1", {
+      decision: "REJECT",
+      rejectionReason: " Não aprovado ",
+    });
+    expect(result.status).toBe("REJECTED");
+    expect(result.rejectionReason).toBe("Não aprovado");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "transfer.reject" }),
       }),
-    ).resolves.toMatchObject({ status: "REJECTED" });
+    );
   });
 
-  it("blocks advance on closed transfer", async () => {
+  it("rejects advance errors (missing, closed, wrong step)", async () => {
     const prisma = {
       membershipTransfer: {
-        findFirst: jest.fn().mockResolvedValue({
-          ...baseRow,
-          status: "COMPLETED",
-        }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ ...baseTransfer, status: "COMPLETED" })
+          .mockResolvedValueOnce({
+            ...baseTransfer,
+            status: "AWAITING_ORIGIN",
+            fromChurchId: "other-origin",
+          }),
+        update: jest.fn(),
       },
+      auditLog: { create: jest.fn() },
+      $transaction: jest.fn(),
     };
     const service = new TransfersService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
+
+    await expect(
+      service.advance(secretaria, "missing", { decision: "APPROVE" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
     await expect(
       service.advance(secretaria, "t1", { decision: "APPROVE" }),
     ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.advance(secretaria, "t1", { decision: "APPROVE" }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("REJECT defaults rejectionReason when omitted", async () => {
+    const prisma = {
+      membershipTransfer: {
+        findFirst: jest.fn().mockResolvedValue(baseTransfer),
+        update: jest.fn().mockImplementation(async ({ data }) => ({
+          ...baseTransfer,
+          ...data,
+        })),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new TransfersService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.advance(secretaria, "t1", {
+      decision: "REJECT",
+    });
+    expect(result.rejectionReason).toBe("Rejeitada");
   });
 });
