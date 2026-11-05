@@ -13,8 +13,9 @@ const stages: { code: AdmissionStage; label: string; hint: string }[] = [
   {code:"PASTOR",label:"Pastoral",hint:"Decisão final"},
 ];
 function Avatar({person}:{person:Member}){
-  const photoIndex = (Math.max(0,Number(person.id.split("-").at(-1))-1))%6;
-  return <span className={s.avatar} role="img" aria-label={"Retrato sintético de "+person.name} style={{backgroundImage:`url("${withBasePath("/images/pessoas-sinteticas.webp")}")`,backgroundPosition:`${photoIndex*20}% center`}}/>;
+  const words=person.name.trim().split(/\s+/);
+  const initials=[words[0]?.[0],words.at(-1)?.[0]].filter(Boolean).join("").toUpperCase();
+  return <span className={s.avatar} role="img" aria-label={"Avatar sintético de "+person.name}>{initials}</span>;
 }
 
 export function ChurchSecretary() {
