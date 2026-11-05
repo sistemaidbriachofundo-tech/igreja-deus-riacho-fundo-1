@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { events } from "../../lib/portal-content";
 import { withBasePath } from "../../lib/paths";
-import { PublicPage, Eyebrow, DemoNote, EventCard, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
+import { PublicPage, Eyebrow, DemoNote, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
+import { EventFilter } from "../../components/EventFilter";
 
 export const metadata: Metadata = {
   title: "Agenda",
@@ -31,7 +32,7 @@ export default function EventsPage() {
             <p>Esta é a estrutura visual da agenda. Os eventos, horários e datas são fictícios e servem exclusivamente para testar a experiência.</p>
             <DemoNote />
           </div>
-          <div className={s.eventList}>{events.map((event) => <EventCard key={event.id} event={event} />)}</div>
+          <EventFilter events={events} />
         </div>
       </section>
       <section className={s.mainSection + " " + s.sectionMuted}>
