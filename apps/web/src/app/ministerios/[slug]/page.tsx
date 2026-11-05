@@ -30,8 +30,12 @@ export default async function MinistryPage({ params }: MinistryPageProps) {
     <PublicPage>
       <main id="conteudo">
         <section className={s.ministryDetailHero} data-tone={ministry.tone}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={withBasePath(ministry.image)} alt="" className={s.ministryHeroImage} />
+          {ministry.slug === "atmosfera" ? (
+            <span className={s.atmosphereArtwork} aria-hidden="true" />
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={withBasePath(ministry.image)} alt="" className={s.ministryHeroImage} />
+          )}
           <span className={s.ministryHeroTint} />
           <div className={s.ministryHeroInner}>
             <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span><Link href="/ministerios/">Ministérios</Link><span>/</span>{ministry.name}</div>
