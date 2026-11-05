@@ -1278,3 +1278,60 @@ code {
   .mobile-bottom-link span{white-space:nowrap;font-size:clamp(.58rem,2vw,.7rem)}
 }
 @media(prefers-reduced-motion:reduce){.nav-item{transition:none}}
+
+/* Gestão institucional: acabamento próprio da Igreja de Deus, sem outra identidade visual. */
+.shell{background:#f7f4ef;grid-template-columns:250px minmax(0,1fr)}
+.sidebar{padding:1.5rem .95rem;background:linear-gradient(175deg,#412110 0%,#31190e 64%,#26150e 100%);border-right:1px solid rgba(224,188,112,.15)}
+.sidebar-brand{padding:.55rem .55rem 1.5rem;border-bottom:1px solid rgba(238,199,116,.13);margin-bottom:.8rem}
+.sidebar .brand-mark{border-radius:12px;width:43px;height:43px;color:#e9c479;border:1px solid #aa7c35;background:linear-gradient(145deg,#694020,#2d180e);box-shadow:0 6px 18px rgba(0,0,0,.13)}
+.sidebar .brand-name{font-size:.83rem;line-height:1.2;font-weight:800;letter-spacing:.045em;color:#fff8ea}
+.sidebar .brand-tag{color:#c6a781;font-size:.68rem}
+.side-caption{font-size:.58rem;letter-spacing:.18em;color:#967957;padding-left:1rem;margin:.2rem 0 .4rem}
+.sidebar-nav{gap:.26rem}
+.nav-item{min-height:45px;font-size:.78rem;font-weight:700;letter-spacing:-.008em;padding:.75rem .9rem;border-radius:9px}
+.nav-item svg{width:19px;height:19px;flex:none}
+.nav-item.is-active,.nav-item.is-active:hover{background:linear-gradient(100deg,#e8c47a,#d5a65a);color:#3a2517;box-shadow:0 7px 16px rgba(0,0,0,.12)}
+.sidebar-foot{margin-top:auto;border-top:1px solid rgba(229,190,110,.13);padding:1.2rem .65rem;color:#bda58c}
+.sidebar-foot>a{font-size:.76rem;color:#edcf99;font-weight:750}
+.sidebar-foot>span{font-size:.65rem;color:#ac9074}
+.shell-main{min-width:0}
+.topbar{min-height:72px;background:#fffdf9;border-bottom:1px solid #ece4d8;color:#493425;padding:.85rem clamp(1rem,2.2vw,2rem);box-shadow:0 2px 10px rgba(74,38,16,.025)}
+.topbar-title{color:#423124;font-weight:800;font-size:.82rem}
+.topbar-left{gap:.75rem}
+.preview-chip{display:inline-flex;align-items:center;gap:.4rem;background:#f8f0df;color:#8b642e;border:1px solid #e9dac0;font-size:.67rem;font-weight:750;padding:.37rem .62rem;border-radius:99px}
+.preview-dot{width:6px;height:6px;border-radius:50%;background:#b28b47}
+.topbar-right{display:flex;align-items:center;gap:1.1rem}
+.topbar-meta{color:#927f69;font-size:.73rem}
+.topbar-profile{display:grid;place-items:center;width:33px;height:33px;background:#f3e5ce;border:1px solid #e7d6b9;color:#795124;border-radius:50%;font:800 .75rem var(--font-title)}
+.content{background:#f7f4ef;padding:clamp(1rem,2.2vw,2rem);min-width:0}
+@media(max-width:900px){
+  .sidebar{padding:.65rem 1rem;min-height:65px}
+  .sidebar-brand{margin:0;padding:0;border:0}
+  .topbar{min-height:52px;padding:.58rem 1rem}
+  .topbar-right{gap:.3rem}
+  .topbar-profile{width:28px;height:28px}
+  .content{padding:1rem 1rem calc(6.6rem + env(safe-area-inset-bottom,0px))}
+  .mobile-bottom-nav{background:#fffcf8;border-top:1px solid #e7d8c6;box-shadow:0 -9px 20px rgba(53,31,15,.085)}
+  .mobile-bottom-link{font-weight:750;color:#867057;min-height:51px}
+  .mobile-bottom-link.is-active{color:#52341e;background:#f2e6d0}
+}
+
+/* Marca fornecida pelo usuário — prevalece sobre qualquer SVG ilustrativo anterior. */
+.brand-mark.brand-mark--original{
+  display:block;
+  background-color:transparent;
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+  border:0;
+  border-radius:50%;
+  box-shadow:none;
+  width:52px;
+  height:52px;
+}
+.sidebar .brand-mark.brand-mark--original{
+  border:0;
+  background-color:transparent;
+  box-shadow:none;
+}
+@media(max-width:900px){.brand-mark.brand-mark--original{width:42px;height:42px}}
