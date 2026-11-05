@@ -78,3 +78,12 @@
 @media(max-width:640px){.toolbar{grid-template-columns:minmax(0,1fr) auto;gap:10px;min-height:65px;padding:9px 14px}.toolbarEyebrow{font-size:8px}.toolbarIdentity strong{font-size:12px}.commandButton{width:39px;min-height:39px;padding:0;justify-content:center;border-radius:11px}.commandButton>span,.commandButton kbd{display:none}.toolbarRight{gap:0}.environment,.toolbarDivider{display:none}.account{width:34px;height:34px;font-size:11px}.smallLogo{height:36px;width:36px}.content{padding:18px 14px calc(104px + env(safe-area-inset-bottom,0px))}.modalBackdrop{padding-top:10vh}.commandSearch{padding:16px 14px}.commandSearch input{font-size:13px}}
 @media(max-width:380px){.toolbarEyebrow{display:none}.mobileItem,.mobileActive{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.menuItem,.menuActive,.commandModal{transition:none;animation:none}}
+
+/* Mobile header: all three controls must occupy one row, even on 390px. */
+@media(max-width:640px){
+ .toolbar{grid-template-columns:minmax(0,1fr) 39px 34px;gap:10px;align-items:center}
+ .toolbarIdentity{overflow:hidden}
+ .toolbarIdentity>div{min-width:0}
+ .toolbarIdentity strong,.toolbarEyebrow{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .toolbarRight{min-width:34px}
+}
