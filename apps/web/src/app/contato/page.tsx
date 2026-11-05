@@ -1,35 +1,43 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { instagramUrl } from "../../lib/portal-content";
-import { PublicPage, Eyebrow, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
+import { portalVisuals } from "../../lib/portal-visuals";
+import { PublicPage } from "../../components/PublicPortal";
+import s from "../ministerios/ministry-v3.module.css";
 
 export const metadata: Metadata = {
   title: "Contato e Primeira Visita",
-  description: "Conecte-se com a Igreja de Deus no Riacho Fundo I e saiba como acompanhar os canais oficiais.",
+  description: "Entre em contato e conheça os canais da Igreja de Deus no Riacho Fundo I.",
 };
 
 export default function ContactPage() {
   return <PublicPage>
     <main id="conteudo">
-      <section className={s.subhero}>
-        <span className={s.contactBannerArt} aria-hidden="true" />
-        <span className={s.subheroOverlay} />
-        <div className={s.subheroContent}>
-          <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span>Contato</div>
-          <Eyebrow light>VOCÊ É BEM-VINDO</Eyebrow>
-          <h1 className={s.subheroTitle}>Toda boa conversa começa com um olá.</h1>
-          <p className={s.subheroLead}>Sua primeira visita não precisa ser complicada. Quer conhecer a igreja ou conversar com alguém? Aqui está por onde começar.</p>
+      <section className={s.hubHero}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={portalVisuals.hero} className={s.hubHeroImage} alt="" fetchPriority="high" />
+        <div className={s.hubHeroShade} />
+        <div className={s.hubHeroContent}>
+          <div className={s.breadcrumb}><Link href="/">INÍCIO</Link> / CONTATO</div>
+          <span className={s.label}>PRIMEIRA VISITA</span>
+          <h1>Você é<br/><em>bem-vindo.</em></h1>
+          <p className={s.hubLead}>Não importa de onde você vem. A gente quer que você encontre aqui pessoas para caminhar ao seu lado.</p>
+          <a href="#conectar" className={s.hubExplore}>COMO NOS CONECTAR <span aria-hidden="true">↓</span></a>
+        </div>
+        <span className={s.photoDisclosure}>IMAGEM ILUSTRATIVA</span>
+      </section>
+      <section className={s.detailPillars} id="conectar">
+        <div className={s.detailPillarsTitle}><span className={s.label}>01 / PRÓXIMOS PASSOS</span><h2>Começa com <em>um olá.</em></h2><p>Por enquanto, acompanhe os canais oficiais para confirmar programação e obter informações sobre sua visita.</p></div>
+        <div className={s.detailPillarsRows}>
+          <div className={s.pillarRow}><span>01</span><h3>Instagram</h3><p><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Acompanhar avisos e falar com a igreja ↗</a></p></div>
+          <div className={s.pillarRow}><span>02</span><h3>Ministérios</h3><p><Link href="/ministerios/">Conhecer as áreas da igreja ↗</Link></p></div>
+          <div className={s.pillarRow}><span>03</span><h3>Atmosfera</h3><p><Link href="/ministerios/atmosfera/">Conhecer o voluntariado ↗</Link></p></div>
         </div>
       </section>
-      <section className={s.mainSection}>
-        <div className={s.sectionHeading}><div><Eyebrow>VAMOS NOS CONECTAR</Eyebrow><h2>Escolha por onde começar.</h2><p>Um convite para descobrir a comunidade, com calma e sem compromisso.</p></div></div>
-        <div className={s.contactGrid}>
-          <article className={s.contactCard}><span>01 / REDES SOCIAIS</span><h2>Acompanhe a igreja.</h2><p>Siga o perfil oficial para consultar comunicados, programação atualizada e informações de contato.</p><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Abrir Instagram oficial ↗</a></article>
-          <article className={s.contactCard}><span>02 / VIDA EM COMUNIDADE</span><h2>Encontre um ministério.</h2><p>Jovens, homens, adolescentes, mulheres e voluntariado. Explore as áreas do portal e descubra onde se conectar.</p><Link href="/ministerios/">Conhecer os ministérios ↗</Link></article>
-        </div>
-        <p className={s.contactNote}>Endereço completo, horários de culto, contatos telefônicos e formulários serão publicados aqui após validação institucional. Nenhuma informação de visita está sendo coletada nesta versão demonstrativa.</p>
+      <section className={s.detailPurpose}>
+        <div><span className={s.label}>02 / INFORMAÇÕES OFICIAIS</span><h2>Estamos preparando <em>tudo para receber você.</em></h2></div>
+        <div><p>O endereço completo, horários de cultos e contatos serão apresentados aqui após validação institucional. Não vamos inventar essas informações nem coletar dados pessoais por formulários demonstrativos.</p></div>
       </section>
-      <ContactCTA title="Estamos construindo um lugar para receber você." text="Enquanto as informações definitivas são validadas, acompanhe os canais oficiais e conheça os ministérios." />
     </main>
   </PublicPage>;
 }

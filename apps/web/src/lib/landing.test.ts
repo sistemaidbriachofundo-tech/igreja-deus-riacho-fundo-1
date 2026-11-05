@@ -60,7 +60,7 @@ describe("portal público da igreja", () => {
     expect(shell).toContain("ministryJourneyItem");
     expect(css).toContain(".immersiveHero");
     expect(css).toContain(".ministryJourneyItem");
-    expect(about).toContain("adoracao-oficial.jpg");
+    expect(about).toContain("portalVisuals.hero");
     expect(contact).toContain("instagramUrl");
   });
 
