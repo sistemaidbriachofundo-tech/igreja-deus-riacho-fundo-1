@@ -161,6 +161,21 @@ jobs:
           done
           "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage             --hide-scrollbars --window-size="390,1000"             --screenshot=portal-screenshots/atmosfera-390.png             "${URL}/ministerios/atmosfera/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
           test -s portal-screenshots/atmosfera-390.png
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,1000" \
+            --screenshot=portal-screenshots/ministerios-1440.png \
+            "${URL}/ministerios/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,1000" \
+            --screenshot=portal-screenshots/home-ministerios-1440.png \
+            "${URL}/#ministries-title" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,1000" \
+            --screenshot=portal-screenshots/agenda-390.png \
+            "${URL}/eventos/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          test -s portal-screenshots/ministerios-1440.png
+          test -s portal-screenshots/home-ministerios-1440.png
+          test -s portal-screenshots/agenda-390.png
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
