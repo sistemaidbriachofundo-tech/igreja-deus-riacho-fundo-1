@@ -8,7 +8,7 @@ import { useChurchRecords } from "../lib/use-church-records";
 import s from "./church-dashboard.module.css";
 
 function InitialAvatar({ person, tiny = false }: { person: Member; tiny?: boolean }) {
-  const nameParts = person.name.trim().split(/\\s+/);
+  const nameParts = person.name.trim().split(/\s+/);
   const initials = [nameParts[0]?.[0], nameParts.at(-1)?.[0]].filter(Boolean).join("").toUpperCase();
   return <span className={tiny ? s.avatarSmall : s.avatar} role="img" aria-label={"Avatar ilustrativo de " + person.name}>{initials}</span>;
 }
