@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getMinistry, ministries, events } from "../../../lib/portal-content";
+import { getMinistry, ministries } from "../../../lib/portal-content";
 import { ministryPhoto } from "../../../lib/portal-visuals";
-import { PublicPage, EventCard, DemoNote, ContactCTA } from "../../../components/PublicPortal";
+import { PublicPage, ContactCTA } from "../../../components/PublicPortal";
 import s from "../ministry-v3.module.css";
 
 type MinistryPageProps = { params: Promise<{ slug: string }> };
@@ -22,7 +22,6 @@ export default async function MinistryPage({ params }: MinistryPageProps) {
   const { slug } = await params;
   const ministry = getMinistry(slug);
   if (!ministry) notFound();
-  const relatedEvents = events.filter(event => event.ministry === ministry.slug);
 
   return (
     <PublicPage>
@@ -36,7 +35,7 @@ export default async function MinistryPage({ params }: MinistryPageProps) {
             <span className={s.label}>{ministry.eyebrow}</span>
             <h1>{ministry.headline}</h1>
             <p>{ministry.summary}</p>
-            <Link href="/contato/" className={s.detailHeroButton}>Quero participar <span aria-hidden="true">↗</span></Link>
+            <Link href={"/visita/?ministerio=" + ministry.slug} className={s.detailHeroButton}>Quero participar <span aria-hidden="true">↗</span></Link>
           </div>
           <span className={s.photoDisclosure}>IMAGEM ILUSTRATIVA</span>
         </section>
@@ -55,9 +54,18 @@ export default async function MinistryPage({ params }: MinistryPageProps) {
             ))}
           </div>
         </section>
-        <section className={s.detailEvents} aria-label="Eventos demonstrativos">
-          <div><span className={s.label}>03 / VIDA EM COMUNIDADE</span><h2>Vamos nos <em>encontrar?</em></h2><p>Esta é uma prévia visual. Os eventos abaixo são fictícios, aguardando a integração com a agenda oficial da igreja.</p><DemoNote compact /></div>
-          <div>{relatedEvents.map(event => <EventCard key={event.id} event={event}/>)}</div>
+        <section className={s.detailEvents} aria-label="Como conhecer o ministério">
+          <div>
+            <span className={s.label}>03 / FAÇA PARTE</span>
+            <h2>Seu próximo passo <em>começa aqui.</em></h2>
+            <p>Quer entender melhor como funciona o ministério de {ministry.name}? Prepare uma primeira visita e entre em contato com a igreja para conferir os próximos encontros.</p>
+            <Link href={"/visita/?ministerio=" + ministry.slug} className={s.detailHeroButton}>Quero conhecer {ministry.name} <span aria-hidden="true">↗</span></Link>
+          </div>
+          <div className={s.detailPillarsRows}>
+            <div className={s.pillarRow}><span>01</span><h3>Conheça</h3><p>Descubra a proposta e os valores deste ministério.</p></div>
+            <div className={s.pillarRow}><span>02</span><h3>Converse</h3><p>Peça informações sobre programação e participação pelos canais oficiais.</p></div>
+            <div className={s.pillarRow}><span>03</span><h3>Participe</h3><p>Encontre seu lugar na comunidade e conheça novas pessoas.</p></div>
+          </div>
         </section>
         <ContactCTA title={ministry.invitation} text="Acompanhe os canais oficiais da igreja para saber mais e encontrar a sua comunidade." />
       </main>

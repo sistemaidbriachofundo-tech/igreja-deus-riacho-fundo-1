@@ -7,7 +7,7 @@ const stops = [
   { id: "quem-somos", label: "A Igreja", number: "02" },
   { id: "ministries-title", label: "Ministérios", number: "03" },
   { id: "atmosfera", label: "Atmosfera", number: "04" },
-  { id: "agenda", label: "Agenda", number: "05" },
+  { id: "primeira-visita", label: "Primeira visita", number: "05" },
 ] as const;
 
 export function PortalJourney() {

@@ -197,6 +197,65 @@ jobs:
             --screenshot=portal-screenshots/ministerios-390.png \
             "${URL}/ministerios/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
           test -s portal-screenshots/ministerios-390.png
+          # Capturas da experiência abaixo da primeira dobra.
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,900" \
+            --screenshot=portal-screenshots/primeira-visita-1440.png \
+            "${URL}/#primeira-visita" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,920" \
+            --screenshot=portal-screenshots/primeira-visita-390.png \
+            "${URL}/#primeira-visita" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,920" \
+            --screenshot=portal-screenshots/perguntas-390.png \
+            "${URL}/contato/#visit-questions-title" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          test -s portal-screenshots/primeira-visita-1440.png
+          test -s portal-screenshots/primeira-visita-390.png
+          test -s portal-screenshots/perguntas-390.png
+          # Nova experiência interativa de primeira visita — desktop e celular.
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="1440,1000" \
+            --screenshot=portal-screenshots/planejar-visita-1440.png \
+            "${URL}/visita/#planejar" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --hide-scrollbars --window-size="390,1000" \
+            --screenshot=portal-screenshots/planejar-visita-390.png \
+            "${URL}/visita/#planejar" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+          test -s portal-screenshots/planejar-visita-1440.png
+          test -s portal-screenshots/planejar-visita-390.png
+          # Auditoria visual responsiva adicional: celulares compactos, tablet e desktop amplo.
+          for WIDTH in 320 360 430 600 1024 1920; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --hide-scrollbars --window-size="${WIDTH},900" \
+              --screenshot="portal-screenshots/visita-${WIDTH}.png" \
+              "${URL}/visita/#planejar" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            test -s "portal-screenshots/visita-${WIDTH}.png"
+          done
+          for WIDTH in 320 430 1024 1920; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --hide-scrollbars --window-size="${WIDTH},900" \
+              --screenshot="portal-screenshots/home-${WIDTH}.png" \
+              "${URL}/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            test -s "portal-screenshots/home-${WIDTH}.png"
+          done
+          for WIDTH in 320 430 1024; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --hide-scrollbars --window-size="${WIDTH},900" \
+              --screenshot="portal-screenshots/ministerios-${WIDTH}.png" \
+              "${URL}/ministerios/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            test -s "portal-screenshots/ministerios-${WIDTH}.png"
+          done
+          python3 - <<"PYQA"
+          import struct, pathlib
+          shots=pathlib.Path("portal-screenshots")
+          expected={"visita-320.png":320,"visita-360.png":360,"visita-430.png":430,"visita-600.png":600,"visita-1024.png":1024,"visita-1920.png":1920,"home-320.png":320,"home-430.png":430,"home-1024.png":1024,"home-1920.png":1920,"ministerios-320.png":320,"ministerios-430.png":430,"ministerios-1024.png":1024}
+          for name,width in expected.items():
+              data=(shots/name).read_bytes()
+              actual=struct.unpack(">I",data[16:20])[0]
+              if actual!=width: raise SystemExit(f"Unexpected viewport width in {name}: {actual}, expected {width}")
+          print(f"Verified {len(expected)} additional viewport screenshots")
+          PYQA
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'

@@ -56,7 +56,7 @@ export default function MinisteriosPage() {
         <section className={s.hubFinal}>
           <span>O MELHOR DA COMUNIDADE É VIVER JUNTO.</span>
           <h2>Você não precisa <em>caminhar sozinho.</em></h2>
-          <Link href="/contato/">Comece por uma visita <span aria-hidden="true">↗</span></Link>
+          <Link href="/visita/">Comece por uma visita <span aria-hidden="true">↗</span></Link>
         </section>
         <ContactCTA title="Estamos de portas abertas." />
       </main>

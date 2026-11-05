@@ -21,6 +21,7 @@ const navigation = [
   { href: "/a-igreja/", label: "A Igreja" },
   { href: "/ministerios/", label: "Ministérios" },
   { href: "/eventos/", label: "Agenda" },
+  { href: "/visita/", label: "Primeira Visita" },
   { href: "/contato/", label: "Contato" },
 ];
 
@@ -33,7 +34,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
           {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
         </nav>
         <div className={s.headerActions}>
-          <Link href="/contato/" className={s.headerVisit}>Quero visitar <span aria-hidden="true">↗</span></Link>
+          <Link href="/visita/" className={s.headerVisit}>Quero visitar <span aria-hidden="true">↗</span></Link>
           <details className={s.mobileMenu}>
             <summary aria-label="Abrir menu de navegação"><span className={s.menuIcon} aria-hidden="true"><i /><i /></span><span>Menu</span></summary>
             <nav aria-label="Menu mobile" className={s.mobileMenuPanel}>
@@ -58,7 +59,7 @@ export function PortalFooter() {
         </div>
         <div className={s.footerLinks}>
           <div><span className={s.footerLabel}>Explore</span><Link href="/a-igreja/">Nossa igreja</Link><Link href="/ministerios/">Ministérios</Link><Link href="/eventos/">Agenda</Link></div>
-          <div><span className={s.footerLabel}>Conecte-se</span><Link href="/contato/">Primeira visita</Link><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Instagram ↗</a><Link href="/ministerios/atmosfera/">Seja voluntário</Link></div>
+          <div><span className={s.footerLabel}>Conecte-se</span><Link href="/visita/">Primeira visita</Link><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Instagram ↗</a><Link href="/ministerios/atmosfera/">Seja voluntário</Link></div>
           <div><span className={s.footerLabel}>Church OS</span><Link href="/app/">Área interna</Link><span className={s.footerNote}>Acesso demonstrativo, com dados fictícios.</span></div>
         </div>
       </div>

@@ -1,0 +1,18 @@
+.hero{min-height:660px;display:flex;align-items:center;position:relative;overflow:hidden;isolation:isolate;background:#132932;color:#fff}
+.image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2;filter:saturate(.81)}
+.shade{position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#091c24f0,#0c2735c7 48%,#09202a5e),linear-gradient(0deg,#0b1f2f82,transparent 55%)}
+.inner{width:100%;max-width:1490px;margin:auto;padding:165px clamp(24px,6vw,90px) 85px}
+.breadcrumb{font-size:10px;letter-spacing:.15em;font-weight:800;color:#e9e7d1b9;margin-bottom:50px;display:flex;align-items:center;gap:10px}
+.breadcrumb a{color:#e4d6b9}.eyebrow{font-size:11px;letter-spacing:.2em;color:#e7c388;font-weight:800}
+.inner h1{font:800 clamp(57px,7.5vw,112px)/.99 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.084em;margin:25px 0}
+.inner h1 em,.after h2 em{font-style:normal;color:#e9c58a}
+.inner p{max-width:560px;line-height:1.75;font-size:18px;color:#e6ebe9;margin:0 0 28px}
+.down{color:#ffe7b8;font-size:11px;letter-spacing:.11em;font-weight:800;display:inline-flex;align-items:center;gap:25px;border-bottom:1px solid #e6c891;padding:13px 0}.down span{font-size:20px}
+.body{padding:85px clamp(24px,6vw,90px);background:#f5f3ee}.body>*{max-width:1360px;margin:auto}
+.after{padding:115px clamp(24px,6vw,90px);background:#e9c486;color:#152a32}
+.after>span{font-size:11px;font-weight:800;letter-spacing:.19em}
+.after h2{font:800 clamp(47px,5.5vw,78px)/1.1 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.07em;max-width:950px;margin:23px 0}
+.after h2 em{color:#fff}.after p{font-size:17px;line-height:1.8;max-width:680px;margin:0 0 22px}
+.after a{display:inline-flex;gap:25px;color:#142b33;font-weight:800;font-size:13px;border-bottom:1px solid #9b7d4e;padding:13px 0}
+@media(max-width:720px){.hero{min-height:620px}.inner{padding:150px 25px 76px}.inner h1{font-size:clamp(53px,10vw,83px)}.inner p{font-size:15px}.body{padding:52px 21px}.after{padding:78px 23px}.after h2{font-size:clamp(41px,9vw,62px)}}
+@media(max-width:420px){.hero{min-height:580px}.inner{padding:138px 22px 65px}.inner h1{font-size:clamp(48px,11vw,60px)}.inner p{font-size:14px}.body{padding:35px 14px}.after h2{font-size:clamp(39px,10vw,50px)}.after p{font-size:14px}}

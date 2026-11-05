@@ -8,7 +8,7 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(process.env.STATIC_EXPORT_DIR ?? join(projectRoot, "out"));
 const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? "/igreja-deus-riacho-fundo-1").replace(/\/$/, "");
 const requiredPages = [
-  "index.html", "a-igreja/index.html", "contato/index.html", "eventos/index.html",
+  "index.html", "a-igreja/index.html", "contato/index.html", "eventos/index.html", "visita/index.html",
   "ministerios/index.html",
   ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { instagramUrl } from "../../lib/portal-content";
 import { portalVisuals } from "../../lib/portal-visuals";
 import { PublicPage } from "../../components/PublicPortal";
+import { VisitQuestions } from "../../components/FirstVisit";
 import s from "../ministerios/ministry-v3.module.css";
 
 export const metadata: Metadata = {
@@ -35,9 +36,10 @@ export default function ContactPage() {
         </div>
       </section>
       <section className={s.detailPurpose}>
-        <div><span className={s.label}>02 / INFORMAÇÕES OFICIAIS</span><h2>Estamos preparando <em>tudo para receber você.</em></h2></div>
-        <div><p>O endereço completo, horários de cultos e contatos serão apresentados aqui após validação institucional. Não vamos inventar essas informações nem coletar dados pessoais por formulários demonstrativos.</p></div>
+        <div><span className={s.label}>02 / INFORMAÇÕES OFICIAIS</span><h2>Informações seguras para <em>uma boa chegada.</em></h2></div>
+        <div><p>Para sua segurança, confirme o endereço, os horários e os avisos mais recentes no perfil oficial antes de visitar. Não coletamos dados pessoais nesta etapa e não divulgamos horários ainda não confirmados.</p></div>
       </section>
+      <VisitQuestions />
     </main>
   </PublicPage>;
 }

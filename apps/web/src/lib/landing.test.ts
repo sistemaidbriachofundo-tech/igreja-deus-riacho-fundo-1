@@ -8,6 +8,7 @@ const home = read("app/page.tsx");
 const hub = read("app/ministerios/page.tsx");
 const ministryPage = read("app/ministerios/[slug]/page.tsx");
 const agenda = read("app/eventos/page.tsx");
+const visit = read("app/visita/page.tsx");
 const about = read("app/a-igreja/page.tsx");
 const contact = read("app/contato/page.tsx");
 const shell = read("components/PublicPortal.tsx");
@@ -45,8 +46,11 @@ describe("portal público da igreja", () => {
     expect(events).toHaveLength(5);
     expect(events.every((event) => event.date && event.time && event.ministry)).toBe(true);
     expect(agenda).toContain("<DemoNote");
-    expect(home).toContain("<DemoNote");
-    expect(ministryPage).toContain("<DemoNote");
+    expect(home).toContain("<FirstVisitFeature");
+    expect(home).not.toContain("events.slice");
+    expect(home).not.toContain("Próximos encontros");
+    expect(ministryPage).toContain('"/visita/?ministerio=" + ministry.slug');
+    expect(ministryPage).not.toContain("Eventos demonstrativos");
     expect(shell).toContain("não são programação oficial");
   });
 
@@ -71,6 +75,8 @@ describe("portal público da igreja", () => {
     expect(shell).toContain('aria-label="Navegação principal"');
     expect(shell).toContain('aria-label="Menu mobile"');
     expect(shell).toContain("Pular para o conteúdo");
+    expect(shell).toContain('href="/visita/"');
+    expect(visit).toContain("<VisitPlanner");
     expect(about).toContain('id="conteudo"');
   });
 });
