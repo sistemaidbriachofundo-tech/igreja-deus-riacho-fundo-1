@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ROLE_CODES } from "./rbac";
 import {
+  canAdministerMinistries,
   canManageMemberships,
+  canManageSpecificMinistry,
   canViewOwnCredential,
 } from "./membership-scope";
 
@@ -73,5 +75,64 @@ describe("membership scope", () => {
   it("own credential is person_id titularidade only", () => {
     assert.equal(canViewOwnCredential("p1", "p1"), true);
     assert.equal(canViewOwnCredential("p1", "p2"), false);
+  });
+
+  it("LIDER só opera o ministry do grant", () => {
+    const grants = [
+      {
+        roleCode: ROLE_CODES.LIDER_MINISTERIO,
+        organizationId: org,
+        churchId: church,
+        ministryId: "min-jovens",
+      },
+    ];
+    assert.equal(
+      canManageSpecificMinistry(grants, "p-lider", {
+        organizationId: org,
+        churchId: church,
+        ministryId: "min-jovens",
+      }),
+      true,
+    );
+    assert.equal(
+      canManageSpecificMinistry(grants, "p-lider", {
+        organizationId: org,
+        churchId: church,
+        ministryId: "min-homens",
+      }),
+      false,
+    );
+    assert.equal(
+      canAdministerMinistries(grants, { organizationId: org, churchId: church }),
+      false,
+    );
+  });
+
+  it("LIDER sem grant.ministryId só via leaderPersonId", () => {
+    const grants = [
+      {
+        roleCode: ROLE_CODES.LIDER_MINISTERIO,
+        organizationId: org,
+        churchId: church,
+      },
+    ];
+    assert.equal(
+      canManageSpecificMinistry(grants, "p-lider", {
+        organizationId: org,
+        churchId: church,
+        ministryId: "min-jovens",
+        leaderPersonId: "p-lider",
+      }),
+      true,
+    );
+    assert.equal(
+      canManageSpecificMinistry(grants, "p-other", {
+        organizationId: org,
+        churchId: church,
+        ministryId: "min-jovens",
+        leaderPersonId: "p-lider",
+      }),
+      false,
+    );
   });
 });

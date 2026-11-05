@@ -1,0 +1,38 @@
+import { Controller, Get, Param } from "@nestjs/common";
+import { Public } from "../auth/decorators/public.decorator";
+import { PublicPortalService } from "./public-portal.service";
+
+@Controller("public")
+export class PublicPortalController {
+  constructor(private readonly portal: PublicPortalService) {}
+
+  @Public()
+  @Get("home")
+  home() {
+    return this.portal.home();
+  }
+
+  @Public()
+  @Get("ministries")
+  listMinistries() {
+    return this.portal.listMinistries();
+  }
+
+  @Public()
+  @Get("ministries/:slug")
+  getMinistry(@Param("slug") slug: string) {
+    return this.portal.getMinistryBySlug(slug);
+  }
+
+  @Public()
+  @Get("events")
+  listEvents() {
+    return this.portal.listEvents();
+  }
+
+  @Public()
+  @Get("events/:slug")
+  getEvent(@Param("slug") slug: string) {
+    return this.portal.getEventBySlug(slug);
+  }
+}

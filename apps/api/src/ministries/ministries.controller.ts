@@ -1,13 +1,17 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
+  IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   Min,
   MinLength,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -25,6 +29,67 @@ class CreateMinistryBody {
   @IsOptional()
   @IsString()
   leaderPersonId?: string;
+}
+
+class LeadershipPublicBody {
+  @IsString()
+  @MinLength(1)
+  displayName!: string;
+
+  @IsString()
+  @MinLength(1)
+  roleTitle!: string;
+}
+
+class PatchMinistryBody {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  leaderPersonId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  description?: string | null;
+
+  @IsOptional()
+  @IsString()
+  coverImageUrl?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  galleryUrls?: string[];
+
+  @IsOptional()
+  @IsString()
+  scheduleText?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LeadershipPublicBody)
+  leadershipPublic?: LeadershipPublicBody[];
+
+  @IsOptional()
+  @IsString()
+  participationInfo?: string | null;
+
+  @IsOptional()
+  @IsIn(["PUBLIC", "INTERNAL"])
+  visibility?: "PUBLIC" | "INTERNAL";
+
+  @IsOptional()
+  @IsIn(["DRAFT", "PUBLISHED", "ARCHIVED"])
+  publishStatus?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 }
 
 class CreateRosterBody {
@@ -100,6 +165,63 @@ export class MinistriesController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.ministries.listMinistries(user);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Get(":ministryId")
+  get(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+  ) {
+    return this.ministries.getMinistry(user, ministryId);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Patch(":ministryId")
+  patch(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Body() body: PatchMinistryBody,
+  ) {
+    return this.ministries.patchMinistry(user, ministryId, body);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Post(":ministryId/publish")
+  publish(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+  ) {
+    return this.ministries.publishMinistry(user, ministryId);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Post(":ministryId/archive")
+  archive(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+  ) {
+    return this.ministries.archiveMinistry(user, ministryId);
   }
 }
 

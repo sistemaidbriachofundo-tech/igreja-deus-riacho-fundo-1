@@ -25,6 +25,20 @@ describe("MinistriesService", () => {
         roleCode: "LIDER_MINISTERIO",
         organizationId: "org1",
         churchId: "church-rf1",
+        ministryId: "m1",
+      },
+    ],
+  };
+
+  const secretaria: AuthUser = {
+    userId: "u-sec",
+    personId: "p-sec",
+    email: "ana.demo@example.test",
+    grants: [
+      {
+        roleCode: "SECRETARIA",
+        organizationId: "org1",
+        churchId: "church-rf1",
       },
     ],
   };
@@ -64,7 +78,16 @@ describe("MinistriesService", () => {
     churchId: pilot.churchId,
     name: "Louvor",
     slug: "louvor",
-    leaderPersonId: null as string | null,
+    leaderPersonId: "p-lider" as string | null,
+    description: null as string | null,
+    coverImageUrl: null as string | null,
+    galleryUrls: [] as string[],
+    scheduleText: null as string | null,
+    leadershipPublic: null as unknown,
+    participationInfo: null as string | null,
+    visibility: "INTERNAL",
+    publishStatus: "DRAFT",
+    publishedAt: null as Date | null,
     createdAt: now,
     updatedAt: now,
   };
@@ -99,7 +122,17 @@ describe("MinistriesService", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("creates ministry for líder and audits", async () => {
+  it("forbids LIDER from creating ministries (admin only)", async () => {
+    const service = new MinistriesService(
+      { $transaction: jest.fn() } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.createMinistry(lider, { name: "Louvor", slug: "louvor" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("creates ministry for secretaria and audits", async () => {
     const tx = {
       ministry: {
         create: jest.fn().mockResolvedValue(ministryRow),
@@ -115,7 +148,7 @@ describe("MinistriesService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
 
-    const result = await service.createMinistry(lider, {
+    const result = await service.createMinistry(secretaria, {
       name: " Louvor ",
       slug: "Louvor",
       leaderPersonId: "p-lider",
@@ -135,15 +168,47 @@ describe("MinistriesService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createMinistry(lider, { name: " ", slug: "x" }),
+      service.createMinistry(secretaria, { name: " ", slug: "x" }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.createMinistry(lider, {
+      service.createMinistry(secretaria, {
         name: "X",
         slug: "x",
         leaderPersonId: "missing",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("LIDER patches own ministry but not another", async () => {
+    const other = { ...ministryRow, id: "m2", slug: "homens", leaderPersonId: "p-other" };
+    const tx = {
+      ministry: {
+        update: jest
+          .fn()
+          .mockResolvedValue({ ...ministryRow, description: "ok", publishStatus: "PUBLISHED", visibility: "PUBLIC", publishedAt: now }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      ministry: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(ministryRow)
+          .mockResolvedValueOnce(other),
+      },
+      ...withTx(tx),
+    };
+    const service = new MinistriesService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const patched = await service.patchMinistry(lider, "m1", {
+      description: "ok",
+    });
+    expect(patched.description).toBe("ok");
+    await expect(
+      service.patchMinistry(lider, "m2", { description: "nope" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("lists ministries", async () => {
@@ -188,7 +253,7 @@ describe("MinistriesService", () => {
         serviceAt: serviceAt.toISOString(),
         ministryId: "missing",
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(NotFoundException);
 
     const result = await service.createRoster(lider, {
       title: " Culto Domingo ",

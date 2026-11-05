@@ -242,40 +242,20 @@ async function main() {
     where: { code: "MEMBRO" },
   });
 
-  await prisma.grant.upsert({
-    where: {
-      userId_roleId_organizationId_churchId: {
-        userId: adminUser.id,
-        roleId: secretaria.id,
-        organizationId: org.id,
-        churchId: church.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: adminUser.id,
-      roleId: secretaria.id,
-      organizationId: org.id,
-      churchId: church.id,
-    },
+  await upsertChurchGrant({
+    prisma,
+    userId: adminUser.id,
+    roleId: secretaria.id,
+    organizationId: org.id,
+    churchId: church.id,
   });
 
-  await prisma.grant.upsert({
-    where: {
-      userId_roleId_organizationId_churchId: {
-        userId: memberUser.id,
-        roleId: membro.id,
-        organizationId: org.id,
-        churchId: church.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: memberUser.id,
-      roleId: membro.id,
-      organizationId: org.id,
-      churchId: church.id,
-    },
+  await upsertChurchGrant({
+    prisma,
+    userId: memberUser.id,
+    roleId: membro.id,
+    organizationId: org.id,
+    churchId: church.id,
   });
 
   const anaMembership = await prisma.churchMembership.upsert({
@@ -370,22 +350,12 @@ async function main() {
     where: { code: "PASTOR" },
   });
 
-  await prisma.grant.upsert({
-    where: {
-      userId_roleId_organizationId_churchId: {
-        userId: pastorUser.id,
-        roleId: pastorRole.id,
-        organizationId: org.id,
-        churchId: church.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: pastorUser.id,
-      roleId: pastorRole.id,
-      organizationId: org.id,
-      churchId: church.id,
-    },
+  await upsertChurchGrant({
+    prisma,
+    userId: pastorUser.id,
+    roleId: pastorRole.id,
+    organizationId: org.id,
+    churchId: church.id,
   });
 
   await prisma.churchMembership.upsert({
@@ -485,6 +455,231 @@ async function main() {
       name: "Louvor (demo)",
       slug: "louvor-demo",
       leaderPersonId: memberPerson.id,
+      visibility: "INTERNAL",
+      publishStatus: "DRAFT",
+    },
+  });
+
+  const liderJovensPerson = await prisma.person.upsert({
+    where: { id: "demoPersonLiderJovens" },
+    update: {
+      displayName: "Líder Demo Jovens",
+      email: "lider.jovens.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      kind: "MEMBER",
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoPersonLiderJovens",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Líder Demo Jovens",
+      email: "lider.jovens.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+
+  const liderJovensUser = await prisma.user.upsert({
+    where: { email: "lider.jovens.demo@example.test" },
+    update: {
+      personId: liderJovensPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      personId: liderJovensPerson.id,
+      email: "lider.jovens.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+
+  const portalMinistries = [
+    {
+      id: "demoMinistryJovens",
+      slug: "jovens",
+      name: "Ministério de Jovens",
+      description: "Encontros, discipulado e comunhão da juventude (demo).",
+      scheduleText: "Sábados 19h — salão jovem (demo)",
+      participationInfo: "Fale com a liderança após o culto (demo).",
+      leadershipPublic: [
+        { displayName: "Líder Demo Jovens", roleTitle: "Coordenação" },
+      ],
+    },
+    {
+      id: "demoMinistryHomens",
+      slug: "homens",
+      name: "Ministério de Homens",
+      description: "Comunhão e formação de homens (demo).",
+      scheduleText: "Mensal — 1º sábado (demo)",
+      participationInfo: "Inscrição via secretaria (demo).",
+      leadershipPublic: [
+        { displayName: "Líder Demo Homens", roleTitle: "Coordenação" },
+      ],
+    },
+    {
+      id: "demoMinistryAdolescentes",
+      slug: "adolescentes",
+      name: "Ministério de Adolescentes",
+      description: "Geração adolescente — encontros e cuidado (demo).",
+      scheduleText: "Sextas 19h30 (demo)",
+      participationInfo: "Responsável legal acompanha menores (demo).",
+      leadershipPublic: [
+        { displayName: "Líder Demo Adolescentes", roleTitle: "Coordenação" },
+      ],
+    },
+    {
+      id: "demoMinistryMulheres",
+      slug: "mulheres",
+      name: "Ministério de Mulheres",
+      description: "Encontros e discipulado de mulheres (demo).",
+      scheduleText: "Quinzenal — terças 20h (demo)",
+      participationInfo: "Participe dos círculos (demo).",
+      leadershipPublic: [
+        { displayName: "Líder Demo Mulheres", roleTitle: "Coordenação" },
+      ],
+    },
+    {
+      id: "demoMinistryAtmosfera",
+      slug: "atmosfera",
+      name: "Atmosfera (voluntariado)",
+      description:
+        "Equipes de hospitalidade e voluntariado nos cultos (demo).",
+      scheduleText: "Escalas semanais via roster (demo)",
+      participationInfo:
+        "Manifeste interesse pelo formulário público (Frente E).",
+      leadershipPublic: [
+        { displayName: "Líder Demo Atmosfera", roleTitle: "Coordenação" },
+      ],
+    },
+  ] as const;
+
+  for (const m of portalMinistries) {
+    await prisma.ministry.upsert({
+      where: { churchId_slug: { churchId: church.id, slug: m.slug } },
+      update: {
+        name: m.name,
+        description: m.description,
+        scheduleText: m.scheduleText,
+        participationInfo: m.participationInfo,
+        leadershipPublic: [...m.leadershipPublic],
+        coverImageUrl: `/images/ministries/${m.slug}-demo.jpg`,
+        galleryUrls: [`/images/ministries/${m.slug}-gallery-1-demo.jpg`],
+        visibility: "PUBLIC",
+        publishStatus: "PUBLISHED",
+        publishedAt: new Date("2026-11-05T12:00:00.000Z"),
+        leaderPersonId:
+          m.slug === "jovens" ? liderJovensPerson.id : memberPerson.id,
+      },
+      create: {
+        id: m.id,
+        organizationId: org.id,
+        churchId: church.id,
+        name: m.name,
+        slug: m.slug,
+        description: m.description,
+        scheduleText: m.scheduleText,
+        participationInfo: m.participationInfo,
+        leadershipPublic: [...m.leadershipPublic],
+        coverImageUrl: `/images/ministries/${m.slug}-demo.jpg`,
+        galleryUrls: [`/images/ministries/${m.slug}-gallery-1-demo.jpg`],
+        visibility: "PUBLIC",
+        publishStatus: "PUBLISHED",
+        publishedAt: new Date("2026-11-05T12:00:00.000Z"),
+        leaderPersonId:
+          m.slug === "jovens" ? liderJovensPerson.id : memberPerson.id,
+      },
+    });
+  }
+
+  const liderRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "LIDER_MINISTERIO" },
+  });
+
+  const jovensMinistry = await prisma.ministry.findUniqueOrThrow({
+    where: { churchId_slug: { churchId: church.id, slug: "jovens" } },
+  });
+
+  await upsertChurchGrant({
+    prisma,
+    userId: liderJovensUser.id,
+    roleId: liderRole.id,
+    organizationId: org.id,
+    churchId: church.id,
+    ministryId: jovensMinistry.id,
+  });
+
+  await prisma.churchMembership.upsert({
+    where: {
+      personId_churchId: {
+        personId: liderJovensPerson.id,
+        churchId: church.id,
+      },
+    },
+    update: { status: "ACTIVE", notes: "Líder jovens demo" },
+    create: {
+      personId: liderJovensPerson.id,
+      churchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      notes: "Líder jovens demo",
+    },
+  });
+
+  await prisma.portalEvent.upsert({
+    where: {
+      churchId_slug: { churchId: church.id, slug: "encontro-jovens-demo" },
+    },
+    update: {
+      name: "Encontro de Jovens (demo)",
+      status: "PUBLISHED",
+      featuredOnHome: true,
+      ministryId: jovensMinistry.id,
+    },
+    create: {
+      id: "demoPortalEvent01",
+      organizationId: org.id,
+      churchId: church.id,
+      ministryId: jovensMinistry.id,
+      name: "Encontro de Jovens (demo)",
+      slug: "encontro-jovens-demo",
+      description: "Noite de comunhão e palavra — dados fictícios.",
+      imageUrl: "/images/events/encontro-jovens-demo.jpg",
+      startsAt: new Date("2026-11-15T22:00:00.000Z"),
+      endsAt: new Date("2026-11-16T01:00:00.000Z"),
+      locationText: "Salão jovem — Riacho Fundo I (demo)",
+      status: "PUBLISHED",
+      featuredOnHome: true,
+      publishedAt: new Date("2026-11-05T12:00:00.000Z"),
+    },
+  });
+
+  await prisma.portalEvent.upsert({
+    where: {
+      churchId_slug: { churchId: church.id, slug: "culto-familia-demo" },
+    },
+    update: {
+      name: "Culto em Família (demo)",
+      status: "PUBLISHED",
+      featuredOnHome: true,
+    },
+    create: {
+      id: "demoPortalEvent02",
+      organizationId: org.id,
+      churchId: church.id,
+      ministryId: null,
+      name: "Culto em Família (demo)",
+      slug: "culto-familia-demo",
+      description: "Culto dominical institucional (demo).",
+      imageUrl: "/images/events/culto-familia-demo.jpg",
+      startsAt: new Date("2026-11-09T21:00:00.000Z"),
+      endsAt: new Date("2026-11-09T23:00:00.000Z"),
+      locationText: "Templo principal (demo)",
+      status: "PUBLISHED",
+      featuredOnHome: true,
+      publishedAt: new Date("2026-11-05T12:00:00.000Z"),
     },
   });
 
@@ -501,7 +696,7 @@ async function main() {
     },
   });
 
-  console.log("Seed OK (fictício RF1 + destino transfer + F3 demos):", {
+  console.log("Seed OK (fictício RF1 + portal ministries/events):", {
     org: org.slug,
     church: church.slug,
     churchDest: churchDest.slug,
@@ -512,13 +707,55 @@ async function main() {
       memberPerson.id,
       visitorPerson.id,
       "demoPersonMenor01",
+      liderJovensPerson.id,
     ],
-    users: [adminUser.email, memberUser.email, pastorUser.email],
+    users: [
+      adminUser.email,
+      memberUser.email,
+      pastorUser.email,
+      liderJovensUser.email,
+    ],
     memberships: [anaMembership.id, brunoMembership.id],
     f3: {
       track: "demoTrack01",
       ministry: "demoMinistry01",
       group: "demoGroup01",
+    },
+    portal: {
+      ministries: portalMinistries.map((m) => m.slug),
+      events: ["encontro-jovens-demo", "culto-familia-demo"],
+    },
+  });
+}
+
+/** Grant church-wide ou ministry-scoped (ministryId null = igreja). */
+async function upsertChurchGrant(input: {
+  prisma: PrismaClient;
+  userId: string;
+  roleId: string;
+  organizationId: string;
+  churchId: string;
+  ministryId?: string | null;
+}) {
+  const existing = await input.prisma.grant.findFirst({
+    where: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: input.churchId,
+      ministryId: input.ministryId ?? null,
+    },
+  });
+  if (existing) {
+    return existing;
+  }
+  return input.prisma.grant.create({
+    data: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: input.churchId,
+      ministryId: input.ministryId ?? null,
     },
   });
 }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.3.0-f3
+  version: 0.4.0-portal
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -9,6 +9,7 @@ info:
     - `x-implementation: implemented` — disponível na API Nest
     - 0.2.1–0.2.3: pessoas, famílias, docs, meta, audit, list households
     - 0.3.0-f3: transferências, cartas versionadas, pastoral, discipulado, células, escalas
+    - 0.4.0-portal: perfil público Ministry, eventos portal, GET /public/*
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -37,6 +38,8 @@ tags:
   - name: discipleship
   - name: groups
   - name: ministries
+  - name: events
+  - name: public
 
 components:
   securitySchemes:
@@ -1661,3 +1664,279 @@ paths:
       responses:
         "201":
           description: Novo assignment PENDING; original SUBSTITUTED
+
+  /ministries/{ministryId}:
+    get:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Detalhe admin do ministério (perfil portal)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: ministryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ministry profile DTO
+    patch:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Atualiza perfil público / publish fields
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: ministryId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                description: { type: string }
+                coverImageUrl: { type: string }
+                galleryUrls:
+                  type: array
+                  items: { type: string }
+                scheduleText: { type: string }
+                leadershipPublic:
+                  type: array
+                  items:
+                    type: object
+                    required: [displayName, roleTitle]
+                    properties:
+                      displayName: { type: string }
+                      roleTitle: { type: string }
+                participationInfo: { type: string }
+                visibility: { type: string, enum: [PUBLIC, INTERNAL] }
+                publishStatus: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+                leaderPersonId: { type: string }
+      responses:
+        "200":
+          description: Ministry atualizado
+        "403":
+          description: Líder fora do próprio ministério
+
+  /ministries/{ministryId}/publish:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Publica ministério (PUBLIC + PUBLISHED)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: ministryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Publicado
+
+  /ministries/{ministryId}/archive:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Arquiva ministério
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: ministryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Arquivado
+
+  /events:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista eventos (admin)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope events[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria evento portal (sem inscrição/financeiro)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug, startsAt]
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                startsAt: { type: string, format: date-time }
+                endsAt: { type: string, format: date-time }
+                description: { type: string }
+                imageUrl: { type: string }
+                locationText: { type: string }
+                ministryId: { type: string }
+                featuredOnHome: { type: boolean }
+      responses:
+        "201":
+          description: Evento DRAFT criado
+
+  /events/{eventId}:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Detalhe admin do evento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Event DTO
+    patch:
+      tags: [events]
+      x-implementation: implemented
+      summary: Atualiza evento / status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                slug: { type: string }
+                startsAt: { type: string, format: date-time }
+                endsAt: { type: string, format: date-time }
+                description: { type: string }
+                imageUrl: { type: string }
+                locationText: { type: string }
+                ministryId: { type: string }
+                featuredOnHome: { type: boolean }
+                status: { type: string, enum: [DRAFT, PUBLISHED, CANCELLED, ARCHIVED] }
+      responses:
+        "200":
+          description: Evento atualizado
+
+  /events/{eventId}/publish:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Publica evento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PUBLISHED
+
+  /events/{eventId}/cancel:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cancela evento publicado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CANCELLED
+
+  /events/{eventId}/archive:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Arquiva evento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: ARCHIVED
+
+  /public/home:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Stub home pública (ministérios + featured events; CMS Frente D)
+      security: []
+      responses:
+        "200":
+          description: Home envelope sem PII sensível
+
+  /public/ministries:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Lista ministérios PUBLIC+PUBLISHED
+      security: []
+      responses:
+        "200":
+          description: Envelope ministries[]
+
+  /public/ministries/{slug}:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Perfil público do ministério + eventos relacionados
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Perfil público
+        "404":
+          description: Não publicado / inexistente
+
+  /public/events:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Lista eventos PUBLISHED
+      security: []
+      responses:
+        "200":
+          description: Envelope events[]
+
+  /public/events/{slug}:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Detalhe evento PUBLISHED
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Evento público
+        "404":
+          description: Não publicado / inexistente

@@ -15,8 +15,10 @@ import {
   RostersController,
   RosterSlotsController,
 } from "./ministries/ministries.controller";
+import { EventsController } from "./events/events.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
+import { PublicPortalController } from "./public-portal/public-portal.controller";
 import { TransfersController } from "./transfers/transfers.controller";
 import type { AuthUser } from "./auth/types/auth-user";
 
@@ -258,6 +260,10 @@ describe("controller wiring (delegates to services)", () => {
     const ministries = {
       createMinistry: jest.fn(),
       listMinistries: jest.fn(),
+      getMinistry: jest.fn(),
+      patchMinistry: jest.fn(),
+      publishMinistry: jest.fn(),
+      archiveMinistry: jest.fn(),
       createRoster: jest.fn(),
       listRosters: jest.fn(),
       addSlot: jest.fn(),
@@ -269,6 +275,10 @@ describe("controller wiring (delegates to services)", () => {
     const m = new MinistriesController(ministries as never);
     await m.create(user, { name: "Louvor", slug: "louvor" });
     await m.list(user);
+    await m.get(user, "m1");
+    await m.patch(user, "m1", { description: "x" });
+    await m.publish(user, "m1");
+    await m.archive(user, "m1");
     const r = new RostersController(ministries as never);
     await r.create(user, {
       title: "Culto",
@@ -283,5 +293,47 @@ describe("controller wiring (delegates to services)", () => {
     await a.decline(user, "as1");
     await a.substitute(user, "as1", { personId: "p2" });
     expect(ministries.substituteAssignment).toHaveBeenCalled();
+  });
+
+  it("EventsController", async () => {
+    const events = {
+      create: jest.fn(),
+      list: jest.fn(),
+      get: jest.fn(),
+      patch: jest.fn(),
+      publish: jest.fn(),
+      cancel: jest.fn(),
+      archive: jest.fn(),
+    };
+    const c = new EventsController(events as never);
+    await c.create(user, {
+      name: "Encontro",
+      slug: "encontro",
+      startsAt: "2026-11-15T22:00:00Z",
+    });
+    await c.list(user);
+    await c.get(user, "e1");
+    await c.patch(user, "e1", { featuredOnHome: true });
+    await c.publish(user, "e1");
+    await c.cancel(user, "e1");
+    await c.archive(user, "e1");
+    expect(events.archive).toHaveBeenCalledWith(user, "e1");
+  });
+
+  it("PublicPortalController", async () => {
+    const portal = {
+      home: jest.fn().mockResolvedValue({ ministries: [] }),
+      listMinistries: jest.fn(),
+      getMinistryBySlug: jest.fn(),
+      listEvents: jest.fn(),
+      getEventBySlug: jest.fn(),
+    };
+    const c = new PublicPortalController(portal as never);
+    await c.home();
+    await c.listMinistries();
+    await c.getMinistry("jovens");
+    await c.listEvents();
+    await c.getEvent("encontro-jovens-demo");
+    expect(portal.getEventBySlug).toHaveBeenCalledWith("encontro-jovens-demo");
   });
 });
