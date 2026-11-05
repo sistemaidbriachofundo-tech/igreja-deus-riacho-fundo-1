@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { withBasePath } from "../lib/paths";
 import { useChurchRecords } from "../lib/use-church-records";
