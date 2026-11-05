@@ -54,9 +54,11 @@ describe("gestão operacional sintética e identidade da igreja", () => {
   it("apresenta responsividade e validações de acessibilidade", () => {
     expect(style).toContain("@media(max-width:690px)");
     expect(membersStyle).toContain("@media(max-width:390px)");
+    expect(membersUI).toContain("pessoas-sinteticas.webp");
+    expect(shell).toContain("logo-igreja-aprovada.webp");
     expect(membersUI).toContain("filterMembers(people");
     expect(membersUI).toContain("createMember(people");
-    expect(membersUI).toContain("Dados sintéticos");
+    expect(membersUI).toContain("dados sintéticos");
     expect(main).toContain('role="dialog"');
     expect(main).toContain("aria-label");
   });
