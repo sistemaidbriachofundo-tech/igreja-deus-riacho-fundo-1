@@ -18,15 +18,6 @@ function CrossMark() {
   );
 }
 
-function IconDemo() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
-      <path d="M12 2l2.1 7.3L21.5 12l-7.4 2.7L12 22l-2.1-7.3L2.5 12l7.4-2.7L12 2Z"
-        stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function IconOverview() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none">
@@ -126,10 +117,6 @@ const NAV: {
     short: "Carteira",
     Icon: IconCard,
   },
-  {
-    key: "demo", href: "/app/demo/", label: "Explorar demonstração",
-    short: "Testar", Icon: IconDemo,
-  },
 ];
 
 export function AppShell({
@@ -154,7 +141,7 @@ export function AppShell({
           </div>
         </div>
 
-        <p className="side-caption">Gestão da igreja</p>
+        <p className="side-caption">PLATAFORMA DE GESTÃO</p>
 
         <nav className="sidebar-nav" aria-label="Módulos">
           {NAV.map(({ key, href, label, Icon }) => (
@@ -172,7 +159,7 @@ export function AppShell({
 
         <p className="sidebar-foot">
           <a href={withBasePath("/")}>← Site público</a>
-          <span>Plataforma em implantação</span>
+          <span>Homologação • Dados sintéticos</span>
         </p>
       </aside>
 
@@ -192,11 +179,11 @@ export function AppShell({
         <header className="topbar">
           <div className="topbar-left">
             <p className="topbar-title">{APP_NAME}</p>
-            <span className="preview-chip" title="Ambiente demonstrativo">
-              Ambiente em implantação
+            <span className="preview-chip" title="Ambiente de homologação visual com dados sintéticos">
+              <span className="preview-dot" aria-hidden="true" /> Base sintética
             </span>
           </div>
-          <p className="topbar-meta">{meta}</p>
+          <div className="topbar-right"><p className="topbar-meta">{meta}</p><span className="topbar-profile" aria-label="Área administrativa">ID</span></div>
         </header>
         <main className="content">{children}</main>
       </div>
