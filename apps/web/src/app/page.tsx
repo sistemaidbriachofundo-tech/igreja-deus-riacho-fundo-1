@@ -82,7 +82,6 @@ export default function HomePage() {
           <div className={s.visitActions}><Link href="/contato/">Prepare sua primeira visita <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
         </section>
 
-        <ContactCTA title="Nossa casa também tem lugar para você." text="Estamos preparando a experiência digital da igreja para acolher quem chega e conectar quem já faz parte." />
       </main>
     </PublicPage>
   );
