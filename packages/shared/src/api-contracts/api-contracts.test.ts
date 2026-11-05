@@ -62,5 +62,17 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["POST /transfers"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /pastoral-cases"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /rosters"], "implemented");
+    assert.equal(
+      API_ENDPOINT_STATUS["PATCH /pastoral-cases/:caseId/tasks/:taskId"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /assignments/:assignmentId/substitute"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /small-groups/:groupId/meetings"],
+      "implemented",
+    );
   });
 });
