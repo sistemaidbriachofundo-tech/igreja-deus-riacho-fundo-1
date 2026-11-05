@@ -149,7 +149,7 @@ export function MemberDirectory() {
         </div>
       </header>
 
-      <section className={styles.banner} aria-label="Mensagem institucional">
+      <section className={styles.banner} aria-label="Mensagem institucional" style={{ "--banner-photo": `url("${withBasePath("/images/comunidade-oficial.jpg")}")` } as React.CSSProperties}>
         <div className={styles.bannerContent}>
           <span className={styles.bannerOverline}>IGREJA DE DEUS · RIACHO FUNDO I</span>
           <h2>Mais que registros.<br/><em>Pessoas e histórias.</em></h2>
