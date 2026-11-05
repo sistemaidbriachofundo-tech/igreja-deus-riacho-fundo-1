@@ -8,9 +8,9 @@ import { withBasePath } from "../lib/paths";
 import s from "./church-credentials.module.css";
 
 function Photo({ person, wide=false }: { person:Member;wide?:boolean }){
-  const index=(Math.max(0,Number(person.id.split("-").at(-1))-1))%6;
-  return <span role="img" aria-label={"Retrato sintético de "+person.name} className={wide?s.photoLarge:s.photo}
-    style={{backgroundImage:`url("${withBasePath("/images/pessoas-sinteticas.webp")}")`,backgroundPosition:`${index*20}% center`}}/>;
+  const words=person.name.trim().split(/\s+/);
+  const initials=[words[0]?.[0],words.at(-1)?.[0]].filter(Boolean).join("").toUpperCase();
+  return <span role="img" aria-label={"Avatar sintético de "+person.name} className={wide?s.photoLarge:s.photo}>{initials}</span>;
 }
 function stateText(person:Member){return person.card==="ACTIVE"?"Ativa":person.card==="REVOKED"?"Revogada":"Não emitida";}
 
