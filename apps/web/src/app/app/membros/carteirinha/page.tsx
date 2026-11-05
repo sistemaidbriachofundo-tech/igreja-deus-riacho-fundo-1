@@ -1,5 +1,5 @@
-import { ChurchWorkspace } from "../../../../components/ChurchWorkspace";
+import { ChurchCredentials } from "../../../../components/ChurchCredentials";
 
 export default function CarteirinhaPage() {
-  return <ChurchWorkspace view="cards" />;
+  return <ChurchCredentials />;
 }
