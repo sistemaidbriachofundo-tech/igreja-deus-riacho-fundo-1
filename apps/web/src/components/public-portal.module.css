@@ -200,3 +200,12 @@
 .ministryArtwork[data-tone="rose"]{background:radial-gradient(circle at 82% 20%,rgba(252,195,166,.46),transparent 28%),radial-gradient(circle at 0% 96%,rgba(229,142,157,.45),transparent 37%),linear-gradient(125deg,#463139,#a56776 58%,#4a303b)}
 .ministryArtwork::before{content:"";position:absolute;inset:auto -12% -36% auto;width:95%;aspect-ratio:1;border:1px solid rgba(253,223,173,.27);border-radius:50%;box-shadow:0 0 0 55px rgba(253,223,173,.045),0 0 0 118px rgba(253,223,173,.035)}
 .ministryArtwork>span{position:absolute;bottom:14%;right:-4%;text-transform:uppercase;font:800 clamp(58px,10vw,180px) Montserrat,Arial,sans-serif;letter-spacing:-.085em;line-height:1;color:rgba(255,234,206,.12);transform:rotate(-12deg)}
+
+/* Distinct nonphotographic editorial banners for public agenda and first visit. */
+.agendaBannerArt,.contactBannerArt{position:absolute;inset:0;z-index:-2;display:block;overflow:hidden}
+.agendaBannerArt{background:radial-gradient(circle at 78% 42%,rgba(206,160,92,.60),transparent 27%),radial-gradient(circle at 15% 108%,rgba(107,116,99,.44),transparent 40%),linear-gradient(115deg,#242d2c,#776244 65%,#302f29)}
+.agendaBannerArt::before{content:"";position:absolute;width:75%;aspect-ratio:1;right:-25%;top:-105%;border:2px solid rgba(242,206,139,.26);border-radius:50%;box-shadow:0 0 0 66px rgba(236,204,150,.045),0 0 0 147px rgba(236,204,150,.036)}
+.agendaBannerArt::after{content:"ENCONTROS";position:absolute;right:-9%;bottom:-36%;transform:rotate(-10deg);font:800 clamp(65px,12vw,180px) Montserrat,Arial,sans-serif;letter-spacing:-.09em;color:rgba(255,235,194,.10)}
+.contactBannerArt{background:radial-gradient(circle at 83% 25%,rgba(236,192,116,.62),transparent 24%),radial-gradient(circle at 58% 110%,rgba(177,119,83,.43),transparent 50%),linear-gradient(120deg,#31231d,#805c46 65%,#423125)}
+.contactBannerArt::before{content:"";position:absolute;width:65%;aspect-ratio:1;right:-12%;top:-95%;border:2px solid rgba(248,210,151,.32);border-radius:50%;box-shadow:0 0 0 57px rgba(248,210,151,.043),0 0 0 132px rgba(248,210,151,.033)}
+.contactBannerArt::after{content:"BEM-VINDO";position:absolute;right:-8%;bottom:-30%;transform:rotate(-11deg);font:800 clamp(66px,12vw,190px) Montserrat,Arial,sans-serif;letter-spacing:-.09em;color:rgba(255,231,204,.12)}

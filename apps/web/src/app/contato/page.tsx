@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { instagramUrl } from "../../lib/portal-content";
-import { withBasePath } from "../../lib/paths";
 import { PublicPage, Eyebrow, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
 
 export const metadata: Metadata = {
@@ -13,8 +12,7 @@ export default function ContactPage() {
   return <PublicPage>
     <main id="conteudo">
       <section className={s.subhero}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={withBasePath("/images/comunidade-oficial.jpg")} alt="" className={s.subheroImage} />
+        <span className={s.contactBannerArt} aria-hidden="true" />
         <span className={s.subheroOverlay} />
         <div className={s.subheroContent}>
           <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span>Contato</div>

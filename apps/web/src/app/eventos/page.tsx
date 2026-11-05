@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { events } from "../../lib/portal-content";
-import { withBasePath } from "../../lib/paths";
 import { PublicPage, Eyebrow, DemoNote, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
 import { EventFilter } from "../../components/EventFilter";
 
@@ -14,8 +13,7 @@ export default function EventsPage() {
   return <PublicPage>
     <main id="conteudo">
       <section className={s.subhero}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={withBasePath("/images/hero-oficial.jpg")} alt="" className={s.subheroImage} />
+        <span className={s.agendaBannerArt} aria-hidden="true" />
         <span className={s.subheroOverlay} />
         <div className={s.subheroContent}>
           <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span>Agenda</div>
