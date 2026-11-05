@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { withBasePath } from "../lib/paths";
-import { events, instagramUrl } from "../lib/portal-content";
+import { events } from "../lib/portal-content";
 import {
   PublicPage, Eyebrow, MinistryGrid, EventCard, DemoNote, ContactCTA,
   portalStyles as s,

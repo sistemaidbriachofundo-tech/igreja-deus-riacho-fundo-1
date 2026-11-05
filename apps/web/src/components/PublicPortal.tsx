@@ -78,7 +78,7 @@ export function SectionHeading({ id, eyebrow, title, description, href, linkLabe
   return <div className={s.sectionHeading}><div><Eyebrow>{eyebrow}</Eyebrow><h2 id={id}>{title}</h2>{description && <p>{description}</p>}</div>{href && <Link href={href} className={s.textLink}>{linkLabel || "Ver mais"} <span aria-hidden="true">↗</span></Link>}</div>;
 }
 
-export function MinistryCard({ ministry, featured: _featured = false, index }: { ministry: PortalMinistry; featured?: boolean; index: number }) {
+export function MinistryCard({ ministry, index }: { ministry: PortalMinistry; featured?: boolean; index: number }) {
   const decorativeImage = ministry.slug === "atmosfera" ? (
     <span className={s.atmosphereArtwork} aria-hidden="true" />
   ) : ministry.slug === "homens" || ministry.slug === "mulheres" ? (
