@@ -57,7 +57,7 @@ export default function HomePage() {
         </section>
 
         <section className={s.mainSection} aria-labelledby="ministries-title">
-          <SectionHeading eyebrow="NOSSOS MINISTÉRIOS" title="Muitos caminhos. Um mesmo propósito." description="Encontre pessoas com quem caminhar. Cada ministério é uma porta para conexão, crescimento e serviço." href="/ministerios/" linkLabel="Conheça todos" />
+          <SectionHeading id="ministries-title" eyebrow="NOSSOS MINISTÉRIOS" title="Muitos caminhos. Um mesmo propósito." description="Encontre pessoas com quem caminhar. Cada ministério é uma porta para conexão, crescimento e serviço." href="/ministerios/" linkLabel="Conheça todos" />
           <MinistryGrid />
         </section>
 
