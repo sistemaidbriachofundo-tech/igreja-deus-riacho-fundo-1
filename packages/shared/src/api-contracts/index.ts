@@ -30,6 +30,7 @@ export type {
   CredentialMeResponse,
   CredentialVerifyResponse,
   HouseholdDto,
+  HouseholdListResponse,
   CreateHouseholdRequest,
   PersonSearchRequest,
   PersonSearchHit,
@@ -52,6 +53,7 @@ export type {
  */
 export const API_ENDPOINT_STATUS = {
   "GET /health": "implemented",
+  "GET /meta": "implemented",
   "POST /auth/login": "implemented",
   "GET /auth/me": "implemented",
   "GET /memberships": "implemented",
@@ -65,6 +67,7 @@ export const API_ENDPOINT_STATUS = {
   "GET /persons/:personId/dossier": "implemented",
   "PATCH /persons/:personId": "implemented",
   "POST /households": "implemented",
+  "GET /households": "implemented",
   "GET /households/:householdId": "implemented",
   "POST /households/:householdId/members": "implemented",
   "DELETE /households/:householdId/members/:personId": "implemented",
@@ -75,6 +78,7 @@ export const API_ENDPOINT_STATUS = {
   "GET /admissions/:admissionId/documents": "implemented",
   "POST /admissions/:admissionId/documents": "implemented",
   "GET /admissions/:admissionId/documents/:documentId": "implemented",
+  "GET /audit-logs": "implemented",
   "POST /credentials/reissue/:membershipId": "implemented",
 } as const;
 

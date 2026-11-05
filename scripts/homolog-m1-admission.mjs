@@ -49,6 +49,11 @@ async function main() {
     assert(health.status === 200, `health ${health.status}`);
     log("GET /health", true, JSON.stringify(health.json));
 
+    const meta = await req("GET", "/meta");
+    assert(meta.status === 200, `meta ${meta.status}`);
+    assert(meta.json?.contractVersion, "contractVersion");
+    log("GET /meta", true, meta.json.contractVersion);
+
     const ana = await login("ana.demo@example.test");
     log("login SECRETARIA", true, ana.user?.email);
     const pastor = await login("pastor.demo@example.test");
@@ -155,6 +160,29 @@ async function main() {
     assert(hh.status < 300, `household ${hh.status}`);
     log("POST /households", true, hh.json.id);
 
+    const hhList = await req("GET", "/households", { token: ana.accessToken });
+    assert(hhList.status === 200 && Array.isArray(hhList.json.households), "list households");
+    log("GET /households", true, `n=${hhList.json.households.length}`);
+
+    const addMem = await req("POST", `/households/${hh.json.id}/members`, {
+      token: ana.accessToken,
+      body: { memberPersonIds: [created.json.personId] },
+    });
+    assert(addMem.status < 300, `add members ${addMem.status} ${JSON.stringify(addMem.json)}`);
+    assert(
+      addMem.json.memberPersonIds?.includes(created.json.personId),
+      "member linked",
+    );
+    log("POST /households/:id/members", true, created.json.personId);
+
+    const menor = await req("GET", "/persons/demoPersonMenor01", {
+      token: ana.accessToken,
+    });
+    assert(menor.status === 200, `menor ${menor.status}`);
+    assert(menor.json.isMinor === true, "seed menor");
+    assert(menor.json.legalGuardianPersonId === "demoPersonRiacho01", "guardião Ana");
+    log("GET seed menor+guardião", true, menor.json.displayName);
+
     const dossier = await req("GET", `/persons/${created.json.personId}/dossier`, {
       token: ana.accessToken,
     });
@@ -188,6 +216,21 @@ async function main() {
     });
     assert(listed.status === 200 && listed.json.documents?.length >= 1, "list docs");
     log("GET documents (pastor)", true, `n=${listed.json.documents.length}`);
+
+    const dlRes = await fetch(
+      `${BASE}/admissions/${admissionId}/documents/${upJson.id}`,
+      { headers: { authorization: `Bearer ${pastor.accessToken}` } },
+    );
+    assert(dlRes.status === 200, `download ${dlRes.status}`);
+    const dlBuf = Buffer.from(await dlRes.arrayBuffer());
+    assert(dlBuf.includes(Buffer.from("%PDF-FAKE-HOMOLOG")), "download bytes");
+    log("GET document download (pastor)", true, `bytes=${dlBuf.length}`);
+
+    const audits = await req("GET", "/audit-logs?limit=5", {
+      token: ana.accessToken,
+    });
+    assert(audits.status === 200, `audit ${audits.status}`);
+    log("GET /audit-logs", true, `n=${audits.json.logs?.length ?? 0}`);
 
     const noAuth = await req("GET", "/admissions");
     assert(noAuth.status === 401, `no jwt → ${noAuth.status}`);

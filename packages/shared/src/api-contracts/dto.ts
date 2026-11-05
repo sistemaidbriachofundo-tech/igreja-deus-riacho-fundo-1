@@ -100,7 +100,13 @@ export interface HouseholdDto {
   churchId: string;
   organizationId: string;
   memberPersonIds: string[];
+  members?: Array<{ id: string; displayName: string; isMinor: boolean }>;
   createdAt: string;
+}
+
+export interface HouseholdListResponse {
+  churchId: string;
+  households: HouseholdDto[];
 }
 
 export interface CreateHouseholdRequest {

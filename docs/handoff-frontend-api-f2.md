@@ -1,9 +1,10 @@
 # Handoff FE ← BE — contratos F2 (ChatGPT / `apps/web`)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.2.1-f2"`  
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.2.3-f2"`  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
 **Base DEV:** `http://localhost:3001`  
-**Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md`
+**Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md`  
+**Descoberta:** `GET /meta` (público) devolve `contractVersion` + mapa `endpoints`.
 
 > Backend **não** altera `apps/web`.
 
@@ -26,7 +27,7 @@ Header: `Authorization: Bearer <token>`
 | `pastor.demo@example.test` | `admin` | PASTOR |
 | `bruno.demo@example.test` | `admin` | MEMBRO |
 
-## Pessoas / famílias (0.2.1)
+## Pessoas / famílias (0.2.1–0.2.3)
 
 | Método | Path | Papéis | Status |
 |--------|------|--------|--------|
@@ -34,13 +35,15 @@ Header: `Authorization: Bearer <token>`
 | GET | `/persons/:personId` | staff ou próprio MEMBRO | **implemented** |
 | GET | `/persons/:personId/dossier` | staff ou próprio MEMBRO | **implemented** |
 | PATCH | `/persons/:personId` | SECRETARIA | **implemented** — `isMinor`, `legalGuardianPersonId`, `householdId` |
+| GET | `/households` | SECRETARIA | **implemented** (0.2.3) |
 | POST | `/households` | SECRETARIA | **implemented** |
 | GET | `/households/:id` | SECRETARIA | **implemented** |
 | POST | `/households/:id/members` | SECRETARIA | **implemented** |
 | DELETE | `/households/:id/members/:personId` | SECRETARIA | **implemented** |
 
 - Busca: `autoMergeForbidden: true` sempre  
-- Menor **exige** responsável legal adulto no mesmo org
+- Menor **exige** responsável legal adulto no mesmo org  
+- Seed: `demoPersonMenor01` (Eduardo) com guardião `demoPersonRiacho01` (Ana)
 
 ## Admissão + documentos
 
@@ -72,6 +75,12 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 | GET `/credentials/me` | **implemented** | |
 | POST `/credentials/issue|reissue|revoke/...` | **implemented** | gate pastoral |
 | GET `/credentials/verify/:opaqueToken` | **implemented** | público + rate limit |
+
+## Auditoria
+
+| Método | Path | Papéis | Status |
+|--------|------|--------|--------|
+| GET | `/audit-logs?limit=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
 
 ## Pendente / precisa aprovação
 

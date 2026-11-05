@@ -93,16 +93,30 @@ export class HouseholdsService {
     });
   }
 
-  async getById(actor: AuthUser, householdId: string) {
+  async list(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
-    if (
-      !canManageMemberships(actor.grants, {
+    this.assertManage(actor, pilot.organizationId, pilot.churchId);
+
+    const rows = await this.prisma.household.findMany({
+      where: {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
-      })
-    ) {
-      throw new ForbiddenException("Sem permissão nesta congregação");
-    }
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        persons: { select: { id: true, displayName: true, isMinor: true } },
+      },
+    });
+
+    return {
+      churchId: pilot.churchId,
+      households: rows.map((household) => this.toDto(household)),
+    };
+  }
+
+  async getById(actor: AuthUser, householdId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertManage(actor, pilot.organizationId, pilot.churchId);
 
     const household = await this.prisma.household.findFirst({
       where: {
@@ -118,19 +132,7 @@ export class HouseholdsService {
       throw new NotFoundException("Família não encontrada");
     }
 
-    return {
-      id: household.id,
-      label: household.label,
-      churchId: household.churchId,
-      organizationId: household.organizationId,
-      memberPersonIds: household.persons.map((p) => p.id),
-      members: household.persons.map((p) => ({
-        id: p.id,
-        displayName: p.displayName,
-        isMinor: p.isMinor,
-      })),
-      createdAt: household.createdAt.toISOString(),
-    };
+    return this.toDto(household);
   }
 
   async addMembers(
@@ -146,7 +148,7 @@ export class HouseholdsService {
       throw new BadRequestException("Informe memberPersonIds");
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const found = await tx.person.findMany({
         where: {
           id: { in: ids },
@@ -244,5 +246,28 @@ export class HouseholdsService {
       throw new NotFoundException("Família não encontrada");
     }
     return household;
+  }
+
+  private toDto(household: {
+    id: string;
+    label: string | null;
+    churchId: string;
+    organizationId: string;
+    createdAt: Date;
+    persons: Array<{ id: string; displayName: string; isMinor: boolean }>;
+  }) {
+    return {
+      id: household.id,
+      label: household.label,
+      churchId: household.churchId,
+      organizationId: household.organizationId,
+      memberPersonIds: household.persons.map((p) => p.id),
+      members: household.persons.map((p) => ({
+        id: p.id,
+        displayName: p.displayName,
+        isMinor: p.isMinor,
+      })),
+      createdAt: household.createdAt.toISOString(),
+    };
   }
 }

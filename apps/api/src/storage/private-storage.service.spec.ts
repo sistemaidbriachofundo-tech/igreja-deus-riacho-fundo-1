@@ -1,3 +1,4 @@
+import { BadRequestException } from "@nestjs/common";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,5 +30,22 @@ describe("PrivateStorageService", () => {
     await expect(storage.get(key)).resolves.toEqual(bytes);
     expect(storage.contentSha256(bytes)).toHaveLength(64);
     await storage.remove(key);
+  });
+
+  it("rejects path traversal keys", async () => {
+    const storage = new PrivateStorageService();
+    await expect(storage.get("../etc/passwd")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(storage.put("a/../../etc/passwd", Buffer.from("x"))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(() =>
+      storage.buildAdmissionKey({
+        organizationId: "../x",
+        churchId: "ch",
+        admissionId: "adm",
+      }),
+    ).toThrow(BadRequestException);
   });
 });

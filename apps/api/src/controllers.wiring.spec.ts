@@ -56,16 +56,19 @@ describe("controller wiring (delegates to services)", () => {
   it("HouseholdsController", async () => {
     const households = {
       create: jest.fn().mockResolvedValue({ id: "h1" }),
+      list: jest.fn().mockResolvedValue({ households: [] }),
       getById: jest.fn().mockResolvedValue({ id: "h1" }),
       addMembers: jest.fn().mockResolvedValue({ id: "h1" }),
       removeMember: jest.fn().mockResolvedValue({ id: "h1" }),
     };
     const c = new HouseholdsController(households as never);
     await c.create(user, { label: "x" });
+    await c.list(user);
     await c.get(user, "h1");
     await c.addMembers(user, "h1", { memberPersonIds: ["p1"] });
     await c.removeMember(user, "h1", "p1");
     expect(households.create).toHaveBeenCalled();
+    expect(households.list).toHaveBeenCalledWith(user);
     expect(households.getById).toHaveBeenCalledWith(user, "h1");
   });
 

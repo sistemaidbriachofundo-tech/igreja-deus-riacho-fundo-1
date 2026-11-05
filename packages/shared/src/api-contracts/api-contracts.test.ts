@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.2.1-f2");
+    assert.equal(API_CONTRACT_VERSION, "0.2.3-f2");
   });
 
   it("keeps admission checklist order (no skipping)", () => {

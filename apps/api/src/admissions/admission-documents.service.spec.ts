@@ -118,4 +118,35 @@ describe("AdmissionDocumentsService", () => {
       admissionId: "adm1",
     });
   });
+
+  it("downloads document for pastor role path via secretaria actor", async () => {
+    const prisma = {
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue({ id: "adm1" }),
+      },
+      admissionDocument: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "doc1",
+          admissionId: "adm1",
+          organizationId: "org1",
+          churchId: "church-rf1",
+          displayName: "doc.pdf",
+          contentType: "application/pdf",
+          storageKey: "admissions/org1/church-rf1/adm1/x",
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const storage = {
+      get: jest.fn().mockResolvedValue(Buffer.from("%PDF")),
+    };
+    const service = new AdmissionDocumentsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const file = await service.download(secretaria, "adm1", "doc1");
+    expect(file.contentType).toBe("application/pdf");
+    expect(prisma.auditLog.create).toHaveBeenCalled();
+  });
 });

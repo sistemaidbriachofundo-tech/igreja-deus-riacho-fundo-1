@@ -35,6 +35,12 @@ export class HouseholdsController {
   }
 
   @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Get()
+  list(@CurrentUser() user: AuthUser) {
+    return this.households.list(user);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get(":householdId")
   get(@CurrentUser() user: AuthUser, @Param("householdId") householdId: string) {
     return this.households.getById(user, householdId);

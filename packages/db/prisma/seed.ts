@@ -162,6 +162,32 @@ async function main() {
     },
   });
 
+  // Menor fictício com responsável legal = Ana (secretaria demo)
+  await prisma.person.upsert({
+    where: { id: "demoPersonMenor01" },
+    update: {
+      displayName: "Eduardo Demo Menor",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      householdId: household.id,
+      kind: "VISITOR",
+      isMinor: true,
+      legalGuardianPersonId: person.id,
+    },
+    create: {
+      id: "demoPersonMenor01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      householdId: household.id,
+      displayName: "Eduardo Demo Menor",
+      email: null,
+      status: "ACTIVE",
+      kind: "VISITOR",
+      isMinor: true,
+      legalGuardianPersonId: person.id,
+    },
+  });
+
   const adminUser = await prisma.user.upsert({
     where: { email: "ana.demo@example.test" },
     update: {
@@ -421,7 +447,12 @@ async function main() {
     org: org.slug,
     church: church.slug,
     household: household.id,
-    persons: [person.id, memberPerson.id, visitorPerson.id],
+    persons: [
+      person.id,
+      memberPerson.id,
+      visitorPerson.id,
+      "demoPersonMenor01",
+    ],
     users: [adminUser.email, memberUser.email, pastorUser.email],
     memberships: [anaMembership.id, brunoMembership.id],
   });

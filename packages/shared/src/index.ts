@@ -80,6 +80,7 @@ export {
   type CredentialMeResponse,
   type CredentialVerifyResponse,
   type HouseholdDto,
+  type HouseholdListResponse,
   type CreateHouseholdRequest,
   type PersonSearchRequest,
   type PersonSearchHit,

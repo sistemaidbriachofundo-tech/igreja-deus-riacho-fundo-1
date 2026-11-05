@@ -1,14 +1,15 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.2.1-f2
+  version: 0.2.3-f2
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
 
     - `x-implementation: implemented` — disponível na API Nest
-    - 0.2.1: prontuário (`/persons/:id/dossier`), PATCH pessoa (guardião), membros de família,
-      documentos de admissão com storage privado (DEV/HML)
+    - 0.2.1: prontuário, PATCH pessoa, membros de família, documentos privados
+    - 0.2.2: `GET /meta`, `GET /audit-logs`
+    - 0.2.3: `GET /households` (lista do piloto)
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -197,6 +198,15 @@ components:
         memberPersonIds:
           type: array
           items: { type: string }
+        members:
+          type: array
+          items:
+            type: object
+            required: [id, displayName, isMinor]
+            properties:
+              id: { type: string }
+              displayName: { type: string }
+              isMinor: { type: boolean }
         createdAt: { type: string, format: date-time }
     CreateHouseholdRequest:
       type: object
@@ -611,6 +621,24 @@ paths:
           description: Menor sem guardião ou guardião inválido
 
   /households:
+    get:
+      tags: [households]
+      x-implementation: implemented
+      summary: Listar famílias do piloto
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Lista de famílias
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [churchId, households]
+                properties:
+                  churchId: { type: string }
+                  households:
+                    type: array
+                    items: { $ref: "#/components/schemas/Household" }
     post:
       tags: [households]
       x-implementation: implemented
@@ -815,6 +843,31 @@ paths:
                 statusCode: 409
                 message: Etapa pastor bloqueada até secretaria aprovar
                 code: ADMISSION_STEP_LOCKED
+
+  /meta:
+    get:
+      tags: [health]
+      x-implementation: implemented
+      summary: Versão do contrato e mapa de endpoints (público)
+      responses:
+        "200":
+          description: Meta da API
+
+  /audit-logs:
+    get:
+      tags: [auth]
+      x-implementation: implemented
+      summary: Auditoria recente do piloto (SECRETARIA/PASTOR)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        "200":
+          description: Lista de logs
+        "403":
+          description: Sem permissão
 
   /persons/{personId}/dossier:
     get:

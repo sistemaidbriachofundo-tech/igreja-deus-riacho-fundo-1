@@ -136,6 +136,34 @@ describe("HouseholdsService", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("lists households for secretaria", async () => {
+    const prisma = {
+      household: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "h1",
+            label: "Demo",
+            churchId: pilot.churchId,
+            organizationId: pilot.organizationId,
+            createdAt: new Date("2026-11-04T12:00:00Z"),
+            persons: [{ id: "p1", displayName: "A", isMinor: false }],
+          },
+        ]),
+      },
+    };
+    const service = new HouseholdsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.list(secretaria)).resolves.toMatchObject({
+      churchId: pilot.churchId,
+      households: [{ id: "h1", memberPersonIds: ["p1"] }],
+    });
+    await expect(service.list(memberOnly)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
   it("getById returns household or 404 / forbidden", async () => {
     const prisma = {
       household: {
@@ -145,7 +173,7 @@ describe("HouseholdsService", () => {
           churchId: pilot.churchId,
           organizationId: pilot.organizationId,
           createdAt: new Date("2026-11-04T12:00:00Z"),
-          persons: [{ id: "p1" }],
+          persons: [{ id: "p1", displayName: "Ana", isMinor: false }],
         }),
       },
     };
@@ -167,5 +195,55 @@ describe("HouseholdsService", () => {
     await expect(service.getById(secretaria, "x")).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it("addMembers and removeMember", async () => {
+    const householdRow = {
+      id: "h1",
+      label: "Demo",
+      churchId: pilot.churchId,
+      organizationId: pilot.organizationId,
+      createdAt: new Date("2026-11-04T12:00:00Z"),
+      persons: [{ id: "p2", displayName: "B", isMinor: false }],
+    };
+    const tx = {
+      person: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "p2", isMinor: false, legalGuardianPersonId: null },
+        ]),
+        updateMany: jest.fn(),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) => {
+        await fn(tx);
+      }),
+      household: {
+        findFirst: jest.fn().mockResolvedValue(householdRow),
+      },
+      person: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "p2",
+          organizationId: pilot.organizationId,
+          householdId: "h1",
+        }),
+        update: jest.fn(),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new HouseholdsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.addMembers(secretaria, "h1", ["p2"]),
+    ).resolves.toMatchObject({ id: "h1" });
+    expect(tx.person.updateMany).toHaveBeenCalled();
+    await expect(
+      service.removeMember(secretaria, "h1", "p2"),
+    ).resolves.toMatchObject({ id: "h1" });
+    expect(prisma.person.update).toHaveBeenCalled();
   });
 });

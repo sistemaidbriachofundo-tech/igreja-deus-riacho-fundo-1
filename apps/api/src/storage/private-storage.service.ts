@@ -1,7 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, normalize, resolve, sep } from "node:path";
 
 /**
  * Storage privado local (DEV/HML). Não serve arquivos via URL pública.
@@ -22,29 +26,67 @@ export class PrivateStorageService {
     churchId: string;
     admissionId: string;
   }): string {
+    const safe = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed || trimmed.includes("..") || /[/\\]/.test(trimmed)) {
+        throw new BadRequestException("Identificador de storage inválido");
+      }
+      return trimmed;
+    };
     const id = randomUUID();
-    return join(
+    return [
       "admissions",
-      parts.organizationId,
-      parts.churchId,
-      parts.admissionId,
+      safe(parts.organizationId),
+      safe(parts.churchId),
+      safe(parts.admissionId),
       id,
-    );
+    ].join("/");
+  }
+
+  private resolveSafe(storageKey: string): string {
+    if (!storageKey || storageKey.includes("\0")) {
+      throw new BadRequestException("storageKey inválido");
+    }
+    if (storageKey.includes("..") || storageKey.startsWith("/") || storageKey.startsWith("\\")) {
+      throw new BadRequestException("storageKey inválido");
+    }
+    const normalizedKey = normalize(storageKey);
+    if (
+      normalizedKey.startsWith("..") ||
+      normalizedKey.includes(`..${sep}`) ||
+      normalizedKey.includes(`${sep}..`) ||
+      normalizedKey.startsWith(sep)
+    ) {
+      throw new BadRequestException("storageKey inválido");
+    }
+    const root = this.root();
+    const full = resolve(root, normalizedKey);
+    if (full !== root && !full.startsWith(root + sep)) {
+      throw new BadRequestException("storageKey fora do STORAGE_ROOT");
+    }
+    return full;
   }
 
   async put(storageKey: string, bytes: Buffer): Promise<void> {
-    const full = join(this.root(), storageKey);
+    const full = this.resolveSafe(storageKey);
     await mkdir(dirname(full), { recursive: true });
     await writeFile(full, bytes, { mode: 0o600 });
   }
 
   async get(storageKey: string): Promise<Buffer> {
-    return readFile(join(this.root(), storageKey));
+    try {
+      return await readFile(this.resolveSafe(storageKey));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new NotFoundException("Arquivo não encontrado no storage");
+      }
+      throw err;
+    }
   }
 
   async remove(storageKey: string): Promise<void> {
     try {
-      await unlink(join(this.root(), storageKey));
+      await unlink(this.resolveSafe(storageKey));
     } catch {
       // idempotente
     }
