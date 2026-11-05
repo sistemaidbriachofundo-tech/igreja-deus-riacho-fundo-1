@@ -175,6 +175,18 @@ async function main() {
     );
     log("POST /households/:id/members", true, created.json.personId);
 
+    const rmMem = await req(
+      "DELETE",
+      `/households/${hh.json.id}/members/${created.json.personId}`,
+      { token: ana.accessToken },
+    );
+    assert(rmMem.status < 300, `remove member ${rmMem.status}`);
+    assert(
+      !rmMem.json.memberPersonIds?.includes(created.json.personId),
+      "member removed",
+    );
+    log("DELETE /households/:id/members/:personId", true);
+
     const menor = await req("GET", "/persons/demoPersonMenor01", {
       token: ana.accessToken,
     });
@@ -182,6 +194,18 @@ async function main() {
     assert(menor.json.isMinor === true, "seed menor");
     assert(menor.json.legalGuardianPersonId === "demoPersonRiacho01", "guardião Ana");
     log("GET seed menor+guardião", true, menor.json.displayName);
+
+    const patchVisit = await req("PATCH", `/persons/${created.json.personId}`, {
+      token: ana.accessToken,
+      body: {
+        isMinor: true,
+        legalGuardianPersonId: "demoPersonRiacho01",
+        householdId: hh.json.id,
+      },
+    });
+    assert(patchVisit.status < 300, `patch person ${patchVisit.status} ${JSON.stringify(patchVisit.json)}`);
+    assert(patchVisit.json.isMinor === true, "patched isMinor");
+    log("PATCH /persons/:id (menor+guardião)", true);
 
     const dossier = await req("GET", `/persons/${created.json.personId}/dossier`, {
       token: ana.accessToken,

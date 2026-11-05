@@ -134,12 +134,13 @@ export class MembershipsService {
       throw new ConflictException("Membresia já existe para esta pessoa");
     }
 
+    // Legado: não ativa membresia sem protocolo pastoral — preferir /admissions.
     const membership = await this.prisma.churchMembership.create({
       data: {
         personId,
         churchId: pilot.churchId,
         organizationId: pilot.organizationId,
-        status: "ACTIVE",
+        status: "PENDING_ADMISSION",
         notes: input.notes?.trim() || null,
       },
       include: {

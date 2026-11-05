@@ -93,6 +93,45 @@ components:
         email: { type: string, nullable: true, example: carla.demo@example.test }
         status: { type: string, example: ACTIVE }
         householdId: { type: string, nullable: true }
+        kind: { type: string, enum: [VISITOR, MEMBER] }
+        isMinor: { type: boolean }
+    MetaResponse:
+      type: object
+      required: [app, slug, contractVersion, apiPathPrefix, pilot, endpoints, hmlPublicUrl, notes]
+      properties:
+        app: { type: string }
+        slug: { type: string }
+        contractVersion: { type: string, example: 0.2.3-f2 }
+        apiPathPrefix: { type: string }
+        pilot: { type: boolean }
+        endpoints:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [implemented, proposed]
+        hmlPublicUrl: { type: string, nullable: true }
+        notes:
+          type: array
+          items: { type: string }
+    AuditLogEntry:
+      type: object
+      required: [id, action, resourceType, resourceId, actorUserId, metadata, createdAt]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        resourceType: { type: string }
+        resourceId: { type: string, nullable: true }
+        actorUserId: { type: string, nullable: true }
+        metadata: {}
+        createdAt: { type: string, format: date-time }
+    AuditLogsResponse:
+      type: object
+      required: [churchId, logs]
+      properties:
+        churchId: { type: string }
+        logs:
+          type: array
+          items: { $ref: "#/components/schemas/AuditLogEntry" }
     Membership:
       type: object
       required: [id, status, joinedAt, notes, person, activeCredentialId]
@@ -852,6 +891,9 @@ paths:
       responses:
         "200":
           description: Meta da API
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MetaResponse" }
 
   /audit-logs:
     get:
@@ -866,6 +908,9 @@ paths:
       responses:
         "200":
           description: Lista de logs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditLogsResponse" }
         "403":
           description: Sem permissão
 

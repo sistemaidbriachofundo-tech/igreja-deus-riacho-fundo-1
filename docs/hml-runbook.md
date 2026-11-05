@@ -13,9 +13,8 @@ Quando houver autorização e TLS, registrar aqui a base URL real (ex.: `https:/
 cp .env.hml.example .env.hml
 # editar POSTGRES_PASSWORD, JWT_SECRET (≥32, sem dev-only-), CORS_ORIGIN
 docker compose -f docker-compose.yml -f docker-compose.hml.yml --env-file .env.hml up -d --build
-# dentro do container ou via host loopback:
-npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
-npm run db:seed   # só fictício
+# Dockerfile.api já roda `prisma migrate deploy` no boot.
+# Opcional: SEED_ON_BOOT=1 no .env.hml para seed fictício automático.
 curl -s http://127.0.0.1:3001/health
 npm run homolog:m1
 ```

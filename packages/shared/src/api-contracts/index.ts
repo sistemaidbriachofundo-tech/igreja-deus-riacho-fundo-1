@@ -44,6 +44,9 @@ export type {
   PersonDossierResponse,
   AdmissionDocumentMetaDto,
   AdmissionDocumentsListResponse,
+  MetaResponse,
+  AuditLogEntryDto,
+  AuditLogsResponse,
 } from "./dto";
 
 /**

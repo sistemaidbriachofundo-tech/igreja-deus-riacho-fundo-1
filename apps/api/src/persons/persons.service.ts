@@ -73,6 +73,8 @@ export class PersonsService {
           email: person.email,
           status: person.status,
           householdId: person.householdId,
+          kind: person.kind,
+          isMinor: person.isMinor,
         },
         score,
         matchReasons,

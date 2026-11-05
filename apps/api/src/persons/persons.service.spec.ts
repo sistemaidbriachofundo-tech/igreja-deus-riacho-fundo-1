@@ -104,6 +104,10 @@ describe("PersonsService", () => {
 
     const exact = await service.search(secretaria, "Ana Demo", 100);
     expect(exact.hits[0]?.score).toBe(0.95);
+    expect(exact.hits[0]?.person).toMatchObject({
+      kind: "MEMBER",
+      isMinor: false,
+    });
 
     const partial = await service.search(secretaria, "demo", 5);
     expect(prisma.person.findMany).toHaveBeenCalledWith(

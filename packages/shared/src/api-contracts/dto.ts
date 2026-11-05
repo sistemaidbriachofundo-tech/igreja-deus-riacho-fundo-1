@@ -41,6 +41,8 @@ export interface PersonSummaryDto {
   email: string | null;
   status: string;
   householdId: string | null;
+  kind?: string;
+  isMinor?: boolean;
 }
 
 export interface MembershipDto {
@@ -231,4 +233,30 @@ export interface AdmissionDocumentMetaDto {
 export interface AdmissionDocumentsListResponse {
   admissionId: string;
   documents: AdmissionDocumentMetaDto[];
+}
+
+export interface MetaResponse {
+  app: string;
+  slug: string;
+  contractVersion: string;
+  apiPathPrefix: string;
+  pilot: boolean;
+  endpoints: Record<string, "implemented" | "proposed">;
+  hmlPublicUrl: string | null;
+  notes: string[];
+}
+
+export interface AuditLogEntryDto {
+  id: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  actorUserId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface AuditLogsResponse {
+  churchId: string;
+  logs: AuditLogEntryDto[];
 }

@@ -23,4 +23,5 @@ COPY --from=build /app /app
 RUN mkdir -p /var/lib/idbrf/private-storage && chown -R apiuser:apiuser /var/lib/idbrf
 USER apiuser
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main.js"]
+# Migrate on boot (HML). Seed só se SEED_ON_BOOT=1 (dados fictícios).
+CMD ["sh", "-c", "npx prisma migrate deploy --schema packages/db/prisma/schema.prisma && if [ \"$SEED_ON_BOOT\" = \"1\" ]; then npm run seed -w @idbrf/db; fi && node apps/api/dist/main.js"]

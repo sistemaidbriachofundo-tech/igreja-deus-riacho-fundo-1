@@ -131,7 +131,7 @@ describe("MembershipsService scope", () => {
     prisma.churchMembership.findUnique.mockResolvedValue(null);
     prisma.churchMembership.create.mockResolvedValue({
       id: "m-new",
-      status: "ACTIVE",
+      status: "PENDING_ADMISSION",
       joinedAt: new Date("2026-11-04T12:00:00Z"),
       notes: null,
       churchId: pilot.churchId,
@@ -150,6 +150,11 @@ describe("MembershipsService scope", () => {
       householdLabel: "Família Nova",
     });
     expect(result.id).toBe("m-new");
+    expect(prisma.churchMembership.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "PENDING_ADMISSION" }),
+      }),
+    );
     expect(prisma.auditLog.create).toHaveBeenCalled();
   });
 

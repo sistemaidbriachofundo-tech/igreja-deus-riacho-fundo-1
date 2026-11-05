@@ -94,6 +94,9 @@ export {
   type PersonDossierResponse,
   type AdmissionDocumentMetaDto,
   type AdmissionDocumentsListResponse,
+  type MetaResponse,
+  type AuditLogEntryDto,
+  type AuditLogsResponse,
 } from "./api-contracts";
 
 export interface HealthStatus {
