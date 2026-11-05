@@ -14,6 +14,9 @@ describe("Church OS: renderização real de páginas", () => {
     expect(html).toContain("O panorama da congregação");
     expect(html).toContain("19");
     expect(html).toContain("Acompanhar todas as admissões");
+    expect(html).toContain("VISÃO DE COMUNIDADE");
+    expect(html).toContain("MEMBROS ATIVOS");
+    expect(html).not.toContain("hero-oficial.jpg");
     expect(html).not.toContain("undefined");
   });
   it("renderiza o diretório com filtros e ferramentas de gestão", () => {
@@ -23,6 +26,7 @@ describe("Church OS: renderização real de páginas", () => {
     expect(html).toContain("Nova pessoa");
     expect(html).toContain("Membros ativos");
     expect(html).toContain("Marina Oliveira");
+    expect(html).not.toContain("pessoas-sinteticas.webp");
   });
   it("renderiza a Secretaria com etapas e pendências", () => {
     const html=renderToStaticMarkup(<ChurchSecretary />);
