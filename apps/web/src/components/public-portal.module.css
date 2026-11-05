@@ -473,3 +473,22 @@
   .ministryHeroTitle{font-size:clamp(32px,8.4vw,38px)}
   .ministryHeroInner{padding-left:19px;padding-right:19px}
 }
+
+/* V3 public identity: clean photographic navigation; /app remains untouched. */
+.header{left:0;top:0;transform:none;max-width:none;width:100%;border:0;border-bottom:1px solid #ffffff36;border-radius:0;background:#0d2029d6;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:none;min-height:88px}
+.headerInner{min-height:88px;max-width:1550px;padding:0 clamp(24px,6vw,90px)}
+.header .headerVisit{border-radius:4px;box-shadow:none;background:#f2c67d;padding:15px 20px}
+.header .desktopNav a{color:#f5f8f6;opacity:.95;font-weight:700}
+.header .brandInverse{color:#fff}
+.header .mobileMenuPanel{border-radius:10px}
+.portal .contactCta{background:#183039;border-radius:0;min-height:370px}
+.portal .contactCta h2{font-size:clamp(37px,5vw,69px)}
+.portal .lightButton{border-radius:4px}
+.portal .footer{background:#101e25}
+.portal .footerLabel{color:#e6bb7a}
+.portal .footerLinks a{color:#e9ebea}
+.portal .eventCard{grid-template-columns:76px 1fr 47px}
+.portal .eventInfo h3{font-size:clamp(18px,2.1vw,27px)}
+.portal .eventArrow{border-radius:50%}
+@media(max-width:750px){.header,.headerInner{min-height:70px}.headerInner{padding:0 20px}.header .headerVisit{padding:11px 14px}.portal .eventCard{grid-template-columns:60px 1fr 35px}}
+@media(max-width:420px){.header,.headerInner{min-height:67px}.headerInner{padding:0 13px}.header .headerVisit{font-size:9px;padding:11px 10px}.portal .eventCard{grid-template-columns:49px 1fr 29px;gap:10px}.portal .eventInfo h3{font-size:17px}}

@@ -17,9 +17,9 @@ const appShell = read("components/AppShell.tsx");
 describe("portal público da igreja", () => {
   it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
     expect(home).toContain("Existe um lugar");
-    expect(home).toContain("Planeje sua visita");
-    expect(home).toContain("<MinistryGrid");
-    expect(home).toContain("<ContactCTA");
+    expect(home).toContain("Quero conhecer a igreja");
+    expect(home).toContain("<MinisterioEmFoco");
+    expect(home).toContain("Quero conhecer a igreja");
     expect(home).not.toContain("Abrir sistema");
     expect(home).not.toContain('href="/app/membros/"');
     expect(shell).toContain("Área interna");
@@ -38,7 +38,7 @@ describe("portal público da igreja", () => {
     }
     expect(ministryPage).toContain("generateStaticParams");
     expect(ministryPage).toContain("getMinistry(slug)");
-    expect(hub).toContain("<MinistryGrid");
+    expect(hub).toContain("ministries.map");
   });
 
   it("marca explicitamente toda a agenda como demonstrativa", () => {
@@ -56,7 +56,7 @@ describe("portal público da igreja", () => {
     for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
       expect(existsSync(join(images, image))).toBe(true);
     }
-    expect(home).toContain("adoracao-oficial.jpg");
+    expect(home).toContain("portalVisuals.hero");
     expect(shell).toContain("ministryJourneyItem");
     expect(css).toContain(".immersiveHero");
     expect(css).toContain(".ministryJourneyItem");

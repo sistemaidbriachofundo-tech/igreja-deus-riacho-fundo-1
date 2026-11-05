@@ -1,37 +1,64 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PublicPage, Eyebrow, MinistryGrid, ContactCTA, portalStyles as s } from "../../components/PublicPortal";
+import { ministries } from "../../lib/portal-content";
+import { portalVisuals, ministryPhoto } from "../../lib/portal-visuals";
+import { PublicPage, ContactCTA } from "../../components/PublicPortal";
+import s from "./ministry-v3.module.css";
 
 export const metadata: Metadata = {
   title: "Nossos Ministérios",
-  description: "Conheça os ministérios de Jovens, Homens, Adolescentes, Mulheres e Atmosfera da Igreja de Deus no Riacho Fundo I.",
+  description: "Jovens, Homens, Adolescentes, Mulheres e Atmosfera: encontre sua comunidade na Igreja de Deus no Riacho Fundo I.",
 };
 
 export default function MinisteriosPage() {
   return (
     <PublicPage>
       <main id="conteudo">
-        <section className={s.subhero + " " + s.fluidMinistriesHero}>
-          <span className={s.ministriesBannerArt} aria-hidden="true" />
-          <span className={s.subheroOverlay} />
-          <div className={s.subheroContent}>
-            <div className={s.breadcrumbs}><Link href="/">Início</Link><span>/</span><span>Ministérios</span></div>
-            <Eyebrow light>PERTENCER É O COMEÇO</Eyebrow>
-            <h1 className={s.subheroTitle}>Um propósito. Muitas formas de viver.</h1>
-            <p className={s.subheroLead}>Pessoas de diferentes idades e histórias encontrando comunhão, propósito e oportunidades de servir.</p>
+        <section className={s.hubHero} aria-labelledby="hub-title">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={portalVisuals.encounter} alt="" className={s.hubHeroImage} fetchPriority="high" />
+          <div className={s.hubHeroShade} />
+          <div className={s.hubHeroContent}>
+            <div className={s.breadcrumb}><Link href="/">INÍCIO</Link> / MINISTÉRIOS</div>
+            <p className={s.label}>UMA IGREJA. MUITAS HISTÓRIAS.</p>
+            <h1 id="hub-title">Seu lugar<br/>é <em>aqui.</em></h1>
+            <p className={s.hubLead}>Da juventude ao voluntariado, cada ministério é uma oportunidade de compartilhar a fé, crescer e criar laços que permanecem.</p>
+            <a href="#conheca" className={s.hubExplore}>CONHEÇA OS MINISTÉRIOS <span aria-hidden="true">↓</span></a>
           </div>
+          <span className={s.photoDisclosure}>IMAGEM ILUSTRATIVA</span>
         </section>
-        <section className={s.mainSection + " " + s.fluidMinistriesSection}>
-          <div className={s.sectionHeading}><div><Eyebrow>UMA IGREJA, MUITAS EXPRESSÕES</Eyebrow><h2>Não é sobre encaixar. É sobre pertencer.</h2><p>Explore as páginas dos ministérios e conheça a proposta de cada comunidade.</p></div></div>
-          <MinistryGrid />
+
+        <section className={s.hubIntro} id="conheca" aria-labelledby="hub-intro-title">
+          <span>01 / ONDE VOCÊ SE CONECTA</span>
+          <h2 id="hub-intro-title">A igreja acontece <em>quando a gente se encontra.</em></h2>
+          <p>Conheça cada ministério e encontre um espaço para aprender, compartilhar, fazer amigos e servir. As fotos desta demonstração são ilustrativas.</p>
         </section>
-        <section className={s.mainSection + " " + s.sectionWhite}>
-          <div className={s.ministryIntro}>
-            <div><Eyebrow>CONHEÇA O ATMOSFERA</Eyebrow><h2>Servir também é uma forma de pertencer.</h2></div>
-            <div className={s.ministryIntroBody}><p>O Atmosfera reúne o voluntariado da igreja: pessoas que colocam seus dons em ação para acolher, organizar e cuidar. Conheça essa frente e veja como manifestar seu interesse em participar.</p><Link href="/ministerios/atmosfera/" className={s.textLink}>Quero conhecer o Atmosfera ↗</Link></div>
-          </div>
+
+        <div className={s.stories}>
+          {ministries.map((ministry,index)=>(
+            <section key={ministry.slug} className={s.story} data-tone={ministry.tone} aria-labelledby={`story-${ministry.slug}`}>
+              <div className={s.storyPhoto}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ministryPhoto(ministry.slug)} alt="" loading="lazy" />
+                <span>IMAGEM ILUSTRATIVA</span>
+              </div>
+              <div className={s.storyInfo}>
+                <div className={s.storyMeta}><span>0{index+1} / 05</span><span>MINISTÉRIO</span></div>
+                <span className={s.storyKicker}>{ministry.eyebrow}</span>
+                <h2 id={`story-${ministry.slug}`}>{ministry.name}</h2>
+                <p>{ministry.summary}</p>
+                <Link href={`/ministerios/${ministry.slug}/`}>Descobrir {ministry.name} <span aria-hidden="true">↗</span></Link>
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <section className={s.hubFinal}>
+          <span>O MELHOR DA COMUNIDADE É VIVER JUNTO.</span>
+          <h2>Você não precisa <em>caminhar sozinho.</em></h2>
+          <Link href="/contato/">Comece por uma visita <span aria-hidden="true">↗</span></Link>
         </section>
-        <ContactCTA title="Tem lugar para você nesta comunidade." />
+        <ContactCTA title="Estamos de portas abertas." />
       </main>
     </PublicPage>
   );
