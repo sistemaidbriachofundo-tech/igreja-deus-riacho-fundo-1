@@ -12,7 +12,7 @@ const overview = read("../app/app/page.tsx");
 describe("F2: descoberta e separação entre demonstração e produção", () => {
   it("oferece acesso navegável à demonstração nas páginas iniciais", () => {
     expect(home).toContain('withBasePath("/app/")');
-    expect(overview).toContain('<ChurchWorkspace view="overview" />');
+    expect(overview).toContain("<ChurchDashboard />");
   });
   it("deixa claro que os perfis ilustrativos não autenticam", () => {
     expect(demo).toContain("Dados 100% fictícios");

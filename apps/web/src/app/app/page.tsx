@@ -1,5 +1,5 @@
-import { ChurchWorkspace } from "../../components/ChurchWorkspace";
+import { ChurchDashboard } from "../../components/ChurchDashboard";
 
 export default function VisaoGeralPage() {
-  return <ChurchWorkspace view="overview" />;
+  return <ChurchDashboard />;
 }
