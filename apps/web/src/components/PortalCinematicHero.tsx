@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import { ministries, type MinistrySlug } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import { portalVisuals, ministryPhoto } from "../lib/portal-visuals";
@@ -15,8 +18,10 @@ const railCopy: Record<MinistrySlug, { label: string; icon: PortalGlyphName }> =
 const railOrder: MinistrySlug[] = ["jovens", "mulheres", "homens", "adolescentes", "atmosfera"];
 
 export function PortalCinematicHero() {
+  const site = usePublishedSiteLayout();
+  const imageUrl = site.hero.imageUrl.startsWith("/") ? withBasePath(site.hero.imageUrl) : site.hero.imageUrl;
   return (
-    <section id="inicio" className={s.hero} aria-labelledby="hero-title">
+    <section id="inicio" className={s.hero} data-appearance={site.appearance} aria-labelledby="hero-title">
       <div className={s.visual} aria-hidden="true">
         {/* Genuine image assets in the repository are blended as photographic art direction,
             not evidence of currently scheduled church events. */}
@@ -25,17 +30,17 @@ export function PortalCinematicHero() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={withBasePath("/images/hero-oficial.jpg")} className={s.stagePhoto} alt="" fetchPriority="high" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={withBasePath("/images/adoracao-oficial.jpg")} className={s.worshipPhoto} alt="" fetchPriority="high" />
+        <img src={imageUrl} className={s.worshipPhoto} alt="" fetchPriority="high" />
       </div>
       <div className={s.colorGrade} aria-hidden="true" />
       <div className={s.heroGlow} aria-hidden="true" />
       <div className={s.content}>
         <div className={s.kicker}><span className={s.kickerLine} /> IGREJA DE DEUS <span aria-hidden="true">•</span> RIACHO FUNDO I</div>
         <h1 id="hero-title" className={s.headline}>
-          <span>Sua jornada com Deus</span>
-          <em>pode começar aqui.</em>
+          <span>{site.hero.title}</span>
+          <em>{site.hero.accent}</em>
         </h1>
-        <p>Um lugar de acolhimento, fé e propósito para você e sua família. Venha nos conhecer e caminhe com uma comunidade que cresce e serve junta.</p>
+        <p>{site.hero.description}</p>
         <div className={s.actions}>
           <Link href="/visita/" className={s.primaryAction}>
             <PortalGlyph name="calendar" width={19} height={19} />
