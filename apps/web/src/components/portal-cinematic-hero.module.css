@@ -49,3 +49,15 @@
 @media(max-width:630px){.hero{min-height:940px}.content{padding:143px 22px 21px}.kicker{font-size:9px;letter-spacing:.14em;gap:8px;margin-bottom:27px}.kickerLine{width:23px}.headline{font-size:clamp(42px,9vw,56px);max-width:550px;line-height:1.07;letter-spacing:-.07em}.headline em{font-size:1.03em;line-height:1.06}.content>p{font-size:14px;line-height:1.7;max-width:410px;margin:0 0 27px}.actions{gap:12px}.primaryAction,.secondaryAction{min-height:52px;padding:10px 19px;font-size:12px;gap:9px}.actionArrow{margin-left:7px}.railWrap{width:calc(100% - 25px);margin:45px auto 52px}.railTopline{padding:0 9px 12px;font-size:8px;letter-spacing:.08em}.railTopline a{font-size:8px;gap:6px}.ministryRail{grid-template-columns:repeat(5,148px);border-radius:18px}.ministryTile{min-height:154px;padding:18px 14px}.tileDetail strong{font-size:17px}.photoNote{font-size:8px;margin-right:6px}.worshipPhoto{right:-62%;width:138%;top:1%;height:78%;opacity:.44}.stagePhoto{width:115%;right:-40%;top:0;height:74%;opacity:.19}.backdrop{filter:brightness(.34) saturate(.8)}.colorGrade{background:linear-gradient(90deg,rgba(6,26,29,.97),rgba(6,26,29,.8)),linear-gradient(0deg,#061b20 1%,transparent 50%)}.scrollCue{bottom:8px;width:35px;height:35px}}
 @media(max-width:380px){.hero{min-height:900px}.headline{font-size:clamp(38px,9.7vw,44px)}.content{padding-left:18px;padding-right:18px}.railWrap{width:calc(100% - 18px)}.railTopline{gap:10px}.railTopline span{max-width:170px}.actions{flex-direction:column;align-items:start}.primaryAction,.secondaryAction{min-width:211px;justify-content:space-between}.ministryTile{min-height:146px}}
 @media(prefers-reduced-motion:reduce){.ministryTile,.ministryTile img,.tileArrow,.primaryAction,.secondaryAction,.scrollCue{transition:none}}
+
+/* V6 screenshot review: expose the five ministry cards in widescreen
+   first-fold layouts (1440–1920) without shrinking mobile touch targets. */
+@media(min-width:1300px){
+  .hero{min-height:840px;height:min(97svh,960px)}
+  .content{padding-top:clamp(130px,14svh,170px);padding-bottom:16px}
+  .kicker{margin-bottom:23px}
+  .headline{font-size:clamp(70px,5vw,82px);margin-bottom:22px}
+  .content>p{margin-bottom:25px;line-height:1.73}
+  .railWrap{margin-top:28px;margin-bottom:43px}
+  .ministryTile{min-height:150px}
+}

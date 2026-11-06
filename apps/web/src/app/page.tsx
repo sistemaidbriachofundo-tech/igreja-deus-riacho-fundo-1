@@ -5,7 +5,6 @@ import { PublicPage } from "../components/PublicPortal";
 import { FirstVisitFeature } from "../components/FirstVisit";
 import { PublishedHomeSpotlight } from "../components/PublicLiveSections";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
-import { PortalJourney } from "../components/PortalJourney";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalButton } from "../components/PortalButton";
 import s from "./home-v3.module.css";
@@ -14,7 +13,6 @@ export default function HomePage() {
   return (
     <PublicPage>
       <main id="conteudo">
-        <PortalJourney />
         <PortalCinematicHero />
 
         <section className={s.statement} id="quem-somos" aria-labelledby="statement-title">

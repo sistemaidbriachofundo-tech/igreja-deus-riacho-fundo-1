@@ -76,3 +76,7 @@
 @media(prefers-reduced-motion:reduce){.masthead,.headerCta,.desktopNav>a,.navDropdown>summary svg,.systemButton{transition:none}}
 
 .mobileMenuPanel>a.mobileStaff{min-height:45px;margin-top:20px;padding:12px 0;border-bottom:1px solid #e6c58b29;color:#eacfa4;font-size:12px;font-weight:750;letter-spacing:0}
+
+/* V6 review: preserve an explicit CTA label on narrow devices. */
+.ctaFull{display:inline}.ctaShort{display:none}
+@media(max-width:440px){.headerCta{font-size:10px;min-width:auto;padding:10px 11px;gap:8px}.headerCta svg{height:15px;width:15px}.ctaFull{display:none}.ctaShort{display:inline}}

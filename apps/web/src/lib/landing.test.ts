@@ -18,6 +18,7 @@ const appShell = read("components/AppShell.tsx");
 describe("portal público da igreja", () => {
   it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
     expect(home).toContain("<PortalCinematicHero");
+    expect(home).not.toContain("<PortalJourney />");
     expect(read("components/PortalCinematicHero.tsx")).toContain("Sua jornada com Deus");
     expect(read("components/PortalCinematicHero.tsx")).toContain("Quero visitar");
     expect(home).toContain("<MinisterioEmFoco");
