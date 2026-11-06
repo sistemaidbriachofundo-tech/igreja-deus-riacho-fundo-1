@@ -80,3 +80,16 @@
 /* V6 review: preserve an explicit CTA label on narrow devices. */
 .ctaFull{display:inline}.ctaShort{display:none}
 @media(max-width:440px){.headerCta{font-size:10px;min-width:auto;padding:10px 11px;gap:8px}.headerCta svg{height:15px;width:15px}.ctaFull{display:none}.ctaShort{display:inline}}
+
+
+/* V9 — acesso ID Riacho 1 no cabeçalho, antes de Participe conosco. */
+.headerLogin{display:inline-flex;align-items:center;justify-content:center;min-height:44px;
+  padding:9px 7px;color:#fff9ed!important;font:800 12px/1.2 var(--idb-font-body);
+  white-space:nowrap;text-decoration:none;border-bottom:2px solid #e5bf7a;
+  border-radius:1px;transition:color .2s,background .2s}
+.headerLogin:hover{color:#f0c887!important;background:#f6d99810}
+@media(max-width:1190px){.headerControls{gap:10px}.headerLogin{font-size:11px;padding-inline:5px}}
+@media(max-width:750px){.headerControls{gap:9px}.headerLogin{font-size:11px;min-height:41px;padding:8px 4px}}
+@media(max-width:440px){.headerControls{gap:7px}.headerLogin{font-size:10px;padding:8px 3px}}
+@media(max-width:350px){.masthead .brand>span{display:none}.masthead .brand{min-width:0}.mastheadInner{gap:8px}}
+@media(prefers-reduced-motion:reduce){.headerLogin{transition:none}}
