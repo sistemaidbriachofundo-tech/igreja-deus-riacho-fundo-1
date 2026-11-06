@@ -92,3 +92,12 @@
 /* Full-width published agenda integrates directly with the official content endpoint. */
 .publishedAgendaSection{padding:110px clamp(24px,6vw,90px);background:#f7f7f3;scroll-margin-top:90px}
 @media(max-width:700px){.publishedAgendaSection{padding:70px 21px}}
+
+/* Visual V6 — site-wide page treatment inspired by the approved hero. */
+.hubHero{background-color:#081f24}
+.hubHeroShade{background:linear-gradient(90deg,rgba(4,27,29,.96),rgba(6,30,33,.75) 53%,rgba(7,25,28,.18)),linear-gradient(0deg,#0823279e,transparent 52%)}
+.hubHero h1 em,.hubFinal h2 em{font-family:Georgia,serif;font-weight:600;color:#f0cf96}
+.hubExplore{border-radius:999px;border:1px solid #ebce9f!important;padding:15px 22px!important;background:#edcc9040;display:inline-flex;gap:24px;align-items:center;text-decoration:none!important;transition:transform .2s,background .2s}
+.hubExplore:hover{transform:translateY(-2px);background:#edcc9050}
+.hubFinal{background:linear-gradient(132deg,#102d32,#163d3e);color:#fff}
+@media(prefers-reduced-motion:reduce){.hubExplore{transition:none}}

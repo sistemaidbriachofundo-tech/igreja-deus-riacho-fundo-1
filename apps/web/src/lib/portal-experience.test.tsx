@@ -6,8 +6,33 @@ import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { FirstVisitFeature, VisitQuestions } from "../components/FirstVisit";
 import { ministries } from "./portal-content";
 import { MobilePortalMenu } from "../components/MobilePortalMenu";
+import { PortalCinematicHero } from "../components/PortalCinematicHero";
+import { PortalButton } from "../components/PortalButton";
+import { PortalDesktopNavigation } from "../components/PortalDesktopNavigation";
 
 describe("portal v3+ — camadas de experiência", () => {
+  it("reproduz a direção de arte aprovada com componentes funcionais", () => {
+    const html = renderToStaticMarkup(<PortalCinematicHero />);
+    expect(html).toContain("Sua jornada com Deus");
+    expect(html).toContain("pode começar aqui.");
+    expect(html).toContain("Quero visitar");
+    expect(html).toContain("Ver agenda");
+    expect(html).toContain('aria-label="Explorar os cinco ministérios"');
+    expect(html.match(/aria-label="Conhecer ministério /g)).toHaveLength(5);
+    expect(html).toContain("ACOLHER &amp; SERVIR");
+    expect(html).not.toContain("Culto de Celebração");
+  });
+
+  it("usa design system compartilhado em botões e navegação desktop", () => {
+    const html = renderToStaticMarkup(<PortalButton href="/visita/" variant="gold" icon="calendar">Planejar visita</PortalButton>);
+    const desktop = renderToStaticMarkup(<PortalDesktopNavigation />);
+    expect(html).toContain("Planejar visita");
+    expect(html).toContain('href="/visita/"');
+    expect(desktop).toContain('aria-label="Navegação principal"');
+    expect(desktop).toContain("Quem somos");
+    expect(desktop).toContain("Atmosfera");
+  });
+
   it("mantém as melhorias de rolagem não intrusivas e acessíveis", () => {
     const html = renderToStaticMarkup(<PortalMotion />);
     expect(html).toContain('aria-label="Voltar ao início da página"');

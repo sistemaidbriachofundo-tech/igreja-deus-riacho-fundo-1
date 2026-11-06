@@ -6,6 +6,8 @@ import { FirstVisitFeature } from "../components/FirstVisit";
 import { PublishedHomeSpotlight } from "../components/PublicLiveSections";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { PortalJourney } from "../components/PortalJourney";
+import { PortalCinematicHero } from "../components/PortalCinematicHero";
+import { PortalButton } from "../components/PortalButton";
 import s from "./home-v3.module.css";
 
 export default function HomePage() {
@@ -13,22 +15,7 @@ export default function HomePage() {
     <PublicPage>
       <main id="conteudo">
         <PortalJourney />
-        <section id="inicio" className={s.hero} aria-labelledby="hero-title">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={portalVisuals.hero} alt="" className={s.heroImage} fetchPriority="high" />
-          <div className={s.heroOverlay} />
-          <div className={s.heroHalo} aria-hidden="true"><span /><span /></div>
-          <div className={s.heroContent}>
-            <div className={s.heroIntro}><span className={s.dot} /> IGREJA DE DEUS <span className={s.bar}>/</span> RIACHO FUNDO I</div>
-            <h1 id="hero-title">Existe um lugar<br/>para a <em>sua história.</em></h1>
-            <p>Uma comunidade para pertencer, crescer na fé e descobrir que caminhar junto transforma tudo.</p>
-            <div className={s.heroButtons}>
-              <Link className={s.actionMain} href="/visita/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link>
-              <Link className={s.actionGhost} href="/ministerios/">Explorar ministérios <span aria-hidden="true">→</span></Link>
-            </div>
-          </div>
-          <div className={s.heroBottom}><span>SEJA BEM-VINDO À NOSSA CASA</span><a href="#quem-somos">CONHEÇA-NOS <span aria-hidden="true">↓</span></a><span>IMAGEM ILUSTRATIVA</span></div>
-        </section>
+        <PortalCinematicHero />
 
         <section className={s.statement} id="quem-somos" aria-labelledby="statement-title">
           <div className={s.statementLabel}><span>01 / NOSSA ESSÊNCIA</span><span>FÉ QUE VIRA VIDA</span></div>
@@ -36,7 +23,7 @@ export default function HomePage() {
             <div className={s.statementCopy} data-portal-reveal>
               <h2 id="statement-title">Mais do que um lugar.<br/><em>Uma família</em> em construção.</h2>
               <p>Acreditamos em uma igreja feita de gente de verdade: que se encontra, acolhe, cuida e cresce junto. Aqui, sua história tem espaço.</p>
-              <Link href="/a-igreja/" className={s.underlined}>Conheça nossa comunidade <span aria-hidden="true">↗</span></Link>
+              <PortalButton href="/a-igreja/" variant="text">Conheça nossa comunidade</PortalButton>
             </div>
             <figure className={s.statementPhoto} data-portal-reveal>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -67,7 +54,7 @@ export default function HomePage() {
             <span className={s.atmosferaLabel}>03 / ATMOSFERA • VOLUNTARIADO</span>
             <h2 id="atmosfera-title">O amor também<br/>se vê em <em>ação.</em></h2>
             <p>É nos detalhes, no acolhimento e na disposição de servir que a nossa comunidade ganha vida. Seu dom pode fazer a diferença.</p>
-            <Link href="/ministerios/atmosfera/" className={s.lightAction}>Conheça o Atmosfera <span aria-hidden="true">↗</span></Link>
+            <PortalButton href="/ministerios/atmosfera/" variant="gold">Conheça o Atmosfera</PortalButton>
             <span className={s.imageNote}>IMAGEM ILUSTRATIVA</span>
           </div>
         </section>
@@ -78,7 +65,7 @@ export default function HomePage() {
         <section className={s.visit} aria-labelledby="visit-title" data-portal-reveal>
           <span>UMA COMUNIDADE DE PORTAS ABERTAS</span>
           <h2 id="visit-title">Essa história também<br/><em>pode ser sua.</em></h2>
-          <div className={s.visitActions}><Link href="/visita/">Planejar uma visita <span aria-hidden="true">↗</span></Link><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
+          <div className={s.visitActions}><PortalButton href="/visita/" variant="gold">Planejar uma visita</PortalButton><a href={instagramUrl} target="_blank" rel="noopener noreferrer">Acompanhar no Instagram <span aria-hidden="true">↗</span></a></div>
         </section>
 
       </main>

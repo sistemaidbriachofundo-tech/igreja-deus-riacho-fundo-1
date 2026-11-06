@@ -98,3 +98,22 @@
 @keyframes hero-breathe{from{transform:scale(1)}to{transform:scale(1.045)}}
 @media(max-width:750px){.heroHalo{right:-66%;top:12%;width:130vw;opacity:.56}.heroImage{animation:none}.statementPhoto::before{top:-8px;left:-8px}.agendaList .eventCard:hover{padding-left:0}}
 @media(prefers-reduced-motion:reduce){.heroImage{animation:none}.statementPhoto img,.atmosferaImage,.actionMain,.lightAction{transition:none}.agendaList .eventCard:hover{padding-left:0}}
+
+/* Visual V6 — approved cinematic church direction. Section rhythm and
+   shared tokens align with the hero without changing the editorial content. */
+.statement{background:var(--idb-surface,#f7f4ed);padding-top:clamp(90px,9vw,145px)}
+.statementCopy h2{font-weight:720;letter-spacing:-.064em}
+.statementCopy h2 em{color:#9d703a;font-family:Georgia,serif;font-weight:600}
+.statementPhoto img{border-radius:var(--idb-rad-lg,28px) var(--idb-rad-lg,28px) var(--idb-rad-lg,28px) 120px;box-shadow:0 25px 52px #10272f26}
+.values{border-color:#ccbca5}
+.ministries{background:#eee8de;padding-top:clamp(92px,9vw,138px)}
+.ministriesHeading h2 em{font-family:Georgia,serif;font-weight:600}
+.atmosfera{min-height:750px;background:#0b2428}
+.atmosfera h2 em{font-family:Georgia,serif}
+.atmosferaOverlay{background:linear-gradient(90deg,#051c20ed,#0b29319c 50%,#102b3566),linear-gradient(0deg,#09252bcb,transparent 52%)}
+.visit{background:radial-gradient(ellipse at 85% 5%,#ffebc9 0%,transparent 44%),linear-gradient(130deg,#efca8b,#d9a761)}
+.visit h2{font-weight:730}
+.visit h2 em{font-family:Georgia,serif;color:#fffaf1}
+.visitActions :global(a):first-child{border-radius:var(--idb-rad-pill,999px);border:0;padding:15px 22px}
+.visitActions>a:last-child{align-self:center}
+@media(max-width:630px){.atmosfera{min-height:650px}.visitActions>a:last-child{align-self:flex-start}}

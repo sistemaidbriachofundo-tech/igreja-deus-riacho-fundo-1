@@ -17,10 +17,11 @@ const appShell = read("components/AppShell.tsx");
 
 describe("portal público da igreja", () => {
   it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
-    expect(home).toContain("Existe um lugar");
-    expect(home).toContain("Quero conhecer a igreja");
+    expect(home).toContain("<PortalCinematicHero");
+    expect(read("components/PortalCinematicHero.tsx")).toContain("Sua jornada com Deus");
+    expect(read("components/PortalCinematicHero.tsx")).toContain("Quero visitar");
     expect(home).toContain("<MinisterioEmFoco");
-    expect(home).toContain("Quero conhecer a igreja");
+    expect(shell).toContain("Quero conhecer a igreja");
     expect(home).not.toContain("Abrir sistema");
     expect(home).not.toContain('href="/app/membros/"');
     expect(shell).toContain("Área interna");
@@ -63,7 +64,7 @@ describe("portal público da igreja", () => {
     for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
       expect(existsSync(join(images, image))).toBe(true);
     }
-    expect(home).toContain("portalVisuals.hero");
+    expect(read("components/PortalCinematicHero.tsx")).toContain("portalVisuals.hero");
     expect(shell).toContain("ministryJourneyItem");
     expect(css).toContain(".immersiveHero");
     expect(css).toContain(".ministryJourneyItem");
@@ -75,9 +76,10 @@ describe("portal público da igreja", () => {
     expect(css).toContain("@media(max-width:750px)");
     expect(css).toContain("@media(max-width:480px)");
     expect(css).toContain("prefers-reduced-motion");
-    expect(shell).toContain('aria-label="Navegação principal"');
+    expect(read("components/PortalDesktopNavigation.tsx")).toContain('aria-label="Navegação principal"');
     expect(shell).toContain("<MobilePortalMenu links={navigation} />");
     expect(read("components/MobilePortalMenu.tsx")).toContain('aria-label="Menu mobile"');
+    expect(shell).toContain("portal-design-system.module.css");
     expect(shell).toContain("Pular para o conteúdo");
     expect(shell).toContain('href="/visita/"');
     expect(visit).toContain("<VisitPlanner");

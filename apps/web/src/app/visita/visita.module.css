@@ -16,3 +16,11 @@
 .after a{display:inline-flex;gap:25px;color:#142b33;font-weight:800;font-size:13px;border-bottom:1px solid #9b7d4e;padding:13px 0}
 @media(max-width:720px){.hero{min-height:620px}.inner{padding:150px 25px 76px}.inner h1{font-size:clamp(53px,10vw,83px)}.inner p{font-size:15px}.body{padding:52px 21px}.after{padding:78px 23px}.after h2{font-size:clamp(41px,9vw,62px)}}
 @media(max-width:420px){.hero{min-height:580px}.inner{padding:138px 22px 65px}.inner h1{font-size:clamp(48px,11vw,60px)}.inner p{font-size:14px}.body{padding:35px 14px}.after h2{font-size:clamp(39px,10vw,50px)}.after p{font-size:14px}}
+
+/* Visual V6 — expressive but coherent visitor cover + round CTAs. */
+.hero{background:#081f24}
+.shade{background:linear-gradient(95deg,#08272bee 0%,#08272bcc 55%,#102d329e),linear-gradient(0deg,#081b22a8,transparent 55%)}
+.inner h1 em,.after h2 em{font-family:Georgia,serif;font-weight:600}
+.down{border:1px solid #edc68d;border-radius:100px;padding:13px 20px;background:#edc68d24;transition:background .2s}
+.down:hover{background:#edc68d44}
+.after{background:linear-gradient(120deg,#e6bb78,#f1d49f)}

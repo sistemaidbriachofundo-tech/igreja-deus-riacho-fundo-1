@@ -5,12 +5,16 @@ import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
 import { PortalMotion } from "./PortalMotion";
 import { MobilePortalMenu } from "./MobilePortalMenu";
+import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
+import { PortalButton } from "./PortalButton";
+import { PortalGlyph } from "./PortalGlyph";
+import d from "./portal-design-system.module.css";
 
 export { s as portalStyles };
 
 function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
-    <Link href="/" className={inverse ? s.brandInverse : s.brand} aria-label="Igreja de Deus no Riacho Fundo I — página inicial">
+    <Link href="/" className={`${inverse ? s.brandInverse : s.brand} ${d.brand}`} aria-label="Igreja de Deus no Riacho Fundo I — página inicial">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={48} height={48} className={s.logo} />
       <span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></span>
@@ -29,14 +33,12 @@ const navigation = [
 
 export function PortalHeader({ light = false }: { light?: boolean }) {
   return (
-    <header className={light ? s.headerLight : s.header} id="topo">
-      <div className={s.headerInner}>
-        <Logo inverse={!light} />
-        <nav className={s.desktopNav} aria-label="Navegação principal">
-          {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
-        </nav>
-        <div className={s.headerActions}>
-          <Link href="/visita/" className={s.headerVisit}>Quero visitar <span aria-hidden="true">↗</span></Link>
+    <header className={d.masthead} id="topo" data-appearance={light ? "light" : "dark"}>
+      <div className={d.mastheadInner}>
+        <Logo inverse />
+        <PortalDesktopNavigation />
+        <div className={d.headerControls}>
+          <Link href="/visita/" className={d.headerCta}>Participe conosco <PortalGlyph name="arrow" /></Link>
           <MobilePortalMenu links={navigation} />
         </div>
       </div>
@@ -46,7 +48,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
 
 export function PortalFooter() {
   return (
-    <footer className={s.footer}>
+    <footer className={`${s.footer} ${d.footer}`}>
       <div className={s.footerTop}>
         <div className={s.footerAbout}>
           <Logo inverse />
@@ -64,7 +66,7 @@ export function PortalFooter() {
 }
 
 export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={s.portal}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PortalMotion />{children}<PortalFooter /></div>;
+  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PortalMotion />{children}<PortalFooter /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {
@@ -119,5 +121,5 @@ export function EventCard({ event }: { event: PortalEvent }) {
 }
 
 export function ContactCTA({ title = "Sua história também tem lugar aqui.", text = "Quer conhecer a igreja ou encontrar um lugar para fazer parte? Comece por aqui." }: { title?: string; text?: string }) {
-  return <section className={s.contactCta}><div className={s.contactCtaHalo} /><div><Eyebrow light>VOCÊ É BEM-VINDO</Eyebrow><h2>{title}</h2><p>{text}</p></div><Link className={s.lightButton} href="/visita/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link></section>;
+  return <section className={s.contactCta}><div className={s.contactCtaHalo} /><div><Eyebrow light>VOCÊ É BEM-VINDO</Eyebrow><h2>{title}</h2><p>{text}</p></div><PortalButton href="/visita/" variant="gold">Quero conhecer a igreja</PortalButton></section>;
 }
