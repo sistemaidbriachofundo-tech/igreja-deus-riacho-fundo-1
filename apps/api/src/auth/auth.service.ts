@@ -199,7 +199,7 @@ function signJwt(
   return `${data}.${signature}`;
 }
 
-function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number } {
+function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number; iat?: number } {
   const parts = token.split(".");
   if (parts.length !== 3) {
     throw new Error("JWT malformado");
@@ -220,7 +220,7 @@ function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number }
   }
   const payload = JSON.parse(
     Buffer.from(encodedPayload, "base64url").toString("utf8"),
-  ) as JwtPayload & { exp?: number };
+  ) as JwtPayload & { exp?: number; iat?: number };
   const now = Math.floor(Date.now() / 1000);
   if (!Number.isSafeInteger(payload.exp) || payload.exp! <= now) {
     throw new Error("JWT expirado ou sem expiração");
