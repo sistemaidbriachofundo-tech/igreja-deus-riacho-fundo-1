@@ -1,4 +1,7 @@
-import { BadGatewayException } from "@nestjs/common";
+import {
+  BadGatewayException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { ManusViviProvider } from "./manus.provider";
 
 describe("ManusViviProvider", () => {
@@ -14,7 +17,7 @@ describe("ManusViviProvider", () => {
     });
 
     const provider = new ManusViviProvider({
-      baseUrl: "https://forge.manus.im",
+      baseUrl: "https://forge.manus.im///",
       apiKey: "k",
       fetchImpl: fetchImpl as never,
     });
@@ -48,6 +51,29 @@ describe("ManusViviProvider", () => {
     });
     await expect(
       provider.chat({ messages: [{ role: "user", content: "x" }] }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it("maps network and HTTP errors", async () => {
+    const down = new ManusViviProvider({
+      baseUrl: "https://forge.manus.im",
+      apiKey: "k",
+      fetchImpl: jest.fn().mockRejectedValue(new Error("timeout")) as never,
+    });
+    await expect(
+      down.chat({ messages: [{ role: "user", content: "x" }] }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    const rejected = new ManusViviProvider({
+      baseUrl: "https://forge.manus.im",
+      apiKey: "k",
+      fetchImpl: jest.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: { message: "quota" } }),
+      }) as never,
+    });
+    await expect(
+      rejected.chat({ messages: [{ role: "user", content: "x" }] }),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 });

@@ -1,12 +1,13 @@
-import {
-  BadGatewayException,
-  ServiceUnavailableException,
-} from "@nestjs/common";
 import type {
   ViviChatInput,
   ViviChatResult,
   ViviLlmProvider,
 } from "./vivi-provider";
+import {
+  postJsonForProvider,
+  requireNonEmptyText,
+  stripTrailingSlashes,
+} from "./http-json";
 
 export type ManusProviderConfig = {
   /** Base URL do gateway Manus Forge (ex.: https://forge.manus.im). */
@@ -38,7 +39,7 @@ export class ManusViviProvider implements ViviLlmProvider {
   private readonly fetchImpl: typeof fetch;
 
   constructor(config: ManusProviderConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/+$/, "");
+    this.baseUrl = stripTrailingSlashes(config.baseUrl);
     this.apiKey = config.apiKey;
     this.model = config.model?.trim() || "auto";
     this.fetchImpl = config.fetchImpl ?? fetch;
@@ -49,57 +50,41 @@ export class ManusViviProvider implements ViviLlmProvider {
       ? `${this.baseUrl}/chat/completions`
       : `${this.baseUrl}/v1/chat/completions`;
 
-    let response: Response;
-    try {
-      response = await this.fetchImpl(url, {
-        method: "POST",
+    const body = await postJsonForProvider(
+      this.fetchImpl,
+      url,
+      {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify({
+        body: {
           model: this.model,
           messages: input.messages.map((m) => ({
             role: m.role,
             content: m.content,
           })),
           max_tokens: input.maxOutputTokens ?? 1024,
-        }),
-      });
-    } catch (err) {
-      throw new ServiceUnavailableException({
-        statusCode: 503,
-        message: "Gateway Manus Forge indisponível",
-        code: "VIVI_MANUS_UNAVAILABLE",
-        detail: err instanceof Error ? err.message : "network_error",
-      });
-    }
-
-    const body = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-
-    if (!response.ok) {
-      throw new BadGatewayException({
-        statusCode: 502,
-        message: "Manus Forge rejeitou a solicitação",
-        code: "VIVI_MANUS_ERROR",
-        detail: typeof body.error === "object" ? body.error : body,
-      });
-    }
+        },
+      },
+      {
+        unavailableMessage: "Gateway Manus Forge indisponível",
+        unavailableCode: "VIVI_MANUS_UNAVAILABLE",
+        rejectMessage: "Manus Forge rejeitou a solicitação",
+        rejectCode: "VIVI_MANUS_ERROR",
+        rejectDetail: (b) =>
+          typeof b.error === "object" ? b.error : b,
+      },
+    );
 
     const choices = body.choices as
       | Array<{ message?: { content?: string } }>
       | undefined;
-    const content = choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      throw new BadGatewayException({
-        statusCode: 502,
-        message: "Resposta Manus vazia ou inválida",
-        code: "VIVI_MANUS_EMPTY",
-      });
-    }
+    const content = requireNonEmptyText(
+      choices?.[0]?.message?.content,
+      "Resposta Manus vazia ou inválida",
+      "VIVI_MANUS_EMPTY",
+    );
 
     const usedModel =
       typeof body.model === "string" && body.model.trim()

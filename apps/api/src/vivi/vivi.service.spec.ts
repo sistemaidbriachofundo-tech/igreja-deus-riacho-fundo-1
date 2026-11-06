@@ -143,4 +143,50 @@ describe("ViviService", () => {
     expect(status.assistant).toBe("vivi");
     expect(status.lgpdNotice).toBeTruthy();
   });
+
+  it("validates message payload shape", async () => {
+    const { service } = build();
+    await expect(
+      service.chatPublic(
+        { messages: [], consentAiProcessing: true },
+        "ip-v",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.chatPublic(
+        {
+          messages: [{ role: "assistant", content: "só assistant" }],
+          consentAiProcessing: true,
+        },
+        "ip-v2",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.chatPublic(
+        {
+          messages: Array.from({ length: 21 }, () => ({
+            role: "user" as const,
+            content: "x",
+          })),
+          consentAiProcessing: true,
+        },
+        "ip-v3",
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("skips audit when VIVI_AUDIT=off", async () => {
+    process.env.VIVI_AUDIT = "off";
+    const { service, auditCreate } = build();
+    await service.chatPublic(
+      {
+        messages: [{ role: "user", content: "Oi" }],
+        consentAiProcessing: true,
+      },
+      "ip-noaudit",
+    );
+    expect(auditCreate).not.toHaveBeenCalled();
+  });
 });

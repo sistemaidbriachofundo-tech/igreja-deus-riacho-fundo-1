@@ -1,13 +1,10 @@
-import {
-  BadGatewayException,
-  ServiceUnavailableException,
-} from "@nestjs/common";
 import type {
   ViviChatInput,
   ViviChatMessage,
   ViviChatResult,
   ViviLlmProvider,
 } from "./vivi-provider";
+import { postJsonForProvider, requireNonEmptyText } from "./http-json";
 
 /**
  * Default atual (2026-11): Flash-Lite — mais barato / disponível no AI Studio.
@@ -55,60 +52,39 @@ export class GeminiViviProvider implements ViviLlmProvider {
       `${encodeURIComponent(this.model)}:generateContent` +
       `?key=${encodeURIComponent(this.apiKey)}`;
 
-    let response: Response;
-    try {
-      response = await this.fetchImpl(url, {
-        method: "POST",
+    const body = await postJsonForProvider(
+      this.fetchImpl,
+      url,
+      {
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           systemInstruction,
           contents,
           generationConfig: {
             maxOutputTokens: input.maxOutputTokens ?? 1024,
             temperature: 0.4,
           },
-        }),
-      });
-    } catch (err) {
-      throw new ServiceUnavailableException({
-        statusCode: 503,
-        message: "Google Gemini indisponível",
-        code: "VIVI_GEMINI_UNAVAILABLE",
-        detail: err instanceof Error ? err.message : "network_error",
-      });
-    }
-
-    const body = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-
-    if (!response.ok) {
-      throw new BadGatewayException({
-        statusCode: 502,
-        message: "Gemini rejeitou a solicitação",
-        code: "VIVI_GEMINI_ERROR",
-        detail: body.error ?? body,
-      });
-    }
+        },
+      },
+      {
+        unavailableMessage: "Google Gemini indisponível",
+        unavailableCode: "VIVI_GEMINI_UNAVAILABLE",
+        rejectMessage: "Gemini rejeitou a solicitação",
+        rejectCode: "VIVI_GEMINI_ERROR",
+      },
+    );
 
     const candidates = body.candidates as
-      | Array<{ content?: GeminiContent }>
+      | Array<{ content?: GeminiContent; finishReason?: string }>
       | undefined;
     const parts = candidates?.[0]?.content?.parts ?? [];
-    const content = parts
-      .map((p) => p.text ?? "")
-      .join("")
-      .trim();
-
-    if (!content) {
-      throw new BadGatewayException({
-        statusCode: 502,
-        message: "Resposta Gemini vazia ou bloqueada",
-        code: "VIVI_GEMINI_EMPTY",
-        detail: body.promptFeedback ?? null,
-      });
-    }
+    const joined = parts.map((p) => p.text ?? "").join("");
+    const content = requireNonEmptyText(
+      joined,
+      "Resposta Gemini vazia ou bloqueada",
+      "VIVI_GEMINI_EMPTY",
+      body.promptFeedback ?? null,
+    );
 
     return {
       content,
@@ -116,9 +92,7 @@ export class GeminiViviProvider implements ViviLlmProvider {
       model: this.model,
       raw: {
         usageMetadata: body.usageMetadata,
-        finishReason: candidates?.[0]
-          ? (candidates[0] as { finishReason?: string }).finishReason
-          : undefined,
+        finishReason: candidates?.[0]?.finishReason,
       },
     };
   }

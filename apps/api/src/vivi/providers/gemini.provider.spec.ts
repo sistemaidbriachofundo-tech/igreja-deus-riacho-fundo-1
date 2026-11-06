@@ -1,4 +1,7 @@
-import { BadGatewayException } from "@nestjs/common";
+import {
+  BadGatewayException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import {
   DEFAULT_GEMINI_MODEL,
   GeminiViviProvider,
@@ -70,6 +73,27 @@ describe("GeminiViviProvider", () => {
     });
     await expect(
       provider.chat({ messages: [{ role: "user", content: "oi" }] }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it("maps network and HTTP errors", async () => {
+    const down = new GeminiViviProvider({
+      apiKey: "gk",
+      fetchImpl: jest.fn().mockRejectedValue("boom") as never,
+    });
+    await expect(
+      down.chat({ messages: [{ role: "user", content: "oi" }] }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    const rejected = new GeminiViviProvider({
+      apiKey: "gk",
+      fetchImpl: jest.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: { status: "RESOURCE_EXHAUSTED" } }),
+      }) as never,
+    });
+    await expect(
+      rejected.chat({ messages: [{ role: "user", content: "oi" }] }),
     ).rejects.toBeInstanceOf(BadGatewayException);
   });
 });

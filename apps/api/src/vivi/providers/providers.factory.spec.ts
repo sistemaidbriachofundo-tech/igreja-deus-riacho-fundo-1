@@ -63,4 +63,20 @@ describe("vivi providers.factory", () => {
     expect(resolveViviProviderMode()).toBe("mock");
     expect(describeViviProviderConfig().mode).toBe("mock");
   });
+
+  it("falls back to mock when manus/gemini requested without credentials", () => {
+    process.env.VIVI_PROVIDER = "manus";
+    expect(createViviProvider().name).toBe("mock");
+    process.env.VIVI_PROVIDER = "gemini";
+    expect(createViviProvider().name).toBe("mock");
+  });
+
+  it("describes gemini model when mode is gemini", () => {
+    process.env.GEMINI_API_KEY = "gk";
+    process.env.GEMINI_MODEL = "gemini-2.5-flash-lite";
+    const cfg = describeViviProviderConfig();
+    expect(cfg.mode).toBe("gemini");
+    expect(cfg.model).toBe("gemini-2.5-flash-lite");
+    expect(cfg.geminiKeyConfigured).toBe(true);
+  });
 });
