@@ -5,7 +5,7 @@ import { getApiBaseUrl } from "../lib/api";
 import type { SiteLayout } from "../lib/site-layout";
 import s from "./vivi-editorial-assistant.module.css";
 
-type Status = {assistant:string;provider:"manus"|"gemini"|"mock";model:string;lgpdNotice:string};
+type Status = {assistant:string;provider:"manus"|"gemini"|"mock";model:string;lgpdNotice:string;manusUrlConfigured?:boolean;manusKeyConfigured?:boolean;geminiKeyConfigured?:boolean};
 type Answer = {reply:string;provider:string;model:string;refused:boolean;lgpdNotice:string};
 type Intent = "revisar"|"chamada"|"galeria";
 
@@ -22,7 +22,7 @@ export function ViviEditorialAssistant({token,layout}:{token:string;layout:SiteL
       .catch(()=>{if(!ctrl.signal.aborted)setError("Não foi possível consultar a Vivi.");});
     return()=>ctrl.abort();
   },[]);
-  const online=Boolean(status&&status.provider!=="mock");
+  const online=Boolean(status&&((status.provider==="manus"&&status.manusUrlConfigured&&status.manusKeyConfigured)||(status.provider==="gemini"&&status.geminiKeyConfigured)));
   async function ask(){
     if(!online||!consent||busy)return;
     const shared=[
