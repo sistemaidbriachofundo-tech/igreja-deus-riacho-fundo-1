@@ -73,6 +73,7 @@ export class ViviService {
       provider: cfg.mode,
       model: cfg.model,
       manusUrlConfigured: cfg.manusUrlConfigured,
+      manusKeyConfigured: cfg.manusKeyConfigured,
       geminiKeyConfigured: cfg.geminiKeyConfigured,
       publicRate: this.rateLimit.snapshot("public", "_status"),
       adminRate: this.rateLimit.snapshot("admin", "_status"),
