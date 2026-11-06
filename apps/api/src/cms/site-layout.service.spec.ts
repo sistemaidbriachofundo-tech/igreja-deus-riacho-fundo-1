@@ -43,42 +43,42 @@ describe("SiteLayoutService",()=>{
   });
 
   it("draft saves a revision without updating published row",async()=>{
-    const tx={
+    const operations={
       cmsContent:{upsert:jest.fn().mockResolvedValue(draftRow)},
       cmsContentRevision:{create:jest.fn().mockResolvedValue({})},
       auditLog:{create:jest.fn().mockResolvedValue({})},
     };
     const prisma={
       cmsContent:{findUnique:jest.fn().mockResolvedValue(null)},
-      $transaction:jest.fn(async(fn:(tx:typeof tx)=>Promise<unknown>)=>fn(tx)),
+      $transaction:jest.fn(async(fn:(value:typeof operations)=>Promise<unknown>)=>fn(operations)),
     };
     const result=await service(prisma).saveDraft(secretaria,DEFAULT_SITE_LAYOUT,null);
     expect(result.draft.hero.title).toBe(DEFAULT_SITE_LAYOUT.hero.title);
-    expect(tx.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
+    expect(operations.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where:{churchId_slug:{churchId:"church1",slug:"idriacho-home-editor-draft"}},
     }));
-    expect(tx.cmsContentRevision.create).toHaveBeenCalled();
-    expect(tx.auditLog.create).toHaveBeenCalled();
+    expect(operations.cmsContentRevision.create).toHaveBeenCalled();
+    expect(operations.auditLog.create).toHaveBeenCalled();
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("publishes only the saved draft and logs public revision",async()=>{
     const row={...draftRow,id:"live1",slug:"idriacho-home-editor-live",publishedAt:new Date("2026-11-06T12:30:00Z")};
-    const tx={
+    const operations={
       cmsContent:{upsert:jest.fn().mockResolvedValue(row)},
       cmsContentRevision:{create:jest.fn()},
       auditLog:{create:jest.fn()},
     };
     const prisma={
       cmsContent:{findUnique:jest.fn().mockResolvedValue(draftRow)},
-      $transaction:jest.fn(async(fn:(tx:typeof tx)=>Promise<unknown>)=>fn(tx)),
+      $transaction:jest.fn(async(fn:(value:typeof operations)=>Promise<unknown>)=>fn(operations)),
     };
     const result=await service(prisma).publish(secretaria,draftRow.updatedAt.toISOString());
     expect(result.published).toEqual(DEFAULT_SITE_LAYOUT);
-    expect(tx.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
+    expect(operations.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where:{churchId_slug:{churchId:"church1",slug:"idriacho-home-editor-live"}},
     }));
-    expect(tx.cmsContentRevision.create).toHaveBeenCalled();
+    expect(operations.cmsContentRevision.create).toHaveBeenCalled();
   });
 
   it("public route never exposes draft",async()=>{
