@@ -205,6 +205,12 @@ function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number }
     throw new Error("JWT malformado");
   }
   const [encodedHeader, encodedPayload, signature] = parts;
+  const header = JSON.parse(
+    Buffer.from(encodedHeader, "base64url").toString("utf8"),
+  ) as { alg?: unknown; typ?: unknown };
+  if (header?.alg !== "HS256" || header?.typ !== "JWT") {
+    throw new Error("Algoritmo JWT não permitido");
+  }
   const data = `${encodedHeader}.${encodedPayload}`;
   const expected = createHmac("sha256", secret).update(data).digest("base64url");
   const sigBuf = Buffer.from(signature);
@@ -215,8 +221,19 @@ function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number }
   const payload = JSON.parse(
     Buffer.from(encodedPayload, "base64url").toString("utf8"),
   ) as JwtPayload & { exp?: number };
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-    throw new Error("JWT expirado");
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(payload.exp) || payload.exp! <= now) {
+    throw new Error("JWT expirado ou sem expiração");
+  }
+  if (!Number.isSafeInteger(payload.iat) || payload.iat > now + 60) {
+    throw new Error("JWT com emissão inválida");
+  }
+  if (
+    typeof payload.sub !== "string" || !payload.sub.trim() ||
+    typeof payload.email !== "string" || !payload.email.trim() ||
+    !Array.isArray(payload.grants)
+  ) {
+    throw new Error("Claims JWT inválidas");
   }
   return payload;
 }
