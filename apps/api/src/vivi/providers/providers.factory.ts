@@ -9,6 +9,7 @@ export type ResolvedViviProviderConfig = {
   mode: ViviProviderMode;
   model: string;
   manusUrlConfigured: boolean;
+  manusKeyConfigured: boolean;
   geminiKeyConfigured: boolean;
 };
 
@@ -73,6 +74,7 @@ export function describeViviProviderConfig(): ResolvedViviProviderConfig {
     mode,
     model,
     manusUrlConfigured: Boolean(resolveManusForgeUrl()),
+    manusKeyConfigured: Boolean(resolveManusApiKey()),
     geminiKeyConfigured: Boolean(resolveGeminiApiKey()),
   };
 }
