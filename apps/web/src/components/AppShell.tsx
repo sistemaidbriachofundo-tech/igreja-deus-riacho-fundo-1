@@ -45,15 +45,15 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
 }
 
 const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: GlyphName; hint: string }[] = [
-  { key: "visao", href: "/app/", label: "Visão geral", short: "Início", icon: "grid", hint: "Painel, indicadores e atividades" },
+  { key: "visao", href: "/app/", label: "Painel", short: "Painel", icon: "home", hint: "Visão geral, indicadores e atividades" },
   { key: "membros", href: "/app/membros/", label: "Membros e famílias", short: "Pessoas", icon: "people", hint: "Pessoas, famílias e cadastros" },
   { key: "secretaria", href: "/app/secretaria/", label: "Secretaria", short: "Secretaria", icon: "layers", hint: "Admissão, processos e documentos" },
   { key: "carteirinha", href: "/app/membros/carteirinha/", label: "Carteirinhas", short: "Carteira", icon: "badge", hint: "Emitir e gerenciar credenciais" },
-  { key: "editorial", href: "/app/editorial/", label: "Estúdio editorial", short: "Conteúdo", icon: "book", hint: "Gerenciar notícias, eventos e ministérios" },
+  { key: "editorial", href: "/app/editorial/", label: "Mídia e conteúdo", short: "Conteúdo", icon: "book", hint: "Estúdio editorial, notícias, eventos e ministérios" },
 ];
 
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
-  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "Plataforma da congregação." };
+  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [term, setTerm] = useState("");
   const searchId = useId();
@@ -76,28 +76,30 @@ export function AppShell({ active, meta, children, editorial = false }: { active
   return (
     <div className={s.frame}>
       <aside className={s.rail} aria-label="Navegação principal">
-        <a href={withBasePath("/app/")} className={s.brand} aria-label="Igreja de Deus no Riacho Fundo I — início">
+        <a href={withBasePath("/app/")} className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
-          <span className={s.brandText}><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I · GESTÃO</small></span>
+          <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
         </a>
 
-        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Ambiente de avaliação"}</strong><small>{editorial ? "API autenticada · acesso por perfil" : "Base exclusivamente sintética"}</small></span></div>
-        <span className={s.groupTitle}>ESPAÇO DE TRABALHO</span>
+        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : "Demonstração com dados sintéticos"}</small></span></div>
+        <span className={s.groupTitle}>PAINEL DE CONTROLE</span>
         <nav className={s.menu} aria-label="Módulos">
           {NAV.map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
             <UIIcon name={item.icon} size={19}/><span>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
           </a>)}
         </nav>
         <div className={s.railDivider}/>
-        <span className={s.groupTitle}>ACESSO</span>
+        <span className={s.groupTitle}>CANAIS E COMUNIDADE</span>
+        <a className={s.menuItem} href={withBasePath("/eventos/")}><UIIcon name="calendar" size={19}/><span>Agenda pública</span><UIIcon name="arrow" size={15}/></a>
+        <a className={s.menuItem} href={withBasePath("/ministerios/")}><UIIcon name="family" size={19}/><span>Ministérios</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/")}><UIIcon name="home" size={19}/><span>Portal da igreja</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/status/")}><UIIcon name="activity" size={19}/><span>Evolução do sistema</span></a>
         <a className={s.menuItem} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer"><UIIcon name="activity" size={19}/><span>Canal da igreja</span><UIIcon name="arrow" size={15}/></a>
 
         <div className={s.railBottom}>
-          <div className={s.verseMark}><UIIcon name="spark" size={18}/></div>
-          <p>Uma plataforma para cuidar melhor de cada história.</p>
-          <span>IGREJA DE DEUS · 2026</span>
+          <div className={s.verseMark}><UIIcon name="layers" size={27}/></div>
+          <p><strong>ID Riacho 1</strong><small>Gestão ministerial</small></p>
+          <span>IGREJA DE DEUS · RIACHO FUNDO I</span>
         </div>
       </aside>
 
@@ -105,15 +107,16 @@ export function AppShell({ active, meta, children, editorial = false }: { active
         <header className={s.toolbar}>
           <div className={s.toolbarIdentity}>
             <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
-            <div><span className={s.toolbarEyebrow}>IGREJA DE DEUS / GESTÃO</span><strong>{meta}</strong></div>
+            <div><strong>{meta}</strong><span className={s.toolbarEyebrow}>Gestão da Igreja de Deus · Riacho Fundo I</span></div>
           </div>
           <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K">
-            <UIIcon name="search" size={18}/><span>Ir para qualquer lugar...</span><kbd>Ctrl K</kbd>
+            <UIIcon name="search" size={18}/><span>Buscar membros, módulos, eventos...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
-            <span className={s.environment}><i/> {editorial ? "API autenticada" : "Dados sintéticos"}</span>
+            <a className={s.toolbarAlerts} href={withBasePath("/app/#avisos")} aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></a>
             <span className={s.toolbarDivider}/>
-            <span className={s.account} aria-label="Área administrativa — avaliação">ID</span>
+            <span className={s.account} aria-label="Identificação visual da área de demonstração">ID</span>
+            <span className={s.accountInfo}><strong>ID Riacho 1</strong><small>{editorial ? "Estúdio editorial" : "Ambiente de teste"}</small></span>
           </div>
         </header>
         {active !== "visao" && <div className={s.workspaceRibbon}>
