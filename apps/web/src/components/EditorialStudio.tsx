@@ -12,7 +12,10 @@ type Status = "RASCUNHO"|"REVISAO"|"APROVADO"|"PUBLICADO"|"ARQUIVADO";
 type Content = { id:string;kind:Kind;status:Status;title:string;slug:string;summary:string|null;body:string|null;ministryId:string|null };
 type PortalEvent = {id:string;name:string;slug:string;status:string;startsAt:string;description:string|null;locationText:string|null;ministryId:string|null;featuredOnHome:boolean};
 type Ministry = {id:string;name:string;slug:string;publishStatus:string;visibility:string;description:string|null;scheduleText:string|null;participationInfo:string|null;leadershipPublic:{displayName:string;roleTitle:string}[]};
-type Tab = "conteudos"|"eventos"|"ministerios";
+type Tab = "conteudos"|"eventos"|"ministerios"|"voluntarios";
+type InterestStage = "INTERESSE"|"AVALIACAO"|"APROVACAO"|"EQUIPE"|"DISPONIBILIDADE"|"ESCALA";
+type VolunteerInterest = {id:string;displayName:string;email:string;message:string|null;ministryId:string;stage:InterestStage;status:"OPEN"|"CLOSED"|"REJECTED";createdAt:string};
+const nextInterestStage:Partial<Record<InterestStage, InterestStage>>={INTERESSE:"AVALIACAO",AVALIACAO:"APROVACAO"};
 const transitions:Record<Status,Status[]> = {
   RASCUNHO:["REVISAO","ARQUIVADO"],REVISAO:["RASCUNHO","APROVADO","ARQUIVADO"],
   APROVADO:["REVISAO","PUBLICADO","ARQUIVADO"],PUBLICADO:["REVISAO","ARQUIVADO"],ARQUIVADO:["RASCUNHO"],
@@ -31,7 +34,7 @@ function localDateTime(value:string) {
 async function request<T>(token:string,path:string,method:"GET"|"POST"|"PATCH"="GET",payload?:unknown):Promise<T> {
   const base=publicApiBase(process.env.NEXT_PUBLIC_API_URL);
   if(!base)throw new Error("API autenticada não configurada.");
-  if(!/^\/(?:cms\/contents|events|ministries)(?:\/[a-zA-Z0-9-]+)*$/.test(path))throw new Error("Rota não permitida.");
+  if(!/^\/(?:cms\/contents|events|ministries|volunteer-interests)(?:\/[a-zA-Z0-9-]+)*$/.test(path))throw new Error("Rota não permitida.");
   const response=await fetch(base+path,{
     method,mode:"cors",credentials:"omit",cache:"no-store",
     headers:{Authorization:"Bearer "+token,Accept:"application/json",...(payload===undefined?{}:{"Content-Type":"application/json"})},
@@ -46,17 +49,20 @@ export function EditorialStudio() {
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
   const [tab,setTab]=useState<Tab>("conteudos"),[info,setInfo]=useState(""),[error,setError]=useState("");
   const [contents,setContents]=useState<Content[]>([]),[events,setEvents]=useState<PortalEvent[]>([]),[ministries,setMinistries]=useState<Ministry[]>([]);
+  const [interests,setInterests]=useState<VolunteerInterest[]>([]),[selectedInterest,setSelectedInterest]=useState<string|null>(null);
   const [contentId,setContentId]=useState<string|null>(null),[eventId,setEventId]=useState<string|null>(null),[ministryId,setMinistryId]=useState<string|null>(null);
   const [content,setContent]=useState(blankContent),[eventData,setEventData]=useState(blankEvent),[ministryData,setMinistryData]=useState(blankMinistry);
 
   useEffect(()=>{setToken(loadStoredToken());setChecking(false);},[]);
   const reload=useCallback(async(t:string)=>{
-    const [a,b,c]=await Promise.all([
+    const [a,b,c,d]=await Promise.all([
       request<{contents:Content[]}>(t,"/cms/contents"),
       request<{events:PortalEvent[]}>(t,"/events"),
       request<{ministries:Ministry[]}>(t,"/ministries"),
+      request<{interests:VolunteerInterest[]}>(t,"/volunteer-interests"),
     ]);
     setContents(a.contents??[]);setEvents(b.events??[]);setMinistries(c.ministries??[]);
+    setInterests(d.interests??[]);
   },[]);
   useEffect(()=>{
     if(!token||!configured)return;
@@ -114,6 +120,7 @@ export function EditorialStudio() {
     }),"Perfil ministerial salvo.");
   }
   const currentContent=contents.find(c=>c.id===contentId),currentEvent=events.find(x=>x.id===eventId),currentMinistry=ministries.find(x=>x.id===ministryId);
+  const currentInterest=interests.find(x=>x.id===selectedInterest);
   return <AppShell active="editorial" editorial meta="Estúdio do portal">
     <div className={s.page}>
       <header className={s.hero}>
@@ -132,15 +139,15 @@ export function EditorialStudio() {
       {configured&&token&&<div className={s.workspace}>
         <div className={s.bar}><span>Dados reais da API autenticada • nenhuma alteração fictícia</span>
           <div><button type="button" disabled={busy} onClick={()=>void perform(()=>reload(token),"Informações atualizadas.")}>Atualizar ↻</button>
-          <button type="button" onClick={()=>{clearToken();setToken(null);setContents([]);setEvents([]);setMinistries([]);}}>Sair</button></div></div>
+          <button type="button" onClick={()=>{clearToken();setToken(null);setContents([]);setEvents([]);setMinistries([]);setInterests([]);}}>Sair</button></div></div>
         <div className={s.metrics}>
           <div><strong>{contents.filter(c=>c.status==="RASCUNHO"||c.status==="REVISAO").length}</strong><span>Em preparação</span></div>
           <div><strong>{contents.filter(c=>c.status==="PUBLICADO").length}</strong><span>Conteúdos públicos</span></div>
           <div><strong>{events.filter(x=>x.status==="PUBLISHED").length}</strong><span>Eventos publicados</span></div>
-          <div><strong>{ministries.filter(x=>x.publishStatus==="PUBLISHED").length}</strong><span>Ministérios ativos</span></div>
+          <div><strong>{interests.filter(x=>x.status==="OPEN").length}</strong><span>Interesses recebidos</span></div>
         </div>
         <div className={s.tabs} role="group" aria-label="Editorias">
-          {([{key:"conteudos",label:"Notícias e páginas"},{key:"eventos",label:"Agenda"},{key:"ministerios",label:"Ministérios"}] as const).map(item=>
+          {([{key:"conteudos",label:"Notícias e páginas"},{key:"eventos",label:"Agenda"},{key:"ministerios",label:"Ministérios"},{key:"voluntarios",label:"Voluntariado"}] as const).map(item=>
             <button type="button" key={item.key} aria-pressed={tab===item.key} className={tab===item.key?s.tabActive:s.tab} onClick={()=>{setTab(item.key);setError("");setInfo("");}}>{item.label}</button>)}
         </div>
         {tab==="conteudos"&&<div className={s.editor}>
@@ -208,6 +215,47 @@ export function EditorialStudio() {
               {currentMinistry.publishStatus!=="PUBLISHED"&&<div><button type="button" disabled={busy} onClick={()=>void perform(()=>request(token,"/ministries/"+currentMinistry.id+"/publish","POST"),"Ministério publicado.")}>Publicar ministério ↗</button></div>}
             </div>
           </>}</div>
+        </div>}
+        {tab==="voluntarios"&&<div className={s.editor}>
+          <div className={s.list}>
+            <div className={s.listTitle}><strong>Interesses no voluntariado</strong></div>
+            {interests.length===0&&<p>Nenhuma manifestação disponível para sua conta.</p>}
+            {interests.map(item=><button type="button" key={item.id}
+              className={item.id===selectedInterest?s.selected:s.item}
+              onClick={()=>{setSelectedInterest(item.id);setInfo("");setError("");}}>
+              <small>{item.stage} • {item.status}</small>
+              <strong>{item.displayName}</strong>
+              <span>{new Date(item.createdAt).toLocaleDateString("pt-BR")}</span>
+            </button>)}
+          </div>
+          <div className={s.editorBody}>
+            {!currentInterest?<p>Selecione uma manifestação para acompanhar a triagem com a equipe responsável.</p>:<>
+              <div className={s.editorHead}><span className={s.kicker}>ACOMPANHAMENTO PRIVADO</span><h2>{currentInterest.displayName}</h2></div>
+              <div className={s.privateInfo}>
+                <span>CONTATO RESTRITO • VISÍVEL SOMENTE A PERFIS AUTORIZADOS</span>
+                <p>E-mail: <a href={"mailto:"+currentInterest.email}>{currentInterest.email}</a></p>
+                {currentInterest.message&&<div><strong>Mensagem enviada</strong><p>{currentInterest.message}</p></div>}
+              </div>
+              <div className={s.approval}>
+                <strong>Etapa: {currentInterest.stage} • Situação: {currentInterest.status}</strong>
+                <p>O acompanhamento utiliza a API protegida. Avançar para equipe e escala exige associação a pessoa e escala no Church OS, não realizada nesta interface.</p>
+                {currentInterest.status==="OPEN"&&<div>
+                  {nextInterestStage[currentInterest.stage]&&<button type="button" disabled={busy} onClick={()=>void perform(
+                    ()=>request(token!,"/volunteer-interests/"+currentInterest.id,"PATCH",{stage:nextInterestStage[currentInterest.stage]}),
+                    "Etapa atualizada."
+                  )}>Avançar para {nextInterestStage[currentInterest.stage]} ↗</button>}
+                  <button type="button" disabled={busy} onClick={()=>void perform(
+                    ()=>request(token!,"/volunteer-interests/"+currentInterest.id,"PATCH",{status:"CLOSED"}),
+                    "Manifestação encerrada."
+                  )}>Concluir atendimento</button>
+                  <button type="button" disabled={busy} onClick={()=>void perform(
+                    ()=>request(token!,"/volunteer-interests/"+currentInterest.id,"PATCH",{status:"REJECTED"}),
+                    "Manifestação encerrada sem aprovação."
+                  )}>Não aprovar</button>
+                </div>}
+              </div>
+            </>}
+          </div>
         </div>}
       </div>}
       {(info||error)&&<div role="status" className={error?s.error:s.success}>{error||info}</div>}

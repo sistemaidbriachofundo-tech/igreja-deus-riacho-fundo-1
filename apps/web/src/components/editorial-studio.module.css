@@ -35,3 +35,10 @@
 @media(max-width:1150px){.editor{grid-template-columns:240px minmax(0,1fr)}.metrics{grid-template-columns:repeat(2,1fr)}.hero{flex-direction:column;align-items:start}}
 @media(max-width:740px){.hero{padding:34px 22px;border-radius:12px}.hero h1{font-size:clamp(32px,8vw,49px)}.loginWrap{grid-template-columns:1fr;gap:20px}.bar{align-items:start;flex-direction:column}.editor{grid-template-columns:1fr}.list{max-height:310px;overflow:auto}.editorBody{padding:22px 18px}.pair{grid-template-columns:1fr}.metrics>div{padding:20px}.metrics strong{font-size:35px}}
 @media(max-width:410px){.hero h1{font-size:32px}.metrics{gap:8px}.metrics>div{padding:15px}.metrics span{font-size:10px}.tabs button{font-size:12px;padding:12px 14px}}
+
+/* Admin-only volunteer triage: do not expose these fields on the public website. */
+.privateInfo{padding:23px;border:1px solid #d7e2db;background:#eff3ef;color:#213d42;margin-bottom:30px;overflow-wrap:anywhere}
+.privateInfo>span{font-size:10px;color:#7c8c8b;letter-spacing:.14em;font-weight:850}
+.privateInfo p{font-size:14px;line-height:1.8}
+.privateInfo a{color:#416b79;text-decoration:underline}
+.privateInfo strong{font-size:12px;letter-spacing:.03em}

@@ -11,6 +11,9 @@ describe("Church OS portal editorial contract", () => {
     expect(studio).toContain('"/cms/contents"');
     expect(studio).toContain('"/events"');
     expect(studio).toContain('"/ministries"');
+    expect(studio).toContain('"/volunteer-interests"');
+    expect(studio).toContain('"voluntarios"');
+    expect(studio).toContain("ACOMPANHAMENTO PRIVADO");
     expect(studio).toContain('"/publish"');
     expect(studio).toContain('"/advance"');
     expect(studio).toContain("publicApiBase(process.env.NEXT_PUBLIC_API_URL)");

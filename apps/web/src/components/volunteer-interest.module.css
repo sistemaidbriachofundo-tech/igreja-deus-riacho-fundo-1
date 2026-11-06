@@ -1,0 +1,20 @@
+.section{background:#102831;color:#fff;padding:100px clamp(24px,6vw,90px);display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(45px,7vw,115px);align-items:start}
+.intro>span{font-size:11px;letter-spacing:.18em;font-weight:850;color:#dfbc7f}
+.intro h2{font:850 clamp(44px,5vw,80px)/1.07 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.075em;margin:20px 0 26px}
+.intro h2 em{font-style:normal;color:#eac88d}.intro p{font-size:16px;line-height:1.85;color:#bfd1cd;max-width:475px}
+.form{padding:36px;border:1px solid #e9d7b34a;background:#ffffff08;display:grid;gap:19px}
+.form label{display:grid;gap:9px;color:#e2ebe7;font-size:13px;font-weight:800}
+.form input:not([type="checkbox"]),.form textarea{background:#f3f6f1;color:#152d31;border:0;border-radius:5px;min-height:46px;padding:13px;font:500 14px/1.6 Inter,Arial,sans-serif;width:100%;box-sizing:border-box}
+.form textarea{resize:vertical}.pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.check{display:flex!important;flex-direction:row;align-items:start;gap:13px;font-weight:500!important;line-height:1.6}
+.check input{width:19px;height:19px;flex:none;margin:3px 0 0;accent-color:#e6ba76}
+.check a{color:#f5d3a1;text-decoration:underline}
+.formBottom{border-top:1px solid #ffffff31;padding-top:24px;display:flex;justify-content:space-between;align-items:end;gap:24px}
+.formBottom span{font-size:11px;color:#b5c9c5;line-height:1.6;max-width:275px}
+.formBottom button{cursor:pointer;border:0;background:#f1c98b;color:#1b3439;padding:16px 20px;font-size:12px;font-weight:850;min-width:220px}
+.formBottom button:disabled{opacity:.5;cursor:not-allowed}.error{color:#ffd9cf;font-size:13px}
+.success{border-top:2px solid #e6c38c;padding:30px;color:#e2eae6}
+.success strong{display:block;font-size:30px}.success p{color:#c2d4cf;line-height:1.7}
+.form :is(input,textarea,button):focus-visible{outline:3px solid #e8c48b;outline-offset:3px}
+@media(max-width:1000px){.section{grid-template-columns:1fr;gap:32px}.intro h2{max-width:750px}.intro p{max-width:750px}}
+@media(max-width:650px){.section{padding:70px 21px}.intro h2{font-size:clamp(43px,9vw,62px)}.intro p{font-size:14px}.form{padding:23px 18px}.pair{grid-template-columns:1fr}.formBottom{flex-direction:column;align-items:stretch}.formBottom button{width:100%}}
