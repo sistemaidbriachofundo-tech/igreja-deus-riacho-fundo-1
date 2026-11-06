@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { withBasePath } from "../lib/paths";
 import s from "./app-shell.module.css";
 
-export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "demo";
+export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "site" | "demo";
 
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
@@ -50,10 +50,11 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
   { key: "secretaria", href: "/app/secretaria/", label: "Secretaria", short: "Secretaria", icon: "layers", hint: "Admissão, processos e documentos" },
   { key: "carteirinha", href: "/app/membros/carteirinha/", label: "Carteirinhas", short: "Carteira", icon: "badge", hint: "Emitir e gerenciar credenciais" },
   { key: "editorial", href: "/app/editorial/", label: "Mídia e conteúdo", short: "Conteúdo", icon: "book", hint: "Estúdio editorial, notícias, eventos e ministérios" },
+  { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home" },
 ];
 
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
-  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
+  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [term, setTerm] = useState("");
   const searchId = useId();
