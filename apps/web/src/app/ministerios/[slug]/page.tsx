@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getMinistry, ministries } from "../../../lib/portal-content";
 import { ministryPhoto } from "../../../lib/portal-visuals";
 import { PublicPage, ContactCTA } from "../../../components/PublicPortal";
+import { PublishedMinistryInfo } from "../../../components/PublicLiveSections";
 import s from "../ministry-v3.module.css";
 
 type MinistryPageProps = { params: Promise<{ slug: string }> };
@@ -54,6 +55,7 @@ export default async function MinistryPage({ params }: MinistryPageProps) {
             ))}
           </div>
         </section>
+        <PublishedMinistryInfo slug={ministry.slug} />
         <section className={s.detailEvents} aria-label="Como conhecer o ministério">
           <div>
             <span className={s.label}>03 / FAÇA PARTE</span>

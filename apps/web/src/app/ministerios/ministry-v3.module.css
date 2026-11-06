@@ -88,3 +88,7 @@
 @keyframes photo-ambient{from{transform:scale(1)}to{transform:scale(1.04)}}
 @media(max-width:700px){.hubHeroImage,.detailHeroPhoto{animation:none}.hubHero::after,.detailHero::after{width:120vw;right:-55%;top:-28%}.pillarRow:hover{padding-left:0}}
 @media(prefers-reduced-motion:reduce){.hubHeroImage,.detailHeroPhoto{animation:none}.storyPhoto img,.storyInfo a,.hubExplore,.detailHeroButton,.pillarRow{transition:none}}
+
+/* Full-width published agenda integrates directly with the official content endpoint. */
+.publishedAgendaSection{padding:110px clamp(24px,6vw,90px);background:#f7f7f3;scroll-margin-top:90px}
+@media(max-width:700px){.publishedAgendaSection{padding:70px 21px}}

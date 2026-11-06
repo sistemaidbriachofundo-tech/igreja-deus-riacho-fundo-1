@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { withBasePath } from "../lib/paths";
 import s from "./app-shell.module.css";
 
-export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "demo";
+export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "demo";
 
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
@@ -49,9 +49,10 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
   { key: "membros", href: "/app/membros/", label: "Membros e famílias", short: "Pessoas", icon: "people", hint: "Pessoas, famílias e cadastros" },
   { key: "secretaria", href: "/app/secretaria/", label: "Secretaria", short: "Secretaria", icon: "layers", hint: "Admissão, processos e documentos" },
   { key: "carteirinha", href: "/app/membros/carteirinha/", label: "Carteirinhas", short: "Carteira", icon: "badge", hint: "Emitir e gerenciar credenciais" },
+  { key: "editorial", href: "/app/editorial/", label: "Estúdio editorial", short: "Conteúdo", icon: "book", hint: "Gerenciar notícias, eventos e ministérios" },
 ];
 
-export function AppShell({ active, meta, children }: { active?: AppNavKey | null; meta: string; children: ReactNode }) {
+export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [term, setTerm] = useState("");
   const searchId = useId();
@@ -79,7 +80,7 @@ export function AppShell({ active, meta, children }: { active?: AppNavKey | null
           <span className={s.brandText}><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I · GESTÃO</small></span>
         </a>
 
-        <div className={s.railContext}><span className={s.railOnline} /><span><strong>Ambiente de avaliação</strong><small>Base exclusivamente sintética</small></span></div>
+        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Ambiente de avaliação"}</strong><small>{editorial ? "API autenticada · acesso por perfil" : "Base exclusivamente sintética"}</small></span></div>
         <span className={s.groupTitle}>ESPAÇO DE TRABALHO</span>
         <nav className={s.menu} aria-label="Módulos">
           {NAV.map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
@@ -108,7 +109,7 @@ export function AppShell({ active, meta, children }: { active?: AppNavKey | null
             <UIIcon name="search" size={18}/><span>Ir para qualquer lugar...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
-            <span className={s.environment}><i/> Dados sintéticos</span>
+            <span className={s.environment}><i/> {editorial ? "API autenticada" : "Dados sintéticos"}</span>
             <span className={s.toolbarDivider}/>
             <span className={s.account} aria-label="Área administrativa — avaliação">ID</span>
           </div>

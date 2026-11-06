@@ -517,3 +517,6 @@
   .portal :where(main[id],section[id],div[id],h1[id],h2[id]) { scroll-margin-top: 78px; }
 }
 @media(prefers-reduced-motion:reduce) { .mobileMenu[open] .mobileMenuPanel { animation: none; } }
+
+/* Editorial navigation with six public destinations. */
+@media(min-width:751px) and (max-width:1280px){.portal .desktopNav{gap:clamp(8px,1.05vw,16px)}.portal .desktopNav a{font-size:11px}.portal .headerInner{padding-left:clamp(15px,2vw,26px);padding-right:clamp(15px,2vw,26px)}}

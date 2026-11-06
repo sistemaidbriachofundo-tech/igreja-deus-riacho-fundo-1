@@ -3,6 +3,7 @@ import { instagramUrl } from "../lib/portal-content";
 import { portalVisuals } from "../lib/portal-visuals";
 import { PublicPage } from "../components/PublicPortal";
 import { FirstVisitFeature } from "../components/FirstVisit";
+import { PublishedHomeSpotlight } from "../components/PublicLiveSections";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { PortalJourney } from "../components/PortalJourney";
 import s from "./home-v3.module.css";
@@ -72,6 +73,7 @@ export default function HomePage() {
         </section>
 
         <FirstVisitFeature />
+        <PublishedHomeSpotlight />
 
         <section className={s.visit} aria-labelledby="visit-title" data-portal-reveal>
           <span>UMA COMUNIDADE DE PORTAS ABERTAS</span>

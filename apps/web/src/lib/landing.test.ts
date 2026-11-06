@@ -26,6 +26,7 @@ describe("portal público da igreja", () => {
     expect(shell).toContain("Área interna");
     expect(shell).toContain("/app/");
     expect(appShell).toContain("Membros e famílias");
+    expect(appShell).toContain("Estúdio editorial");
   });
 
   it("oferece cinco ministérios com caminhos públicos estáticos", () => {

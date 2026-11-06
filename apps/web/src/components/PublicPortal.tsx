@@ -22,6 +22,7 @@ const navigation = [
   { href: "/a-igreja/", label: "A Igreja" },
   { href: "/ministerios/", label: "Ministérios" },
   { href: "/eventos/", label: "Agenda" },
+  { href: "/novidades/", label: "Novidades" },
   { href: "/visita/", label: "Primeira Visita" },
   { href: "/contato/", label: "Contato" },
 ];
@@ -52,7 +53,7 @@ export function PortalFooter() {
           <p>Uma igreja para Deus, pelas famílias. Um lugar de fé, comunhão e cuidado para cada história.</p>
         </div>
         <div className={s.footerLinks}>
-          <div><span className={s.footerLabel}>Explore</span><Link href="/a-igreja/">Nossa igreja</Link><Link href="/ministerios/">Ministérios</Link><Link href="/eventos/">Agenda</Link></div>
+          <div><span className={s.footerLabel}>Explore</span><Link href="/a-igreja/">Nossa igreja</Link><Link href="/ministerios/">Ministérios</Link><Link href="/eventos/">Agenda</Link><Link href="/novidades/">Novidades</Link></div>
           <div><span className={s.footerLabel}>Conecte-se</span><Link href="/visita/">Primeira visita</Link><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Instagram ↗</a><Link href="/ministerios/atmosfera/">Seja voluntário</Link></div>
           <div><span className={s.footerLabel}>Church OS</span><Link href="/app/">Área interna</Link><span className={s.footerNote}>Acesso demonstrativo, com dados fictícios.</span></div>
         </div>
