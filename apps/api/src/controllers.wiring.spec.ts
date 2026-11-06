@@ -531,3 +531,5 @@ describe("controller wiring (delegates to services)", () => {
     expect(channels.dispatchPending).toHaveBeenCalledWith(user, 5);
   });
 
+
+});

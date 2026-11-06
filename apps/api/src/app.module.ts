@@ -55,3 +55,20 @@ import { VolunteersModule } from "./volunteers/volunteers.module";
     EventsModule,
     FinanceModule,
     ChannelsModule,
+    CmsModule,
+    VolunteersModule,
+    PublicPortalModule,
+    AuditModule,
+  ],
+  controllers: [HealthController, MetaController],
+  providers: [HealthService, SimpleRateLimitMiddleware],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(SimpleRateLimitMiddleware).forRoutes(
+      { path: "auth/login", method: RequestMethod.POST },
+      { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
+      { path: "public/volunteer-interests", method: RequestMethod.POST },
+    );
+  }
+}
