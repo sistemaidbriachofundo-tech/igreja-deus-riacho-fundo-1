@@ -6,13 +6,14 @@ import { apiLogin, clearToken, getApiBaseUrl, loadStoredToken, storeToken } from
 import { defaultSiteLayout, parseSiteLayout, sectionNames, siteMediaLibrary, siteSections, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
 import { withBasePath } from "../lib/paths";
 import s from "./site-manager.module.css";
+import { ViviEditorialAssistant, type ViviField } from "./ViviEditorialAssistant";
 
-type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico";
+type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi";
 type Revision = {id:string;date:string;actorUserId:string|null;note:string|null};
 type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|null;publishedAt:string|null;revisions:Revision[]};
 const tabs: {key:Tab;label:string}[] = [
   {key:"conteudo",label:"Textos"},{key:"imagens",label:"Fotos"},{key:"aparencia",label:"Cores"},
-  {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},
+  {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},{key:"vivi",label:"Vivi IA"},
 ];
 const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
 
@@ -82,6 +83,12 @@ export function SiteManager() {
       update({...layout,gallery:{...layout.gallery,items}});
     }
     setCustomUrl("");setError("");
+  }
+  function applyViviSuggestion(field:ViviField,text:string){
+    // Aplicação explícita pela pessoa. Nunca salva nem publica automaticamente.
+    if(field.startsWith("hero."))setHero(field.slice(5) as "title"|"accent"|"description",text);
+    else setGallery(field.slice(8) as "title"|"accent"|"description",text);
+    setNotice("Sugestão aplicada apenas à prévia. Salve o rascunho se desejar mantê-la.");
   }
   function changePhotoText(index:number,field:"title"|"subtitle"|"alt",value:string){
     update({...layout,gallery:{...layout.gallery,
@@ -220,6 +227,7 @@ export function SiteManager() {
                   <label className={s.toggle}><input type="checkbox" checked={!layout.hidden.includes(key)} disabled={key==="convite"} onChange={()=>toggle(key)}/>Exibir</label>
                 </div></li>)}</ol>
             </div>}
+            {tab==="vivi"&&<div className={s.controls}><ViviEditorialAssistant token={token} onApply={applyViviSuggestion}/></div>}
             {tab==="historico"&&<div className={s.controls}>
               <h2>Histórico de publicações</h2><p>Restaure uma versão ao rascunho. Nada é substituído no site sem nova publicação.</p>
               {!revisions.length&&<p>Nenhuma versão publicada no histórico.</p>}
