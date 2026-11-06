@@ -27,7 +27,7 @@ describe("portal v3+ — camadas de experiência", () => {
     const html = renderToStaticMarkup(<PortalButton href="/visita/" variant="gold" icon="calendar">Planejar visita</PortalButton>);
     const desktop = renderToStaticMarkup(<PortalDesktopNavigation />);
     expect(html).toContain("Planejar visita");
-    expect(html).toContain('href="/visita/"');
+    expect(html).toContain('href="/visita"');
     expect(desktop).toContain('aria-label="Navegação principal"');
     expect(desktop).toContain("Quem somos");
     expect(desktop).toContain("Atmosfera");

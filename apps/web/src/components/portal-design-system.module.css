@@ -74,3 +74,5 @@
 @media(max-width:440px){.mastheadInner{padding:0 14px;gap:9px}.brand img{width:39px;height:39px}.brand strong{font-size:10px}.brand small{font-size:7px}.headerCta{font-size:0;min-width:43px;padding:8px 10px}.headerCta svg{height:18px;width:18px}.mobileMenuPanel{padding-left:20px;padding-right:20px}}
 @media(max-width:350px){.brand strong{font-size:9px}.brand small{font-size:6px}.brand img{width:36px;height:36px}.headerControls{gap:8px}}
 @media(prefers-reduced-motion:reduce){.masthead,.headerCta,.desktopNav>a,.navDropdown>summary svg,.systemButton{transition:none}}
+
+.mobileMenuPanel>a.mobileStaff{min-height:45px;margin-top:20px;padding:12px 0;border-bottom:1px solid #e6c58b29;color:#eacfa4;font-size:12px;font-weight:750;letter-spacing:0}

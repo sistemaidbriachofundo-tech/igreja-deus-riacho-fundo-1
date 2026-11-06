@@ -52,6 +52,7 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
         <Link className={s.mobileVisit} href="/visita/" onClick={close}>
           Planejar minha visita <PortalGlyph name="arrow" width={20}/>
         </Link>
+        <Link className={s.mobileStaff} href="/app/" onClick={close}>Área interna (demonstração) <PortalGlyph name="arrow" width={16}/></Link>
         <span className={s.mobileNote}>Igreja de Deus · Riacho Fundo I. Você é bem-vindo.</span>
       </nav>
     </details>
