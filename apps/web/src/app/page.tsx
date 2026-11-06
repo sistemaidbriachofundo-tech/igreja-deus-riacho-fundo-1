@@ -7,6 +7,7 @@ import { PublishedHomeSpotlight } from "../components/PublicLiveSections";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
+import { PortalFaithGallery } from "../components/PortalFaithGallery";
 import { PortalButton } from "../components/PortalButton";
 import s from "./home-v3.module.css";
 
@@ -44,6 +45,8 @@ export default function HomePage() {
           <MinisterioEmFoco />
           <div className={s.ministriesBottom}><span>CINCO MINISTÉRIOS. UMA IGREJA.</span><Link href="/ministerios/">Ver todos os ministérios <span aria-hidden="true">↗</span></Link></div>
         </section>
+
+        <PortalFaithGallery />
 
         <section id="atmosfera" className={s.atmosfera} aria-labelledby="atmosfera-title">
           {/* eslint-disable-next-line @next/next/no-img-element */}
