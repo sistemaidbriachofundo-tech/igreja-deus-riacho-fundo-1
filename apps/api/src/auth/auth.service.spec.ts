@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import {
   hashPassword,
   hashPasswordLegacySha256,
@@ -10,6 +9,7 @@ import {
   JWT_DEV_FALLBACK_SECRET,
   JWT_SECRET_MIN_LENGTH,
 } from "./auth.constants";
+import { createHmac } from "node:crypto";
 
 describe("AuthService password helpers", () => {
   it("hashes and verifies Argon2id passwords", async () => {
@@ -66,7 +66,8 @@ describe("resolveJwtSecret", () => {
 
 describe("AuthService JWT helpers", () => {
   const prismaStub = {} as ConstructorParameters<typeof AuthService>[0];
-  const service = new AuthService(prismaStub);
+  const pilotStub = { getPilotChurch: jest.fn() } as ConstructorParameters<typeof AuthService>[1];
+  const service = new AuthService(prismaStub, pilotStub);
 
   beforeAll(() => {
     process.env.JWT_SECRET = "unit-test-jwt-secret-32chars-ok!!";
@@ -155,11 +156,12 @@ describe("AuthService login MFA hint", () => {
         }),
       },
     };
-    const service = new AuthService(prisma as never);
+    const service = new AuthService(prisma as never, { getPilotChurch: jest.fn().mockResolvedValue({ organizationId: "org1", churchId: "ch1", organizationSlug: "igreja-de-deus", churchSlug: "riacho-fundo-1", churchName: "RF1" }) } as never);
     const result = await service.login({
       email: "ana.demo@example.test",
       password: "admin",
     });
+    expect(result.mfa).toBeDefined();
     expect(result.mfa).toEqual({
       enabled: true,
       required: true,
@@ -193,12 +195,171 @@ describe("AuthService login MFA hint", () => {
         }),
       },
     };
-    const service = new AuthService(prisma as never);
+    const service = new AuthService(prisma as never, { getPilotChurch: jest.fn().mockResolvedValue({ organizationId: "org1", churchId: "ch1", organizationSlug: "igreja-de-deus", churchSlug: "riacho-fundo-1", churchName: "RF1" }) } as never);
     const result = await service.login({
       email: "bruno.demo@example.test",
       password: "admin",
     });
-    expect(result.mfa.challengeRequired).toBe(false);
-    expect(result.mfa.enabled).toBe(false);
+    expect(result.mfa).toBeDefined();
+    expect(result.mfa!.challengeRequired).toBe(false);
+    expect(result.mfa!.enabled).toBe(false);
   });
 });
+
+describe("AuthService refresh and switchChurch", () => {
+  const pilot = {
+    organizationId: "org1",
+    churchId: "ch1",
+    organizationSlug: "igreja-de-deus",
+    churchSlug: "riacho-fundo-1",
+    churchName: "Riacho Fundo I",
+  };
+
+  beforeAll(() => {
+    process.env.JWT_SECRET = "unit-test-jwt-secret-32chars-ok!!";
+    process.env.NODE_ENV = "test";
+  });
+
+  it("refresh reloads grants and keeps active church when covered", async () => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "user01",
+          personId: "demoPersonRiacho01",
+          email: "ana.demo@example.test",
+          status: "ACTIVE",
+          grants: [
+            {
+              organizationId: "org1",
+              churchId: "ch1",
+              ministryId: null,
+              role: { code: "SECRETARIA" },
+            },
+            {
+              organizationId: "org1",
+              churchId: "ch2",
+              ministryId: null,
+              role: { code: "SECRETARIA" },
+            },
+          ],
+        }),
+      },
+    };
+    const service = new AuthService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const pair = await service.refresh({
+      userId: "user01",
+      personId: "demoPersonRiacho01",
+      email: "ana.demo@example.test",
+      organizationId: "org1",
+      churchId: "ch2",
+      grants: [],
+    });
+    expect(pair.user.churchId).toBe("ch2");
+    expect(pair.user.grants).toHaveLength(2);
+    expect(pair.accessToken).toBeTruthy();
+  });
+
+  it("switchChurch denies church without grant", async () => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "user01",
+          personId: "demoPersonRiacho01",
+          email: "ana.demo@example.test",
+          status: "ACTIVE",
+          grants: [
+            {
+              organizationId: "org1",
+              churchId: "ch1",
+              ministryId: null,
+              role: { code: "SECRETARIA" },
+            },
+          ],
+        }),
+      },
+      church: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "ch2",
+          organizationId: "org1",
+        }),
+      },
+    };
+    const service = new AuthService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.switchChurch(
+        {
+          userId: "user01",
+          personId: "demoPersonRiacho01",
+          email: "ana.demo@example.test",
+          organizationId: "org1",
+          churchId: "ch1",
+          grants: [
+            {
+              roleCode: "SECRETARIA",
+              organizationId: "org1",
+              churchId: "ch1",
+            },
+          ],
+        },
+        "ch2",
+      ),
+    ).rejects.toThrow(/grant/);
+  });
+
+  it("switchChurch issues new claims when grant covers target", async () => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "user01",
+          personId: "demoPersonRiacho01",
+          email: "platform.demo@example.test",
+          status: "ACTIVE",
+          grants: [
+            {
+              organizationId: "org1",
+              churchId: null,
+              ministryId: null,
+              role: { code: "PLATFORM_ADMIN" },
+            },
+          ],
+        }),
+      },
+      church: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "ch2",
+          organizationId: "org1",
+        }),
+      },
+    };
+    const service = new AuthService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const pair = await service.switchChurch(
+      {
+        userId: "user01",
+        personId: "demoPersonRiacho01",
+        email: "platform.demo@example.test",
+        organizationId: "org1",
+        churchId: "ch1",
+        grants: [
+          {
+            roleCode: "PLATFORM_ADMIN",
+            organizationId: "org1",
+            churchId: null,
+          },
+        ],
+      },
+      "ch2",
+    );
+    expect(pair.user.churchId).toBe("ch2");
+    expect(pair.user.organizationId).toBe("org1");
+  });
+});
+

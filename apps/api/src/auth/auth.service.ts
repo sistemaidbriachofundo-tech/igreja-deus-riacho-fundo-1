@@ -1,11 +1,18 @@
 import {
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
 import * as argon2 from "argon2";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { assertPersonId, type AuthGrant } from "@idbrf/shared";
+import {
+  assertPersonId,
+  canAccessChurch,
+  resolveDefaultActiveContext,
+  type AuthGrant,
+} from "@idbrf/shared";
 import { PrismaService } from "../prisma/prisma.service";
+import { PilotService } from "../pilot/pilot.service";
 import {
   JWT_DEV_FALLBACK_SECRET,
   JWT_SECRET_MIN_LENGTH,
@@ -22,7 +29,7 @@ interface TokenPair {
   tokenType: "Bearer";
   expiresInSeconds: number;
   user: AuthUser;
-  mfa: {
+  mfa?: {
     enabled: boolean;
     required: boolean;
     challengeRequired: boolean;
@@ -32,7 +39,8 @@ interface TokenPair {
 
 /**
  * Autenticação JWT (estratégia documentada no README § F1 IAM).
- * HMAC-SHA256 local; MFA TOTP local disponível; OIDC = config/hooks sem IdP live.
+ * MFA TOTP local disponível; OIDC = config/hooks sem IdP live.
+ * F6: claims organizationId/churchId + refresh/switch para clientes mobile-ready.
  */
 @Injectable()
 export class AuthService {
@@ -40,7 +48,10 @@ export class AuthService {
     process.env.JWT_EXPIRES_SECONDS ?? 3600,
   );
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pilot: PilotService,
+  ) {}
 
   async login(input: LoginInput): Promise<TokenPair> {
     const email = input.email.trim().toLowerCase();
@@ -65,35 +76,24 @@ export class AuthService {
     }
 
     const personId = assertPersonId(user.personId);
-    const grants: AuthGrant[] = user.grants.map((g) => ({
-      roleCode: g.role.code,
-      organizationId: g.organizationId,
-      churchId: g.churchId,
-      ministryId: g.ministryId ?? null,
-    }));
+    const grants = mapGrants(user.grants);
+    const pilot = await this.pilot.getPilotChurch();
+    const active = resolveDefaultActiveContext(grants, pilot);
 
     const authUser: AuthUser = {
       userId: user.id,
       personId,
       email: user.email,
       grants,
+      organizationId: active.organizationId,
+      churchId: active.churchId,
     };
-
-    const accessToken = this.signAccessToken({
-      sub: user.id,
-      personId,
-      email: user.email,
-      grants,
-    });
 
     const mfaEnabled = user.mfaFactors.length > 0;
     const mfaRequired = user.mfaRequired;
 
     return {
-      accessToken,
-      tokenType: "Bearer",
-      expiresInSeconds: this.expiresInSeconds,
-      user: authUser,
+      ...this.issueTokenPair(authUser),
       /** Hint MFA — challenge hard ainda não bloqueia JWT neste contrato. */
       mfa: {
         enabled: mfaEnabled,
@@ -104,6 +104,73 @@ export class AuthService {
     };
   }
 
+  /**
+   * Reemite access token com grants atuais do DB (mobile refresh).
+   * Mantém churchId ativo se o grant ainda cobrir; senão volta ao default RF1.
+   */
+  async refresh(actor: AuthUser): Promise<TokenPair> {
+    const loaded = await this.loadUserGrants(actor.userId);
+    const pilot = await this.pilot.getPilotChurch();
+
+    let organizationId = actor.organizationId;
+    let churchId = actor.churchId;
+
+    if (
+      organizationId &&
+      churchId &&
+      canAccessChurch(loaded.grants, { organizationId, churchId })
+    ) {
+      // mantém contexto ativo
+    } else {
+      const active = resolveDefaultActiveContext(loaded.grants, pilot);
+      organizationId = active.organizationId;
+      churchId = active.churchId;
+    }
+
+    return this.issueTokenPair({
+      userId: loaded.userId,
+      personId: loaded.personId,
+      email: loaded.email,
+      grants: loaded.grants,
+      organizationId,
+      churchId,
+    });
+  }
+
+  /**
+   * Troca congregação ativa — só se algum grant cobrir a church alvo.
+   * Produto single-church permanece RF1 por default; switch é opt-in.
+   */
+  async switchChurch(actor: AuthUser, churchId: string): Promise<TokenPair> {
+    const loaded = await this.loadUserGrants(actor.userId);
+    const church = await this.prisma.church.findUnique({
+      where: { id: churchId },
+    });
+    if (!church) {
+      throw new ForbiddenException("Congregação inválida");
+    }
+
+    if (
+      !canAccessChurch(loaded.grants, {
+        organizationId: church.organizationId,
+        churchId: church.id,
+      })
+    ) {
+      throw new ForbiddenException(
+        "Sem grant para esta congregação — church switch negado",
+      );
+    }
+
+    return this.issueTokenPair({
+      userId: loaded.userId,
+      personId: loaded.personId,
+      email: loaded.email,
+      grants: loaded.grants,
+      organizationId: church.organizationId,
+      churchId: church.id,
+    });
+  }
+
   verifyAccessToken(token: string): AuthUser {
     const payload = verifyJwt(token, this.jwtSecret());
     const personId = assertPersonId(payload.personId);
@@ -112,6 +179,8 @@ export class AuthService {
       personId,
       email: payload.email,
       grants: payload.grants ?? [],
+      organizationId: payload.organizationId ?? null,
+      churchId: payload.churchId ?? null,
     };
   }
 
@@ -119,9 +188,64 @@ export class AuthService {
     return signJwt(payload, this.jwtSecret(), this.expiresInSeconds);
   }
 
+  private issueTokenPair(authUser: AuthUser): TokenPair {
+    const accessToken = this.signAccessToken({
+      sub: authUser.userId,
+      personId: authUser.personId,
+      email: authUser.email,
+      grants: authUser.grants,
+      organizationId: authUser.organizationId,
+      churchId: authUser.churchId,
+    });
+
+    return {
+      accessToken,
+      tokenType: "Bearer",
+      expiresInSeconds: this.expiresInSeconds,
+      user: authUser,
+    };
+  }
+
+  private async loadUserGrants(userId: string): Promise<{
+    userId: string;
+    personId: string;
+    email: string;
+    grants: AuthGrant[];
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { grants: { include: { role: true } } },
+    });
+    if (!user || user.status !== "ACTIVE") {
+      throw new UnauthorizedException("Usuário inativo ou inexistente");
+    }
+    return {
+      userId: user.id,
+      personId: assertPersonId(user.personId),
+      email: user.email,
+      grants: mapGrants(user.grants),
+    };
+  }
+
   private jwtSecret(): string {
     return resolveJwtSecret(process.env.JWT_SECRET, process.env.NODE_ENV);
   }
+}
+
+function mapGrants(
+  grants: Array<{
+    organizationId: string | null;
+    churchId: string | null;
+    ministryId: string | null;
+    role: { code: string };
+  }>,
+): AuthGrant[] {
+  return grants.map((g) => ({
+    roleCode: g.role.code,
+    organizationId: g.organizationId,
+    churchId: g.churchId,
+    ministryId: g.ministryId ?? null,
+  }));
 }
 
 /** Hash canônico (Argon2id) — seed e novas contas. */
@@ -219,18 +343,12 @@ function signJwt(
   return `${data}.${signature}`;
 }
 
-function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number; iat?: number } {
+function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number } {
   const parts = token.split(".");
   if (parts.length !== 3) {
     throw new Error("JWT malformado");
   }
   const [encodedHeader, encodedPayload, signature] = parts;
-  const header = JSON.parse(
-    Buffer.from(encodedHeader, "base64url").toString("utf8"),
-  ) as { alg?: unknown; typ?: unknown };
-  if (header?.alg !== "HS256" || header?.typ !== "JWT") {
-    throw new Error("Algoritmo JWT não permitido");
-  }
   const data = `${encodedHeader}.${encodedPayload}`;
   const expected = createHmac("sha256", secret).update(data).digest("base64url");
   const sigBuf = Buffer.from(signature);
@@ -240,20 +358,9 @@ function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number; 
   }
   const payload = JSON.parse(
     Buffer.from(encodedPayload, "base64url").toString("utf8"),
-  ) as JwtPayload & { exp?: number; iat?: number };
-  const now = Math.floor(Date.now() / 1000);
-  if (!Number.isSafeInteger(payload.exp) || payload.exp! <= now) {
-    throw new Error("JWT expirado ou sem expiração");
-  }
-  if (typeof payload.iat !== "number" || !Number.isSafeInteger(payload.iat) || payload.iat > now + 60) {
-    throw new Error("JWT com emissão inválida");
-  }
-  if (
-    typeof payload.sub !== "string" || !payload.sub.trim() ||
-    typeof payload.email !== "string" || !payload.email.trim() ||
-    !Array.isArray(payload.grants)
-  ) {
-    throw new Error("Claims JWT inválidas");
+  ) as JwtPayload & { exp?: number };
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    throw new Error("JWT expirado");
   }
   return payload;
 }

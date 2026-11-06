@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: Igreja de Deus Riacho Fundo I — API F1/F2/F4/F5
-  version: 0.6.1-channels
+  title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
+  version: 0.7.0-das
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -15,6 +15,8 @@ info:
     - 0.6.0-f4: núcleo financeiro (plano de contas, lançamentos, dupla aprovação stub, import CSV/OFX stub, conciliação)
     - 0.6.1-channels: F5 canais — outbox WhatsApp/e-mail/push, consentimento, templates,
       delivery status, rate limits, providers mock/noop (sem WABA/SMTP/FCM live; sem IA)
+    - 0.7.0-das: multi-igreja (grants/switch), audit org-wide PLATFORM_ADMIN, indicadores stub,
+      auth refresh claims (mobile-ready; sem app RN) — consolidado pós-merges DAS
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -51,6 +53,8 @@ tags:
   - name: volunteers
   - name: ledger
   - name: channels
+  - name: indicators
+  - name: churches
 
 components:
   securitySchemes:
@@ -2965,3 +2969,104 @@ paths:
           description: Outbox atualizado (SENT/DELIVERED/FAILED/DEAD)
         "400":
           description: CHANNEL_RATE_LIMITED ou status inválido
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      x-implementation: implemented
+      summary: Refresh JWT (mobile-ready) — revalida grants e reemite claims
+      description: |
+        Usa o Bearer atual. Recarrega grants do DB; mantém `churchId` ativo se ainda coberto,
+        senão volta ao default RF1. Sem refresh token opaco neste núcleo (access JWT short-lived).
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Novo access token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "401":
+          description: Token inválido / usuário inativo
+
+  /auth/switch-church:
+    post:
+      tags: [auth]
+      x-implementation: implemented
+      summary: Troca congregação ativa no JWT (F6)
+      description: |
+        Exige grant que cubra `churchId`. Produto default permanece RF1 no login.
+        Mobile deve chamar após o usuário escolher congregação em `GET /churches`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SwitchChurchRequest" }
+      responses:
+        "200":
+          description: Token com novos claims organizationId/churchId
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "403":
+          description: Sem grant para a congregação
+
+  /churches:
+    get:
+      tags: [churches]
+      x-implementation: implemented
+      summary: Lista congregações cobertas pelos grants do ator
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Churches acessíveis (+ defaultChurchId = RF1)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChurchesListResponse" }
+        "403":
+          description: Sem organização no escopo
+
+  /indicators/summary:
+    get:
+      tags: [indicators]
+      x-implementation: implemented
+      summary: Stub F6 — resumo de indicadores (leitura)
+      description: |
+        Contagens mínimas reais; `stub: true` até dashboards maduros.
+        `scope=organization` só PLATFORM_ADMIN (cross-church).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: churchId
+          in: query
+          schema: { type: string }
+        - name: scope
+          in: query
+          schema: { type: string, enum: [organization] }
+      responses:
+        "200":
+          description: Resumo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IndicatorsSummary" }
+        "403":
+          description: Sem grant
+
+  /indicators/membership:
+    get:
+      tags: [indicators]
+      x-implementation: implemented
+      summary: Stub F6 — membresia por status (leitura)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: churchId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Contagem por status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IndicatorsMembership" }
+        "403":
+          description: Sem grant
+

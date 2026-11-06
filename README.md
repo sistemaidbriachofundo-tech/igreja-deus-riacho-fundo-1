@@ -104,7 +104,7 @@ docker-compose.yml
 
 ## F2 slice — cadastro / secretaria / carteirinha (single church)
 
-Piloto **hard-scoped** a Riacho Fundo I (`PILOT_CHURCH_SLUG=riacho-fundo-1`). Sem UI multi-congregação.
+Produto **default** Riacho Fundo I (`PILOT_CHURCH_SLUG=riacho-fundo-1`). F6 BE: multi-igreja via grants + `/auth/switch-church` (sem app RN neste núcleo).
 
 ### Modelo novo
 
@@ -179,7 +179,7 @@ Cria org/igreja demo, papéis base, duas pessoas (`demoPersonRiacho01`, `demoPer
 
 - WhatsApp, finanças, pastoral, escalas  
 - OIDC/MFA, política completa de auditoria / leituras sensíveis  
-- Multi-congregação / multi-org UI  
+- App React Native / UI web multi-congregação (BE F6 núcleo: grants/switch/indicadores stub)  
 
 ## O que NÃO vai neste preview
 

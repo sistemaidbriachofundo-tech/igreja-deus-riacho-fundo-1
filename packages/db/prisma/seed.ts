@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 /**
  * Seed fictício apenas — sem dados reais da igreja.
  * Senha demo: "admin" (Argon2id; params alinhados a apps/api hashPassword).
- * Piloto hard-scoped: só Riacho Fundo I (sem multi-congregação).
+ * Produto default: Riacho Fundo I. F6: segunda congregação + PLATFORM_ADMIN org-wide.
  */
 const DEMO_PASSWORD_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$Orwb01GobNLUv7ZiWJ0tbA$YzvnXjzMn5ffs7FYEHuw3xfoTmkQsD0KZXcBDS/fsgQ"; // "admin" — só demo
@@ -250,12 +250,69 @@ async function main() {
     churchId: church.id,
   });
 
+  // F6: Ana também secretaria na congregação destino (church switch grants).
+  await upsertChurchGrant({
+    prisma,
+    userId: adminUser.id,
+    roleId: secretaria.id,
+    organizationId: org.id,
+    churchId: churchDest.id,
+  });
+
   await upsertChurchGrant({
     prisma,
     userId: memberUser.id,
     roleId: membro.id,
     organizationId: org.id,
     churchId: church.id,
+  });
+
+  const platformRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "PLATFORM_ADMIN" },
+  });
+
+  const platformPerson = await prisma.person.upsert({
+    where: { id: "demoPersonPlatform01" },
+    update: {
+      displayName: "Paula Demo Platform",
+      email: "platform.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+    create: {
+      id: "demoPersonPlatform01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Paula Demo Platform",
+      email: "platform.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+
+  const platformUser = await prisma.user.upsert({
+    where: { email: "platform.demo@example.test" },
+    update: {
+      personId: platformPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      personId: platformPerson.id,
+      email: "platform.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+
+  // PLATFORM_ADMIN org-wide (churchId null) — auditoria cross-church F6.
+  await upsertOrgWideGrant({
+    prisma,
+    userId: platformUser.id,
+    roleId: platformRole.id,
+    organizationId: org.id,
   });
 
   const anaMembership = await prisma.churchMembership.upsert({
@@ -1114,64 +1171,4 @@ async function main() {
       tesouraUser.email,
       tesoura2User.email,
       tesoura3User.email,
-    ],
-    memberships: [anaMembership.id, brunoMembership.id],
-    f3: {
-      track: "demoTrack01",
-      ministry: "demoMinistry01",
-      group: "demoGroup01",
-    },
-    portal: {
-      ministries: portalMinistries.map((m) => m.slug),
-      events: ["encontro-jovens-demo", "culto-familia-demo"],
-      cms: cmsSeeds.map((c) => c.slug),
-    },
-    f4: {
-      accounts: [accCaixa.code, accBanco.code, accOfertas.code, accDespesas.code],
-      entry: "demoLedgerEntry01",
-      import: "demoBankImport01",
-      reconciliation: "demoReconciliation01",
-    },
-  });
-}
-
-/** Grant church-wide ou ministry-scoped (ministryId null = igreja). */
-async function upsertChurchGrant(input: {
-  prisma: PrismaClient;
-  userId: string;
-  roleId: string;
-  organizationId: string;
-  churchId: string;
-  ministryId?: string | null;
-}) {
-  const existing = await input.prisma.grant.findFirst({
-    where: {
-      userId: input.userId,
-      roleId: input.roleId,
-      organizationId: input.organizationId,
-      churchId: input.churchId,
-      ministryId: input.ministryId ?? null,
-    },
-  });
-  if (existing) {
-    return existing;
-  }
-  return input.prisma.grant.create({
-    data: {
-      userId: input.userId,
-      roleId: input.roleId,
-      organizationId: input.organizationId,
-      churchId: input.churchId,
-      ministryId: input.ministryId ?? null,
-    },
-  });
-}
-
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+      platformUser.email,

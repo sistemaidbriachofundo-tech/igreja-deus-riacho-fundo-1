@@ -50,6 +50,11 @@ export type {
   MetaResponse,
   AuditLogEntryDto,
   AuditLogsResponse,
+  ChurchSummaryDto,
+  ChurchesListResponse,
+  SwitchChurchRequest,
+  IndicatorsSummaryDto,
+  IndicatorsMembershipDto,
 } from "./dto";
 
 /**
@@ -62,6 +67,11 @@ export const API_ENDPOINT_STATUS = {
   "GET /meta": "implemented",
   "POST /auth/login": "implemented",
   "GET /auth/me": "implemented",
+  "POST /auth/refresh": "implemented",
+  "POST /auth/switch-church": "implemented",
+  "GET /churches": "implemented",
+  "GET /indicators/summary": "implemented",
+  "GET /indicators/membership": "implemented",
   "GET /memberships": "implemented",
   "POST /memberships": "implemented",
   "GET /credentials/me": "implemented",

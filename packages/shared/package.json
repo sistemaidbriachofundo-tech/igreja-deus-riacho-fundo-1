@@ -2,7 +2,7 @@
   "name": "@idbrf/shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Tipos e utilitários compartilhados",
+  "description": "Tipos e utilit\u00e1rios compartilhados",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "node --import tsx --test src/index.test.ts src/person-id.test.ts src/rbac.test.ts src/credential-token.test.ts src/membership-scope.test.ts src/api-contracts/api-contracts.test.ts src/admission-rules.test.ts src/finance/ledger-rules.test.ts",
+    "test": "node --import tsx --test src/index.test.ts src/person-id.test.ts src/rbac.test.ts src/credential-token.test.ts src/membership-scope.test.ts src/api-contracts/api-contracts.test.ts src/admission-rules.test.ts src/finance/ledger-rules.test.ts src/church-access.test.ts",
     "test:coverage": "c8 --reporter=lcov --reporter=text-summary --reports-dir=coverage --include='src/**/*.ts' --exclude='src/**/*.test.ts' npm run test"
   },
   "devDependencies": {

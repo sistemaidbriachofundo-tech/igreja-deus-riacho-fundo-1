@@ -12,7 +12,7 @@ export interface PilotChurch {
 
 /**
  * Resolve a congregação piloto (Riacho Fundo I).
- * Hard-scope: sem multi-congregação neste slice.
+ * Produto default single-church = RF1. F6: multi-igreja via grants + /churches.
  */
 @Injectable()
 export class PilotService {

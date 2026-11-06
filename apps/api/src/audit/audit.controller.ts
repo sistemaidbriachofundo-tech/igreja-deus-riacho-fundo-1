@@ -15,7 +15,15 @@ export class AuditController {
     ROLE_CODES.PLATFORM_ADMIN,
   )
   @Get()
-  list(@CurrentUser() user: AuthUser, @Query("limit") limit?: string) {
-    return this.audit.listRecent(user, limit ? Number(limit) : 50);
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query("limit") limit?: string,
+    @Query("churchId") churchId?: string,
+    @Query("scope") scope?: string,
+  ) {
+    return this.audit.listRecent(user, limit ? Number(limit) : 50, {
+      churchId,
+      scope,
+    });
   }
 }
