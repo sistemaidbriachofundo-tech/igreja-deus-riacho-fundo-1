@@ -34,9 +34,27 @@ describe("API F2: configuração", () => {
   it("remove barra final da base configurada", () => {
     expect(getApiBaseUrl()).toBe("https://api.example.test");
   });
-  it("usa localhost apenas sem uma URL explícita", () => {
+  it("não envia credenciais ao localhost do visitante sem API configurada", () => {
     delete process.env.NEXT_PUBLIC_API_URL;
-    expect(getApiBaseUrl()).toBe("http://localhost:3001");
+    expect(() => getApiBaseUrl()).toThrow("API autenticada não configurada");
+  });
+
+  it("rejeita configuração HTTP remota insegura", () => {
+    process.env.NEXT_PUBLIC_API_URL = "http://api.exemplo.org";
+    expect(() => getApiBaseUrl()).toThrow("URL insegura");
+  });
+
+  it("aceita URL HTTP somente na máquina de desenvolvimento", () => {
+    process.env.NEXT_PUBLIC_API_URL = "http://127.0.0.1:3001/";
+    expect(getApiBaseUrl()).toBe("http://127.0.0.1:3001");
+  });
+
+  it("não faz requisição de login sem API liberada", async () => {
+    delete process.env.NEXT_PUBLIC_API_URL;
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    await expect(apiLogin("teste@example.test", "senha")).rejects.toThrow("API autenticada não configurada");
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 
