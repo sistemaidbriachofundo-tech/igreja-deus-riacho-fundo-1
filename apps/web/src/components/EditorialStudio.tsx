@@ -9,9 +9,9 @@ import s from "./editorial-studio.module.css";
 
 type Kind = "NEWS"|"BANNER"|"HOME_BLOCK"|"PAGE"|"MINISTRY_CONTENT";
 type Status = "RASCUNHO"|"REVISAO"|"APROVADO"|"PUBLICADO"|"ARQUIVADO";
-type Content = { id:string;kind:Kind;status:Status;title:string;slug:string;summary:string|null;body:string|null;ministryId:string|null };
+type Content = { id:string;kind:Kind;status:Status;title:string;slug:string;summary:string|null;body:string|null;ministryId:string|null;imageUrl:string|null };
 type PortalEvent = {id:string;name:string;slug:string;status:string;startsAt:string;description:string|null;locationText:string|null;ministryId:string|null;featuredOnHome:boolean};
-type Ministry = {id:string;name:string;slug:string;publishStatus:string;visibility:string;description:string|null;scheduleText:string|null;participationInfo:string|null;leadershipPublic:{displayName:string;roleTitle:string}[]};
+type Ministry = {id:string;name:string;slug:string;publishStatus:string;visibility:string;description:string|null;scheduleText:string|null;participationInfo:string|null;leadershipPublic:{displayName:string;roleTitle:string}[];coverImageUrl:string|null;galleryUrls:string[]};
 type Tab = "conteudos"|"eventos"|"ministerios"|"voluntarios";
 type InterestStage = "INTERESSE"|"AVALIACAO"|"APROVACAO"|"EQUIPE"|"DISPONIBILIDADE"|"ESCALA";
 type VolunteerInterest = {id:string;displayName:string;email:string;message:string|null;ministryId:string;stage:InterestStage;status:"OPEN"|"CLOSED"|"REJECTED";createdAt:string};
@@ -21,10 +21,15 @@ const transitions:Record<Status,Status[]> = {
   APROVADO:["REVISAO","PUBLICADO","ARQUIVADO"],PUBLICADO:["REVISAO","ARQUIVADO"],ARQUIVADO:["RASCUNHO"],
 };
 const labels:Record<Status,string> = {RASCUNHO:"Rascunho",REVISAO:"Em revisão",APROVADO:"Aprovado",PUBLICADO:"Publicado",ARQUIVADO:"Arquivado"};
-const blankContent={kind:"NEWS" as Kind,title:"",slug:"",summary:"",body:"",ministryId:""};
+const blankContent={kind:"NEWS" as Kind,title:"",slug:"",summary:"",body:"",ministryId:"",imageUrl:""};
 const blankEvent={name:"",slug:"",startsAt:"",description:"",locationText:"",ministryId:"",featuredOnHome:false};
-const blankMinistry={description:"",scheduleText:"",participationInfo:"",leadershipText:""};
+const blankMinistry={description:"",scheduleText:"",participationInfo:"",leadershipText:"",coverImageUrl:"",galleryText:""};
 
+function secureImageUrl(value:string): boolean {
+  if (!value.trim()) return true;
+  try { return new URL(value.trim()).protocol === "https:"; }
+  catch { return false; }
+}
 function slugify(value:string) { return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""); }
 function localDateTime(value:string) {
   const date=new Date(value);if(!Number.isFinite(date.getTime()))return "";
@@ -85,15 +90,16 @@ export function EditorialStudio() {
     catch(err){setError(err instanceof Error?err.message:"Não foi possível executar a ação.");}
     finally{setBusy(false);}
   }
-  function chooseContent(item:Content){setContentId(item.id);setContent({kind:item.kind,title:item.title,slug:item.slug,summary:item.summary??"",body:item.body??"",ministryId:item.ministryId??""});}
+  function chooseContent(item:Content){setContentId(item.id);setContent({kind:item.kind,title:item.title,slug:item.slug,summary:item.summary??"",body:item.body??"",ministryId:item.ministryId??"",imageUrl:item.imageUrl??""});}
   function chooseEvent(item:PortalEvent){setEventId(item.id);setEventData({name:item.name,slug:item.slug,startsAt:localDateTime(item.startsAt),description:item.description??"",locationText:item.locationText??"",ministryId:item.ministryId??"",featuredOnHome:item.featuredOnHome});}
-  function chooseMinistry(item:Ministry){setMinistryId(item.id);setMinistryData({description:item.description??"",scheduleText:item.scheduleText??"",participationInfo:item.participationInfo??"",leadershipText:item.leadershipPublic.map(p=>p.displayName+" | "+p.roleTitle).join("\n")});}
+  function chooseMinistry(item:Ministry){setMinistryId(item.id);setMinistryData({description:item.description??"",scheduleText:item.scheduleText??"",participationInfo:item.participationInfo??"",leadershipText:item.leadershipPublic.map(p=>p.displayName+" | "+p.roleTitle).join("\n"),coverImageUrl:item.coverImageUrl??"",galleryText:(item.galleryUrls??[]).join("\n")});}
   function saveContent(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!token)return;
     if(content.kind==="MINISTRY_CONTENT"&&!content.ministryId){setError("Selecione o ministério responsável.");return;}
-    const payload={...content,title:content.title.trim(),slug:slugify(content.slug||content.title),summary:content.summary||null,body:content.body||null,ministryId:content.ministryId||null};
+    if(!secureImageUrl(content.imageUrl)){setError("A imagem precisa utilizar URL HTTPS.");return;}
+    const payload={...content,title:content.title.trim(),slug:slugify(content.slug||content.title),summary:content.summary||null,body:content.body||null,ministryId:content.ministryId||null,imageUrl:content.imageUrl.trim()||null};
     void perform(async()=>{
-      if(contentId)await request(token,"/cms/contents/"+contentId,"PATCH",{title:payload.title,summary:payload.summary,body:payload.body});
+      if(contentId)await request(token,"/cms/contents/"+contentId,"PATCH",{title:payload.title,summary:payload.summary,body:payload.body,imageUrl:payload.imageUrl});
       else{const saved=await request<Content>(token,"/cms/contents","POST",payload);setContentId(saved.id);}
     },"Conteúdo salvo. Siga o fluxo de revisão antes de publicar.");
   }
@@ -114,9 +120,14 @@ export function EditorialStudio() {
       const parts=line.split("|");return {displayName:parts[0].trim(),roleTitle:parts.slice(1).join("|").trim()};
     });
     if(leadershipPublic.some(person=>!person.displayName||!person.roleTitle)){setError("Liderança: uma linha por pessoa, no formato Nome | Função.");return;}
+    const galleryUrls=ministryData.galleryText.split("\n").map(x=>x.trim()).filter(Boolean);
+    if(!secureImageUrl(ministryData.coverImageUrl)||galleryUrls.some(url=>!secureImageUrl(url))){
+      setError("Todas as fotografias devem usar links HTTPS aprovados para divulgação.");return;
+    }
     void perform(()=>request(token,"/ministries/"+ministryId,"PATCH",{
       description:ministryData.description||null,scheduleText:ministryData.scheduleText||null,
       participationInfo:ministryData.participationInfo||null,leadershipPublic,
+      coverImageUrl:ministryData.coverImageUrl.trim()||null,galleryUrls,
     }),"Perfil ministerial salvo.");
   }
   const currentContent=contents.find(c=>c.id===contentId),currentEvent=events.find(x=>x.id===eventId),currentMinistry=ministries.find(x=>x.id===ministryId);
@@ -164,6 +175,7 @@ export function EditorialStudio() {
               <label>Título<input required value={content.title} onChange={e=>setContent({...content,title:e.target.value})}/></label>
               <label>Resumo<textarea rows={3} value={content.summary} onChange={e=>setContent({...content,summary:e.target.value})}/></label>
               <label>Texto da publicação <small>Texto puro, sem execução de HTML</small><textarea rows={7} value={content.body} onChange={e=>setContent({...content,body:e.target.value})}/></label>
+              <label>Imagem autorizada (URL HTTPS)<input type="url" value={content.imageUrl} placeholder="https://..." onChange={e=>setContent({...content,imageUrl:e.target.value})}/></label>
               {content.kind==="MINISTRY_CONTENT"&&<label>Ministério<select required disabled={Boolean(currentContent)} value={content.ministryId} onChange={e=>setContent({...content,ministryId:e.target.value})}><option value="">Selecione</option>{ministries.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}
               <button type="submit" className={s.primary} disabled={busy}>{currentContent?"Salvar alterações":"Criar rascunho"}</button>
             </form>
@@ -209,6 +221,8 @@ export function EditorialStudio() {
               <label>Programação confirmada<textarea rows={3} value={ministryData.scheduleText} onChange={e=>setMinistryData({...ministryData,scheduleText:e.target.value})}/></label>
               <label>Como participar<textarea rows={3} value={ministryData.participationInfo} onChange={e=>setMinistryData({...ministryData,participationInfo:e.target.value})}/></label>
               <label>Lideranças autorizadas para divulgação <small>Uma linha por pessoa: Nome | Função</small><textarea rows={4} value={ministryData.leadershipText} onChange={e=>setMinistryData({...ministryData,leadershipText:e.target.value})}/></label>
+              <label>Fotografia de capa (URL HTTPS)<input type="url" value={ministryData.coverImageUrl} placeholder="https://..." onChange={e=>setMinistryData({...ministryData,coverImageUrl:e.target.value})}/></label>
+              <label>Galeria autorizada <small>Uma URL HTTPS por linha, com autorização de uso e imagem dos participantes</small><textarea rows={4} value={ministryData.galleryText} onChange={e=>setMinistryData({...ministryData,galleryText:e.target.value})}/></label>
               <button type="submit" className={s.primary} disabled={busy}>Salvar perfil</button>
             </form>
             <div className={s.approval}><strong>Publicação: {currentMinistry.publishStatus}</strong><p>As informações são públicas somente quando autorizadas e publicadas.</p>
