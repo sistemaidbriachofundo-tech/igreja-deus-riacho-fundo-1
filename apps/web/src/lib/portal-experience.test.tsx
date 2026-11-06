@@ -10,6 +10,7 @@ import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalButton } from "../components/PortalButton";
 import { PortalDesktopNavigation } from "../components/PortalDesktopNavigation";
 import { PortalHeader, PortalFooter } from "../components/PublicPortal";
+import { PortalFaithGallery } from "../components/PortalFaithGallery";
 
 describe("portal v3+ — camadas de experiência", () => {
   it("reproduz a direção de arte aprovada com componentes funcionais", () => {
@@ -22,6 +23,17 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(html.match(/aria-label="Conhecer ministério /g)).toHaveLength(5);
     expect(html).toContain("ACOLHER &amp; SERVIR");
     expect(html).not.toContain("Culto de Celebração");
+  });
+
+  it("exibe quatro imagens ilustrativas com alternativas descritivas e aviso editorial", () => {
+    const html = renderToStaticMarkup(<PortalFaithGallery />);
+    expect(html).toContain("A fé tem muitas formas");
+    expect(html).toContain('id="galeria"');
+    expect(html.match(/role="img"/g)).toHaveLength(4);
+    expect(html).toContain("retratos-fe-v10.avif");
+    for (const name of ["Louvor", "Juventude", "Oração", "Palavra"]) expect(html).toContain(name);
+    expect(html).toContain("Imagens ilustrativas");
+    expect(html).not.toContain("evento confirmado em 2026");
   });
 
   it("usa design system compartilhado em botões e navegação desktop", () => {
