@@ -1,10 +1,15 @@
 import { Controller, Get, Param } from "@nestjs/common";
 import { Public } from "../auth/decorators/public.decorator";
 import { PublicPortalService } from "./public-portal.service";
+import { SiteLayoutService } from "../cms/site-layout.service";
 
 @Controller("public")
 export class PublicPortalController {
-  constructor(private readonly portal: PublicPortalService) {}
+  constructor(private readonly portal: PublicPortalService, private readonly site: SiteLayoutService) {}
+
+  @Public()
+  @Get("site-layout")
+  publishedSiteLayout() { return this.site.published(); }
 
   @Public()
   @Get("home")

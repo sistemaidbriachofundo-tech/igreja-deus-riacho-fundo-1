@@ -393,7 +393,8 @@ describe("controller wiring (delegates to services)", () => {
       getEventBySlug: jest.fn(),
       getContentBySlug: jest.fn(),
     };
-    const c = new PublicPortalController(portal as never);
+    const c = new PublicPortalController(portal as never, { published: jest.fn() } as never);
+    await c.publishedSiteLayout();
     await c.home();
     await c.listMinistries();
     await c.getMinistry("jovens");

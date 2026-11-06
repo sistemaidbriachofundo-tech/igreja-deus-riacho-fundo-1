@@ -15,6 +15,7 @@ import { ChannelsService } from "../channels/channels.service";
 import type { CommChannel } from "../channels/providers/channel-provider";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { RESERVED_SITE_SLUGS } from "./site-layout.service";
 
 const WORKFLOW = [
   "RASCUNHO",
@@ -76,6 +77,7 @@ export class CmsService {
     if (!kind || !isKind(kind)) {
       throw new BadRequestException("kind inválido");
     }
+    if (slug && RESERVED_SITE_SLUGS.includes(slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new BadRequestException("Use a Central de Gestão do Site para editar a Home");
     if (!title || !slug) {
       throw new BadRequestException("title e slug são obrigatórios");
     }
@@ -149,7 +151,8 @@ export class CmsService {
       orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     });
 
-    const visible = filterRowsForMinistryLeader(rows, actor, pilot);
+    const visible = filterRowsForMinistryLeader(rows, actor, pilot)
+      .filter(row => !RESERVED_SITE_SLUGS.includes(row.slug as (typeof RESERVED_SITE_SLUGS)[number]));
 
     return {
       churchId: pilot.churchId,
@@ -160,6 +163,7 @@ export class CmsService {
   async get(actor: AuthUser, contentId: string) {
     const pilot = await this.pilot.getPilotChurch();
     const row = await this.requireContent(contentId, pilot);
+    if (RESERVED_SITE_SLUGS.includes(row.slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new NotFoundException("Use a Central de Gestão do Site");
     this.assertCmsWrite(actor, pilot, row.ministryId);
     const revisions = await this.prisma.cmsContentRevision.findMany({
       where: { contentId },
@@ -183,6 +187,7 @@ export class CmsService {
   async patch(actor: AuthUser, contentId: string, input: CmsInput) {
     const pilot = await this.pilot.getPilotChurch();
     const existing = await this.requireContent(contentId, pilot);
+    if (RESERVED_SITE_SLUGS.includes(existing.slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new BadRequestException("Use a Central de Gestão do Site");
     this.assertCmsWrite(actor, pilot, existing.ministryId);
 
     const data: Record<string, unknown> = {
@@ -199,6 +204,7 @@ export class CmsService {
       }
       const slug = input.slug?.trim().toLowerCase();
       if (!slug) throw new BadRequestException("slug inválido");
+      if (RESERVED_SITE_SLUGS.includes(slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new BadRequestException("Slug reservado ao editor visual");
       data.slug = slug;
     }
     if (input.summary !== undefined) data.summary = input.summary;

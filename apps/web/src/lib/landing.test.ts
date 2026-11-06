@@ -19,7 +19,8 @@ describe("portal público da igreja", () => {
   it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
     expect(home).toContain("<PortalCinematicHero");
     expect(home).not.toContain("<PortalJourney />");
-    expect(read("components/PortalCinematicHero.tsx")).toContain("Sua jornada com Deus");
+    expect(read("lib/site-layout.ts")).toContain("Sua jornada com Deus");
+    expect(read("components/PortalCinematicHero.tsx")).toContain("site.hero.title");
     expect(read("components/PortalCinematicHero.tsx")).toContain("Quero visitar");
     expect(home).toContain("<MinisterioEmFoco");
     expect(shell).toContain("Quero conhecer a igreja");
@@ -31,6 +32,7 @@ describe("portal público da igreja", () => {
     expect(shell).toContain("/app/");
     expect(appShell).toContain("Membros e famílias");
     expect(appShell).toContain("Estúdio editorial");
+    expect(appShell).toContain("Gestão do site");
   });
 
   it("oferece cinco ministérios com caminhos públicos estáticos", () => {
