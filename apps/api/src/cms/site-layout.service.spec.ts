@@ -7,6 +7,14 @@ const secretaria:AuthUser = {
   userId:"u1",personId:"p1",email:"editor@example.test",
   grants:[{roleCode:"SECRETARIA",organizationId:"org1",churchId:"church1"}],
 };
+const pastor:AuthUser = {
+  userId:"p-admin",personId:"pastor-person",email:"pastor@example.test",
+  grants:[{roleCode:"PASTOR",organizationId:"org1",churchId:"church1"}],
+};
+const editorSite:AuthUser={
+  userId:"u-editor",personId:"e1",email:"midia@example.test",
+  grants:[{roleCode:"EDITOR_SITE",organizationId:"org1",churchId:"church1"}],
+};
 const membro:AuthUser = {
   userId:"u2",personId:"p2",email:"membro@example.test",
   grants:[{roleCode:"MEMBRO",organizationId:"org1",churchId:"church1"}],
@@ -40,6 +48,11 @@ describe("SiteLayoutService",()=>{
     const result=await service(prisma).editor(secretaria);
     expect(result.draft).toEqual(DEFAULT_SITE_LAYOUT);
     expect(result.published).toBeNull();
+    expect(result.permissions.canPublish).toBe(false);
+    const approved=await service(prisma).editor(pastor);
+    expect(approved.permissions.canPublish).toBe(true);
+    const media=await service(prisma).editor(editorSite);
+    expect(media.permissions.canPublish).toBe(false);
   });
 
   it("draft saves a revision without updating published row",async()=>{
@@ -73,7 +86,8 @@ describe("SiteLayoutService",()=>{
       cmsContent:{findUnique:jest.fn().mockResolvedValue(draftRow)},
       $transaction:jest.fn(async(fn:(value:typeof operations)=>Promise<unknown>)=>fn(operations)),
     };
-    const result=await service(prisma).publish(secretaria,draftRow.updatedAt.toISOString());
+    await expect(service(prisma).publish(secretaria,draftRow.updatedAt.toISOString())).rejects.toBeInstanceOf(ForbiddenException);
+    const result=await service(prisma).publish(pastor,draftRow.updatedAt.toISOString());
     expect(result.published).toEqual(DEFAULT_SITE_LAYOUT);
     expect(operations.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where:{churchId_slug:{churchId:"church1",slug:"idriacho-home-editor-live"}},
