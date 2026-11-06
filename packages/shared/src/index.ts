@@ -56,6 +56,11 @@ export {
 } from "./membership-scope";
 
 export {
+  canEditSite,
+  canPublishSite,
+} from "./site-access";
+
+export {
   canAccessChurch,
   canReadAudit,
   isPlatformAdminInOrg,

@@ -52,6 +52,16 @@ const ROLE_DEFS = [
     description: "Equipe e escalas do ministério",
   },
   {
+    code: "SITE_EDITOR",
+    name: "Editor de site",
+    description: "Edita o site e salva rascunhos sem acesso à secretaria ou publicação",
+  },
+  {
+    code: "SITE_PUBLISHER",
+    name: "Publicador do site",
+    description: "Edita e publica o site sem acesso a dados de membros",
+  },
+  {
     code: "MEMBRO",
     name: "Membro",
     description: "Acesso ao próprio cadastro e agenda",
