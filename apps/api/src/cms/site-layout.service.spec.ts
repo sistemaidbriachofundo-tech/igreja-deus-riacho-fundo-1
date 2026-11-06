@@ -7,6 +7,14 @@ const secretaria:AuthUser = {
   userId:"u1",personId:"p1",email:"editor@example.test",
   grants:[{roleCode:"SECRETARIA",organizationId:"org1",churchId:"church1"}],
 };
+const pastor:AuthUser = {
+  userId:"p-admin",personId:"pastor-person",email:"pastor@example.test",
+  grants:[{roleCode:"PASTOR",organizationId:"org1",churchId:"church1"}],
+};
+const editorSite:AuthUser={
+  userId:"u-editor",personId:"e1",email:"midia@example.test",
+  grants:[{roleCode:"EDITOR_SITE",organizationId:"org1",churchId:"church1"}],
+};
 const membro:AuthUser = {
   userId:"u2",personId:"p2",email:"membro@example.test",
   grants:[{roleCode:"MEMBRO",organizationId:"org1",churchId:"church1"}],
@@ -40,11 +48,16 @@ describe("SiteLayoutService",()=>{
     const result=await service(prisma).editor(secretaria);
     expect(result.draft).toEqual(DEFAULT_SITE_LAYOUT);
     expect(result.published).toBeNull();
+    expect(result.permissions.canPublish).toBe(false);
+    const approved=await service(prisma).editor(pastor);
+    expect(approved.permissions.canPublish).toBe(true);
+    const media=await service(prisma).editor(editorSite);
+    expect(media.permissions.canPublish).toBe(false);
   });
 
   it("draft saves a revision without updating published row",async()=>{
     const operations={
-      cmsContent:{upsert:jest.fn().mockResolvedValue(draftRow)},
+      cmsContent:{findUnique:jest.fn().mockResolvedValue(null),create:jest.fn().mockResolvedValue(draftRow)},
       cmsContentRevision:{create:jest.fn().mockResolvedValue({})},
       auditLog:{create:jest.fn().mockResolvedValue({})},
     };
@@ -54,12 +67,27 @@ describe("SiteLayoutService",()=>{
     };
     const result=await service(prisma).saveDraft(secretaria,DEFAULT_SITE_LAYOUT,null);
     expect(result.draft.hero.title).toBe(DEFAULT_SITE_LAYOUT.hero.title);
-    expect(operations.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      where:{churchId_slug:{churchId:"church1",slug:"idriacho-home-editor-draft"}},
+    expect(operations.cmsContent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data:expect.objectContaining({slug:"idriacho-home-editor-draft"}),
     }));
     expect(operations.cmsContentRevision.create).toHaveBeenCalled();
     expect(operations.auditLog.create).toHaveBeenCalled();
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects stale draft updates with 409 and never overwrites the page",async()=>{
+    const operations={
+      cmsContent:{
+        findUnique:jest.fn().mockResolvedValue(draftRow),
+        updateMany:jest.fn().mockResolvedValue({count:0}),
+        findUniqueOrThrow:jest.fn(),
+      },
+      cmsContentRevision:{create:jest.fn()},auditLog:{create:jest.fn()},
+    };
+    const prisma={$transaction:jest.fn(async(fn:(value:typeof operations)=>Promise<unknown>)=>fn(operations))};
+    await expect(service(prisma).saveDraft(secretaria,DEFAULT_SITE_LAYOUT,draftRow.updatedAt.toISOString())).rejects.toThrow("Rascunho alterado");
+    expect(operations.cmsContent.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(operations.cmsContentRevision.create).not.toHaveBeenCalled();
   });
 
   it("publishes only the saved draft and logs public revision",async()=>{
@@ -73,7 +101,8 @@ describe("SiteLayoutService",()=>{
       cmsContent:{findUnique:jest.fn().mockResolvedValue(draftRow)},
       $transaction:jest.fn(async(fn:(value:typeof operations)=>Promise<unknown>)=>fn(operations)),
     };
-    const result=await service(prisma).publish(secretaria,draftRow.updatedAt.toISOString());
+    await expect(service(prisma).publish(secretaria,draftRow.updatedAt.toISOString())).rejects.toBeInstanceOf(ForbiddenException);
+    const result=await service(prisma).publish(pastor,draftRow.updatedAt.toISOString());
     expect(result.published).toEqual(DEFAULT_SITE_LAYOUT);
     expect(operations.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where:{churchId_slug:{churchId:"church1",slug:"idriacho-home-editor-live"}},

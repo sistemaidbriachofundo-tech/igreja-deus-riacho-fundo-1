@@ -5,6 +5,8 @@ import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
 import { PortalHomeSections } from "../components/PortalHomeSections";
 import { SiteManager } from "../components/SiteManager";
+import { SiteMediaLibrary } from "../components/SiteMediaLibrary";
+import { ViviEditorialAssistant } from "../components/ViviEditorialAssistant";
 
 describe("Gestão do Site — editor visual",()=>{
   it("accepts only safe layout and retains fallback",()=>{
@@ -36,6 +38,19 @@ describe("Gestão do Site — editor visual",()=>{
     );
     expect(html.indexOf("Essência")).toBeLessThan(html.indexOf("Galeria"));
     expect(html.indexOf("Galeria")).toBeLessThan(html.indexOf("Convite"));
+  });
+  it("provides authorized media upload without needing GitHub",()=>{
+    const html=renderToStaticMarkup(<SiteMediaLibrary token="demo-token" onChoose={()=>{}}/>);
+    expect(html).toContain("Enviar foto");
+    expect(html).toContain("galeria-louvor.webp");
+    expect(html).toContain('type="file"');
+    expect(html).toContain("autorização");
+  });
+  it("connects the Vivi panel without inventing a live AI provider",()=>{
+    const html=renderToStaticMarkup(<ViviEditorialAssistant token="demo-token" layout={defaultSiteLayout}/>);
+    expect(html).toContain("Vivi");
+    expect(html).toContain("Modo de simulação");
+    expect(html).toContain("Não é necessário colocar chaves");
   });
   it("provides an authenticated editor route without faking data",()=>{
     const html=renderToStaticMarkup(<SiteManager/>);
