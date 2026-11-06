@@ -53,6 +53,7 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
 ];
 
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
+  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "Plataforma da congregação." };
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [term, setTerm] = useState("");
   const searchId = useId();
@@ -91,6 +92,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
         <span className={s.groupTitle}>ACESSO</span>
         <a className={s.menuItem} href={withBasePath("/")}><UIIcon name="home" size={19}/><span>Portal da igreja</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/status/")}><UIIcon name="activity" size={19}/><span>Evolução do sistema</span></a>
+        <a className={s.menuItem} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer"><UIIcon name="activity" size={19}/><span>Canal da igreja</span><UIIcon name="arrow" size={15}/></a>
 
         <div className={s.railBottom}>
           <div className={s.verseMark}><UIIcon name="spark" size={18}/></div>
@@ -114,6 +116,13 @@ export function AppShell({ active, meta, children, editorial = false }: { active
             <span className={s.account} aria-label="Área administrativa — avaliação">ID</span>
           </div>
         </header>
+        {active !== "visao" && <div className={s.workspaceRibbon}>
+          {/* Ilustração vetorial original; não representa fotografias de pessoas. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={withBasePath("/images/church-os-art.svg")} alt="" className={s.ribbonArt} aria-hidden="true" />
+          <div className={s.ribbonCopy}><span>{context.code}</span><strong>{context.title}</strong><small>{context.detail}</small></div>
+          <span className={s.ribbonSeal}><UIIcon name="spark" size={23}/></span>
+        </div>}
         <main className={s.content}>{children}</main>
       </div>
 
