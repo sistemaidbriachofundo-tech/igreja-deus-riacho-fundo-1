@@ -79,6 +79,8 @@ export class ViviController {
    * Chat autenticado (staff) — rate-limit admin.
    */
   @Roles(
+    ROLE_CODES.EDITOR_SITE,
+    ROLE_CODES.PUBLICADOR_SITE,
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.PLATFORM_ADMIN,
