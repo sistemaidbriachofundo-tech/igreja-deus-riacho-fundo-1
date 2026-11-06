@@ -20,7 +20,7 @@ class PublishSiteLayoutBody {
   expectedUpdatedAt?: string;
 }
 
-@Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+@Roles(ROLE_CODES.EDITOR_SITE, ROLE_CODES.PUBLICADOR_SITE, ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
 @Controller("cms/site-layout")
 export class SiteLayoutController {
   constructor(private readonly site: SiteLayoutService) {}
