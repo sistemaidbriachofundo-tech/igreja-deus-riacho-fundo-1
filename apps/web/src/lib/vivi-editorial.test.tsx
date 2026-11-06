@@ -7,7 +7,7 @@ describe("Vivi + site management public-safe UI",()=>{
   it("makes mock status, consent and human approval explicit",()=>{
     const html=renderToStaticMarkup(<ViviEditorialAssistant token="synthetic" onApply={()=>{}}/>);
     expect(html).toContain("Vivi");
-    expect(html).toContain("não salva");
+    expect(html).toContain("nunca salva");
     expect(html).toContain("Concordo em enviar");
     expect(html).toContain("Pedir sugestão");
   });
