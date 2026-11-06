@@ -70,11 +70,15 @@ export class ViviService {
     const cfg = describeViviProviderConfig();
     return {
       assistant: "vivi",
-      provider: cfg.mode,
+      provider: cfg.effectiveProvider,
+      requestedProvider: cfg.mode,
       model: cfg.model,
       manusUrlConfigured: cfg.manusUrlConfigured,
       manusKeyConfigured: cfg.manusKeyConfigured,
       geminiKeyConfigured: cfg.geminiKeyConfigured,
+      credentialsReady: cfg.credentialsReady,
+      usingMockFallback: cfg.usingMockFallback,
+      configWarnings: cfg.configWarnings,
       publicRate: this.rateLimit.snapshot("public", "_status"),
       adminRate: this.rateLimit.snapshot("admin", "_status"),
       lgpdNotice: this.lgpdNotice(),
@@ -82,6 +86,7 @@ export class ViviService {
         "Chaves Manus/Gemini só no backend — nunca no FE/Git",
         "Free tier Google Gemini pode treinar com prompts — evite PII",
         "GEMINI_MODEL default: gemini-2.5-flash-lite (ver nota de depreciação no handoff)",
+        ...cfg.configWarnings,
       ],
     };
   }

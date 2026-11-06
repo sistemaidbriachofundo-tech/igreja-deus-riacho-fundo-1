@@ -18,7 +18,7 @@ Descoberta: `GET /meta` → `contractVersion: 0.7.1-vivi` + `endpoints["POST /pu
 
 | Método | Path | Auth | Notas |
 |--------|------|------|-------|
-| GET | `/vivi/status` | público | provider/modelo (sem chaves), avisos LGPD |
+| GET | `/vivi/status` | público | provider efetivo/modelo (sem chaves), `credentialsReady`, `configWarnings`, avisos LGPD |
 | POST | `/public/vivi/chat` | público | **exige** `consentAiProcessing: true`; rate-limit forte |
 | POST | `/vivi/chat` | JWT staff | `SECRETARIA` \| `PASTOR` \| `PLATFORM_ADMIN` \| `LIDER_MINISTERIO` |
 

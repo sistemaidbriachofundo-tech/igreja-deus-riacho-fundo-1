@@ -1,10 +1,9 @@
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { assertViviProviderConfigForBoot } from "./vivi/providers/providers.factory";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
   const isProd = process.env.NODE_ENV === "production";
   const corsOrigin = process.env.CORS_ORIGIN?.split(",")
     .map((s) => s.trim())
@@ -14,6 +13,10 @@ async function bootstrap() {
       "CORS_ORIGIN é obrigatório quando NODE_ENV=production (lista CSV de origens FE)",
     );
   }
+  // Fail-fast HML/PRD: VIVI_PROVIDER=manus|gemini sem key não sobe mock silencioso
+  assertViviProviderConfigForBoot(process.env.NODE_ENV);
+
+  const app = await NestFactory.create(AppModule);
   app.enableCors({
     origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true,
   });
