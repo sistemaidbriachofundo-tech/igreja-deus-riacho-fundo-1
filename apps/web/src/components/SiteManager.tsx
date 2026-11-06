@@ -2,17 +2,20 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
+import { SiteMediaLibrary } from "./SiteMediaLibrary";
+import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
 import { apiLogin, clearToken, getApiBaseUrl, loadStoredToken, storeToken } from "../lib/api";
-import { defaultSiteLayout, parseSiteLayout, sectionNames, siteMediaLibrary, siteSections, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
+import { defaultSiteLayout, parseSiteLayout, sectionNames, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
 import { withBasePath } from "../lib/paths";
 import s from "./site-manager.module.css";
 
-type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico";
+type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi";
 type Revision = {id:string;date:string;actorUserId:string|null;note:string|null};
-type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|null;publishedAt:string|null;revisions:Revision[]};
+type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|null;publishedAt:string|null;revisions:Revision[];permissions:{canPublish:boolean}};
 const tabs: {key:Tab;label:string}[] = [
   {key:"conteudo",label:"Textos"},{key:"imagens",label:"Fotos"},{key:"aparencia",label:"Cores"},
   {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},
+  {key:"vivi",label:"Vivi IA"},
 ];
 const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
 
@@ -40,6 +43,7 @@ export function SiteManager() {
   const [layout,setLayout]=useState<SiteLayout>(defaultSiteLayout);
   const [draftUpdatedAt,setDraftUpdatedAt]=useState<string|null>(null);
   const [published,setPublished]=useState<SiteLayout|null>(null);
+  const [canPublish,setCanPublish]=useState(false);
   const [publishedAt,setPublishedAt]=useState<string|null>(null);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [dirty,setDirty]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
@@ -55,6 +59,7 @@ export function SiteManager() {
     setPublished(result.published?parseSiteLayout(result.published):null);
     setPublishedAt(result.publishedAt);
     setRevisions(result.revisions);
+    setCanPublish(result.permissions?.canPublish===true);
     setDirty(false);
   },[]);
   useEffect(()=>{
@@ -125,7 +130,7 @@ export function SiteManager() {
     });
   }
   function publish(){
-    if(!token||dirty||!draftUpdatedAt)return;
+    if(!token||dirty||!draftUpdatedAt||!canPublish)return;
     if(!window.confirm("Publicar a versão salva da Home? Esta ação atualiza a configuração aprovada do site."))return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/publish","POST",{expectedUpdatedAt:draftUpdatedAt});
@@ -167,10 +172,11 @@ export function SiteManager() {
           <div className={s.actions}>
             <button type="button" disabled={busy} className={s.lightButton} onClick={()=>void work(async()=>{await refresh(token);setNotice("Última versão salva carregada.");})}>Recarregar</button>
             <button type="button" disabled={busy||!dirty} className={s.saveButton} onClick={save}>Salvar rascunho</button>
-            <button type="button" disabled={busy||dirty||!draftUpdatedAt} className={s.publishButton} onClick={publish}>Publicar Home</button>
+            <button type="button" disabled={busy||dirty||!draftUpdatedAt||!canPublish} title={!canPublish?"Somente pastor, publicador do site ou administrador podem publicar":undefined} className={s.publishButton} onClick={publish}>Publicar Home</button>
             <button type="button" className={s.logout} onClick={logout}>Sair</button>
           </div>
         </div>
+        {!canPublish&&<p className={s.warning} role="status">Seu perfil pode preparar e salvar o site. A publicação precisa ser feita por um pastor ou publicador autorizado.</p>}
         <div className={s.columns}>
           <section className={s.editor} aria-label="Controles de edição">
             <div className={s.tabs} role="group" aria-label="Ferramentas do editor">
@@ -192,15 +198,12 @@ export function SiteManager() {
                 <label>Descrição acessível<input maxLength={220} value={item.alt} onChange={e=>changePhotoText(i,"alt",e.target.value)}/></label></div>)}
             </div>}
             {tab==="imagens"&&<div className={s.controls}>
-              <h2>Biblioteca de fotos</h2><p>Escolha uma fotografia já aprovada para o site ou um endereço HTTPS autorizado. O upload direto de novos arquivos dependerá da implantação do armazenamento persistente.</p>
+              <h2>Biblioteca de fotos</h2><p>Escolha o local da imagem e envie novas fotografias diretamente pelo painel. O upload não altera o site até salvar e publicar.</p>
               <label>Onde usar a imagem<select value={String(imageSlot)} onChange={e=>setImageSlot(e.target.value==="hero"?"hero":Number(e.target.value) as 0|1|2|3)}>
                 <option value="hero">Capa principal</option>{[0,1,2,3].map(x=><option value={x} key={x}>Galeria — foto {x+1}</option>)}
               </select></label>
-              <div className={s.assetGrid}>{siteMediaLibrary.map(asset=><button className={s.asset} type="button" key={asset.src} onClick={()=>setPhoto(asset.src)}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt="" src={withBasePath(asset.src)} loading="lazy" /><span>{asset.title}</span>
-              </button>)}</div>
-              <div className={s.urlEntry}><label>Outra foto autorizada (endereço HTTPS)<input type="url" placeholder="https://..." value={customUrl} onChange={e=>setCustomUrl(e.target.value)}/></label>
+              <SiteMediaLibrary token={token} onChoose={setPhoto}/>
+              <div className={s.urlEntry}><label>Outra foto autorizada (URL HTTPS)<input type="url" placeholder="https://..." value={customUrl} onChange={e=>setCustomUrl(e.target.value)}/></label>
                 <button type="button" disabled={!customUrl.trim()} className={s.lightButton} onClick={()=>setPhoto(customUrl.trim())}>Usar esta imagem</button></div>
             </div>}
             {tab==="aparencia"&&<div className={s.controls}>
@@ -220,6 +223,7 @@ export function SiteManager() {
                   <label className={s.toggle}><input type="checkbox" checked={!layout.hidden.includes(key)} disabled={key==="convite"} onChange={()=>toggle(key)}/>Exibir</label>
                 </div></li>)}</ol>
             </div>}
+            {tab==="vivi"&&<div className={s.controls}><ViviEditorialAssistant token={token} layout={layout}/></div>}
             {tab==="historico"&&<div className={s.controls}>
               <h2>Histórico de publicações</h2><p>Restaure uma versão ao rascunho. Nada é substituído no site sem nova publicação.</p>
               {!revisions.length&&<p>Nenhuma versão publicada no histórico.</p>}
