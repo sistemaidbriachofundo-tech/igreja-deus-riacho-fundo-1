@@ -17,6 +17,7 @@ import {
   RostersController,
   RosterSlotsController,
 } from "./ministries/ministries.controller";
+import { ChannelsController } from "./channels/channels.controller";
 import { CmsController } from "./cms/cms.controller";
 import { EventsController } from "./events/events.controller";
 import { FinanceController } from "./finance/finance.controller";
@@ -488,4 +489,47 @@ describe("controller wiring (delegates to services)", () => {
     await c.closeReconciliation(user, "r1");
     expect(finance.closeReconciliation).toHaveBeenCalledWith(user, "r1");
   });
+
+  it("ChannelsController", async () => {
+    const channels = {
+      providerModes: jest.fn().mockReturnValue({ liveWaba: false }),
+      rateLimitStatus: jest.fn(),
+      createTemplate: jest.fn(),
+      listTemplates: jest.fn(),
+      patchTemplate: jest.fn(),
+      getConsent: jest.fn(),
+      upsertConsent: jest.fn(),
+      enqueue: jest.fn(),
+      listOutbox: jest.fn(),
+      getOutbox: jest.fn(),
+      dispatchOne: jest.fn(),
+      dispatchPending: jest.fn(),
+    };
+    const c = new ChannelsController(channels as never);
+    c.providers();
+    await c.rateLimits(user);
+    await c.createTemplate(user, {
+      channel: "EMAIL",
+      code: "welcome",
+      name: "Boas-vindas",
+      body: "Olá",
+    });
+    await c.listTemplates(user, "EMAIL");
+    await c.patchTemplate(user, "t1", { active: false });
+    await c.getConsent(user, "p1");
+    await c.upsertConsent(user, "p1", { emailOptIn: true });
+    await c.enqueue(user, {
+      channel: "EMAIL",
+      toAddress: "a@example.test",
+      body: "oi",
+      skipConsentCheck: true,
+    });
+    await c.listOutbox(user, "PENDING", "EMAIL", "10");
+    await c.getOutbox(user, "o1");
+    await c.dispatchOne(user, "o1");
+    await c.dispatchPending(user, { limit: 5 });
+    expect(channels.dispatchPending).toHaveBeenCalledWith(user, 5);
+  });
+
+
 });

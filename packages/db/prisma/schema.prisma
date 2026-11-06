@@ -93,6 +93,9 @@ model Organization {
   bankImportBatches BankImportBatch[]
   reconciliations Reconciliation[]
 
+  messageTemplates MessageTemplate[]
+  communicationConsents CommunicationConsent[]
+  communicationOutbox CommunicationOutbox[]
   @@map("organizations")
 }
 
@@ -128,6 +131,9 @@ model Church {
   bankImportBatches BankImportBatch[]
   reconciliations Reconciliation[]
 
+  messageTemplates MessageTemplate[]
+  communicationConsents CommunicationConsent[]
+  communicationOutbox CommunicationOutbox[]
   @@unique([organizationId, slug])
   @@map("churches")
 }
@@ -185,6 +191,8 @@ model Person {
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
   volunteerInterests VolunteerInterest[]
 
+  communicationConsents CommunicationConsent[]
+  communicationOutbox CommunicationOutbox[]
   @@index([organizationId])
   @@index([homeChurchId])
   @@index([householdId])
@@ -1183,4 +1191,133 @@ model Reconciliation {
   @@index([organizationId, churchId, status])
   @@index([churchId, periodStart, periodEnd])
   @@map("reconciliations")
+}
+
+// —— F5 Canais (sem WABA/SMTP/FCM live; providers mock/noop) ——
+
+enum CommChannel {
+  WHATSAPP
+  EMAIL
+  PUSH
+}
+
+enum OutboxStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  DEAD
+  CANCELLED
+}
+
+/// Template de mensagem por canal (placeholders {{var}}).
+model MessageTemplate {
+  id             String      @id @default(cuid())
+  organizationId String      @map("organization_id")
+  churchId       String      @map("church_id")
+  channel        CommChannel
+  code           String
+  name           String
+  subject        String?
+  body           String
+  locale         String      @default("pt-BR")
+  /// Nome do template Meta (só documentado; sem WABA live).
+  providerTemplateName String? @map("provider_template_name")
+  variables      Json?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  outbox       CommunicationOutbox[]
+
+  @@unique([churchId, channel, code])
+  @@index([organizationId, churchId])
+  @@map("message_templates")
+}
+
+/// Consentimento LGPD por pessoa/canal (opt-in explícito).
+model CommunicationConsent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  personId       String   @map("person_id")
+  whatsappOptIn  Boolean  @default(false) @map("whatsapp_opt_in")
+  emailOptIn     Boolean  @default(false) @map("email_opt_in")
+  pushOptIn      Boolean  @default(false) @map("push_opt_in")
+  /// Finalidades: TRANSACTIONAL | CMS_PUBLISH | PASTORAL_NOTICE (JSON array).
+  purposes       Json     @default("[]")
+  source         String?
+  recordedAt     DateTime @default(now()) @map("recorded_at")
+  revokedAt      DateTime? @map("revoked_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@unique([churchId, personId])
+  @@index([organizationId, churchId])
+  @@index([personId])
+  @@map("communication_consents")
+}
+
+/// Outbox de comunicação — fila durável antes do provider.
+model CommunicationOutbox {
+  id               String       @id @default(cuid())
+  organizationId   String       @map("organization_id")
+  churchId         String       @map("church_id")
+  channel          CommChannel
+  status           OutboxStatus @default(PENDING)
+  personId         String?      @map("person_id")
+  /// Destino: E.164 / e-mail / device token (mock).
+  toAddress        String       @map("to_address")
+  templateId       String?      @map("template_id")
+  templateCode     String?      @map("template_code")
+  subject          String?
+  bodyRendered     String       @map("body_rendered")
+  payload          Json?
+  consentCheckedAt DateTime?    @map("consent_checked_at")
+  providerMessageId String?     @map("provider_message_id")
+  lastError        String?      @map("last_error")
+  attemptCount     Int          @default(0) @map("attempt_count")
+  nextAttemptAt    DateTime?    @map("next_attempt_at")
+  scheduledAt      DateTime?    @map("scheduled_at")
+  sentAt           DateTime?    @map("sent_at")
+  deliveredAt      DateTime?    @map("delivered_at")
+  /// Ex.: cms_content | manual | system
+  sourceType       String?      @map("source_type")
+  sourceId         String?      @map("source_id")
+  createdByUserId  String?      @map("created_by_user_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person?      @relation(fields: [personId], references: [id])
+  template     MessageTemplate? @relation(fields: [templateId], references: [id])
+  deliveryEvents OutboxDeliveryEvent[]
+
+  @@index([organizationId, churchId, status])
+  @@index([channel, status, nextAttemptAt])
+  @@index([personId])
+  @@index([sourceType, sourceId])
+  @@map("communication_outbox")
+}
+
+model OutboxDeliveryEvent {
+  id               String       @id @default(cuid())
+  outboxId         String       @map("outbox_id")
+  status           OutboxStatus
+  providerResponse Json?        @map("provider_response")
+  errorMessage     String?      @map("error_message")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  outbox CommunicationOutbox @relation(fields: [outboxId], references: [id], onDelete: Cascade)
+
+  @@index([outboxId, createdAt])
+  @@map("outbox_delivery_events")
 }

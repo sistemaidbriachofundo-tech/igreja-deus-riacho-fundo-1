@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
+  IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -90,6 +92,23 @@ class PatchCmsBody {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyOnPublish?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(["WHATSAPP", "EMAIL", "PUSH"], { each: true })
+  notifyChannels?: ("WHATSAPP" | "EMAIL" | "PUSH")[];
+
+  @IsOptional()
+  @IsString()
+  notifyToAddress?: string | null;
+
+  @IsOptional()
+  @IsString()
+  notifyPersonId?: string | null;
 }
 
 class AdvanceCmsBody {
@@ -99,6 +118,23 @@ class AdvanceCmsBody {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyOnPublish?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(["WHATSAPP", "EMAIL", "PUSH"], { each: true })
+  notifyChannels?: ("WHATSAPP" | "EMAIL" | "PUSH")[];
+
+  @IsOptional()
+  @IsString()
+  notifyToAddress?: string | null;
+
+  @IsOptional()
+  @IsString()
+  notifyPersonId?: string | null;
 }
 
 @Controller("cms/contents")
@@ -168,6 +204,10 @@ export class CmsController {
     return this.cms.patch(user, contentId, {
       status: body.toStatus,
       note: body.note,
+      notifyOnPublish: body.notifyOnPublish,
+      notifyChannels: body.notifyChannels,
+      notifyToAddress: body.notifyToAddress,
+      notifyPersonId: body.notifyPersonId,
     });
   }
 }

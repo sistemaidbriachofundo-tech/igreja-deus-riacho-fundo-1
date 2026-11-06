@@ -1,0 +1,812 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { canManageChannels } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
+import type { AuthUser } from "../auth/types/auth-user";
+import { PrismaService } from "../prisma/prisma.service";
+import { PilotService } from "../pilot/pilot.service";
+import { ChannelRateLimitService } from "./channel-rate-limit.service";
+import type {
+  ChannelProviders,
+  CommChannel,
+} from "./providers/channel-provider";
+import {
+  createChannelProviders,
+  pickProvider,
+} from "./providers/providers.factory";
+
+function asJson(
+  value: unknown,
+): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
+const CHANNELS: CommChannel[] = ["WHATSAPP", "EMAIL", "PUSH"];
+const OUTBOX_DISPATCHABLE = new Set(["PENDING", "QUEUED", "FAILED"]);
+const MAX_ATTEMPTS = 5;
+
+export type TemplateInput = {
+  channel: CommChannel;
+  code: string;
+  name: string;
+  subject?: string | null;
+  body: string;
+  locale?: string;
+  providerTemplateName?: string | null;
+  variables?: string[] | null;
+  active?: boolean;
+};
+
+export type ConsentInput = {
+  whatsappOptIn?: boolean;
+  emailOptIn?: boolean;
+  pushOptIn?: boolean;
+  purposes?: string[];
+  source?: string | null;
+  revoke?: boolean;
+};
+
+export type EnqueueInput = {
+  channel: CommChannel;
+  toAddress: string;
+  personId?: string | null;
+  templateCode?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  variables?: Record<string, string>;
+  payload?: Record<string, unknown>;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  skipConsentCheck?: boolean;
+  scheduledAt?: string | null;
+};
+
+@Injectable()
+export class ChannelsService {
+  private readonly providers: ChannelProviders;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pilot: PilotService,
+    private readonly rateLimits: ChannelRateLimitService,
+    providers?: ChannelProviders,
+  ) {
+    this.providers = providers ?? createChannelProviders();
+  }
+
+  providerModes() {
+    return {
+      whatsapp: this.providers.whatsapp.mode,
+      email: this.providers.email.mode,
+      push: this.providers.push.mode,
+      liveWaba: false,
+      liveSmtp: false,
+      livePush: false,
+      notes: [
+        "Providers mock/noop apenas — sem WABA/SMTP/FCM live nesta fatia",
+        "Defina WHATSAPP_PROVIDER / EMAIL_PROVIDER / PUSH_PROVIDER = mock|noop",
+      ],
+    };
+  }
+
+  async createTemplate(actor: AuthUser, input: TemplateInput) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    this.assertChannel(input.channel);
+    const code = input.code?.trim().toLowerCase();
+    const name = input.name?.trim();
+    const body = input.body?.trim();
+    if (!code || !name || !body) {
+      throw new BadRequestException("code, name e body são obrigatórios");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.messageTemplate.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          channel: input.channel,
+          code,
+          name,
+          subject: input.subject ?? null,
+          body,
+          locale: input.locale?.trim() || "pt-BR",
+          providerTemplateName: input.providerTemplateName ?? null,
+          variables: asJson(input.variables ?? []),
+          active: input.active ?? true,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "channels.template.create",
+          resourceType: "message_template",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { channel: row.channel, code: row.code },
+        },
+      });
+      return this.templateDto(row);
+    });
+  }
+
+  async listTemplates(actor: AuthUser, channel?: string) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const rows = await this.prisma.messageTemplate.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        ...(channel && isChannel(channel) ? { channel } : {}),
+      },
+      orderBy: [{ channel: "asc" }, { code: "asc" }],
+    });
+    return {
+      churchId: pilot.churchId,
+      templates: rows.map((r) => this.templateDto(r)),
+    };
+  }
+
+  async patchTemplate(
+    actor: AuthUser,
+    templateId: string,
+    input: Partial<TemplateInput>,
+  ) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const existing = await this.prisma.messageTemplate.findFirst({
+      where: {
+        id: templateId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!existing) throw new NotFoundException("Template não encontrado");
+
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) {
+      const name = input.name?.trim();
+      if (!name) throw new BadRequestException("name inválido");
+      data.name = name;
+    }
+    if (input.body !== undefined) {
+      const body = input.body?.trim();
+      if (!body) throw new BadRequestException("body inválido");
+      data.body = body;
+    }
+    if (input.subject !== undefined) data.subject = input.subject;
+    if (input.locale !== undefined) data.locale = input.locale?.trim() || "pt-BR";
+    if (input.providerTemplateName !== undefined) {
+      data.providerTemplateName = input.providerTemplateName;
+    }
+    if (input.variables !== undefined) {
+      data.variables = asJson(input.variables ?? []);
+    }
+    if (input.active !== undefined) data.active = input.active;
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.messageTemplate.update({
+        where: { id: templateId },
+        data,
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "channels.template.patch",
+          resourceType: "message_template",
+          resourceId: templateId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { fields: Object.keys(data) },
+        },
+      });
+      return this.templateDto(row);
+    });
+  }
+
+  async getConsent(actor: AuthUser, personId: string) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    await this.requirePerson(personId, pilot);
+    const row = await this.prisma.communicationConsent.findUnique({
+      where: {
+        churchId_personId: { churchId: pilot.churchId, personId },
+      },
+    });
+    return {
+      personId,
+      churchId: pilot.churchId,
+      consent: row ? this.consentDto(row) : this.emptyConsent(personId),
+    };
+  }
+
+  async upsertConsent(actor: AuthUser, personId: string, input: ConsentInput) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    await this.requirePerson(personId, pilot);
+
+    const revoke = input.revoke === true;
+    const data = {
+      whatsappOptIn: revoke ? false : Boolean(input.whatsappOptIn),
+      emailOptIn: revoke ? false : Boolean(input.emailOptIn),
+      pushOptIn: revoke ? false : Boolean(input.pushOptIn),
+      purposes: asJson(revoke ? [] : (input.purposes ?? [])),
+      source: input.source ?? "admin",
+      revokedAt: revoke ? new Date() : null,
+      recordedAt: new Date(),
+    };
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.communicationConsent.upsert({
+        where: {
+          churchId_personId: { churchId: pilot.churchId, personId },
+        },
+        create: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          personId,
+          ...data,
+        },
+        update: data,
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: revoke ? "channels.consent.revoke" : "channels.consent.upsert",
+          resourceType: "communication_consent",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            personId,
+            whatsappOptIn: row.whatsappOptIn,
+            emailOptIn: row.emailOptIn,
+            pushOptIn: row.pushOptIn,
+          },
+        },
+      });
+      return this.consentDto(row);
+    });
+  }
+
+  async enqueue(actor: AuthUser, input: EnqueueInput) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    this.assertChannel(input.channel);
+    const toAddress = input.toAddress?.trim();
+    if (!toAddress) throw new BadRequestException("toAddress obrigatório");
+
+    let templateId: string | null = null;
+    const templateCode: string | null =
+      input.templateCode?.trim().toLowerCase() ?? null;
+    let subject = input.subject ?? null;
+    let body = input.body?.trim() ?? "";
+
+    if (templateCode) {
+      const template = await this.prisma.messageTemplate.findFirst({
+        where: {
+          churchId: pilot.churchId,
+          channel: input.channel,
+          code: templateCode,
+          active: true,
+        },
+      });
+      if (!template) {
+        throw new BadRequestException(`Template inativo/ausente: ${templateCode}`);
+      }
+      templateId = template.id;
+      const rawSubject = subject ?? template.subject;
+      subject = rawSubject
+        ? renderTemplate(rawSubject, input.variables ?? {})
+        : null;
+      body = renderTemplate(template.body, input.variables ?? {});
+    }
+
+    if (!body) throw new BadRequestException("body ou templateCode obrigatório");
+
+    let consentCheckedAt: Date | null = null;
+    if (input.personId && !input.skipConsentCheck) {
+      const ok = await this.hasChannelConsent(
+        pilot.churchId,
+        input.personId,
+        input.channel,
+      );
+      if (!ok) {
+        throw new ForbiddenException({
+          message: "Sem consentimento opt-in para este canal",
+          code: "CONSENT_REQUIRED",
+        });
+      }
+      consentCheckedAt = new Date();
+    }
+
+    const scheduledAt = input.scheduledAt
+      ? new Date(input.scheduledAt)
+      : null;
+    if (scheduledAt && Number.isNaN(scheduledAt.getTime())) {
+      throw new BadRequestException("scheduledAt inválido");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.communicationOutbox.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          channel: input.channel,
+          status: "PENDING",
+          personId: input.personId ?? null,
+          toAddress,
+          templateId,
+          templateCode,
+          subject,
+          bodyRendered: body,
+          payload: asJson(input.payload ?? {}),
+          consentCheckedAt,
+          scheduledAt,
+          nextAttemptAt: scheduledAt ?? new Date(),
+          sourceType: input.sourceType ?? "manual",
+          sourceId: input.sourceId ?? null,
+          createdByUserId: actor.userId,
+        },
+      });
+      await tx.outboxDeliveryEvent.create({
+        data: {
+          outboxId: row.id,
+          status: "PENDING",
+          providerResponse: asJson({ enqueued: true }),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "channels.outbox.enqueue",
+          resourceType: "communication_outbox",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { channel: row.channel, templateCode },
+        },
+      });
+      return this.outboxDto(row);
+    });
+  }
+
+  /**
+   * Stub CMS: enfileira notificações opcionais ao publicar (sem envio live).
+   * Não bloqueia a publicação se falhar — retorna lista vazia em erro soft.
+   */
+  async enqueueCmsPublishNotify(params: {
+    actor: AuthUser;
+    contentId: string;
+    title: string;
+    slug: string;
+    channels?: CommChannel[];
+    toAddress?: string | null;
+    personId?: string | null;
+  }) {
+    const channels = (params.channels?.length
+      ? params.channels
+      : (["EMAIL"] as CommChannel[])
+    ).filter(isChannel);
+    const created = [];
+    for (const channel of channels) {
+      const toAddress =
+        params.toAddress?.trim() ||
+        defaultStubAddress(channel, params.personId ?? "cms");
+      try {
+        const item = await this.enqueue(params.actor, {
+          channel,
+          toAddress,
+          personId: params.personId ?? null,
+          skipConsentCheck: true,
+          templateCode: null,
+          subject: `Publicação: ${params.title}`,
+          body: `Conteúdo "${params.title}" (${params.slug}) foi publicado. (stub notify-on-publish — sem envio live)`,
+          sourceType: "cms_content",
+          sourceId: params.contentId,
+          payload: { notifyOnPublish: true, slug: params.slug },
+        });
+        created.push(item);
+      } catch {
+        // Soft-fail: publicação CMS não depende do canal.
+      }
+    }
+    return { notified: created.length, outbox: created };
+  }
+
+  async listOutbox(
+    actor: AuthUser,
+    query: { status?: string; channel?: string; limit?: number },
+  ) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const take = Math.min(Math.max(query.limit ?? 50, 1), 200);
+    const rows = await this.prisma.communicationOutbox.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        ...(query.status ? { status: query.status as never } : {}),
+        ...(query.channel && isChannel(query.channel)
+          ? { channel: query.channel }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take,
+    });
+    return {
+      churchId: pilot.churchId,
+      outbox: rows.map((r) => this.outboxDto(r)),
+    };
+  }
+
+  async getOutbox(actor: AuthUser, outboxId: string) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const row = await this.prisma.communicationOutbox.findFirst({
+      where: {
+        id: outboxId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) throw new NotFoundException("Outbox não encontrado");
+    const events = await this.prisma.outboxDeliveryEvent.findMany({
+      where: { outboxId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    return {
+      ...this.outboxDto(row),
+      deliveryEvents: events.map((e) => ({
+        id: e.id,
+        status: e.status,
+        providerResponse: e.providerResponse,
+        errorMessage: e.errorMessage,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async dispatchOne(actor: AuthUser, outboxId: string) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const row = await this.prisma.communicationOutbox.findFirst({
+      where: {
+        id: outboxId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+      include: { template: true },
+    });
+    if (!row) throw new NotFoundException("Outbox não encontrado");
+    if (!OUTBOX_DISPATCHABLE.has(row.status)) {
+      throw new BadRequestException(
+        `Status ${row.status} não é despachável`,
+      );
+    }
+    if (row.scheduledAt && row.scheduledAt.getTime() > Date.now()) {
+      throw new BadRequestException("Ainda agendado — tente mais tarde");
+    }
+
+    if (!this.rateLimits.tryConsume(row.channel as CommChannel, pilot.churchId)) {
+      await this.prisma.communicationOutbox.update({
+        where: { id: outboxId },
+        data: {
+          status: "QUEUED",
+          lastError: "RATE_LIMITED",
+          nextAttemptAt: new Date(Date.now() + 30_000),
+        },
+      });
+      throw new BadRequestException({
+        message: "Rate limit do canal atingido",
+        code: "CHANNEL_RATE_LIMITED",
+      });
+    }
+
+    const provider = pickProvider(this.providers, row.channel as CommChannel);
+    await this.prisma.communicationOutbox.update({
+      where: { id: outboxId },
+      data: { status: "SENDING", attemptCount: { increment: 1 } },
+    });
+
+    const result = await provider.send({
+      outboxId: row.id,
+      channel: row.channel as CommChannel,
+      toAddress: row.toAddress,
+      subject: row.subject,
+      body: row.bodyRendered,
+      templateCode: row.templateCode,
+      providerTemplateName: row.template?.providerTemplateName ?? null,
+      payload: (row.payload as Record<string, unknown>) ?? null,
+    });
+
+    const now = new Date();
+    if (!result.ok) {
+      const attempts = row.attemptCount + 1;
+      const dead = attempts >= MAX_ATTEMPTS;
+      const status = dead ? "DEAD" : "FAILED";
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.communicationOutbox.update({
+          where: { id: outboxId },
+          data: {
+            status,
+            lastError: result.errorMessage ?? "provider_failed",
+            nextAttemptAt: dead
+              ? null
+              : new Date(now.getTime() + attempts * 60_000),
+          },
+        });
+        await tx.outboxDeliveryEvent.create({
+          data: {
+            outboxId,
+            status,
+            providerResponse: asJson(result.raw ?? {}),
+            errorMessage: result.errorMessage ?? "provider_failed",
+          },
+        });
+        return this.outboxDto(updated);
+      });
+    }
+
+    const status = result.delivered ? "DELIVERED" : "SENT";
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.communicationOutbox.update({
+        where: { id: outboxId },
+        data: {
+          status,
+          providerMessageId: result.providerMessageId ?? null,
+          lastError: null,
+          sentAt: now,
+          deliveredAt: result.delivered ? now : null,
+          nextAttemptAt: null,
+        },
+      });
+      await tx.outboxDeliveryEvent.create({
+        data: {
+          outboxId,
+          status,
+          providerResponse: asJson({
+            ...(result.raw ?? {}),
+            providerMode: provider.mode,
+            providerName: provider.name,
+          }),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "channels.outbox.dispatch",
+          resourceType: "communication_outbox",
+          resourceId: outboxId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { status, provider: provider.name, mode: provider.mode },
+        },
+      });
+      return this.outboxDto(updated);
+    });
+  }
+
+  async dispatchPending(actor: AuthUser, limit = 20) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const take = Math.min(Math.max(limit, 1), 50);
+    const rows = await this.prisma.communicationOutbox.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        status: { in: ["PENDING", "QUEUED", "FAILED"] },
+        OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }],
+      },
+      orderBy: { createdAt: "asc" },
+      take,
+    });
+    const results = [];
+    for (const row of rows) {
+      try {
+        results.push(await this.dispatchOne(actor, row.id));
+      } catch (err) {
+        results.push({
+          id: row.id,
+          error: err instanceof Error ? err.message : "dispatch_failed",
+        });
+      }
+    }
+    return { processed: results.length, results };
+  }
+
+  async rateLimitStatus(actor: AuthUser) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    return {
+      churchId: pilot.churchId,
+      providers: this.providerModes(),
+      limits: CHANNELS.map((ch) =>
+        this.rateLimits.snapshot(ch, pilot.churchId),
+      ),
+    };
+  }
+
+  private async hasChannelConsent(
+    churchId: string,
+    personId: string,
+    channel: CommChannel,
+  ): Promise<boolean> {
+    const row = await this.prisma.communicationConsent.findUnique({
+      where: { churchId_personId: { churchId, personId } },
+    });
+    if (!row || row.revokedAt) return false;
+    if (channel === "WHATSAPP") return row.whatsappOptIn;
+    if (channel === "EMAIL") return row.emailOptIn;
+    return row.pushOptIn;
+  }
+
+  private async requireChannelsAdmin(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    if (!canManageChannels(actor.grants, pilot)) {
+      throw new ForbiddenException("Sem permissão de canais (secretaria/pastor)");
+    }
+    return pilot;
+  }
+
+  private async requirePerson(
+    personId: string,
+    pilot: { organizationId: string; churchId: string },
+  ) {
+    const person = await this.prisma.person.findFirst({
+      where: { id: personId, organizationId: pilot.organizationId },
+    });
+    if (!person) throw new NotFoundException("Pessoa não encontrada");
+    return person;
+  }
+
+  private assertChannel(channel: string): asserts channel is CommChannel {
+    if (!isChannel(channel)) {
+      throw new BadRequestException("channel inválido");
+    }
+  }
+
+  private templateDto(row: {
+    id: string;
+    organizationId: string;
+    churchId: string;
+    channel: string;
+    code: string;
+    name: string;
+    subject: string | null;
+    body: string;
+    locale: string;
+    providerTemplateName: string | null;
+    variables: unknown;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      organizationId: row.organizationId,
+      churchId: row.churchId,
+      channel: row.channel,
+      code: row.code,
+      name: row.name,
+      subject: row.subject,
+      body: row.body,
+      locale: row.locale,
+      providerTemplateName: row.providerTemplateName,
+      variables: row.variables,
+      active: row.active,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private consentDto(row: {
+    id: string;
+    personId: string;
+    whatsappOptIn: boolean;
+    emailOptIn: boolean;
+    pushOptIn: boolean;
+    purposes: unknown;
+    source: string | null;
+    recordedAt: Date;
+    revokedAt: Date | null;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      personId: row.personId,
+      whatsappOptIn: row.whatsappOptIn,
+      emailOptIn: row.emailOptIn,
+      pushOptIn: row.pushOptIn,
+      purposes: row.purposes,
+      source: row.source,
+      recordedAt: row.recordedAt.toISOString(),
+      revokedAt: row.revokedAt?.toISOString() ?? null,
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private emptyConsent(personId: string) {
+    return {
+      id: null,
+      personId,
+      whatsappOptIn: false,
+      emailOptIn: false,
+      pushOptIn: false,
+      purposes: [],
+      source: null,
+      recordedAt: null,
+      revokedAt: null,
+      updatedAt: null,
+    };
+  }
+
+  private outboxDto(row: {
+    id: string;
+    organizationId: string;
+    churchId: string;
+    channel: string;
+    status: string;
+    personId: string | null;
+    toAddress: string;
+    templateId: string | null;
+    templateCode: string | null;
+    subject: string | null;
+    bodyRendered: string;
+    payload: unknown;
+    consentCheckedAt: Date | null;
+    providerMessageId: string | null;
+    lastError: string | null;
+    attemptCount: number;
+    nextAttemptAt: Date | null;
+    scheduledAt: Date | null;
+    sentAt: Date | null;
+    deliveredAt: Date | null;
+    sourceType: string | null;
+    sourceId: string | null;
+    createdByUserId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      organizationId: row.organizationId,
+      churchId: row.churchId,
+      channel: row.channel,
+      status: row.status,
+      personId: row.personId,
+      toAddress: row.toAddress,
+      templateId: row.templateId,
+      templateCode: row.templateCode,
+      subject: row.subject,
+      bodyRendered: row.bodyRendered,
+      payload: row.payload,
+      consentCheckedAt: row.consentCheckedAt?.toISOString() ?? null,
+      providerMessageId: row.providerMessageId,
+      lastError: row.lastError,
+      attemptCount: row.attemptCount,
+      nextAttemptAt: row.nextAttemptAt?.toISOString() ?? null,
+      scheduledAt: row.scheduledAt?.toISOString() ?? null,
+      sentAt: row.sentAt?.toISOString() ?? null,
+      deliveredAt: row.deliveredAt?.toISOString() ?? null,
+      sourceType: row.sourceType,
+      sourceId: row.sourceId,
+      createdByUserId: row.createdByUserId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+}
+
+function isChannel(value: string): value is CommChannel {
+  return CHANNELS.includes(value as CommChannel);
+}
+
+function renderTemplate(
+  template: string,
+  variables: Record<string, string>,
+): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => {
+    return variables[key] ?? "";
+  });
+}
+
+function defaultStubAddress(channel: CommChannel, seed: string): string {
+  if (channel === "EMAIL") return `cms-notify+${seed}@example.invalid`;
+  if (channel === "WHATSAPP") return `+550000000000`;
+  return `device-stub-${seed}`;
+}

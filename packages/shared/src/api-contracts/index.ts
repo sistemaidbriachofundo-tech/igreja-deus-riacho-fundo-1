@@ -176,6 +176,18 @@ export const API_ENDPOINT_STATUS = {
   "POST /ledger/reconciliations/:reconciliationId/submit": "implemented",
   "POST /ledger/reconciliations/:reconciliationId/approve": "implemented",
   "POST /ledger/reconciliations/:reconciliationId/close": "implemented",
+  "GET /channels/providers": "implemented",
+  "GET /channels/rate-limits": "implemented",
+  "GET /channels/templates": "implemented",
+  "POST /channels/templates": "implemented",
+  "PATCH /channels/templates/:templateId": "implemented",
+  "GET /channels/consents/:personId": "implemented",
+  "PUT /channels/consents/:personId": "implemented",
+  "GET /channels/outbox": "implemented",
+  "POST /channels/outbox": "implemented",
+  "GET /channels/outbox/:outboxId": "implemented",
+  "POST /channels/outbox/:outboxId/dispatch": "implemented",
+  "POST /channels/outbox/dispatch-pending": "implemented",
 } as const;
 
 export type ApiEndpointKey = keyof typeof API_ENDPOINT_STATUS;

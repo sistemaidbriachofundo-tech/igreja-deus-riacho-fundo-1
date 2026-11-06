@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: Igreja de Deus Riacho Fundo I — API F1/F2/F4
-  version: 0.6.0-f4
+  title: Igreja de Deus Riacho Fundo I — API F1/F2/F4/F5
+  version: 0.6.1-channels
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -13,6 +13,8 @@ info:
     - 0.5.0-portal: CMS workflow + volunteer-interests Atmosfera
     - 0.5.1-pdf-mfa: PDF real da carteirinha (QR opaco, sem CPF) + hooks MFA TOTP / OIDC config (sem IdP live)
     - 0.6.0-f4: núcleo financeiro (plano de contas, lançamentos, dupla aprovação stub, import CSV/OFX stub, conciliação)
+    - 0.6.1-channels: F5 canais — outbox WhatsApp/e-mail/push, consentimento, templates,
+      delivery status, rate limits, providers mock/noop (sem WABA/SMTP/FCM live; sem IA)
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -48,6 +50,7 @@ tags:
   - name: cms
   - name: volunteers
   - name: ledger
+  - name: channels
 
 components:
   securitySchemes:
@@ -2721,3 +2724,244 @@ paths:
       responses:
         "200":
           description: CLOSED
+
+  /channels/providers:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Modos dos providers (mock/noop) — sem WABA/SMTP/FCM live
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Provider modes + live flags false
+
+  /channels/rate-limits:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Snapshot de rate limits por canal
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: limits[] + providers
+
+  /channels/templates:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Lista templates de mensagem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: channel
+          in: query
+          schema: { type: string, enum: [WHATSAPP, EMAIL, PUSH] }
+      responses:
+        "200":
+          description: Envelope templates[]
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Cria template
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, code, name, body]
+              properties:
+                channel: { type: string, enum: [WHATSAPP, EMAIL, PUSH] }
+                code: { type: string, example: welcome }
+                name: { type: string }
+                subject: { type: string, nullable: true }
+                body: { type: string, example: "Olá {{name}}" }
+                locale: { type: string, example: pt-BR }
+                providerTemplateName: { type: string, nullable: true }
+                variables:
+                  type: array
+                  items: { type: string }
+                active: { type: boolean }
+      responses:
+        "201":
+          description: Template criado
+        "200":
+          description: Template criado
+
+  /channels/templates/{templateId}:
+    patch:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Atualiza template
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                subject: { type: string, nullable: true }
+                body: { type: string }
+                locale: { type: string }
+                providerTemplateName: { type: string, nullable: true }
+                variables:
+                  type: array
+                  items: { type: string }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Template atualizado
+
+  /channels/consents/{personId}:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Lê flags de consentimento por pessoa
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Consent DTO (ou defaults false)
+    put:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Upsert opt-in WhatsApp/e-mail/push
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                whatsappOptIn: { type: boolean }
+                emailOptIn: { type: boolean }
+                pushOptIn: { type: boolean }
+                purposes:
+                  type: array
+                  items: { type: string }
+                source: { type: string }
+                revoke: { type: boolean }
+      responses:
+        "200":
+          description: Consent atualizado
+
+  /channels/outbox:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Lista outbox (status/delivery)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, QUEUED, SENDING, SENT, DELIVERED, FAILED, DEAD, CANCELLED]
+        - name: channel
+          in: query
+          schema: { type: string, enum: [WHATSAPP, EMAIL, PUSH] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: Envelope outbox[]
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Enfileira mensagem (exige consentimento se personId)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, toAddress]
+              properties:
+                channel: { type: string, enum: [WHATSAPP, EMAIL, PUSH] }
+                toAddress: { type: string }
+                personId: { type: string, nullable: true }
+                templateCode: { type: string, nullable: true }
+                subject: { type: string, nullable: true }
+                body: { type: string, nullable: true }
+                variables:
+                  type: object
+                  additionalProperties: { type: string }
+                payload: { type: object, additionalProperties: true }
+                sourceType: { type: string }
+                sourceId: { type: string }
+                skipConsentCheck: { type: boolean }
+                scheduledAt: { type: string, format: date-time, nullable: true }
+      responses:
+        "200":
+          description: Outbox item PENDING
+        "403":
+          description: CONSENT_REQUIRED
+
+  /channels/outbox/dispatch-pending:
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Despacha lote PENDING/QUEUED/FAILED via provider mock/noop
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        "200":
+          description: processed + results[]
+
+  /channels/outbox/{outboxId}:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Detalhe outbox + delivery events
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: outboxId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Outbox + deliveryEvents[]
+
+  /channels/outbox/{outboxId}/dispatch:
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Despacha um item (respeita rate limit)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: outboxId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Outbox atualizado (SENT/DELIVERED/FAILED/DEAD)
+        "400":
+          description: CHANNEL_RATE_LIMITED ou status inválido

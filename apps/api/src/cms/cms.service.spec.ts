@@ -80,6 +80,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       { ...withTx(tx) } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     const result = await service.create(secretaria, {
       kind: "PAGE",
@@ -114,6 +119,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.patch(secretaria, "c1", { status: "PUBLICADO" }),
@@ -128,10 +138,63 @@ describe("CmsService", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("optionally notifies channels on publish stub", async () => {
+    const published = {
+      ...draft,
+      status: "PUBLICADO",
+      publishedAt: now,
+    };
+    const tx = {
+      cmsContent: { update: jest.fn().mockResolvedValue(published) },
+      cmsContentRevision: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const notify = jest.fn().mockResolvedValue({
+      notified: 1,
+      outbox: [{ id: "o1" }],
+    });
+    const prisma = {
+      cmsContent: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...draft,
+          status: "APROVADO",
+        }),
+      },
+      ...withTx(tx),
+    };
+    const service = new CmsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      { enqueueCmsPublishNotify: notify } as never,
+    );
+    const result = await service.patch(secretaria, "c1", {
+      status: "PUBLICADO",
+      notifyOnPublish: true,
+      notifyChannels: ["EMAIL"],
+      notifyToAddress: "sec@example.invalid",
+    });
+    expect(result).toMatchObject({
+      status: "PUBLICADO",
+      notifyOnPublish: { notified: 1 },
+    });
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentId: "c1",
+        channels: ["EMAIL"],
+        toAddress: "sec@example.invalid",
+      }),
+    );
+  });
+
   it("LIDER cannot create church-wide HOME_BLOCK", async () => {
     const service = new CmsService(
       { $transaction: jest.fn() } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.create(lider, {
@@ -156,6 +219,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.create(lider, {
@@ -173,6 +241,11 @@ describe("CmsService", () => {
         cmsContent: { findFirst: jest.fn().mockResolvedValue(null) },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(service.get(secretaria, "missing")).rejects.toBeInstanceOf(
       NotFoundException,
@@ -191,6 +264,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     const list = await service.list(lider, "MINISTRY_CONTENT");
     expect(list.contents.map((c) => c.id)).toEqual(["c1"]);
@@ -250,6 +328,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     const detail = await service.get(secretaria, "c1");
     expect(detail.revisions).toHaveLength(1);
@@ -300,6 +383,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.patch(lider, "c1", { slug: "hack" }),
@@ -341,6 +429,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
 
     await expect(

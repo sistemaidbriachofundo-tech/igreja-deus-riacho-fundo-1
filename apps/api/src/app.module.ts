@@ -11,6 +11,7 @@ import { MfaModule } from "./auth/mfa/mfa.module";
 import { OidcModule } from "./auth/oidc/oidc.module";
 import { CredentialsModule } from "./credentials/credentials.module";
 import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware";
+import { ChannelsModule } from "./channels/channels.module";
 import { CmsModule } from "./cms/cms.module";
 import { DiscipleshipModule } from "./discipleship/discipleship.module";
 import { EventsModule } from "./events/events.module";
@@ -53,6 +54,7 @@ import { VolunteersModule } from "./volunteers/volunteers.module";
     MinistriesModule,
     EventsModule,
     FinanceModule,
+    ChannelsModule,
     CmsModule,
     VolunteersModule,
     PublicPortalModule,

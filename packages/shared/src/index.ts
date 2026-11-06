@@ -43,6 +43,7 @@ export {
   canApprovePastoralAdmission,
   canSearchPersons,
   canManageTransfers,
+  canManageChannels,
   canAccessPastoralCare,
   canLeadMinistry,
   canManageSpecificMinistry,

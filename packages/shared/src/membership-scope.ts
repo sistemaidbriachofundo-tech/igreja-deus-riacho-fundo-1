@@ -74,6 +74,20 @@ export function canSearchPersons(
   );
 }
 
+/**
+ * Canais F5 (templates/outbox/consentimento) — secretaria, pastor ou admin.
+ * Sem WABA live; só operação administrativa do outbox.
+ */
+export function canManageChannels(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return (
+    canManageMemberships(grants, target) ||
+    canApprovePastoralAdmission(grants, target)
+  );
+}
+
 /** Transferência e cartas oficiais — secretaria/admin no escopo. */
 export function canManageTransfers(
   grants: AuthGrant[],
