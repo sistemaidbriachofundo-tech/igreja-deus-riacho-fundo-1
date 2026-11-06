@@ -12,7 +12,7 @@
 .more:hover,.after>a:hover{color:#bd8429;border-bottom-color:#bd8429}
 .moments{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(9px,1.3vw,19px)}
 .card{position:relative;min-width:0;margin:0;overflow:hidden;border-radius:clamp(14px,1.3vw,20px);background:#16222c;box-shadow:0 13px 27px #14302b1a;min-height:280px}
-.image{width:100%;aspect-ratio:300/395;background-size:400% 100%;background-repeat:no-repeat;background-color:#392d4e;transition:transform .55s cubic-bezier(.2,.65,.2,1),filter .55s ease;filter:saturate(.97)}
+.image{display:block;width:100%;height:auto;aspect-ratio:300/395;object-fit:cover;object-position:center 44%;background-color:#392d4e;transition:transform .55s cubic-bezier(.2,.65,.2,1),filter .55s ease;filter:saturate(.97)}
 .card:hover .image{transform:scale(1.035);filter:saturate(1.12)}
 .caption{position:absolute;inset:auto 0 0;display:flex;align-items:flex-end;gap:14px;min-height:125px;color:#fff;z-index:1;padding:26px clamp(14px,1.8vw,25px) 22px;background:linear-gradient(0deg,#101820eb,transparent)}
 .index{font:750 10px/2 Inter,Arial,sans-serif;color:#e1c48b}
@@ -23,7 +23,7 @@
 .after p{max-width:800px;margin:0;font:600 11px/1.6 Inter,Arial,sans-serif;color:#6c8074}
 .after p span{color:#bd8c43}
 .after>a{white-space:nowrap}
-@media(max-width:1050px){.moments{grid-template-columns:repeat(2,minmax(0,1fr))}.image{aspect-ratio:300/360;background-size:400% 100%;background-position-y:center!important}.card{max-height:460px}.head{align-items:start}}
+@media(max-width:1050px){.moments{grid-template-columns:repeat(2,minmax(0,1fr))}.image{aspect-ratio:300/360;object-fit:cover;object-position:center 44%}.card{max-height:460px}.head{align-items:start}}
 @media(max-width:620px){.gallery{padding:60px 0 70px}.inner{width:calc(100% - 28px)}.head{display:block;margin-bottom:23px}.heading h2{font-size:clamp(33px,9.5vw,46px)}.heading p{font-size:13px}.more{display:inline-flex;margin-top:19px}.moments{gap:10px}.card{border-radius:13px;min-height:0}.image{aspect-ratio:300/430}.caption{padding:20px 10px 12px;min-height:93px;gap:7px}.caption strong{font-size:15px}.caption small{font-size:9px}.index{font-size:8px}.after{align-items:flex-start;flex-direction:column;gap:15px;padding-top:19px}.after p{font-size:10px}}
 @media(max-width:360px){.moments{grid-template-columns:1fr}.image{aspect-ratio:300/300}.caption strong{font-size:19px}}
 @media(prefers-reduced-motion:reduce){.image{transition:none}}
