@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ROLE_CODES } from "./rbac";
 import {
+  canAccessCredentialPdf,
   canAdministerMinistries,
   canManageMemberships,
+  canManageOidcConfig,
   canManageSpecificMinistry,
   canViewOwnCredential,
 } from "./membership-scope";
@@ -132,6 +134,66 @@ describe("membership scope", () => {
         ministryId: "min-jovens",
         leaderPersonId: "p-lider",
       }),
+      false,
+    );
+  });
+
+  it("allows owner or secretaria to access credential PDF", () => {
+    const secretaria = [
+      {
+        roleCode: ROLE_CODES.SECRETARIA,
+        organizationId: org,
+        churchId: church,
+      },
+    ];
+    assert.equal(
+      canAccessCredentialPdf(secretaria, "p-sec", "p-mem", {
+        organizationId: org,
+        churchId: church,
+      }),
+      true,
+    );
+    assert.equal(
+      canAccessCredentialPdf([], "p-mem", "p-mem", {
+        organizationId: org,
+        churchId: church,
+      }),
+      true,
+    );
+    assert.equal(
+      canAccessCredentialPdf([], "p-other", "p-mem", {
+        organizationId: org,
+        churchId: church,
+      }),
+      false,
+    );
+  });
+
+  it("restricts OIDC config to PLATFORM_ADMIN", () => {
+    assert.equal(
+      canManageOidcConfig(
+        [
+          {
+            roleCode: ROLE_CODES.PLATFORM_ADMIN,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org },
+      ),
+      true,
+    );
+    assert.equal(
+      canManageOidcConfig(
+        [
+          {
+            roleCode: ROLE_CODES.SECRETARIA,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org },
+      ),
       false,
     );
   });

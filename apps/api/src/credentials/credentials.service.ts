@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import {
   assertOpaqueCredentialPayload,
+  canAccessCredentialPdf,
   canManageMemberships,
   canViewOwnCredential,
   generateOpaqueCredentialToken,
@@ -14,12 +15,15 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { PrivateStorageService } from "../storage/private-storage.service";
+import { renderCredentialPdf } from "./credential-pdf.renderer";
 
 @Injectable()
 export class CredentialsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    private readonly storage: PrivateStorageService,
   ) {}
 
   /** Emite carteirinha para membresia ACTIVE + admissão APPROVED (credentialEligible). */
@@ -243,6 +247,105 @@ export class CredentialsService {
   }
 
   /**
+   * Gera PDF real da carteirinha (pdfkit + QR opaco) e grava em STORAGE_ROOT.
+   * Sem CPF no conteúdo — só displayName, igreja, data e token opaco.
+   */
+  async generatePdf(actor: AuthUser, credentialId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+
+    const pdfBytes = await renderCredentialPdf({
+      displayName: credential.person.displayName,
+      churchName: pilot.churchName,
+      opaqueToken: credential.opaqueToken,
+      issuedAt: credential.issuedAt,
+      credentialId: credential.id,
+    });
+
+    if (credential.pdfStorageKey) {
+      await this.storage.remove(credential.pdfStorageKey);
+    }
+
+    const pdfStorageKey = this.storage.buildCredentialPdfKey({
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      credentialId: credential.id,
+    });
+    await this.storage.put(pdfStorageKey, pdfBytes);
+
+    const updated = await this.prisma.memberCredential.update({
+      where: { id: credential.id },
+      data: {
+        pdfStorageKey,
+        pdfContentType: "application/pdf",
+        pdfByteSize: pdfBytes.byteLength,
+        pdfGeneratedAt: new Date(),
+      },
+      include: {
+        person: { select: { displayName: true } },
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "credential.pdf.generate",
+        resourceType: "member_credential",
+        resourceId: updated.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: {
+          byteSize: pdfBytes.byteLength,
+          contentSha256: this.storage.contentSha256(pdfBytes),
+        },
+      },
+    });
+
+    return this.toPublicCard(
+      updated,
+      updated.person.displayName,
+      pilot.churchName,
+    );
+  }
+
+  /** Metadados do PDF — sem bytes e sem URL pública. */
+  async getPdfMeta(actor: AuthUser, credentialId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+    return {
+      credentialId: credential.id,
+      ...this.toPdfMeta(credential),
+    };
+  }
+
+  /** Download autenticado do PDF privado. */
+  async downloadPdf(actor: AuthUser, credentialId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+    if (!credential.pdfStorageKey || !credential.pdfContentType) {
+      throw new NotFoundException(
+        "PDF ainda não gerado — use POST /credentials/:id/pdf",
+      );
+    }
+    const bytes = await this.storage.get(credential.pdfStorageKey);
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "credential.pdf.download",
+        resourceType: "member_credential",
+        resourceId: credential.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    return {
+      contentType: credential.pdfContentType,
+      displayName: `carteirinha-${credential.id}.pdf`,
+      bytes,
+    };
+  }
+
+  /**
    * Lookup público mínimo por token opaco (validação de QR).
    * Não devolve CPF/telefone — só status + nome de exibição.
    */
@@ -338,6 +441,41 @@ export class CredentialsService {
     );
   }
 
+  private async loadCredentialForPdf(
+    actor: AuthUser,
+    credentialId: string,
+    pilot: { organizationId: string; churchId: string; churchName: string },
+  ) {
+    const credential = await this.prisma.memberCredential.findFirst({
+      where: {
+        id: credentialId,
+        churchId: pilot.churchId,
+        organizationId: pilot.organizationId,
+      },
+      include: {
+        person: { select: { displayName: true } },
+      },
+    });
+    if (!credential) {
+      throw new NotFoundException("Carteirinha não encontrada no piloto");
+    }
+    if (
+      !canAccessCredentialPdf(
+        actor.grants,
+        actor.personId,
+        credential.personId,
+        {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        },
+      )
+    ) {
+      throw new ForbiddenException("Sem permissão para PDF desta carteirinha");
+    }
+    assertOpaqueCredentialPayload(credential.opaqueToken);
+    return credential;
+  }
+
   private assertCanManage(
     actor: AuthUser,
     organizationId: string,
@@ -355,6 +493,28 @@ export class CredentialsService {
     }
   }
 
+  private toPdfMeta(credential: {
+    pdfStorageKey: string | null;
+    pdfContentType: string | null;
+    pdfByteSize: number | null;
+    pdfGeneratedAt: Date | null;
+  }) {
+    if (
+      !credential.pdfStorageKey ||
+      !credential.pdfContentType ||
+      credential.pdfByteSize == null ||
+      !credential.pdfGeneratedAt
+    ) {
+      return { hasFile: false as const, contentType: null, byteSize: null, generatedAt: null };
+    }
+    return {
+      hasFile: true as const,
+      contentType: credential.pdfContentType,
+      byteSize: credential.pdfByteSize,
+      generatedAt: credential.pdfGeneratedAt.toISOString(),
+    };
+  }
+
   private toPublicCard(
     credential: {
       id: string;
@@ -364,6 +524,10 @@ export class CredentialsService {
       revokedAt: Date | null;
       personId: string;
       membershipId: string;
+      pdfStorageKey?: string | null;
+      pdfContentType?: string | null;
+      pdfByteSize?: number | null;
+      pdfGeneratedAt?: Date | null;
     },
     displayName: string,
     churchName: string,
@@ -380,6 +544,12 @@ export class CredentialsService {
       revokedAt: credential.revokedAt?.toISOString() ?? null,
       personId: credential.personId,
       membershipId: credential.membershipId,
+      pdf: this.toPdfMeta({
+        pdfStorageKey: credential.pdfStorageKey ?? null,
+        pdfContentType: credential.pdfContentType ?? null,
+        pdfByteSize: credential.pdfByteSize ?? null,
+        pdfGeneratedAt: credential.pdfGeneratedAt ?? null,
+      }),
     };
   }
 }

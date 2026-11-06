@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Post } from "@nestjs/common";
+import { Controller, Get, Param, Post, Res } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
+import type { Response } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -45,6 +46,59 @@ export class CredentialsController {
     @Param("credentialId") credentialId: string,
   ) {
     return this.credentials.revoke(user, credentialId);
+  }
+
+  /**
+   * Gera PDF real (pdfkit) com QR opaco — secretaria ou titular.
+   * Substitui o stub de metadados do blueprint F2/F3.
+   */
+  @Roles(
+    ROLE_CODES.MEMBRO,
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Post(":credentialId/pdf")
+  generatePdf(
+    @CurrentUser() user: AuthUser,
+    @Param("credentialId") credentialId: string,
+  ) {
+    return this.credentials.generatePdf(user, credentialId);
+  }
+
+  /** Metadados do PDF — sem bytes públicos. */
+  @Roles(
+    ROLE_CODES.MEMBRO,
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Get(":credentialId/pdf-meta")
+  pdfMeta(
+    @CurrentUser() user: AuthUser,
+    @Param("credentialId") credentialId: string,
+  ) {
+    return this.credentials.getPdfMeta(user, credentialId);
+  }
+
+  /** Download autenticado do PDF privado. */
+  @Roles(
+    ROLE_CODES.MEMBRO,
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Get(":credentialId/pdf")
+  async downloadPdf(
+    @CurrentUser() user: AuthUser,
+    @Param("credentialId") credentialId: string,
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    const file = await this.credentials.downloadPdf(user, credentialId);
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${file.displayName.replace(/"/g, "")}"`,
+    );
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(file.bytes);
   }
 
   /**

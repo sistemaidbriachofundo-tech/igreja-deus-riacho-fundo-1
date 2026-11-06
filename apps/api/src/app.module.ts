@@ -7,6 +7,8 @@ import {
 import { AdmissionsModule } from "./admissions/admissions.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
+import { MfaModule } from "./auth/mfa/mfa.module";
+import { OidcModule } from "./auth/oidc/oidc.module";
 import { CredentialsModule } from "./credentials/credentials.module";
 import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware";
 import { CmsModule } from "./cms/cms.module";
@@ -35,6 +37,8 @@ import { VolunteersModule } from "./volunteers/volunteers.module";
     StorageModule,
     PilotModule,
     AuthModule,
+    MfaModule,
+    OidcModule,
     MembershipsModule,
     CredentialsModule,
     AdmissionsModule,

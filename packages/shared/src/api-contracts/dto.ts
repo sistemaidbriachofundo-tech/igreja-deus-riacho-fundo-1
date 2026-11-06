@@ -33,6 +33,13 @@ export interface LoginResponse {
   tokenType: "Bearer";
   expiresInSeconds: number;
   user: AuthUserDto;
+  /** Hint MFA/OIDC — challenge hard ainda não bloqueia JWT neste contrato. */
+  mfa?: {
+    enabled: boolean;
+    required: boolean;
+    challengeRequired: boolean;
+    oidcLive: false;
+  };
 }
 
 export interface PersonSummaryDto {
@@ -81,6 +88,45 @@ export interface MemberCardDto {
   revokedAt: string | null;
   personId: string;
   membershipId: string;
+  /** Metadados do PDF privado (se já gerado). */
+  pdf?: CredentialPdfMetaDto | null;
+}
+
+/** Metadados do PDF da carteirinha — sem URL pública e sem bytes. */
+export interface CredentialPdfMetaDto {
+  contentType: string;
+  byteSize: number;
+  generatedAt: string;
+  hasFile: boolean;
+}
+
+export interface MfaStatusResponse {
+  mfaRequired: boolean;
+  totp: {
+    factorId: string;
+    status: string;
+    label: string | null;
+    verifiedAt: string | null;
+    disabledAt: string | null;
+  } | null;
+  oidcLive: false;
+}
+
+export interface OidcConfigResponse {
+  organizationId: string;
+  liveIdp: false;
+  config: {
+    id: string;
+    status: string;
+    displayName: string | null;
+    issuerUrl: string | null;
+    clientId: string | null;
+    clientSecretRef: string | null;
+    redirectUri: string | null;
+    scopes: string;
+    updatedAt: string;
+    clientSecret: null;
+  } | null;
 }
 
 export interface CredentialMeResponse {

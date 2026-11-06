@@ -26,13 +26,7 @@ export class PrivateStorageService {
     churchId: string;
     admissionId: string;
   }): string {
-    const safe = (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed || trimmed.includes("..") || /[/\\]/.test(trimmed)) {
-        throw new BadRequestException("Identificador de storage inválido");
-      }
-      return trimmed;
-    };
+    const safe = this.safeSegment;
     const id = randomUUID();
     return [
       "admissions",
@@ -41,6 +35,31 @@ export class PrivateStorageService {
       safe(parts.admissionId),
       id,
     ].join("/");
+  }
+
+  /** Chave opaca para PDF de carteirinha (STORAGE_ROOT privado). */
+  buildCredentialPdfKey(parts: {
+    organizationId: string;
+    churchId: string;
+    credentialId: string;
+  }): string {
+    const safe = this.safeSegment;
+    const id = randomUUID();
+    return [
+      "credentials",
+      safe(parts.organizationId),
+      safe(parts.churchId),
+      safe(parts.credentialId),
+      `${id}.pdf`,
+    ].join("/");
+  }
+
+  private safeSegment(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.includes("..") || /[/\\]/.test(trimmed)) {
+      throw new BadRequestException("Identificador de storage inválido");
+    }
+    return trimmed;
   }
 
   private resolveSafe(storageKey: string): string {

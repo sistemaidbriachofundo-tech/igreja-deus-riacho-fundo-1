@@ -1,6 +1,6 @@
 # Handoff FE ← BE — contratos F2 (ChatGPT / `apps/web`)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.0-portal"` (F2/F3 + portal B–E)  
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.1-pdf-mfa"` (F2/F3 + portal B–E + PDF carteirinha + MFA/OIDC hooks)  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
 **Base DEV:** `http://localhost:3001`  
 **Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md` / `docs/hml-hostinger-runbook.md`  
@@ -119,8 +119,9 @@ Detalhe FE: **`docs/handoff-frontend-portal-publico.md`**
 |------|--------|
 | URL HML HTTPS pública | **pendente autorização** (`TBD` no runbook) |
 | Object storage gerenciado (S3) | arquitetura local pronta; migração cloud pendente |
-| OIDC/MFA | proposed |
-| FE consumindo 0.5.0-portal | ChatGPT / `apps/web` |
+| OIDC/MFA | hooks implemented (TOTP local + OIDC config); IdP live ainda proposed |
+| PDF carteirinha | `POST/GET /credentials/:id/pdf` (+ `pdf-meta`) — QR opaco, sem CPF |
+| FE consumindo 0.5.1-pdf-mfa | ChatGPT / `apps/web` |
 | F4 finanças / F5 canais-IA | fora do portal |
 
 ## Como testar

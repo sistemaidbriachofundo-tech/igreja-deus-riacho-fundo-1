@@ -32,6 +32,17 @@ describe("PrivateStorageService", () => {
     await storage.remove(key);
   });
 
+  it("builds credential PDF keys under credentials/", async () => {
+    const storage = new PrivateStorageService();
+    const key = storage.buildCredentialPdfKey({
+      organizationId: "org",
+      churchId: "ch",
+      credentialId: "cred1",
+    });
+    expect(key.startsWith("credentials/org/ch/cred1/")).toBe(true);
+    expect(key.endsWith(".pdf")).toBe(true);
+  });
+
   it("rejects path traversal keys", async () => {
     const storage = new PrivateStorageService();
     await expect(storage.get("../etc/passwd")).rejects.toBeInstanceOf(
