@@ -15,8 +15,12 @@ const requiredPages = [
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
   "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/demo/index.html",
 ];
+const requiredGalleryAssets = ["louvor", "juventude", "oracao", "palavra"].map((name) => `images/galeria-${name}.webp`);
 const failures = [];
 if (!existsSync(outDir)) throw new Error(`Static export not found: ${outDir}`);
+for (const asset of requiredGalleryAssets) {
+  if (!existsSync(join(outDir, asset))) failures.push(`Missing gallery photo: ${asset}`);
+}
 for (const page of requiredPages) {
   if (!existsSync(join(outDir, page))) failures.push(`Missing expected page: ${page}`);
 }
