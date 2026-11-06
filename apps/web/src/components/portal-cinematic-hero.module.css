@@ -61,3 +61,9 @@
   .railWrap{margin-top:28px;margin-bottom:43px}
   .ministryTile{min-height:150px}
 }
+
+/* Configuração editorial publicada: apenas paletas aprovadas. */
+.hero[data-appearance="verde"] .headline em{background:linear-gradient(105deg,#e1f2d7,#9cdbb6 48%,#6fac9c);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero[data-appearance="verde"] .primaryAction{background:linear-gradient(120deg,#e6f5de,#9fd8bc);border-color:#d1edcd}
+.hero[data-appearance="marfim"] .headline em{background:linear-gradient(105deg,#fffdf1,#e8e1ce,#c9d0bc);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero[data-appearance="marfim"] .primaryAction{background:linear-gradient(120deg,#fdf9ed,#e3dcc7);border-color:#eae0ce}
