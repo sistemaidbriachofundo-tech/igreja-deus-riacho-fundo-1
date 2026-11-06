@@ -4,38 +4,37 @@ import s from "./portal-faith-gallery.module.css";
 
 /**
  * Galeria editorial de quatro cenas ilustrativas fornecidas pelo responsável.
- * Retratos reunidos em um sprite AVIF para reduzir requisições e manter o
- * export estático sem dependência de serviços de imagem de terceiros.
+ * Cada fotografia foi otimizada em WebP e armazenada neste repositório.
+ * O export estático não depende de servidores externos para exibi-las.
  */
 const moments = [
   {
     title: "Louvor",
     subtitle: "Uma expressão de fé",
     alt: "Ilustração de um homem cantando ao microfone, com uma das mãos erguidas e iluminação violeta.",
-    position: "0% 50%",
+    file: "/images/galeria-louvor.webp",
   },
   {
     title: "Juventude",
     subtitle: "Geração com propósito",
     alt: "Ilustração de apresentação de dança de jovens em palco com iluminação roxa e a inscrição CONF2K26.",
-    position: "33.333% 50%",
+    file: "/images/galeria-juventude.webp",
   },
   {
     title: "Oração",
     subtitle: "Caminhar uns com os outros",
     alt: "Ilustração de pessoas reunidas em oração, em atitude de acolhimento e intercessão.",
-    position: "66.667% 50%",
+    file: "/images/galeria-oracao.webp",
   },
   {
     title: "Palavra",
     subtitle: "Uma mensagem que inspira",
     alt: "Ilustração de um homem com microfone, sorrindo e levantando o braço enquanto fala.",
-    position: "100% 50%",
+    file: "/images/galeria-palavra.webp",
   },
 ] as const;
 
 export function PortalFaithGallery() {
-  const imageUrl = withBasePath("/images/retratos-fe-v10.avif");
   return (
     <section id="galeria" className={s.gallery} aria-labelledby="faith-gallery-title">
       <div className={s.inner}>
@@ -50,14 +49,15 @@ export function PortalFaithGallery() {
         <div className={s.moments}>
           {moments.map((moment, index) => (
             <figure className={s.card} key={moment.title} data-portal-reveal>
-              <div
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 className={s.image}
-                role="img"
-                aria-label={moment.alt}
-                style={{
-                  backgroundImage: `url("${imageUrl}")`,
-                  backgroundPosition: moment.position,
-                }}
+                src={withBasePath(moment.file)}
+                alt={moment.alt}
+                width={850}
+                height={1060}
+                loading="lazy"
+                decoding="async"
               />
               <figcaption className={s.caption}>
                 <span className={s.index}>0{index + 1}</span>
