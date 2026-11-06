@@ -57,7 +57,7 @@ describe("SiteLayoutService",()=>{
 
   it("draft saves a revision without updating published row",async()=>{
     const operations={
-      cmsContent:{upsert:jest.fn().mockResolvedValue(draftRow)},
+      cmsContent:{findUnique:jest.fn().mockResolvedValue(null),create:jest.fn().mockResolvedValue(draftRow)},
       cmsContentRevision:{create:jest.fn().mockResolvedValue({})},
       auditLog:{create:jest.fn().mockResolvedValue({})},
     };
@@ -67,12 +67,27 @@ describe("SiteLayoutService",()=>{
     };
     const result=await service(prisma).saveDraft(secretaria,DEFAULT_SITE_LAYOUT,null);
     expect(result.draft.hero.title).toBe(DEFAULT_SITE_LAYOUT.hero.title);
-    expect(operations.cmsContent.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      where:{churchId_slug:{churchId:"church1",slug:"idriacho-home-editor-draft"}},
+    expect(operations.cmsContent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data:expect.objectContaining({slug:"idriacho-home-editor-draft"}),
     }));
     expect(operations.cmsContentRevision.create).toHaveBeenCalled();
     expect(operations.auditLog.create).toHaveBeenCalled();
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects stale draft updates with 409 and never overwrites the page",async()=>{
+    const operations={
+      cmsContent:{
+        findUnique:jest.fn().mockResolvedValue(draftRow),
+        updateMany:jest.fn().mockResolvedValue({count:0}),
+        findUniqueOrThrow:jest.fn(),
+      },
+      cmsContentRevision:{create:jest.fn()},auditLog:{create:jest.fn()},
+    };
+    const prisma={$transaction:jest.fn(async(fn:(value:typeof operations)=>Promise<unknown>)=>fn(operations))};
+    await expect(service(prisma).saveDraft(secretaria,DEFAULT_SITE_LAYOUT,draftRow.updatedAt.toISOString())).rejects.toThrow("Rascunho alterado");
+    expect(operations.cmsContent.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(operations.cmsContentRevision.create).not.toHaveBeenCalled();
   });
 
   it("publishes only the saved draft and logs public revision",async()=>{
