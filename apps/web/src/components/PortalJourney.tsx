@@ -8,6 +8,7 @@ const stops = [
   { id: "ministries-title", label: "Ministérios", number: "03" },
   { id: "atmosfera", label: "Atmosfera", number: "04" },
   { id: "primeira-visita", label: "Primeira visita", number: "05" },
+  { id: "acontece", label: "Novidades", number: "06" },
 ] as const;
 
 export function PortalJourney() {

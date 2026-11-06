@@ -12,7 +12,7 @@ const requiredPages = [
   "ministerios/index.html",
   ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
-  "app/membros/carteirinha/index.html",
+  "app/membros/carteirinha/index.html", "app/editorial/index.html",
 ];
 const failures = [];
 if (!existsSync(outDir)) throw new Error(`Static export not found: ${outDir}`);

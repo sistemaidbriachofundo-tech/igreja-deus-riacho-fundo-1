@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ministries, instagramUrl, type MinistrySlug } from "../lib/portal-content";
 import s from "./visit-planner.module.css";
@@ -23,6 +23,13 @@ export function VisitPlanner() {
   const [interest, setInterest] = useState<Interest>("conhecer");
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!initialized.current) { initialized.current = true; return; }
+    headingRef.current?.focus();
+  }, [step]);
 
   useEffect(() => {
     const slug = new URLSearchParams(window.location.search).get("ministerio");
@@ -50,13 +57,13 @@ export function VisitPlanner() {
   return (
     <section className={s.planner} aria-labelledby="planner-title">
       <div className={s.topline}><span>UMA EXPERIÊNCIA PARA QUEM ESTÁ CHEGANDO</span><span>SEM CADASTRO • SEM COMPROMISSO</span></div>
-      <div className={s.progress} aria-label={"Etapa " + (step + 1) + " de 3"}>
+      <div className={s.progress} role="progressbar" aria-label="Progresso da primeira visita" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step + 1}>
         <span style={{ width: String(((step + 1) / 3) * 100) + "%" }} />
       </div>
       <div className={s.area}>
         <div className={s.intro}>
           <span className={s.counter}>0{step + 1} <small>/ 03</small></span>
-          <h2 id="planner-title">
+          <h2 id="planner-title" tabIndex={-1} ref={headingRef}>
             {step === 0 ? <>Como você pretende <em>nos visitar?</em></> : step === 1 ? <>O que você gostaria <em>de conhecer?</em></> : <>Sua visita começa <em>com um olá.</em></>}
           </h2>
           <p>{step === 0 ? "Sem coletar seus dados, vamos organizar os próximos passos de sua primeira visita." : step === 1 ? "Escolha uma área para conhecer. Você pode mudar de ideia a qualquer momento." : "Preparamos uma mensagem para facilitar seu contato. Não existe reserva ou inscrição automática."}</p>

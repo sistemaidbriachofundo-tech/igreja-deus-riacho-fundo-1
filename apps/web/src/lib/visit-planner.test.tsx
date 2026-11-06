@@ -13,7 +13,9 @@ describe("jornada interativa da primeira visita", () => {
     expect(html).toContain('aria-pressed="false"');
     expect(html).toContain("Nenhuma informação é armazenada.");
     expect(html).toContain('disabled=""');
-    expect(html).toContain("Etapa 1 de 3");
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('aria-valuenow="1"');
+    expect(html).toContain('aria-valuemax="3"');
     expect(html).not.toContain("<form");
   });
 
