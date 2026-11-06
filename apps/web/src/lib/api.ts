@@ -1,9 +1,14 @@
-/** Base da API Nest (só funciona com API no ar — local/Hostinger; não no Pages). */
+import { publicApiBase } from "./portal-live-data";
+
+/**
+ * Fail closed: um site público sem API homologada não deve chamar o
+ * localhost de quem está navegando. Apenas DEV local usa fallback.
+ */
 export function getApiBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-    "http://localhost:3001"
-  );
+  const configured = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "development") return "http://localhost:3001";
+  throw new Error("API autenticada não configurada ou URL insegura.");
 }
 
 export interface LoginResult {
