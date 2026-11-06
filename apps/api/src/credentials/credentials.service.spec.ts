@@ -80,11 +80,20 @@ describe("CredentialsService", () => {
     };
   }
 
+  const storage = {
+    buildCredentialPdfKey: jest.fn().mockReturnValue("credentials/org1/church/c1/x.pdf"),
+    put: jest.fn(),
+    get: jest.fn(),
+    remove: jest.fn(),
+    contentSha256: jest.fn().mockReturnValue("abc"),
+  };
+
   it("issues card with opaque QR when admission APPROVED", async () => {
     const prisma = prismaWithEligibility(true);
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
 
     const card = await service.issue(secretaria, "m1");
@@ -98,6 +107,7 @@ describe("CredentialsService", () => {
     const serviceA = new CredentialsService(
       ineligible as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     await expect(serviceA.issue(secretaria, "m1")).rejects.toBeInstanceOf(
       BusinessException,
@@ -108,6 +118,7 @@ describe("CredentialsService", () => {
     const serviceB = new CredentialsService(
       missing as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     await expect(serviceB.issue(secretaria, "m1")).rejects.toBeInstanceOf(
       NotFoundException,
@@ -123,6 +134,7 @@ describe("CredentialsService", () => {
     const serviceC = new CredentialsService(
       conflict as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     await expect(serviceC.issue(secretaria, "m1")).rejects.toBeInstanceOf(
       ConflictException,
@@ -165,6 +177,7 @@ describe("CredentialsService", () => {
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     const card = await service.reissue(secretaria, "m1");
     expect(card.id).toBe("c-new");
@@ -186,6 +199,7 @@ describe("CredentialsService", () => {
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     await expect(service.reissue(secretaria, "m1")).rejects.toBeInstanceOf(
       NotFoundException,
@@ -231,6 +245,7 @@ describe("CredentialsService", () => {
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     const revoked = await service.revoke(secretaria, "c1");
     expect(revoked.status).toBe("REVOKED");
@@ -272,6 +287,7 @@ describe("CredentialsService", () => {
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     await expect(service.getOwn(member)).resolves.toMatchObject({ card: null });
     const withCard = await service.getOwn(member);
@@ -293,6 +309,7 @@ describe("CredentialsService", () => {
     const service = new CredentialsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     const hit = await service.lookupByOpaqueToken(opaqueToken);
     expect(hit.displayName).toBe("Bruno Demo");
@@ -307,9 +324,50 @@ describe("CredentialsService", () => {
     const service = new CredentialsService(
       prismaWithEligibility(true) as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
     );
     await expect(service.issue(member, "m1")).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  it("generatePdf stores real PDF meta without CPF", async () => {
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          pdfStorageKey: null,
+          person: { displayName: "Bruno Demo" },
+        }),
+        update: jest.fn().mockImplementation(async ({ data }) => ({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          ...data,
+          person: { displayName: "Bruno Demo" },
+        })),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const card = await service.generatePdf(secretaria, "c1");
+    expect(storage.put).toHaveBeenCalled();
+    expect(card.pdf?.hasFile).toBe(true);
+    expect(card.pdf?.contentType).toBe("application/pdf");
+    expect(containsSensitiveCredentialPayload(card.qrPayload)).toBe(false);
   });
 });

@@ -22,11 +22,17 @@ interface TokenPair {
   tokenType: "Bearer";
   expiresInSeconds: number;
   user: AuthUser;
+  mfa: {
+    enabled: boolean;
+    required: boolean;
+    challengeRequired: boolean;
+    oidcLive: false;
+  };
 }
 
 /**
  * Autenticação JWT (estratégia documentada no README § F1 IAM).
- * Skeleton: HMAC-SHA256 local; OIDC/MFA entram quando o provedor for definido.
+ * HMAC-SHA256 local; MFA TOTP local disponível; OIDC = config/hooks sem IdP live.
  */
 @Injectable()
 export class AuthService {
@@ -43,6 +49,10 @@ export class AuthService {
       include: {
         person: true,
         grants: { include: { role: true } },
+        mfaFactors: {
+          where: { factorType: "TOTP", status: "ENABLED" },
+          select: { id: true },
+        },
       },
     });
 
@@ -76,11 +86,21 @@ export class AuthService {
       grants,
     });
 
+    const mfaEnabled = user.mfaFactors.length > 0;
+    const mfaRequired = user.mfaRequired;
+
     return {
       accessToken,
       tokenType: "Bearer",
       expiresInSeconds: this.expiresInSeconds,
       user: authUser,
+      /** Hint MFA — challenge hard ainda não bloqueia JWT neste contrato. */
+      mfa: {
+        enabled: mfaEnabled,
+        required: mfaRequired,
+        challengeRequired: mfaRequired && mfaEnabled,
+        oidcLive: false as const,
+      },
     };
   }
 

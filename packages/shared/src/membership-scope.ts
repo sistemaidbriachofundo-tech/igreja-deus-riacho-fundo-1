@@ -176,3 +176,38 @@ export function canAdministerMinistries(
     canApprovePastoralAdmission(grants, target)
   );
 }
+
+/** PDF da carteirinha: secretaria/admin no escopo, ou titular (person_id). */
+export function canAccessCredentialPdf(
+  grants: AuthGrant[],
+  actorPersonId: string,
+  credentialPersonId: string,
+  target: MembershipScopeTarget,
+): boolean {
+  return (
+    canManageMemberships(grants, target) ||
+    canViewOwnCredential(actorPersonId, credentialPersonId)
+  );
+}
+
+/**
+ * Config OIDC da organização — só PLATFORM_ADMIN na org.
+ * Escopo church no grant NÃO bloqueia (OIDC é org-wide).
+ */
+export function canManageOidcConfig(
+  grants: AuthGrant[],
+  target: { organizationId: OrganizationId },
+): boolean {
+  return grants.some((grant) => {
+    if (grant.roleCode !== ROLE_CODES.PLATFORM_ADMIN) {
+      return false;
+    }
+    if (
+      grant.organizationId &&
+      grant.organizationId !== target.organizationId
+    ) {
+      return false;
+    }
+    return true;
+  });
+}

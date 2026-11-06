@@ -87,6 +87,7 @@ model Organization {
   portalEvents   PortalEvent[]
   cmsContents    CmsContent[]
   volunteerInterests VolunteerInterest[]
+  oidcProviders  OidcProviderConfig[]
 
   @@map("organizations")
 }
@@ -190,6 +191,8 @@ model User {
   email        String     @unique
   passwordHash String?    @map("password_hash")
   status       UserStatus @default(ACTIVE)
+  /// Quando true, login local exige segundo fator (TOTP) se habilitado.
+  mfaRequired  Boolean    @default(false) @map("mfa_required")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -201,6 +204,7 @@ model User {
   lettersIssued     ChurchLetter[]     @relation("LetterIssuer")
   pastoralCreated   PastoralCase[]     @relation("PastoralCreator")
   pastoralAssigned  PastoralCase[]     @relation("PastoralAssignee")
+  mfaFactors        UserMfaFactor[]
 
   @@map("users")
 }
@@ -329,6 +333,11 @@ model MemberCredential {
   issuedAt       DateTime         @default(now()) @map("issued_at")
   revokedAt      DateTime?        @map("revoked_at")
   issuedByUserId String?          @map("issued_by_user_id")
+  /// Chave opaca no STORAGE_ROOT do PDF da carteirinha (nunca URL pública).
+  pdfStorageKey  String?          @unique @map("pdf_storage_key")
+  pdfContentType String?          @map("pdf_content_type")
+  pdfByteSize    Int?             @map("pdf_byte_size")
+  pdfGeneratedAt DateTime?        @map("pdf_generated_at")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -890,4 +899,64 @@ model RosterAssignment {
   @@index([slotId, status])
   @@index([personId])
   @@map("roster_assignments")
+}
+
+// —— F1/F2 hooks: MFA (TOTP) + OIDC config (sem IdP live) ——
+
+enum MfaFactorType {
+  TOTP
+}
+
+enum MfaFactorStatus {
+  DISABLED
+  PENDING_ENROLLMENT
+  ENABLED
+}
+
+enum OidcProviderStatus {
+  DISABLED
+  CONFIGURED
+  ENABLED
+}
+
+/// Fator MFA por usuário — TOTP local; secret cifrado; sem IdP.
+model UserMfaFactor {
+  id               String          @id @default(cuid())
+  userId           String          @map("user_id")
+  factorType       MfaFactorType   @default(TOTP) @map("factor_type")
+  status           MfaFactorStatus @default(DISABLED)
+  /// Segredo TOTP cifrado (AES-GCM); nunca expor em listagens.
+  secretCiphertext String?         @map("secret_ciphertext")
+  label            String?
+  verifiedAt       DateTime?       @map("verified_at")
+  disabledAt       DateTime?       @map("disabled_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, factorType])
+  @@index([userId, status])
+  @@map("user_mfa_factors")
+}
+
+/// Config OIDC por organização — placeholders; login federado NÃO live neste contrato.
+model OidcProviderConfig {
+  id              String             @id @default(cuid())
+  organizationId  String             @map("organization_id")
+  status          OidcProviderStatus @default(DISABLED)
+  displayName     String?            @map("display_name")
+  issuerUrl       String?            @map("issuer_url")
+  clientId        String?            @map("client_id")
+  /// Nome da env/secret store — nunca o secret em claro no banco.
+  clientSecretRef String?            @map("client_secret_ref")
+  redirectUri     String?            @map("redirect_uri")
+  scopes          String             @default("openid profile email")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId])
+  @@map("oidc_provider_configs")
 }

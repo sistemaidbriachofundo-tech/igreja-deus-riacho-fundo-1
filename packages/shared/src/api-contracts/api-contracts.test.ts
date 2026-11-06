@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.5.0-portal");
+    assert.equal(API_CONTRACT_VERSION, "0.5.1-pdf-mfa");
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -95,5 +95,12 @@ describe("api contracts F2", () => {
       API_ENDPOINT_STATUS["PATCH /volunteer-interests/:interestId"],
       "implemented",
     );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /credentials/:credentialId/pdf"],
+      "implemented",
+    );
+    assert.equal(API_ENDPOINT_STATUS["GET /auth/mfa/status"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /auth/oidc/config"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /auth/oidc/authorize"], "implemented");
   });
 });

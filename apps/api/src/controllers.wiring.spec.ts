@@ -1,6 +1,8 @@
 import { AdmissionsController } from "./admissions/admissions.controller";
 import { AuditController } from "./audit/audit.controller";
 import { AuthController } from "./auth/auth.controller";
+import { MfaController } from "./auth/mfa/mfa.controller";
+import { OidcController } from "./auth/oidc/oidc.controller";
 import { CredentialsController } from "./credentials/credentials.controller";
 import { DiscipleshipController } from "./discipleship/discipleship.controller";
 import { GroupsController } from "./groups/groups.controller";
@@ -117,6 +119,13 @@ describe("controller wiring (delegates to services)", () => {
       issue: jest.fn(),
       reissue: jest.fn(),
       revoke: jest.fn(),
+      generatePdf: jest.fn(),
+      getPdfMeta: jest.fn(),
+      downloadPdf: jest.fn().mockResolvedValue({
+        contentType: "application/pdf",
+        displayName: "carteirinha-c1.pdf",
+        bytes: Buffer.from("%PDF"),
+      }),
       lookupByOpaqueToken: jest.fn(),
     };
     const c = new CredentialsController(credentials as never);
@@ -124,8 +133,43 @@ describe("controller wiring (delegates to services)", () => {
     await c.issue(user, "m1");
     await c.reissue(user, "m1");
     await c.revoke(user, "c1");
+    await c.generatePdf(user, "c1");
+    await c.pdfMeta(user, "c1");
+    const res = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+    await c.downloadPdf(user, "c1", res as never);
     await c.verify("token");
     expect(credentials.lookupByOpaqueToken).toHaveBeenCalledWith("token");
+    expect(credentials.generatePdf).toHaveBeenCalledWith(user, "c1");
+    expect(res.send).toHaveBeenCalled();
+  });
+
+  it("MfaController + OidcController", async () => {
+    const mfa = {
+      getStatus: jest.fn(),
+      enrollTotp: jest.fn(),
+      confirmTotp: jest.fn(),
+      disableTotp: jest.fn(),
+    };
+    const mfaC = new MfaController(mfa as never);
+    await mfaC.status(user);
+    await mfaC.enroll(user, {});
+    await mfaC.confirm(user, { code: "123456" });
+    await mfaC.disable(user, {});
+    expect(mfa.getStatus).toHaveBeenCalledWith(user);
+
+    const oidc = {
+      getConfig: jest.fn(),
+      upsertConfig: jest.fn(),
+      getAuthorizeInterface: jest.fn().mockReturnValue({ liveIdp: false }),
+      handleCallbackInterface: jest.fn(),
+    };
+    const oidcC = new OidcController(oidc as never);
+    await oidcC.getConfig(user);
+    await oidcC.putConfig(user, { status: "CONFIGURED" });
+    expect(oidcC.authorize()).toEqual({ liveIdp: false });
   });
 
   it("MembershipsController", async () => {

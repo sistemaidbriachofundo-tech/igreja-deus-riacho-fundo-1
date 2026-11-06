@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.5.0-portal
+  version: 0.5.1-pdf-mfa
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -11,6 +11,7 @@ info:
     - 0.3.0-f3: transferências, cartas versionadas, pastoral, discipulado, células, escalas
     - 0.4.0-portal: perfil público Ministry, eventos portal, GET /public/*
     - 0.5.0-portal: CMS workflow + volunteer-interests Atmosfera
+    - 0.5.1-pdf-mfa: PDF real da carteirinha (QR opaco, sem CPF) + hooks MFA TOTP / OIDC config (sem IdP live)
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -26,6 +27,8 @@ servers:
 tags:
   - name: health
   - name: auth
+  - name: mfa
+  - name: oidc
   - name: memberships
   - name: credentials
   - name: persons
@@ -97,6 +100,14 @@ components:
         tokenType: { type: string, enum: [Bearer] }
         expiresInSeconds: { type: integer, example: 3600 }
         user: { $ref: "#/components/schemas/AuthUser" }
+        mfa:
+          type: object
+          description: Hint MFA/OIDC — challenge hard ainda não bloqueia JWT
+          properties:
+            enabled: { type: boolean }
+            required: { type: boolean }
+            challengeRequired: { type: boolean }
+            oidcLive: { type: boolean, enum: [false] }
     PersonSummary:
       type: object
       required: [id, displayName, email, status, householdId]
@@ -183,6 +194,14 @@ components:
         notes: { type: string }
         householdLabel: { type: string }
         personId: { type: string }
+    CredentialPdfMeta:
+      type: object
+      required: [hasFile]
+      properties:
+        hasFile: { type: boolean }
+        contentType: { type: string, nullable: true, example: application/pdf }
+        byteSize: { type: integer, nullable: true }
+        generatedAt: { type: string, format: date-time, nullable: true }
     MemberCard:
       type: object
       required: [id, status, displayName, churchName, qrPayload, issuedAt, revokedAt, personId, membershipId]
@@ -199,6 +218,37 @@ components:
         revokedAt: { type: string, format: date-time, nullable: true }
         personId: { type: string }
         membershipId: { type: string }
+        pdf: { $ref: "#/components/schemas/CredentialPdfMeta" }
+    MfaStatusResponse:
+      type: object
+      required: [mfaRequired, totp, oidcLive]
+      properties:
+        mfaRequired: { type: boolean }
+        totp:
+          oneOf:
+            - type: object
+              required: [factorId, status]
+              properties:
+                factorId: { type: string }
+                status: { type: string, enum: [DISABLED, PENDING_ENROLLMENT, ENABLED] }
+                label: { type: string, nullable: true }
+                verifiedAt: { type: string, format: date-time, nullable: true }
+                disabledAt: { type: string, format: date-time, nullable: true }
+            - { type: "null" }
+        oidcLive: { type: boolean, enum: [false] }
+    OidcConfigPublic:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [DISABLED, CONFIGURED, ENABLED] }
+        displayName: { type: string, nullable: true }
+        issuerUrl: { type: string, nullable: true }
+        clientId: { type: string, nullable: true }
+        clientSecretRef: { type: string, nullable: true }
+        redirectUri: { type: string, nullable: true }
+        scopes: { type: string }
+        updatedAt: { type: string, format: date-time }
+        clientSecret: { type: "null", description: Nunca ecoado }
     CredentialMeResponse:
       type: object
       required: [card, church]
@@ -586,6 +636,201 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+
+  /credentials/{credentialId}/pdf:
+    post:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Gerar PDF real da carteirinha
+      description: |
+        Pipeline pdfkit + QR opaco. Conteúdo: nome de exibição, igreja, data, QR token.
+        **Sem CPF** (campo inexistente no modelo; defesa em profundidade no renderer).
+        Arquivo em STORAGE_ROOT privado — sem URL pública.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Card com metadados PDF
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MemberCard" }
+    get:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Download autenticado do PDF
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: application/pdf
+          content:
+            application/pdf: {}
+        "404":
+          description: PDF ainda não gerado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /credentials/{credentialId}/pdf-meta:
+    get:
+      tags: [credentials]
+      x-implementation: implemented
+      summary: Metadados do PDF (sem bytes)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Meta
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/CredentialPdfMeta" }
+                  - type: object
+                    properties:
+                      credentialId: { type: string }
+
+  /auth/mfa/status:
+    get:
+      tags: [mfa]
+      x-implementation: implemented
+      summary: Status MFA do usuário autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Sem secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaStatusResponse" }
+
+  /auth/mfa/totp/enroll:
+    post:
+      tags: [mfa]
+      x-implementation: implemented
+      summary: Iniciar enrollment TOTP
+      description: Devolve otpauth URI + secret uma vez. TOTP local — sem IdP.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+      responses:
+        "200":
+          description: Enrollment pendente
+        "409":
+          description: TOTP já ENABLED
+
+  /auth/mfa/totp/confirm:
+    post:
+      tags: [mfa]
+      x-implementation: implemented
+      summary: Confirmar TOTP com código 6 dígitos
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: "^\\d{6}$" }
+      responses:
+        "200":
+          description: ENABLED
+
+  /auth/mfa/totp/disable:
+    post:
+      tags: [mfa]
+      x-implementation: implemented
+      summary: Desabilitar TOTP
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string, pattern: "^\\d{6}$" }
+      responses:
+        "200":
+          description: DISABLED
+
+  /auth/oidc/config:
+    get:
+      tags: [oidc]
+      x-implementation: implemented
+      summary: Ler config OIDC da org piloto (PLATFORM_ADMIN)
+      description: Sem IdP live — só placeholders + env hints. clientSecret nunca ecoado.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Config
+    put:
+      tags: [oidc]
+      x-implementation: implemented
+      summary: Upsert config OIDC (PLATFORM_ADMIN)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string }
+                issuerUrl: { type: string }
+                clientId: { type: string }
+                clientSecretRef: { type: string }
+                redirectUri: { type: string }
+                scopes: { type: string }
+                status: { type: string, enum: [DISABLED, CONFIGURED, ENABLED] }
+      responses:
+        "200":
+          description: Config salva (liveIdp=false)
+    post:
+      tags: [oidc]
+      x-implementation: implemented
+      summary: Alias POST de upsert config OIDC
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Config salva
+
+  /auth/oidc/authorize:
+    get:
+      tags: [oidc]
+      x-implementation: implemented
+      summary: Interface authorize (não live)
+      description: Documenta contrato; não redireciona a IdP neste release.
+      security: []
+      responses:
+        "200":
+          description: liveIdp=false + requiredEnv
+
+  /auth/oidc/callback:
+    get:
+      tags: [oidc]
+      x-implementation: implemented
+      summary: Interface callback (não troca code)
+      security: []
+      responses:
+        "501":
+          description: OIDC_NOT_LIVE
 
   /persons/search:
     get:
