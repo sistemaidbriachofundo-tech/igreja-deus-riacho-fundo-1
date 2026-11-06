@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { canAdministerMinistries } from "@idbrf/shared";
+import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -118,9 +118,23 @@ function decodeLayout(text: string | null): SiteLayout {
 export class SiteLayoutService {
   constructor(private readonly prisma: PrismaService, private readonly pilot: PilotService) {}
 
+  private canEdit(actor: AuthUser, pilot:{organizationId:string;churchId:string}): boolean {
+    return hasAccess(actor.grants, {
+      roleCodes:[ROLE_CODES.EDITOR_SITE,ROLE_CODES.PUBLICADOR_SITE,ROLE_CODES.SECRETARIA,ROLE_CODES.PASTOR,ROLE_CODES.PLATFORM_ADMIN],
+      organizationId:pilot.organizationId,churchId:pilot.churchId,
+    });
+  }
+
+  private canPublish(actor: AuthUser, pilot:{organizationId:string;churchId:string}): boolean {
+    return hasAccess(actor.grants,{
+      roleCodes:[ROLE_CODES.PUBLICADOR_SITE,ROLE_CODES.PASTOR,ROLE_CODES.PLATFORM_ADMIN],
+      organizationId:pilot.organizationId,churchId:pilot.churchId,
+    });
+  }
+
   private async scope(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
-    if (!canAdministerMinistries(actor.grants, pilot)) {
+    if (!this.canEdit(actor, pilot)) {
       throw new ForbiddenException("Somente equipe editorial autorizada pode modificar a Home");
     }
     return pilot;
@@ -138,6 +152,7 @@ export class SiteLayoutService {
     }) : [];
     return {
       draft: decodeLayout(draft?.body ?? live?.body ?? null),
+      permissions:{canEdit:true,canPublish:this.canPublish(actor,pilot)},
       published: live ? decodeLayout(live.body) : null,
       draftUpdatedAt: draft?.updatedAt.toISOString() ?? null,
       publishedAt: live?.publishedAt?.toISOString() ?? null,
@@ -178,6 +193,7 @@ export class SiteLayoutService {
 
   async publish(actor: AuthUser, expectedUpdatedAt?: string) {
     const pilot = await this.scope(actor);
+    if (!this.canPublish(actor,pilot)) throw new ForbiddenException("Você pode editar o site, mas publicar exige um publicador ou pastor.");
     const draft = await this.prisma.cmsContent.findUnique({ where: { churchId_slug: { churchId: pilot.churchId, slug: DRAFT_SLUG } } });
     if (!draft) throw new NotFoundException("Salve um rascunho antes de publicar");
     if (expectedUpdatedAt && draft.updatedAt.toISOString() !== expectedUpdatedAt) throw new ConflictException("O rascunho foi alterado. Confira antes de publicar.");
