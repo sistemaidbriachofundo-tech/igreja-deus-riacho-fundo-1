@@ -15,6 +15,7 @@ describe("Autonomous site access",()=>{
     expect(canEditSite(g,church)).toBe(true);
     expect(canPublishSite(g,church)).toBe(true);
     expect(canEditSite(g,{organizationId:"org1",churchId:"rf2"})).toBe(false);
+    expect(canEditSite([{...g[0],ministryId:"mid1"}],church)).toBe(false);
   });
   it("keeps existing secretary governance for site migration",()=>{
     const g=[{roleCode:ROLE_CODES.SECRETARIA,organizationId:"org1",churchId:"rf1"}];
