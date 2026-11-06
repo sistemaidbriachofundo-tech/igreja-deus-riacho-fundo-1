@@ -56,6 +56,18 @@ export {
 } from "./membership-scope";
 
 export {
+  canAccessChurch,
+  canReadAudit,
+  isPlatformAdminInOrg,
+  organizationIdsFromGrants,
+  explicitChurchIdsFromGrants,
+  hasOrgWideGrant,
+  resolveDefaultActiveContext,
+  DEFAULT_PRODUCT_CHURCH_SLUG,
+  type ActiveChurchContext,
+} from "./church-access";
+
+export {
   LEDGER_ACCOUNT_TYPES,
   LEDGER_ENTRY_STATUSES,
   LEDGER_LINE_SIDES,

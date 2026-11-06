@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.6.1-channels");
+    assert.equal(API_CONTRACT_VERSION, "0.7.0-das");
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -126,5 +126,10 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["GET /channels/outbox/:outboxId"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /channels/outbox/:outboxId/dispatch"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /channels/outbox/dispatch-pending"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /auth/refresh"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /auth/switch-church"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /churches"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /indicators/summary"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /indicators/membership"], "implemented");
   });
 });

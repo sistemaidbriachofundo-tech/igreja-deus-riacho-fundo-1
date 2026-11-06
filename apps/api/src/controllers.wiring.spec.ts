@@ -18,9 +18,11 @@ import {
   RosterSlotsController,
 } from "./ministries/ministries.controller";
 import { ChannelsController } from "./channels/channels.controller";
+import { ChurchesController } from "./churches/churches.controller";
 import { CmsController } from "./cms/cms.controller";
 import { EventsController } from "./events/events.controller";
 import { FinanceController } from "./finance/finance.controller";
+import { IndicatorsController } from "./indicators/indicators.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
 import { PublicPortalController } from "./public-portal/public-portal.controller";
@@ -211,9 +213,15 @@ describe("controller wiring (delegates to services)", () => {
     };
     const c = new AuditController(audit as never);
     await c.list(user, "10");
-    expect(audit.listRecent).toHaveBeenCalledWith(user, 10);
-    await c.list(user);
-    expect(audit.listRecent).toHaveBeenCalledWith(user, 50);
+    expect(audit.listRecent).toHaveBeenCalledWith(user, 10, {
+      churchId: undefined,
+      scope: undefined,
+    });
+    await c.list(user, undefined, undefined, "organization");
+    expect(audit.listRecent).toHaveBeenCalledWith(user, 50, {
+      churchId: undefined,
+      scope: "organization",
+    });
   });
 
   it("TransfersController", async () => {
@@ -532,4 +540,28 @@ describe("controller wiring (delegates to services)", () => {
   });
 
 
+
+  it("ChurchesController", async () => {
+    const churches = {
+      listAccessible: jest.fn().mockResolvedValue({ churches: [] }),
+    };
+    const c = new ChurchesController(churches as never);
+    await c.list(user);
+    expect(churches.listAccessible).toHaveBeenCalledWith(user);
+  });
+
+  it("IndicatorsController", async () => {
+    const indicators = {
+      summary: jest.fn().mockResolvedValue({ stub: true }),
+      membership: jest.fn().mockResolvedValue({ stub: true }),
+    };
+    const c = new IndicatorsController(indicators as never);
+    await c.summary(user, "ch1", undefined);
+    await c.membership(user, "ch1");
+    expect(indicators.summary).toHaveBeenCalledWith(user, {
+      churchId: "ch1",
+      scope: undefined,
+    });
+    expect(indicators.membership).toHaveBeenCalledWith(user, "ch1");
+  });
 });
