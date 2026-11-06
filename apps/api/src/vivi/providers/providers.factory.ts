@@ -87,13 +87,11 @@ export function validateViviProviderConfig(): {
   const warnings: string[] = [];
 
   let credentialsReady = false;
-  let usingMockFallback = false;
 
   if (mode === "manus") {
     if (manusUrl && manusKey) {
       credentialsReady = true;
     } else {
-      usingMockFallback = true;
       const label = explicit === "manus" ? "VIVI_PROVIDER=manus" : "provider manus";
       if (!manusUrl) {
         warnings.push(
@@ -110,7 +108,6 @@ export function validateViviProviderConfig(): {
     if (geminiKey) {
       credentialsReady = true;
     } else {
-      usingMockFallback = true;
       warnings.push(
         "VIVI_PROVIDER=gemini sem GEMINI_API_KEY — usando mock",
       );
@@ -145,7 +142,6 @@ export function assertViviProviderConfigForBoot(
   const explicit = env("VIVI_PROVIDER").toLowerCase();
 
   for (const w of validation.configWarnings) {
-    // eslint-disable-next-line no-console
     console.warn(`[vivi] ${w}`);
   }
 
