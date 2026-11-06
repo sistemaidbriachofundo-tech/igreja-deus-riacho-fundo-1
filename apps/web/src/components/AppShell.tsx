@@ -110,7 +110,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
             <div><strong>{meta}</strong><span className={s.toolbarEyebrow}>Gestão da Igreja de Deus · Riacho Fundo I</span></div>
           </div>
           <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K">
-            <UIIcon name="search" size={18}/><span>Buscar membros, módulos, eventos...</span><kbd>Ctrl K</kbd>
+            <UIIcon name="search" size={18}/><span>Buscar módulos e páginas...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
             <a className={s.toolbarAlerts} href={withBasePath("/app/#avisos")} aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></a>
@@ -137,7 +137,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
         <section className={s.commandModal} role="dialog" aria-modal="true" aria-labelledby={searchId}>
-          <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar páginas, módulos, ações..." autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
+          <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulos e páginas..." autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
           <span className={s.commandTitle}>NAVEGAÇÃO</span>
           <div className={s.commandList}>
             {filtered.map(item => <a key={item.key} href={withBasePath(item.href)}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></a>)}
