@@ -34,16 +34,7 @@ export function pickProvider(
   providers: ChannelProviders,
   channel: CommChannel,
 ): ChannelProvider {
-  switch (channel) {
-    case "WHATSAPP":
-      return providers.whatsapp;
-    case "EMAIL":
-      return providers.email;
-    case "PUSH":
-      return providers.push;
-    default: {
-      const _exhaustive: never = channel;
-      return _exhaustive;
-    }
-  }
+  if (channel === "WHATSAPP") return providers.whatsapp;
+  if (channel === "EMAIL") return providers.email;
+  return providers.push;
 }

@@ -457,4 +457,561 @@ describe("ChannelsService", () => {
     expect(modes.whatsapp).toBe("mock");
     expect(modes.email).toBe("noop");
   });
+
+  it("rejects createTemplate without required fields or invalid channel", async () => {
+    const service = build({ $transaction: jest.fn() });
+    await expect(
+      service.createTemplate(secretaria, {
+        channel: "EMAIL",
+        code: " ",
+        name: "x",
+        body: "y",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createTemplate(secretaria, {
+        channel: "SMS" as never,
+        code: "a",
+        name: "b",
+        body: "c",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("patches template fields and 404s when missing", async () => {
+    const template = {
+      id: "t1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "EMAIL",
+      code: "welcome",
+      name: "Boas",
+      subject: "Oi",
+      body: "Olá {{name}}",
+      locale: "pt-BR",
+      providerTemplateName: null as string | null,
+      variables: ["name"],
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const updated = { ...template, name: "Novo", active: false, locale: "pt-BR" };
+    const tx = {
+      messageTemplate: { update: jest.fn().mockResolvedValue(updated) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      messageTemplate: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(template)
+          .mockResolvedValueOnce(null),
+      },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const result = await service.patchTemplate(secretaria, "t1", {
+      name: " Novo ",
+      body: " Olá {{name}} ",
+      subject: "Oi",
+      locale: "  ",
+      providerTemplateName: "meta_welcome",
+      variables: ["name"],
+      active: false,
+    });
+    expect(result.name).toBe("Novo");
+    await expect(
+      service.patchTemplate(secretaria, "missing", { name: "x" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("rejects empty name/body on patchTemplate", async () => {
+    const prisma = {
+      messageTemplate: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "t1",
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = build(prisma);
+    await expect(
+      service.patchTemplate(secretaria, "t1", { name: "  " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.patchTemplate(secretaria, "t1", { body: "" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("enqueues from template with variable rendering", async () => {
+    const template = {
+      id: "t1",
+      subject: "Olá {{name}}",
+      body: "Bem-vindo, {{name}} — {{missing}}",
+      providerTemplateName: "welcome_v1",
+    };
+    const outboxRow = {
+      id: "o-tpl",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "EMAIL",
+      status: "PENDING",
+      personId: null as string | null,
+      toAddress: "a@example.test",
+      templateId: "t1",
+      templateCode: "welcome",
+      subject: "Olá Ana",
+      bodyRendered: "Bem-vindo, Ana — ",
+      payload: {},
+      consentCheckedAt: null as Date | null,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "manual",
+      sourceId: null as string | null,
+      createdByUserId: "u-sec",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      communicationOutbox: { create: jest.fn().mockResolvedValue(outboxRow) },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      messageTemplate: { findFirst: jest.fn().mockResolvedValue(template) },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const item = await service.enqueue(secretaria, {
+      channel: "EMAIL",
+      toAddress: "a@example.test",
+      templateCode: "welcome",
+      variables: { name: "Ana" },
+      skipConsentCheck: true,
+    });
+    expect(item.bodyRendered).toContain("Ana");
+    expect(tx.communicationOutbox.create).toHaveBeenCalled();
+  });
+
+  it("rejects missing template, empty body, and invalid scheduledAt", async () => {
+    const prisma = {
+      messageTemplate: { findFirst: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(),
+    };
+    const service = build(prisma);
+    await expect(
+      service.enqueue(secretaria, {
+        channel: "EMAIL",
+        toAddress: "a@example.test",
+        templateCode: "ghost",
+        skipConsentCheck: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.enqueue(secretaria, {
+        channel: "EMAIL",
+        toAddress: "a@example.test",
+        skipConsentCheck: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.enqueue(secretaria, {
+        channel: "EMAIL",
+        toAddress: "a@example.test",
+        body: "x",
+        scheduledAt: "not-a-date",
+        skipConsentCheck: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("lists and gets outbox with delivery events", async () => {
+    const row = {
+      id: "o1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "EMAIL",
+      status: "PENDING",
+      personId: null as string | null,
+      toAddress: "a@example.test",
+      templateId: null as string | null,
+      templateCode: null as string | null,
+      subject: null as string | null,
+      bodyRendered: "hi",
+      payload: {},
+      consentCheckedAt: null as Date | null,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "manual",
+      sourceId: null as string | null,
+      createdByUserId: "u-sec",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const prisma = {
+      communicationOutbox: {
+        findMany: jest.fn().mockResolvedValue([row]),
+        findFirst: jest.fn().mockResolvedValue(row),
+      },
+      outboxDeliveryEvent: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "e1",
+            status: "PENDING",
+            providerResponse: { enqueued: true },
+            errorMessage: null,
+            createdAt: now,
+          },
+        ]),
+      },
+    };
+    const service = build(prisma);
+    const listed = await service.listOutbox(secretaria, {
+      status: "PENDING",
+      channel: "EMAIL",
+      limit: 10,
+    });
+    expect(listed.outbox).toHaveLength(1);
+    const detail = await service.getOutbox(secretaria, "o1");
+    expect(detail.deliveryEvents).toHaveLength(1);
+  });
+
+  it("rejects dispatch for non-dispatchable or future-scheduled items", async () => {
+    const base = {
+      id: "o1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "EMAIL",
+      personId: null,
+      toAddress: "a@example.test",
+      templateId: null,
+      templateCode: null,
+      subject: null,
+      bodyRendered: "x",
+      payload: {},
+      consentCheckedAt: null,
+      providerMessageId: null,
+      lastError: null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      sentAt: null,
+      deliveredAt: null,
+      sourceType: "manual",
+      sourceId: null,
+      createdByUserId: "u-sec",
+      createdAt: now,
+      updatedAt: now,
+      template: null,
+    };
+    const prisma = {
+      communicationOutbox: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({ ...base, status: "SENT", scheduledAt: null })
+          .mockResolvedValueOnce({
+            ...base,
+            status: "PENDING",
+            scheduledAt: new Date(Date.now() + 60_000),
+          }),
+      },
+    };
+    const service = build(prisma);
+    await expect(service.dispatchOne(secretaria, "o1")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(service.dispatchOne(secretaria, "o1")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it("marks FAILED when provider returns ok=false", async () => {
+    const failing = {
+      whatsapp: {
+        name: "whatsapp",
+        mode: "mock" as const,
+        send: jest.fn().mockResolvedValue({
+          ok: false,
+          errorMessage: "boom",
+          raw: { err: true },
+        }),
+      },
+      email: providers.email,
+      push: providers.push,
+    };
+    const row = {
+      id: "o-fail",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "WHATSAPP",
+      status: "PENDING",
+      personId: null as string | null,
+      toAddress: "+5561",
+      templateId: null as string | null,
+      templateCode: null as string | null,
+      subject: null as string | null,
+      bodyRendered: "hi",
+      payload: {},
+      consentCheckedAt: null as Date | null,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "manual",
+      sourceId: null as string | null,
+      createdByUserId: "u-sec",
+      createdAt: now,
+      updatedAt: now,
+      template: null,
+    };
+    const updated = { ...row, status: "FAILED", lastError: "boom", attemptCount: 1 };
+    const tx = {
+      communicationOutbox: { update: jest.fn().mockResolvedValue(updated) },
+      outboxDeliveryEvent: { create: jest.fn() },
+    };
+    const prisma = {
+      communicationOutbox: {
+        findFirst: jest.fn().mockResolvedValue(row),
+        update: jest.fn(),
+      },
+      ...withTx(tx),
+    };
+    const service = new ChannelsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      new ChannelRateLimitService(),
+      failing as never,
+    );
+    const result = await service.dispatchOne(secretaria, "o-fail");
+    expect(result.status).toBe("FAILED");
+  });
+
+  it("dispatchPending processes rows and captures errors", async () => {
+    const okRow = {
+      id: "o-ok",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "PUSH",
+      status: "PENDING",
+      personId: null as string | null,
+      toAddress: "device-1",
+      templateId: null as string | null,
+      templateCode: null as string | null,
+      subject: null as string | null,
+      bodyRendered: "push",
+      payload: {},
+      consentCheckedAt: null as Date | null,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "manual",
+      sourceId: null as string | null,
+      createdByUserId: "u-sec",
+      createdAt: now,
+      updatedAt: now,
+      template: null,
+    };
+    const delivered = {
+      ...okRow,
+      status: "DELIVERED",
+      providerMessageId: "mock",
+      sentAt: now,
+      deliveredAt: now,
+      attemptCount: 1,
+    };
+    const tx = {
+      communicationOutbox: { update: jest.fn().mockResolvedValue(delivered) },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      communicationOutbox: {
+        findMany: jest.fn().mockResolvedValue([okRow, { id: "o-bad" }]),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(okRow)
+          .mockResolvedValueOnce(null),
+        update: jest.fn(),
+      },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const result = await service.dispatchPending(secretaria, 2);
+    expect(result.processed).toBe(2);
+    expect(result.results[0]).toMatchObject({ status: "DELIVERED" });
+    expect(result.results[1]).toMatchObject({ id: "o-bad" });
+  });
+
+  it("returns rate limit status snapshot", async () => {
+    const service = build({});
+    const status = await service.rateLimitStatus(secretaria);
+    expect(status.churchId).toBe(pilot.churchId);
+    expect(status.limits).toHaveLength(3);
+    expect(status.providers.liveWaba).toBe(false);
+  });
+
+  it("404 when consent person is missing; push consent path", async () => {
+    const prismaMissing = {
+      person: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    await expect(
+      build(prismaMissing).getConsent(secretaria, "ghost"),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const prisma = {
+      messageTemplate: { findFirst: jest.fn() },
+      communicationConsent: {
+        findUnique: jest.fn().mockResolvedValue({
+          whatsappOptIn: false,
+          emailOptIn: false,
+          pushOptIn: true,
+          revokedAt: null,
+        }),
+      },
+      $transaction: jest.fn(async (fn) =>
+        fn({
+          communicationOutbox: {
+            create: jest.fn().mockResolvedValue({
+              id: "o-push",
+              organizationId: pilot.organizationId,
+              churchId: pilot.churchId,
+              channel: "PUSH",
+              status: "PENDING",
+              personId: "p1",
+              toAddress: "device",
+              templateId: null,
+              templateCode: null,
+              subject: null,
+              bodyRendered: "p",
+              payload: {},
+              consentCheckedAt: now,
+              providerMessageId: null,
+              lastError: null,
+              attemptCount: 0,
+              nextAttemptAt: now,
+              scheduledAt: null,
+              sentAt: null,
+              deliveredAt: null,
+              sourceType: "manual",
+              sourceId: null,
+              createdByUserId: "u-sec",
+              createdAt: now,
+              updatedAt: now,
+            }),
+          },
+          outboxDeliveryEvent: { create: jest.fn() },
+          auditLog: { create: jest.fn() },
+        }),
+      ),
+    };
+    const item = await build(prisma).enqueue(secretaria, {
+      channel: "PUSH",
+      toAddress: "device",
+      personId: "p1",
+      body: "p",
+    });
+    expect(item.channel).toBe("PUSH");
+  });
+
+  it("cms notify stub covers whatsapp/push addresses and soft-fails", async () => {
+    const makeRow = (channel: string, id: string) => ({
+      id,
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel,
+      status: "PENDING",
+      personId: null as string | null,
+      toAddress: "x",
+      templateId: null as string | null,
+      templateCode: null as string | null,
+      subject: "Publicação: T",
+      bodyRendered: "stub",
+      payload: {},
+      consentCheckedAt: null as Date | null,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "cms_content",
+      sourceId: "c1",
+      createdByUserId: "u-sec",
+      createdAt: now,
+      updatedAt: now,
+    });
+    let creates = 0;
+    const tx = {
+      communicationOutbox: {
+        create: jest.fn().mockImplementation(async () => {
+          creates += 1;
+          if (creates === 2) throw new Error("soft");
+          return makeRow(creates === 1 ? "WHATSAPP" : "PUSH", `o${creates}`);
+        }),
+      },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      messageTemplate: { findFirst: jest.fn() },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const result = await service.enqueueCmsPublishNotify({
+      actor: secretaria,
+      contentId: "c1",
+      title: "T",
+      slug: "t",
+      channels: ["WHATSAPP", "PUSH"],
+    });
+    expect(result.notified).toBe(1);
+  });
+
+  it("revokes consent flags", async () => {
+    const revoked = {
+      id: "c1",
+      personId: "p1",
+      whatsappOptIn: false,
+      emailOptIn: false,
+      pushOptIn: false,
+      purposes: [],
+      source: "admin",
+      recordedAt: now,
+      revokedAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      communicationConsent: { upsert: jest.fn().mockResolvedValue(revoked) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p1" }) },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const result = await service.upsertConsent(secretaria, "p1", {
+      revoke: true,
+    });
+    expect(result.revokedAt).toBeTruthy();
+    expect(result.whatsappOptIn).toBe(false);
+  });
 });

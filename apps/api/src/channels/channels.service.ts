@@ -294,11 +294,11 @@ export class ChannelsService {
         throw new BadRequestException(`Template inativo/ausente: ${templateCode}`);
       }
       templateId = template.id;
-      subject = subject ?? template.subject;
+      const rawSubject = subject ?? template.subject;
+      subject = rawSubject
+        ? renderTemplate(rawSubject, input.variables ?? {})
+        : null;
       body = renderTemplate(template.body, input.variables ?? {});
-      if (!subject && template.subject) {
-        subject = renderTemplate(template.subject, input.variables ?? {});
-      }
     }
 
     if (!body) throw new BadRequestException("body ou templateCode obrigatório");

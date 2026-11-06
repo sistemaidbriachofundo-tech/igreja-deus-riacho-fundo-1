@@ -29,4 +29,14 @@ describe("providers.factory", () => {
     expect(pickProvider(providers, "EMAIL").name).toBe("email");
     expect(pickProvider(providers, "PUSH").name).toBe("push");
   });
+
+  it("falls back to noop on invalid provider mode strings", () => {
+    process.env.WHATSAPP_PROVIDER = "live-waba";
+    process.env.EMAIL_PROVIDER = "smtp";
+    process.env.PUSH_PROVIDER = "fcm";
+    const providers = createChannelProviders();
+    expect(providers.whatsapp.mode).toBe("noop");
+    expect(providers.email.mode).toBe("noop");
+    expect(providers.push.mode).toBe("noop");
+  });
 });

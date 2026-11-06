@@ -138,6 +138,54 @@ describe("CmsService", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("optionally notifies channels on publish stub", async () => {
+    const published = {
+      ...draft,
+      status: "PUBLICADO",
+      publishedAt: now,
+    };
+    const tx = {
+      cmsContent: { update: jest.fn().mockResolvedValue(published) },
+      cmsContentRevision: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const notify = jest.fn().mockResolvedValue({
+      notified: 1,
+      outbox: [{ id: "o1" }],
+    });
+    const prisma = {
+      cmsContent: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...draft,
+          status: "APROVADO",
+        }),
+      },
+      ...withTx(tx),
+    };
+    const service = new CmsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      { enqueueCmsPublishNotify: notify } as never,
+    );
+    const result = await service.patch(secretaria, "c1", {
+      status: "PUBLICADO",
+      notifyOnPublish: true,
+      notifyChannels: ["EMAIL"],
+      notifyToAddress: "sec@example.invalid",
+    });
+    expect(result).toMatchObject({
+      status: "PUBLICADO",
+      notifyOnPublish: { notified: 1 },
+    });
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentId: "c1",
+        channels: ["EMAIL"],
+        toAddress: "sec@example.invalid",
+      }),
+    );
+  });
+
   it("LIDER cannot create church-wide HOME_BLOCK", async () => {
     const service = new CmsService(
       { $transaction: jest.fn() } as never,
