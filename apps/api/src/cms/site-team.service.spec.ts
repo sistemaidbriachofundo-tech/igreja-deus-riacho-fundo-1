@@ -9,14 +9,14 @@ const member:AuthUser={userId:"member1",personId:"p2",email:"member@example.test
 describe("SiteTeamService",()=>{
   it("only allows platform admin to assign role",async()=>{
     const tx={grant:{findFirst:jest.fn(),create:jest.fn()},auditLog:{create:jest.fn()}};
-    const prisma={user:{findUnique:jest.fn()},role:{findUnique:jest.fn()},$transaction:jest.fn(async f=>f(tx))};
+    const prisma={user:{findUnique:jest.fn()},role:{findUnique:jest.fn()},$transaction:jest.fn(async (f:(tx:typeof tx)=>Promise<unknown>)=>f(tx))};
     const service=new SiteTeamService(prisma as never,{getPilotChurch:jest.fn().mockResolvedValue(pilot)} as never);
     await expect(service.grant(member,"person@example.test","SITE_EDITOR")).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
   it("assigns only editor or publisher role to existing active user in pilot",async()=>{
     const tx={grant:{findFirst:jest.fn().mockResolvedValue(null),create:jest.fn().mockResolvedValue({id:"grant1"})},auditLog:{create:jest.fn()}};
-    const prisma={user:{findUnique:jest.fn().mockResolvedValue({id:"user2",status:"ACTIVE"})},role:{findUnique:jest.fn().mockResolvedValue({id:"role2"})},$transaction:jest.fn(async f=>f(tx))};
+    const prisma={user:{findUnique:jest.fn().mockResolvedValue({id:"user2",status:"ACTIVE"})},role:{findUnique:jest.fn().mockResolvedValue({id:"role2"})},$transaction:jest.fn(async (f:(tx:typeof tx)=>Promise<unknown>)=>f(tx))};
     const service=new SiteTeamService(prisma as never,{getPilotChurch:jest.fn().mockResolvedValue(pilot)} as never);
     const result=await service.grant(admin,"  EDITOR@example.test  ","SITE_EDITOR");
     expect(result).toEqual({id:"grant1",role:"SITE_EDITOR",userId:"user2"});
