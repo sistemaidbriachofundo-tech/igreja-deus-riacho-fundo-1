@@ -276,7 +276,8 @@ export class ChannelsService {
     if (!toAddress) throw new BadRequestException("toAddress obrigatório");
 
     let templateId: string | null = null;
-    let templateCode: string | null = input.templateCode?.trim().toLowerCase() ?? null;
+    const templateCode: string | null =
+      input.templateCode?.trim().toLowerCase() ?? null;
     let subject = input.subject ?? null;
     let body = input.body?.trim() ?? "";
 

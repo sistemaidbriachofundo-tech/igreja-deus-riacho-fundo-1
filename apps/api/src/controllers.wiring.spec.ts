@@ -506,7 +506,7 @@ describe("controller wiring (delegates to services)", () => {
       dispatchPending: jest.fn(),
     };
     const c = new ChannelsController(channels as never);
-    c.providers(user);
+    c.providers();
     await c.rateLimits(user);
     await c.createTemplate(user, {
       channel: "EMAIL",

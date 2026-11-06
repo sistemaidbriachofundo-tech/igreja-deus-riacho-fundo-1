@@ -195,7 +195,7 @@ export class ChannelsController {
 
   @Roles(...ADMIN_ROLES)
   @Get("providers")
-  providers(@CurrentUser() _user: AuthUser) {
+  providers() {
     return this.channels.providerModes();
   }
 
