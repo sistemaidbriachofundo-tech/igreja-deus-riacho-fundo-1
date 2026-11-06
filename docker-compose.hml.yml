@@ -26,6 +26,9 @@ services:
       STORAGE_ROOT: /var/lib/idbrf/private-storage
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-30}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      # Dockerfile.api: prisma migrate deploy always; seed only if SEED_ON_BOOT=1
+      SEED_ON_BOOT: ${SEED_ON_BOOT:-0}
+      HML_PUBLIC_API_URL: ${HML_PUBLIC_API_URL:-}
     volumes:
       - idbrf_private_storage:/var/lib/idbrf/private-storage
     ports:

@@ -2,8 +2,9 @@
 
 **Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.0-portal"`  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
-**Base DEV:** `http://localhost:3001` · **HML:** TBD  
-**Descoberta:** `GET /meta`
+**Base DEV:** `http://localhost:3001` · **HML:** TBD (`docs/hml-hostinger-runbook.md`)  
+**Descoberta:** `GET /meta`  
+**Handoff consolidado (store):** `docs/handoff-frontend-completo-das.md`
 
 > Backend **não** altera `apps/web`. Sem pastoral/telefone/menor/família/docs na superfície pública (exceto email no POST de interesse, que **não é ecoado**).
 

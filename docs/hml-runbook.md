@@ -3,6 +3,8 @@
 **Status da URL pública:** `TBD` — ambiente **não** publicado.  
 Quando houver autorização e TLS, registrar aqui a base URL real (ex.: `https://api-hml.…`) e informar o FE (`NEXT_PUBLIC_API_URL`).
 
+**Hostinger (VPS + TLS + secrets + migrate-on-boot):** ver **`docs/hml-hostinger-runbook.md`** e artefatos em `deploy/hml/` + `scripts/hml/`.
+
 ## O que sobe
 - Postgres 16 (compose)
 - API Nest (`Dockerfile.api`)
@@ -20,6 +22,7 @@ curl -fsS http://127.0.0.1:3001/ready # deve falhar com 503 se DB indisponível
 API_BASE=http://127.0.0.1:3001 npm run homolog:readiness
 npm run homolog:m1
 # O script homolog:m1 faz escritas: SOMENTE em HML autorizada
+# ou: ./scripts/hml/smoke-hml.sh
 ```
 
 ## Segurança HML
@@ -28,10 +31,10 @@ npm run homolog:m1
 - Rate limit em login e verify de carteirinha
 - Storage privado: sem URL pública de arquivo
 
-## Pendente (precisa aprovação)
-- [ ] Provisionar VPS/Hostinger HML
-- [ ] Certificado TLS + hostname
-- [ ] Publicar base URL neste runbook
+## Pendente (precisa aprovação / credenciais do usuário)
+- [ ] Provisionar VPS/Hostinger HML (**IP**)
+- [ ] Hostname + DNS + SSH
+- [ ] Certificado TLS + publicar base URL neste runbook
 - [ ] Object storage gerenciado (S3-compat) em vez de disco local
 
 ## Fechamento e critérios de liberação

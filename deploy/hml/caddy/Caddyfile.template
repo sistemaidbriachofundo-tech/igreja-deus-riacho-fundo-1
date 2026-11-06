@@ -1,0 +1,23 @@
+# Caddy reverse proxy — API HML (automatic TLS)
+# Placeholder: __HML_API_HOSTNAME__ (render via scripts/hml/render-proxy-templates.sh)
+# Upstream is loopback-only API (127.0.0.1:3001).
+#
+# Install:
+#   export HML_API_HOSTNAME=api-hml.example.org
+#   ./scripts/hml/render-proxy-templates.sh
+#   sudo cp deploy/hml/rendered/caddy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+__HML_API_HOSTNAME__ {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	request_body {
+		max_size 6MB
+	}
+	reverse_proxy 127.0.0.1:3001
+}
