@@ -8,6 +8,7 @@ import { withBasePath } from "../lib/paths";
 import s from "./site-manager.module.css";
 import { ViviEditorialAssistant, type ViviField } from "./ViviEditorialAssistant";
 import { SiteTeamManager } from "./SiteTeamManager";
+import { SiteMediaUploader } from "./SiteMediaUploader";
 
 type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi"|"equipe";
 type Revision = {id:string;date:string;actorUserId:string|null;note:string|null};
@@ -207,10 +208,12 @@ export function SiteManager() {
                 <label>Descrição acessível<input maxLength={220} value={item.alt} onChange={e=>changePhotoText(i,"alt",e.target.value)}/></label></div>)}
             </div>}
             {tab==="imagens"&&<div className={s.controls}>
-              <h2>Biblioteca de fotos</h2><p>Escolha uma fotografia já aprovada para o site ou um endereço HTTPS autorizado. O upload direto de novos arquivos dependerá da implantação do armazenamento persistente.</p>
+              <h2>Biblioteca de fotos</h2><p>Envie novas fotos pelo painel, escolha uma fotografia da biblioteca ou use um endereço HTTPS autorizado. As imagens enviadas são públicas.</p>
               <label>Onde usar a imagem<select value={String(imageSlot)} onChange={e=>setImageSlot(e.target.value==="hero"?"hero":Number(e.target.value) as 0|1|2|3)}>
                 <option value="hero">Capa principal</option>{[0,1,2,3].map(x=><option value={x} key={x}>Galeria — foto {x+1}</option>)}
               </select></label>
+              <SiteMediaUploader token={token} onSelect={setPhoto}/>
+              <h3>Imagens institucionais já disponíveis</h3>
               <div className={s.assetGrid}>{siteMediaLibrary.map(asset=><button className={s.asset} type="button" key={asset.src} onClick={()=>setPhoto(asset.src)}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img alt="" src={withBasePath(asset.src)} loading="lazy" /><span>{asset.title}</span>
