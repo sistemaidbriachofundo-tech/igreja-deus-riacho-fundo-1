@@ -16,7 +16,7 @@ describe("F2: descoberta e separação entre demonstração e produção", () =>
     expect(home).toContain("<PublicPage>");
     expect(home).not.toContain('href="/app/membros/"');
     expect(portal).toContain('href="/app/"');
-    expect(mobileMenu).toContain("Área interna (demonstração)");
+    expect(mobileMenu).toContain("Login · ID Riacho 1 (demonstração)");
     expect(overview).toContain("<ChurchDashboard />");
   });
   it("deixa claro que os perfis ilustrativos não autenticam", () => {

@@ -9,6 +9,7 @@ import { MobilePortalMenu } from "../components/MobilePortalMenu";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalButton } from "../components/PortalButton";
 import { PortalDesktopNavigation } from "../components/PortalDesktopNavigation";
+import { PortalHeader, PortalFooter } from "../components/PublicPortal";
 
 describe("portal v3+ — camadas de experiência", () => {
   it("reproduz a direção de arte aprovada com componentes funcionais", () => {
@@ -31,6 +32,20 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(desktop).toContain('aria-label="Navegação principal"');
     expect(desktop).toContain("Quem somos");
     expect(desktop).toContain("Atmosfera");
+  });
+
+  it("mostra Login antes de Participe conosco no cabeçalho e oferece acesso no celular", () => {
+    const header = renderToStaticMarkup(<PortalHeader />);
+    const mobile = renderToStaticMarkup(<MobilePortalMenu links={[]} />);
+    const footer = renderToStaticMarkup(<PortalFooter />);
+    const loginPos = header.indexOf(">Login</a>");
+    const ctaPos = header.indexOf("Participe conosco");
+    expect(loginPos).toBeGreaterThan(-1);
+    expect(ctaPos).toBeGreaterThan(loginPos);
+    expect(header).toContain('href="/app');
+    expect(header).toContain("ambiente de demonstração");
+    expect(mobile).toContain("Login · ID Riacho 1 (demonstração)");
+    expect(footer).toContain(">Login</a>");
   });
 
   it("mantém as melhorias de rolagem não intrusivas e acessíveis", () => {

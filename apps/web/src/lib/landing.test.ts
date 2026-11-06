@@ -25,7 +25,9 @@ describe("portal público da igreja", () => {
     expect(shell).toContain("Quero conhecer a igreja");
     expect(home).not.toContain("Abrir sistema");
     expect(home).not.toContain('href="/app/membros/"');
-    expect(shell).toContain("Área interna");
+    expect(shell).toContain('>Login</Link>');
+    expect(shell).toContain('className={d.headerLogin}');
+    expect(shell).toContain("ambiente de demonstração");
     expect(shell).toContain("/app/");
     expect(appShell).toContain("Membros e famílias");
     expect(appShell).toContain("Estúdio editorial");
