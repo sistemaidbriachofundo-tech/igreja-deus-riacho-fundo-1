@@ -269,6 +269,17 @@ jobs:
             test -s "portal-screenshots/novidades-${WIDTH}.png"
             test -s "portal-screenshots/editorial-${WIDTH}.png"
           done
+          # V7 — QA da área interna: desktop e mobile, sem credenciais ou dados reais.
+          for WIDTH in 390 1440; do
+            for PAGE in app app/membros app/secretaria app/membros/carteirinha; do
+              SLUG="$(echo "$PAGE" | tr '/' '-')"
+              "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                --hide-scrollbars --window-size="${WIDTH},1000" \
+                --screenshot="portal-screenshots/${SLUG}-${WIDTH}.png" \
+                "${URL}/${PAGE}/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+              test -s "portal-screenshots/${SLUG}-${WIDTH}.png"
+            done
+          done
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
