@@ -1187,3 +1187,64 @@ async function main() {
       tesoura2User.email,
       tesoura3User.email,
       platformUser.email,
+    ],
+    memberships: [anaMembership.id, brunoMembership.id],
+    f3: {
+      track: "demoTrack01",
+      ministry: "demoMinistry01",
+      group: "demoGroup01",
+    },
+    portal: {
+      ministries: portalMinistries.map((m) => m.slug),
+      events: ["encontro-jovens-demo", "culto-familia-demo"],
+      cms: cmsSeeds.map((c) => c.slug),
+    },
+    f4: {
+      accounts: [accCaixa.code, accBanco.code, accOfertas.code, accDespesas.code],
+      entry: "demoLedgerEntry01",
+      import: "demoBankImport01",
+      reconciliation: "demoReconciliation01",
+    },
+  });
+}
+
+/** Grant church-wide ou ministry-scoped (ministryId null = igreja). */
+async function upsertChurchGrant(input: {
+  prisma: PrismaClient;
+  userId: string;
+  roleId: string;
+  organizationId: string;
+  churchId: string;
+  ministryId?: string | null;
+}) {
+  const existing = await input.prisma.grant.findFirst({
+    where: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: input.churchId,
+      ministryId: input.ministryId ?? null,
+    },
+  });
+  if (existing) {
+    return existing;
+  }
+  return input.prisma.grant.create({
+    data: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: input.churchId,
+      ministryId: input.ministryId ?? null,
+    },
+  });
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
