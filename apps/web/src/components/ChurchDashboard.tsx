@@ -3,148 +3,200 @@
 import { useMemo } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { withBasePath } from "../lib/paths";
-import { summarize, type Member } from "../lib/church-synthetic";
+import { summarize, STAGE_LABEL } from "../lib/church-synthetic";
 import { useChurchRecords } from "../lib/use-church-records";
+import {
+  currentPublishedEvents,
+  formatPortalDate,
+  parsePublishedHome,
+} from "../lib/portal-live-data";
+import { usePublishedResource } from "../lib/use-published-resource";
 import s from "./church-dashboard.module.css";
 
-function InitialAvatar({ person, tiny = false }: { person: Member; tiny?: boolean }) {
-  const nameParts = person.name.trim().split(/\s+/);
-  const initials = [nameParts[0]?.[0], nameParts.at(-1)?.[0]].filter(Boolean).join("").toUpperCase();
-  return <span className={tiny ? s.avatarSmall : s.avatar} role="img" aria-label={"Avatar ilustrativo de " + person.name}>{initials}</span>;
-}
-function Metric({ tag, label, value, hint, icon, accent = false }: { tag: string; label: string; value: number; hint: string; icon: "people" | "family" | "layers" | "badge"; accent?: boolean }) {
-  return <article className={accent ? s.metricAccent : s.metric}>
-    <div className={s.metricTop}><span className={s.metricTag}>{tag}</span><span className={s.metricIcon}><UIIcon name={icon} size={19}/></span></div>
-    <div className={s.metricBottom}><div><span className={s.metricValue}>{String(value).padStart(2,"0")}</span><strong>{label}</strong><small>{hint}</small></div><span className={s.metricArrow}><UIIcon name="arrow" size={16}/></span></div>
-  </article>;
+const youtubeUrl = "https://www.youtube.com/@IDBRiachoFundo1";
+
+const quickActions = [
+  { label: "Membros", detail: "Consultar pessoas", href: "/app/membros/", icon: "people" },
+  { label: "Admissões", detail: "Acompanhar etapas", href: "/app/secretaria/", icon: "layers" },
+  { label: "Carteirinhas", detail: "Gerir credenciais", href: "/app/membros/carteirinha/", icon: "badge" },
+  { label: "Conteúdo", detail: "Estúdio editorial", href: "/app/editorial/", icon: "book" },
+  { label: "Agenda", detail: "Eventos publicados", href: "/eventos/", icon: "calendar" },
+  { label: "Ministérios", detail: "Conhecer equipes", href: "/ministerios/", icon: "family" },
+  { label: "YouTube", detail: "Canal oficial", href: youtubeUrl, icon: "activity" },
+  { label: "Site público", detail: "Ver o portal", href: "/", icon: "home" },
+] as const;
+
+function WeekStrip() {
+  const week = useMemo(() => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      timeZone: "America/Sao_Paulo",
+    }).formatToParts(new Date());
+    const get = (key: string) => Number(parts.find(p => p.type === key)?.value ?? 0);
+    const today = new Date(Date.UTC(get("year"), get("month") - 1, get("day"), 12));
+    const monday = new Date(today.getTime() - ((today.getUTCDay() + 6) % 7) * 86400000);
+    const labels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+    return labels.map((label, index) => {
+      const date = new Date(monday.getTime() + index * 86400000);
+      return {
+        label, day: String(date.getUTCDate()).padStart(2, "0"),
+        isToday: date.getTime() === today.getTime(),
+      };
+    });
+  }, []);
+
+  return <div className={s.weekStrip} aria-label="Dias da semana atual">
+    {week.map(day => <div className={day.isToday ? s.weekToday : s.weekDay} key={day.label}
+      aria-current={day.isToday ? "date" : undefined}>
+      <span>{day.label}</span><strong>{day.day}</strong>
+    </div>)}
+  </div>;
 }
 
 export function ChurchDashboard() {
   const { members } = useChurchRecords();
   const stats = useMemo(() => summarize(members), [members]);
-  const pending = members.filter(p => p.status === "PENDING_ADMISSION");
-  const cardQueue = members.filter(p => p.status === "ACTIVE" && p.card !== "ACTIVE");
-  const statusData = [
-    { label:"Membros ativos", count:stats.active, color:"#c69c51" },
-    { label:"Em admissão", count:stats.pending, color:"#776457" },
-    { label:"Visitantes", count:stats.visitors, color:"#c3b5a1" },
-    { label:"Inativos", count:members.filter(p => p.status==="INACTIVE").length, color:"#e3dacd" },
-  ];
-  const years = Array.from(new Set(members.map(p => p.joinedAt.slice(0,4)))).sort().slice(-5);
-  const yearly = years.map(year => ({ year, count:members.filter(p => p.joinedAt.startsWith(year)).length }));
-  const maxYearly = Math.max(1,...yearly.map(x => x.count));
-  const diagram = statusData.map((entry,i) => {
-    const previous = statusData.slice(0,i).reduce((sum,p)=>sum+p.count,0);
-    const start = Math.round(previous / Math.max(stats.total,1) * 1000)/10;
-    const end = Math.round((previous+entry.count) / Math.max(stats.total,1) *1000)/10;
-    return `${entry.color} ${start}% ${end}%`;
-  }).join(", ");
-  const nextItems = [
-    ...pending.filter(p => p.stage === "PASTOR").map(person => ({ person, label:"Aprovação pastoral",type:"Aguardando decisão" })),
-    ...pending.filter(p => p.stage !== "PASTOR").map(person => ({ person, label:person.stage==="DOCUMENTS"?"Documentação":"Conferência da Secretaria",type:"Processo aberto" })),
-  ].slice(0,4);
+  const { status: agendaStatus, data: publishedHome } =
+    usePublishedResource("/public/home", parsePublishedHome);
+  const upcoming = publishedHome
+    ? currentPublishedEvents(publishedHome.featuredEvents).slice(0, 3)
+    : [];
+  const pending = members.filter(member => member.status === "PENDING_ADMISSION");
+  const cardQueue = members.filter(member => member.status === "ACTIVE" && member.card !== "ACTIVE");
+  const pastoral = pending.filter(member => member.stage === "PASTOR").length;
+  const documents = pending.filter(member => member.stage === "DOCUMENTS").length;
+  const awaiting = pending.slice(0, 3);
 
-  return <AppShell active="visao" meta="Visão geral">
+  const metrics = [
+    { label: "Pessoas cadastradas", value: stats.total, icon: "people" as const, hint: "Registros da base de teste", tone: "teal" },
+    { label: "Membros ativos", value: stats.active, icon: "family" as const, hint: "Cadastros de avaliação", tone: "gold" },
+    { label: "Admissões em andamento", value: stats.pending, icon: "layers" as const, hint: "Etapas a acompanhar", tone: "teal" },
+    { label: "Carteirinhas ativas", value: stats.issued, icon: "badge" as const, hint: "Credenciais de teste", tone: "mint" },
+  ];
+
+  return <AppShell active="visao" meta="Área Administrativa">
     <div className={s.dashboard}>
-      <div className={s.pageTop}>
-        <div><p className={s.eyebrow}><span className={s.eyebrowLine}/> VISÃO INSTITUCIONAL / RIACHO FUNDO I</p>
-          <h1>Um lugar para <em>cuidar.</em></h1>
-          <p className={s.lead}>O que importa na sua igreja, com clareza em cada detalhe.</p>
+      <section className={s.hero} aria-labelledby="id-riacho-dashboard-title">
+        <div className={s.heroPhoto} aria-hidden="true">
+          {/* Foto existente no acervo do projeto. Não afirma programação atual. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={withBasePath("/images/hero-oficial.jpg")} alt="" fetchPriority="high" />
         </div>
-        <a className={s.buttonLight} href={withBasePath("/app/membros/")}><UIIcon name="people" size={17}/> Diretório de pessoas <UIIcon name="arrow" size={16}/></a>
+        <div className={s.heroCopy}>
+          <span className={s.heroKicker}>GESTÃO MINISTERIAL · RIACHO FUNDO I</span>
+          <h1 id="id-riacho-dashboard-title">Bem-vindo ao<br/><em>ID Riacho 1</em></h1>
+          <p>Organização, pessoas e ministérios em um só lugar.</p>
+          <a href={withBasePath("/app/membros/")} className={s.heroLink}>
+            Conhecer o painel de pessoas <UIIcon name="arrow" size={18}/>
+          </a>
+        </div>
+        <span className={s.heroPhotoNote}>FOTO DO ACERVO · IMAGEM DE REFERÊNCIA</span>
+      </section>
+
+      <div className={s.sectionIntro}>
+        <div><span className={s.miniEyebrow}>PANORAMA DA COMUNIDADE</span><h2>Visão geral</h2></div>
+        <span className={s.demoPill}><UIIcon name="shield" size={15}/> Ambiente de demonstração · dados sintéticos</span>
       </div>
 
-      <section className={s.hero}>
-        {/* Registro visual ilustrativo: não identifica cultos, membros ou eventos atuais. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={withBasePath("/images/adoracao-oficial.jpg")} className={s.heroBackdrop} alt="" loading="lazy" />
-        <div className={s.heroOrnament} aria-hidden="true"><span/><span/><span/></div>
-        <div className={s.heroContent}>
-          <div className={s.heroOverline}><UIIcon name="spark" size={15}/> PLATAFORMA IGREJA DE DEUS <span className={s.heroDivider}/> EDIÇÃO 2026</div>
-          <h2>Mais presença.<br/><span>Mais propósito.</span></h2>
-          <p>A tecnologia a serviço de pessoas, famílias e da missão da igreja.</p>
-          <a href={withBasePath("/app/secretaria/")} className={s.heroAction}>Ver processos em andamento <UIIcon name="arrow" size={18}/></a>
-        </div>
-        <div className={s.heroVisual} aria-label={stats.active + " membros ativos e " + stats.pending + " admissões em andamento"}>
-          <div className={s.orbitOuter}><span className={s.orbitSatA}/><span className={s.orbitSatB}/></div>
-          <div className={s.orbitMid}/>
-          <div className={s.orbitCore}>
-            <UIIcon name="spark" size={22}/>
-            <strong>{String(stats.active).padStart(2,"0")}</strong>
-            <span>MEMBROS ATIVOS</span>
+      <section className={s.metrics} aria-label="Indicadores calculados da base sintética">
+        {metrics.map(item => <article key={item.label} className={s.metric} data-tone={item.tone}>
+          <span className={s.metricIcon}><UIIcon name={item.icon} size={27}/></span>
+          <div className={s.metricBody}><strong>{item.value}</strong><span>{item.label}</span><small>{item.hint}</small></div>
+          <span className={s.metricAccentShape} aria-hidden="true"/>
+        </article>)}
+      </section>
+
+      <div className={s.middleGrid}>
+        <section className={s.panel} aria-labelledby="quick-title">
+          <div className={s.panelHeading}>
+            <div><span className={s.panelIcon}><UIIcon name="spark" size={19}/></span><h2 id="quick-title">Acesso rápido</h2></div>
+            <span className={s.panelCaption}>SEUS MÓDULOS</span>
           </div>
-          <div className={s.orbitCaption}><span className={s.orbitCaptionDot}/> VISÃO DE COMUNIDADE <UIIcon name="activity" size={14}/></div>
-        </div>
-        <span className={s.heroImageNote}>IMAGEM ILUSTRATIVA</span>
-        <div className={s.heroCounter}><span className={s.heroCounterIcon}><UIIcon name="activity" size={17}/></span><span><strong>{String(stats.pending).padStart(2,"0")}</strong><small>admissões exigem<br/>acompanhamento</small></span></div>
-      </section>
+          <div className={s.quickGrid}>
+            {quickActions.map(action => {
+              const isExternal = action.href.startsWith("https://");
+              return <a key={action.label} href={isExternal ? action.href : withBasePath(action.href)}
+                target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined}
+                className={s.quickAction}>
+                <UIIcon name={action.icon} size={27}/>
+                <strong>{action.label}</strong>
+                <small>{action.detail}</small>
+              </a>;
+            })}
+          </div>
+        </section>
 
-      <section aria-label="Indicadores da base sintética" className={s.metrics}>
-        <Metric tag="01 / PESSOAS" icon="people" label="Pessoas cadastradas" value={stats.total} hint="Registros sintéticos" />
-        <Metric tag="02 / MEMBRESIA" icon="family" label="Membros ativos" value={stats.active} hint="Admissões concluídas" />
-        <Metric tag="03 / JORNADAS" icon="layers" label="Em admissão" value={stats.pending} hint="Acompanhamento necessário" accent/>
-        <Metric tag="04 / IDENTIDADE" icon="badge" label="Carteirinhas ativas" value={stats.issued} hint="Credenciais sintéticas" />
-      </section>
+        <section className={s.panel} aria-labelledby="tasks-title">
+          <div className={s.panelHeading}>
+            <div><span className={s.panelIcon}><UIIcon name="layers" size={19}/></span><h2 id="tasks-title">Processos e admissões</h2></div>
+            <a href={withBasePath("/app/secretaria/")}>Ver todos <UIIcon name="arrow" size={15}/></a>
+          </div>
+          <div className={s.processList}>
+            {awaiting.length > 0 ? awaiting.map(member => <div className={s.processRow} key={member.id}>
+              <span className={s.processAvatar} aria-hidden="true">{member.name.slice(0,1)}</span>
+              <span className={s.processText}><strong>{member.name}</strong><small>{STAGE_LABEL[member.stage]}</small></span>
+              <span className={s.processBadge}>Em análise</span>
+            </div>) : <div className={s.emptyState}>Nenhum processo pendente na base de avaliação.</div>}
+          </div>
+          <a href={withBasePath("/app/secretaria/")} className={s.panelFooterLink}>Acompanhar etapas e aprovações <UIIcon name="arrow" size={16}/></a>
+        </section>
 
-      <div className={s.split}>
-        <div className={s.leftColumn}>
-          <section className={s.insights} aria-labelledby="insights-heading">
-            <div className={s.blockHeader}>
-              <div><span className={s.blockKicker}>INTELIGÊNCIA DE GESTÃO</span><h2 id="insights-heading">O panorama da congregação</h2><p>Composição atual da base de avaliação, sem números estimados.</p></div>
-              <span className={s.dataLabel}><UIIcon name="activity" size={14}/> Tempo real nesta sessão</span>
-            </div>
-            <div className={s.insightsBody}>
-              <div className={s.donut} style={{background:`conic-gradient(${diagram})`}} role="img" aria-label={`Distribuição: ${statusData.map(d=>d.label+": "+d.count).join(", ")}`}>
-                <div><span>TOTAL DE PESSOAS</span><strong>{stats.total}</strong><small>base sintética</small></div>
-              </div>
-              <div className={s.legend}>{statusData.map(d => <div key={d.label}><span className={s.legendColor} style={{background:d.color}}/><span>{d.label}</span><strong>{d.count}</strong><small>{Math.round(d.count/Math.max(stats.total,1)*100)}%</small></div>)}</div>
-            </div>
-            <div className={s.insightsFooter}><UIIcon name="shield" size={17}/><span>Informações fictícias para homologação visual. Sem dados reais da igreja.</span></div>
-          </section>
+        <section className={s.panel} id="avisos" aria-labelledby="alerts-title">
+          <div className={s.panelHeading}>
+            <div><span className={s.panelIcon}><UIIcon name="bell" size={19}/></span><h2 id="alerts-title">Na sua atenção</h2></div>
+          </div>
+          <div className={s.alertList}>
+            <a href={withBasePath("/app/secretaria/")} className={s.alertRow}>
+              <span className={s.alertDot}/>
+              <span><strong>{pastoral} aprovação{pastoral === 1 ? "" : "ões"} pastoral{pastoral === 1 ? "" : "is"}</strong><small>Aguardando decisão na base de teste</small></span>
+              <UIIcon name="chevron" size={16}/>
+            </a>
+            <a href={withBasePath("/app/secretaria/")} className={s.alertRow}>
+              <span className={s.alertDot}/>
+              <span><strong>{documents} processo{documents === 1 ? "" : "s"} em documentação</strong><small>Conferência administrativa</small></span>
+              <UIIcon name="chevron" size={16}/>
+            </a>
+            <a href={withBasePath("/app/membros/carteirinha/")} className={s.alertRow}>
+              <span className={s.alertDot}/>
+              <span><strong>{cardQueue.length} credencial{cardQueue.length === 1 ? "" : "is"} a verificar</strong><small>Membros ativos sem carteirinha</small></span>
+              <UIIcon name="chevron" size={16}/>
+            </a>
+          </div>
+          <p className={s.alertNote}>Avisos gerados apenas com os registros sintéticos disponíveis.</p>
+        </section>
+      </div>
 
-          <section className={s.evolution} aria-labelledby="evolution-heading">
-            <div className={s.blockHeader}><div><span className={s.blockKicker}>HISTÓRICO DOS REGISTROS</span><h2 id="evolution-heading">Cadastros por ano</h2><p>Ano de entrada dos registros sintéticos disponíveis.</p></div><UIIcon name="activity" size={21}/></div>
-            <div className={s.yearBars}>{yearly.map(({year,count}) => <div key={year} className={s.yearColumn}><div className={s.yearBarTrack}><div className={s.yearBar} style={{height:`${Math.max(9,100*count/maxYearly)}%`}}><span>{count}</span></div></div><strong>{year}</strong></div>)}</div>
-          </section>
+      <div className={s.bottomGrid}>
+        <a className={s.videoPanel} href={youtubeUrl} target="_blank" rel="noopener noreferrer"
+          aria-label="Abrir canal oficial IDB Riacho Fundo I no YouTube">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={withBasePath("/images/adoracao-oficial.jpg")} alt="" loading="lazy"/>
+          <span className={s.youtubeMark} aria-hidden="true">▶</span>
+          <span className={s.youtubeText}><strong>ID Riacho 1<br/>no YouTube</strong><small>Mensagens, cultos e conteúdos da nossa igreja.</small></span>
+          <span className={s.youtubeGo}>Acessar canal <UIIcon name="arrow" size={16}/></span>
+        </a>
 
-          <section className={s.quickSection} aria-labelledby="quick-heading">
-            <div className={s.inlineHeading}><div><span className={s.blockKicker}>ACESSO DIRETO</span><h2 id="quick-heading">Seu próximo passo</h2></div></div>
-            <div className={s.quickGrid}>
-              <a href={withBasePath("/app/membros/")}><span className={s.quickIcon}><UIIcon name="people"/></span><strong>Localizar uma pessoa</strong><small>Pesquise e consulte registros</small><UIIcon name="arrow" size={17}/></a>
-              <a href={withBasePath("/app/secretaria/")}><span className={s.quickIcon}><UIIcon name="layers"/></span><strong>Conferir admissões</strong><small>Documentos e aprovações</small><UIIcon name="arrow" size={17}/></a>
-              <a href={withBasePath("/app/membros/carteirinha/")}><span className={s.quickIcon}><UIIcon name="badge"/></span><strong>Gerenciar carteirinhas</strong><small>Emissão e situação atual</small><UIIcon name="arrow" size={17}/></a>
-            </div>
-          </section>
-        </div>
+        <section className={s.panel} aria-labelledby="calendar-title">
+          <div className={s.panelHeading}>
+            <div><span className={s.panelIcon}><UIIcon name="calendar" size={19}/></span><h2 id="calendar-title">Agenda da semana</h2></div>
+            <a href={withBasePath("/eventos/")}>Ver agenda <UIIcon name="arrow" size={15}/></a>
+          </div>
+          <WeekStrip/>
+          <div className={s.agendaSummary}>
+            {upcoming.length > 0
+              ? upcoming.map(event => <div className={s.agendaLine} key={event.id}>
+                  <span className={s.agendaDate}><strong>{formatPortalDate(event.startsAt).day}</strong>{formatPortalDate(event.startsAt).month}</span>
+                  <span><strong>{event.name}</strong><small>{formatPortalDate(event.startsAt).dayAndTime}</small></span>
+                </div>)
+              : <p>{agendaStatus === "loading"
+                  ? "Consultando a programação publicada…"
+                  : "A agenda oficial será exibida quando os eventos forem publicados."}</p>}
+          </div>
+        </section>
+      </div>
 
-        <aside className={s.rightColumn}>
-          <section className={s.queue} aria-labelledby="queue-heading">
-            <div className={s.queueHeader}><div><span className={s.blockKicker}>PRIORIDADE DE CUIDADO</span><h2 id="queue-heading">Na sua atenção</h2></div><span className={s.queueCount}>{pending.length}</span></div>
-            <p className={s.queueIntro}>Pessoas que aguardam uma etapa de admissão.</p>
-            <div className={s.queueList}>
-              {nextItems.map(({person,label}) => <div key={person.id} className={s.queueItem}>
-                <InitialAvatar person={person}/><span><strong>{person.name}</strong><small>{label}</small></span>
-                <span className={s.queueArrow}><UIIcon name="chevron" size={17}/></span>
-              </div>)}
-              {nextItems.length === 0 && <p className={s.emptyQueue}>Nenhuma admissão pendente.</p>}
-            </div>
-            <a className={s.queueLink} href={withBasePath("/app/secretaria/")}>Acompanhar todas as admissões <UIIcon name="arrow" size={17}/></a>
-          </section>
-
-          <section className={s.helloCard}>
-            <div className={s.helloTop}><UIIcon name="spark" size={18}/><span>UM SISTEMA PARA PESSOAS</span></div>
-            <h2>Por trás de cada número, <em>uma história.</em></h2>
-            <p>Organização é uma forma de cuidado. Toda jornada importa.</p>
-            <div className={s.helloPeople}>{members.slice(0,5).map(p => <InitialAvatar key={p.id} person={p} tiny/>)}<span>+{Math.max(0,members.length-5)}</span></div>
-          </section>
-
-          <section className={s.serviceCard}>
-            <div><UIIcon name="badge" size={20}/><strong>{cardQueue.length} identificações disponíveis</strong></div>
-            <p>Membros aprovados que ainda não possuem uma carteirinha ativa.</p>
-            <a href={withBasePath("/app/membros/carteirinha/")}>Conferir carteirinhas <UIIcon name="arrow" size={15}/></a>
-          </section>
-          <div className={s.microNote}><UIIcon name="shield" size={15}/><span>Ambiente de avaliação. As operações não utilizam serviços de produção.</span></div>
-        </aside>
+      <div className={s.footnote}><UIIcon name="shield" size={17}/>
+        <span>ID Riacho 1 · Prévia administrativa. Dados de membros, admissões e carteirinhas são fictícios; a agenda mostra apenas publicações oficialmente liberadas.</span>
       </div>
     </div>
   </AppShell>;
