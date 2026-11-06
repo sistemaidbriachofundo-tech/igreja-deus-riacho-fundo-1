@@ -80,3 +80,15 @@
 @media(max-width:940px){.spotlightHeading,.spotlightGrid{grid-template-columns:1fr;gap:25px}.spotlightHeading{margin-bottom:35px}.spotlightNews{margin-top:40px}.agendaHeader{display:block}.agendaHeader p{margin-top:19px}.ministryLiveGrid{grid-template-columns:1fr;gap:25px}}
 @media(max-width:650px){.spotlight{padding:73px 23px}.spotlightHeading h2,.newsPageIntro h2{font-size:clamp(40px,9vw,57px)}.spotlightHeading>p{font-size:14px}.columnHeading{align-items:flex-start;gap:12px}.columnHeading>span{font-size:9px}.columnHeading a{font-size:11px}.eventLine{grid-template-columns:60px minmax(0,1fr) 21px;gap:10px;padding:22px 0}.eventCalendar{width:53px;height:61px}.eventCalendar strong{font-size:26px}.eventCalendar span{font-size:9px}.eventBody h3{font-size:20px}.eventBody .meta{font-size:9px;line-height:1.5;display:block}.eventBody p{font-size:12px}.confirmed{width:21px;height:21px;font-size:11px}.fallback{padding:28px 20px}.fallbackCompact{padding:25px 0}.fallback strong{font-size:22px}.agendaHeader h2{font-size:39px}.agendaHeader>p{font-size:13px}.ministryLive{padding:75px 22px}.ministryLiveHead h2{font-size:clamp(41px,9vw,58px)}.ministryDatum li{flex-direction:column;gap:3px}.newsPage{padding:68px 22px}.newsArticle summary{grid-template-columns:1fr 28px;gap:10px}.newsArticle summary>span:first-child{grid-column:1/-1}.newsArticle h3{font-size:27px}.newsContent{padding:5px 0 30px}.newsContent p{font-size:15px}.newsEmptyWide{padding:45px 25px}}
 @media(prefers-reduced-motion:reduce){.newsExpand{transition:none}}
+
+/* Fotos publicadas com autorização editorial; não substituem imagens ilustrativas por padrão. */
+.ministryGallery{max-width:1200px;margin:45px auto 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.ministryGallery figure{margin:0;position:relative;overflow:hidden;background:#1e383c;min-height:260px;aspect-ratio:1.15}
+.ministryGallery img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}
+.ministryGallery figure:hover img{transform:scale(1.045)}
+.ministryGallery figcaption{position:absolute;bottom:0;left:0;right:0;font-size:9px;letter-spacing:.12em;font-weight:800;color:#fff;padding:25px 15px 15px;background:linear-gradient(transparent,#0b2329bd)}
+.articleMedia{margin:0 0 25px;max-width:850px;aspect-ratio:16/9;overflow:hidden;background:#173037}
+.articleMedia img{display:block;width:100%;height:100%;object-fit:cover}
+@media(max-width:800px){.ministryGallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.ministryGallery{grid-template-columns:1fr}.ministryGallery figure{aspect-ratio:1.3;min-height:220px}}
+@media(prefers-reduced-motion:reduce){.ministryGallery img{transition:none}}

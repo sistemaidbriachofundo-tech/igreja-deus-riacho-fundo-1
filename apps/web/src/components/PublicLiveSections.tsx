@@ -112,7 +112,7 @@ export function PublishedMinistryInfo({ slug }: { slug: string }) {
   const valid = data?.slug === slug ? data : null;
   const upcoming = valid ? currentPublishedEvents(valid.relatedEvents) : [];
   const hasDetails = Boolean(valid && (
-    valid.scheduleText || valid.participationInfo || valid.leadership.length || upcoming.length || valid.relatedContent.length
+    valid.scheduleText || valid.participationInfo || valid.leadership.length || upcoming.length || valid.relatedContent.length || valid.galleryUrls.length || valid.coverImageUrl
   ));
   return (
     <section className={s.ministryLive} aria-label="Informações publicadas pelo ministério">
@@ -144,6 +144,15 @@ export function PublishedMinistryInfo({ slug }: { slug: string }) {
           </article>)}
           {!upcoming.length && !valid.relatedContent.length && <p>Novidades e próximos encontros serão publicados aqui.</p>}
         </div>
+      </div>}
+      {valid && (valid.coverImageUrl || valid.galleryUrls.length > 0) && <div className={s.ministryGallery} aria-label="Imagens publicadas e autorizadas do ministério">
+        {[...(valid.coverImageUrl ? [valid.coverImageUrl] : []), ...valid.galleryUrls].slice(0, 6).map((url, index) => (
+          <figure key={url + index}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt={"Registro autorizado do ministério " + valid.name + " — foto " + (index + 1)} loading="lazy" />
+            <figcaption>GALERIA DA COMUNIDADE · FOTO AUTORIZADA</figcaption>
+          </figure>
+        ))}
       </div>}
     </section>
   );
@@ -179,6 +188,10 @@ function NewsArticle({ item, index }: { item: PublishedNews; index: number }) {
       <span className={s.newsExpand} aria-hidden="true">+</span>
     </summary>
     <div className={s.newsContent}>
+      {item.imageUrl && <figure className={s.articleMedia}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={item.imageUrl} alt={"Imagem autorizada da publicação " + item.title} loading="lazy" />
+      </figure>}
       {date && <span>Publicado em {date}</span>}
       {item.body ? <p>{item.body}</p> : <p>{item.summary ?? "Informações em atualização."}</p>}
     </div>
