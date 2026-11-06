@@ -55,6 +55,9 @@ export function ChurchDashboard() {
       </div>
 
       <section className={s.hero}>
+        {/* Registro visual ilustrativo: não identifica cultos, membros ou eventos atuais. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={withBasePath("/images/adoracao-oficial.jpg")} className={s.heroBackdrop} alt="" loading="lazy" />
         <div className={s.heroOrnament} aria-hidden="true"><span/><span/><span/></div>
         <div className={s.heroContent}>
           <div className={s.heroOverline}><UIIcon name="spark" size={15}/> PLATAFORMA IGREJA DE DEUS <span className={s.heroDivider}/> EDIÇÃO 2026</div>
@@ -72,6 +75,7 @@ export function ChurchDashboard() {
           </div>
           <div className={s.orbitCaption}><span className={s.orbitCaptionDot}/> VISÃO DE COMUNIDADE <UIIcon name="activity" size={14}/></div>
         </div>
+        <span className={s.heroImageNote}>IMAGEM ILUSTRATIVA</span>
         <div className={s.heroCounter}><span className={s.heroCounterIcon}><UIIcon name="activity" size={17}/></span><span><strong>{String(stats.pending).padStart(2,"0")}</strong><small>admissões exigem<br/>acompanhamento</small></span></div>
       </section>
 
