@@ -788,7 +788,309 @@ async function main() {
     });
   }
 
-  console.log("Seed OK (fictício RF1 + portal B–E):", {
+  // —— F4 financeiro sintético (sem dados reais) ——
+  const tesourariaRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "TESOURARIA" },
+  });
+
+  const tesouraPerson = await prisma.person.upsert({
+    where: { id: "demoPersonTesoura01" },
+    update: {
+      displayName: "Teresa Demo Tesouraria",
+      email: "tesouraria.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      kind: "MEMBER",
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoPersonTesoura01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Teresa Demo Tesouraria",
+      email: "tesouraria.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+
+  const tesoura2Person = await prisma.person.upsert({
+    where: { id: "demoPersonTesoura02" },
+    update: {
+      displayName: "Tiago Demo Tesouraria",
+      email: "tesouraria2.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      kind: "MEMBER",
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoPersonTesoura02",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Tiago Demo Tesouraria",
+      email: "tesouraria2.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+
+  const tesouraUser = await prisma.user.upsert({
+    where: { email: "tesouraria.demo@example.test" },
+    update: {
+      personId: tesouraPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoUserTesoura01",
+      personId: tesouraPerson.id,
+      email: "tesouraria.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+
+  const tesoura2User = await prisma.user.upsert({
+    where: { email: "tesouraria2.demo@example.test" },
+    update: {
+      personId: tesoura2Person.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoUserTesoura02",
+      personId: tesoura2Person.id,
+      email: "tesouraria2.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+
+  const tesoura3Person = await prisma.person.upsert({
+    where: { id: "demoPersonTesoura03" },
+    update: {
+      displayName: "Tânia Demo Tesouraria",
+      email: "tesouraria3.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      kind: "MEMBER",
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoPersonTesoura03",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Tânia Demo Tesouraria",
+      email: "tesouraria3.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+
+  const tesoura3User = await prisma.user.upsert({
+    where: { email: "tesouraria3.demo@example.test" },
+    update: {
+      personId: tesoura3Person.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      id: "demoUserTesoura03",
+      personId: tesoura3Person.id,
+      email: "tesouraria3.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+
+  await upsertChurchGrant({
+    prisma,
+    userId: tesouraUser.id,
+    roleId: tesourariaRole.id,
+    organizationId: org.id,
+    churchId: church.id,
+  });
+  await upsertChurchGrant({
+    prisma,
+    userId: tesoura2User.id,
+    roleId: tesourariaRole.id,
+    organizationId: org.id,
+    churchId: church.id,
+  });
+  await upsertChurchGrant({
+    prisma,
+    userId: tesoura3User.id,
+    roleId: tesourariaRole.id,
+    organizationId: org.id,
+    churchId: church.id,
+  });
+
+  const accCaixa = await prisma.ledgerAccount.upsert({
+    where: {
+      churchId_code: { churchId: church.id, code: "1.1.01" },
+    },
+    update: { name: "Caixa (demo)", active: true },
+    create: {
+      id: "demoLedgerAccCaixa",
+      organizationId: org.id,
+      churchId: church.id,
+      code: "1.1.01",
+      name: "Caixa (demo)",
+      type: "ASSET",
+    },
+  });
+
+  const accBanco = await prisma.ledgerAccount.upsert({
+    where: {
+      churchId_code: { churchId: church.id, code: "1.1.02" },
+    },
+    update: { name: "Banco (demo)", active: true },
+    create: {
+      id: "demoLedgerAccBanco",
+      organizationId: org.id,
+      churchId: church.id,
+      code: "1.1.02",
+      name: "Banco (demo)",
+      type: "ASSET",
+    },
+  });
+
+  const accOfertas = await prisma.ledgerAccount.upsert({
+    where: {
+      churchId_code: { churchId: church.id, code: "4.1.01" },
+    },
+    update: { name: "Ofertas (demo)", active: true },
+    create: {
+      id: "demoLedgerAccOfertas",
+      organizationId: org.id,
+      churchId: church.id,
+      code: "4.1.01",
+      name: "Ofertas (demo)",
+      type: "REVENUE",
+    },
+  });
+
+  const accDespesas = await prisma.ledgerAccount.upsert({
+    where: {
+      churchId_code: { churchId: church.id, code: "5.1.01" },
+    },
+    update: { name: "Despesas gerais (demo)", active: true },
+    create: {
+      id: "demoLedgerAccDespesas",
+      organizationId: org.id,
+      churchId: church.id,
+      code: "5.1.01",
+      name: "Despesas gerais (demo)",
+      type: "EXPENSE",
+    },
+  });
+
+  // Entrada PENDING com 1ª aprovação — 2ª exige outro TESOURARIA (stub dupla).
+  await prisma.ledgerEntry.upsert({
+    where: { id: "demoLedgerEntry01" },
+    update: {
+      description: "Oferta culto domingo (sintético)",
+      status: "PENDING_APPROVAL",
+      amountCents: 25000,
+      firstApprovedByUserId: tesoura2User.id,
+      secondApprovedByUserId: null,
+      secondApprovedAt: null,
+    },
+    create: {
+      id: "demoLedgerEntry01",
+      organizationId: org.id,
+      churchId: church.id,
+      entryDate: new Date("2026-11-02"),
+      description: "Oferta culto domingo (sintético)",
+      status: "PENDING_APPROVAL",
+      amountCents: 25000,
+      createdByUserId: tesouraUser.id,
+      submittedAt: new Date("2026-11-02T18:00:00.000Z"),
+      firstApprovedByUserId: tesoura2User.id,
+      firstApprovedAt: new Date("2026-11-02T19:00:00.000Z"),
+      lines: {
+        create: [
+          {
+            id: "demoLedgerLine01a",
+            accountId: accCaixa.id,
+            side: "DEBIT",
+            amountCents: 25000,
+            memo: "entrada caixa",
+          },
+          {
+            id: "demoLedgerLine01b",
+            accountId: accOfertas.id,
+            side: "CREDIT",
+            amountCents: 25000,
+            memo: "receita ofertas",
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.bankImportBatch.upsert({
+    where: { id: "demoBankImport01" },
+    update: {
+      status: "PARSED_STUB",
+      stubNote: "CSV sintético seed",
+      lineCount: 2,
+    },
+    create: {
+      id: "demoBankImport01",
+      organizationId: org.id,
+      churchId: church.id,
+      format: "CSV",
+      status: "PARSED_STUB",
+      filename: "extrato-sintetico-nov.csv",
+      stubNote: "CSV sintético seed — sem dados bancários reais",
+      lineCount: 2,
+      createdByUserId: tesouraUser.id,
+      lines: {
+        create: [
+          {
+            id: "demoBankLine01",
+            postedAt: new Date("2026-11-02T12:00:00.000Z"),
+            amountCents: 25000,
+            description: "TED oferta demo",
+            externalRef: "SYN-001",
+            matchStatus: "SUGGESTED",
+            matchedEntryId: "demoLedgerEntry01",
+          },
+          {
+            id: "demoBankLine02",
+            postedAt: new Date("2026-11-03T12:00:00.000Z"),
+            amountCents: -4500,
+            description: "Tarifa bancária demo",
+            externalRef: "SYN-002",
+            matchStatus: "UNMATCHED",
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.reconciliation.upsert({
+    where: { id: "demoReconciliation01" },
+    update: {
+      title: "Fechamento Nov/2026 (demo)",
+      status: "OPEN",
+    },
+    create: {
+      id: "demoReconciliation01",
+      organizationId: org.id,
+      churchId: church.id,
+      title: "Fechamento Nov/2026 (demo)",
+      periodStart: new Date("2026-11-01"),
+      periodEnd: new Date("2026-11-30"),
+      status: "OPEN",
+      notes: "Conciliação sintética para testes de dupla aprovação",
+      createdByUserId: tesouraUser.id,
+    },
+  });
+
+  console.log("Seed OK (fictício RF1 + portal B–E + F4 ledger):", {
     org: org.slug,
     church: church.slug,
     churchDest: churchDest.slug,
@@ -800,12 +1102,18 @@ async function main() {
       visitorPerson.id,
       "demoPersonMenor01",
       liderJovensPerson.id,
+      tesouraPerson.id,
+      tesoura2Person.id,
+      tesoura3Person.id,
     ],
     users: [
       adminUser.email,
       memberUser.email,
       pastorUser.email,
       liderJovensUser.email,
+      tesouraUser.email,
+      tesoura2User.email,
+      tesoura3User.email,
     ],
     memberships: [anaMembership.id, brunoMembership.id],
     f3: {
@@ -817,6 +1125,12 @@ async function main() {
       ministries: portalMinistries.map((m) => m.slug),
       events: ["encontro-jovens-demo", "culto-familia-demo"],
       cms: cmsSeeds.map((c) => c.slug),
+    },
+    f4: {
+      accounts: [accCaixa.code, accBanco.code, accOfertas.code, accDespesas.code],
+      entry: "demoLedgerEntry01",
+      import: "demoBankImport01",
+      reconciliation: "demoReconciliation01",
     },
   });
 }

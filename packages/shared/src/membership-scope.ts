@@ -211,3 +211,18 @@ export function canManageOidcConfig(
     return true;
   });
 }
+
+/**
+ * Finanças F4: só TESOURARIA no escopo da congregação.
+ * SECRETARIA / PASTOR / PLATFORM_ADMIN NÃO operam ledger por padrão (isolamento DAS).
+ */
+export function canAccessFinance(
+  grants: AuthGrant[],
+  target: MembershipScopeTarget,
+): boolean {
+  return hasAccess(grants, {
+    roleCodes: [ROLE_CODES.TESOURARIA],
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  });
+}

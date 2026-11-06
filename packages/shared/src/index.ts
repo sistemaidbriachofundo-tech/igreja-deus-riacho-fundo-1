@@ -49,9 +49,28 @@ export {
   canAdministerMinistries,
   canAccessCredentialPdf,
   canManageOidcConfig,
+  canAccessFinance,
   type MembershipScopeTarget,
   type MinistryScopeTarget,
 } from "./membership-scope";
+
+export {
+  LEDGER_ACCOUNT_TYPES,
+  LEDGER_ENTRY_STATUSES,
+  LEDGER_LINE_SIDES,
+  BANK_IMPORT_FORMATS,
+  RECONCILIATION_STATUSES,
+  checkBalancedLines,
+  nextDualApprovalStage,
+  parseSyntheticCsvLines,
+  type LedgerAccountTypeCode,
+  type LedgerEntryStatusCode,
+  type LedgerLineSideCode,
+  type BankImportFormatCode,
+  type ReconciliationStatusCode,
+  type LedgerLineInput,
+  type BalanceCheckResult,
+} from "./finance/ledger-rules";
 
 export {
   assertAdmissionStepAllowed,

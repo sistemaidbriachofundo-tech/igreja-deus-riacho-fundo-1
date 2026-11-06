@@ -19,6 +19,7 @@ import {
 } from "./ministries/ministries.controller";
 import { CmsController } from "./cms/cms.controller";
 import { EventsController } from "./events/events.controller";
+import { FinanceController } from "./finance/finance.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
 import { PublicPortalController } from "./public-portal/public-portal.controller";
@@ -424,5 +425,67 @@ describe("controller wiring (delegates to services)", () => {
     await c.get(user, "vi1");
     await c.advance(user, "vi1", { stage: "AVALIACAO" });
     expect(volunteers.advance).toHaveBeenCalled();
+  });
+
+  it("FinanceController", async () => {
+    const finance = {
+      listAccounts: jest.fn(),
+      createAccount: jest.fn(),
+      getAccount: jest.fn(),
+      patchAccount: jest.fn(),
+      listEntries: jest.fn(),
+      createEntry: jest.fn(),
+      getEntry: jest.fn(),
+      submitEntry: jest.fn(),
+      approveEntry: jest.fn(),
+      rejectEntry: jest.fn(),
+      reverseEntry: jest.fn(),
+      listImports: jest.fn(),
+      createImport: jest.fn(),
+      getImport: jest.fn(),
+      listReconciliations: jest.fn(),
+      createReconciliation: jest.fn(),
+      getReconciliation: jest.fn(),
+      submitReconciliation: jest.fn(),
+      approveReconciliation: jest.fn(),
+      closeReconciliation: jest.fn(),
+    };
+    const c = new FinanceController(finance as never);
+    await c.listAccounts(user);
+    await c.createAccount(user, {
+      code: "1.1.01",
+      name: "Caixa",
+      type: "ASSET",
+    });
+    await c.getAccount(user, "a1");
+    await c.patchAccount(user, "a1", { active: false });
+    await c.listEntries(user, "DRAFT");
+    await c.createEntry(user, {
+      entryDate: "2026-11-01",
+      description: "Oferta",
+      lines: [
+        { accountId: "a1", side: "DEBIT", amountCents: 100 },
+        { accountId: "a2", side: "CREDIT", amountCents: 100 },
+      ],
+    });
+    await c.getEntry(user, "e1");
+    await c.submitEntry(user, "e1");
+    await c.approveEntry(user, "e1");
+    await c.rejectEntry(user, "e1", { reason: "x" });
+    await c.reverseEntry(user, "e1");
+    await c.listImports(user);
+    await c.createImport(user, { format: "OFX", filename: "x.ofx" });
+    await c.getImport(user, "b1");
+    await c.listReconciliations(user);
+    await c.createReconciliation(user, {
+      title: "Nov",
+      periodStart: "2026-11-01",
+      periodEnd: "2026-11-30",
+    });
+    await c.getReconciliation(user, "r1");
+    await c.submitReconciliation(user, "r1");
+    await c.approveReconciliation(user, "r1");
+    await c.closeReconciliation(user, "r1");
+    expect(finance.closeReconciliation).toHaveBeenCalledWith(user, "r1");
   });
 });

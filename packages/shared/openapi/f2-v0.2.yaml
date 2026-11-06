@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: Igreja de Deus Riacho Fundo I — API F1/F2
-  version: 0.5.1-pdf-mfa
+  title: Igreja de Deus Riacho Fundo I — API F1/F2/F4
+  version: 0.6.0-f4
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -12,6 +12,7 @@ info:
     - 0.4.0-portal: perfil público Ministry, eventos portal, GET /public/*
     - 0.5.0-portal: CMS workflow + volunteer-interests Atmosfera
     - 0.5.1-pdf-mfa: PDF real da carteirinha (QR opaco, sem CPF) + hooks MFA TOTP / OIDC config (sem IdP live)
+    - 0.6.0-f4: núcleo financeiro (plano de contas, lançamentos, dupla aprovação stub, import CSV/OFX stub, conciliação)
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -46,6 +47,7 @@ tags:
   - name: public
   - name: cms
   - name: volunteers
+  - name: ledger
 
 components:
   securitySchemes:
@@ -2385,3 +2387,337 @@ paths:
       responses:
         "200":
           description: Interest atualizado
+
+  /ledger/accounts:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista plano de contas (church-scoped)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope accounts[]
+        "403":
+          description: Sem TESOURARIA
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Cria conta no plano
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, type]
+              properties:
+                code: { type: string, example: "1.1.01" }
+                name: { type: string, example: "Caixa" }
+                type: { type: string, enum: [ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE] }
+                parentId: { type: string }
+                costCenter: { type: string }
+      responses:
+        "201":
+          description: Conta criada
+        "409":
+          description: LEDGER_ACCOUNT_CODE_EXISTS
+
+  /ledger/accounts/{accountId}:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Detalhe da conta
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Conta
+    patch:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Atualiza nome/active/costCenter
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                active: { type: boolean }
+                costCenter: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Conta atualizada
+
+  /ledger/entries:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista lançamentos (filtro opcional status)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, REVERSED] }
+      responses:
+        "200":
+          description: Envelope entries[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Cria lançamento DRAFT (partidas dobradas)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entryDate, description, lines]
+              properties:
+                entryDate: { type: string, format: date }
+                description: { type: string }
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [accountId, side, amountCents]
+                    properties:
+                      accountId: { type: string }
+                      side: { type: string, enum: [DEBIT, CREDIT] }
+                      amountCents: { type: integer, minimum: 1 }
+                      memo: { type: string }
+      responses:
+        "201":
+          description: Lançamento DRAFT
+        "400":
+          description: LEDGER_ENTRY_UNBALANCED
+
+  /ledger/entries/{entryId}:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Detalhe do lançamento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Entry DTO
+
+  /ledger/entries/{entryId}/submit:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Submete DRAFT/REJECTED → PENDING_APPROVAL
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Entry pendente
+
+  /ledger/entries/{entryId}/approve:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Stub dupla aprovação (1ª ≠ criador; 2ª ≠ 1ª)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Entry após aprovação parcial/final
+        "409":
+          description: APPROVER_IS_CREATOR / APPROVER_ALREADY_FIRST
+
+  /ledger/entries/{entryId}/reject:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Rejeita pendente
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Entry REJECTED
+
+  /ledger/entries/{entryId}/reverse:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Estorno explícito de APPROVED (cria lançamento inverso)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lançamento de estorno
+
+  /ledger/imports:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista lotes de importação stub
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope batches[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Import CSV/OFX/PDF_META stub (sem parser OFX real)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [format, filename]
+              properties:
+                format: { type: string, enum: [CSV, OFX, PDF_META] }
+                filename: { type: string }
+                textContent: { type: string, description: "CSV sintético opcional date,amountCents,description" }
+      responses:
+        "201":
+          description: Batch PARSED_STUB ou FAILED
+
+  /ledger/imports/{batchId}:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Detalhe do lote + linhas
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Import batch DTO
+
+  /ledger/reconciliations:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista conciliações
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope reconciliations[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Abre conciliação periódica
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, periodStart, periodEnd]
+              properties:
+                title: { type: string }
+                periodStart: { type: string, format: date }
+                periodEnd: { type: string, format: date }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Reconciliation OPEN
+
+  /ledger/reconciliations/{reconciliationId}:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Detalhe da conciliação
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reconciliation DTO
+
+  /ledger/reconciliations/{reconciliationId}/submit:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: OPEN → PENDING_APPROVAL
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Pending
+
+  /ledger/reconciliations/{reconciliationId}/approve:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Stub dupla aprovação da conciliação
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Após 1ª ou 2ª aprovação
+
+  /ledger/reconciliations/{reconciliationId}/close:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Fecha conciliação APPROVED → CLOSED
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CLOSED

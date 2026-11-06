@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.3.0-f3` | Contrato BE↔FE F2+F3 (tipos em `@idbrf/shared`) |
+| `f2-v0.2.yaml` | `0.6.0-f4` | Contrato BE↔FE F2+F3+portal+F4 ledger (tipos em `@idbrf/shared`) |
 
 Importar no Swagger Editor / Redoc / Insomnia. Base DEV: `http://localhost:3001`.
 
