@@ -34,6 +34,7 @@ import { PublicPortalModule } from "./public-portal/public-portal.module";
 import { StorageModule } from "./storage/storage.module";
 import { TransfersModule } from "./transfers/transfers.module";
 import { VolunteersModule } from "./volunteers/volunteers.module";
+import { ViviModule } from "./vivi/vivi.module";
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { VolunteersModule } from "./volunteers/volunteers.module";
     VolunteersModule,
     PublicPortalModule,
     AuditModule,
+    ViviModule,
   ],
   controllers: [HealthController, MetaController],
   providers: [HealthService, SimpleRateLimitMiddleware],
@@ -73,6 +75,8 @@ export class AppModule implements NestModule {
       { path: "auth/login", method: RequestMethod.POST },
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
       { path: "public/volunteer-interests", method: RequestMethod.POST },
+      // Camada extra além do ViviRateLimitService (IP + path)
+      { path: "public/vivi/chat", method: RequestMethod.POST },
     );
   }
 }

@@ -28,6 +28,7 @@ import { PersonsController } from "./persons/persons.controller";
 import { PublicPortalController } from "./public-portal/public-portal.controller";
 import { TransfersController } from "./transfers/transfers.controller";
 import { VolunteersController } from "./volunteers/volunteers.controller";
+import { ViviController } from "./vivi/vivi.controller";
 import type { AuthUser } from "./auth/types/auth-user";
 
 describe("controller wiring (delegates to services)", () => {
@@ -563,5 +564,29 @@ describe("controller wiring (delegates to services)", () => {
       scope: undefined,
     });
     expect(indicators.membership).toHaveBeenCalledWith(user, "ch1");
+  });
+
+  it("ViviController", async () => {
+    const vivi = {
+      getStatus: jest.fn().mockReturnValue({ assistant: "vivi" }),
+      chatPublic: jest.fn().mockResolvedValue({ reply: "oi" }),
+      chatAdmin: jest.fn().mockResolvedValue({ reply: "oi" }),
+    };
+    const c = new ViviController(vivi as never);
+    expect(c.status()).toEqual({ assistant: "vivi" });
+    await c.chatPublic(
+      {
+        messages: [{ role: "user", content: "Oi" }],
+        consentAiProcessing: true,
+      },
+      { ip: "127.0.0.1", headers: {}, socket: {} } as never,
+    );
+    expect(vivi.chatPublic).toHaveBeenCalled();
+    await c.chatAdmin(user, {
+      messages: [{ role: "user", content: "Oi" }],
+    });
+    expect(vivi.chatAdmin).toHaveBeenCalledWith(user, {
+      messages: [{ role: "user", content: "Oi" }],
+    });
   });
 });

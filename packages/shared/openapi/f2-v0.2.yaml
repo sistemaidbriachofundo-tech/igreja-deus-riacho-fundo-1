@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.0-das
+  version: 0.7.1-vivi
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -17,6 +17,9 @@ info:
       delivery status, rate limits, providers mock/noop (sem WABA/SMTP/FCM live; sem IA)
     - 0.7.0-das: multi-igreja (grants/switch), audit org-wide PLATFORM_ADMIN, indicadores stub,
       auth refresh claims (mobile-ready; sem app RN) — consolidado pós-merges DAS
+    - 0.7.1-vivi: assistente Vivi (IA) — `POST /public/vivi/chat` (consentimento + rate-limit)
+      e `POST /vivi/chat` (staff); providers Manus Forge (default) | Gemini (`GEMINI_API_KEY` só no BE);
+      auditoria de uso sem armazenar prompt completo; sem RAG / sem dados reais de membros
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -55,6 +58,7 @@ tags:
   - name: channels
   - name: indicators
   - name: churches
+  - name: vivi
 
 components:
   securitySchemes:
@@ -410,6 +414,56 @@ components:
         status: { type: string, enum: [ok, degraded, down] }
         service: { type: string, example: api }
         timestamp: { type: string, format: date-time }
+    ViviChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string, maxLength: 2000 }
+    ViviChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: "#/components/schemas/ViviChatMessage" }
+        consentAiProcessing:
+          type: boolean
+          description: Obrigatório true em POST /public/vivi/chat (LGPD)
+        sessionId: { type: string, nullable: true, maxLength: 128 }
+    ViviChatUsage:
+      type: object
+      required: [inputChars, outputChars, messageCount, latencyMs]
+      properties:
+        inputChars: { type: integer }
+        outputChars: { type: integer }
+        messageCount: { type: integer }
+        latencyMs: { type: integer }
+    ViviChatResponse:
+      type: object
+      required: [reply, provider, model, refused, lgpdNotice, usage]
+      properties:
+        reply: { type: string }
+        provider: { type: string, enum: [manus, gemini, mock] }
+        model: { type: string, example: gemini-2.5-flash-lite }
+        refused: { type: boolean }
+        lgpdNotice: { type: string }
+        usage: { $ref: "#/components/schemas/ViviChatUsage" }
+    ViviStatus:
+      type: object
+      required: [assistant, provider, model, manusUrlConfigured, geminiKeyConfigured, lgpdNotice, notes]
+      properties:
+        assistant: { type: string, enum: [vivi] }
+        provider: { type: string, enum: [manus, gemini, mock] }
+        model: { type: string }
+        manusUrlConfigured: { type: boolean }
+        geminiKeyConfigured: { type: boolean }
+        lgpdNotice: { type: string }
+        notes:
+          type: array
+          items: { type: string }
 
 paths:
   /health:
@@ -3069,4 +3123,81 @@ paths:
               schema: { $ref: "#/components/schemas/IndicatorsMembership" }
         "403":
           description: Sem grant
+
+  /vivi/status:
+    get:
+      tags: [vivi]
+      x-implementation: implemented
+      summary: Status do provider Vivi (sem expor chaves)
+      security: []
+      responses:
+        "200":
+          description: Provider ativo + avisos LGPD
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ViviStatus" }
+
+  /public/vivi/chat:
+    post:
+      tags: [vivi, public]
+      x-implementation: implemented
+      summary: Chat Vivi visitante (consentimento + rate-limit forte)
+      description: |
+        Sem JWT. Exige `consentAiProcessing=true`.
+        Rate-limit in-memory forte (`VIVI_PUBLIC_RATE_MAX`, default 8/min) + middleware IP.
+        Recusa heurística de PII/pastoral. Não armazena prompt completo na auditoria.
+        LGPD: free tier Google Gemini pode treinar com prompts — não enviar dados de membros.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ViviChatRequest" }
+            example:
+              messages:
+                - role: user
+                  content: Quais ministérios tem no portal?
+              consentAiProcessing: true
+              sessionId: "fe-anon-uuid"
+      responses:
+        "200":
+          description: Resposta da Vivi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ViviChatResponse" }
+        "400":
+          description: VIVI_CONSENT_REQUIRED | VIVI_MESSAGES_REQUIRED | …
+        "429":
+          description: VIVI_RATE_LIMITED
+        "502":
+          description: Provider upstream (Manus/Gemini) falhou
+        "503":
+          description: Provider indisponível
+
+  /vivi/chat:
+    post:
+      tags: [vivi]
+      x-implementation: implemented
+      summary: Chat Vivi autenticado (staff)
+      description: |
+        JWT + papéis SECRETARIA | PASTOR | PLATFORM_ADMIN | LIDER_MINISTERIO.
+        Rate-limit admin (`VIVI_ADMIN_RATE_MAX`). Mesmo contrato de resposta do público.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ViviChatRequest" }
+      responses:
+        "200":
+          description: Resposta da Vivi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ViviChatResponse" }
+        "401":
+          description: Sem JWT
+        "403":
+          description: Papel insuficiente
+        "429":
+          description: VIVI_RATE_LIMITED
 
