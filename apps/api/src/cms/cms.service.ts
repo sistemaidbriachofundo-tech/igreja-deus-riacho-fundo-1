@@ -204,6 +204,7 @@ export class CmsService {
       }
       const slug = input.slug?.trim().toLowerCase();
       if (!slug) throw new BadRequestException("slug inválido");
+      if (RESERVED_SITE_SLUGS.includes(slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new BadRequestException("Slug reservado ao editor visual");
       data.slug = slug;
     }
     if (input.summary !== undefined) data.summary = input.summary;
