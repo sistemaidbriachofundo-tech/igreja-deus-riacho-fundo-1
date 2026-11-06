@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
   NotFoundException,
 } from "@nestjs/common";
 import { canManageChannels } from "@idbrf/shared";
@@ -73,7 +74,7 @@ export class ChannelsService {
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
     private readonly rateLimits: ChannelRateLimitService,
-    providers?: ChannelProviders,
+    @Optional() providers?: ChannelProviders,
   ) {
     this.providers = providers ?? createChannelProviders();
   }

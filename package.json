@@ -21,7 +21,8 @@
     "homolog:m1": "node scripts/homolog-m1-admission.mjs",
     "homolog:backup": "bash scripts/pg-backup-restore-smoke.sh",
     "test:pg": "RUN_PG_INTEGRATION=1 npm run test -w @idbrf/db -- --test-name-pattern=postgres",
-    "homolog:readiness": "node scripts/backend-readiness-smoke.mjs"
+    "homolog:readiness": "node scripts/backend-readiness-smoke.mjs",
+    "homolog:fase1": "node scripts/hml/fase1-e2e.mjs"
   },
   "engines": {
     "node": ">=20"

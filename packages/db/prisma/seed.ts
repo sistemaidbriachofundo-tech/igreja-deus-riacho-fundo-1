@@ -1,3 +1,4 @@
+import { seedPhase1Mass } from "./seed-phase1";
 import { PrismaClient } from "@prisma/client";
 import {
   generateOpaqueCredentialToken,
@@ -8,12 +9,21 @@ import {
 const prisma = new PrismaClient();
 
 /**
- * Seed fictício apenas — sem dados reais da igreja.
- * Senha demo: "admin" (Argon2id; params alinhados a apps/api hashPassword).
- * Produto default: Riacho Fundo I. F6: segunda congregação + PLATFORM_ADMIN org-wide.
+ * Seeds locais podem usar "admin" somente em DEV/CI.
+ * HML rodando em NODE_ENV=production exige hash Argon2id exclusivo,
+ * fornecido via secret HML_DEMO_PASSWORD_HASH (nunca no GitHub).
  */
-const DEMO_PASSWORD_HASH =
-  "$argon2id$v=19$m=19456,t=2,p=1$Orwb01GobNLUv7ZiWJ0tbA$YzvnXjzMn5ffs7FYEHuw3xfoTmkQsD0KZXcBDS/fsgQ"; // "admin" — só demo
+const DEMO_PASSWORD_HASH = (() => {
+  const secretHash = process.env.HML_DEMO_PASSWORD_HASH?.trim();
+  if (secretHash) {
+    if (!secretHash.startsWith("$argon2id$")) throw new Error("Hash demo HML inválido");
+    return secretHash;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Seed em produção bloqueado sem HML_DEMO_PASSWORD_HASH");
+  }
+  return "$argon2id$v=19$m=19456,t=2,p=1$Orwb01GobNLUv7ZiWJ0tbA$YzvnXjzMn5ffs7FYEHuw3xfoTmkQsD0KZXcBDS/fsgQ";
+})();
 
 const ROLE_DEFS = [
   {
@@ -1147,6 +1157,11 @@ async function main() {
     },
   });
 
+  if (process.env.SEED_HML_MASS === "true") {
+    const mass = await seedPhase1Mass(prisma, org.id, church.id, adminUser.id);
+    console.log("HML Fase 1: massa sintética adicionada", mass);
+  }
+
   console.log("Seed OK (fictício RF1 + portal B–E + F4 ledger):", {
     org: org.slug,
     church: church.slug,
@@ -1172,3 +1187,92 @@ async function main() {
       tesoura2User.email,
       tesoura3User.email,
       platformUser.email,
+    ],
+    memberships: [anaMembership.id, brunoMembership.id],
+    f3: {
+      track: "demoTrack01",
+      ministry: "demoMinistry01",
+      group: "demoGroup01",
+    },
+    portal: {
+      ministries: portalMinistries.map((m) => m.slug),
+      events: ["encontro-jovens-demo", "culto-familia-demo"],
+      cms: cmsSeeds.map((c) => c.slug),
+    },
+    f4: {
+      accounts: [accCaixa.code, accBanco.code, accOfertas.code, accDespesas.code],
+      entry: "demoLedgerEntry01",
+      import: "demoBankImport01",
+      reconciliation: "demoReconciliation01",
+    },
+  });
+}
+
+/** Concessão de administração da organização sem escopo de congregação (F6). */
+async function upsertOrgWideGrant(input: {
+  prisma: PrismaClient;
+  userId: string;
+  roleId: string;
+  organizationId: string;
+}) {
+  const existing = await input.prisma.grant.findFirst({
+    where: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: null,
+      ministryId: null,
+    },
+  });
+  if (existing) return existing;
+  return input.prisma.grant.create({
+    data: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: null,
+      ministryId: null,
+    },
+  });
+}
+
+/** Grant church-wide ou ministry-scoped (ministryId null = igreja). */
+async function upsertChurchGrant(input: {
+  prisma: PrismaClient;
+  userId: string;
+  roleId: string;
+  organizationId: string;
+  churchId: string;
+  ministryId?: string | null;
+}) {
+  const existing = await input.prisma.grant.findFirst({
+    where: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: input.churchId,
+      ministryId: input.ministryId ?? null,
+    },
+  });
+  if (existing) {
+    return existing;
+  }
+  return input.prisma.grant.create({
+    data: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: input.churchId,
+      ministryId: input.ministryId ?? null,
+    },
+  });
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

@@ -623,7 +623,7 @@ model Ministry {
   leadershipPublic Json?                 @map("leadership_public")
   participationInfo String?              @map("participation_info")
   visibility       MinistryVisibility    @default(INTERNAL)
-  publishStatus    MinistryPublishStatus @default(DRAFT)
+  publishStatus    MinistryPublishStatus @default(DRAFT) @map("publish_status")
   publishedAt      DateTime?             @map("published_at")
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
@@ -1150,7 +1150,7 @@ model BankStatementLine {
   amountCents    Int                 @map("amount_cents")
   description    String
   externalRef    String?             @map("external_ref")
-  matchStatus    BankLineMatchStatus @default(UNMATCHED)
+  matchStatus    BankLineMatchStatus @default(UNMATCHED) @map("match_status")
   matchedEntryId String?             @map("matched_entry_id")
   createdAt      DateTime            @default(now()) @map("created_at")
 

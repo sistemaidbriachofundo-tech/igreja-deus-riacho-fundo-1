@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
  * Override com NEXT_PUBLIC_BASE_PATH="" para preview local na raiz.
  */
 const basePath =
-  process.env.NEXT_PUBLIC_BASE_PATH ?? "/igreja-deus-riacho-fundo-1";
+  process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1");
 
 const nextConfig: NextConfig = {
   output: "export",
