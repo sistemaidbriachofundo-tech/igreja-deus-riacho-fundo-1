@@ -9,6 +9,7 @@ import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
 import { PortalHomeSections } from "../components/PortalHomeSections";
+import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
 import { PortalButton } from "../components/PortalButton";
 import s from "./home-v3.module.css";
 
@@ -16,6 +17,7 @@ export default function HomePage() {
   return (
     <PublicPage>
       <main id="conteudo">
+        <PublishedSiteLayoutProvider>
         <PortalCinematicHero />
 
         <PortalHomeSections
@@ -85,6 +87,7 @@ export default function HomePage() {
           </>}
         />
 
+        </PublishedSiteLayoutProvider>
       </main>
     </PublicPage>
   );
