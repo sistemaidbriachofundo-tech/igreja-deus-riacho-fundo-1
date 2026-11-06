@@ -11,6 +11,7 @@ import { MfaModule } from "./auth/mfa/mfa.module";
 import { OidcModule } from "./auth/oidc/oidc.module";
 import { CredentialsModule } from "./credentials/credentials.module";
 import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware";
+import { ChannelsModule } from "./channels/channels.module";
 import { CmsModule } from "./cms/cms.module";
 import { DiscipleshipModule } from "./discipleship/discipleship.module";
 import { EventsModule } from "./events/events.module";
@@ -53,20 +54,4 @@ import { VolunteersModule } from "./volunteers/volunteers.module";
     MinistriesModule,
     EventsModule,
     FinanceModule,
-    CmsModule,
-    VolunteersModule,
-    PublicPortalModule,
-    AuditModule,
-  ],
-  controllers: [HealthController, MetaController],
-  providers: [HealthService, SimpleRateLimitMiddleware],
-})
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(SimpleRateLimitMiddleware).forRoutes(
-      { path: "auth/login", method: RequestMethod.POST },
-      { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
-      { path: "public/volunteer-interests", method: RequestMethod.POST },
-    );
-  }
-}
+    ChannelsModule,

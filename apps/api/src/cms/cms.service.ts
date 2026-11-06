@@ -11,6 +11,8 @@ import {
   filterRowsForMinistryLeader,
   requireMinistryInPilot,
 } from "../common/ministry-access";
+import { ChannelsService } from "../channels/channels.service";
+import type { CommChannel } from "../channels/providers/channel-provider";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
@@ -49,6 +51,11 @@ export type CmsInput = {
   sortOrder?: number;
   status?: WorkflowStatus;
   note?: string;
+  /** Stub F5: enfileira outbox ao publicar (sem WABA/SMTP live). */
+  notifyOnPublish?: boolean;
+  notifyChannels?: CommChannel[];
+  notifyToAddress?: string | null;
+  notifyPersonId?: string | null;
 };
 
 @Injectable()
@@ -56,6 +63,7 @@ export class CmsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    private readonly channels: ChannelsService,
   ) {}
 
   async create(actor: AuthUser, input: CmsInput) {
@@ -230,8 +238,8 @@ export class CmsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const row = await tx.cmsContent.update({
+    const row = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.cmsContent.update({
         where: { id: contentId },
         data,
       });
@@ -242,7 +250,7 @@ export class CmsService {
           toStatus: (nextStatus ?? existing.status) as WorkflowStatus,
           actorUserId: actor.userId,
           note: input.note ?? (nextStatus ? "status" : "patch"),
-          snapshot: this.snapshot(row),
+          snapshot: this.snapshot(updated),
         },
       });
       await tx.auditLog.create({
@@ -253,11 +261,34 @@ export class CmsService {
           resourceId: contentId,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { fields: Object.keys(data), status: nextStatus ?? null },
+          metadata: {
+            fields: Object.keys(data),
+            status: nextStatus ?? null,
+            notifyOnPublish: Boolean(input.notifyOnPublish),
+          },
         },
       });
-      return this.toDto(row);
+      return updated;
     });
+
+    const dto = this.toDto(row);
+    if (
+      input.notifyOnPublish &&
+      nextStatus === "PUBLICADO" &&
+      existing.status !== "PUBLICADO"
+    ) {
+      const notify = await this.channels.enqueueCmsPublishNotify({
+        actor,
+        contentId: row.id,
+        title: row.title,
+        slug: row.slug,
+        channels: input.notifyChannels,
+        toAddress: input.notifyToAddress,
+        personId: input.notifyPersonId,
+      });
+      return { ...dto, notifyOnPublish: notify };
+    }
+    return dto;
   }
 
   async advance(actor: AuthUser, contentId: string, toStatus: WorkflowStatus) {

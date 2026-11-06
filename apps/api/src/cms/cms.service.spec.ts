@@ -80,6 +80,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       { ...withTx(tx) } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     const result = await service.create(secretaria, {
       kind: "PAGE",
@@ -114,6 +119,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.patch(secretaria, "c1", { status: "PUBLICADO" }),
@@ -132,6 +142,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       { $transaction: jest.fn() } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.create(lider, {
@@ -156,6 +171,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.create(lider, {
@@ -173,6 +193,11 @@ describe("CmsService", () => {
         cmsContent: { findFirst: jest.fn().mockResolvedValue(null) },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(service.get(secretaria, "missing")).rejects.toBeInstanceOf(
       NotFoundException,
@@ -191,6 +216,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     const list = await service.list(lider, "MINISTRY_CONTENT");
     expect(list.contents.map((c) => c.id)).toEqual(["c1"]);
@@ -250,6 +280,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     const detail = await service.get(secretaria, "c1");
     expect(detail.revisions).toHaveLength(1);
@@ -300,6 +335,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
     await expect(
       service.patch(lider, "c1", { slug: "hack" }),
@@ -341,6 +381,11 @@ describe("CmsService", () => {
     const service = new CmsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      {
+        enqueueCmsPublishNotify: jest
+          .fn()
+          .mockResolvedValue({ notified: 0, outbox: [] }),
+      } as never,
     );
 
     await expect(

@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.6.0-f4");
+    assert.equal(API_CONTRACT_VERSION, "0.6.1-channels");
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -113,5 +113,18 @@ describe("api contracts F2", () => {
       API_ENDPOINT_STATUS["POST /ledger/reconciliations"],
       "implemented",
     );
+
+    assert.equal(API_ENDPOINT_STATUS["GET /channels/providers"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /channels/rate-limits"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /channels/templates"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /channels/templates"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["PATCH /channels/templates/:templateId"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /channels/consents/:personId"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["PUT /channels/consents/:personId"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /channels/outbox"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /channels/outbox"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /channels/outbox/:outboxId"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /channels/outbox/:outboxId/dispatch"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /channels/outbox/dispatch-pending"], "implemented");
   });
 });

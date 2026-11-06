@@ -4,6 +4,7 @@ import { ROLE_CODES } from "./rbac";
 import {
   canAccessCredentialPdf,
   canAccessFinance,
+  canManageChannels,
   canAdministerMinistries,
   canManageMemberships,
   canManageOidcConfig,
@@ -231,6 +232,35 @@ describe("membership scope", () => {
         [
           {
             roleCode: ROLE_CODES.SECRETARIA,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org, churchId: church },
+      ),
+      false,
+    );
+  });
+
+  it("allows PASTOR/SECRETARIA to manage F5 channels", () => {
+    assert.equal(
+      canManageChannels(
+        [
+          {
+            roleCode: ROLE_CODES.PASTOR,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org, churchId: church },
+      ),
+      true,
+    );
+    assert.equal(
+      canManageChannels(
+        [
+          {
+            roleCode: ROLE_CODES.MEMBRO,
             organizationId: org,
             churchId: church,
           },
