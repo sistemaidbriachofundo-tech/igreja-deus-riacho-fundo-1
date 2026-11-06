@@ -38,7 +38,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
-          <Link href="/app/" className={d.headerLogin} aria-label="Login ID Riacho 1 — ambiente de demonstração">Login</Link>
+          <Link href="/app/" className={d.headerLogin} aria-label="Login ID Riacho 1 — ambiente de demonstração" title="Abrir painel demonstrativo ID Riacho 1">Login</Link>
           <Link href="/visita/" className={d.headerCta} aria-label="Planejar primeira visita"><span className={d.ctaFull}>Participe conosco</span><span className={d.ctaShort}>Visitar</span><PortalGlyph name="arrow" /></Link>
           <MobilePortalMenu links={navigation} />
         </div>

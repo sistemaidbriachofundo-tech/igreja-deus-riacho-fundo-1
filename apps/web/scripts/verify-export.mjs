@@ -11,8 +11,9 @@ const requiredPages = [
   "index.html", "a-igreja/index.html", "contato/index.html", "eventos/index.html", "visita/index.html",
   "ministerios/index.html",
   ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
+  "novidades/index.html", "status/index.html",
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
-  "app/membros/carteirinha/index.html", "app/editorial/index.html",
+  "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/demo/index.html",
 ];
 const failures = [];
 if (!existsSync(outDir)) throw new Error(`Static export not found: ${outDir}`);
