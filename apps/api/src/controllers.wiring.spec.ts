@@ -213,9 +213,15 @@ describe("controller wiring (delegates to services)", () => {
     };
     const c = new AuditController(audit as never);
     await c.list(user, "10");
-    expect(audit.listRecent).toHaveBeenCalledWith(user, 10);
-    await c.list(user);
-    expect(audit.listRecent).toHaveBeenCalledWith(user, 50);
+    expect(audit.listRecent).toHaveBeenCalledWith(user, 10, {
+      churchId: undefined,
+      scope: undefined,
+    });
+    await c.list(user, undefined, undefined, "organization");
+    expect(audit.listRecent).toHaveBeenCalledWith(user, 50, {
+      churchId: undefined,
+      scope: "organization",
+    });
   });
 
   it("TransfersController", async () => {
