@@ -43,10 +43,12 @@ describe("portal público da igreja", () => {
     expect(hub).toContain("ministries.map");
   });
 
-  it("marca explicitamente toda a agenda como demonstrativa", () => {
+  it("separa dados sintéticos da agenda pública publicada", () => {
     expect(events).toHaveLength(5);
     expect(events.every((event) => event.date && event.time && event.ministry)).toBe(true);
-    expect(agenda).toContain("<DemoNote");
+    expect(agenda).toContain("<PublishedAgenda");
+    expect(agenda).not.toContain("events={events}");
+    expect(agenda).not.toContain("Eventos demonstrativos");
     expect(home).toContain("<FirstVisitFeature");
     expect(home).not.toContain("events.slice");
     expect(home).not.toContain("Próximos encontros");
