@@ -13,9 +13,14 @@ coverage/
 
 # Env & secrets
 .env
+.env.hml
 .env.local
 .env.*.local
 !.env.example
+!.env.hml.example
+
+# HML proxy renders (local only; templates are versioned)
+deploy/hml/rendered/
 
 # Logs / debug
 logs/

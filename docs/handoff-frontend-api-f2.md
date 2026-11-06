@@ -3,8 +3,9 @@
 **Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.0-portal"` (F2/F3 + portal B–E)  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
 **Base DEV:** `http://localhost:3001`  
-**Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md`  
-**Descoberta:** `GET /meta` (público) devolve `contractVersion` + mapa `endpoints`.
+**Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md` / `docs/hml-hostinger-runbook.md`  
+**Descoberta:** `GET /meta` (público) devolve `contractVersion` + mapa `endpoints`.  
+**Handoff consolidado (store):** `docs/handoff-frontend-completo-das.md` (F2/F3 + portal + exemplos).
 
 > Backend **não** altera `apps/web`.
 
