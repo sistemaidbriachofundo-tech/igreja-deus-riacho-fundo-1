@@ -87,3 +87,82 @@
  .toolbarIdentity strong,.toolbarEyebrow{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .toolbarRight{min-width:34px}
 }
+
+
+/* V7 — Design system compartilhado com a identidade visual pública.
+   Área de gestão: o mesmo verde-petróleo, dourado e creme, com densidade própria. */
+.frame{
+  --os-ink:#0b2427;--os-muted:#637879;--os-rule:#dbe2dd;--os-gold:#d8aa60;
+  --os-deep:#081c20;--os-cream:#f7f4ed;--os-glass:rgba(255,253,248,.9);
+  --os-radius:18px;--os-focus:#d8aa60;
+  background:#f4f5f0;color:var(--os-ink)
+}
+.rail{
+  background:radial-gradient(circle at 0% 4%,rgba(205,170,103,.17),transparent 38%),linear-gradient(162deg,#102f33,#081c20 75%);
+  border-right:1px solid rgba(228,192,126,.17);color:#f7f4ed;padding-top:27px
+}
+.brandText strong{color:#fffdf8}
+.brandText small{color:#e4be82}
+.brandEmblem{border-radius:50%;box-shadow:0 0 0 1px rgba(227,196,143,.27),0 15px 25px rgba(0,0,0,.18)}
+.railContext{
+  background:linear-gradient(125deg,rgba(244,214,159,.1),rgba(255,255,255,.02));
+  border:1px solid rgba(235,203,146,.25);border-radius:16px;margin-bottom:32px
+}
+.railContext strong{color:#f8eddf}.railContext small{color:#b4c4c1}
+.railOnline{background:#eac687;box-shadow:0 0 0 4px rgba(226,185,110,.14)}
+.groupTitle{color:#bca989}
+.railDivider{background:#e8d3a528}
+.menuItem,.menuActive{min-height:48px;border-radius:12px;color:#c0cecb;font-size:12px}
+.menuItem:hover{background:#d5bc8b20;color:#fffaf0;transform:translateX(2px)}
+.menuActive{
+  color:#112a2e;background:linear-gradient(110deg,#f6dfb3,#ddb16b 75%,#c99d58);
+  box-shadow:0 9px 25px rgba(0,0,0,.2)
+}
+.menuActive svg{stroke-width:2.1}
+.railBottom{
+  background:radial-gradient(circle at 85% 0,#e0b56c23,transparent 66%),linear-gradient(140deg,#174147,#102c31);
+  border:1px solid #e3ba7435;border-radius:19px
+}
+.verseMark{color:#f2ce92}
+.railBottom p{color:#d6e0d7}
+.railBottom>span{color:#b1b8a8}
+.toolbar{background:rgba(255,253,248,.93);border-color:#e1e4dd;box-shadow:0 8px 26px #102e3027}
+.toolbarIdentity strong{color:#0c2b30}.toolbarEyebrow{color:#8d7351}
+.commandButton{border-color:#dfe4df;background:#f7f8f4;color:#70807c;border-radius:999px}
+.commandButton:hover{border-color:#d4aa65;background:#fffdf8;color:#173338}
+.commandButton kbd{border-color:#dae0da;color:#536864}
+.environment{color:#637b76}.environment i{background:#d9ab63;box-shadow:0 0 0 4px #f1e6cf}
+.toolbarDivider{background:#dde4df}
+.account{
+  border-radius:50%;background:linear-gradient(140deg,#0e3439,#24515a);
+  color:#f4d99a;box-shadow:0 0 0 1px #c6d9d0
+}
+.content{padding-top:clamp(23px,3vw,42px)}
+.content:before{height:330px;background:radial-gradient(ellipse at 78% -34%,#d5ae6827,transparent 64%)}
+.workspaceRibbon{
+  position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;gap:22px;
+  min-height:150px;padding:24px clamp(22px,4vw,54px);overflow:hidden;background:
+  radial-gradient(circle at 85% 4%,#2a5356,#102e35 50%,#081f25 100%);
+  color:#f9f3e8;border-bottom:1px solid #d7ac6255
+}
+.workspaceRibbon:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#061b20df 0%,#0a2527a3 55%,transparent 100%)}
+.ribbonArt{position:absolute;inset:0 0 0 auto;height:100%;width:60%;object-fit:cover;object-position:right center;z-index:-2;opacity:.95}
+.ribbonCopy{position:relative;display:flex;flex-direction:column;gap:6px;max-width:800px}
+.ribbonCopy span{font:800 10px Montserrat,sans-serif;letter-spacing:.19em;color:#e5bd7d}
+.ribbonCopy strong{font:750 clamp(24px,3vw,38px)/1.15 Montserrat,sans-serif;letter-spacing:-.055em;color:#fffdf5}
+.ribbonCopy small{font:400 12px/1.55 Inter,sans-serif;color:#c6d7d0}
+.ribbonSeal{display:grid;place-items:center;width:55px;height:55px;flex:none;border-radius:50%;color:#f0ca89;border:1px solid #f6d59a7d;background:#f8e0a514;box-shadow:0 0 0 9px #d9b27112}
+.modalBackdrop{background:#031c20a8}
+.commandModal{border:1px solid #f2ddb4;border-radius:24px;background:#fffdf8}
+.commandSearch{color:#b8874e;border-color:#e3e9e3}
+.commandSearch input{color:#15363b}
+.commandSearch button{background:#f4f5ee;color:#627b76}
+.commandList>a{color:#18363a}.commandList>a:hover,.commandList>a:focus-visible{background:#eff3ed}
+.commandListIcon{background:#e8eee7;color:#1f5a5e}
+.commandFooter{background:#f5f6f1;border-color:#dde6de}
+.mobileNav{background:rgba(255,253,247,.98);border-color:#dce3dc}
+.mobileItem{color:#768580}.mobileActive{color:#0f383f;background:#e8efe7}
+.frame :is(a,button,input,summary,select,textarea):focus-visible{outline:3px solid #d8aa60;outline-offset:3px}
+@media(max-width:970px){.workspaceRibbon{min-height:118px;padding:22px 26px}.ribbonSeal{width:45px;height:45px}}
+@media(max-width:640px){.workspaceRibbon{padding:18px 20px;min-height:116px}.ribbonCopy strong{font-size:25px}.ribbonArt{width:80%;opacity:.56}.ribbonSeal{display:none}.content{padding-top:19px}}
+@media(prefers-reduced-motion:reduce){.menuItem,.menuActive,.commandButton{transition:none}}
