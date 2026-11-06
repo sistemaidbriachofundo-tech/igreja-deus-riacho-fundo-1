@@ -6,7 +6,7 @@ Quatro imagens ilustrativas enviadas pelo responsável pela Igreja de Deus Riach
 ## A publicação
 - Componente `PortalFaithGallery` na Home, entre os ministérios e o Atmosfera.
 - Galeria acessível com quatro descrições alternativas: louvor, juventude, oração e Palavra.
-- Arquivo visual `public/images/retratos-fe-v10.avif` montado a partir das quatro imagens do usuário; quatro recortes responsivos de uma única imagem para desempenho.
+- Quatro arquivos WebP otimizados (`public/images/galeria-*.webp`) gerados das quatro imagens do usuário. Publicados dentro do repositório, com carregamento lazy, dimensões explícitas e texto alternativo.
 - Aviso visível de imagens ilustrativas.
 - A montagem original de alta resolução fica com o responsável; a miniatura otimizada é para a galeria.
 - Aplicar a mesma direção artística à aba de Mídia apenas quando existir upload seguro, permissões, metadados e storage persistente.
