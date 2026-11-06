@@ -44,9 +44,9 @@ describe("API F2: configuração", () => {
     expect(() => getApiBaseUrl()).toThrow("URL insegura");
   });
 
-  it("aceita URL HTTP somente na máquina de desenvolvimento", () => {
+  it("bloqueia URL para localhost quando o site não está em desenvolvimento", () => {
     process.env.NEXT_PUBLIC_API_URL = "http://127.0.0.1:3001/";
-    expect(getApiBaseUrl()).toBe("http://127.0.0.1:3001");
+    expect(() => getApiBaseUrl()).toThrow("API local permitida somente em desenvolvimento");
   });
 
   it("não faz requisição de login sem API liberada", async () => {
