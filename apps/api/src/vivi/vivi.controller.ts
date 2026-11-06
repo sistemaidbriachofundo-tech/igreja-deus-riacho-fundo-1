@@ -83,6 +83,8 @@ export class ViviController {
     ROLE_CODES.PASTOR,
     ROLE_CODES.PLATFORM_ADMIN,
     ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.SITE_EDITOR,
+    ROLE_CODES.SITE_PUBLISHER,
   )
   @Post("vivi/chat")
   chatAdmin(@CurrentUser() user: AuthUser, @Body() body: ViviChatBody) {
