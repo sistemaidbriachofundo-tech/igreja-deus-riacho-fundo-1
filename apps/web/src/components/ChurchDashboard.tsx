@@ -148,7 +148,7 @@ export function ChurchDashboard() {
           <div className={s.alertList}>
             <a href={withBasePath("/app/secretaria/")} className={s.alertRow}>
               <span className={s.alertDot}/>
-              <span><strong>{pastoral} aprovação{pastoral === 1 ? "" : "ões"} pastoral{pastoral === 1 ? "" : "is"}</strong><small>Aguardando decisão na base de teste</small></span>
+              <span><strong>{pastoral} {pastoral === 1 ? "aprovação pastoral" : "aprovações pastorais"}</strong><small>Aguardando decisão na base de teste</small></span>
               <UIIcon name="chevron" size={16}/>
             </a>
             <a href={withBasePath("/app/secretaria/")} className={s.alertRow}>
