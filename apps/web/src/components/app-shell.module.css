@@ -166,3 +166,109 @@
 @media(max-width:970px){.workspaceRibbon{min-height:118px;padding:22px 26px}.ribbonSeal{width:45px;height:45px}}
 @media(max-width:640px){.workspaceRibbon{padding:18px 20px;min-height:116px}.ribbonCopy strong{font-size:25px}.ribbonArt{width:80%;opacity:.56}.ribbonSeal{display:none}.content{padding-top:19px}}
 @media(prefers-reduced-motion:reduce){.menuItem,.menuActive,.commandButton{transition:none}}
+
+
+/* V8 — ID Riacho 1: aplicação fiel ao conceito aprovado.
+   Navegação verde profunda / palco administrativo branco e dourado.
+   O nome institucional Igreja de Deus permanece como subtítulo da marca. */
+.frame{--os-ink:#102f2d;--os-gold:#d7a13a;--os-muted:#617b73;--os-rule:#e0e7df;
+  grid-template-columns:268px minmax(0,1fr);background:#f8f9f6;color:#172d2e}
+.rail{padding:20px 13px 14px;background:
+  radial-gradient(ellipse 140% 65% at -15% 95%,#2360547a,transparent 55%),
+  linear-gradient(170deg,#002f2a,#00332d 45%,#062925);
+  border-right:1px solid #c7a35c55;box-shadow:8px 0 28px #163a3218}
+.brand{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;
+  margin:0;padding:0 7px 19px;border-bottom:1px solid #dfb15f25;text-align:center}
+.brandEmblem{width:78px;height:78px;border-radius:50%;background-size:contain;
+  background-color:transparent;box-shadow:0 0 0 1px #ffd79238,0 12px 28px #001e1e55}
+.brandText{display:flex;align-items:center;gap:4px}
+.brandText strong{font:850 25px/1.08 Montserrat,Arial,sans-serif;letter-spacing:-.06em;text-transform:none;color:#f9f7ec}
+.brandText small{font:750 8px/1.5 Inter,Arial,sans-serif;letter-spacing:.12em;color:#e5b55f}
+.railContext{margin:14px 8px 22px;padding:9px 12px;border:1px solid #ddbb7650;
+  border-radius:999px;background:#0e504242;align-items:center;justify-content:center;gap:9px}
+.railContext strong{font-size:10px;color:#f7eac9}
+.railContext small{font-size:9px;color:#b7cdc4}
+.railOnline{width:7px;height:7px;background:#e9b151}
+.groupTitle{color:#a7c2b5;font-size:9px;letter-spacing:.17em;margin:0 0 8px;padding:0 16px}
+.menu{gap:5px}
+.menuItem,.menuActive{min-height:47px;padding:9px 13px;border-radius:11px;font:750 12px/1.3 Inter,Arial,sans-serif}
+.menuItem{color:#e7f0e9}
+.menuItem:hover{color:#fff6da;background:#edce8d1c;transform:none}
+.menuActive{background:linear-gradient(118deg,#dfac46,#ad7623);color:#fffdf5;
+  border:1px solid #f2d08540;box-shadow:0 8px 18px #001d1850;font-weight:850}
+.menuActive svg,.menuItem svg{color:inherit;opacity:1}
+.railDivider{margin:16px 11px;background:#e4cb8e42}
+.railBottom{padding:18px 16px;margin-top:auto;
+  background:radial-gradient(circle at 90% 0%,#e5bd6740,transparent 58%),linear-gradient(155deg,#0b4a40,#06352f);
+  border:1px solid #cbad7652;border-radius:17px}
+.verseMark{color:#e8b653}
+.railBottom p{display:flex;flex-direction:column;gap:3px;margin:8px 0 9px;max-width:none;color:#fff8e9}
+.railBottom p strong{font:800 15px Montserrat,sans-serif;letter-spacing:-.03em}
+.railBottom p small{font:500 10px Inter,sans-serif;color:#d2dfd1}
+.railBottom>span{font-size:8px;letter-spacing:.09em;color:#d6bf8a}
+.mainColumn{background:#f8f9f6}
+.toolbar{min-height:81px;display:grid;grid-template-columns:minmax(240px,1fr) minmax(210px,420px) minmax(190px,1fr);
+  gap:22px;padding:15px clamp(23px,3vw,48px);border-color:#e2e8e1;background:#fffefa;box-shadow:0 4px 22px #203b3012}
+.toolbarIdentity>div{gap:4px}
+.toolbarIdentity strong{font:850 clamp(18px,2vw,26px)/1.15 Montserrat,Arial,sans-serif;letter-spacing:-.05em;color:#112a2c}
+.toolbarEyebrow{font:500 11px/1.3 Inter,sans-serif;letter-spacing:0;color:#617573;white-space:nowrap}
+.commandButton{border-radius:999px;min-height:44px;border:1px solid #dce3dd;background:#f7f8f6;
+  box-shadow:0 3px 11px #16392f0c;color:#526963}
+.commandButton:hover{border-color:#b4c8bd;color:#1b4a40}
+.commandButton>span{font-size:12px}
+.commandButton kbd{border-radius:8px;font:700 10px Inter,sans-serif}
+.toolbarRight{gap:14px}
+.toolbarAlerts{position:relative;display:grid;place-items:center;color:#153c35;min-width:37px;height:40px;border-radius:10px}
+.toolbarAlerts:hover{background:#eaf1e9}
+.toolbarAlerts>span{position:absolute;right:5px;top:5px;height:7px;width:7px;background:#dfa02f;
+  border:1px solid #fffefa;border-radius:50%}
+.toolbarDivider{background:#dce4db}
+.account{width:39px;height:39px;background:linear-gradient(135deg,#e6ae45,#c4851a);
+  color:#fff;box-shadow:0 0 0 1px #d2a35655;border-radius:50%}
+.accountInfo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.accountInfo strong{font:800 11px Inter,sans-serif;white-space:nowrap;color:#172d2a}
+.accountInfo small{font:500 10px Inter,sans-serif;color:#7d9086}
+.content{padding:18px clamp(18px,2.7vw,40px) 60px}
+.content:before{background:radial-gradient(ellipse at 76% -30%,#d2e8d67d,transparent 63%);height:230px}
+.workspaceRibbon{border-bottom-color:#b99b594d}
+.mobileNav{background:#073930;color:#f4f8ef;border-top-color:#e4b66866;box-shadow:0 -8px 21px #102d2d24}
+.mobileItem{color:#c5d6ca}.mobileActive{background:#d7aa582b;color:#f8c978}
+.mobileActive svg{stroke-width:2.4}
+.frame :is(a,button,summary,input,select,textarea):focus-visible{outline:3px solid #dfa83c;outline-offset:3px}
+@media(max-width:1220px){
+  .frame{grid-template-columns:226px minmax(0,1fr)}
+  .rail{padding:17px 9px 14px}
+  .brandEmblem{width:69px;height:69px}
+  .brandText strong{font-size:22px}.brandText small{font-size:7px}
+  .toolbar{grid-template-columns:minmax(170px,1fr) minmax(130px,260px) auto;gap:12px}
+  .toolbarEyebrow{white-space:normal;font-size:10px}
+  .accountInfo{display:none}
+}
+@media(max-width:970px){
+  .frame{display:block}
+  .toolbar{grid-template-columns:minmax(0,1fr) minmax(140px,270px) auto;padding:12px 18px}
+  .smallLogo{display:block;width:39px;height:39px;border-radius:50%;background-size:contain}
+  .toolbarIdentity strong{font-size:20px}
+  .content{padding:16px 18px calc(110px + env(safe-area-inset-bottom,0px))}
+  .toolbarAlerts{min-width:35px}
+}
+@media(max-width:660px){
+  .toolbar{grid-template-columns:minmax(0,1fr) 40px 76px;gap:7px;padding:10px 12px;min-height:70px}
+  .toolbarIdentity strong{font-size:17px}
+  .toolbarEyebrow{font-size:9px}
+  .toolbarRight{gap:5px;min-width:76px}
+  .toolbarDivider,.accountInfo{display:none}
+  .toolbarAlerts{width:34px;min-width:34px}
+  .account{width:32px;height:32px;font-size:10px}
+  .commandButton{width:38px;min-height:38px;border-radius:50%}
+  .content{padding:13px 12px calc(104px + env(safe-area-inset-bottom,0px))}
+}
+@media(max-width:360px){
+  .toolbarIdentity strong{font-size:15px}
+  .toolbarEyebrow{font-size:8px}
+  .smallLogo{width:31px;height:31px}
+}
+
+/* Menus sempre acessíveis em janelas desktop de pouca altura. */
+.rail{overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#8d7854 #06342e}
+.brand,.railContext,.menu,.railBottom{flex-shrink:0}

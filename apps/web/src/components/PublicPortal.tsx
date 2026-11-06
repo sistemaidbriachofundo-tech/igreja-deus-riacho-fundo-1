@@ -57,7 +57,7 @@ export function PortalFooter() {
         <div className={s.footerLinks}>
           <div><span className={s.footerLabel}>Explore</span><Link href="/a-igreja/">Nossa igreja</Link><Link href="/ministerios/">Ministérios</Link><Link href="/eventos/">Agenda</Link><Link href="/novidades/">Novidades</Link></div>
           <div><span className={s.footerLabel}>Conecte-se</span><Link href="/visita/">Primeira visita</Link><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Instagram ↗</a><a href="https://www.youtube.com/@IDBRiachoFundo1" rel="noopener noreferrer" target="_blank">YouTube ↗</a><Link href="/ministerios/atmosfera/">Seja voluntário</Link></div>
-          <div><span className={s.footerLabel}>Church OS</span><Link href="/app/">Área interna</Link><span className={s.footerNote}>Acesso demonstrativo, com dados fictícios.</span></div>
+          <div><span className={s.footerLabel}>ID Riacho 1</span><Link href="/app/">Área interna</Link><span className={s.footerNote}>Acesso demonstrativo, com dados fictícios.</span></div>
         </div>
       </div>
       <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span><span>Fé · Família · Comunhão · Missão</span></div>
