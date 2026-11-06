@@ -167,7 +167,9 @@ export class ViviService {
     } else {
       const result = await this.provider.chat({
         messages: [
-          { role: "system", content: VIVI_SYSTEM_PROMPT },
+          { role: "system", content: args.scope === "admin"
+            ? VIVI_SYSTEM_PROMPT + "\nAlém de orientar visitantes, você pode auxiliar a equipe autorizada a REVISAR TEXTO PÚBLICO para o site. Sugira títulos e descrições com linguagem simples, sem inventar fatos, testemunhos, horários ou nomes. Nenhuma sugestão pode publicar conteúdo ou executar ações no sistema."
+            : VIVI_SYSTEM_PROMPT },
           ...messages,
         ],
         maxOutputTokens: 1024,
