@@ -42,3 +42,16 @@
 .privateInfo p{font-size:14px;line-height:1.8}
 .privateInfo a{color:#416b79;text-decoration:underline}
 .privateInfo strong{font-size:12px;letter-spacing:.03em}
+
+
+/* V7 — estúdio editorial no mesmo design system da gestão e do portal */
+.page{color:#12373a}
+.hero{position:relative;overflow:hidden;background:radial-gradient(circle at 86% 8%,#52747355,transparent 47%),linear-gradient(125deg,#0a252b,#153d42 68%,#0b2228);border:1px solid #e8c38650;border-radius:23px}
+.hero h1 em{font-family:Georgia,serif;color:#efcf97;font-weight:600}
+.heroLink{color:#f4d8ab!important;border-color:#efcf97}
+.warning,.loginWrap,.metrics>div,.editor{background:#fffefa;border-color:#dfe7df;border-radius:19px}
+.primary{background:#153c40;border-radius:999px;padding:14px 22px}
+.primary:hover{background:#23585b}
+.form :is(input,textarea,select){border-color:#d9e3db;border-radius:12px;background:#fffefa}
+.form :is(input,textarea,select):focus-visible{outline-color:#d8aa60}
+.metrics strong{color:#22565b}
