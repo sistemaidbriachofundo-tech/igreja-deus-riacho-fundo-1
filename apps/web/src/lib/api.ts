@@ -6,7 +6,14 @@ import { publicApiBase } from "./portal-live-data";
  */
 export function getApiBaseUrl(): string {
   const configured = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
-  if (configured) return configured;
+  if (configured) {
+    const url = new URL(configured);
+    const local = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+    if (local && process.env.NODE_ENV !== "development") {
+      throw new Error("API local permitida somente em desenvolvimento.");
+    }
+    return configured;
+  }
   if (process.env.NODE_ENV === "development") return "http://localhost:3001";
   throw new Error("API autenticada não configurada ou URL insegura.");
 }
