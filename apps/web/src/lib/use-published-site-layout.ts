@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
 import { defaultSiteLayout, parsePublicSiteLayout, type SiteLayout } from "./site-layout";
 import { publicApiBase } from "./portal-live-data";
 
@@ -41,7 +41,7 @@ function useLoadApprovedLayout(active: boolean): SiteLayout {
 
 export function PublishedSiteLayoutProvider({ children }: { children: ReactNode }) {
   const layout = useLoadApprovedLayout(true);
-  return <PublishedLayoutContext.Provider value={layout}>{children}</PublishedLayoutContext.Provider>;
+  return createElement(PublishedLayoutContext.Provider, {value:layout}, children);
 }
 
 export function usePublishedSiteLayout(): SiteLayout {
