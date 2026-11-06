@@ -1,3 +1,4 @@
+import { seedPhase1Mass } from "./seed-phase1";
 import { PrismaClient } from "@prisma/client";
 import {
   generateOpaqueCredentialToken,
@@ -8,12 +9,21 @@ import {
 const prisma = new PrismaClient();
 
 /**
- * Seed fictício apenas — sem dados reais da igreja.
- * Senha demo: "admin" (Argon2id; params alinhados a apps/api hashPassword).
- * Piloto hard-scoped: só Riacho Fundo I (sem multi-congregação).
+ * Seeds locais podem usar "admin" somente em DEV/CI.
+ * HML rodando em NODE_ENV=production exige hash Argon2id exclusivo,
+ * fornecido via secret HML_DEMO_PASSWORD_HASH (nunca no GitHub).
  */
-const DEMO_PASSWORD_HASH =
-  "$argon2id$v=19$m=19456,t=2,p=1$Orwb01GobNLUv7ZiWJ0tbA$YzvnXjzMn5ffs7FYEHuw3xfoTmkQsD0KZXcBDS/fsgQ"; // "admin" — só demo
+const DEMO_PASSWORD_HASH = (() => {
+  const secretHash = process.env.HML_DEMO_PASSWORD_HASH?.trim();
+  if (secretHash) {
+    if (!secretHash.startsWith("$argon2id$")) throw new Error("Hash demo HML inválido");
+    return secretHash;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Seed em produção bloqueado sem HML_DEMO_PASSWORD_HASH");
+  }
+  return "$argon2id$v=19$m=19456,t=2,p=1$Orwb01GobNLUv7ZiWJ0tbA$YzvnXjzMn5ffs7FYEHuw3xfoTmkQsD0KZXcBDS/fsgQ";
+})();
 
 const ROLE_DEFS = [
   {
@@ -1089,6 +1099,11 @@ async function main() {
       createdByUserId: tesouraUser.id,
     },
   });
+
+  if (process.env.SEED_HML_MASS === "true") {
+    const mass = await seedPhase1Mass(prisma, org.id, church.id, adminUser.id);
+    console.log("HML Fase 1: massa sintética adicionada", mass);
+  }
 
   console.log("Seed OK (fictício RF1 + portal B–E + F4 ledger):", {
     org: org.slug,
