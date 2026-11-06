@@ -163,32 +163,52 @@ export class SiteLayoutService {
   async saveDraft(actor: AuthUser, input: unknown, expectedUpdatedAt?: string | null) {
     const pilot = await this.scope(actor);
     const value = parseSiteLayout(input);
-    const now = await this.prisma.cmsContent.findUnique({ where: { churchId_slug: { churchId: pilot.churchId, slug: DRAFT_SLUG } } });
-    if (expectedUpdatedAt !== undefined && (now?.updatedAt.toISOString() ?? null) !== expectedUpdatedAt) {
-      throw new ConflictException("Outra pessoa atualizou o rascunho. Recarregue para preservar as alterações.");
-    }
     const snapshot = JSON.stringify(value);
-    const row = await this.prisma.$transaction(async tx => {
-      const updated = await tx.cmsContent.upsert({
-        where: { churchId_slug: { churchId: pilot.churchId, slug: DRAFT_SLUG } },
-        create: {
-          organizationId: pilot.organizationId, churchId: pilot.churchId, kind: "PAGE",
-          slug: DRAFT_SLUG, title: "Gestão da Home — rascunho", body: snapshot,
-          status: "RASCUNHO", createdByUserId: actor.userId, updatedByUserId: actor.userId,
-        },
-        update: { body: snapshot, updatedByUserId: actor.userId },
-      });
-      await tx.cmsContentRevision.create({ data: {
-        contentId: updated.id, fromStatus: "RASCUNHO", toStatus: "RASCUNHO",
-        actorUserId: actor.userId, note: "Edição visual (rascunho)", snapshot: value,
-      } });
-      await tx.auditLog.create({ data: {
-        actorUserId: actor.userId, action: "site.home.draft", resourceType: "cms_content",
-        resourceId: updated.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
-      } });
-      return updated;
-    });
-    return { draft: value, draftUpdatedAt: row.updatedAt.toISOString() };
+    try {
+      const row = await this.prisma.$transaction(async tx => {
+        const existing = await tx.cmsContent.findUnique({
+          where: { churchId_slug: { churchId: pilot.churchId, slug: DRAFT_SLUG } },
+        });
+        if (expectedUpdatedAt !== undefined && (existing?.updatedAt.toISOString() ?? null) !== expectedUpdatedAt) {
+          throw new ConflictException("Outra pessoa atualizou o rascunho. Recarregue para preservar as alterações.");
+        }
+
+        const updated = existing
+          ? await (async () => {
+              const result = await tx.cmsContent.updateMany({
+                where: { id: existing.id, updatedAt: existing.updatedAt },
+                data: { body: snapshot, updatedByUserId: actor.userId },
+              });
+              if (result.count !== 1) throw new ConflictException("Rascunho alterado por outra pessoa");
+              return tx.cmsContent.findUniqueOrThrow({ where: { id: existing.id } });
+            })()
+          : await tx.cmsContent.create({
+              data: {
+                organizationId: pilot.organizationId, churchId: pilot.churchId, kind: "PAGE",
+                slug: DRAFT_SLUG, title: "Gestão da Home — rascunho", body: snapshot,
+                status: "RASCUNHO", createdByUserId: actor.userId, updatedByUserId: actor.userId,
+              },
+            });
+
+        await tx.cmsContentRevision.create({ data: {
+          contentId: updated.id, fromStatus: "RASCUNHO", toStatus: "RASCUNHO",
+          actorUserId: actor.userId, note: "Edição visual (rascunho)", snapshot: value,
+        } });
+        await tx.auditLog.create({ data: {
+          actorUserId: actor.userId, action: "site.home.draft", resourceType: "cms_content",
+          resourceId: updated.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        } });
+        return updated;
+      }, { isolationLevel: "Serializable" });
+      return { draft: value, draftUpdatedAt: row.updatedAt.toISOString() };
+    } catch (error) {
+      // Atualizações simultâneas / primeira criação simultânea nunca sobrescrevem em silêncio.
+      if (error && typeof error === "object" && "code" in error &&
+          (error.code === "P2002" || error.code === "P2034")) {
+        throw new ConflictException("Outro editor atualizou a página. Recarregue antes de salvar.");
+      }
+      throw error;
+    }
   }
 
   async publish(actor: AuthUser, expectedUpdatedAt?: string) {
