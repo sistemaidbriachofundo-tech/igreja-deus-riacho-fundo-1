@@ -40,7 +40,7 @@ export function PortalFaithGallery() {
       <div className={s.inner}>
         <div className={s.head} data-portal-reveal>
           <div className={s.heading}>
-            <span className={s.eyebrow}><span className={s.eyebrowDash} /> 03 / EXPRESSÕES DA FÉ</span>
+            <span className={s.eyebrow}><span className={s.eyebrowDash} /> GALERIA / EXPRESSÕES DA FÉ</span>
             <h2 id="faith-gallery-title">A fé tem muitas formas<br />de <em>se expressar.</em></h2>
             <p>Louvor, juventude, oração e Palavra. Expressões que traduzem a vida em comunidade e o desejo de caminhar com Deus.</p>
           </div>
