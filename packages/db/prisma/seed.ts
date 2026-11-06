@@ -1208,6 +1208,34 @@ async function main() {
   });
 }
 
+/** Concessão de administração da organização sem escopo de congregação (F6). */
+async function upsertOrgWideGrant(input: {
+  prisma: PrismaClient;
+  userId: string;
+  roleId: string;
+  organizationId: string;
+}) {
+  const existing = await input.prisma.grant.findFirst({
+    where: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: null,
+      ministryId: null,
+    },
+  });
+  if (existing) return existing;
+  return input.prisma.grant.create({
+    data: {
+      userId: input.userId,
+      roleId: input.roleId,
+      organizationId: input.organizationId,
+      churchId: null,
+      ministryId: null,
+    },
+  });
+}
+
 /** Grant church-wide ou ministry-scoped (ministryId null = igreja). */
 async function upsertChurchGrant(input: {
   prisma: PrismaClient;
