@@ -4,6 +4,7 @@ import { ministries, instagramUrl, type PortalEvent, type PortalMinistry } from 
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
 import { PortalMotion } from "./PortalMotion";
+import { MobilePortalMenu } from "./MobilePortalMenu";
 
 export { s as portalStyles };
 
@@ -35,14 +36,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
         </nav>
         <div className={s.headerActions}>
           <Link href="/visita/" className={s.headerVisit}>Quero visitar <span aria-hidden="true">↗</span></Link>
-          <details className={s.mobileMenu}>
-            <summary aria-label="Abrir menu de navegação"><span className={s.menuIcon} aria-hidden="true"><i /><i /></span><span>Menu</span></summary>
-            <nav aria-label="Menu mobile" className={s.mobileMenuPanel}>
-              <Link href="/">Início</Link>
-              {navigation.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
-              <Link href="/app/">Área interna (demonstração)</Link>
-            </nav>
-          </details>
+          <MobilePortalMenu links={navigation} />
         </div>
       </div>
     </header>
@@ -124,5 +118,5 @@ export function EventCard({ event }: { event: PortalEvent }) {
 }
 
 export function ContactCTA({ title = "Sua história também tem lugar aqui.", text = "Quer conhecer a igreja ou encontrar um lugar para fazer parte? Comece por aqui." }: { title?: string; text?: string }) {
-  return <section className={s.contactCta}><div className={s.contactCtaHalo} /><div><Eyebrow light>VOCÊ É BEM-VINDO</Eyebrow><h2>{title}</h2><p>{text}</p></div><Link className={s.lightButton} href="/contato/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link></section>;
+  return <section className={s.contactCta}><div className={s.contactCtaHalo} /><div><Eyebrow light>VOCÊ É BEM-VINDO</Eyebrow><h2>{title}</h2><p>{text}</p></div><Link className={s.lightButton} href="/visita/">Quero conhecer a igreja <span aria-hidden="true">↗</span></Link></section>;
 }

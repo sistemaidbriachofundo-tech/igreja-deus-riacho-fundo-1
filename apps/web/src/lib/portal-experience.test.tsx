@@ -5,6 +5,7 @@ import { PortalJourney } from "../components/PortalJourney";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { FirstVisitFeature, VisitQuestions } from "../components/FirstVisit";
 import { ministries } from "./portal-content";
+import { MobilePortalMenu } from "../components/MobilePortalMenu";
 
 describe("portal v3+ — camadas de experiência", () => {
   it("mantém as melhorias de rolagem não intrusivas e acessíveis", () => {
@@ -12,6 +13,13 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(html).toContain('aria-label="Voltar ao início da página"');
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain("scaleX(");
+  });
+
+  it("preserva a navegação mobile acessível e permite fechamento ao navegar", () => {
+    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/visita/", label: "Primeira Visita" }]} />);
+    expect(html).toContain('aria-label="Menu mobile"');
+    expect(html).toContain("Primeira Visita");
+    expect(html).toContain("Abrir menu de navegação");
   });
 
   it("navega entre seções públicas por âncoras reais", () => {

@@ -73,7 +73,8 @@ describe("portal público da igreja", () => {
     expect(css).toContain("@media(max-width:480px)");
     expect(css).toContain("prefers-reduced-motion");
     expect(shell).toContain('aria-label="Navegação principal"');
-    expect(shell).toContain('aria-label="Menu mobile"');
+    expect(shell).toContain("<MobilePortalMenu links={navigation} />");
+    expect(read("components/MobilePortalMenu.tsx")).toContain('aria-label="Menu mobile"');
     expect(shell).toContain("Pular para o conteúdo");
     expect(shell).toContain('href="/visita/"');
     expect(visit).toContain("<VisitPlanner");
