@@ -256,6 +256,19 @@ jobs:
               if actual!=width: raise SystemExit(f"Unexpected viewport width in {name}: {actual}, expected {width}")
           print(f"Verified {len(expected)} additional viewport screenshots")
           PYQA
+          # QA visual para as novas páginas CMS e editorial (sem API real configurada).
+          for WIDTH in 320 390 768 1440 1920; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --hide-scrollbars --window-size="${WIDTH},1000" \
+              --screenshot="portal-screenshots/novidades-${WIDTH}.png" \
+              "${URL}/novidades/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --hide-scrollbars --window-size="${WIDTH},1000" \
+              --screenshot="portal-screenshots/editorial-${WIDTH}.png" \
+              "${URL}/app/editorial/" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            test -s "portal-screenshots/novidades-${WIDTH}.png"
+            test -s "portal-screenshots/editorial-${WIDTH}.png"
+          done
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
