@@ -41,6 +41,8 @@ const ROLE_DEFS = [
     name: "Pastor / cuidado",
     description: "Casos atribuídos; leituras sensíveis auditadas",
   },
+  { code: "EDITOR_SITE", name: "Editor do site", description: "Edita rascunhos e imagens institucionais; não publica" },
+  { code: "PUBLICADOR_SITE", name: "Publicador do site", description: "Edita, revisa e publica páginas institucionais" },
   {
     code: "TESOURARIA",
     name: "Tesouraria",
