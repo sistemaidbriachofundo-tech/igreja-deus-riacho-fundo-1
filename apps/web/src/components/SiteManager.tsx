@@ -7,13 +7,14 @@ import { defaultSiteLayout, parseSiteLayout, sectionNames, siteMediaLibrary, sit
 import { withBasePath } from "../lib/paths";
 import s from "./site-manager.module.css";
 import { ViviEditorialAssistant, type ViviField } from "./ViviEditorialAssistant";
+import { SiteTeamManager } from "./SiteTeamManager";
 
-type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi";
+type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi"|"equipe";
 type Revision = {id:string;date:string;actorUserId:string|null;note:string|null};
 type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|null;publishedAt:string|null;revisions:Revision[]};
 const tabs: {key:Tab;label:string}[] = [
   {key:"conteudo",label:"Textos"},{key:"imagens",label:"Fotos"},{key:"aparencia",label:"Cores"},
-  {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},{key:"vivi",label:"Vivi IA"},
+  {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},{key:"vivi",label:"Vivi IA"},{key:"equipe",label:"Equipe"},
 ];
 const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
 
@@ -188,7 +189,7 @@ export function SiteManager() {
         <div className={s.columns}>
           <section className={s.editor} aria-label="Controles de edição">
             <div className={s.tabs} role="group" aria-label="Ferramentas do editor">
-              {tabs.map(item=><button type="button" key={item.key} className={tab===item.key?s.activeTab:s.tab} aria-pressed={tab===item.key} onClick={()=>setTab(item.key)}>{item.label}</button>)}
+              {tabs.filter(item=>item.key!=="equipe"||roles.includes("PLATFORM_ADMIN")).map(item=><button type="button" key={item.key} className={tab===item.key?s.activeTab:s.tab} aria-pressed={tab===item.key} onClick={()=>setTab(item.key)}>{item.label}</button>)}
             </div>
             {tab==="conteudo"&&<div className={s.controls}>
               <h2>Textos da página</h2><p>Escreva normalmente; a prévia mostra as mudanças antes da publicação.</p>
@@ -235,6 +236,7 @@ export function SiteManager() {
                 </div></li>)}</ol>
             </div>}
             {tab==="vivi"&&<div className={s.controls}><ViviEditorialAssistant token={token} onApply={applyViviSuggestion}/></div>}
+            {tab==="equipe"&&roles.includes("PLATFORM_ADMIN")&&<div className={s.controls}><SiteTeamManager token={token}/></div>}
             {tab==="historico"&&<div className={s.controls}>
               <h2>Histórico de publicações</h2><p>Restaure uma versão ao rascunho. Nada é substituído no site sem nova publicação.</p>
               {!revisions.length&&<p>Nenhuma versão publicada no histórico.</p>}
