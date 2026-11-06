@@ -111,7 +111,7 @@
 .footnote{display:flex;align-items:center;gap:8px;margin-top:20px;color:#71827d;font:500 10px/1.5 Inter,sans-serif}
 .footnote svg{flex:none;color:#ac883e}
 .dashboard :is(a):focus-visible{outline:3px solid #d59a33;outline-offset:4px}
-@media(max-width:1480px){
+@media(max-width:1370px){
   .middleGrid{grid-template-columns:minmax(0,1.13fr) minmax(0,1fr)}
   .middleGrid>.panel:last-child{grid-column:span 2}
   .alertList{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
