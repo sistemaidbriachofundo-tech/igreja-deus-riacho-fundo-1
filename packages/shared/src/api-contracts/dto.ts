@@ -329,6 +329,7 @@ export interface ViviStatusResponse {
   provider: "manus" | "gemini" | "mock";
   model: string;
   manusUrlConfigured: boolean;
+  manusKeyConfigured: boolean;
   geminiKeyConfigured: boolean;
   lgpdNotice: string;
   notes: string[];
