@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
-import { apiLogin, clearToken, getApiBaseUrl, loadStoredToken, storeToken } from "../lib/api";
+import { apiGet, apiLogin, clearToken, getApiBaseUrl, loadStoredToken, storeToken } from "../lib/api";
 import { defaultSiteLayout, parseSiteLayout, sectionNames, siteMediaLibrary, siteSections, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
 import { withBasePath } from "../lib/paths";
 import s from "./site-manager.module.css";
@@ -35,6 +35,7 @@ async function siteRequest<T>(token:string,path:string,method:"GET"|"PATCH"|"POS
 
 export function SiteManager() {
   const [token,setToken]=useState<string|null>(null);
+  const [roles,setRoles]=useState<string[]>([]);
   const [checking,setChecking]=useState(true),[busy,setBusy]=useState(false);
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
   const [tab,setTab]=useState<Tab>("conteudo"),[previewDevice,setPreviewDevice]=useState<"desktop"|"mobile">("desktop");
@@ -48,7 +49,11 @@ export function SiteManager() {
 
   const configured=Boolean(process.env.NEXT_PUBLIC_API_URL);
   const refresh=useCallback(async(t:string)=>{
-    const result=await siteRequest<State>(t,"/cms/site-layout");
+    const [result,me]=await Promise.all([
+      siteRequest<State>(t,"/cms/site-layout"),
+      apiGet<{grants:Array<{roleCode:string}>}>("/auth/me",t),
+    ]);
+    setRoles(me.grants.map(g=>g.roleCode));
     const config=parseSiteLayout(result.draft);
     if(!config)throw new Error("A configuração recebida não é válida.");
     setLayout(config);
@@ -106,7 +111,7 @@ export function SiteManager() {
     const hidden=layout.hidden.includes(key)?layout.hidden.filter(x=>x!==key):[...layout.hidden,key];
     update({...layout,hidden});
   }
-  function logout(){clearToken();setToken(null);setPassword("");setError("");setNotice("");}
+  function logout(){clearToken();setToken(null);setRoles([]);setPassword("");setError("");setNotice("");}
   async function login(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setError("");
     try{
@@ -131,8 +136,9 @@ export function SiteManager() {
       setNotice("Rascunho salvo no banco. A página pública não foi alterada.");
     });
   }
+  const canPublish=roles.some(r=>["SITE_PUBLISHER","SECRETARIA","PASTOR","PLATFORM_ADMIN"].includes(r));
   function publish(){
-    if(!token||dirty||!draftUpdatedAt)return;
+    if(!canPublish||!token||dirty||!draftUpdatedAt)return;
     if(!window.confirm("Publicar a versão salva da Home? Esta ação atualiza a configuração aprovada do site."))return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/publish","POST",{expectedUpdatedAt:draftUpdatedAt});
@@ -174,7 +180,8 @@ export function SiteManager() {
           <div className={s.actions}>
             <button type="button" disabled={busy} className={s.lightButton} onClick={()=>void work(async()=>{await refresh(token);setNotice("Última versão salva carregada.");})}>Recarregar</button>
             <button type="button" disabled={busy||!dirty} className={s.saveButton} onClick={save}>Salvar rascunho</button>
-            <button type="button" disabled={busy||dirty||!draftUpdatedAt} className={s.publishButton} onClick={publish}>Publicar Home</button>
+            <button type="button" disabled={busy||dirty||!draftUpdatedAt||!canPublish} title={!canPublish?"Seu perfil edita rascunhos, mas somente um publicador pode aprovar a Home.":undefined} className={s.publishButton} onClick={publish}>Publicar Home</button>
+            {!canPublish&&<span className={s.mutedLabel}>Publicação reservada a um responsável</span>}
             <button type="button" className={s.logout} onClick={logout}>Sair</button>
           </div>
         </div>
