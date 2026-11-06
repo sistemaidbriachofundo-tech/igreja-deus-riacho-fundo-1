@@ -8,6 +8,7 @@ const read = (relative: string) => readFileSync(join(__dirname, relative), "utf8
 const demo = read("../app/app/demo/page.tsx");
 const home = read("../app/page.tsx");
 const portal = read("../components/PublicPortal.tsx");
+const mobileMenu = read("../components/MobilePortalMenu.tsx");
 const overview = read("../app/app/page.tsx");
 
 describe("F2: descoberta e separação entre demonstração e produção", () => {
@@ -15,7 +16,7 @@ describe("F2: descoberta e separação entre demonstração e produção", () =>
     expect(home).toContain("<PublicPage>");
     expect(home).not.toContain('href="/app/membros/"');
     expect(portal).toContain('href="/app/"');
-    expect(portal).toContain("Área interna (demonstração)");
+    expect(mobileMenu).toContain("Área interna (demonstração)");
     expect(overview).toContain("<ChurchDashboard />");
   });
   it("deixa claro que os perfis ilustrativos não autenticam", () => {
