@@ -18,7 +18,7 @@
     "@nestjs/common": "^11.0.12",
     "@nestjs/core": "^11.0.12",
     "@nestjs/platform-express": "^11.0.12",
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "^7.10.1",
     "@vercel/blob": "^2.8.2",
     "argon2": "^0.45.2",
     "class-transformer": "^0.5.1",
