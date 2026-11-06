@@ -456,10 +456,17 @@ components:
       required: [assistant, provider, model, manusUrlConfigured, geminiKeyConfigured, lgpdNotice, notes]
       properties:
         assistant: { type: string, enum: [vivi] }
-        provider: { type: string, enum: [manus, gemini, mock] }
+        provider: { type: string, enum: [manus, gemini, mock], description: Provider efetivo (mock se sem credenciais) }
+        requestedProvider: { type: string, enum: [manus, gemini, mock] }
         model: { type: string }
         manusUrlConfigured: { type: boolean }
+        manusKeyConfigured: { type: boolean }
         geminiKeyConfigured: { type: boolean }
+        credentialsReady: { type: boolean }
+        usingMockFallback: { type: boolean }
+        configWarnings:
+          type: array
+          items: { type: string }
         lgpdNotice: { type: string }
         notes:
           type: array

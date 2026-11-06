@@ -326,11 +326,18 @@ export interface ViviChatResponse {
 
 export interface ViviStatusResponse {
   assistant: "vivi";
+  /** Provider efetivo (mock se credenciais ausentes). */
   provider: "manus" | "gemini" | "mock";
+  /** Provider pedido via VIVI_PROVIDER / auto-resolve (antes do fallback). */
+  requestedProvider?: "manus" | "gemini" | "mock";
   model: string;
   manusUrlConfigured: boolean;
   manusKeyConfigured: boolean;
   geminiKeyConfigured: boolean;
+  /** true quando há credenciais para LLM real. */
+  credentialsReady?: boolean;
+  usingMockFallback?: boolean;
+  configWarnings?: string[];
   lgpdNotice: string;
   notes: string[];
 }

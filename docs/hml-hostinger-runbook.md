@@ -14,7 +14,8 @@ Complementa: `docs/hml-runbook.md` (loopback local) · plano: store `docs/backen
 | Imagem / migrate-on-boot | `Dockerfile.api` (`prisma migrate deploy`; seed se `SEED_ON_BOOT=1`) |
 | Secrets | `.env.hml.example` → `.env.hml` · `deploy/hml/secrets-checklist.md` |
 | TLS reverse proxy | `deploy/hml/nginx/*.template` **ou** `deploy/hml/caddy/*.template` |
-| Bootstrap / smoke | `scripts/hml/bootstrap-hml.sh` · `scripts/hml/smoke-hml.sh` |
+| Bootstrap / smoke | `scripts/hml/bootstrap-hml.sh` · `scripts/smoke-hml.sh` · `scripts/smoke-vivi.sh` (legado: `scripts/hml/smoke-hml.sh`) |
+| Go-live único | `docs/go-live-hml-vivi.md` |
 | Render templates | `scripts/hml/render-proxy-templates.sh` |
 
 Bind HML: **somente** `127.0.0.1:3001` (API) e `127.0.0.1:5432` (Postgres). Exposição pública = reverse proxy HTTPS autorizado.
@@ -63,7 +64,8 @@ export HML_API_HOSTNAME=api-hml.SEU_DOMINIO
 export CORS_ORIGIN=https://FE_HML_ORIGIN
 ./scripts/hml/bootstrap-hml.sh --dry-run   # valida
 ./scripts/hml/bootstrap-hml.sh             # up -d --build + health
-./scripts/hml/smoke-hml.sh                 # health, meta, login, public/home
+./scripts/smoke-hml.sh                     # health, meta, public/home (+ login)
+./scripts/smoke-vivi.sh                    # /vivi/status + chat mock/consent
 ```
 
 Migrate-on-boot: o `CMD` de `Dockerfile.api` sempre roda  

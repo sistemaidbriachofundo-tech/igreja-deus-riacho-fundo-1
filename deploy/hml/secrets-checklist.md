@@ -16,9 +16,22 @@
 | Variável | Regra |
 |----------|-------|
 | `SEED_ON_BOOT` | `1` só no **primeiro** boot HML (dados fictícios); depois `0`/`unset` |
+| `HML_API_HOSTNAME` | hostname API para render proxy / DNS |
 | `HML_PUBLIC_API_URL` | HTTPS público após TLS — ecoado em `GET /meta` |
+| `HML_BASE_URL` | alvo `scripts/smoke-hml.sh` / `scripts/smoke-vivi.sh` |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | defaults 30 / 60000 ok para HML |
 | `STORAGE_ROOT` | volume Docker `/var/lib/idbrf/private-storage` (já no compose) |
+
+## Vivi (HML live)
+
+| Variável | Regra |
+|----------|-------|
+| `VIVI_PROVIDER` | `manus` preferido; `mock` só se IA desligada de propósito |
+| `MANUS_FORGE_URL` + `MANUS_API_KEY` | **precisa usuário** — aliases `BUILT_IN_FORGE_*` |
+| `GEMINI_API_KEY` + `GEMINI_MODEL` | opcional se Manus ok; default model `gemini-2.5-flash-lite` |
+| `VIVI_PUBLIC_RATE_MAX` / `VIVI_AUDIT` | defaults 8 / 1 |
+
+`NODE_ENV=production` + `VIVI_PROVIDER=manus|gemini` **sem** key → boot **falha** (não sobe mock silencioso). Ver `docs/go-live-hml-vivi.md`.
 
 ## Host / TLS (fora do `.env.hml`)
 

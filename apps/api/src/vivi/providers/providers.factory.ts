@@ -7,10 +7,16 @@ export type ViviProviderMode = "manus" | "gemini" | "mock";
 
 export type ResolvedViviProviderConfig = {
   mode: ViviProviderMode;
+  /** Provider efetivo após fallback (mock se credenciais ausentes). */
+  effectiveProvider: ViviProviderMode;
   model: string;
   manusUrlConfigured: boolean;
   manusKeyConfigured: boolean;
   geminiKeyConfigured: boolean;
+  /** true quando o provider escolhido tem credenciais para chamar LLM real. */
+  credentialsReady: boolean;
+  usingMockFallback: boolean;
+  configWarnings: string[];
 };
 
 function env(name: string): string {
@@ -61,8 +67,104 @@ export function resolveViviProviderMode(): ViviProviderMode {
   return "mock";
 }
 
-export function describeViviProviderConfig(): ResolvedViviProviderConfig {
+/**
+ * Valida env do provider Vivi e devolve avisos claros.
+ * Em production, `assertViviProviderConfigForBoot` falha se VIVI_PROVIDER
+ * explícito manus/gemini estiver sem key (evita HML “live” em mock silencioso).
+ */
+export function validateViviProviderConfig(): {
+  mode: ViviProviderMode;
+  effectiveProvider: ViviProviderMode;
+  credentialsReady: boolean;
+  usingMockFallback: boolean;
+  configWarnings: string[];
+} {
   const mode = resolveViviProviderMode();
+  const explicit = env("VIVI_PROVIDER").toLowerCase();
+  const manusUrl = resolveManusForgeUrl();
+  const manusKey = resolveManusApiKey();
+  const geminiKey = resolveGeminiApiKey();
+  const warnings: string[] = [];
+
+  let credentialsReady = false;
+  let usingMockFallback = false;
+
+  if (mode === "manus") {
+    if (manusUrl && manusKey) {
+      credentialsReady = true;
+    } else {
+      usingMockFallback = true;
+      const label = explicit === "manus" ? "VIVI_PROVIDER=manus" : "provider manus";
+      if (!manusUrl) {
+        warnings.push(
+          `${label} sem MANUS_FORGE_URL (ou BUILT_IN_FORGE_API_URL) — usando mock`,
+        );
+      }
+      if (!manusKey) {
+        warnings.push(
+          `${label} sem MANUS_API_KEY (ou BUILT_IN_FORGE_API_KEY) — usando mock`,
+        );
+      }
+    }
+  } else if (mode === "gemini") {
+    if (geminiKey) {
+      credentialsReady = true;
+    } else {
+      usingMockFallback = true;
+      warnings.push(
+        "VIVI_PROVIDER=gemini sem GEMINI_API_KEY — usando mock",
+      );
+    }
+  } else if (!manusUrl && !manusKey && !geminiKey) {
+    warnings.push(
+      "Vivi em mock (sem MANUS_* / GEMINI_API_KEY). OK em DEV; HML live exige credenciais.",
+    );
+  }
+
+  const effectiveProvider: ViviProviderMode =
+    credentialsReady ? mode : "mock";
+
+  return {
+    mode,
+    effectiveProvider,
+    credentialsReady,
+    usingMockFallback: !credentialsReady,
+    configWarnings: warnings,
+  };
+}
+
+/**
+ * Fail-fast no boot HML/PRD quando provider explícito não tem key.
+ * DEV/test: só registra avisos (não throw).
+ */
+export function assertViviProviderConfigForBoot(
+  nodeEnv: string | undefined = process.env.NODE_ENV,
+): void {
+  const validation = validateViviProviderConfig();
+  const isProd = (nodeEnv ?? "").trim() === "production";
+  const explicit = env("VIVI_PROVIDER").toLowerCase();
+
+  for (const w of validation.configWarnings) {
+    // eslint-disable-next-line no-console
+    console.warn(`[vivi] ${w}`);
+  }
+
+  if (
+    isProd &&
+    (explicit === "manus" || explicit === "gemini") &&
+    !validation.credentialsReady
+  ) {
+    throw new Error(
+      `Vivi misconfig: VIVI_PROVIDER=${explicit} sem credenciais em NODE_ENV=production. ` +
+        `Configure MANUS_FORGE_URL+MANUS_API_KEY ou GEMINI_API_KEY, ou use VIVI_PROVIDER=mock. ` +
+        validation.configWarnings.join(" | "),
+    );
+  }
+}
+
+export function describeViviProviderConfig(): ResolvedViviProviderConfig {
+  const validation = validateViviProviderConfig();
+  const mode = validation.mode;
   const model =
     mode === "gemini"
       ? resolveGeminiModel()
@@ -72,10 +174,16 @@ export function describeViviProviderConfig(): ResolvedViviProviderConfig {
 
   return {
     mode,
-    model,
+    effectiveProvider: validation.effectiveProvider,
+    model: validation.usingMockFallback && mode !== "mock"
+      ? `mock-${mode}-fallback`
+      : model,
     manusUrlConfigured: Boolean(resolveManusForgeUrl()),
     manusKeyConfigured: Boolean(resolveManusApiKey()),
     geminiKeyConfigured: Boolean(resolveGeminiApiKey()),
+    credentialsReady: validation.credentialsReady,
+    usingMockFallback: validation.usingMockFallback,
+    configWarnings: validation.configWarnings,
   };
 }
 
