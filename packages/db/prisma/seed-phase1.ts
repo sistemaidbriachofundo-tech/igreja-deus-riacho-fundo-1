@@ -62,11 +62,11 @@ export async function seedPhase1Mass(
     });
     if (!active && !pending) continue;
     const phase = idx % 3;
-    const status = active ? "APPROVED" :
+    const status: "APPROVED" | "AWAITING_DOCUMENTS" | "AWAITING_SECRETARIA" | "AWAITING_PASTOR" = active ? "APPROVED" :
       phase === 0 ? "AWAITING_DOCUMENTS" :
       phase === 1 ? "AWAITING_SECRETARIA" : "AWAITING_PASTOR";
-    const currentStep = active ? "pastor" : phase === 0 ? "documents" : phase === 1 ? "secretaria" : "pastor";
-    const modality = idx % 4 === 0 ? "TRANSFERENCIA" : idx % 4 === 1 ? "RECONCILIACAO" : "BATISMO";
+    const currentStep: "pastor" | "documents" | "secretaria" = active ? "pastor" : phase === 0 ? "documents" : phase === 1 ? "secretaria" : "pastor";
+    const modality: "BATISMO" | "TRANSFERENCIA" | "RECONCILIACAO" = idx % 4 === 0 ? "TRANSFERENCIA" : idx % 4 === 1 ? "RECONCILIACAO" : "BATISMO";
     await prisma.admissionProtocol.upsert({
       where: { id: "hml-f1-admissao-"+serial },
       update: {},
