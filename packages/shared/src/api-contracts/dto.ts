@@ -21,6 +21,9 @@ export interface AuthUserDto {
   personId: string;
   email: string;
   grants: AuthGrant[];
+  /** Contexto ativo F6 — default RF1 quando grant cobre. Presente desde 0.6.0-f6. */
+  organizationId?: string | null;
+  churchId?: string | null;
 }
 
 export interface LoginRequest {
@@ -303,6 +306,50 @@ export interface AuditLogEntryDto {
 }
 
 export interface AuditLogsResponse {
-  churchId: string;
+  /** Null quando PLATFORM_ADMIN lista escopo org-wide. */
+  churchId: string | null;
+  organizationId?: string;
+  scope?: "church" | "organization";
   logs: AuditLogEntryDto[];
+}
+
+export interface ChurchSummaryDto {
+  id: string;
+  organizationId: string;
+  slug: string;
+  name: string;
+  isPilotDefault: boolean;
+}
+
+export interface ChurchesListResponse {
+  organizationId: string;
+  defaultChurchId: string;
+  churches: ChurchSummaryDto[];
+}
+
+export interface SwitchChurchRequest {
+  churchId: string;
+}
+
+export interface IndicatorsSummaryDto {
+  stub: true;
+  organizationId: string;
+  churchId: string | null;
+  scope: "church" | "organization";
+  generatedAt: string;
+  counts: {
+    membershipsActive: number;
+    membershipsPending: number;
+    admissionsOpen: number;
+    transfersOpen: number;
+    pastoralOpen: number;
+  };
+}
+
+export interface IndicatorsMembershipDto {
+  stub: true;
+  organizationId: string;
+  churchId: string;
+  generatedAt: string;
+  byStatus: Record<string, number>;
 }

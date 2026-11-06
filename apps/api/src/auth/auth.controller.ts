@@ -16,6 +16,12 @@ class LoginBody {
   password!: string;
 }
 
+class SwitchChurchBody {
+  @IsString()
+  @MinLength(1)
+  churchId!: string;
+}
+
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -29,10 +35,28 @@ export class AuthController {
     });
   }
 
-  /** Quem sou eu — exige JWT. */
+  /** Quem sou eu — exige JWT (inclui claims organizationId/churchId). */
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
     return user;
+  }
+
+  /**
+   * Refresh mobile-ready: revalida grants no DB e reemite access token
+   * preservando congregação ativa quando ainda coberta.
+   */
+  @Post("refresh")
+  refresh(@CurrentUser() user: AuthUser) {
+    return this.authService.refresh(user);
+  }
+
+  /**
+   * Troca congregação ativa no JWT (F6).
+   * Exige grant que cubra `churchId`. Produto default continua RF1.
+   */
+  @Post("switch-church")
+  switchChurch(@CurrentUser() user: AuthUser, @Body() body: SwitchChurchBody) {
+    return this.authService.switchChurch(user, body.churchId);
   }
 
   /**
@@ -46,6 +70,8 @@ export class AuthController {
       ok: true,
       personId: user.personId,
       roles: user.grants.map((g) => g.roleCode),
+      organizationId: user.organizationId,
+      churchId: user.churchId,
     };
   }
 }
