@@ -225,7 +225,7 @@ function verifyJwt(token: string, secret: string): JwtPayload & { exp?: number; 
   if (!Number.isSafeInteger(payload.exp) || payload.exp! <= now) {
     throw new Error("JWT expirado ou sem expiração");
   }
-  if (!Number.isSafeInteger(payload.iat) || payload.iat > now + 60) {
+  if (typeof payload.iat !== "number" || !Number.isSafeInteger(payload.iat) || payload.iat > now + 60) {
     throw new Error("JWT com emissão inválida");
   }
   if (
