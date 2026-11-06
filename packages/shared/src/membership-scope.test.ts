@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { ROLE_CODES } from "./rbac";
 import {
   canAccessCredentialPdf,
+  canAccessFinance,
   canAdministerMinistries,
   canManageMemberships,
   canManageOidcConfig,
@@ -193,6 +194,48 @@ describe("membership scope", () => {
           },
         ],
         { organizationId: org },
+      ),
+      false,
+    );
+  });
+
+  it("allows only TESOURARIA for finance", () => {
+    assert.equal(
+      canAccessFinance(
+        [
+          {
+            roleCode: ROLE_CODES.TESOURARIA,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org, churchId: church },
+      ),
+      true,
+    );
+    assert.equal(
+      canAccessFinance(
+        [
+          {
+            roleCode: ROLE_CODES.PLATFORM_ADMIN,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org, churchId: church },
+      ),
+      false,
+    );
+    assert.equal(
+      canAccessFinance(
+        [
+          {
+            roleCode: ROLE_CODES.SECRETARIA,
+            organizationId: org,
+            churchId: church,
+          },
+        ],
+        { organizationId: org, churchId: church },
       ),
       false,
     );

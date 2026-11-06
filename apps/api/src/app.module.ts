@@ -14,6 +14,7 @@ import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware
 import { CmsModule } from "./cms/cms.module";
 import { DiscipleshipModule } from "./discipleship/discipleship.module";
 import { EventsModule } from "./events/events.module";
+import { FinanceModule } from "./finance/finance.module";
 import { GroupsModule } from "./groups/groups.module";
 import { HealthController } from "./health.controller";
 import { HealthService } from "./health.service";
@@ -51,6 +52,7 @@ import { VolunteersModule } from "./volunteers/volunteers.module";
     GroupsModule,
     MinistriesModule,
     EventsModule,
+    FinanceModule,
     CmsModule,
     VolunteersModule,
     PublicPortalModule,

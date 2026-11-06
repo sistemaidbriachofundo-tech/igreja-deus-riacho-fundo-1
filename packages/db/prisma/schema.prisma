@@ -88,6 +88,10 @@ model Organization {
   cmsContents    CmsContent[]
   volunteerInterests VolunteerInterest[]
   oidcProviders  OidcProviderConfig[]
+  ledgerAccounts LedgerAccount[]
+  ledgerEntries  LedgerEntry[]
+  bankImportBatches BankImportBatch[]
+  reconciliations Reconciliation[]
 
   @@map("organizations")
 }
@@ -119,6 +123,10 @@ model Church {
   portalEvents  PortalEvent[]
   cmsContents   CmsContent[]
   volunteerInterests VolunteerInterest[]
+  ledgerAccounts LedgerAccount[]
+  ledgerEntries  LedgerEntry[]
+  bankImportBatches BankImportBatch[]
+  reconciliations Reconciliation[]
 
   @@unique([organizationId, slug])
   @@map("churches")
@@ -205,6 +213,13 @@ model User {
   pastoralCreated   PastoralCase[]     @relation("PastoralCreator")
   pastoralAssigned  PastoralCase[]     @relation("PastoralAssignee")
   mfaFactors        UserMfaFactor[]
+  ledgerEntriesCreated LedgerEntry[]   @relation("LedgerEntryCreator")
+  ledgerEntriesFirstApproved LedgerEntry[] @relation("LedgerEntryFirstApprover")
+  ledgerEntriesSecondApproved LedgerEntry[] @relation("LedgerEntrySecondApprover")
+  bankImportsCreated BankImportBatch[] @relation("BankImportCreator")
+  reconciliationsCreated Reconciliation[] @relation("ReconciliationCreator")
+  reconciliationsFirstApproved Reconciliation[] @relation("ReconciliationFirstApprover")
+  reconciliationsSecondApproved Reconciliation[] @relation("ReconciliationSecondApprover")
 
   @@map("users")
 }
@@ -959,4 +974,213 @@ model OidcProviderConfig {
 
   @@unique([organizationId])
   @@map("oidc_provider_configs")
+}
+
+// —— F4 financeiro (núcleo ledger) — dados sintéticos apenas ——
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum LedgerEntryStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  REVERSED
+}
+
+enum LedgerLineSide {
+  DEBIT
+  CREDIT
+}
+
+enum BankImportFormat {
+  CSV
+  OFX
+  PDF_META
+}
+
+enum BankImportStatus {
+  RECEIVED
+  PARSED_STUB
+  FAILED
+}
+
+enum BankLineMatchStatus {
+  UNMATCHED
+  SUGGESTED
+  MATCHED
+  IGNORED
+}
+
+enum ReconciliationStatus {
+  OPEN
+  PENDING_APPROVAL
+  APPROVED
+  CLOSED
+}
+
+/// Plano de contas por congregação (church-scoped).
+model LedgerAccount {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  churchId       String            @map("church_id")
+  code           String
+  name           String
+  type           LedgerAccountType
+  parentId       String?           @map("parent_id")
+  costCenter     String?           @map("cost_center")
+  active         Boolean           @default(true)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  church       Church            @relation(fields: [churchId], references: [id])
+  parent       LedgerAccount?    @relation("LedgerAccountTree", fields: [parentId], references: [id])
+  children     LedgerAccount[]   @relation("LedgerAccountTree")
+  lines        LedgerEntryLine[]
+
+  @@unique([churchId, code])
+  @@index([organizationId, churchId])
+  @@index([churchId, type, active])
+  @@map("ledger_accounts")
+}
+
+/// Lançamento contábil (cabeçalho) — partidas dobradas via linhas.
+model LedgerEntry {
+  id                     String            @id @default(cuid())
+  organizationId         String            @map("organization_id")
+  churchId               String            @map("church_id")
+  entryDate              DateTime          @map("entry_date") @db.Date
+  description            String
+  status                 LedgerEntryStatus @default(DRAFT)
+  /// Soma dos débitos (deve igualar créditos) — centavos BRL sintéticos.
+  amountCents            Int               @map("amount_cents")
+  createdByUserId        String            @map("created_by_user_id")
+  submittedAt            DateTime?         @map("submitted_at")
+  firstApprovedByUserId  String?           @map("first_approved_by_user_id")
+  firstApprovedAt        DateTime?         @map("first_approved_at")
+  secondApprovedByUserId String?           @map("second_approved_by_user_id")
+  secondApprovedAt       DateTime?         @map("second_approved_at")
+  rejectedByUserId       String?           @map("rejected_by_user_id")
+  rejectedAt             DateTime?         @map("rejected_at")
+  rejectionReason        String?           @map("rejection_reason")
+  reversalOfEntryId      String?           @unique @map("reversal_of_entry_id")
+  importBatchId          String?           @map("import_batch_id")
+  reconciliationId       String?           @map("reconciliation_id")
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+
+  organization  Organization     @relation(fields: [organizationId], references: [id])
+  church        Church           @relation(fields: [churchId], references: [id])
+  createdBy     User             @relation("LedgerEntryCreator", fields: [createdByUserId], references: [id])
+  firstApprover User?            @relation("LedgerEntryFirstApprover", fields: [firstApprovedByUserId], references: [id])
+  secondApprover User?           @relation("LedgerEntrySecondApprover", fields: [secondApprovedByUserId], references: [id])
+  reversalOf    LedgerEntry?     @relation("LedgerEntryReversal", fields: [reversalOfEntryId], references: [id])
+  reversedBy    LedgerEntry?     @relation("LedgerEntryReversal")
+  importBatch   BankImportBatch? @relation(fields: [importBatchId], references: [id])
+  reconciliation Reconciliation? @relation(fields: [reconciliationId], references: [id])
+  lines         LedgerEntryLine[]
+  matchedBankLines BankStatementLine[]
+
+  @@index([organizationId, churchId, status])
+  @@index([churchId, entryDate])
+  @@index([importBatchId])
+  @@index([reconciliationId])
+  @@map("ledger_entries")
+}
+
+model LedgerEntryLine {
+  id          String         @id @default(cuid())
+  entryId     String         @map("entry_id")
+  accountId   String         @map("account_id")
+  side        LedgerLineSide
+  amountCents Int            @map("amount_cents")
+  memo        String?
+
+  entry   LedgerEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account LedgerAccount @relation(fields: [accountId], references: [id])
+
+  @@index([entryId])
+  @@index([accountId])
+  @@map("ledger_entry_lines")
+}
+
+/// Importação CSV/OFX — stub (sem parser OFX real; CSV sintético opcional).
+model BankImportBatch {
+  id              String           @id @default(cuid())
+  organizationId  String           @map("organization_id")
+  churchId        String           @map("church_id")
+  format          BankImportFormat
+  status          BankImportStatus @default(RECEIVED)
+  filename        String
+  stubNote        String?          @map("stub_note")
+  lineCount       Int              @default(0) @map("line_count")
+  createdByUserId String           @map("created_by_user_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  church       Church              @relation(fields: [churchId], references: [id])
+  createdBy    User                @relation("BankImportCreator", fields: [createdByUserId], references: [id])
+  lines        BankStatementLine[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([organizationId, churchId, status])
+  @@map("bank_import_batches")
+}
+
+model BankStatementLine {
+  id             String              @id @default(cuid())
+  batchId        String              @map("batch_id")
+  postedAt       DateTime            @map("posted_at")
+  amountCents    Int                 @map("amount_cents")
+  description    String
+  externalRef    String?             @map("external_ref")
+  matchStatus    BankLineMatchStatus @default(UNMATCHED)
+  matchedEntryId String?             @map("matched_entry_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  batch        BankImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  matchedEntry LedgerEntry?    @relation(fields: [matchedEntryId], references: [id])
+
+  @@index([batchId, matchStatus])
+  @@index([matchedEntryId])
+  @@map("bank_statement_lines")
+}
+
+/// Conciliação periódica com stub de dupla aprovação.
+model Reconciliation {
+  id                     String               @id @default(cuid())
+  organizationId         String               @map("organization_id")
+  churchId               String               @map("church_id")
+  title                  String
+  periodStart            DateTime             @map("period_start") @db.Date
+  periodEnd              DateTime             @map("period_end") @db.Date
+  status                 ReconciliationStatus @default(OPEN)
+  notes                  String?
+  createdByUserId        String               @map("created_by_user_id")
+  firstApprovedByUserId  String?              @map("first_approved_by_user_id")
+  firstApprovedAt        DateTime?            @map("first_approved_at")
+  secondApprovedByUserId String?              @map("second_approved_by_user_id")
+  secondApprovedAt       DateTime?            @map("second_approved_at")
+  closedAt               DateTime?            @map("closed_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  church         Church        @relation(fields: [churchId], references: [id])
+  createdBy      User          @relation("ReconciliationCreator", fields: [createdByUserId], references: [id])
+  firstApprover  User?         @relation("ReconciliationFirstApprover", fields: [firstApprovedByUserId], references: [id])
+  secondApprover User?         @relation("ReconciliationSecondApprover", fields: [secondApprovedByUserId], references: [id])
+  entries        LedgerEntry[]
+
+  @@index([organizationId, churchId, status])
+  @@index([churchId, periodStart, periodEnd])
+  @@map("reconciliations")
 }
