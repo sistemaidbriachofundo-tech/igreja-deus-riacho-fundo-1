@@ -29,8 +29,8 @@ describe("portal v3+ — camadas de experiência", () => {
     const html = renderToStaticMarkup(<PortalFaithGallery />);
     expect(html).toContain("A fé tem muitas formas");
     expect(html).toContain('id="galeria"');
-    expect(html.match(/role="img"/g)).toHaveLength(4);
-    expect(html).toContain("retratos-fe-v10.avif");
+    expect(html.match(/<img /g)).toHaveLength(4);
+    for (const image of ["galeria-louvor.webp", "galeria-juventude.webp", "galeria-oracao.webp", "galeria-palavra.webp"]) expect(html).toContain(image);
     for (const name of ["Louvor", "Juventude", "Oração", "Palavra"]) expect(html).toContain(name);
     expect(html).toContain("Imagens ilustrativas");
     expect(html).not.toContain("evento confirmado em 2026");
