@@ -6,6 +6,6 @@ export default function VisaoGeralPage() {
 }
 
 export const metadata: Metadata = {
-  title: "ID Riacho 1 — Área Administrativa",
+  title: "Área Administrativa",
   description: "Painel de gestão de pessoas, ministérios, conteúdo e processos — Igreja de Deus Riacho Fundo I.",
 };
