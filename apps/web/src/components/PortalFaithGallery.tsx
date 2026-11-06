@@ -10,33 +10,6 @@ import s from "./portal-faith-gallery.module.css";
  * Cada fotografia foi otimizada em WebP e armazenada neste repositório.
  * O export estático não depende de servidores externos para exibi-las.
  */
-const moments = [
-  {
-    title: "Louvor",
-    subtitle: "Uma expressão de fé",
-    alt: "Ilustração de um homem cantando ao microfone, com uma das mãos erguidas e iluminação violeta.",
-    file: "/images/galeria-louvor.webp",
-  },
-  {
-    title: "Juventude",
-    subtitle: "Geração com propósito",
-    alt: "Ilustração de apresentação de dança de jovens em palco com iluminação roxa e a inscrição CONF2K26.",
-    file: "/images/galeria-juventude.webp",
-  },
-  {
-    title: "Oração",
-    subtitle: "Caminhar uns com os outros",
-    alt: "Ilustração de pessoas reunidas em oração, em atitude de acolhimento e intercessão.",
-    file: "/images/galeria-oracao.webp",
-  },
-  {
-    title: "Palavra",
-    subtitle: "Uma mensagem que inspira",
-    alt: "Ilustração de um homem com microfone, sorrindo e levantando o braço enquanto fala.",
-    file: "/images/galeria-palavra.webp",
-  },
-] as const;
-
 export function PortalFaithGallery() {
   const site = usePublishedSiteLayout();
   return (
