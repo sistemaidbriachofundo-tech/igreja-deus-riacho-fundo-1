@@ -66,7 +66,7 @@ describe("resolveJwtSecret", () => {
 
 describe("AuthService JWT helpers", () => {
   const prismaStub = {} as ConstructorParameters<typeof AuthService>[0];
-  const pilotStub = { getPilotChurch: jest.fn() } as ConstructorParameters<typeof AuthService>[1];
+  const pilotStub = { getPilotChurch: jest.fn() } as never;
   const service = new AuthService(prismaStub, pilotStub);
 
   beforeAll(() => {
