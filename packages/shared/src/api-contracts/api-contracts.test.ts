@@ -10,7 +10,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.0-das");
+    assert.equal(API_CONTRACT_VERSION, "0.7.1-vivi");
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -131,5 +131,8 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["GET /churches"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["GET /indicators/summary"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["GET /indicators/membership"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /vivi/status"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /public/vivi/chat"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /vivi/chat"], "implemented");
   });
 });

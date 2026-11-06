@@ -295,6 +295,45 @@ export interface MetaResponse {
   notes: string[];
 }
 
+/** Mensagem de chat da Vivi (FE → API). */
+export interface ViviChatMessageDto {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface ViviChatRequest {
+  messages: ViviChatMessageDto[];
+  /** Obrigatório em POST /public/vivi/chat (LGPD). */
+  consentAiProcessing?: boolean;
+  sessionId?: string | null;
+}
+
+export interface ViviChatUsageDto {
+  inputChars: number;
+  outputChars: number;
+  messageCount: number;
+  latencyMs: number;
+}
+
+export interface ViviChatResponse {
+  reply: string;
+  provider: "manus" | "gemini" | "mock";
+  model: string;
+  refused: boolean;
+  lgpdNotice: string;
+  usage: ViviChatUsageDto;
+}
+
+export interface ViviStatusResponse {
+  assistant: "vivi";
+  provider: "manus" | "gemini" | "mock";
+  model: string;
+  manusUrlConfigured: boolean;
+  geminiKeyConfigured: boolean;
+  lgpdNotice: string;
+  notes: string[];
+}
+
 export interface AuditLogEntryDto {
   id: string;
   action: string;

@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.0-das` | Contrato BE↔FE consolidado DAS (portal + PDF/MFA + F4 ledger + F5 canais + F6 multi-igreja) |
+| `f2-v0.2.yaml` | `0.7.1-vivi` | Contrato BE↔FE consolidado DAS + Vivi IA (Manus/Gemini gateway) |
 
 ## Como o FE consome
 

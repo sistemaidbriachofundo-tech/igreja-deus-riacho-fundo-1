@@ -26,6 +26,7 @@ export class MetaController {
         "Dados fictícios em DEV/HML",
         "HML_PUBLIC_API_URL só após autorização de publicação",
         "0.6.0-f6: multi-igreja BE (grants/switch/audit org-wide/indicadores stub); produto default RF1",
+        "0.7.1-vivi: assistente Vivi (Manus Forge default + Gemini opcional); chaves só no backend",
       ],
     };
   }

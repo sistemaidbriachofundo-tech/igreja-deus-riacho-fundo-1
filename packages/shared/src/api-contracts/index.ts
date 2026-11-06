@@ -55,6 +55,11 @@ export type {
   SwitchChurchRequest,
   IndicatorsSummaryDto,
   IndicatorsMembershipDto,
+  ViviChatMessageDto,
+  ViviChatRequest,
+  ViviChatUsageDto,
+  ViviChatResponse,
+  ViviStatusResponse,
 } from "./dto";
 
 /**
@@ -198,6 +203,9 @@ export const API_ENDPOINT_STATUS = {
   "GET /channels/outbox/:outboxId": "implemented",
   "POST /channels/outbox/:outboxId/dispatch": "implemented",
   "POST /channels/outbox/dispatch-pending": "implemented",
+  "GET /vivi/status": "implemented",
+  "POST /public/vivi/chat": "implemented",
+  "POST /vivi/chat": "implemented",
 } as const;
 
 export type ApiEndpointKey = keyof typeof API_ENDPOINT_STATUS;

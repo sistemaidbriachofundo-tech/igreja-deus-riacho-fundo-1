@@ -140,6 +140,11 @@ export {
   type MetaResponse,
   type AuditLogEntryDto,
   type AuditLogsResponse,
+  type ViviChatMessageDto,
+  type ViviChatRequest,
+  type ViviChatUsageDto,
+  type ViviChatResponse,
+  type ViviStatusResponse,
 } from "./api-contracts";
 
 export interface HealthStatus {
