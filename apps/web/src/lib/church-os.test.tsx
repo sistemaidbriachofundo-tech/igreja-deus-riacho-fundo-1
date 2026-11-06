@@ -46,7 +46,7 @@ describe("Church OS: renderização real de páginas", () => {
   });
   it("fornece comando de busca global, rotas e logomarca correta", () => {
     const html=renderToStaticMarkup(<AppShell active="visao" meta="Visão geral">Conteúdo</AppShell>);
-    expect(html).toContain("Buscar membros, módulos, eventos...");
+    expect(html).toContain("Buscar módulos e páginas...");
     expect(html).toContain("logo-igreja-aprovada.webp");
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
     expect(html).toContain('aria-label="Navegação principal no celular"');
