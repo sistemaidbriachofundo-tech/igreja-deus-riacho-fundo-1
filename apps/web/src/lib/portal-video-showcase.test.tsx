@@ -11,7 +11,7 @@ describe("V7 — identidade institucional e canal", () => {
     expect(html).toContain('target="_blank"');
     expect(html).not.toContain("<iframe");
     expect(html).not.toContain("youtube.com/embed/");
-    expect(html).toContain("IMAGEM");
+    expect(html).toContain("Fotografia ilustrativa");
   });
   it("conserva o menu de gestão e a marca comum no estúdio", () => {
     const html = renderToStaticMarkup(<AppShell active="editorial" meta="Estúdio editorial"><p>Editor</p></AppShell>);
