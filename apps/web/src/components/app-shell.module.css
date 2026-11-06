@@ -268,3 +268,7 @@
   .toolbarEyebrow{font-size:8px}
   .smallLogo{width:31px;height:31px}
 }
+
+/* Menus sempre acessíveis em janelas desktop de pouca altura. */
+.rail{overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#8d7854 #06342e}
+.brand,.railContext,.menu,.railBottom{flex-shrink:0}
