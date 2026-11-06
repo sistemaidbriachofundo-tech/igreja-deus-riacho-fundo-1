@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" fill="none" role="img" aria-label="Arte abstrata de pessoas conectadas">
+  <defs><linearGradient id="line" x1="200" y1="400" x2="1080" y2="100" gradientUnits="userSpaceOnUse"><stop stop-color="#D8AA60" stop-opacity="0"/><stop offset=".7" stop-color="#F4D89C" stop-opacity=".8"/><stop offset="1" stop-color="#F4D89C" stop-opacity=".15"/></linearGradient><radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(868 292) rotate(90) scale(310 320)" gradientUnits="userSpaceOnUse"><stop stop-color="#D9AE72" stop-opacity=".33"/><stop offset="1" stop-color="#D9AE72" stop-opacity="0"/></radialGradient><pattern id="dots" patternUnits="userSpaceOnUse" width="30" height="30"><circle cx="2" cy="2" r=".8" fill="#DFBC86" opacity=".18"/></pattern></defs>
+  <rect width="1200" height="600" fill="url(#dots)"/><ellipse cx="868" cy="292" rx="320" ry="310" fill="url(#glow)"/>
+  <g stroke="url(#line)" stroke-width="1.7"><circle cx="872" cy="296" r="210"/><circle cx="872" cy="296" r="154"/><circle cx="872" cy="296" r="104"/><circle cx="872" cy="296" r="63"/><path d="M613 296h520M872 36v520M676 115l390 363M1100 127L651 445"/></g>
+  <g fill="#F4D99D"><circle cx="872" cy="296" r="12"/><circle cx="719" cy="296" r="7"/><circle cx="985" cy="188" r="7"/><circle cx="1004" cy="433" r="7"/><circle cx="667" cy="296" r="5"/><circle cx="872" cy="91" r="5"/><circle cx="1121" cy="296" r="4"/></g>
+  <g stroke="#F4D99D" stroke-opacity=".43"><path d="M719 296l153-205 113 97 19 245-132-137-205 0"/><path d="M719 296l285 137 117-137"/></g>
+  <g fill="#F4D99D" fill-opacity=".34"><circle cx="719" cy="296" r="22"/><circle cx="985" cy="188" r="22"/><circle cx="1004" cy="433" r="22"/></g>
+</svg>
