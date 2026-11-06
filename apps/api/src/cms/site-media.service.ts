@@ -46,7 +46,7 @@ export class SiteMediaService {
   }
   private title(pathname:string):string {
     const file=pathname.split("/").pop()??"Imagem";
-    return file.replace(/^[a-z0-9-]{36,}-/i,"").replace(/\.[^.]+$/,"").replace(/[-_]+/g," ").slice(0,85)||"Imagem";
+    return file.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/i,"").replace(/\.[^.]+$/,"").replace(/[-_]+/g," ").slice(0,85)||"Imagem";
   }
   private mediaResult(row:{url:string;pathname:string;size:number;uploadedAt:Date|string}):SiteMediaAsset{
     return {url:row.url,pathname:row.pathname,name:this.title(row.pathname),
