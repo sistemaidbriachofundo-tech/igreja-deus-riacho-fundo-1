@@ -158,3 +158,18 @@
 }
 .avatarSmall{font-size:10px}
 .avatarLarge{font-size:22px}
+
+
+/* V7 — design system institucional */
+.page{color:#143438}
+.pageHeader h1{color:#103338}.pageHeader h1 em{font-family:Georgia,serif;font-weight:600;color:#a77a43}
+.pageHeader p{color:#72827e}.eyebrow{color:#a37d4c}
+.exportButton{border-color:#dae5de;color:#285259;border-radius:999px;background:#fffefa}
+.addButton{background:#12393e;color:#fffaeb;border-color:#12393e;border-radius:999px}
+.addButton:hover{background:#24575a}
+.insightStrip,.listPanel,.inspector,.personCard{border-color:#e0e9e1;border-radius:20px;background:#fffefa}
+.featureMetric{background:linear-gradient(130deg,#173e41,#091f26)}
+.featureMetric>span:first-child{color:#f0ca8f}
+.stripMetric{border-color:#e1e8e0}
+.mainGrid :is(button,input,select):focus-visible{outline-color:#d8aa60}
+.personSelected{background:#ecf2ed}
