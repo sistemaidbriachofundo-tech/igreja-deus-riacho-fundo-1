@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import {
   hashPassword,
   hashPasswordLegacySha256,
@@ -90,6 +91,27 @@ describe("AuthService JWT helpers", () => {
     expect(user.personId).toBe("demoPersonRiacho01");
     expect(user.email).toBe("ana.demo@example.test");
     expect(user.grants[0]?.roleCode).toBe("SECRETARIA");
+  });
+
+  it("rejects expired and non-expiring JWTs even with a valid HMAC signature", () => {
+    const valid = service.signAccessToken({
+      sub: "user01", personId: "demoPersonRiacho01",
+      email: "ana.demo@example.test", grants: [],
+    });
+    const [head, rawBody] = valid.split(".");
+    const original = JSON.parse(Buffer.from(rawBody, "base64url").toString("utf8")) as Record<string, unknown>;
+    const forge = (claims: Record<string, unknown>, encodedHead = head) => {
+      const encodedBody = Buffer.from(JSON.stringify(claims)).toString("base64url");
+      const value = encodedHead + "." + encodedBody;
+      const signature = createHmac("sha256", process.env.JWT_SECRET!).update(value).digest("base64url");
+      return value + "." + signature;
+    };
+    const noExpiration = { ...original };
+    delete noExpiration.exp;
+    expect(() => service.verifyAccessToken(forge(noExpiration))).toThrow(/expiração/);
+    expect(() => service.verifyAccessToken(forge({ ...original, exp: 1 }))).toThrow(/expiração/);
+    const noneHeader = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+    expect(() => service.verifyAccessToken(forge(original, noneHeader))).toThrow(/Algoritmo/);
   });
 
   it("rejects tampered token", () => {
