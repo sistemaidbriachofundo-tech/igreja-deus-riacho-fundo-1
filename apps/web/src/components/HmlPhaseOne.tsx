@@ -153,8 +153,9 @@ export function HmlPhaseOne({view}:{view:View}){
     void run(()=>apiPost("/credentials/issue/"+encodeURIComponent(m.id),token),"Credencial sintética emitida pela API.");
   }
   function revokeCard(m:Membership){
-    if(!token||!secretary||!m.activeCredentialId)return;
-    void run(()=>apiPost("/credentials/revoke/"+encodeURIComponent(m.activeCredentialId),token),"Credencial sintética revogada pela API.");
+    const credentialId=m.activeCredentialId;
+    if(!token||!secretary||!credentialId)return;
+    void run(()=>apiPost("/credentials/revoke/"+encodeURIComponent(credentialId),token),"Credencial sintética revogada pela API.");
   }
 
   const names:Record<View,string>={
