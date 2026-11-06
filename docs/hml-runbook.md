@@ -15,8 +15,11 @@ cp .env.hml.example .env.hml
 docker compose -f docker-compose.yml -f docker-compose.hml.yml --env-file .env.hml up -d --build
 # Dockerfile.api já roda `prisma migrate deploy` no boot.
 # Opcional: SEED_ON_BOOT=1 no .env.hml para seed fictício automático.
-curl -s http://127.0.0.1:3001/health
+curl -fsS http://127.0.0.1:3001/health
+curl -fsS http://127.0.0.1:3001/ready # deve falhar com 503 se DB indisponível
+API_BASE=http://127.0.0.1:3001 npm run homolog:readiness
 npm run homolog:m1
+# O script homolog:m1 faz escritas: SOMENTE em HML autorizada
 ```
 
 ## Segurança HML
@@ -30,3 +33,6 @@ npm run homolog:m1
 - [ ] Certificado TLS + hostname
 - [ ] Publicar base URL neste runbook
 - [ ] Object storage gerenciado (S3-compat) em vez de disco local
+
+## Fechamento e critérios de liberação
+Ver `docs/backend-baseline-2026-11-06.md`. O health verifica processo; o ready exige PostgreSQL saudável. Não usar o GitHub Pages como prova de API em produção.

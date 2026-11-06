@@ -38,6 +38,8 @@ Restore smoke cria DB paralelo `idbrf_restore_smoke`, restaura dump e compara `c
 
 ## Health
 - `GET /health` — liveness
+- `GET /ready` — readiness; 503 quando Postgres indisponível
+- `API_BASE=http://127.0.0.1:3001 npm run homolog:readiness` — smoke sem escrita
 - Monitoramento futuro: uptime + alertas (fora deste slice)
 
 ## FE

@@ -17,4 +17,10 @@ export class HealthController {
   getHealth() {
     return this.healthService.getHealth();
   }
+
+  @Public()
+  @Get("ready")
+  getReady() {
+    return this.healthService.getReadiness();
+  }
 }
