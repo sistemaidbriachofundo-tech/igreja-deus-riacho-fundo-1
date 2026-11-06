@@ -280,6 +280,14 @@ jobs:
               test -s "portal-screenshots/${SLUG}-${WIDTH}.png"
             done
           done
+          # V10 — visual da nova galeria com imagens reais do repositório.
+          for WIDTH in 1440 390; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --hide-scrollbars --virtual-time-budget=2500 --window-size="${WIDTH},1100" \
+              --screenshot="portal-screenshots/galeria-${WIDTH}.png" \
+              "${URL}/#galeria" >/tmp/chrome-portal.log 2>&1 || { cat /tmp/chrome-portal.log; exit 1; }
+            test -s "portal-screenshots/galeria-${WIDTH}.png"
+          done
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
