@@ -163,7 +163,7 @@ export function SiteManager() {
       </section>}
       {token&&<div className={s.workspace}>
         <div className={s.actionbar}>
-          <div><span className={s.mutedLabel}>PÁGINA INICIAL</span><strong>{dirty?"Alterações não salvas":publishedAt?"Versão publicada disponível":"Ainda não publicado"}</strong></div>
+          <div><span className={s.mutedLabel}>PÁGINA INICIAL</span><strong>{dirty?"Alterações não salvas":published?"Versão publicada disponível":"Ainda não publicado"}</strong></div>
           <div className={s.actions}>
             <button type="button" disabled={busy} className={s.lightButton} onClick={()=>void work(async()=>{await refresh(token);setNotice("Última versão salva carregada.");})}>Recarregar</button>
             <button type="button" disabled={busy||!dirty} className={s.saveButton} onClick={save}>Salvar rascunho</button>
