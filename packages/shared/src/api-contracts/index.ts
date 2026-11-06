@@ -188,3 +188,6 @@ export const API_ENDPOINT_STATUS = {
   "GET /channels/outbox/:outboxId": "implemented",
   "POST /channels/outbox/:outboxId/dispatch": "implemented",
   "POST /channels/outbox/dispatch-pending": "implemented",
+} as const;
+
+export type ApiEndpointKey = keyof typeof API_ENDPOINT_STATUS;
