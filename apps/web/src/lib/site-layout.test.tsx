@@ -7,6 +7,7 @@ import { PortalHomeSections } from "../components/PortalHomeSections";
 import { SiteManager } from "../components/SiteManager";
 import { SiteMediaLibrary } from "../components/SiteMediaLibrary";
 import { ViviEditorialAssistant } from "../components/ViviEditorialAssistant";
+import { PublishedSiteLayoutProvider } from "./use-published-site-layout";
 
 describe("Gestão do Site — editor visual",()=>{
   it("accepts only safe layout and retains fallback",()=>{
@@ -51,6 +52,20 @@ describe("Gestão do Site — editor visual",()=>{
     expect(html).toContain("Vivi");
     expect(html).toContain("Modo de simulação");
     expect(html).toContain("Não é necessário colocar chaves");
+  });
+  it("shares one approved configuration with all Home sections", () => {
+    const html = renderToStaticMarkup(
+      <PublishedSiteLayoutProvider>
+        <PortalCinematicHero />
+        <PortalFaithGallery />
+        <PortalHomeSections essencia={<p>Essência</p>} ministerios={<p>Ministérios</p>}
+          galeria={<p>Galeria</p>} atmosfera={<p>Atmosfera</p>} visita={<p>Visita</p>}
+          acontece={<p>Novidades</p>} videos={<p>Vídeos</p>} convite={<p>Convite</p>}/>
+      </PublishedSiteLayoutProvider>
+    );
+    expect(html).toContain(defaultSiteLayout.hero.title);
+    expect(html).toContain(defaultSiteLayout.gallery.title);
+    expect(html).toContain("Convite");
   });
   it("provides an authenticated editor route without faking data",()=>{
     const html=renderToStaticMarkup(<SiteManager/>);
