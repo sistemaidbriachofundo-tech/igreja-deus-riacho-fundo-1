@@ -203,3 +203,49 @@
   @keyframes church-orbit{to{transform:rotate(360deg)}}
   @keyframes church-counterorbit{to{transform:rotate(-360deg)}}
 }
+
+
+/* V7 — painel de gestão com fotografia, superfícies e tokens alinhados ao portal público. */
+.dashboard{color:#112f34}
+.pageTop h1{color:#0e3034}.pageTop h1 em{color:#aa793a;font-family:Georgia,serif;font-weight:600}
+.eyebrow{color:#a9804c}.eyebrowLine{background:#d3a967}.lead{color:#657b79}
+.buttonLight{border-color:#d7e1db;background:#fffefa;color:#214349;border-radius:999px;padding-inline:20px}
+.buttonLight:hover{background:#edf3ec;color:#082c32}
+.hero{
+  min-height:360px;background:linear-gradient(110deg,#092529,#14363d 50%,#081e26 100%);
+  border:1px solid #cda9644a;box-shadow:0 23px 50px #06232828;border-radius:26px
+}
+.heroBackdrop{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 47%;
+  z-index:0;opacity:.38;filter:saturate(.75);
+  mask-image:linear-gradient(90deg,transparent 18%,#000 67%)
+}
+.hero:before{z-index:1;opacity:.6}.hero:after{z-index:1;background:linear-gradient(90deg,#081c20c9,#092a2f99 45%,#071c225e)}
+.heroContent{z-index:2}.hero h2{color:#fffaf0}.hero h2 span{color:#f0c988}
+.heroOverline{color:#edc889}.hero p{color:#d4e1d8}
+.heroAction{background:linear-gradient(110deg,#f7dca4,#d9a55d);color:#153035;border-radius:999px;min-height:49px;padding:0 21px}
+.heroAction:hover{background:#f3dda9}
+.heroVisual{z-index:2}.heroCounter{z-index:3;background:#09272cc4;border-color:#f5d8a564}
+.heroImageNote{position:absolute;bottom:15px;left:clamp(27px,3.5vw,55px);font:700 8px Inter,sans-serif;letter-spacing:.14em;color:#c4d1cc;z-index:2;opacity:.72}
+.orbitCore{background:radial-gradient(circle at 35% 22%,#3c6665,#15373b 55%,#061e25);color:#eccc8c}
+.orbitCore strong{color:#fff9e8}
+.metric,.metricAccent,.insights,.evolution,.queue,.serviceCard,.quickGrid>a{background:#fffefa;border-color:#dfe7df;border-radius:20px}
+.metricAccent{background:linear-gradient(137deg,#e6f0e9,#fffaf1);border-color:#d4e4db}
+.metricIcon,.quickIcon{background:#e9f0e8;color:#296165}.metricAccent .metricIcon{background:#e5e2cf}
+.metricValue{color:#12373b}.metricBottom strong{color:#26494a}
+.metricArrow{color:#99aaa2}.metricBottom small{color:#82928e}
+.blockKicker{color:#a87944}
+.blockHeader h2,.inlineHeading h2,.queueHeader h2{color:#14393e}
+.blockHeader p,.queueIntro,.serviceCard p,.microNote{color:#73827d}
+.dataLabel{color:#53726f;border-color:#dce6de}
+.insightsFooter{background:#f1f5ef;border-color:#dfe9e0;color:#6b7a74}
+.donut:after{background:#fffefa}.donut strong{color:#153d42}.legend strong{color:#1b494c}
+.yearBar{background:linear-gradient(180deg,#e0b875,#27595c)}.yearColumn:nth-child(even) .yearBar{background:linear-gradient(180deg,#d6a85f,#327477)}
+.queueCount{color:#1b4b4e;background:#e4f0ea}
+.helloCard{background:radial-gradient(circle at 90% 10%,#c79a5944,transparent 68%),linear-gradient(140deg,#0b2c31,#0b2027);border:1px solid #debb7a50;border-radius:22px}
+.helloCard h2 em{font-family:Georgia,serif;color:#f0cb8b}
+.helloCard p{color:#d0ddd4}
+.serviceCard>div,.serviceCard a{color:#1c5053}
+.avatar,.avatarSmall{background:linear-gradient(135deg,#e9d3ad,#b5cfbf)!important;color:#194143;border-color:#f8fcf4}
+@media(max-width:700px){.hero{min-height:335px;padding:30px 22px}.heroBackdrop{mask-image:linear-gradient(90deg,transparent,#000 65%);opacity:.3}.heroImageNote{bottom:12px;left:22px}.hero h2{font-size:39px}}
+@media(max-width:420px){.hero h2{font-size:33px}.heroAction{font-size:10px}.heroBackdrop{opacity:.2}}

@@ -6,6 +6,7 @@ import { FirstVisitFeature } from "../components/FirstVisit";
 import { PublishedHomeSpotlight } from "../components/PublicLiveSections";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
+import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PortalButton } from "../components/PortalButton";
 import s from "./home-v3.module.css";
 
@@ -59,6 +60,7 @@ export default function HomePage() {
 
         <FirstVisitFeature />
         <PublishedHomeSpotlight />
+        <PortalVideoShowcase />
 
         <section className={s.visit} aria-labelledby="visit-title" data-portal-reveal>
           <span>UMA COMUNIDADE DE PORTAS ABERTAS</span>
