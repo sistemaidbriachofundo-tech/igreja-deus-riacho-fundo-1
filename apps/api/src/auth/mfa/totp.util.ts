@@ -89,7 +89,11 @@ function toBase32(bytes: Buffer): string {
 }
 
 function fromBase32(input: string): Buffer {
-  const cleaned = input.replace(/=+$/, "").toUpperCase();
+  // Strip trailing '=' padding without unbounded quantifier (Sonar S8786).
+  let cleaned = input.toUpperCase();
+  while (cleaned.endsWith("=")) {
+    cleaned = cleaned.slice(0, -1);
+  }
   let bits = 0;
   let value = 0;
   const out: number[] = [];

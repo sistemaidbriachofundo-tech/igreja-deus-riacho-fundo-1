@@ -28,4 +28,15 @@ describe("TOTP util", () => {
     expect(uri).toContain("otpauth://totp/");
     expect(uri).toContain("secret=JBSWY3DPEHPK3PXP");
   });
+
+  it("rejects non-digit codes and invalid Base32 (incl. padding strip)", () => {
+    expect(verifyTotpCode("JBSWY3DPEHPK3PXP", "12ab56")).toBe(false);
+    expect(verifyTotpCode("JBSWY3DPEHPK3PXP", "12345")).toBe(false);
+    expect(() => verifyTotpCode("NOT!VALID", "123456")).toThrow(/Base32/);
+    // Trailing '=' padding must be stripped without regex backtracking.
+    const now = Date.now();
+    const padded = "JBSWY3DPEHPK3PXP====";
+    const code = currentTotpCode(padded, now);
+    expect(verifyTotpCode(padded, code, now)).toBe(true);
+  });
 });

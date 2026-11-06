@@ -124,3 +124,81 @@ describe("AuthService JWT helpers", () => {
     expect(() => service.verifyAccessToken(`${token}x`)).toThrow();
   });
 });
+
+describe("AuthService login MFA hint", () => {
+  beforeAll(() => {
+    process.env.JWT_SECRET = "unit-test-jwt-secret-32chars-ok!!";
+    process.env.NODE_ENV = "test";
+  });
+
+  it("returns mfa challengeRequired when required+enabled", async () => {
+    const hash = await hashPassword("admin");
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "u1",
+          email: "ana.demo@example.test",
+          personId: "demoPersonRiacho01",
+          passwordHash: hash,
+          status: "ACTIVE",
+          mfaRequired: true,
+          mfaFactors: [{ id: "f1" }],
+          person: { id: "demoPersonRiacho01" },
+          grants: [
+            {
+              organizationId: "org1",
+              churchId: "ch1",
+              ministryId: null,
+              role: { code: "SECRETARIA" },
+            },
+          ],
+        }),
+      },
+    };
+    const service = new AuthService(prisma as never);
+    const result = await service.login({
+      email: "ana.demo@example.test",
+      password: "admin",
+    });
+    expect(result.mfa).toEqual({
+      enabled: true,
+      required: true,
+      challengeRequired: true,
+      oidcLive: false,
+    });
+    expect(result.accessToken).toBeTruthy();
+  });
+
+  it("returns challengeRequired false when MFA not required", async () => {
+    const hash = await hashPassword("admin");
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "u1",
+          email: "bruno.demo@example.test",
+          personId: "demoPersonBruno01",
+          passwordHash: hash,
+          status: "ACTIVE",
+          mfaRequired: false,
+          mfaFactors: [],
+          person: { id: "demoPersonBruno01" },
+          grants: [
+            {
+              organizationId: "org1",
+              churchId: "ch1",
+              ministryId: null,
+              role: { code: "MEMBRO" },
+            },
+          ],
+        }),
+      },
+    };
+    const service = new AuthService(prisma as never);
+    const result = await service.login({
+      email: "bruno.demo@example.test",
+      password: "admin",
+    });
+    expect(result.mfa.challengeRequired).toBe(false);
+    expect(result.mfa.enabled).toBe(false);
+  });
+});

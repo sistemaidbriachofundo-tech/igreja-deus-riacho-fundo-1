@@ -94,4 +94,66 @@ describe("OidcService", () => {
       NotImplementedException,
     );
   });
+
+  it("getConfig returns existing row and envHints", async () => {
+    const prev = {
+      OIDC_ISSUER_URL: process.env.OIDC_ISSUER_URL,
+      OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
+      OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
+      OIDC_SCOPES: process.env.OIDC_SCOPES,
+      OIDC_CLIENT_SECRET_REF: process.env.OIDC_CLIENT_SECRET_REF,
+    };
+    process.env.OIDC_ISSUER_URL = "https://login.example.test";
+    process.env.OIDC_CLIENT_ID = "env-client";
+    process.env.OIDC_REDIRECT_URI = "http://localhost:3001/auth/oidc/callback";
+    process.env.OIDC_SCOPES = "openid email";
+    process.env.OIDC_CLIENT_SECRET_REF = "MY_OIDC_SECRET";
+
+    const prisma = {
+      oidcProviderConfig: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "oidc1",
+          status: "CONFIGURED",
+          displayName: "Demo IdP",
+          issuerUrl: "https://idp.example.test",
+          clientId: "client-demo",
+          clientSecretRef: "OIDC_CLIENT_SECRET",
+          redirectUri: "http://localhost:3001/auth/oidc/callback",
+          scopes: "openid profile email",
+          updatedAt: new Date("2026-11-06T12:00:00Z"),
+        }),
+      },
+    };
+    const service = new OidcService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.getConfig(admin);
+    expect(result.config?.id).toBe("oidc1");
+    expect(result.config?.clientSecret).toBeNull();
+    expect(result.envHints).toMatchObject({
+      OIDC_ISSUER_URL: "https://login.example.test",
+      OIDC_CLIENT_ID: "env-client",
+      OIDC_CLIENT_SECRET_REF: "MY_OIDC_SECRET",
+      OIDC_SCOPES: "openid email",
+    });
+    expect(result.liveIdp).toBe(false);
+
+    for (const [k, v] of Object.entries(prev)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it("getConfig returns null config when none stored", async () => {
+    const prisma = {
+      oidcProviderConfig: { findUnique: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new OidcService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.getConfig(admin);
+    expect(result.config).toBeNull();
+  });
 });

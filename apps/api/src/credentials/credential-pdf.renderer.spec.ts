@@ -37,4 +37,16 @@ describe("renderCredentialPdf", () => {
       }),
     ).rejects.toThrow(/sensível|CPF/i);
   });
+
+  it("rejects churchName with phone-like PII", async () => {
+    await expect(
+      renderCredentialPdf({
+        displayName: "Bruno Demo",
+        churchName: "Igreja 11987654321",
+        opaqueToken: generateOpaqueCredentialToken(),
+        issuedAt: new Date(),
+        credentialId: "c1",
+      }),
+    ).rejects.toThrow(/sensível|Campo churchName/i);
+  });
 });

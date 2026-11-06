@@ -169,7 +169,14 @@ describe("controller wiring (delegates to services)", () => {
     const oidcC = new OidcController(oidc as never);
     await oidcC.getConfig(user);
     await oidcC.putConfig(user, { status: "CONFIGURED" });
+    await oidcC.postConfig(user, { status: "CONFIGURED" });
     expect(oidcC.authorize()).toEqual({ liveIdp: false });
+    oidcC.callback("code", "state", undefined);
+    expect(oidc.handleCallbackInterface).toHaveBeenCalledWith({
+      code: "code",
+      state: "state",
+      error: undefined,
+    });
   });
 
   it("MembershipsController", async () => {

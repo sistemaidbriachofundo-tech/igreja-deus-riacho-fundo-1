@@ -370,4 +370,172 @@ describe("CredentialsService", () => {
     expect(card.pdf?.contentType).toBe("application/pdf");
     expect(containsSensitiveCredentialPayload(card.qrPayload)).toBe(false);
   });
+
+  it("generatePdf replaces existing pdfStorageKey", async () => {
+    storage.remove.mockClear();
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          pdfStorageKey: "credentials/old.pdf",
+          person: { displayName: "Bruno Demo" },
+        }),
+        update: jest.fn().mockImplementation(async ({ data }) => ({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          ...data,
+          person: { displayName: "Bruno Demo" },
+        })),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    await service.generatePdf(secretaria, "c1");
+    expect(storage.remove).toHaveBeenCalledWith("credentials/old.pdf");
+  });
+
+  it("getPdfMeta and downloadPdf cover missing/present file paths", async () => {
+    const base = {
+      id: "c1",
+      status: "ACTIVE",
+      opaqueToken,
+      issuedAt: new Date("2026-11-04T12:00:00Z"),
+      revokedAt: null,
+      personId: "p-mem",
+      membershipId: "m1",
+      person: { displayName: "Bruno Demo" },
+    };
+    const prisma = {
+      memberCredential: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            ...base,
+            pdfStorageKey: null,
+            pdfContentType: null,
+            pdfByteSize: null,
+            pdfGeneratedAt: null,
+          })
+          .mockResolvedValueOnce({
+            ...base,
+            pdfStorageKey: null,
+            pdfContentType: null,
+            pdfByteSize: null,
+            pdfGeneratedAt: null,
+          })
+          .mockResolvedValueOnce({
+            ...base,
+            pdfStorageKey: "credentials/c1.pdf",
+            pdfContentType: "application/pdf",
+            pdfByteSize: 1200,
+            pdfGeneratedAt: new Date("2026-11-06T12:00:00Z"),
+          }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    storage.get.mockResolvedValue(Buffer.from("%PDF-ok"));
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+
+    const meta = await service.getPdfMeta(secretaria, "c1");
+    expect(meta.hasFile).toBe(false);
+
+    await expect(service.downloadPdf(secretaria, "c1")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    const file = await service.downloadPdf(secretaria, "c1");
+    expect(file.contentType).toBe("application/pdf");
+    expect(file.bytes.toString()).toContain("%PDF");
+    expect(prisma.auditLog.create).toHaveBeenCalled();
+  });
+
+  it("forbids unrelated member from accessing PDF", async () => {
+    const stranger: AuthUser = {
+      userId: "u-other",
+      personId: "p-other",
+      email: "other@example.test",
+      grants: [
+        {
+          roleCode: "MEMBRO",
+          organizationId: "org1",
+          churchId: "church-rf1",
+        },
+      ],
+    };
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
+          issuedAt: new Date(),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          pdfStorageKey: null,
+          person: { displayName: "Bruno Demo" },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    await expect(service.getPdfMeta(stranger, "c1")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it("allows card owner to read pdf-meta", async () => {
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "c1",
+          status: "ACTIVE",
+          opaqueToken,
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          personId: "p-mem",
+          membershipId: "m1",
+          pdfStorageKey: "credentials/c1.pdf",
+          pdfContentType: "application/pdf",
+          pdfByteSize: 900,
+          pdfGeneratedAt: new Date("2026-11-06T12:00:00Z"),
+          person: { displayName: "Bruno Demo" },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const meta = await service.getPdfMeta(member, "c1");
+    expect(meta).toMatchObject({
+      credentialId: "c1",
+      hasFile: true,
+      contentType: "application/pdf",
+      byteSize: 900,
+    });
+  });
 });
