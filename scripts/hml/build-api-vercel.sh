@@ -3,10 +3,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-if [[ "${SEED_HML_MASS:-}" != "true" ]]; then
-  echo "BLOQUEADO: SEED_HML_MASS=true obrigatório para preparar esta HML" >&2
-  exit 2
-fi
 if [[ "${DATABASE_URL:-}" != *"idriacho1_hml"* ]]; then
   echo "BLOQUEADO: DATABASE_URL não aponta ao banco isolado idriacho1_hml" >&2
   exit 2
@@ -19,6 +15,8 @@ npm run build -w @idbrf/shared
 npx prisma generate --schema packages/db/prisma/schema.prisma
 npm run build -w @idbrf/db
 npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
-npm run seed -w @idbrf/db
+if [[ "${SEED_HML_MASS:-}" == "true" ]]; then
+  npm run seed -w @idbrf/db
+fi
 npm run build -w @idbrf/api
-echo "HML compilada, migrações e massa sintética idempotente aplicadas."
+echo "HML compilada e migrações verificadas; seed somente quando explicitamente habilitado."
