@@ -54,7 +54,8 @@ export function parseRiachinhoSuggestion(
 
   if (alts.some(Boolean)) {
     // Não compactar: "Alt 4" precisa atualizar a quarta foto, não a primeira.
-    const last = alts.findLastIndex(Boolean);
+    let last = alts.length - 1;
+    while (last >= 0 && !alts[last]) last--;
     out.alts = alts.slice(0, last + 1);
     out.target = "alts";
   }
