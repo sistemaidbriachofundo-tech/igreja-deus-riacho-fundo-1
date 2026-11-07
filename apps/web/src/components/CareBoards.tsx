@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost } from "../lib/api";
-import { dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
+import { churchLocalToISO, dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import styles from "./care-boards.module.css";
 
 type Shared={ rows:DasRecord[]; token:string; refresh:()=>void };
@@ -202,11 +202,11 @@ export function GroupsBoard({rows,token,refresh}:Shared){
         <button disabled={busy||!personId.trim()}>Adicionar ao grupo</button>
       </form>
       <form className={styles.form} onSubmit={e=>{e.preventDefault();if(!meeting)return;
-        const d=new Date(meeting);if(Number.isNaN(d.getTime())){setNotice("Data inválida.");return;}
+        const iso=churchLocalToISO(meeting);if(!iso){setNotice("Data inválida para o fuso de Brasília.");return;}
         const ids=attendance.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
         if(ids.length!==new Set(ids).size){setNotice("ID repetido na presença.");return;}
         void submit(()=>apiPost("/small-groups/"+code(selected)+"/meetings",token,{
-          occurredAt:d.toISOString(),attendance:ids.map(personId=>({personId,present:true}))
+          occurredAt:iso,attendance:ids.map(personId=>({personId,present:true}))
         }),()=>{setMeeting("");setAttendance("");});
       }}>
         <h3>Registrar encontro</h3>
