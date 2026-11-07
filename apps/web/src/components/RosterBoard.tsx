@@ -23,7 +23,7 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
   const [replacement,setReplacement]=useState<Record<string,string>>({});
   const [saving,setSaving]=useState(false);
   const [notice,setNotice]=useState("");
-  const leader=roles.includes("LIDER_MINISTERIO")||roles.includes("PASTOR")||roles.includes("SECRETARIA");
+  const leader=roles.some(role=>["LIDER_MINISTERIO","PASTOR","SECRETARIA","PLATFORM_ADMIN"].includes(role));
 
   async function execute(path:string,payload?:unknown):Promise<boolean>{
     if(saving)return false;
