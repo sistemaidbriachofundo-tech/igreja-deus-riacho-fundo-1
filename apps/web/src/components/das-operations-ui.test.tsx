@@ -31,7 +31,7 @@ describe("Interface DAS — privacidade e estados",()=>{
   it("dados confidenciais do caso pastoral não aparecem na listagem",()=>{
     const html=renderToStaticMarkup(<PastoralBoard
       rows={[{id:"case-1",title:"Acompanhamento de teste",summary:"NOTAS-PASTORAIS-SECRETAS"}]}
-      token="token-falso" refresh={()=>{}}/>);
+      token="token-falso" roles={["PASTOR"]} refresh={()=>{}}/>);
     expect(html).toContain("Acompanhamento de teste");
     expect(html).not.toContain("NOTAS-PASTORAIS-SECRETAS");
   });
