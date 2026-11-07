@@ -36,7 +36,7 @@ describe("parseRiachinhoSuggestion", () => {
   });
 
   it("does not reorder numbered alt text when it arrives out of order", () => {
-    const parsed = parseRiachinhoSuggestion("Alt 4: Culto.\\nAlt 2: Oração.".replace("\\\\n", "\\n"), "alts");
+    const parsed = parseRiachinhoSuggestion(["Alt 4: Culto.", "Alt 2: Oração."].join("\n"), "alts");
     expect(parsed?.alts).toEqual([undefined, "Oração.", undefined, "Culto."]);
   });
 
