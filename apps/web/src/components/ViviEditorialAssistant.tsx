@@ -241,6 +241,10 @@ export function ViviEditorialAssistant({
         );
       }
       const answer = (await res.json()) as Answer;
+      if (nextIntent === "livre" && freeText?.trim()) {
+        // Clear only the request that succeeded; preserve any newer text typed while waiting.
+        setDraft((current) => current.trim() === freeText.trim() ? "" : current);
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -268,7 +272,8 @@ export function ViviEditorialAssistant({
   }
 
   function apply(item: ChatItem) {
-    if (!onApplySuggestion || item.answer?.refused) return;
+    // Do not apply synthetic mock output as if it were a validated AI suggestion.
+    if (!onApplySuggestion || item.answer?.refused || item.answer?.provider === "mock") return;
     const preferred =
       item.intent === "galeria" ? "gallery" : item.intent === "alt" ? "alts" : "hero";
     const parsed = parseRiachinhoSuggestion(item.content, preferred);
@@ -316,7 +321,7 @@ export function ViviEditorialAssistant({
           O Riachinho está conectado à API, mas ainda utiliza um provedor simulado neste ambiente.
           Para sugestões reais, um administrador deve configurar <code>GEMINI_API_KEY</code> ou{" "}
           <code>MANUS_API_KEY</code> + <code>MANUS_FORGE_URL</code> no servidor (Vercel HML). Não
-          coloque chaves no navegador.
+          coloque chaves no navegador. Respostas simuladas não podem ser aplicadas aos campos do site.
         </p>
       )}
 
@@ -364,7 +369,7 @@ export function ViviEditorialAssistant({
                 <button type="button" onClick={() => void copy(item)}>
                   {copiedId === item.id ? "Copiado ✓" : "Copiar"}
                 </button>
-                <button type="button" disabled={!onApplySuggestion} onClick={() => apply(item)}>
+                <button type="button" disabled={!onApplySuggestion || item.answer?.provider === "mock"} title={item.answer?.provider === "mock" ? "Respostas simuladas não podem alterar o rascunho" : undefined} onClick={() => apply(item)}>
                   Usar sugestão
                 </button>
               </div>
@@ -395,7 +400,6 @@ export function ViviEditorialAssistant({
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && draft.trim()) {
               e.preventDefault();
               const text = draft.trim();
-              setDraft("");
               setIntent("livre");
               void ask("livre", text);
             }
@@ -415,7 +419,7 @@ export function ViviEditorialAssistant({
           >
             {busy ? "Consultando o Riachinho…" : "Enviar"}
           </button>
-          <span className={s.privacy}>Enter+Ctrl envia · nada é publicado automaticamente</span>
+          <span className={s.privacy}>Ctrl+Enter envia · nada é publicado automaticamente</span>
         </div>
       </div>
 
