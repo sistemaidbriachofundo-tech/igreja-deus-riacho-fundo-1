@@ -45,6 +45,12 @@ export interface LoginResponse {
   };
 }
 
+/** Stub de foto (RF-001) — sem upload binário nesta fatia; nunca URL pública. */
+export interface PersonPhotoStubDto {
+  status: "NONE" | "READY";
+  hasStorageKey: boolean;
+}
+
 export interface PersonSummaryDto {
   id: string;
   displayName: string;
@@ -55,6 +61,8 @@ export interface PersonSummaryDto {
   isMinor?: boolean;
   /** Presente no detalhe GET /persons/:id e no dossiê. */
   legalGuardianPersonId?: string | null;
+  /** Stub de presença de foto privada (upload fora desta fatia). */
+  photo?: PersonPhotoStubDto;
 }
 
 export interface MembershipDto {
@@ -174,11 +182,18 @@ export interface PersonSearchRequest {
   limit?: number;
 }
 
+export type PersonMatchReason =
+  | "displayName"
+  | "email"
+  | "exactEmail"
+  | "normalizedDisplayName"
+  | "tokenOverlap";
+
 export interface PersonSearchHit {
   person: PersonSummaryDto;
   /** Score relativo 0–1 para UI de dedupe assistida. */
   score: number;
-  matchReasons: Array<"displayName" | "email">;
+  matchReasons: PersonMatchReason[];
 }
 
 export interface PersonSearchResponse {
@@ -186,6 +201,45 @@ export interface PersonSearchResponse {
   hits: PersonSearchHit[];
   /** Sempre true no contrato: FE não deve oferecer merge automático. */
   autoMergeForbidden: true;
+}
+
+/** Pré-checagem de duplicidade antes de criar visitante/admissão. */
+export interface PersonCandidatesRequest {
+  displayName: string;
+  email?: string;
+  limit?: number;
+}
+
+export interface PersonCandidatesResponse {
+  query: { displayName: string; email: string | null };
+  hits: PersonSearchHit[];
+  /** True se há exactEmail ou nome normalizado ≈1.0 — FE deve reutilizar personId. */
+  strongMatch: boolean;
+  /** Sempre true: DAS proíbe merge automático. */
+  autoMergeForbidden: true;
+}
+
+/** Metadados do PDF de carta — sem URL pública e sem bytes. */
+export interface LetterPdfMetaDto {
+  contentType: string | null;
+  byteSize: number | null;
+  generatedAt: string | null;
+  hasFile: boolean;
+}
+
+export interface ChurchLetterDto {
+  id: string;
+  personId: string;
+  letterType: string;
+  status: string;
+  title: string;
+  bodyText: string;
+  version: number;
+  supersedesId: string | null;
+  issuedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  pdf?: LetterPdfMetaDto | null;
 }
 
 export interface AdmissionChecklistDto {

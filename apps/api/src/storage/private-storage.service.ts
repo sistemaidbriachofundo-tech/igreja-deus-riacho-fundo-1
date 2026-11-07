@@ -54,6 +54,44 @@ export class PrivateStorageService {
     ].join("/");
   }
 
+  /** Chave opaca para PDF de carta oficial (STORAGE_ROOT privado). */
+  buildLetterPdfKey(parts: {
+    organizationId: string;
+    churchId: string;
+    letterId: string;
+  }): string {
+    const safe = this.safeSegment;
+    const id = randomUUID();
+    return [
+      "letters",
+      safe(parts.organizationId),
+      safe(parts.churchId),
+      safe(parts.letterId),
+      `${id}.pdf`,
+    ].join("/");
+  }
+
+  /**
+   * Chave opaca para foto de pessoa (STORAGE_ROOT privado).
+   * Path seguro reservado — upload/resize binário fora desta fatia (RF-001 stub).
+   */
+  buildPersonPhotoKey(parts: {
+    organizationId: string;
+    personId: string;
+    extension?: string;
+  }): string {
+    const safe = this.safeSegment;
+    const id = randomUUID();
+    const ext = (parts.extension ?? "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
+    return [
+      "persons",
+      safe(parts.organizationId),
+      safe(parts.personId),
+      "photo",
+      `${id}.${ext}`,
+    ].join("/");
+  }
+
   private safeSegment(value: string): string {
     const trimmed = value.trim();
     if (!trimmed || trimmed.includes("..") || /[/\\]/.test(trimmed)) {

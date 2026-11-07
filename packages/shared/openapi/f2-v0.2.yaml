@@ -25,7 +25,9 @@ info:
     - 0.7.2-f2: fechamento F2 — `auth.login` audit, `POST /admissions/:id/cancel`,
       `DELETE /admissions/:id/documents/:documentId`, polish Person/Audit/Meta schemas
     - 0.7.3-das-etapa3: RF-013 transição roster DRAFT→PUBLISHED→CLOSED (publish/close + conflitos);
-      RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; notes OIDC_NOT_LIVE / MFA challenge
+      RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; RF-001 dedupe (`POST /persons/candidates`,
+      search scoring, photo stub) + RF-006 PDF de carta (`POST|GET /letters/:id/pdf`, `GET .../pdf-meta`,
+      storageKey); notes OIDC_NOT_LIVE / MFA challenge
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -147,6 +149,12 @@ components:
           type: string
           nullable: true
           description: Obrigatório quando isMinor=true (detalhe/dossiê)
+        photo:
+          type: object
+          description: Stub RF-001 — presença de foto privada (upload binário fora desta fatia; nunca URL pública)
+          properties:
+            status: { type: string, enum: [NONE, READY] }
+            hasStorageKey: { type: boolean }
     MetaResponse:
       type: object
       required: [app, slug, contractVersion, apiPathPrefix, pilot, endpoints, hmlPublicUrl, notes]
@@ -321,7 +329,65 @@ components:
               score: { type: number, minimum: 0, maximum: 1, example: 0.92 }
               matchReasons:
                 type: array
-                items: { type: string, enum: [displayName, email] }
+                items:
+                  type: string
+                  enum: [displayName, email, exactEmail, normalizedDisplayName, tokenOverlap]
+    PersonCandidatesRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        limit: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    PersonCandidatesResponse:
+      type: object
+      required: [query, hits, strongMatch, autoMergeForbidden]
+      properties:
+        query:
+          type: object
+          required: [displayName, email]
+          properties:
+            displayName: { type: string }
+            email: { type: string, nullable: true }
+        hits:
+          type: array
+          items:
+            type: object
+            required: [person, score, matchReasons]
+            properties:
+              person: { $ref: "#/components/schemas/PersonSummary" }
+              score: { type: number, minimum: 0, maximum: 1 }
+              matchReasons:
+                type: array
+                items:
+                  type: string
+                  enum: [displayName, email, exactEmail, normalizedDisplayName, tokenOverlap]
+        strongMatch: { type: boolean }
+        autoMergeForbidden: { type: boolean, enum: [true] }
+    LetterPdfMeta:
+      type: object
+      required: [hasFile]
+      properties:
+        hasFile: { type: boolean }
+        contentType: { type: string, nullable: true, example: application/pdf }
+        byteSize: { type: integer, nullable: true }
+        generatedAt: { type: string, format: date-time, nullable: true }
+    ChurchLetter:
+      type: object
+      required: [id, personId, letterType, status, title, bodyText, version, supersedesId, issuedAt, revokedAt, createdAt]
+      properties:
+        id: { type: string }
+        personId: { type: string }
+        letterType: { type: string, enum: [TRANSFERENCIA, RECOMENDACAO, MEMBRESIA, OUTRO] }
+        status: { type: string, enum: [DRAFT, ISSUED, REVOKED] }
+        title: { type: string }
+        bodyText: { type: string }
+        version: { type: integer }
+        supersedesId: { type: string, nullable: true }
+        issuedAt: { type: string, format: date-time, nullable: true }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        pdf: { $ref: "#/components/schemas/LetterPdfMeta" }
     Household:
       type: object
       required: [id, label, churchId, organizationId, memberPersonIds, createdAt]
@@ -990,6 +1056,45 @@ paths:
                     score: 0.94
                     matchReasons: [displayName, email]
 
+  /persons/candidates:
+    post:
+      tags: [persons]
+      x-implementation: implemented
+      summary: Candidatos de duplicidade (pré-admissão)
+      description: |
+        Ranqueia pessoas existentes por nome/e-mail normalizados.
+        **autoMergeForbidden=true** sempre. Se `strongMatch` (exactEmail / nome normalizado),
+        o FE deve reutilizar `personId` — não criar visitante novo nem oferecer merge automático.
+        Código de admissão relacionado: `PERSON_EMAIL_CANDIDATE` em `POST /admissions` com e-mail já existente.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonCandidatesRequest" }
+      responses:
+        "200":
+          description: Candidatos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonCandidatesResponse" }
+              example:
+                query: { displayName: Carla Demo, email: carla.demo@example.test }
+                strongMatch: true
+                autoMergeForbidden: true
+                hits:
+                  - person:
+                      id: per_carla_demo
+                      displayName: Carla Demo
+                      email: carla.demo@example.test
+                      status: ACTIVE
+                      householdId: hh_demo
+                      kind: VISITOR
+                      isMinor: false
+                      photo: { status: NONE, hasStorageKey: false }
+                    score: 0.99
+                    matchReasons: [exactEmail, email]
+
   /persons/{personId}:
     get:
       tags: [persons]
@@ -1626,6 +1731,68 @@ paths:
       responses:
         "200":
           description: Carta REVOKED
+
+  /letters/{letterId}/pdf:
+    post:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Gera PDF auditável da carta (pdfkit) e grava storageKey privado
+      description: |
+        Layout sem e-mail/CPF/telefone estruturados. Auditoria `letter.pdf.generate` com sha256.
+        Substitui arquivo anterior se `storageKey` já existir.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: letterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Carta com pdf meta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChurchLetter" }
+    get:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Download autenticado do PDF privado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: letterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: application/pdf
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "404":
+          description: PDF ainda não gerado
+
+  /letters/{letterId}/pdf-meta:
+    get:
+      tags: [letters]
+      x-implementation: implemented
+      summary: Metadados do PDF da carta (sem bytes / sem URL pública)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: letterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Meta
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/LetterPdfMeta" }
+                  - type: object
+                    properties:
+                      letterId: { type: string }
 
   /pastoral-cases:
     get:

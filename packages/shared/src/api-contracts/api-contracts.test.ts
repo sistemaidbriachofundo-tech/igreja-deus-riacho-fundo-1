@@ -55,6 +55,10 @@ describe("api contracts F2", () => {
   it("marks F2 admissions and person endpoints as implemented", () => {
     assert.equal(API_ENDPOINT_STATUS["POST /admissions"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["GET /persons/search"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /persons/candidates"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /letters/:letterId/pdf"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /letters/:letterId/pdf"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /letters/:letterId/pdf-meta"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /auth/login"], "implemented");
     assert.equal(
       API_ENDPOINT_STATUS["POST /credentials/issue/:membershipId"],

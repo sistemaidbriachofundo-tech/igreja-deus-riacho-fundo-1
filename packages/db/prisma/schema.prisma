@@ -167,6 +167,8 @@ model Person {
   kind                 PersonKind   @default(VISITOR)
   isMinor              Boolean      @default(false) @map("is_minor")
   legalGuardianPersonId String?     @map("legal_guardian_person_id")
+  /// Chave opaca no STORAGE_ROOT da foto (nunca URL pública). Upload binário fora desta fatia.
+  photoStorageKey      String?      @unique @map("photo_storage_key")
   createdAt            DateTime     @default(now()) @map("created_at")
   updatedAt            DateTime     @updatedAt @map("updated_at")
 
@@ -197,6 +199,7 @@ model Person {
   @@index([homeChurchId])
   @@index([householdId])
   @@index([organizationId, displayName])
+  @@index([organizationId, email])
   @@index([legalGuardianPersonId])
   @@map("persons")
 }
@@ -466,8 +469,11 @@ model ChurchLetter {
   issuedByUserId String?            @map("issued_by_user_id")
   issuedAt       DateTime?          @map("issued_at")
   revokedAt      DateTime?          @map("revoked_at")
-  /// Metadado de PDF privado (opcional); nunca URL pública.
+  /// Chave opaca no STORAGE_ROOT do PDF da carta (nunca URL pública).
   storageKey     String?            @unique @map("storage_key")
+  pdfContentType String?            @map("pdf_content_type")
+  pdfByteSize    Int?               @map("pdf_byte_size")
+  pdfGeneratedAt DateTime?          @map("pdf_generated_at")
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
 

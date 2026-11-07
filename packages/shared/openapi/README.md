@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.3-das-etapa3` | Contrato BE↔FE consolidado DAS + Vivi + F2 + escalas publish/close + match conciliação |
+| `f2-v0.2.yaml` | `0.7.3-das-etapa3` | Contrato BE↔FE consolidado DAS + Vivi + F2 + escalas publish/close + match conciliação + RF-001 candidatos/dedupe + RF-006 PDF cartas |
 
 ## Como o FE consome
 

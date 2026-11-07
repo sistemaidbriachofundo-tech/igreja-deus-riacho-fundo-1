@@ -64,6 +64,11 @@ describe("controller wiring (delegates to services)", () => {
   it("PersonsController", async () => {
     const persons = {
       search: jest.fn().mockResolvedValue({ hits: [] }),
+      findCandidates: jest.fn().mockResolvedValue({
+        hits: [],
+        strongMatch: false,
+        autoMergeForbidden: true,
+      }),
       getById: jest.fn().mockResolvedValue({ id: "p1" }),
       getDossier: jest.fn().mockResolvedValue({ person: { id: "p1" } }),
       patch: jest.fn().mockResolvedValue({ id: "p1" }),
@@ -71,6 +76,11 @@ describe("controller wiring (delegates to services)", () => {
     const c = new PersonsController(persons as never);
     await c.search(user, "an", "5");
     expect(persons.search).toHaveBeenCalledWith(user, "an", 5);
+    await c.candidates(user, { displayName: "Ana Demo", email: "a@example.test" });
+    expect(persons.findCandidates).toHaveBeenCalledWith(user, {
+      displayName: "Ana Demo",
+      email: "a@example.test",
+    });
     await c.get(user, "p1");
     await c.dossier(user, "p1");
     await c.patch(user, "p1", { isMinor: false });
@@ -254,6 +264,13 @@ describe("controller wiring (delegates to services)", () => {
       create: jest.fn(),
       issue: jest.fn(),
       revoke: jest.fn(),
+      generatePdf: jest.fn(),
+      getPdfMeta: jest.fn(),
+      downloadPdf: jest.fn().mockResolvedValue({
+        contentType: "application/pdf",
+        displayName: "carta-L1-v1.pdf",
+        bytes: Buffer.from("%PDF"),
+      }),
     };
     const c = new LettersController(letters as never);
     await c.list(user, "p1");
@@ -265,7 +282,10 @@ describe("controller wiring (delegates to services)", () => {
     });
     await c.issue(user, "L1");
     await c.revoke(user, "L1");
+    await c.generatePdf(user, "L1");
+    await c.pdfMeta(user, "L1");
     expect(letters.issue).toHaveBeenCalledWith(user, "L1");
+    expect(letters.generatePdf).toHaveBeenCalledWith(user, "L1");
   });
 
   it("PastoralController", async () => {
