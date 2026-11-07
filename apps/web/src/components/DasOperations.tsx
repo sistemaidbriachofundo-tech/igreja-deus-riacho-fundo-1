@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { AppShell, UIIcon } from "./AppShell";
 import { RosterBoard } from "./RosterBoard";
 import { PastoralBoard, DiscipleshipBoard, GroupsBoard } from "./CareBoards";
+import { FinanceBoard } from "./FinanceBoard";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
@@ -262,11 +263,12 @@ export function DasOperations() {
         {data.kind==="error"&&<div role="alert" className={styles.formError}>{data.message}</div>}
         {data.kind==="ready"&&<>
           {data.summary?<IndicatorPanel data={data.summary}/>:<>
-            <Rows key={chosen.id} module={chosen.id} rows={data.rows}/>
+            {chosen.id!=="financeiro"&&chosen.id!=="pastoral"&&<Rows key={chosen.id} module={chosen.id} rows={data.rows}/>}
             {chosen.id==="escalas"&&<RosterBoard rows={data.rows} token={session.token} personId={session.user.personId} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="pastoral"&&roles.includes("PASTOR")&&<PastoralBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="discipulado"&&<DiscipleshipBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="celulas"&&<GroupsBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
+            {chosen.id==="financeiro"&&<FinanceBoard tab={resource?.id??"accounts"} rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
 
           </>}
           {canCreate(chosen.id,roles)&&(!resource||chosen.id!=="financeiro"||resource.id==="accounts")&&<CreationForm key={chosen.id} module={chosen.id} onCreate={doCreate} busy={saving}/>}
