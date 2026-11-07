@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { AppShell, UIIcon } from "./AppShell";
 import { apiGet, apiLogin, apiPost, clearToken, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
 import s from "./hml-phase-one.module.css";
+import { withBasePath } from "../lib/paths";
 
 type View = "overview" | "members" | "secretary" | "cards";
 type Role = "SECRETARIA" | "PASTOR" | "PLATFORM_ADMIN" | "MEMBRO";
@@ -106,6 +107,7 @@ export function HmlPhaseOne({view}:{view:View}){
   function logout(){
     clearToken();setToken(null);setUser(null);setMemberships([]);setAdmissions([]);setHouseholds([]);
     setPassword("");setError("");setNotice("");
+    window.location.assign(withBasePath("/login/"));
   }
   async function login(e:FormEvent<HTMLFormElement>){
     e.preventDefault();

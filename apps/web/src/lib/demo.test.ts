@@ -15,8 +15,8 @@ describe("F2: descoberta e separação entre demonstração e produção", () =>
   it("mantém acesso navegável ao Church OS sem transformá-lo na home pública", () => {
     expect(home).toContain("<PublicPage>");
     expect(home).not.toContain('href="/app/membros/"');
-    expect(portal).toContain('href="/app/"');
-    expect(mobileMenu).toContain("Login · ID Riacho 1 (demonstração)");
+    expect(portal).toContain('href="/login/"');
+    expect(mobileMenu).toContain("Login · Entrar com e-mail e senha");
     expect(overview).toContain("<ChurchDashboard />");
   });
   it("deixa claro que os perfis ilustrativos não autenticam", () => {

@@ -54,9 +54,9 @@ describe("portal v3+ — camadas de experiência", () => {
     const ctaPos = header.indexOf("Participe conosco");
     expect(loginPos).toBeGreaterThan(-1);
     expect(ctaPos).toBeGreaterThan(loginPos);
-    expect(header).toContain('href="/app');
-    expect(header).toContain("ambiente de demonstração");
-    expect(mobile).toContain("Login · ID Riacho 1 (demonstração)");
+    expect(header).toContain('href="/login');
+    expect(header).toContain("abrir tela de e-mail e senha");
+    expect(mobile).toContain("Login · Entrar com e-mail e senha");
     expect(footer).toContain(">Login</a>");
   });
 

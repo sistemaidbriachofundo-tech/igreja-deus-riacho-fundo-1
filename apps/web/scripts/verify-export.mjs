@@ -11,7 +11,7 @@ const requiredPages = [
   "index.html", "a-igreja/index.html", "contato/index.html", "eventos/index.html", "visita/index.html",
   "ministerios/index.html",
   ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
-  "novidades/index.html", "status/index.html",
+  "novidades/index.html", "status/index.html", "login/index.html",
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
   "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/site/index.html", "app/demo/index.html",
 ];
@@ -61,6 +61,14 @@ for (const page of findHtml(outDir)) {
         failures.push(`Broken reference in ${relative(outDir, page)}: ${url}`);
       }
     }
+  }
+  if (relative(outDir, page) === "login/index.html") {
+    if (!/<input[^>]+type="email"/.test(html) || !/<input[^>]+type="password"/.test(html)) {
+      failures.push("Login must display email and password inputs before opening the dashboard.");
+    }
+  }
+  if (relative(outDir, page) === "app/index.html" && !html.includes("Verificando seu acesso")) {
+    failures.push("Admin route must start behind the authentication gate.");
   }
   if (requiredPages.includes(relative(outDir, page))) {
     const headingCount = [...html.matchAll(/<h1(?:\s|>)/gi)].length;
