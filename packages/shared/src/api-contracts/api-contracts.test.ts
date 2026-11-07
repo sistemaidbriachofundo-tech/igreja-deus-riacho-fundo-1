@@ -12,7 +12,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.3-das-etapa3");
+    assert.equal(API_CONTRACT_VERSION, "0.7.3-rf016");
   });
 
   it("keeps OpenAPI info.version in sync with API_CONTRACT_VERSION", () => {
@@ -195,6 +195,15 @@ describe("api contracts F2", () => {
     );
     assert.equal(
       API_ENDPOINT_STATUS["POST /ledger/bank-lines/:lineId/unmatch"],
+      "implemented",
+    );
+    assert.equal(API_ENDPOINT_STATUS["GET /ledger/bank-adapters"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /ledger/funds"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /ledger/cost-centers"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /ledger/budgets"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /ledger/periods"], "implemented");
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /ledger/entries/:entryId/attachments"],
       "implemented",
     );
 

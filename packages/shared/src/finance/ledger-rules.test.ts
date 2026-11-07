@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   checkBalancedLines,
+  isValidCompetence,
   nextDualApprovalStage,
   parseSyntheticCsvLines,
 } from "./ledger-rules";
@@ -76,5 +77,11 @@ describe("ledger-rules", () => {
     assert.equal(rows[0].amountCents, 25000);
     assert.equal(rows[0].externalRef, "ref-1");
     assert.equal(rows[1].amountCents, -5000);
+  });
+
+  it("validates competence year/month", () => {
+    assert.equal(isValidCompetence(2026, 11), true);
+    assert.equal(isValidCompetence(2026, 0), false);
+    assert.equal(isValidCompetence(1999, 1), false);
   });
 });

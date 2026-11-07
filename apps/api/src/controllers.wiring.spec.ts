@@ -625,10 +625,17 @@ describe("controller wiring (delegates to services)", () => {
 
   it("FinanceController", async () => {
     const finance = {
+      listBankAdapters: jest.fn(),
       listAccounts: jest.fn(),
       createAccount: jest.fn(),
       getAccount: jest.fn(),
       patchAccount: jest.fn(),
+      listFunds: jest.fn(),
+      createFund: jest.fn(),
+      patchFund: jest.fn(),
+      listCostCenters: jest.fn(),
+      createCostCenter: jest.fn(),
+      patchCostCenter: jest.fn(),
       listEntries: jest.fn(),
       createEntry: jest.fn(),
       getEntry: jest.fn(),
@@ -636,9 +643,21 @@ describe("controller wiring (delegates to services)", () => {
       approveEntry: jest.fn(),
       rejectEntry: jest.fn(),
       reverseEntry: jest.fn(),
+      listAttachments: jest.fn(),
+      uploadAttachment: jest.fn(),
+      downloadAttachment: jest.fn(),
+      removeAttachment: jest.fn(),
       listImports: jest.fn(),
       createImport: jest.fn(),
       getImport: jest.fn(),
+      listBudgets: jest.fn(),
+      createBudget: jest.fn(),
+      getBudget: jest.fn(),
+      patchBudget: jest.fn(),
+      addBudgetLine: jest.fn(),
+      listPeriods: jest.fn(),
+      openPeriod: jest.fn(),
+      closePeriod: jest.fn(),
       listReconciliations: jest.fn(),
       createReconciliation: jest.fn(),
       getReconciliation: jest.fn(),
@@ -649,6 +668,7 @@ describe("controller wiring (delegates to services)", () => {
       unmatchBankLine: jest.fn(),
     };
     const c = new FinanceController(finance as never);
+    c.listBankAdapters();
     await c.listAccounts(user);
     await c.createAccount(user, {
       code: "1.1.01",
@@ -657,6 +677,12 @@ describe("controller wiring (delegates to services)", () => {
     });
     await c.getAccount(user, "a1");
     await c.patchAccount(user, "a1", { active: false });
+    await c.listFunds(user);
+    await c.createFund(user, { code: "MISSOES", name: "Missões" });
+    await c.patchFund(user, "f1", { active: true });
+    await c.listCostCenters(user);
+    await c.createCostCenter(user, { code: "ADM", name: "Admin" });
+    await c.patchCostCenter(user, "cc1", { name: "Adm" });
     await c.listEntries(user, "DRAFT");
     await c.createEntry(user, {
       entryDate: "2026-11-01",
@@ -671,9 +697,21 @@ describe("controller wiring (delegates to services)", () => {
     await c.approveEntry(user, "e1");
     await c.rejectEntry(user, "e1", { reason: "x" });
     await c.reverseEntry(user, "e1");
+    await c.listAttachments(user, "e1");
     await c.listImports(user);
     await c.createImport(user, { format: "OFX", filename: "x.ofx" });
     await c.getImport(user, "b1");
+    await c.listBudgets(user, "2026");
+    await c.createBudget(user, { year: 2026, title: "Orc" });
+    await c.getBudget(user, "b1");
+    await c.patchBudget(user, "b1", { status: "ACTIVE" });
+    await c.addBudgetLine(user, "b1", {
+      accountId: "a1",
+      plannedCents: 1000,
+    });
+    await c.listPeriods(user);
+    await c.openPeriod(user, { year: 2026, month: 11 });
+    await c.closePeriod(user, "p1");
     await c.listReconciliations(user);
     await c.createReconciliation(user, {
       title: "Nov",
@@ -695,6 +733,8 @@ describe("controller wiring (delegates to services)", () => {
       reconciliationId: "r1",
     });
     expect(finance.unmatchBankLine).toHaveBeenCalledWith(user, "bl1");
+    expect(finance.createFund).toHaveBeenCalled();
+    expect(finance.openPeriod).toHaveBeenCalled();
   });
 
   it("ChannelsController", async () => {

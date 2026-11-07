@@ -66,6 +66,7 @@ describe("FinanceService", () => {
     type: "ASSET",
     parentId: null as string | null,
     costCenter: null as string | null,
+    costCenterId: null as string | null,
     active: true,
     createdAt: now,
     updatedAt: now,
@@ -87,10 +88,19 @@ describe("FinanceService", () => {
     };
   }
 
+  const mockStorage = {
+    buildLedgerAttachmentKey: jest.fn().mockReturnValue("ledger/org1/church-rf1/e1/a.pdf"),
+    put: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn().mockResolvedValue(Buffer.from("%PDF")),
+    remove: jest.fn().mockResolvedValue(undefined),
+    contentSha256: jest.fn().mockReturnValue("a".repeat(64)),
+  };
+
   it("forbids SECRETARIA from listing accounts", async () => {
     const service = new FinanceService(
       {} as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     await expect(service.listAccounts(secretaria)).rejects.toBeInstanceOf(
       ForbiddenException,
@@ -105,6 +115,7 @@ describe("FinanceService", () => {
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const result = await service.listAccounts(treasurer);
     expect(result.accounts).toHaveLength(1);
@@ -122,6 +133,7 @@ describe("FinanceService", () => {
     const service = new FinanceService(
       withTx(tx) as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const dto = await service.createAccount(treasurer, {
       code: "1.1.01",
@@ -142,6 +154,7 @@ describe("FinanceService", () => {
     const service = new FinanceService(
       withTx(tx) as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     await expect(
       service.createAccount(treasurer, {
@@ -167,6 +180,7 @@ describe("FinanceService", () => {
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const got = await service.getAccount(treasurer, "acc-caixa");
     expect(got.code).toBe("1.1.01");
@@ -182,6 +196,7 @@ describe("FinanceService", () => {
         ledgerAccount: { findMany: jest.fn() },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     await expect(
       service.createEntry(treasurer, {
@@ -242,11 +257,13 @@ describe("FinanceService", () => {
     const service = new FinanceService(
       {
         ...withTx(tx),
+        accountingPeriod: { findFirst: jest.fn().mockResolvedValue(null) },
         ledgerAccount: {
           findMany: jest.fn().mockResolvedValue([accountRow, revenueRow]),
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const dto = await service.createEntry(treasurer, {
       entryDate: "2026-11-01",
@@ -364,6 +381,7 @@ describe("FinanceService", () => {
         ledgerEntry: { findFirst },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
 
     await expect(
@@ -439,6 +457,7 @@ describe("FinanceService", () => {
         ledgerEntry: { findFirst },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const submitted = await service.submitEntry(treasurer, "le1");
     expect(submitted.status).toBe("PENDING_APPROVAL");
@@ -459,6 +478,7 @@ describe("FinanceService", () => {
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const listed = await service.listEntries(treasurer, "DRAFT");
     expect(listed.entries).toEqual([]);
@@ -467,13 +487,14 @@ describe("FinanceService", () => {
     );
   });
 
-  it("creates CSV import stub with lines and OFX metadata stub", async () => {
+  it("creates CSV/OFX parsed imports and PDF_META as META_ONLY", async () => {
     const csvBatch = {
       id: "batch1",
       organizationId: pilot.organizationId,
       churchId: pilot.churchId,
       format: "CSV",
-      status: "PARSED_STUB",
+      status: "PARSED",
+      adapter: "FILE",
       filename: "extrato-demo.csv",
       stubNote: "CSV sintético",
       lineCount: 1,
@@ -496,15 +517,36 @@ describe("FinanceService", () => {
       ...csvBatch,
       id: "batch2",
       format: "OFX",
+      status: "PARSED",
+      lineCount: 1,
+      lines: [
+        {
+          id: "bl-ofx",
+          postedAt: new Date("2026-11-02"),
+          amountCents: 25000,
+          description: "TED OFERTA DEMO",
+          externalRef: "SYN-OFX-001",
+          matchStatus: "UNMATCHED",
+          matchedEntryId: null,
+        },
+      ],
+      stubNote: "OFX parseado",
+    };
+    const pdfBatch = {
+      ...csvBatch,
+      id: "batch3",
+      format: "PDF_META",
+      status: "META_ONLY",
       lineCount: 0,
       lines: [],
-      stubNote: "OFX parser não implementado",
+      stubNote: "PDF_META: somente metadados",
     };
 
     const create = jest
       .fn()
       .mockResolvedValueOnce(csvBatch)
-      .mockResolvedValueOnce(ofxBatch);
+      .mockResolvedValueOnce(ofxBatch)
+      .mockResolvedValueOnce(pdfBatch);
     const tx = {
       bankImportBatch: { create },
       auditLog: { create: jest.fn().mockResolvedValue({}) },
@@ -518,6 +560,7 @@ describe("FinanceService", () => {
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
 
     const csv = await service.createImport(treasurer, {
@@ -526,13 +569,25 @@ describe("FinanceService", () => {
       textContent: "2026-11-01,25000,Oferta demo,ref-1",
     });
     expect(csv.lineCount).toBe(1);
+    expect(csv.status).toBe("PARSED");
 
+    const ofxPayload = `<OFX><STMTTRN><DTPOSTED>20261102<TRNAMT>250.00<FITID>SYN-OFX-001<NAME>TED OFERTA DEMO</STMTTRN></OFX>`;
     const ofx = await service.createImport(treasurer, {
       format: "OFX",
       filename: "extrato.ofx",
+      textContent: ofxPayload,
+      adapter: "MOCK",
     });
     expect(ofx.format).toBe("OFX");
-    expect(ofx.lines).toHaveLength(0);
+    expect(ofx.status).toBe("PARSED");
+    expect(ofx.lineCount).toBe(1);
+
+    const pdf = await service.createImport(treasurer, {
+      format: "PDF_META",
+      filename: "extrato.pdf",
+    });
+    expect(pdf.status).toBe("META_ONLY");
+    expect(pdf.lines).toHaveLength(0);
 
     const listed = await service.listImports(treasurer);
     expect(listed.batches).toHaveLength(1);
@@ -562,6 +617,7 @@ describe("FinanceService", () => {
     const service = new FinanceService(
       withTx(tx) as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     const result = await service.createImport(treasurer, {
       format: "CSV",
@@ -635,6 +691,7 @@ describe("FinanceService", () => {
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
 
     const created = await service.createReconciliation(treasurer, {
@@ -670,6 +727,7 @@ describe("FinanceService", () => {
         ledgerAccount: { findFirst: jest.fn().mockResolvedValue(null) },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     await expect(
       service.createReconciliation(treasurer, {
@@ -807,6 +865,7 @@ describe("FinanceService", () => {
           ),
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
 
     const m = await service.matchBankLine(treasurer, "bl1", {
@@ -887,6 +946,7 @@ describe("FinanceService", () => {
         },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
 
     await expect(
@@ -904,9 +964,231 @@ describe("FinanceService", () => {
         bankStatementLine: { findFirst: jest.fn().mockResolvedValue(null) },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
     );
     await expect(
       service.matchBankLine(treasurer, "missing", { entryId: "e1" }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it("creates fund/cost center and budget with period close gate", async () => {
+    const fundRow = {
+      id: "fund1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      code: "MISSOES",
+      name: "Missões",
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const ccRow = { ...fundRow, id: "cc1", code: "ADM", name: "Administrativo" };
+    const budgetRow = {
+      id: "bud1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      year: 2026,
+      title: "Orçamento 2026",
+      status: "DRAFT",
+      notes: null,
+      createdByUserId: treasurer.userId,
+      createdAt: now,
+      updatedAt: now,
+      lines: [],
+    };
+    const periodRow = {
+      id: "per1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      year: 2026,
+      month: 10,
+      status: "OPEN",
+      closedAt: null,
+      closedByUserId: null,
+      notes: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const fundTx = {
+      fund: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(fundRow),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const fundService = new FinanceService(
+      { ...withTx(fundTx) } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(
+      fundService.createFund(treasurer, { code: "MISSOES", name: "Missões" }),
+    ).resolves.toMatchObject({ code: "MISSOES" });
+
+    const ccTx = {
+      costCenter: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(ccRow),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const ccService = new FinanceService(
+      { ...withTx(ccTx) } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(
+      ccService.createCostCenter(treasurer, { code: "ADM", name: "Administrativo" }),
+    ).resolves.toMatchObject({ code: "ADM" });
+
+    const budTx = {
+      budget: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(budgetRow),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const budService = new FinanceService(
+      { ...withTx(budTx) } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(
+      budService.createBudget(treasurer, { year: 2026, title: "Orçamento 2026" }),
+    ).resolves.toMatchObject({ year: 2026 });
+
+    const perTx = {
+      accountingPeriod: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(periodRow),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const perService = new FinanceService(
+      {
+        ...withTx(perTx),
+        accountingPeriod: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(periodRow)
+            .mockResolvedValueOnce({ ...periodRow, status: "CLOSED" }),
+          update: jest.fn().mockResolvedValue({
+            ...periodRow,
+            status: "CLOSED",
+            closedAt: now,
+            closedByUserId: treasurer.userId,
+          }),
+        },
+        auditLog: { create: jest.fn().mockResolvedValue({}) },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(
+      perService.openPeriod(treasurer, { year: 2026, month: 10 }),
+    ).resolves.toMatchObject({ status: "OPEN" });
+    await expect(perService.closePeriod(treasurer, "per1")).resolves.toMatchObject({
+      status: "CLOSED",
+    });
+
+    const blocked = new FinanceService(
+      {
+        accountingPeriod: {
+          findFirst: jest.fn().mockResolvedValue({ id: "per1", status: "CLOSED" }),
+        },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(
+      blocked.createEntry(treasurer, {
+        entryDate: "2026-10-15",
+        description: "bloqueado",
+        lines: [
+          { accountId: "acc-caixa", side: "DEBIT", amountCents: 100 },
+          { accountId: "acc-ofertas", side: "CREDIT", amountCents: 100 },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("uploads ledger attachment to private storage", async () => {
+    const entry = {
+      id: "e1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      entryDate: new Date("2026-11-02"),
+      description: "x",
+      status: "DRAFT",
+      amountCents: 100,
+      createdByUserId: treasurer.userId,
+      submittedAt: null,
+      firstApprovedByUserId: null,
+      firstApprovedAt: null,
+      secondApprovedByUserId: null,
+      secondApprovedAt: null,
+      rejectedByUserId: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      reversalOfEntryId: null,
+      importBatchId: null,
+      reconciliationId: null,
+      fundId: null,
+      costCenterId: null,
+      competenceYear: 2026,
+      competenceMonth: 11,
+      createdAt: now,
+      updatedAt: now,
+      lines: [],
+      reversedBy: null,
+    };
+    const att = {
+      id: "att1",
+      entryId: "e1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      uploadedByUserId: treasurer.userId,
+      displayName: "recibo.pdf",
+      contentType: "application/pdf",
+      byteSize: 4,
+      storageKey: "ledger/org1/church-rf1/e1/a.pdf",
+      createdAt: now,
+    };
+    const service = new FinanceService(
+      {
+        accountingPeriod: { findFirst: jest.fn().mockResolvedValue(null) },
+        ledgerEntry: { findFirst: jest.fn().mockResolvedValue(entry) },
+        ledgerEntryAttachment: {
+          create: jest.fn().mockResolvedValue(att),
+          findMany: jest.fn().mockResolvedValue([att]),
+        },
+        auditLog: { create: jest.fn().mockResolvedValue({}) },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    const meta = await service.uploadAttachment(treasurer, "e1", {
+      originalname: "recibo.pdf",
+      mimetype: "application/pdf",
+      buffer: Buffer.from("%PDF"),
+      size: 4,
+    });
+    expect(meta.displayName).toBe("recibo.pdf");
+    expect(mockStorage.put).toHaveBeenCalled();
+    const listed = await service.listAttachments(treasurer, "e1");
+    expect(listed.attachments).toHaveLength(1);
+  });
+
+  it("lists bank adapters without live APIs", () => {
+    const service = new FinanceService(
+      {} as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    const result = service.listBankAdapters();
+    expect(result.liveBankApis).toBe(false);
+    expect(result.adapters.length).toBeGreaterThanOrEqual(5);
+  });
+
 });

@@ -1,12 +1,19 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
   IsArray,
@@ -15,11 +22,13 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   Min,
   MinLength,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
+import type { Response } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -45,6 +54,10 @@ class CreateAccountBody {
   @IsOptional()
   @IsString()
   costCenter?: string;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
 }
 
 class PatchAccountBody {
@@ -60,6 +73,10 @@ class PatchAccountBody {
   @IsOptional()
   @IsString()
   costCenter?: string | null;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string | null;
 }
 
 class EntryLineBody {
@@ -93,6 +110,26 @@ class CreateEntryBody {
   @ValidateNested({ each: true })
   @Type(() => EntryLineBody)
   lines!: EntryLineBody[];
+
+  @IsOptional()
+  @IsString()
+  fundId?: string;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  competenceYear?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  competenceMonth?: number;
 }
 
 class RejectEntryBody {
@@ -123,6 +160,11 @@ class CreateImportBody {
   @IsOptional()
   @IsString()
   textContent?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(["FILE", "MOCK", "SICOOB", "BRB", "CORA"])
+  adapter?: string;
 }
 
 class CreateReconciliationBody {
@@ -143,10 +185,100 @@ class CreateReconciliationBody {
   notes?: string;
 }
 
+class CodeNameBody {
+  @IsString()
+  @MinLength(1)
+  code!: string;
+
+  @IsString()
+  @MinLength(1)
+  name!: string;
+}
+
+class PatchActiveNameBody {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+}
+
+class CreateBudgetBody {
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @IsString()
+  @MinLength(1)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+class PatchBudgetBody {
+  @IsOptional()
+  @IsString()
+  @IsIn(["DRAFT", "ACTIVE", "CLOSED"])
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string | null;
+}
+
+class AddBudgetLineBody {
+  @IsString()
+  @MinLength(1)
+  accountId!: string;
+
+  @IsInt()
+  @Min(0)
+  plannedCents!: number;
+
+  @IsOptional()
+  @IsString()
+  fundId?: string;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+class OpenPeriodBody {
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
 @Controller("ledger")
 @Roles(ROLE_CODES.TESOURARIA)
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}
+
+  @Get("bank-adapters")
+  listBankAdapters() {
+    return this.finance.listBankAdapters();
+  }
 
   @Get("accounts")
   listAccounts(@CurrentUser() user: AuthUser) {
@@ -173,6 +305,44 @@ export class FinanceController {
     @Body() body: PatchAccountBody,
   ) {
     return this.finance.patchAccount(user, accountId, body);
+  }
+
+  @Get("funds")
+  listFunds(@CurrentUser() user: AuthUser) {
+    return this.finance.listFunds(user);
+  }
+
+  @Post("funds")
+  createFund(@CurrentUser() user: AuthUser, @Body() body: CodeNameBody) {
+    return this.finance.createFund(user, body);
+  }
+
+  @Patch("funds/:fundId")
+  patchFund(
+    @CurrentUser() user: AuthUser,
+    @Param("fundId") fundId: string,
+    @Body() body: PatchActiveNameBody,
+  ) {
+    return this.finance.patchFund(user, fundId, body);
+  }
+
+  @Get("cost-centers")
+  listCostCenters(@CurrentUser() user: AuthUser) {
+    return this.finance.listCostCenters(user);
+  }
+
+  @Post("cost-centers")
+  createCostCenter(@CurrentUser() user: AuthUser, @Body() body: CodeNameBody) {
+    return this.finance.createCostCenter(user, body);
+  }
+
+  @Patch("cost-centers/:costCenterId")
+  patchCostCenter(
+    @CurrentUser() user: AuthUser,
+    @Param("costCenterId") costCenterId: string,
+    @Body() body: PatchActiveNameBody,
+  ) {
+    return this.finance.patchCostCenter(user, costCenterId, body);
   }
 
   @Get("entries")
@@ -226,6 +396,61 @@ export class FinanceController {
     return this.finance.reverseEntry(user, entryId);
   }
 
+  @Get("entries/:entryId/attachments")
+  listAttachments(
+    @CurrentUser() user: AuthUser,
+    @Param("entryId") entryId: string,
+  ) {
+    return this.finance.listAttachments(user, entryId);
+  }
+
+  @Post("entries/:entryId/attachments")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadAttachment(
+    @CurrentUser() user: AuthUser,
+    @Param("entryId") entryId: string,
+    @UploadedFile()
+    file?: { originalname: string; mimetype: string; buffer: Buffer; size: number },
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException("Campo multipart `file` é obrigatório");
+    }
+    return this.finance.uploadAttachment(user, entryId, file);
+  }
+
+  @Get("entries/:entryId/attachments/:attachmentId")
+  async downloadAttachment(
+    @CurrentUser() user: AuthUser,
+    @Param("entryId") entryId: string,
+    @Param("attachmentId") attachmentId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.finance.downloadAttachment(
+      user,
+      entryId,
+      attachmentId,
+    );
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(file.displayName)}"`,
+    );
+    return new StreamableFile(file.bytes);
+  }
+
+  @Delete("entries/:entryId/attachments/:attachmentId")
+  removeAttachment(
+    @CurrentUser() user: AuthUser,
+    @Param("entryId") entryId: string,
+    @Param("attachmentId") attachmentId: string,
+  ) {
+    return this.finance.removeAttachment(user, entryId, attachmentId);
+  }
+
   @Get("imports")
   listImports(@CurrentUser() user: AuthUser) {
     return this.finance.listImports(user);
@@ -239,6 +464,67 @@ export class FinanceController {
   @Get("imports/:batchId")
   getImport(@CurrentUser() user: AuthUser, @Param("batchId") batchId: string) {
     return this.finance.getImport(user, batchId);
+  }
+
+  @Get("budgets")
+  listBudgets(
+    @CurrentUser() user: AuthUser,
+    @Query("year") yearRaw?: string,
+  ) {
+    const year = yearRaw ? Number.parseInt(yearRaw, 10) : undefined;
+    return this.finance.listBudgets(
+      user,
+      year !== undefined && Number.isFinite(year) ? year : undefined,
+    );
+  }
+
+  @Post("budgets")
+  createBudget(@CurrentUser() user: AuthUser, @Body() body: CreateBudgetBody) {
+    return this.finance.createBudget(user, body);
+  }
+
+  @Get("budgets/:budgetId")
+  getBudget(
+    @CurrentUser() user: AuthUser,
+    @Param("budgetId") budgetId: string,
+  ) {
+    return this.finance.getBudget(user, budgetId);
+  }
+
+  @Patch("budgets/:budgetId")
+  patchBudget(
+    @CurrentUser() user: AuthUser,
+    @Param("budgetId") budgetId: string,
+    @Body() body: PatchBudgetBody,
+  ) {
+    return this.finance.patchBudget(user, budgetId, body);
+  }
+
+  @Post("budgets/:budgetId/lines")
+  addBudgetLine(
+    @CurrentUser() user: AuthUser,
+    @Param("budgetId") budgetId: string,
+    @Body() body: AddBudgetLineBody,
+  ) {
+    return this.finance.addBudgetLine(user, budgetId, body);
+  }
+
+  @Get("periods")
+  listPeriods(@CurrentUser() user: AuthUser) {
+    return this.finance.listPeriods(user);
+  }
+
+  @Post("periods")
+  openPeriod(@CurrentUser() user: AuthUser, @Body() body: OpenPeriodBody) {
+    return this.finance.openPeriod(user, body);
+  }
+
+  @Post("periods/:periodId/close")
+  closePeriod(
+    @CurrentUser() user: AuthUser,
+    @Param("periodId") periodId: string,
+  ) {
+    return this.finance.closePeriod(user, periodId);
   }
 
   @Get("reconciliations")

@@ -6,31 +6,51 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  BANK_IMPORT_ADAPTERS,
   BANK_IMPORT_FORMATS,
+  BUDGET_STATUSES,
   LEDGER_ACCOUNT_TYPES,
   canAccessFinance,
   checkBalancedLines,
+  isValidCompetence,
   nextDualApprovalStage,
+  parseOfxLines,
   parseSyntheticCsvLines,
+  type BankImportAdapterCode,
   type BankImportFormatCode,
+  type BudgetStatusCode,
   type LedgerAccountTypeCode,
   type LedgerLineInput,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { PrivateStorageService } from "../storage/private-storage.service";
+import { listBankAdapters, requireBankAdapter } from "./bank-adapters";
 
 type PilotScope = {
   organizationId: string;
   churchId: string;
 };
 
+const ATTACHMENT_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+]);
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
 @Injectable()
 export class FinanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    private readonly storage: PrivateStorageService,
   ) {}
+
+  listBankAdapters() {
+    return { adapters: listBankAdapters(), liveBankApis: false as const };
+  }
 
   // —— Plano de contas ——
 
@@ -57,6 +77,7 @@ export class FinanceService {
       type: string;
       parentId?: string;
       costCenter?: string;
+      costCenterId?: string;
     },
   ) {
     const pilot = await this.requireFinance(actor);
@@ -68,6 +89,13 @@ export class FinanceService {
     const type = this.requireAccountType(input.type);
     if (input.parentId) {
       await this.requireAccountInPilot(pilot, input.parentId);
+    }
+    let costCenterLabel = input.costCenter?.trim() || null;
+    let costCenterId: string | null = null;
+    if (input.costCenterId) {
+      const cc = await this.requireCostCenterInPilot(pilot, input.costCenterId);
+      costCenterId = cc.id;
+      costCenterLabel = costCenterLabel ?? cc.code;
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -91,7 +119,8 @@ export class FinanceService {
           name,
           type,
           parentId: input.parentId ?? null,
-          costCenter: input.costCenter?.trim() || null,
+          costCenter: costCenterLabel,
+          costCenterId,
         },
       });
 
@@ -103,7 +132,7 @@ export class FinanceService {
           resourceId: row.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { code, type },
+          metadata: { code, type, costCenterId },
         },
       });
 
@@ -120,10 +149,33 @@ export class FinanceService {
   async patchAccount(
     actor: AuthUser,
     accountId: string,
-    input: { name?: string; active?: boolean; costCenter?: string | null },
+    input: {
+      name?: string;
+      active?: boolean;
+      costCenter?: string | null;
+      costCenterId?: string | null;
+    },
   ) {
     const pilot = await this.requireFinance(actor);
     await this.requireAccountInPilot(pilot, accountId);
+
+    let costCenterIdPatch: string | null | undefined;
+    let costCenterLabelPatch: string | null | undefined;
+    if (input.costCenterId !== undefined) {
+      if (input.costCenterId === null || input.costCenterId === "") {
+        costCenterIdPatch = null;
+      } else {
+        const cc = await this.requireCostCenterInPilot(
+          pilot,
+          input.costCenterId,
+        );
+        costCenterIdPatch = cc.id;
+        costCenterLabelPatch = cc.code;
+      }
+    }
+    if (input.costCenter !== undefined) {
+      costCenterLabelPatch = input.costCenter?.trim() || null;
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.ledgerAccount.update({
@@ -131,8 +183,11 @@ export class FinanceService {
         data: {
           ...(input.name !== undefined ? { name: input.name.trim() } : {}),
           ...(input.active !== undefined ? { active: input.active } : {}),
-          ...(input.costCenter !== undefined
-            ? { costCenter: input.costCenter?.trim() || null }
+          ...(costCenterLabelPatch !== undefined
+            ? { costCenter: costCenterLabelPatch }
+            : {}),
+          ...(costCenterIdPatch !== undefined
+            ? { costCenterId: costCenterIdPatch }
             : {}),
         },
       });
@@ -145,7 +200,7 @@ export class FinanceService {
           resourceId: row.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { active: row.active },
+          metadata: { active: row.active, costCenterId: row.costCenterId },
         },
       });
 
@@ -178,6 +233,10 @@ export class FinanceService {
       entryDate: string;
       description: string;
       lines: LedgerLineInput[];
+      fundId?: string;
+      costCenterId?: string;
+      competenceYear?: number;
+      competenceMonth?: number;
     },
   ) {
     const pilot = await this.requireFinance(actor);
@@ -186,6 +245,17 @@ export class FinanceService {
       throw new BadRequestException("description é obrigatória");
     }
     const entryDate = this.parseDateOnly(input.entryDate, "entryDate");
+    const competenceYear =
+      input.competenceYear ?? entryDate.getUTCFullYear();
+    const competenceMonth =
+      input.competenceMonth ?? entryDate.getUTCMonth() + 1;
+    if (!isValidCompetence(competenceYear, competenceMonth)) {
+      throw new BadRequestException({
+        code: "INVALID_COMPETENCE",
+        message: "competenceYear/Month inválidos",
+      });
+    }
+
     const balance = checkBalancedLines(input.lines ?? []);
     if (!balance.ok) {
       throw new BadRequestException({
@@ -194,6 +264,8 @@ export class FinanceService {
         reason: balance.reason,
       });
     }
+
+    await this.assertPeriodOpen(pilot, competenceYear, competenceMonth);
 
     const accountIds = [...new Set(input.lines.map((l) => l.accountId))];
     const accounts = await this.prisma.ledgerAccount.findMany({
@@ -208,6 +280,17 @@ export class FinanceService {
       throw new BadRequestException("Conta inválida ou inativa no escopo");
     }
 
+    let fundId: string | null = null;
+    let costCenterId: string | null = null;
+    if (input.fundId) {
+      fundId = (await this.requireFundInPilot(pilot, input.fundId)).id;
+    }
+    if (input.costCenterId) {
+      costCenterId = (
+        await this.requireCostCenterInPilot(pilot, input.costCenterId)
+      ).id;
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.ledgerEntry.create({
         data: {
@@ -218,6 +301,10 @@ export class FinanceService {
           status: "DRAFT",
           amountCents: balance.amountCents,
           createdByUserId: actor.userId,
+          fundId,
+          costCenterId,
+          competenceYear,
+          competenceMonth,
           lines: {
             create: input.lines.map((l) => ({
               accountId: l.accountId,
@@ -238,7 +325,13 @@ export class FinanceService {
           resourceId: row.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { amountCents: row.amountCents },
+          metadata: {
+            amountCents: row.amountCents,
+            fundId,
+            costCenterId,
+            competenceYear,
+            competenceMonth,
+          },
         },
       });
 
@@ -483,6 +576,7 @@ export class FinanceService {
       format: string;
       filename: string;
       textContent?: string;
+      adapter?: string;
     },
   ) {
     const pilot = await this.requireFinance(actor);
@@ -491,10 +585,24 @@ export class FinanceService {
     if (!filename) {
       throw new BadRequestException("filename é obrigatório");
     }
+    let adapter: BankImportAdapterCode = "FILE";
+    try {
+      adapter = requireBankAdapter(input.adapter);
+    } catch {
+      throw new BadRequestException({
+        code: "INVALID_BANK_ADAPTER",
+        message: `adapter inválido — use ${BANK_IMPORT_ADAPTERS.join("|")}`,
+      });
+    }
 
     let stubNote: string;
-    let parsed: ReturnType<typeof parseSyntheticCsvLines> = [];
-    let status: "PARSED_STUB" | "FAILED" = "PARSED_STUB";
+    let parsed: Array<{
+      postedAt: string;
+      amountCents: number;
+      description: string;
+      externalRef: string | null;
+    }> = [];
+    let status: "PARSED" | "PARSED_STUB" | "META_ONLY" | "FAILED" = "PARSED_STUB";
 
     if (format === "CSV") {
       stubNote = "CSV sintético — parser mínimo date,amountCents,description";
@@ -503,18 +611,38 @@ export class FinanceService {
         if (!parsed.length) {
           status = "FAILED";
           stubNote = "CSV sem linhas válidas";
+        } else {
+          status = "PARSED";
         }
       } else {
         stubNote = "CSV recebido sem conteúdo — lote vazio (stub)";
+        status = "PARSED_STUB";
       }
     } else if (format === "OFX") {
-      stubNote =
-        "OFX parser não implementado nesta fase — metadados apenas (stub)";
-      parsed = [];
+      if (!input.textContent?.trim()) {
+        status = "FAILED";
+        stubNote = "OFX sem textContent — parser real exige payload SGML/XML";
+        parsed = [];
+      } else {
+        const ofx = parseOfxLines(input.textContent);
+        if (!ofx.ok) {
+          status = "FAILED";
+          stubNote = `OFX parse falhou (${ofx.reason ?? "UNKNOWN"})`;
+          parsed = [];
+        } else {
+          status = "PARSED";
+          stubNote = `OFX parseado (${adapter}) — ${ofx.lines.length} linha(s); sem postagem automática`;
+          parsed = ofx.lines;
+        }
+      }
     } else {
-      stubNote =
-        "PDF estruturado não parseado — somente metadados do arquivo (stub)";
+      // PDF_META — limitação honesta: sem OCR/tabela nesta fatia.
+      status = "META_ONLY";
       parsed = [];
+      const metaHint = input.textContent?.trim()?.slice(0, 200) || null;
+      stubNote = metaHint
+        ? `PDF_META: somente metadados (META_ONLY). Extrato tabular/OCR fora de escopo. hint=${metaHint}`
+        : "PDF_META: somente metadados do arquivo (META_ONLY) — 0 linhas; OCR/tabela não implementados";
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -524,25 +652,19 @@ export class FinanceService {
           churchId: pilot.churchId,
           format,
           status,
+          adapter,
           filename,
           stubNote,
           lineCount: parsed.length,
           createdByUserId: actor.userId,
           lines: {
-            create: parsed.map(
-              (p: {
-                postedAt: string;
-                amountCents: number;
-                description: string;
-                externalRef: string | null;
-              }) => ({
-                postedAt: this.parseLooseDate(p.postedAt),
-                amountCents: p.amountCents,
-                description: p.description,
-                externalRef: p.externalRef,
-                matchStatus: "UNMATCHED" as const,
-              }),
-            ),
+            create: parsed.map((p) => ({
+              postedAt: this.parseLooseDate(p.postedAt),
+              amountCents: p.amountCents,
+              description: p.description,
+              externalRef: p.externalRef,
+              matchStatus: "UNMATCHED" as const,
+            })),
           },
         },
         include: { lines: true },
@@ -556,7 +678,13 @@ export class FinanceService {
           resourceId: batch.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { format, status, lineCount: batch.lineCount },
+          metadata: {
+            format,
+            status,
+            adapter,
+            lineCount: batch.lineCount,
+            liveBankApi: false,
+          },
         },
       });
 
@@ -963,6 +1091,609 @@ export class FinanceService {
     });
   }
 
+  // —— Fundos / centros de custo (RF-016) ——
+
+  async listFunds(actor: AuthUser) {
+    const pilot = await this.requireFinance(actor);
+    const rows = await this.prisma.fund.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+      orderBy: { code: "asc" },
+    });
+    return {
+      churchId: pilot.churchId,
+      funds: rows.map((r) => this.toFundDto(r)),
+    };
+  }
+
+  async createFund(
+    actor: AuthUser,
+    input: { code: string; name: string },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    const code = input.code?.trim();
+    const name = input.name?.trim();
+    if (!code || !name) {
+      throw new BadRequestException("code e name são obrigatórios");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.fund.findUnique({
+        where: { churchId_code: { churchId: pilot.churchId, code } },
+      });
+      if (existing) {
+        throw new ConflictException({
+          code: "FUND_CODE_EXISTS",
+          message: "Código de fundo já existe",
+        });
+      }
+      const row = await tx.fund.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          code,
+          name,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ledger.fund.create",
+          resourceType: "fund",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { code },
+        },
+      });
+      return this.toFundDto(row);
+    });
+  }
+
+  async patchFund(
+    actor: AuthUser,
+    fundId: string,
+    input: { name?: string; active?: boolean },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    await this.requireFundInPilot(pilot, fundId);
+    const row = await this.prisma.fund.update({
+      where: { id: fundId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.active !== undefined ? { active: input.active } : {}),
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.fund.patch",
+        resourceType: "fund",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { active: row.active },
+      },
+    });
+    return this.toFundDto(row);
+  }
+
+  async listCostCenters(actor: AuthUser) {
+    const pilot = await this.requireFinance(actor);
+    const rows = await this.prisma.costCenter.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+      orderBy: { code: "asc" },
+    });
+    return {
+      churchId: pilot.churchId,
+      costCenters: rows.map((r) => this.toCostCenterDto(r)),
+    };
+  }
+
+  async createCostCenter(
+    actor: AuthUser,
+    input: { code: string; name: string },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    const code = input.code?.trim();
+    const name = input.name?.trim();
+    if (!code || !name) {
+      throw new BadRequestException("code e name são obrigatórios");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.costCenter.findUnique({
+        where: { churchId_code: { churchId: pilot.churchId, code } },
+      });
+      if (existing) {
+        throw new ConflictException({
+          code: "COST_CENTER_CODE_EXISTS",
+          message: "Código de centro de custo já existe",
+        });
+      }
+      const row = await tx.costCenter.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          code,
+          name,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ledger.cost_center.create",
+          resourceType: "cost_center",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { code },
+        },
+      });
+      return this.toCostCenterDto(row);
+    });
+  }
+
+  async patchCostCenter(
+    actor: AuthUser,
+    costCenterId: string,
+    input: { name?: string; active?: boolean },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    await this.requireCostCenterInPilot(pilot, costCenterId);
+    const row = await this.prisma.costCenter.update({
+      where: { id: costCenterId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.active !== undefined ? { active: input.active } : {}),
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.cost_center.patch",
+        resourceType: "cost_center",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { active: row.active },
+      },
+    });
+    return this.toCostCenterDto(row);
+  }
+
+  // —— Orçamento + competência (RF-019) ——
+
+  async listBudgets(actor: AuthUser, year?: number) {
+    const pilot = await this.requireFinance(actor);
+    const rows = await this.prisma.budget.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        ...(year ? { year } : {}),
+      },
+      orderBy: [{ year: "desc" }, { title: "asc" }],
+      include: { lines: true },
+    });
+    return {
+      churchId: pilot.churchId,
+      budgets: rows.map((r) => this.toBudgetDto(r)),
+    };
+  }
+
+  async createBudget(
+    actor: AuthUser,
+    input: { year: number; title: string; notes?: string },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    const title = input.title?.trim();
+    if (!title || !Number.isInteger(input.year)) {
+      throw new BadRequestException("year e title são obrigatórios");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.budget.findUnique({
+        where: {
+          churchId_year_title: {
+            churchId: pilot.churchId,
+            year: input.year,
+            title,
+          },
+        },
+      });
+      if (existing) {
+        throw new ConflictException({
+          code: "BUDGET_EXISTS",
+          message: "Orçamento com mesmo year+title já existe",
+        });
+      }
+      const row = await tx.budget.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          year: input.year,
+          title,
+          notes: input.notes?.trim() || null,
+          createdByUserId: actor.userId,
+        },
+        include: { lines: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ledger.budget.create",
+          resourceType: "budget",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { year: row.year, title },
+        },
+      });
+      return this.toBudgetDto(row);
+    });
+  }
+
+  async getBudget(actor: AuthUser, budgetId: string) {
+    const pilot = await this.requireFinance(actor);
+    const row = await this.requireBudgetInPilot(pilot, budgetId);
+    return this.toBudgetDto(row);
+  }
+
+  async patchBudget(
+    actor: AuthUser,
+    budgetId: string,
+    input: { status?: string; notes?: string | null },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    const current = await this.requireBudgetInPilot(pilot, budgetId);
+    let status: BudgetStatusCode | undefined;
+    if (input.status !== undefined) {
+      if (!BUDGET_STATUSES.includes(input.status as BudgetStatusCode)) {
+        throw new BadRequestException("status de orçamento inválido");
+      }
+      status = input.status as BudgetStatusCode;
+      if (current.status === "CLOSED" && status !== "CLOSED") {
+        throw new ConflictException({
+          code: "BUDGET_ALREADY_CLOSED",
+          message: "Orçamento CLOSED não reabre nesta fatia",
+        });
+      }
+    }
+    const row = await this.prisma.budget.update({
+      where: { id: budgetId },
+      data: {
+        ...(status ? { status } : {}),
+        ...(input.notes !== undefined
+          ? { notes: input.notes?.trim() || null }
+          : {}),
+      },
+      include: { lines: true },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.budget.patch",
+        resourceType: "budget",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { status: row.status },
+      },
+    });
+    return this.toBudgetDto(row);
+  }
+
+  async addBudgetLine(
+    actor: AuthUser,
+    budgetId: string,
+    input: {
+      accountId: string;
+      plannedCents: number;
+      fundId?: string;
+      costCenterId?: string;
+      notes?: string;
+    },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    const budget = await this.requireBudgetInPilot(pilot, budgetId);
+    if (budget.status === "CLOSED") {
+      throw new ConflictException({
+        code: "BUDGET_CLOSED",
+        message: "Não é possível adicionar linhas a orçamento CLOSED",
+      });
+    }
+    if (!Number.isInteger(input.plannedCents) || input.plannedCents < 0) {
+      throw new BadRequestException("plannedCents deve ser ≥ 0");
+    }
+    await this.requireAccountInPilot(pilot, input.accountId);
+    let fundId: string | null = null;
+    let costCenterId: string | null = null;
+    if (input.fundId) {
+      fundId = (await this.requireFundInPilot(pilot, input.fundId)).id;
+    }
+    if (input.costCenterId) {
+      costCenterId = (
+        await this.requireCostCenterInPilot(pilot, input.costCenterId)
+      ).id;
+    }
+    const line = await this.prisma.budgetLine.create({
+      data: {
+        budgetId,
+        accountId: input.accountId,
+        plannedCents: input.plannedCents,
+        fundId,
+        costCenterId,
+        notes: input.notes?.trim() || null,
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.budget.line_add",
+        resourceType: "budget_line",
+        resourceId: line.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { budgetId, plannedCents: line.plannedCents },
+      },
+    });
+    const refreshed = await this.requireBudgetInPilot(pilot, budgetId);
+    return this.toBudgetDto(refreshed);
+  }
+
+  async listPeriods(actor: AuthUser) {
+    const pilot = await this.requireFinance(actor);
+    const rows = await this.prisma.accountingPeriod.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+    });
+    return {
+      churchId: pilot.churchId,
+      periods: rows.map((r) => this.toPeriodDto(r)),
+    };
+  }
+
+  async openPeriod(
+    actor: AuthUser,
+    input: { year: number; month: number; notes?: string },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    if (!isValidCompetence(input.year, input.month)) {
+      throw new BadRequestException("year/month inválidos");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.accountingPeriod.findUnique({
+        where: {
+          churchId_year_month: {
+            churchId: pilot.churchId,
+            year: input.year,
+            month: input.month,
+          },
+        },
+      });
+      if (existing) {
+        throw new ConflictException({
+          code: "PERIOD_EXISTS",
+          message: "Período de competência já existe",
+        });
+      }
+      const row = await tx.accountingPeriod.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          year: input.year,
+          month: input.month,
+          status: "OPEN",
+          notes: input.notes?.trim() || null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ledger.period.open",
+          resourceType: "accounting_period",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { year: row.year, month: row.month },
+        },
+      });
+      return this.toPeriodDto(row);
+    });
+  }
+
+  async closePeriod(actor: AuthUser, periodId: string) {
+    const pilot = await this.requireFinance(actor);
+    const row = await this.requirePeriodInPilot(pilot, periodId);
+    if (row.status === "CLOSED") {
+      throw new ConflictException({
+        code: "PERIOD_ALREADY_CLOSED",
+        message: "Período já fechado",
+      });
+    }
+    const updated = await this.prisma.accountingPeriod.update({
+      where: { id: periodId },
+      data: {
+        status: "CLOSED",
+        closedAt: new Date(),
+        closedByUserId: actor.userId,
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.period.close",
+        resourceType: "accounting_period",
+        resourceId: periodId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { year: updated.year, month: updated.month },
+      },
+    });
+    return this.toPeriodDto(updated);
+  }
+
+  // —— Comprovantes / anexos (RF-016) ——
+
+  async listAttachments(actor: AuthUser, entryId: string) {
+    const pilot = await this.requireFinance(actor);
+    await this.requireEntryInPilot(pilot, entryId);
+    const rows = await this.prisma.ledgerEntryAttachment.findMany({
+      where: {
+        entryId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return {
+      entryId,
+      attachments: rows.map((r) => this.toAttachmentMeta(r)),
+    };
+  }
+
+  async uploadAttachment(
+    actor: AuthUser,
+    entryId: string,
+    file: {
+      originalname: string;
+      mimetype: string;
+      buffer: Buffer;
+      size: number;
+    },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    await this.requireEntryInPilot(pilot, entryId);
+    if (!ATTACHMENT_TYPES.has(file.mimetype)) {
+      throw new BadRequestException(
+        "Tipo não permitido — use PDF, JPEG ou PNG",
+      );
+    }
+    if (file.size <= 0 || file.size > ATTACHMENT_MAX_BYTES) {
+      throw new BadRequestException("Arquivo deve ter entre 1 byte e 5 MiB");
+    }
+    const displayName = sanitizeDisplayName(file.originalname);
+    const ext =
+      file.mimetype === "application/pdf"
+        ? "pdf"
+        : file.mimetype === "image/png"
+          ? "png"
+          : "jpg";
+    const storageKey = this.storage.buildLedgerAttachmentKey({
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      entryId,
+      extension: ext,
+    });
+    await this.storage.put(storageKey, file.buffer);
+    const sha256 = this.storage.contentSha256(file.buffer);
+    const row = await this.prisma.ledgerEntryAttachment.create({
+      data: {
+        entryId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        uploadedByUserId: actor.userId,
+        displayName,
+        contentType: file.mimetype,
+        byteSize: file.size,
+        storageKey,
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.attachment.upload",
+        resourceType: "ledger_entry_attachment",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: {
+          entryId,
+          contentType: file.mimetype,
+          byteSize: file.size,
+          sha256,
+        },
+      },
+    });
+    return this.toAttachmentMeta(row);
+  }
+
+  async downloadAttachment(
+    actor: AuthUser,
+    entryId: string,
+    attachmentId: string,
+  ) {
+    const pilot = await this.requireFinance(actor);
+    await this.requireEntryInPilot(pilot, entryId);
+    const row = await this.prisma.ledgerEntryAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        entryId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Anexo não encontrado");
+    }
+    const bytes = await this.storage.get(row.storageKey);
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.attachment.download",
+        resourceType: "ledger_entry_attachment",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { entryId },
+      },
+    });
+    return {
+      bytes,
+      contentType: row.contentType,
+      displayName: row.displayName,
+    };
+  }
+
+  async removeAttachment(
+    actor: AuthUser,
+    entryId: string,
+    attachmentId: string,
+  ) {
+    const pilot = await this.requireFinance(actor);
+    await this.requireEntryInPilot(pilot, entryId);
+    const row = await this.prisma.ledgerEntryAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        entryId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Anexo não encontrado");
+    }
+    await this.prisma.ledgerEntryAttachment.delete({ where: { id: row.id } });
+    await this.storage.remove(row.storageKey);
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "ledger.attachment.delete",
+        resourceType: "ledger_entry_attachment",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { entryId, contentType: row.contentType },
+      },
+    });
+    return { deleted: true as const, id: row.id, entryId };
+  }
+
   // —— helpers ——
 
   private async requireFinance(actor: AuthUser): Promise<PilotScope> {
@@ -1082,6 +1813,89 @@ export class FinanceService {
     return row;
   }
 
+  private async requireFundInPilot(pilot: PilotScope, fundId: string) {
+    const row = await this.prisma.fund.findFirst({
+      where: {
+        id: fundId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Fundo não encontrado");
+    }
+    return row;
+  }
+
+  private async requireCostCenterInPilot(
+    pilot: PilotScope,
+    costCenterId: string,
+  ) {
+    const row = await this.prisma.costCenter.findFirst({
+      where: {
+        id: costCenterId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Centro de custo não encontrado");
+    }
+    return row;
+  }
+
+  private async requireBudgetInPilot(pilot: PilotScope, budgetId: string) {
+    const row = await this.prisma.budget.findFirst({
+      where: {
+        id: budgetId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+      include: { lines: true },
+    });
+    if (!row) {
+      throw new NotFoundException("Orçamento não encontrado");
+    }
+    return row;
+  }
+
+  private async requirePeriodInPilot(pilot: PilotScope, periodId: string) {
+    const row = await this.prisma.accountingPeriod.findFirst({
+      where: {
+        id: periodId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Período contábil não encontrado");
+    }
+    return row;
+  }
+
+  /** Bloqueia criação se existir período CLOSED para a competência. */
+  private async assertPeriodOpen(
+    pilot: PilotScope,
+    year: number,
+    month: number,
+  ) {
+    const closed = await this.prisma.accountingPeriod.findFirst({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        year,
+        month,
+        status: "CLOSED",
+      },
+    });
+    if (closed) {
+      throw new ConflictException({
+        code: "ACCOUNTING_PERIOD_CLOSED",
+        message: `Competência ${year}-${String(month).padStart(2, "0")} fechada`,
+      });
+    }
+  }
+
   private toBankLineDto(row: {
     id: string;
     batchId: string;
@@ -1114,6 +1928,7 @@ export class FinanceService {
     type: string;
     parentId: string | null;
     costCenter: string | null;
+    costCenterId?: string | null;
     active: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -1126,6 +1941,7 @@ export class FinanceService {
       type: row.type,
       parentId: row.parentId,
       costCenter: row.costCenter,
+      costCenterId: row.costCenterId ?? null,
       active: row.active,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -1151,6 +1967,10 @@ export class FinanceService {
     reversalOfEntryId: string | null;
     importBatchId: string | null;
     reconciliationId: string | null;
+    fundId?: string | null;
+    costCenterId?: string | null;
+    competenceYear?: number | null;
+    competenceMonth?: number | null;
     createdAt: Date;
     updatedAt: Date;
     lines: Array<{
@@ -1180,6 +2000,10 @@ export class FinanceService {
       reversalOfEntryId: row.reversalOfEntryId,
       importBatchId: row.importBatchId,
       reconciliationId: row.reconciliationId,
+      fundId: row.fundId ?? null,
+      costCenterId: row.costCenterId ?? null,
+      competenceYear: row.competenceYear ?? null,
+      competenceMonth: row.competenceMonth ?? null,
       lines: row.lines.map((l) => ({
         id: l.id,
         accountId: l.accountId,
@@ -1197,6 +2021,7 @@ export class FinanceService {
     churchId: string;
     format: string;
     status: string;
+    adapter?: string;
     filename: string;
     stubNote: string | null;
     lineCount: number;
@@ -1218,10 +2043,12 @@ export class FinanceService {
       churchId: row.churchId,
       format: row.format,
       status: row.status,
+      adapter: row.adapter ?? "FILE",
       filename: row.filename,
       stubNote: row.stubNote,
       lineCount: row.lineCount,
       createdByUserId: row.createdByUserId,
+      liveBankApi: false as const,
       lines: row.lines.map((l) => ({
         id: l.id,
         postedAt: l.postedAt.toISOString(),
@@ -1271,4 +2098,136 @@ export class FinanceService {
       updatedAt: row.updatedAt.toISOString(),
     };
   }
+
+  private toFundDto(row: {
+    id: string;
+    churchId: string;
+    code: string;
+    name: string;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      churchId: row.churchId,
+      code: row.code,
+      name: row.name,
+      active: row.active,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toCostCenterDto(row: {
+    id: string;
+    churchId: string;
+    code: string;
+    name: string;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      churchId: row.churchId,
+      code: row.code,
+      name: row.name,
+      active: row.active,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toBudgetDto(row: {
+    id: string;
+    churchId: string;
+    year: number;
+    title: string;
+    status: string;
+    notes: string | null;
+    createdByUserId: string;
+    createdAt: Date;
+    updatedAt: Date;
+    lines: Array<{
+      id: string;
+      accountId: string;
+      fundId: string | null;
+      costCenterId: string | null;
+      plannedCents: number;
+      notes: string | null;
+    }>;
+  }) {
+    return {
+      id: row.id,
+      churchId: row.churchId,
+      year: row.year,
+      title: row.title,
+      status: row.status,
+      notes: row.notes,
+      createdByUserId: row.createdByUserId,
+      lines: row.lines.map((l) => ({
+        id: l.id,
+        accountId: l.accountId,
+        fundId: l.fundId,
+        costCenterId: l.costCenterId,
+        plannedCents: l.plannedCents,
+        notes: l.notes,
+      })),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toPeriodDto(row: {
+    id: string;
+    churchId: string;
+    year: number;
+    month: number;
+    status: string;
+    closedAt: Date | null;
+    closedByUserId: string | null;
+    notes: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      churchId: row.churchId,
+      year: row.year,
+      month: row.month,
+      status: row.status,
+      closedAt: row.closedAt?.toISOString() ?? null,
+      closedByUserId: row.closedByUserId,
+      notes: row.notes,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toAttachmentMeta(row: {
+    id: string;
+    entryId: string;
+    displayName: string;
+    contentType: string;
+    byteSize: number;
+    createdAt: Date;
+    uploadedByUserId: string;
+  }) {
+    return {
+      id: row.id,
+      entryId: row.entryId,
+      displayName: row.displayName,
+      contentType: row.contentType,
+      byteSize: row.byteSize,
+      uploadedByUserId: row.uploadedByUserId,
+      createdAt: row.createdAt.toISOString(),
+      // storageKey nunca exposto ao FE
+    };
+  }
+}
+
+function sanitizeDisplayName(name: string): string {
+  const base = name.split(/[/\\]/).pop()?.trim() || "anexo";
+  return base.replace(/[^\w.\- ()[\]]+/g, "_").slice(0, 180) || "anexo";
 }
