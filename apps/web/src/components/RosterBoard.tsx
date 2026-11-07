@@ -19,18 +19,19 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
   const [slotId,setSlotId]=useState("");
   const [volunteer,setVolunteer]=useState("");
   const [partner,setPartner]=useState("");
-  const [replacement,setReplacement]=useState("");
+  const [replacement,setReplacement]=useState<Record<string,string>>({});
   const [saving,setSaving]=useState(false);
   const [notice,setNotice]=useState("");
   const leader=roles.includes("LIDER_MINISTERIO")||roles.includes("PASTOR")||roles.includes("SECRETARIA");
 
-  async function execute(path:string,payload?:unknown){
-    if(saving)return;
+  async function execute(path:string,payload?:unknown):Promise<boolean>{
+    if(saving)return false;
     setSaving(true);setNotice("");
     try{await apiPost(path,token,payload);
       setNotice("Alteração registrada na API de homologação. Estado recarregado.");
       refresh();
-    }catch(err){setNotice(dasError(err));}
+      return true;
+    }catch(err){setNotice(dasError(err));return false;}
     finally{setSaving(false);}
   }
   function addSlot(e:FormEvent<HTMLFormElement>,rosterId:string){
@@ -38,14 +39,14 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
     if(!leader||roleLabel.trim().length<2)return;
     void execute("/rosters/"+encodeURIComponent(rosterId)+"/slots",{
       roleLabel:roleLabel.trim(),requiresCouple,
-    }).then(()=>{setRoleLabel("");setRequiresCouple(false);});
+    }).then(ok=>{if(ok){setRoleLabel("");setRequiresCouple(false);}});
   }
   function assign(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
     if(!leader||!slotId||!volunteer.trim())return;
     void execute("/slots/"+encodeURIComponent(slotId)+"/assignments",{
       personId:volunteer.trim(),...(partner.trim()?{partnerPersonId:partner.trim()}:{})
-    }).then(()=>{setVolunteer("");setPartner("");});
+    }).then(ok=>{if(ok){setVolunteer("");setPartner("");setSlotId("");}});
   }
   return <section className={styles.wrap} aria-labelledby="rosters-heading">
     <div className={styles.heading}>
@@ -82,19 +83,19 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
                     {assignments.map((a,index)=>{
                       const aId=id(a.id);
                       const owns=id(a.personId)===personId;
-                      const canRespond=aId&&(owns||leader);
+                      const canRespond=Boolean(aId)&&(owns||leader);
                       const pending=typeof a.status==="string"&&a.status==="PENDING";
                       return <div key={aId??index} className={styles.assignment}>
                         <span className={styles.assignmentTitle}>Pessoa designada: <strong>{text(a.personId,"ID indisponível")}</strong>
                           <small>{text(a.status,"Estado não informado")}</small>
                         </span>
-                        {pending&&canRespond&&<div className={styles.actions}>
+                        {pending&&aId&&canRespond&&<div className={styles.actions}>
                           <button type="button" disabled={saving} onClick={()=>void execute("/assignments/"+encodeURIComponent(aId)+"/confirm")}>Confirmar</button>
                           <button type="button" disabled={saving} onClick={()=>void execute("/assignments/"+encodeURIComponent(aId)+"/decline")}>Recusar</button>
                         </div>}
-                        {leader&&aId&&a.status!=="SUBSTITUTED"&&<form className={styles.replace} onSubmit={e=>{e.preventDefault();if(replacement.trim())void execute("/assignments/"+encodeURIComponent(aId)+"/substitute",{personId:replacement.trim()}).then(()=>setReplacement(""));}}>
-                          <label><span>Substituir por ID de pessoa fictícia</span><input value={replacement} onChange={e=>setReplacement(e.target.value)} placeholder="ID da pessoa autorizada" required/></label>
-                          <button type="submit" disabled={saving||!replacement.trim()}>Substituir</button>
+                        {leader&&aId&&a.status!=="SUBSTITUTED"&&<form className={styles.replace} onSubmit={e=>{e.preventDefault();if((replacement[aId]??"").trim())void execute("/assignments/"+encodeURIComponent(aId)+"/substitute",{personId:(replacement[aId]??"").trim()}).then(ok=>{if(ok)setReplacement(prev=>({...prev,[aId]:""}));});}}>
+                          <label><span>Substituir por ID de pessoa fictícia</span><input value={replacement[aId]??""} onChange={e=>setReplacement(prev=>({...prev,[aId]:e.target.value}))} placeholder="ID da pessoa autorizada" required/></label>
+                          <button type="submit" disabled={saving||!(replacement[aId]??"").trim()}>Substituir</button>
                         </form>}
                       </div>;
                     })}
