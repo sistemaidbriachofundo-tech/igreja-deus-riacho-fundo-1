@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DAS_MODULES, DAS_RESOURCE_TABS, canViewDasModule, dasError, formatChurchDate,
-  parseAmountCents, formatBRL,
+  parseAmountCents, formatBRL, churchLocalToISO,
   readDasRows, readDasSummary, scalarLabel, shortStatus
 } from "./das-operations";
 
@@ -71,4 +71,17 @@ describe("Tesouraria — valores sem arredondamento",()=>{
   it("exibe BRL correto sem ponto flutuante de entrada",()=> {
     expect(formatBRL(123456)).toContain("1.234,56");
   });
+});
+
+describe("Datas da igreja — fuso de São Paulo independente do usuário",()=>{
+  it.each([
+    ["2026-11-07T18:00","2026-11-07T21:00:00.000Z"],
+    ["2027-01-01T09:30","2027-01-01T12:30:00.000Z"],
+    ["2026-12-31T23:30","2027-01-01T02:30:00.000Z"],
+  ])("converte %s para %s", (local,utc)=>{
+    expect(churchLocalToISO(local)).toBe(utc);
+  });
+  it.each(["2026-02-30T12:00","2026-11-07T24:00","2026-11-07T18:60","2026-11-07","nunca"])(
+    "rejeita horário inválido %s",value=>expect(churchLocalToISO(value)).toBeNull()
+  );
 });
