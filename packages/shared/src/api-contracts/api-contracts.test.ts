@@ -12,7 +12,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.3-rf016");
+    assert.equal(API_CONTRACT_VERSION, "0.7.4-rf014");
   });
 
   it("keeps OpenAPI info.version in sync with API_CONTRACT_VERSION", () => {
@@ -104,6 +104,22 @@ describe("api contracts F2", () => {
     );
     assert.equal(
       API_ENDPOINT_STATUS["POST /assignments/:assignmentId/substitute"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /assignments/:assignmentId/alerts/resend"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /volunteer-availabilities"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /roster-couple-exceptions/simulate"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /channels/outbox/resend"],
       "implemented",
     );
     assert.equal(
