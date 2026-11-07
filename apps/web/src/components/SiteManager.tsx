@@ -5,6 +5,7 @@ import { AppShell, UIIcon } from "./AppShell";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
 import { apiLogin, clearToken, getApiBaseUrl, loadStoredToken, storeToken } from "../lib/api";
+import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
 import { defaultSiteLayout, parseSiteLayout, sectionNames, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
 import { withBasePath } from "../lib/paths";
 import s from "./site-manager.module.css";
@@ -15,7 +16,7 @@ type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|n
 const tabs: {key:Tab;label:string}[] = [
   {key:"conteudo",label:"Textos"},{key:"imagens",label:"Fotos"},{key:"aparencia",label:"Cores"},
   {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},
-  {key:"vivi",label:"Vivi IA"},
+  {key:"vivi",label:"Riachinho"},
 ];
 const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
 
@@ -145,6 +146,37 @@ export function SiteManager() {
       await refresh(token);setNotice("Versão recuperada no rascunho. Confira e publique quando estiver pronta.");
     });
   }
+  function applyRiachinhoSuggestion(suggestion:RiachinhoParsedSuggestion){
+    if(suggestion.target==="alts"&&suggestion.alts?.length){
+      const items=layout.gallery.items.map((item,i)=>({
+        ...item,
+        alt:suggestion.alts?.[i]??item.alt,
+      }));
+      update({...layout,gallery:{...layout.gallery,items}});
+    }else if(suggestion.target==="gallery"){
+      update({
+        ...layout,
+        gallery:{
+          ...layout.gallery,
+          title:suggestion.title??layout.gallery.title,
+          accent:suggestion.accent??layout.gallery.accent,
+          description:suggestion.description??layout.gallery.description,
+        },
+      });
+    }else{
+      update({
+        ...layout,
+        hero:{
+          ...layout.hero,
+          title:suggestion.title??layout.hero.title,
+          accent:suggestion.accent??layout.hero.accent,
+          description:suggestion.description??layout.hero.description,
+        },
+      });
+    }
+    setTab("conteudo");
+    setNotice("Sugestão do Riachinho aplicada ao rascunho. Revise e salve quando quiser — nada foi publicado.");
+  }
 
   return <AppShell active="site" meta="Gestão do site" editorial>
     <div className={s.page}>
@@ -223,7 +255,7 @@ export function SiteManager() {
                   <label className={s.toggle}><input type="checkbox" checked={!layout.hidden.includes(key)} disabled={key==="convite"} onChange={()=>toggle(key)}/>Exibir</label>
                 </div></li>)}</ol>
             </div>}
-            {tab==="vivi"&&<div className={s.controls}><ViviEditorialAssistant token={token} layout={layout}/></div>}
+            {tab==="vivi"&&<div className={s.controls}><ViviEditorialAssistant token={token} layout={layout} onApplySuggestion={applyRiachinhoSuggestion}/></div>}
             {tab==="historico"&&<div className={s.controls}>
               <h2>Histórico de publicações</h2><p>Restaure uma versão ao rascunho. Nada é substituído no site sem nova publicação.</p>
               {!revisions.length&&<p>Nenhuma versão publicada no histórico.</p>}

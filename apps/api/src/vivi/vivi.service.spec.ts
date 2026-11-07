@@ -78,7 +78,7 @@ describe("ViviService", () => {
     );
     expect(res.provider).toBe("mock");
     expect(res.refused).toBe(false);
-    expect(res.reply).toMatch(/Vivi/i);
+    expect(res.reply).toMatch(/Riachinho/i);
     expect(res.lgpdNotice).toMatch(/LGPD/i);
     expect(auditCreate).toHaveBeenCalled();
     const meta = auditCreate.mock.calls[0][0].data.metadata as Record<
@@ -141,6 +141,7 @@ describe("ViviService", () => {
     const { service } = build();
     const status = service.getStatus();
     expect(status.assistant).toBe("vivi");
+    expect(status.displayName).toBe("Riachinho");
     expect(status.lgpdNotice).toBeTruthy();
   });
 

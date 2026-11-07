@@ -47,11 +47,12 @@ describe("Gestão do Site — editor visual",()=>{
     expect(html).toContain('type="file"');
     expect(html).toContain("autorização");
   });
-  it("connects the Vivi panel without inventing a live AI provider",()=>{
+  it("connects the Riachinho panel without inventing a live AI provider",()=>{
     const html=renderToStaticMarkup(<ViviEditorialAssistant token="demo-token" layout={defaultSiteLayout}/>);
-    expect(html).toContain("Vivi");
+    expect(html).toContain("Riachinho");
+    expect(html).toContain("Olá! Eu sou o Riachinho");
     expect(html).toContain("Modo de simulação");
-    expect(html).toContain("Não é necessário colocar chaves");
+    expect(html).toContain("sem vision");
   });
   it("shares one approved configuration with all Home sections", () => {
     const html = renderToStaticMarkup(

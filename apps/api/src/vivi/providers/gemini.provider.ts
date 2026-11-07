@@ -117,7 +117,7 @@ export class GeminiViviProvider implements ViviLlmProvider {
 
     return {
       systemInstruction: {
-        parts: [{ text: systemParts.join("\n\n") || "Você é a Vivi." }],
+        parts: [{ text: systemParts.join("\n\n") || "Você é o Riachinho." }],
       },
       contents,
     };
