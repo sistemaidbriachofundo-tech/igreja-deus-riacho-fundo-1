@@ -12,7 +12,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.3-das-etapa3");
+    assert.equal(API_CONTRACT_VERSION, "0.7.4-rf014");
   });
 
   it("keeps OpenAPI info.version in sync with API_CONTRACT_VERSION", () => {

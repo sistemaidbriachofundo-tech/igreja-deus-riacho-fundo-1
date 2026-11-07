@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.3-das-etapa3
+  version: 0.7.4-rf014
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -31,9 +31,10 @@ info:
       RF-029 indicadores reais — `GET /indicators/*` com `stub: false`;
       RF-023 cursos/EBD; RF-009 retenção/export pastoral; RF-030 patrimônio;
       RF-016…019 fundos/CC, orçamento+competência, OFX real, comprovantes;
-      RF-014 disponibilidade/impedimentos + exceções de casal;
-      RF-015 alertas confirm/decline/substitute via outbox mock + resend;
       notes OIDC_NOT_LIVE / MFA challenge
+    - 0.7.4-rf014: RF-014 disponibilidade/impedimentos + exceções de casal (simulate/approve);
+      RF-015 alertas confirm/decline/substitute via outbox **mock** + resend idempotente
+      (`sourceType=roster_assignment`); reusa publish roster (#71); sem WABA live
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -169,7 +170,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.3-das-etapa3 }
+        contractVersion: { type: string, example: 0.7.4-rf014 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
