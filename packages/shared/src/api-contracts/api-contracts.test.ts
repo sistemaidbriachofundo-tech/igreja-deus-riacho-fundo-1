@@ -12,7 +12,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.4-rf014");
+    assert.equal(API_CONTRACT_VERSION, "0.7.4-rf022");
   });
 
   it("keeps OpenAPI info.version in sync with API_CONTRACT_VERSION", () => {
@@ -151,11 +151,29 @@ describe("api contracts F2", () => {
       "implemented",
     );
     assert.equal(
+      API_ENDPOINT_STATUS["POST /events/:eventId/lodging-options"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /events/:eventId/meal-options"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /events/:eventId/transport-options"],
+      "implemented",
+    );
+    assert.equal(
       API_ENDPOINT_STATUS["POST /events/:eventId/registrations"],
       "implemented",
     );
     assert.equal(
       API_ENDPOINT_STATUS["POST /registrations/:registrationId/check-in"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS[
+        "POST /registrations/:registrationId/guardian-authorization"
+      ],
       "implemented",
     );
     assert.equal(

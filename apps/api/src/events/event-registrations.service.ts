@@ -42,10 +42,65 @@ export type RegistrationInput = {
   displayName?: string;
   modalityId?: string;
   lotId?: string | null;
+  lodgingOptionId?: string | null;
+  mealOptionId?: string | null;
+  transportOptionId?: string | null;
   partySize?: number;
   isMinor?: boolean;
   guardianDisplayName?: string | null;
+  /** Ciência sintética do responsável — obrigatória quando isMinor=true. */
+  guardianAcknowledged?: boolean;
 };
+
+export type LodgingOptionInput = {
+  code?: string;
+  name?: string;
+  kind?: "NONE" | "SHARED" | "COUPLE" | "FAMILY" | "CUSTOM";
+  capacity?: number | null;
+  sortOrder?: number;
+};
+
+export type MealOptionInput = {
+  code?: string;
+  name?: string;
+  kind?:
+    | "NONE"
+    | "BREAKFAST"
+    | "LUNCH"
+    | "DINNER"
+    | "FULL_BOARD"
+    | "CUSTOM";
+  capacity?: number | null;
+  sortOrder?: number;
+};
+
+export type TransportOptionInput = {
+  code?: string;
+  name?: string;
+  kind?: "NONE" | "OWN" | "EVENT_BUS" | "CARPOOL" | "CUSTOM";
+  capacity?: number | null;
+  sortOrder?: number;
+};
+
+const DEFAULT_GUARDIAN_ACK =
+  "Autorização sintética de responsável para participação do menor no evento (sem PII real).";
+
+const LODGING_KINDS = ["NONE", "SHARED", "COUPLE", "FAMILY", "CUSTOM"] as const;
+const MEAL_KINDS = [
+  "NONE",
+  "BREAKFAST",
+  "LUNCH",
+  "DINNER",
+  "FULL_BOARD",
+  "CUSTOM",
+] as const;
+const TRANSPORT_KINDS = [
+  "NONE",
+  "OWN",
+  "EVENT_BUS",
+  "CARPOOL",
+  "CUSTOM",
+] as const;
 
 @Injectable()
 export class EventRegistrationsService {
@@ -195,6 +250,263 @@ export class EventRegistrationsService {
     };
   }
 
+  async createLodgingOption(
+    actor: AuthUser,
+    eventId: string,
+    input: LodgingOptionInput,
+  ) {
+    return this.createResourceOption(actor, eventId, input, {
+      allowedKinds: LODGING_KINDS,
+      kindError: "kind de hospedagem inválido",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data) => tx.eventLodgingOption.create({ data }),
+      auditAction: "event_lodging_option.create",
+      auditResourceType: "event_lodging_option",
+    });
+  }
+
+  async listLodgingOptions(actor: AuthUser, eventId: string) {
+    return this.listResourceOptions(actor, eventId, {
+      key: "lodgingOptions",
+      occupyField: "lodgingOptionId",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eid: string) =>
+        prisma.eventLodgingOption.findMany({
+          where: { eventId: eid },
+          orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+        }),
+    });
+  }
+
+  async createMealOption(
+    actor: AuthUser,
+    eventId: string,
+    input: MealOptionInput,
+  ) {
+    return this.createResourceOption(actor, eventId, input, {
+      allowedKinds: MEAL_KINDS,
+      kindError: "kind de alimentação inválido",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data) => tx.eventMealOption.create({ data }),
+      auditAction: "event_meal_option.create",
+      auditResourceType: "event_meal_option",
+    });
+  }
+
+  async listMealOptions(actor: AuthUser, eventId: string) {
+    return this.listResourceOptions(actor, eventId, {
+      key: "mealOptions",
+      occupyField: "mealOptionId",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eid: string) =>
+        prisma.eventMealOption.findMany({
+          where: { eventId: eid },
+          orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+        }),
+    });
+  }
+
+  async createTransportOption(
+    actor: AuthUser,
+    eventId: string,
+    input: TransportOptionInput,
+  ) {
+    return this.createResourceOption(actor, eventId, input, {
+      allowedKinds: TRANSPORT_KINDS,
+      kindError: "kind de transporte inválido",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data) => tx.eventTransportOption.create({ data }),
+      auditAction: "event_transport_option.create",
+      auditResourceType: "event_transport_option",
+    });
+  }
+
+  async listTransportOptions(actor: AuthUser, eventId: string) {
+    return this.listResourceOptions(actor, eventId, {
+      key: "transportOptions",
+      occupyField: "transportOptionId",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eid: string) =>
+        prisma.eventTransportOption.findMany({
+          where: { eventId: eid },
+          orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+        }),
+    });
+  }
+
+  private async createResourceOption(
+    actor: AuthUser,
+    eventId: string,
+    input: {
+      code?: string;
+      name?: string;
+      kind?: string;
+      capacity?: number | null;
+      sortOrder?: number;
+    },
+    opts: {
+      allowedKinds: readonly string[];
+      kindError: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data: Record<string, unknown>) => Promise<any>;
+      auditAction: string;
+      auditResourceType: string;
+    },
+  ) {
+    const { pilot, event } = await this.requireEventWrite(actor, eventId);
+    const code = input.code?.trim().toLowerCase();
+    const name = input.name?.trim();
+    if (!code || !name) {
+      throw new BadRequestException("code e name são obrigatórios");
+    }
+    const kind = input.kind ?? "CUSTOM";
+    if (!opts.allowedKinds.includes(kind)) {
+      throw new BadRequestException(opts.kindError);
+    }
+    if (input.capacity != null && input.capacity < 1) {
+      throw new BadRequestException("capacity inválida");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const row = await opts.createRow(tx, {
+        eventId: event.id,
+        code,
+        name,
+        kind,
+        capacity: input.capacity ?? null,
+        sortOrder: input.sortOrder ?? 0,
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: opts.auditAction,
+          resourceType: opts.auditResourceType,
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { eventId, code, kind },
+        },
+      });
+      return this.toResourceOptionDto(row);
+    });
+  }
+
+  private async listResourceOptions(
+    actor: AuthUser,
+    eventId: string,
+    opts: {
+      key: "lodgingOptions" | "mealOptions" | "transportOptions";
+      occupyField: "lodgingOptionId" | "mealOptionId" | "transportOptionId";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eventId: string) => Promise<any[]>;
+    },
+  ) {
+    const { event } = await this.requireEventWrite(actor, eventId);
+    const rows = await opts.findMany(this.prisma, event.id);
+    const occupied = await this.occupiedByResource(event.id, opts.occupyField);
+    return {
+      eventId: event.id,
+      [opts.key]: rows.map((r) =>
+        this.toResourceOptionDto(r, occupied.get(r.id) ?? 0),
+      ),
+    };
+  }
+
+  /**
+   * Staff autoriza / revoga autorização formal de responsável (menores).
+   * Idempotente se já AUTHORIZED / REVOKED com o mesmo status alvo.
+   */
+  async setGuardianAuthorization(
+    actor: AuthUser,
+    registrationId: string,
+    input: { status?: "AUTHORIZED" | "REVOKED"; acknowledgmentText?: string },
+  ) {
+    const { pilot, registration, event } =
+      await this.requireRegistrationWrite(actor, registrationId);
+    if (!registration.isMinor) {
+      throw new BadRequestException(
+        "Autorização de responsável só se aplica a menores",
+      );
+    }
+    const next = input.status;
+    if (next !== "AUTHORIZED" && next !== "REVOKED") {
+      throw new BadRequestException("status deve ser AUTHORIZED ou REVOKED");
+    }
+    if (registration.status === "CANCELLED") {
+      throw new BadRequestException("Inscrição cancelada");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      let auth = await tx.eventGuardianAuthorization.findUnique({
+        where: { registrationId: registration.id },
+      });
+      const ack =
+        input.acknowledgmentText?.trim() ||
+        auth?.acknowledgmentText ||
+        DEFAULT_GUARDIAN_ACK;
+      if (!auth) {
+        auth = await tx.eventGuardianAuthorization.create({
+          data: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            registrationId: registration.id,
+            guardianDisplayName:
+              registration.guardianDisplayName || "Responsável sintético",
+            status: "PENDING",
+            acknowledgmentText: ack,
+          },
+        });
+      }
+
+      if (auth.status === next) {
+        const current = await tx.eventRegistration.findUniqueOrThrow({
+          where: { id: registration.id },
+        });
+        return {
+          ...this.toRegistrationDto(current),
+          guardianAuthorization: this.toGuardianAuthDto(auth),
+        };
+      }
+
+      const updatedAuth = await tx.eventGuardianAuthorization.update({
+        where: { id: auth.id },
+        data: {
+          status: next,
+          acknowledgmentText: ack,
+          authorizedAt: next === "AUTHORIZED" ? new Date() : auth.authorizedAt,
+          authorizedByUserId:
+            next === "AUTHORIZED" ? actor.userId : auth.authorizedByUserId,
+          revokedAt: next === "REVOKED" ? new Date() : null,
+        },
+      });
+      const updatedReg = await tx.eventRegistration.update({
+        where: { id: registration.id },
+        data: {
+          guardianAuthStatus: next,
+          guardianAuthorizedAt:
+            next === "AUTHORIZED" ? new Date() : registration.guardianAuthorizedAt,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action:
+            next === "AUTHORIZED"
+              ? "event_guardian_authorization.authorize"
+              : "event_guardian_authorization.revoke",
+          resourceType: "event_guardian_authorization",
+          resourceId: updatedAuth.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { eventId: event.id, registrationId: registration.id },
+        },
+      });
+      return {
+        ...this.toRegistrationDto(updatedReg),
+        guardianAuthorization: this.toGuardianAuthDto(updatedAuth),
+      };
+    });
+  }
+
   async listRegistrations(actor: AuthUser, eventId: string) {
     const { pilot, event } = await this.requireEventWrite(actor, eventId);
     const rows = await this.prisma.eventRegistration.findMany({
@@ -288,6 +600,10 @@ export class EventRegistrationsService {
       paymentStatus: row.paymentStatus,
       partySize: row.partySize,
       isMinor: row.isMinor,
+      guardianAuthStatus: row.guardianAuthStatus,
+      lodgingOptionId: row.lodgingOptionId,
+      mealOptionId: row.mealOptionId,
+      transportOptionId: row.transportOptionId,
       // sem displayName/guardian no status público — só operacional
       checkInCode: row.checkInCode,
     };
@@ -304,6 +620,14 @@ export class EventRegistrationsService {
     }
     if (registration.status === "PENDING_PAYMENT") {
       throw new BadRequestException("Pagamento pendente — check-in bloqueado");
+    }
+    if (
+      registration.isMinor &&
+      registration.guardianAuthStatus !== "AUTHORIZED"
+    ) {
+      throw new BadRequestException(
+        "Autorização de responsável pendente — check-in bloqueado",
+      );
     }
     if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
       throw new BadRequestException("checkInCode não confere");
@@ -506,9 +830,20 @@ export class EventRegistrationsService {
     });
   }
 
-  /** Catálogo público (modalidades + lotes OPEN) com vagas restantes — sem PII. */
+  /** Catálogo público (modalidades + lotes OPEN + RF-022 opções) — sem PII. */
   async publicCatalogForEvent(eventId: string) {
-    const [modalities, lots, occMod, occLot] = await Promise.all([
+    const [
+      modalities,
+      lots,
+      lodgingOptions,
+      mealOptions,
+      transportOptions,
+      occMod,
+      occLot,
+      occLodging,
+      occMeal,
+      occTransport,
+    ] = await Promise.all([
       this.prisma.eventModality.findMany({
         where: { eventId },
         orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
@@ -517,8 +852,23 @@ export class EventRegistrationsService {
         where: { eventId, status: "OPEN" },
         orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
       }),
+      this.prisma.eventLodgingOption.findMany({
+        where: { eventId },
+        orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+      }),
+      this.prisma.eventMealOption.findMany({
+        where: { eventId },
+        orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+      }),
+      this.prisma.eventTransportOption.findMany({
+        where: { eventId },
+        orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+      }),
       this.occupiedByModality(eventId),
       this.occupiedByLot(eventId),
+      this.occupiedByResource(eventId, "lodgingOptionId"),
+      this.occupiedByResource(eventId, "mealOptionId"),
+      this.occupiedByResource(eventId, "transportOptionId"),
     ]);
     const now = Date.now();
     const openLots = lots.filter((lot) => {
@@ -531,8 +881,22 @@ export class EventRegistrationsService {
         this.toModalityDto(m, occMod.get(m.id) ?? 0),
       ),
       lots: openLots.map((l) => this.toLotDto(l, occLot.get(l.id) ?? 0)),
+      lodgingOptions: lodgingOptions.map((o) =>
+        this.toResourceOptionDto(o, occLodging.get(o.id) ?? 0),
+      ),
+      mealOptions: mealOptions.map((o) =>
+        this.toResourceOptionDto(o, occMeal.get(o.id) ?? 0),
+      ),
+      transportOptions: transportOptions.map((o) =>
+        this.toResourceOptionDto(o, occTransport.get(o.id) ?? 0),
+      ),
       paymentMode: "MOCK_ONLY" as const,
-      rf022LodgingPending: true,
+      /** RF-022 entregue nesta fatia — opções podem estar vazias se staff não configurou. */
+      rf022LodgingPending: false,
+      requiresLodgingOption: lodgingOptions.length > 0,
+      requiresMealOption: mealOptions.length > 0,
+      requiresTransportOption: transportOptions.length > 0,
+      requiresGuardianAuthorizationForMinors: true,
     };
   }
 
@@ -572,6 +936,16 @@ export class EventRegistrationsService {
     if (!isMinor && guardianDisplayName) {
       throw new BadRequestException(
         "guardianDisplayName só é permitido para menores",
+      );
+    }
+    if (isMinor && params.input.guardianAcknowledged !== true) {
+      throw new BadRequestException(
+        "guardianAcknowledged=true obrigatório quando isMinor=true",
+      );
+    }
+    if (!isMinor && params.input.guardianAcknowledged === true) {
+      throw new BadRequestException(
+        "guardianAcknowledged só é permitido para menores",
       );
     }
 
@@ -623,6 +997,37 @@ export class EventRegistrationsService {
       throw new BadRequestException("lotId é obrigatório na inscrição pública");
     }
 
+    const [lodgingCatalog, mealCatalog, transportCatalog] = await Promise.all([
+      this.prisma.eventLodgingOption.findMany({
+        where: { eventId: params.event.id },
+      }),
+      this.prisma.eventMealOption.findMany({
+        where: { eventId: params.event.id },
+      }),
+      this.prisma.eventTransportOption.findMany({
+        where: { eventId: params.event.id },
+      }),
+    ]);
+
+    const lodging = await this.resolveResourceOption({
+      catalog: lodgingCatalog,
+      optionId: params.input.lodgingOptionId,
+      label: "hospedagem",
+      required: lodgingCatalog.length > 0,
+    });
+    const meal = await this.resolveResourceOption({
+      catalog: mealCatalog,
+      optionId: params.input.mealOptionId,
+      label: "alimentação",
+      required: mealCatalog.length > 0,
+    });
+    const transport = await this.resolveResourceOption({
+      catalog: transportCatalog,
+      optionId: params.input.transportOptionId,
+      label: "transporte",
+      required: transportCatalog.length > 0,
+    });
+
     const occMod = await this.countOccupied(params.event.id, {
       modalityId: modality.id,
     });
@@ -637,10 +1042,29 @@ export class EventRegistrationsService {
         throw new BadRequestException("capacidade do lote esgotada");
       }
     }
+    await this.assertResourceCapacity(
+      params.event.id,
+      "lodgingOptionId",
+      lodging,
+      partySize,
+    );
+    await this.assertResourceCapacity(
+      params.event.id,
+      "mealOptionId",
+      meal,
+      partySize,
+    );
+    await this.assertResourceCapacity(
+      params.event.id,
+      "transportOptionId",
+      transport,
+      partySize,
+    );
 
     const priceCents = lot?.priceCents ?? 0;
     const needsPayment = priceCents > 0;
     const checkInCode = randomBytes(16).toString("hex");
+    const guardianAuthStatus = isMinor ? "PENDING" : "NOT_REQUIRED";
 
     return this.prisma.$transaction(async (tx) => {
       // Re-validate capacity inside transaction (best-effort).
@@ -670,6 +1094,27 @@ export class EventRegistrationsService {
           throw new BadRequestException("capacidade do lote esgotada");
         }
       }
+      await this.assertResourceCapacityTx(
+        tx,
+        params.event.id,
+        "lodgingOptionId",
+        lodging,
+        partySize,
+      );
+      await this.assertResourceCapacityTx(
+        tx,
+        params.event.id,
+        "mealOptionId",
+        meal,
+        partySize,
+      );
+      await this.assertResourceCapacityTx(
+        tx,
+        params.event.id,
+        "transportOptionId",
+        transport,
+        partySize,
+      );
 
       const registration = await tx.eventRegistration.create({
         data: {
@@ -678,15 +1123,42 @@ export class EventRegistrationsService {
           eventId: params.event.id,
           modalityId: modality.id,
           lotId: lot?.id ?? null,
+          lodgingOptionId: lodging?.id ?? null,
+          mealOptionId: meal?.id ?? null,
+          transportOptionId: transport?.id ?? null,
           displayName,
           partySize,
           isMinor,
           guardianDisplayName,
+          guardianAuthStatus,
           status: needsPayment ? "PENDING_PAYMENT" : "CONFIRMED",
           paymentStatus: needsPayment ? "PENDING" : "CONFIRMED_MOCK",
           checkInCode,
         },
       });
+
+      let guardianAuthorization: {
+        id: string;
+        status: string;
+        acknowledgmentText: string;
+        authorizedAt: Date | null;
+        revokedAt: Date | null;
+        guardianDisplayName: string;
+        createdAt: Date;
+        updatedAt: Date;
+      } | null = null;
+      if (isMinor && guardianDisplayName) {
+        guardianAuthorization = await tx.eventGuardianAuthorization.create({
+          data: {
+            organizationId: params.pilot.organizationId,
+            churchId: params.pilot.churchId,
+            registrationId: registration.id,
+            guardianDisplayName,
+            status: "PENDING",
+            acknowledgmentText: DEFAULT_GUARDIAN_ACK,
+          },
+        });
+      }
 
       let paymentIntent: { id: string; status: string; amountCents: number } | null =
         null;
@@ -721,7 +1193,11 @@ export class EventRegistrationsService {
             eventId: params.event.id,
             modalityId: modality.id,
             lotId: lot?.id ?? null,
+            lodgingOptionId: lodging?.id ?? null,
+            mealOptionId: meal?.id ?? null,
+            transportOptionId: transport?.id ?? null,
             isMinor,
+            guardianAuthStatus,
             needsPayment,
             // sem displayName em audit metadata pública
           },
@@ -730,6 +1206,9 @@ export class EventRegistrationsService {
 
       return {
         ...this.toRegistrationDto(registration),
+        guardianAuthorization: guardianAuthorization
+          ? this.toGuardianAuthDto(guardianAuthorization)
+          : null,
         paymentIntent: paymentIntent
           ? {
               id: paymentIntent.id,
@@ -805,6 +1284,105 @@ export class EventRegistrationsService {
         .filter((r) => r.lotId)
         .map((r) => [r.lotId as string, r._sum.partySize ?? 0]),
     );
+  }
+
+  private async occupiedByResource(
+    eventId: string,
+    field: "lodgingOptionId" | "mealOptionId" | "transportOptionId",
+  ) {
+    const rows = await this.prisma.eventRegistration.groupBy({
+      by: [field],
+      where: {
+        eventId,
+        status: { in: [...OCCUPYING_STATUSES] },
+        [field]: { not: null },
+      },
+      _sum: { partySize: true },
+    });
+    return new Map(
+      rows
+        .filter((r) => r[field])
+        .map((r) => [r[field] as string, r._sum.partySize ?? 0]),
+    );
+  }
+
+  private async resolveResourceOption(params: {
+    catalog: Array<{ id: string; capacity: number | null }>;
+    optionId?: string | null;
+    label: string;
+    required: boolean;
+  }): Promise<{ id: string; capacity: number | null } | null> {
+    const optionId = params.optionId?.trim() || null;
+    if (!optionId) {
+      if (params.required) {
+        throw new BadRequestException(
+          `Opção de ${params.label} é obrigatória neste evento`,
+        );
+      }
+      return null;
+    }
+    const found = params.catalog.find((o) => o.id === optionId);
+    if (!found) {
+      throw new BadRequestException(`Opção de ${params.label} inválida`);
+    }
+    return found;
+  }
+
+  private async assertResourceCapacity(
+    eventId: string,
+    field: "lodgingOptionId" | "mealOptionId" | "transportOptionId",
+    option: { id: string; capacity: number | null } | null,
+    partySize: number,
+  ) {
+    if (!option?.capacity) return;
+    const occupied = await this.countOccupiedResource(eventId, field, option.id);
+    if (occupied + partySize > option.capacity) {
+      throw new BadRequestException(
+        `capacidade de ${resourceLabel(field)} esgotada`,
+      );
+    }
+  }
+
+  private async assertResourceCapacityTx(
+    // Prisma interactive transaction client — keep loose to avoid Omit<> friction.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tx: any,
+    eventId: string,
+    field: "lodgingOptionId" | "mealOptionId" | "transportOptionId",
+    option: { id: string; capacity: number | null } | null,
+    partySize: number,
+  ) {
+    if (!option?.capacity) return;
+    const agg = await tx.eventRegistration.aggregate({
+      where: {
+        eventId,
+        status: { in: [...OCCUPYING_STATUSES] },
+        [field]: option.id,
+      },
+      _sum: { partySize: true },
+    });
+    const used = (agg._sum.partySize as number | null) ?? 0;
+    if (used + partySize > option.capacity) {
+      throw new BadRequestException(
+        `capacidade de ${resourceLabel(field)} esgotada`,
+      );
+    }
+  }
+
+  private async countOccupiedResource(
+    eventId: string,
+    field: "lodgingOptionId" | "mealOptionId" | "transportOptionId",
+    optionId: string,
+  ): Promise<number> {
+    const agg = await this.prisma.eventRegistration.aggregate({
+      where: {
+        eventId,
+        status: { in: [...OCCUPYING_STATUSES] },
+        [field]: optionId,
+      },
+      _sum: { partySize: true },
+    });
+    return agg._sum.partySize ?? 0;
   }
 
   private async requireEventWrite(actor: AuthUser, eventId: string) {
@@ -921,15 +1499,68 @@ export class EventRegistrationsService {
     };
   }
 
+  private toResourceOptionDto(
+    row: {
+      id: string;
+      eventId: string;
+      code: string;
+      name: string;
+      kind: string;
+      capacity: number | null;
+      sortOrder: number;
+    },
+    occupied = 0,
+  ) {
+    return {
+      id: row.id,
+      eventId: row.eventId,
+      code: row.code,
+      name: row.name,
+      kind: row.kind,
+      capacity: row.capacity,
+      occupied,
+      remaining:
+        row.capacity == null ? null : Math.max(0, row.capacity - occupied),
+      sortOrder: row.sortOrder,
+    };
+  }
+
+  private toGuardianAuthDto(row: {
+    id: string;
+    status: string;
+    acknowledgmentText: string;
+    authorizedAt: Date | null;
+    revokedAt: Date | null;
+    guardianDisplayName: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      status: row.status,
+      acknowledgmentText: row.acknowledgmentText,
+      guardianDisplayName: row.guardianDisplayName,
+      authorizedAt: row.authorizedAt?.toISOString() ?? null,
+      revokedAt: row.revokedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
   private toRegistrationDto(row: {
     id: string;
     eventId: string;
     modalityId: string;
     lotId: string | null;
+    lodgingOptionId?: string | null;
+    mealOptionId?: string | null;
+    transportOptionId?: string | null;
     displayName: string;
     partySize: number;
     isMinor: boolean;
     guardianDisplayName: string | null;
+    guardianAuthStatus?: string;
+    guardianAuthorizedAt?: Date | null;
     status: string;
     paymentStatus: string;
     checkInCode: string;
@@ -943,10 +1574,15 @@ export class EventRegistrationsService {
       eventId: row.eventId,
       modalityId: row.modalityId,
       lotId: row.lotId,
+      lodgingOptionId: row.lodgingOptionId ?? null,
+      mealOptionId: row.mealOptionId ?? null,
+      transportOptionId: row.transportOptionId ?? null,
       displayName: row.displayName,
       partySize: row.partySize,
       isMinor: row.isMinor,
       guardianDisplayName: row.guardianDisplayName,
+      guardianAuthStatus: row.guardianAuthStatus ?? "NOT_REQUIRED",
+      guardianAuthorizedAt: row.guardianAuthorizedAt?.toISOString() ?? null,
       status: row.status,
       paymentStatus: row.paymentStatus,
       checkInCode: row.checkInCode,
@@ -957,6 +1593,14 @@ export class EventRegistrationsService {
       paymentMode: "MOCK_ONLY" as const,
     };
   }
+}
+
+function resourceLabel(
+  field: "lodgingOptionId" | "mealOptionId" | "transportOptionId",
+): string {
+  if (field === "lodgingOptionId") return "hospedagem";
+  if (field === "mealOptionId") return "alimentação";
+  return "transporte";
 }
 
 function defaultMinParty(kind: string): number {

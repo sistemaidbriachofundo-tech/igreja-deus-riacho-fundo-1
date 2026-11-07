@@ -12,6 +12,7 @@ describe("MetaController", () => {
     expect(meta.notes.some((n) => n.includes("0.7.2-f2"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("0.7.3-das-etapa3"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("0.7.4-rf014"))).toBe(true);
+    expect(meta.notes.some((n) => n.includes("0.7.4-rf022"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-020/021"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-029"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-023"))).toBe(true);
@@ -22,6 +23,12 @@ describe("MetaController", () => {
     expect(meta.endpoints["POST /events/:eventId/registrations"]).toBe(
       "implemented",
     );
+    expect(meta.endpoints["POST /events/:eventId/lodging-options"]).toBe(
+      "implemented",
+    );
+    expect(
+      meta.endpoints["POST /registrations/:registrationId/guardian-authorization"],
+    ).toBe("implemented");
     expect(meta.endpoints["POST /webhooks/event-payments/mock"]).toBe(
       "implemented",
     );
