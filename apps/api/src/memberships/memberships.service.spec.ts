@@ -92,6 +92,8 @@ describe("MembershipsService scope", () => {
           email: "bruno.demo@example.test",
           status: "ACTIVE",
           householdId: null,
+          kind: "MEMBER",
+          isMinor: false,
         },
         credentials: [],
       },
@@ -100,12 +102,24 @@ describe("MembershipsService scope", () => {
     const result = await service.listForPilot(secretaria);
     expect(result.church.slug).toBe("riacho-fundo-1");
     expect(result.memberships).toHaveLength(1);
+    expect(result.memberships[0]?.person).toMatchObject({
+      kind: "MEMBER",
+      isMinor: false,
+    });
     expect(prisma.churchMembership.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           churchId: "church-rf1",
           organizationId: "org1",
         },
+        include: expect.objectContaining({
+          person: expect.objectContaining({
+            select: expect.objectContaining({
+              kind: true,
+              isMinor: true,
+            }),
+          }),
+        }),
       }),
     );
   });

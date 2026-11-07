@@ -127,12 +127,20 @@ describe("AuthService JWT helpers", () => {
 });
 
 describe("AuthService login MFA hint", () => {
+  const pilot = {
+    organizationId: "org1",
+    churchId: "ch1",
+    organizationSlug: "igreja-de-deus",
+    churchSlug: "riacho-fundo-1",
+    churchName: "RF1",
+  };
+
   beforeAll(() => {
     process.env.JWT_SECRET = "unit-test-jwt-secret-32chars-ok!!";
     process.env.NODE_ENV = "test";
   });
 
-  it("returns mfa challengeRequired when required+enabled", async () => {
+  it("returns mfa challengeRequired when required+enabled and audits login", async () => {
     const hash = await hashPassword("admin");
     const prisma = {
       user: {
@@ -155,8 +163,12 @@ describe("AuthService login MFA hint", () => {
           ],
         }),
       },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
     };
-    const service = new AuthService(prisma as never, { getPilotChurch: jest.fn().mockResolvedValue({ organizationId: "org1", churchId: "ch1", organizationSlug: "igreja-de-deus", churchSlug: "riacho-fundo-1", churchName: "RF1" }) } as never);
+    const service = new AuthService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
     const result = await service.login({
       email: "ana.demo@example.test",
       password: "admin",
@@ -169,6 +181,24 @@ describe("AuthService login MFA hint", () => {
       oidcLive: false,
     });
     expect(result.accessToken).toBeTruthy();
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "auth.login",
+          actorUserId: "u1",
+          resourceType: "auth",
+          metadata: expect.objectContaining({
+            emailFingerprint: expect.any(String),
+            mfaEnabled: true,
+            mfaRequired: true,
+          }),
+        }),
+      }),
+    );
+    const meta = (prisma.auditLog.create as jest.Mock).mock.calls[0][0].data
+      .metadata as Record<string, unknown>;
+    expect(meta).not.toHaveProperty("email");
+    expect(meta).not.toHaveProperty("password");
   });
 
   it("returns challengeRequired false when MFA not required", async () => {
@@ -194,8 +224,12 @@ describe("AuthService login MFA hint", () => {
           ],
         }),
       },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
     };
-    const service = new AuthService(prisma as never, { getPilotChurch: jest.fn().mockResolvedValue({ organizationId: "org1", churchId: "ch1", organizationSlug: "igreja-de-deus", churchSlug: "riacho-fundo-1", churchName: "RF1" }) } as never);
+    const service = new AuthService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
     const result = await service.login({
       email: "bruno.demo@example.test",
       password: "admin",
@@ -203,6 +237,32 @@ describe("AuthService login MFA hint", () => {
     expect(result.mfa).toBeDefined();
     expect(result.mfa!.challengeRequired).toBe(false);
     expect(result.mfa!.enabled).toBe(false);
+  });
+
+  it("audits failed login without leaking email plaintext", async () => {
+    const prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new AuthService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.login({ email: "ghost@example.test", password: "x" }),
+    ).rejects.toThrow(/Credenciais/);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "auth.login_failed",
+          actorUserId: null,
+          metadata: expect.objectContaining({
+            reason: "invalid_user",
+            emailFingerprint: expect.any(String),
+          }),
+        }),
+      }),
+    );
   });
 });
 

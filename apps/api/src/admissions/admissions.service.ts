@@ -194,6 +194,69 @@ export class AdmissionsService {
     });
   }
 
+  /**
+   * Cancela protocolo em andamento (SECRETARIA).
+   * Não reabre REJECTED/APPROVED; status → CANCELLED (enum já existente).
+   */
+  async cancel(actor: AuthUser, admissionId: string, notes?: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    if (
+      !canManageAdmissions(actor.grants, {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      })
+    ) {
+      throw new ForbiddenException(
+        "Somente secretaria pode cancelar protocolo de admissão",
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const admission = await tx.admissionProtocol.findFirst({
+        where: {
+          id: admissionId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        },
+      });
+      if (!admission) {
+        throw new NotFoundException("Protocolo não encontrado");
+      }
+      if (
+        admission.status === "APPROVED" ||
+        admission.status === "REJECTED" ||
+        admission.status === "CANCELLED"
+      ) {
+        throw new BusinessException(
+          "Protocolo encerrado — não pode cancelar",
+          "ADMISSION_CLOSED",
+        );
+      }
+
+      const cancelled = await tx.admissionProtocol.update({
+        where: { id: admission.id },
+        data: {
+          status: "CANCELLED",
+          notes: notes?.trim() || admission.notes,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "admission.cancel",
+          resourceType: "admission_protocol",
+          resourceId: admission.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { previousStatus: admission.status },
+        },
+      });
+
+      return this.toDto(cancelled);
+    });
+  }
+
   async advance(
     actor: AuthUser,
     admissionId: string,

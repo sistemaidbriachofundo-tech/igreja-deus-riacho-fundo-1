@@ -1,5 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   ADMISSION_STEP_ORDER,
   ADMISSION_STATUSES,
@@ -10,7 +12,20 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.1-vivi");
+    assert.equal(API_CONTRACT_VERSION, "0.7.2-f2");
+  });
+
+  it("keeps OpenAPI info.version in sync with API_CONTRACT_VERSION", () => {
+    // `npm test -w @idbrf/shared` roda com cwd = packages/shared
+    const yaml = readFileSync(join(process.cwd(), "openapi/f2-v0.2.yaml"), "utf8");
+    assert.match(yaml, new RegExp(`^  version: ${API_CONTRACT_VERSION}$`, "m"));
+  });
+
+  it("marks zero endpoints as proposed (F2 surface closed)", () => {
+    const proposed = Object.entries(API_ENDPOINT_STATUS).filter(
+      ([, status]) => (status as string) === "proposed",
+    );
+    assert.deepEqual(proposed, []);
   });
 
   it("keeps admission checklist order (no skipping)", () => {
@@ -25,6 +40,7 @@ describe("api contracts F2", () => {
   it("requires pastor approval status before APPROVED", () => {
     assert.ok(ADMISSION_STATUSES.AWAITING_PASTOR);
     assert.ok(ADMISSION_STATUSES.APPROVED);
+    assert.ok(ADMISSION_STATUSES.CANCELLED);
     assert.notEqual(
       ADMISSION_STATUSES.AWAITING_SECRETARIA,
       ADMISSION_STATUSES.APPROVED,
@@ -54,6 +70,14 @@ describe("api contracts F2", () => {
     );
     assert.equal(
       API_ENDPOINT_STATUS["POST /admissions/:admissionId/documents"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["DELETE /admissions/:admissionId/documents/:documentId"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /admissions/:admissionId/cancel"],
       "implemented",
     );
     assert.equal(API_ENDPOINT_STATUS["GET /meta"], "implemented");

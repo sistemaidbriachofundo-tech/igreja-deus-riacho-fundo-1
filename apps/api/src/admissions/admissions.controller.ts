@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -102,6 +104,17 @@ export class AdmissionsController {
     res.send(file.bytes);
   }
 
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Delete(":admissionId/documents/:documentId")
+  @HttpCode(200)
+  deleteDocument(
+    @CurrentUser() user: AuthUser,
+    @Param("admissionId") admissionId: string,
+    @Param("documentId") documentId: string,
+  ) {
+    return this.documents.remove(user, admissionId, documentId);
+  }
+
   @Roles(
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
@@ -110,6 +123,16 @@ export class AdmissionsController {
   @Get(":admissionId")
   get(@CurrentUser() user: AuthUser, @Param("admissionId") admissionId: string) {
     return this.admissions.getById(user, admissionId);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Post(":admissionId/cancel")
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param("admissionId") admissionId: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.admissions.cancel(user, admissionId, body?.notes);
   }
 
   @Roles(

@@ -99,6 +99,8 @@ export const API_ENDPOINT_STATUS = {
   "GET /admissions/:admissionId/documents": "implemented",
   "POST /admissions/:admissionId/documents": "implemented",
   "GET /admissions/:admissionId/documents/:documentId": "implemented",
+  "DELETE /admissions/:admissionId/documents/:documentId": "implemented",
+  "POST /admissions/:admissionId/cancel": "implemented",
   "GET /audit-logs": "implemented",
   "POST /credentials/reissue/:membershipId": "implemented",
   "POST /credentials/:credentialId/pdf": "implemented",

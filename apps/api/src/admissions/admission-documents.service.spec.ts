@@ -149,4 +149,53 @@ describe("AdmissionDocumentsService", () => {
     expect(file.contentType).toBe("application/pdf");
     expect(prisma.auditLog.create).toHaveBeenCalled();
   });
+
+  it("deletes document metadata and private bytes for secretaria", async () => {
+    const prisma = {
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue({ id: "adm1" }),
+      },
+      admissionDocument: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "doc1",
+          admissionId: "adm1",
+          organizationId: "org1",
+          churchId: "church-rf1",
+          contentType: "application/pdf",
+          byteSize: 4,
+          storageKey: "admissions/org1/church-rf1/adm1/x",
+        }),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const storage = {
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AdmissionDocumentsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+
+    await expect(service.remove(member, "adm1", "doc1")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+
+    const result = await service.remove(secretaria, "adm1", "doc1");
+    expect(result).toEqual({ deleted: true, id: "doc1", admissionId: "adm1" });
+    expect(prisma.admissionDocument.delete).toHaveBeenCalledWith({
+      where: { id: "doc1" },
+    });
+    expect(storage.remove).toHaveBeenCalledWith(
+      "admissions/org1/church-rf1/adm1/x",
+    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "admission_document.delete",
+        }),
+      }),
+    );
+  });
 });

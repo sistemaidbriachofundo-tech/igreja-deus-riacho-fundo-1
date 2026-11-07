@@ -102,20 +102,26 @@ describe("controller wiring (delegates to services)", () => {
       getById: jest.fn(),
       create: jest.fn(),
       advance: jest.fn(),
+      cancel: jest.fn(),
     };
     const documents = {
       list: jest.fn(),
       upload: jest.fn(),
       download: jest.fn(),
+      remove: jest.fn(),
     };
     const c = new AdmissionsController(admissions as never, documents as never);
     await c.list(user, "DRAFT");
     await c.get(user, "a1");
     await c.create(user, { displayName: "X" } as never);
     await c.advance(user, "a1", { completeStep: "documents" } as never);
+    await c.cancel(user, "a1", { notes: "demo" });
     await c.listDocuments(user, "a1");
+    await c.deleteDocument(user, "a1", "d1");
     expect(admissions.list).toHaveBeenCalledWith(user, "DRAFT");
     expect(admissions.advance).toHaveBeenCalled();
+    expect(admissions.cancel).toHaveBeenCalledWith(user, "a1", "demo");
+    expect(documents.remove).toHaveBeenCalledWith(user, "a1", "d1");
   });
 
   it("CredentialsController", async () => {

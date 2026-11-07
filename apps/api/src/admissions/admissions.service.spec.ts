@@ -385,6 +385,59 @@ describe("AdmissionsService", () => {
     expect(sec.result.status).toBe("AWAITING_PASTOR");
   });
 
+  it("cancels open protocol and blocks closed / non-secretaria", async () => {
+    const tx = {
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...baseAdmission,
+          status: "AWAITING_DOCUMENTS",
+        }),
+        update: jest.fn().mockResolvedValue({
+          ...baseAdmission,
+          status: "CANCELLED",
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = serviceWith({
+      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
+        fn(tx),
+      ),
+    });
+    const result = await service.cancel(secretaria, "adm1", "desistência demo");
+    expect(result.status).toBe("CANCELLED");
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "admission.cancel" }),
+      }),
+    );
+
+    await expect(service.cancel(member, "adm1")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+
+    const closedTx = {
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...baseAdmission,
+          status: "APPROVED",
+        }),
+        update: jest.fn(),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const closedService = serviceWith({
+      $transaction: jest.fn(
+        async (fn: (t: typeof closedTx) => Promise<unknown>) => fn(closedTx),
+      ),
+    });
+    await expect(closedService.cancel(secretaria, "adm1")).rejects.toMatchObject(
+      {
+        response: expect.objectContaining({ code: "ADMISSION_CLOSED" }),
+      },
+    );
+  });
+
   it("rejects closed protocol, missing decision, wrong roles, REJECT path", async () => {
     const closed = { ...baseAdmission, status: "APPROVED" };
     await expect(
