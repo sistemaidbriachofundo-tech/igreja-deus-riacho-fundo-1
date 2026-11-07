@@ -958,4 +958,163 @@ describe("MinistriesService", () => {
     const result = await service.confirmAssignment(lider, "a1");
     expect(result.status).toBe("CONFIRMED");
   });
+
+  it("publishes DRAFT roster and closes PUBLISHED with audit", async () => {
+    const published = { ...rosterRow, status: "PUBLISHED" };
+    const closed = { ...rosterRow, status: "CLOSED" };
+    const withSlots = {
+      ...rosterRow,
+      slots: [
+        {
+          id: "slot1",
+          assignments: [
+            {
+              id: "a1",
+              personId: "p-mem",
+              partnerPersonId: null,
+              status: "PENDING",
+            },
+          ],
+        },
+      ],
+    };
+
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(rosterRow) // publish requireRoster
+      .mockResolvedValueOnce(withSlots) // publish with slots
+      .mockResolvedValueOnce(published) // close requireRoster
+      .mockResolvedValueOnce(published); // close again path for not-draft etc.
+
+    const publishTx = {
+      roster: { update: jest.fn().mockResolvedValue(published) },
+      auditLog: { create: jest.fn() },
+    };
+    const closeTx = {
+      roster: { update: jest.fn().mockResolvedValue(closed) },
+      auditLog: { create: jest.fn() },
+    };
+
+    const prisma = {
+      roster: { findFirst },
+      rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest
+        .fn()
+        .mockImplementationOnce(async (fn: (t: typeof publishTx) => unknown) =>
+          fn(publishTx),
+        )
+        .mockImplementationOnce(async (fn: (t: typeof closeTx) => unknown) =>
+          fn(closeTx),
+        ),
+    };
+    const service = new MinistriesService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const pub = await service.publishRoster(lider, "r1");
+    expect(pub.status).toBe("PUBLISHED");
+    expect(publishTx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "roster.publish" }),
+      }),
+    );
+
+    const clo = await service.closeRoster(lider, "r1");
+    expect(clo.status).toBe("CLOSED");
+    expect(closeTx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "roster.close" }),
+      }),
+    );
+  });
+
+  it("rejects publish when not DRAFT, empty, or internal conflict", async () => {
+    const published = { ...rosterRow, status: "PUBLISHED" };
+    const emptySlots = { ...rosterRow, slots: [] };
+    const dupSlots = {
+      ...rosterRow,
+      slots: [
+        {
+          id: "s1",
+          assignments: [
+            { id: "a1", personId: "p-mem", partnerPersonId: null, status: "PENDING" },
+          ],
+        },
+        {
+          id: "s2",
+          assignments: [
+            { id: "a2", personId: "p-mem", partnerPersonId: null, status: "CONFIRMED" },
+          ],
+        },
+      ],
+    };
+
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(published) // publish: not DRAFT
+      .mockResolvedValueOnce(rosterRow) // publish: empty slots path
+      .mockResolvedValueOnce(emptySlots)
+      .mockResolvedValueOnce(rosterRow) // publish: internal conflict
+      .mockResolvedValueOnce(dupSlots)
+      .mockResolvedValueOnce(rosterRow); // close: DRAFT → not PUBLISHED
+
+    const service = new MinistriesService(
+      {
+        roster: { findFirst },
+        rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+        $transaction: jest.fn(),
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(service.publishRoster(lider, "r1")).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(service.publishRoster(lider, "r1")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(service.publishRoster(lider, "r1")).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+
+    await expect(service.closeRoster(lider, "r1")).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it("blocks addSlot on PUBLISHED and mutations on CLOSED", async () => {
+    const published = { ...rosterRow, status: "PUBLISHED" };
+    const closed = { ...rosterRow, status: "CLOSED" };
+    const service = new MinistriesService(
+      {
+        roster: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(published)
+            .mockResolvedValueOnce(closed),
+        },
+        rosterSlot: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: "slot1",
+            rosterId: "r1",
+            roleLabel: "Voz",
+            requiresCouple: false,
+            sortOrder: 0,
+            roster: closed,
+          }),
+        },
+        $transaction: jest.fn(),
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.addSlot(lider, "r1", { roleLabel: "Voz" }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.addAssignment(lider, "slot1", { personId: "p-mem" }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
 });

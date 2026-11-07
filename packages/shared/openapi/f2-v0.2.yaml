@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.2-f2
+  version: 0.7.3-das-etapa3
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -24,6 +24,8 @@ info:
       (sem RAG default); campos aditivos opcionais `sources`/`promptVersion`/`knowledgeMiss` (backward-compat)
     - 0.7.2-f2: fechamento F2 — `auth.login` audit, `POST /admissions/:id/cancel`,
       `DELETE /admissions/:id/documents/:documentId`, polish Person/Audit/Meta schemas
+    - 0.7.3-das-etapa3: RF-013 transição roster DRAFT→PUBLISHED→CLOSED (publish/close + conflitos);
+      RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; notes OIDC_NOT_LIVE / MFA challenge
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -121,7 +123,10 @@ components:
         user: { $ref: "#/components/schemas/AuthUser" }
         mfa:
           type: object
-          description: Hint MFA/OIDC — challenge hard ainda não bloqueia JWT
+          description: |
+            Hint MFA/OIDC. `challengeRequired=true` indica que a política exige desafio,
+            mas o **challenge hard ainda não bloqueia o JWT** neste contrato (FE pode
+            orientar enrollment; não há step-up gate). `oidcLive` permanece `false`.
           properties:
             enabled: { type: boolean }
             required: { type: boolean }
@@ -148,7 +153,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.2-f2 }
+        contractVersion: { type: string, example: 0.7.3-das-etapa3 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
@@ -928,10 +933,26 @@ paths:
       tags: [oidc]
       x-implementation: implemented
       summary: Interface callback (não troca code)
+      description: |
+        Stub honesto — **não** troca `code` por tokens. Resposta 501 com
+        `code: OIDC_NOT_LIVE` até haver IdP autorizado. Sem WABA/banco live neste contrato.
       security: []
       responses:
         "501":
-          description: OIDC_NOT_LIVE
+          description: OIDC_NOT_LIVE — IdP não conectado neste release
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode: { type: integer, example: 501 }
+                  message:
+                    oneOf:
+                      - type: string
+                      - type: object
+                        properties:
+                          code: { type: string, enum: [OIDC_NOT_LIVE] }
+                          message: { type: string }
 
   /persons/search:
     get:
@@ -1974,11 +1995,52 @@ paths:
         "201":
           description: Escala criada
 
+  /rosters/{rosterId}/publish:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Publica escala DRAFT → PUBLISHED
+      description: |
+        RF-013. Revalida conflitos de `serviceAt` com outras escalas e pessoas
+        duplicadas entre slots. Exige ≥1 slot. Audit `roster.publish`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: rosterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Roster PUBLISHED
+        "400":
+          description: ROSTER_EMPTY
+        "409":
+          description: ROSTER_NOT_DRAFT | ROSTER_SERVICE_CONFLICT | ROSTER_INTERNAL_CONFLICT
+
+  /rosters/{rosterId}/close:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Fecha escala PUBLISHED → CLOSED
+      description: RF-013. Audit `roster.close`. CLOSED trava slots/assignments.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: rosterId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Roster CLOSED
+        "409":
+          description: ROSTER_NOT_PUBLISHED
+
   /rosters/{rosterId}/slots:
     post:
       tags: [ministries]
       x-implementation: implemented
       summary: Adiciona slot (função) na escala
+      description: Somente enquanto status=DRAFT.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: rosterId
@@ -1999,6 +2061,8 @@ paths:
       responses:
         "201":
           description: Slot criado
+        "409":
+          description: ROSTER_NOT_DRAFT
 
   /slots/{slotId}/assignments:
     post:
@@ -2888,6 +2952,56 @@ paths:
       responses:
         "200":
           description: CLOSED
+
+  /ledger/bank-lines/{lineId}/match:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Casa linha de extrato com lançamento
+      description: |
+        RF-018. `BankStatementLine` → MATCHED + `matchedEntryId`.
+        Valida escopo church, `|amountCents|` iguais, linha/entry sem outro match ativo.
+        `reconciliationId` opcional (liga o lançamento; bloqueado se CLOSED).
+        Sem parser OFX live / sem banco real — opera sobre lotes stub/CSV sintético.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: lineId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entryId]
+              properties:
+                entryId: { type: string }
+                reconciliationId: { type: string }
+      responses:
+        "200":
+          description: Linha MATCHED
+        "409":
+          description: BANK_LINE_ALREADY_MATCHED | BANK_LINE_AMOUNT_MISMATCH | LEDGER_ENTRY_ALREADY_MATCHED | RECONCILIATION_CLOSED | BANK_LINE_IGNORED
+
+  /ledger/bank-lines/{lineId}/unmatch:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Desfaz match/sugestão da linha
+      description: MATCHED/SUGGESTED → UNMATCHED; bloqueado se conciliação ligada estiver CLOSED.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: lineId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Linha UNMATCHED
+        "409":
+          description: BANK_LINE_NOT_MATCHED | RECONCILIATION_CLOSED
 
   /channels/providers:
     get:

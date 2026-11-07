@@ -294,6 +294,137 @@ export class MinistriesService {
     };
   }
 
+  async publishRoster(actor: AuthUser, rosterId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const roster = await this.requireRoster(rosterId, pilot);
+
+    if (roster.status !== "DRAFT") {
+      throw new ConflictException({
+        code: "ROSTER_NOT_DRAFT",
+        message: "Só DRAFT pode ser publicado",
+      });
+    }
+
+    const withSlots = await this.prisma.roster.findFirst({
+      where: { id: rosterId },
+      include: {
+        slots: {
+          include: {
+            assignments: {
+              where: { status: { in: ["PENDING", "CONFIRMED"] } },
+            },
+          },
+        },
+      },
+    });
+    if (!withSlots?.slots.length) {
+      throw new BadRequestException({
+        code: "ROSTER_EMPTY",
+        message: "Publique apenas escalas com ao menos um slot",
+      });
+    }
+
+    const personIds = new Set<string>();
+    for (const slot of withSlots.slots) {
+      for (const assignment of slot.assignments) {
+        personIds.add(assignment.personId);
+        if (assignment.partnerPersonId) {
+          personIds.add(assignment.partnerPersonId);
+        }
+      }
+    }
+
+    // Conflitos com OUTRAS escalas no mesmo serviceAt (exclui esta roster).
+    if (personIds.size) {
+      await this.assertNoServiceConflict(
+        pilot.churchId,
+        roster.serviceAt,
+        [...personIds],
+        undefined,
+        rosterId,
+      );
+    }
+
+    // Pessoas duplicadas entre slots desta escala.
+    const active = withSlots.slots.flatMap((s) => s.assignments);
+    const seen = new Set<string>();
+    for (const assignment of active) {
+      for (const pid of [
+        assignment.personId,
+        assignment.partnerPersonId,
+      ].filter(Boolean) as string[]) {
+        if (seen.has(pid)) {
+          throw new ConflictException({
+            code: "ROSTER_INTERNAL_CONFLICT",
+            message:
+              "Pessoa aparece em mais de um slot PENDING/CONFIRMED desta escala",
+          });
+        }
+        seen.add(pid);
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.roster.update({
+        where: { id: rosterId },
+        data: { status: "PUBLISHED" },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "roster.publish",
+          resourceType: "roster",
+          resourceId: rosterId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            from: "DRAFT",
+            to: "PUBLISHED",
+            slotCount: withSlots.slots.length,
+            activeAssignmentCount: withSlots.slots.reduce(
+              (n, s) => n + s.assignments.length,
+              0,
+            ),
+          },
+        },
+      });
+      return this.toRosterDto(updated);
+    });
+  }
+
+  async closeRoster(actor: AuthUser, rosterId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const roster = await this.requireRoster(rosterId, pilot);
+
+    if (roster.status !== "PUBLISHED") {
+      throw new ConflictException({
+        code: "ROSTER_NOT_PUBLISHED",
+        message: "Só PUBLISHED pode ser fechada",
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.roster.update({
+        where: { id: rosterId },
+        data: { status: "CLOSED" },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "roster.close",
+          resourceType: "roster",
+          resourceId: rosterId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { from: "PUBLISHED", to: "CLOSED" },
+        },
+      });
+      return this.toRosterDto(updated);
+    });
+  }
+
   async addSlot(
     actor: AuthUser,
     rosterId: string,
@@ -305,7 +436,8 @@ export class MinistriesService {
   ) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
-    await this.requireRoster(rosterId, pilot);
+    const roster = await this.requireRoster(rosterId, pilot);
+    this.assertRosterDraft(roster);
 
     const roleLabel = input.roleLabel?.trim();
     if (!roleLabel) {
@@ -357,6 +489,8 @@ export class MinistriesService {
     ) {
       throw new NotFoundException("Slot de escala não encontrado");
     }
+    // PUBLISHED ainda aceita designações; CLOSED trava.
+    this.assertRosterNotClosed(slot.roster);
 
     if (!input.personId?.trim()) {
       throw new BadRequestException("personId é obrigatório");
@@ -410,6 +544,7 @@ export class MinistriesService {
   async confirmAssignment(actor: AuthUser, assignmentId: string) {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
+    this.assertRosterNotClosed(loaded.roster);
     this.assertCanRespondOwnOrLead(actor, loaded.assignment.personId, pilot);
 
     await this.assertNoServiceConflict(
@@ -449,6 +584,7 @@ export class MinistriesService {
   async declineAssignment(actor: AuthUser, assignmentId: string) {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
+    this.assertRosterNotClosed(loaded.roster);
     this.assertCanRespondOwnOrLead(actor, loaded.assignment.personId, pilot);
 
     return this.prisma.$transaction(async (tx) => {
@@ -483,6 +619,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
+    this.assertRosterNotClosed(loaded.roster);
 
     if (!input.personId?.trim()) {
       throw new BadRequestException("personId é obrigatório");
@@ -645,11 +782,31 @@ export class MinistriesService {
     }
   }
 
+  private assertRosterDraft(roster: { status?: string }): void {
+    const status = roster.status ?? "DRAFT";
+    if (status !== "DRAFT") {
+      throw new ConflictException({
+        code: "ROSTER_NOT_DRAFT",
+        message: "Slots/assignments só podem ser criados em DRAFT",
+      });
+    }
+  }
+
+  private assertRosterNotClosed(roster: { status?: string }): void {
+    if ((roster.status ?? "DRAFT") === "CLOSED") {
+      throw new ConflictException({
+        code: "ROSTER_CLOSED",
+        message: "Escala CLOSED não aceita alterações de assignment",
+      });
+    }
+  }
+
   private async assertNoServiceConflict(
     churchId: string,
     serviceAt: Date,
     personIds: string[],
     excludeAssignmentId?: string,
+    excludeRosterId?: string,
   ): Promise<void> {
     if (!personIds.length) return;
 
@@ -667,6 +824,7 @@ export class MinistriesService {
           roster: {
             churchId,
             serviceAt,
+            ...(excludeRosterId ? { id: { not: excludeRosterId } } : {}),
           },
         },
       },
@@ -675,9 +833,11 @@ export class MinistriesService {
     });
 
     if (conflicts.length) {
-      throw new ConflictException(
-        "Pessoa já possui escala PENDING/CONFIRMED no mesmo serviceAt desta congregação",
-      );
+      throw new ConflictException({
+        code: "ROSTER_SERVICE_CONFLICT",
+        message:
+          "Pessoa já possui escala PENDING/CONFIRMED no mesmo serviceAt desta congregação",
+      });
     }
   }
 

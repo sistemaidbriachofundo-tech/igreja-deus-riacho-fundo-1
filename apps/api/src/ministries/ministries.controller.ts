@@ -257,6 +257,34 @@ export class RostersController {
     ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
   )
+  @Post(":rosterId/publish")
+  publish(
+    @CurrentUser() user: AuthUser,
+    @Param("rosterId") rosterId: string,
+  ) {
+    return this.ministries.publishRoster(user, rosterId);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Post(":rosterId/close")
+  close(
+    @CurrentUser() user: AuthUser,
+    @Param("rosterId") rosterId: string,
+  ) {
+    return this.ministries.closeRoster(user, rosterId);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
   @Post(":rosterId/slots")
   addSlot(
     @CurrentUser() user: AuthUser,

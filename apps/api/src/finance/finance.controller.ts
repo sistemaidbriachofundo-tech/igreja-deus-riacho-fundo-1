@@ -101,6 +101,16 @@ class RejectEntryBody {
   reason?: string;
 }
 
+class MatchBankLineBody {
+  @IsString()
+  @MinLength(1)
+  entryId!: string;
+
+  @IsOptional()
+  @IsString()
+  reconciliationId?: string;
+}
+
 class CreateImportBody {
   @IsString()
   @IsIn(["CSV", "OFX", "PDF_META"])
@@ -274,5 +284,22 @@ export class FinanceController {
     @Param("reconciliationId") reconciliationId: string,
   ) {
     return this.finance.closeReconciliation(user, reconciliationId);
+  }
+
+  @Post("bank-lines/:lineId/match")
+  matchBankLine(
+    @CurrentUser() user: AuthUser,
+    @Param("lineId") lineId: string,
+    @Body() body: MatchBankLineBody,
+  ) {
+    return this.finance.matchBankLine(user, lineId, body);
+  }
+
+  @Post("bank-lines/:lineId/unmatch")
+  unmatchBankLine(
+    @CurrentUser() user: AuthUser,
+    @Param("lineId") lineId: string,
+  ) {
+    return this.finance.unmatchBankLine(user, lineId);
   }
 }

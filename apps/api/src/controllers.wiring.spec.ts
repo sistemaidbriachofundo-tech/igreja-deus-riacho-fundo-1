@@ -336,6 +336,8 @@ describe("controller wiring (delegates to services)", () => {
       archiveMinistry: jest.fn(),
       createRoster: jest.fn(),
       listRosters: jest.fn(),
+      publishRoster: jest.fn(),
+      closeRoster: jest.fn(),
       addSlot: jest.fn(),
       addAssignment: jest.fn(),
       confirmAssignment: jest.fn(),
@@ -355,6 +357,8 @@ describe("controller wiring (delegates to services)", () => {
       serviceAt: "2026-11-09T10:00:00Z",
     });
     await r.list(user);
+    await r.publish(user, "ro1");
+    await r.close(user, "ro1");
     await r.addSlot(user, "ro1", { roleLabel: "Vocal" });
     const s = new RosterSlotsController(ministries as never);
     await s.addAssignment(user, "sl1", { personId: "p1" });
@@ -362,6 +366,8 @@ describe("controller wiring (delegates to services)", () => {
     await a.confirm(user, "as1");
     await a.decline(user, "as1");
     await a.substitute(user, "as1", { personId: "p2" });
+    expect(ministries.publishRoster).toHaveBeenCalledWith(user, "ro1");
+    expect(ministries.closeRoster).toHaveBeenCalledWith(user, "ro1");
     expect(ministries.substituteAssignment).toHaveBeenCalled();
   });
 
@@ -466,6 +472,8 @@ describe("controller wiring (delegates to services)", () => {
       submitReconciliation: jest.fn(),
       approveReconciliation: jest.fn(),
       closeReconciliation: jest.fn(),
+      matchBankLine: jest.fn(),
+      unmatchBankLine: jest.fn(),
     };
     const c = new FinanceController(finance as never);
     await c.listAccounts(user);
@@ -503,7 +511,17 @@ describe("controller wiring (delegates to services)", () => {
     await c.submitReconciliation(user, "r1");
     await c.approveReconciliation(user, "r1");
     await c.closeReconciliation(user, "r1");
+    await c.matchBankLine(user, "bl1", {
+      entryId: "e1",
+      reconciliationId: "r1",
+    });
+    await c.unmatchBankLine(user, "bl1");
     expect(finance.closeReconciliation).toHaveBeenCalledWith(user, "r1");
+    expect(finance.matchBankLine).toHaveBeenCalledWith(user, "bl1", {
+      entryId: "e1",
+      reconciliationId: "r1",
+    });
+    expect(finance.unmatchBankLine).toHaveBeenCalledWith(user, "bl1");
   });
 
   it("ChannelsController", async () => {

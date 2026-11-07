@@ -12,7 +12,7 @@ import {
 
 describe("api contracts F2", () => {
   it("pins contract version for FE/BE sync", () => {
-    assert.equal(API_CONTRACT_VERSION, "0.7.2-f2");
+    assert.equal(API_CONTRACT_VERSION, "0.7.3-das-etapa3");
   });
 
   it("keeps OpenAPI info.version in sync with API_CONTRACT_VERSION", () => {
@@ -87,6 +87,14 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["POST /pastoral-cases"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /rosters"], "implemented");
     assert.equal(
+      API_ENDPOINT_STATUS["POST /rosters/:rosterId/publish"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /rosters/:rosterId/close"],
+      "implemented",
+    );
+    assert.equal(
       API_ENDPOINT_STATUS["PATCH /pastoral-cases/:caseId/tasks/:taskId"],
       "implemented",
     );
@@ -135,6 +143,14 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["POST /ledger/imports"], "implemented");
     assert.equal(
       API_ENDPOINT_STATUS["POST /ledger/reconciliations"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /ledger/bank-lines/:lineId/match"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /ledger/bank-lines/:lineId/unmatch"],
       "implemented",
     );
 
