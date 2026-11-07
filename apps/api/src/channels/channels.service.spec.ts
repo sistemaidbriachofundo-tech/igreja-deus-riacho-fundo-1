@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { ChannelRateLimitService } from "./channel-rate-limit.service";
 import { ChannelsService } from "./channels.service";
+import { FcmMockProvider } from "./providers/fcm.provider";
 import { MockChannelProvider } from "./providers/mock.provider";
 import { NoopChannelProvider } from "./providers/noop.provider";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -49,7 +50,7 @@ describe("ChannelsService", () => {
   const providers = {
     whatsapp: new MockChannelProvider("whatsapp"),
     email: new NoopChannelProvider("email"),
-    push: new MockChannelProvider("push"),
+    push: new FcmMockProvider(),
   };
 
   function withTx(tx: object) {
@@ -454,8 +455,12 @@ describe("ChannelsService", () => {
     const service = build({});
     const modes = service.providerModes();
     expect(modes.liveWaba).toBe(false);
+    expect(modes.liveFcm).toBe(false);
+    expect(modes.livePush).toBe(false);
     expect(modes.whatsapp).toBe("mock");
     expect(modes.email).toBe("noop");
+    expect(modes.push).toBe("mock");
+    expect(modes.pushAdapter).toBe("fcm");
   });
 
   it("rejects createTemplate without required fields or invalid channel", async () => {
@@ -1013,5 +1018,303 @@ describe("ChannelsService", () => {
     });
     expect(result.revokedAt).toBeTruthy();
     expect(result.whatsappOptIn).toBe(false);
+  });
+
+  it("allows member self consent upsert with source=self", async () => {
+    const row = {
+      id: "c-self",
+      personId: "p-mem",
+      whatsappOptIn: false,
+      emailOptIn: false,
+      pushOptIn: true,
+      purposes: ["TRANSACTIONAL"],
+      source: "self",
+      recordedAt: now,
+      revokedAt: null as Date | null,
+      updatedAt: now,
+    };
+    const tx = {
+      communicationConsent: { upsert: jest.fn().mockResolvedValue(row) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const result = await service.upsertConsent(membro, "p-mem", {
+      pushOptIn: true,
+      purposes: ["TRANSACTIONAL"],
+    });
+    expect(result.pushOptIn).toBe(true);
+    expect(tx.communicationConsent.upsert).toHaveBeenCalled();
+    const createArg = tx.communicationConsent.upsert.mock.calls[0][0].create;
+    expect(createArg.source).toBe("self");
+  });
+
+  it("registers and lists device tokens for member self", async () => {
+    const tokenRow = {
+      id: "dt1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      personId: "p-mem",
+      token: "fcm-device-token-001",
+      platform: "ANDROID",
+      provider: "FCM",
+      deviceLabel: "Pixel",
+      appId: "idbrf.member",
+      lastSeenAt: now,
+      revokedAt: null as Date | null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      pushDeviceToken: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(tokenRow),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      pushDeviceToken: {
+        findMany: jest.fn().mockResolvedValue([tokenRow]),
+      },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const registered = await service.registerDeviceToken(membro, {
+      token: "fcm-device-token-001",
+      platform: "ANDROID",
+      deviceLabel: "Pixel",
+      appId: "idbrf.member",
+    });
+    expect(registered.provider).toBe("FCM");
+    expect(registered.liveFcm).toBe(false);
+    expect(registered.token).toBe("fcm-device-token-001");
+
+    const listed = await service.listDeviceTokens(membro);
+    expect(listed.liveFcm).toBe(false);
+    expect(listed.tokens).toHaveLength(1);
+    expect(listed.tokens[0]).not.toHaveProperty("token");
+    expect(listed.tokens[0].tokenSuffix).toBe("oken-001");
+  });
+
+  it("refreshes existing device token and revokes it", async () => {
+    const existing = {
+      id: "dt1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      personId: "p-mem",
+      token: "fcm-device-token-001",
+      platform: "ANDROID",
+      provider: "FCM",
+      deviceLabel: "old",
+      appId: null as string | null,
+      lastSeenAt: now,
+      revokedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const refreshed = { ...existing, revokedAt: null, deviceLabel: "new" };
+    const revoked = { ...refreshed, revokedAt: now };
+    const txRegister = {
+      pushDeviceToken: {
+        findUnique: jest.fn().mockResolvedValue(existing),
+        update: jest.fn().mockResolvedValue(refreshed),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prismaRegister = {
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      ...withTx(txRegister),
+    };
+    const service = build(prismaRegister);
+    const result = await service.registerDeviceToken(membro, {
+      token: "fcm-device-token-001",
+      platform: "IOS",
+      deviceLabel: "new",
+    });
+    expect(result.revokedAt).toBeNull();
+    expect(txRegister.pushDeviceToken.update).toHaveBeenCalled();
+
+    const txRevoke = {
+      pushDeviceToken: {
+        update: jest.fn().mockResolvedValue(revoked),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prismaRevoke = {
+      pushDeviceToken: {
+        findFirst: jest.fn().mockResolvedValue(refreshed),
+      },
+      ...withTx(txRevoke),
+    };
+    const serviceRevoke = build(prismaRevoke);
+    const out = await serviceRevoke.revokeDeviceToken(membro, "dt1");
+    expect(out.revokedAt).toBeTruthy();
+  });
+
+  it("resolves PUSH enqueue from device token registry", async () => {
+    const consent = {
+      id: "c1",
+      personId: "p-mem",
+      whatsappOptIn: false,
+      emailOptIn: false,
+      pushOptIn: true,
+      purposes: [],
+      source: "self",
+      recordedAt: now,
+      revokedAt: null as Date | null,
+      updatedAt: now,
+    };
+    const device = {
+      id: "dt1",
+      token: "fcm-resolved-token-99",
+      platform: "ANDROID",
+      lastSeenAt: now,
+      revokedAt: null,
+    };
+    const outboxRow = {
+      id: "o-push",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "PUSH",
+      status: "PENDING",
+      personId: "p-mem",
+      toAddress: device.token,
+      templateId: null as string | null,
+      templateCode: null as string | null,
+      subject: null as string | null,
+      bodyRendered: "alerta",
+      payload: {},
+      consentCheckedAt: now,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "manual",
+      sourceId: null as string | null,
+      createdByUserId: secretaria.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      communicationOutbox: { create: jest.fn().mockResolvedValue(outboxRow) },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      communicationConsent: { findUnique: jest.fn().mockResolvedValue(consent) },
+      pushDeviceToken: { findFirst: jest.fn().mockResolvedValue(device) },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const item = await service.enqueue(secretaria, {
+      channel: "PUSH",
+      personId: "p-mem",
+      body: "alerta",
+    });
+    expect(item.toAddress).toBe("fcm-resolved-token-99");
+    expect(tx.communicationOutbox.create.mock.calls[0][0].data.toAddress).toBe(
+      device.token,
+    );
+  });
+
+  it("fanout PUSH creates one outbox per active token", async () => {
+    const consent = {
+      id: "c1",
+      personId: "p-mem",
+      whatsappOptIn: false,
+      emailOptIn: false,
+      pushOptIn: true,
+      purposes: [],
+      source: "self",
+      recordedAt: now,
+      revokedAt: null as Date | null,
+      updatedAt: now,
+    };
+    const tokens = [
+      { id: "dt1", token: "tok-aaa-11111111", platform: "ANDROID" },
+      { id: "dt2", token: "tok-bbb-22222222", platform: "IOS" },
+    ];
+    const mkOutbox = (to: string) => ({
+      id: `o-${to}`,
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "PUSH",
+      status: "PENDING",
+      personId: "p-mem",
+      toAddress: to,
+      templateId: null as string | null,
+      templateCode: null as string | null,
+      subject: null as string | null,
+      bodyRendered: "fan",
+      payload: {},
+      consentCheckedAt: now,
+      providerMessageId: null as string | null,
+      lastError: null as string | null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null as Date | null,
+      sentAt: null as Date | null,
+      deliveredAt: null as Date | null,
+      sourceType: "manual",
+      sourceId: null as string | null,
+      createdByUserId: secretaria.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const tx = {
+      communicationOutbox: {
+        create: jest
+          .fn()
+          .mockImplementation(({ data }: { data: { toAddress: string } }) =>
+            Promise.resolve(mkOutbox(data.toAddress)),
+          ),
+      },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      communicationConsent: { findUnique: jest.fn().mockResolvedValue(consent) },
+      pushDeviceToken: { findMany: jest.fn().mockResolvedValue(tokens) },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    const result = await service.enqueuePushFanout(secretaria, {
+      personId: "p-mem",
+      body: "fan",
+    });
+    expect(result).toMatchObject({ fanout: true, liveFcm: false, notified: 2 });
+    expect(result.outbox).toHaveLength(2);
+  });
+
+  it("rejects PUSH enqueue without device token", async () => {
+    const prisma = {
+      pushDeviceToken: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = build(prisma);
+    await expect(
+      service.enqueue(secretaria, {
+        channel: "PUSH",
+        personId: "p-mem",
+        body: "x",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("forbids member registering token for another person", async () => {
+    const service = build({});
+    await expect(
+      service.registerDeviceToken(membro, {
+        token: "fcm-device-token-other",
+        platform: "WEB",
+        personId: "p-other",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

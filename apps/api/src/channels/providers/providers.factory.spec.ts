@@ -19,18 +19,21 @@ describe("providers.factory", () => {
     expect(providers.whatsapp.mode).toBe("noop");
     expect(providers.email.mode).toBe("noop");
     expect(providers.push.mode).toBe("noop");
+    expect(providers.push.name).toBe("fcm");
   });
 
   it("honors per-channel override and picks by channel", () => {
     process.env.CHANNELS_PROVIDER = "noop";
     process.env.WHATSAPP_PROVIDER = "mock";
+    process.env.PUSH_PROVIDER = "mock";
     const providers = createChannelProviders();
     expect(providers.whatsapp.mode).toBe("mock");
     expect(pickProvider(providers, "EMAIL").name).toBe("email");
-    expect(pickProvider(providers, "PUSH").name).toBe("push");
+    expect(pickProvider(providers, "PUSH").name).toBe("fcm");
+    expect(pickProvider(providers, "PUSH").mode).toBe("mock");
   });
 
-  it("falls back to noop on invalid provider mode strings", () => {
+  it("falls back to noop on invalid/live provider mode strings", () => {
     process.env.WHATSAPP_PROVIDER = "live-waba";
     process.env.EMAIL_PROVIDER = "smtp";
     process.env.PUSH_PROVIDER = "fcm";
@@ -38,5 +41,6 @@ describe("providers.factory", () => {
     expect(providers.whatsapp.mode).toBe("noop");
     expect(providers.email.mode).toBe("noop");
     expect(providers.push.mode).toBe("noop");
+    expect(providers.push.name).toBe("fcm");
   });
 });

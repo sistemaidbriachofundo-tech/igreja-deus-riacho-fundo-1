@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.3-das-etapa3` | Contrato BE↔FE consolidado DAS Etapa 3 (RF-013/018 … RF-029 + RF-023/009/030) |
+| `f2-v0.2.yaml` | `0.7.4-rf025` | Contrato BE↔FE — RF-025 device tokens + FCM mock/noop (aditivo sobre 0.7.3 + RF-023/009/030) |
 
 ## Como o FE consome
 

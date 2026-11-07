@@ -27,6 +27,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { ChannelsService } from "./channels.service";
 
 const CHANNEL_ENUM = ["WHATSAPP", "EMAIL", "PUSH"] as const;
+const PUSH_PLATFORM_ENUM = ["ANDROID", "IOS", "WEB"] as const;
 
 class CreateTemplateBody {
   @IsIn(CHANNEL_ENUM)
@@ -126,17 +127,80 @@ class UpsertConsentBody {
   revoke?: boolean;
 }
 
-class EnqueueOutboxBody {
-  @IsIn(CHANNEL_ENUM)
-  channel!: (typeof CHANNEL_ENUM)[number];
-
+class RegisterDeviceTokenBody {
   @IsString()
-  @MinLength(1)
-  toAddress!: string;
+  @MinLength(8)
+  token!: string;
+
+  @IsIn(PUSH_PLATFORM_ENUM)
+  platform!: (typeof PUSH_PLATFORM_ENUM)[number];
 
   @IsOptional()
   @IsString()
   personId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  deviceLabel?: string | null;
+
+  @IsOptional()
+  @IsString()
+  appId?: string | null;
+}
+
+class EnqueueOutboxBody {
+  @IsIn(CHANNEL_ENUM)
+  channel!: (typeof CHANNEL_ENUM)[number];
+
+  @IsOptional()
+  @IsString()
+  toAddress?: string | null;
+
+  @IsOptional()
+  @IsString()
+  personId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  templateCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  subject?: string | null;
+
+  @IsOptional()
+  @IsString()
+  body?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, string>;
+
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  sourceType?: string | null;
+
+  @IsOptional()
+  @IsString()
+  sourceId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  skipConsentCheck?: boolean;
+
+  @IsOptional()
+  @IsString()
+  scheduledAt?: string | null;
+}
+
+class PushFanoutBody {
+  @IsString()
+  @MinLength(1)
+  personId!: string;
 
   @IsOptional()
   @IsString()
@@ -189,6 +253,16 @@ const ADMIN_ROLES = [
   ROLE_CODES.PLATFORM_ADMIN,
 ] as const;
 
+/** Self (MEMBRO) + staff — registry de device tokens / consent próprio. */
+const MEMBER_OR_ADMIN_ROLES = [
+  ROLE_CODES.MEMBRO,
+  ROLE_CODES.SECRETARIA,
+  ROLE_CODES.PASTOR,
+  ROLE_CODES.LIDER_MINISTERIO,
+  ROLE_CODES.TESOURARIA,
+  ROLE_CODES.PLATFORM_ADMIN,
+] as const;
+
 @Controller("channels")
 export class ChannelsController {
   constructor(private readonly channels: ChannelsService) {}
@@ -233,7 +307,22 @@ export class ChannelsController {
     return this.channels.patchTemplate(user, templateId, body);
   }
 
-  @Roles(...ADMIN_ROLES)
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
+  @Get("consents/me")
+  getMyConsent(@CurrentUser() user: AuthUser) {
+    return this.channels.getConsent(user, user.personId);
+  }
+
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
+  @Put("consents/me")
+  upsertMyConsent(
+    @CurrentUser() user: AuthUser,
+    @Body() body: UpsertConsentBody,
+  ) {
+    return this.channels.upsertConsent(user, user.personId, body);
+  }
+
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
   @Get("consents/:personId")
   getConsent(
     @CurrentUser() user: AuthUser,
@@ -242,7 +331,7 @@ export class ChannelsController {
     return this.channels.getConsent(user, personId);
   }
 
-  @Roles(...ADMIN_ROLES)
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
   @Put("consents/:personId")
   upsertConsent(
     @CurrentUser() user: AuthUser,
@@ -252,10 +341,51 @@ export class ChannelsController {
     return this.channels.upsertConsent(user, personId, body);
   }
 
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
+  @Post("device-tokens")
+  registerDeviceToken(
+    @CurrentUser() user: AuthUser,
+    @Body() body: RegisterDeviceTokenBody,
+  ) {
+    return this.channels.registerDeviceToken(user, body);
+  }
+
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
+  @Get("device-tokens")
+  listDeviceTokens(
+    @CurrentUser() user: AuthUser,
+    @Query("personId") personId?: string,
+    @Query("includeRevoked") includeRevoked?: string,
+  ) {
+    return this.channels.listDeviceTokens(user, {
+      personId,
+      includeRevoked:
+        includeRevoked === "1" || includeRevoked === "true",
+    });
+  }
+
+  @Roles(...MEMBER_OR_ADMIN_ROLES)
+  @Post("device-tokens/:tokenId/revoke")
+  revokeDeviceToken(
+    @CurrentUser() user: AuthUser,
+    @Param("tokenId") tokenId: string,
+  ) {
+    return this.channels.revokeDeviceToken(user, tokenId);
+  }
+
   @Roles(...ADMIN_ROLES)
   @Post("outbox")
   enqueue(@CurrentUser() user: AuthUser, @Body() body: EnqueueOutboxBody) {
     return this.channels.enqueue(user, body);
+  }
+
+  @Roles(...ADMIN_ROLES)
+  @Post("outbox/push-fanout")
+  enqueuePushFanout(
+    @CurrentUser() user: AuthUser,
+    @Body() body: PushFanoutBody,
+  ) {
+    return this.channels.enqueuePushFanout(user, body);
   }
 
   @Roles(...ADMIN_ROLES)

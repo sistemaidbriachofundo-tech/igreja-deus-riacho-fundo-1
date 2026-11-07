@@ -699,14 +699,18 @@ describe("controller wiring (delegates to services)", () => {
 
   it("ChannelsController", async () => {
     const channels = {
-      providerModes: jest.fn().mockReturnValue({ liveWaba: false }),
+      providerModes: jest.fn().mockReturnValue({ liveWaba: false, liveFcm: false }),
       rateLimitStatus: jest.fn(),
       createTemplate: jest.fn(),
       listTemplates: jest.fn(),
       patchTemplate: jest.fn(),
       getConsent: jest.fn(),
       upsertConsent: jest.fn(),
+      registerDeviceToken: jest.fn(),
+      listDeviceTokens: jest.fn(),
+      revokeDeviceToken: jest.fn(),
       enqueue: jest.fn(),
+      enqueuePushFanout: jest.fn(),
       listOutbox: jest.fn(),
       getOutbox: jest.fn(),
       dispatchOne: jest.fn(),
@@ -723,19 +727,31 @@ describe("controller wiring (delegates to services)", () => {
     });
     await c.listTemplates(user, "EMAIL");
     await c.patchTemplate(user, "t1", { active: false });
+    await c.getMyConsent(user);
+    await c.upsertMyConsent(user, { pushOptIn: true });
     await c.getConsent(user, "p1");
     await c.upsertConsent(user, "p1", { emailOptIn: true });
+    await c.registerDeviceToken(user, {
+      token: "fcm-token-wiring-01",
+      platform: "ANDROID",
+    });
+    await c.listDeviceTokens(user, undefined, undefined);
+    await c.revokeDeviceToken(user, "dt1");
     await c.enqueue(user, {
       channel: "EMAIL",
       toAddress: "a@example.test",
       body: "oi",
       skipConsentCheck: true,
     });
+    await c.enqueuePushFanout(user, { personId: "p1", body: "push" });
     await c.listOutbox(user, "PENDING", "EMAIL", "10");
     await c.getOutbox(user, "o1");
     await c.dispatchOne(user, "o1");
     await c.dispatchPending(user, { limit: 5 });
     expect(channels.dispatchPending).toHaveBeenCalledWith(user, 5);
+    expect(channels.registerDeviceToken).toHaveBeenCalled();
+    expect(channels.revokeDeviceToken).toHaveBeenCalledWith(user, "dt1");
+    expect(channels.enqueuePushFanout).toHaveBeenCalled();
   });
 
 

@@ -103,6 +103,7 @@ model Organization {
   courseClasses CourseClass[]
   pastoralRetentionPolicies PastoralRetentionPolicy[]
   churchAssets ChurchAsset[]
+  pushDeviceTokens PushDeviceToken[]
   @@map("organizations")
 }
 
@@ -148,6 +149,7 @@ model Church {
   courseClasses CourseClass[]
   pastoralRetentionPolicies PastoralRetentionPolicy[]
   churchAssets ChurchAsset[]
+  pushDeviceTokens PushDeviceToken[]
   @@unique([organizationId, slug])
   @@map("churches")
 }
@@ -213,6 +215,7 @@ model Person {
   courseEnrollments CourseEnrollment[]
   courseAttendances CourseAttendance[]
   churchAssetsResponsible ChurchAsset[] @relation("ChurchAssetResponsible")
+  pushDeviceTokens PushDeviceToken[]
   @@index([organizationId])
   @@index([homeChurchId])
   @@index([householdId])
@@ -1444,6 +1447,13 @@ enum CommChannel {
   PUSH
 }
 
+/// Plataforma do device token (RF-025 — registro só; FCM live ausente).
+enum PushPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
 enum OutboxStatus {
   PENDING
   QUEUED
@@ -1564,7 +1574,6 @@ model OutboxDeliveryEvent {
   @@index([outboxId, createdAt])
   @@map("outbox_delivery_events")
 }
-
 
 /// Política de retenção pastoral (RF-009) — por congregação.
 model PastoralRetentionPolicy {
@@ -1770,4 +1779,32 @@ model ChurchAssetHistory {
 
   @@index([assetId, recordedAt])
   @@map("church_asset_history")
+}
+
+/// Device token FCM para app membro (RF-025). Persistência + outbox mock/noop — sem FCM live.
+model PushDeviceToken {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  churchId       String       @map("church_id")
+  personId       String       @map("person_id")
+  /// Token opaco do provedor (FCM). Não logar em claro com dados reais.
+  token          String
+  platform       PushPlatform
+  /// Sempre FCM neste contrato (APNs live fora de escopo).
+  provider       String       @default("FCM")
+  deviceLabel    String?      @map("device_label")
+  appId          String?      @map("app_id")
+  lastSeenAt     DateTime     @default(now()) @map("last_seen_at")
+  revokedAt      DateTime?    @map("revoked_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@unique([churchId, token])
+  @@index([personId, churchId, revokedAt])
+  @@index([organizationId, churchId])
+  @@map("push_device_tokens")
 }

@@ -29,6 +29,7 @@ export class MetaController {
         "0.7.1-vivi: assistente Riachinho (rotas /vivi/*; Manus Forge default + Gemini opcional); chaves só no backend",
         "0.7.2-f2: fechamento F2 — login audit, cancel admissão, delete documentos, polish contratos",
         "0.7.3-das-etapa3: RF-013 roster publish/close + RF-018 bank-line match; RF-001 candidatos/dedupe + RF-006 PDF cartas; RF-010 discipleship stages/progress + RF-011 cell frequency; RF-020/021 inscrição/check-in/pagamento mock; RF-029 indicadores reais (stub:false); RF-023 cursos/EBD (≠ discipulado) + RF-009 retenção/export pastoral + RF-030 patrimônio mínimo; OIDC_NOT_LIVE / MFA challenge notes",
+        "0.7.4-rf025: RF-025 push-ready — device token registry + FCM stub mock/noop no outbox; consent self /channels/consents/me; sem FCM/WABA live",
       ],
     };
   }
