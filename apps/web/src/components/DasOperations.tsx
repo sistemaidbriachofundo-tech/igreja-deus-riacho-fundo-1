@@ -248,7 +248,7 @@ export function DasOperations() {
         </div><button type="button" className={styles.refresh} onClick={()=>{setReload(n=>n+1);setNotice("");}} disabled={data.kind==="loading"}>
           <UIIcon name="refresh" size={17}/> Atualizar
         </button></div>
-        {resourceTabs.length>0&&<nav className={styles.resourceTabs} aria-label="Consultas de ${chosen.label}">
+        {resourceTabs.length>0&&<nav className={styles.resourceTabs} aria-label={"Consultas de "+chosen.label}>
           {resourceTabs.map(tab=><button type="button" key={tab.id}
             className={resource?.id===tab.id?styles.resourceActive:styles.resourceTab}
             aria-current={resource?.id===tab.id?"page":undefined}
