@@ -36,12 +36,14 @@ describe("ViviKnowledgeService", () => {
     return { service, prisma };
   }
 
-  it("classifies intents for schedule/leadership/events", () => {
+  it("classifies intents for schedule/leadership/events/ministries/cms", () => {
     expect(classifyIntent("Qual o horário do culto de jovens?")).toBe("schedule");
     expect(classifyIntent("Quem lidera o ministério de mulheres?")).toBe(
       "leadership",
     );
     expect(classifyIntent("Quais eventos tem esse mês?")).toBe("events");
+    expect(classifyIntent("Quais ministérios existem?")).toBe("ministries");
+    expect(classifyIntent("Tem notícia ou página no site?")).toBe("cms");
     expect(classifyIntent("Oi, tudo bem?")).toBe("general");
   });
 
@@ -181,5 +183,102 @@ describe("ViviKnowledgeService", () => {
     expect(pack.factsText).toMatch(/Bruno Demo/);
     expect(pack.factsText).not.toMatch(/61999999999/);
     expect(pack.factsText).not.toMatch(/secret@example/);
+  });
+
+  it("formats event blocks with endsAt/location/description/featured for events intent", async () => {
+    const longLocation = `Templo ${"principal ".repeat(40)}`;
+    const { service } = build({
+      events: [
+        {
+          id: "e2",
+          name: "Conferência de Jovens",
+          slug: "conferencia-jovens",
+          description: "Encontro público sintético com programação completa",
+          startsAt: new Date("2026-12-01T19:00:00.000Z"),
+          endsAt: new Date("2026-12-01T22:00:00.000Z"),
+          locationText: longLocation,
+          featuredOnHome: true,
+        },
+      ],
+    });
+    const pack = await service.retrieveForQuery(
+      "Quais eventos e conferências tem na programação?",
+    );
+    expect(pack.intent).toBe("events");
+    expect(pack.missingOfficialData).toBe(false);
+    expect(pack.factsText).toMatch(/Conferência de Jovens/);
+    expect(pack.factsText).toMatch(/Fim: 2026-12-01T22:00:00.000Z/);
+    expect(pack.factsText).toMatch(/Local:/);
+    expect(pack.factsText).toMatch(/Descrição:/);
+    expect(pack.factsText).toMatch(/Destaque na home: sim/);
+    expect(pack.factsText).toMatch(/…/);
+    expect(pack.sources.some((s) => s.kind === "event")).toBe(true);
+  });
+
+  it("formats CMS summary/body for cms intent and falls back to name/role leadership labels", async () => {
+    const longBody = `Corpo publicado ${"institucional ".repeat(50)}`;
+    const { service } = build({
+      ministries: [
+        {
+          id: "m3",
+          name: "Adolescentes",
+          slug: "adolescentes",
+          description: null,
+          scheduleText: null,
+          leadershipPublic: [
+            { name: "Carla Demo", role: "Apoio" },
+            null,
+            "ignore-non-object",
+            { roleTitle: "Sem nome" },
+          ],
+          participationInfo: null,
+        },
+      ],
+      cms: [
+        {
+          id: "c2",
+          kind: "PAGE",
+          slug: "visite-nos",
+          title: "Visite-nos",
+          summary: "Página institucional do site",
+          body: longBody,
+        },
+      ],
+    });
+    const pack = await service.retrieveForQuery(
+      "Tem notícia ou página de conteúdo no site?",
+    );
+    expect(pack.intent).toBe("cms");
+    expect(pack.factsText).toMatch(/CMS PAGE: Visite-nos/);
+    expect(pack.factsText).toMatch(/Resumo: Página institucional/);
+    expect(pack.factsText).toMatch(/Trecho:/);
+    expect(pack.factsText).toMatch(/…/);
+    expect(pack.sources.some((s) => s.slug === "visite-nos")).toBe(true);
+
+    const ministriesPack = await service.retrieveForQuery(
+      "Liste os ministérios adolescentes",
+    );
+    expect(ministriesPack.intent).toBe("ministries");
+    expect(ministriesPack.factsText).toMatch(/Carla Demo \(Apoio\)/);
+  });
+
+  it("falls back to PILOT_CHURCH_NAME when pilot churchName is empty", async () => {
+    const prisma = {
+      ministry: { findMany: jest.fn().mockResolvedValue([]) },
+      portalEvent: { findMany: jest.fn().mockResolvedValue([]) },
+      cmsContent: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ViviKnowledgeService(
+      prisma as never,
+      {
+        getPilotChurch: jest.fn().mockResolvedValue({
+          ...pilot,
+          churchName: "",
+        }),
+      } as never,
+    );
+    const pack = await service.retrieveForQuery("Oi");
+    expect(pack.churchName.length).toBeGreaterThan(3);
+    expect(pack.factsText).toMatch(/FATOS OFICIAIS PUBLICADOS/);
   });
 });

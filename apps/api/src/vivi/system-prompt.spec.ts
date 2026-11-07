@@ -37,6 +37,9 @@ describe("vivi system-prompt", () => {
       ),
     ).toBe(true);
     expect(detectPromptInjection("Qual o horário do culto?")).toBe(false);
+    expect(detectPromptInjection("")).toBe(false);
+    expect(detectPromptInjection("   ")).toBe(false);
+    expect(detectSensitiveUserIntent("")).toBe(false);
   });
 
   it("buildSystemPrompt appends official facts and admin addendum", () => {
