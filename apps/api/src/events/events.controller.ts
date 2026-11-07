@@ -24,6 +24,11 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { EventRegistrationsService } from "./event-registrations.service";
 import { EventsService } from "./events.service";
+import {
+  CreateRegistrationBody,
+  CreateResourceOptionBody,
+  GuardianAuthorizationBody,
+} from "./registration.dto";
 
 class CreateEventBody {
   @IsString()
@@ -186,86 +191,10 @@ class CreateLotBody {
   sortOrder?: number;
 }
 
-class CreateResourceOptionBody {
-  @IsString()
-  @MinLength(1)
-  code!: string;
-
-  @IsString()
-  @MinLength(1)
-  name!: string;
-
-  @IsOptional()
-  @IsString()
-  kind?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  capacity?: number | null;
-
-  @IsOptional()
-  @IsInt()
-  sortOrder?: number;
-}
-
-class CreateRegistrationBody {
-  @IsString()
-  @MinLength(2)
-  displayName!: string;
-
-  @IsString()
-  @MinLength(1)
-  modalityId!: string;
-
-  @IsOptional()
-  @IsString()
-  lotId?: string | null;
-
-  @IsOptional()
-  @IsString()
-  lodgingOptionId?: string | null;
-
-  @IsOptional()
-  @IsString()
-  mealOptionId?: string | null;
-
-  @IsOptional()
-  @IsString()
-  transportOptionId?: string | null;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(20)
-  partySize?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isMinor?: boolean;
-
-  @IsOptional()
-  @IsString()
-  guardianDisplayName?: string | null;
-
-  @IsOptional()
-  @IsBoolean()
-  guardianAcknowledged?: boolean;
-}
-
 class CheckInBody {
   @IsOptional()
   @IsString()
   checkInCode?: string;
-}
-
-class GuardianAuthorizationBody {
-  @IsIn(["AUTHORIZED", "REVOKED"])
-  status!: "AUTHORIZED" | "REVOKED";
-
-  @IsOptional()
-  @IsString()
-  acknowledgmentText?: string;
 }
 
 class MockPaymentWebhookBody {

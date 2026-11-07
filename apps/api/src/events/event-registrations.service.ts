@@ -255,58 +255,27 @@ export class EventRegistrationsService {
     eventId: string,
     input: LodgingOptionInput,
   ) {
-    const { pilot, event } = await this.requireEventWrite(actor, eventId);
-    const code = input.code?.trim().toLowerCase();
-    const name = input.name?.trim();
-    if (!code || !name) {
-      throw new BadRequestException("code e name são obrigatórios");
-    }
-    const kind = input.kind ?? "CUSTOM";
-    if (!LODGING_KINDS.includes(kind)) {
-      throw new BadRequestException("kind de hospedagem inválido");
-    }
-    if (input.capacity != null && input.capacity < 1) {
-      throw new BadRequestException("capacity inválida");
-    }
-    return this.prisma.$transaction(async (tx) => {
-      const row = await tx.eventLodgingOption.create({
-        data: {
-          eventId: event.id,
-          code,
-          name,
-          kind,
-          capacity: input.capacity ?? null,
-          sortOrder: input.sortOrder ?? 0,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "event_lodging_option.create",
-          resourceType: "event_lodging_option",
-          resourceId: row.id,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          metadata: { eventId, code, kind },
-        },
-      });
-      return this.toResourceOptionDto(row);
+    return this.createResourceOption(actor, eventId, input, {
+      allowedKinds: LODGING_KINDS,
+      kindError: "kind de hospedagem inválido",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data) => tx.eventLodgingOption.create({ data }),
+      auditAction: "event_lodging_option.create",
+      auditResourceType: "event_lodging_option",
     });
   }
 
   async listLodgingOptions(actor: AuthUser, eventId: string) {
-    const { event } = await this.requireEventWrite(actor, eventId);
-    const rows = await this.prisma.eventLodgingOption.findMany({
-      where: { eventId: event.id },
-      orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+    return this.listResourceOptions(actor, eventId, {
+      key: "lodgingOptions",
+      occupyField: "lodgingOptionId",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eid: string) =>
+        prisma.eventLodgingOption.findMany({
+          where: { eventId: eid },
+          orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+        }),
     });
-    const occupied = await this.occupiedByResource(event.id, "lodgingOptionId");
-    return {
-      eventId: event.id,
-      lodgingOptions: rows.map((r) =>
-        this.toResourceOptionDto(r, occupied.get(r.id) ?? 0),
-      ),
-    };
   }
 
   async createMealOption(
@@ -314,64 +283,75 @@ export class EventRegistrationsService {
     eventId: string,
     input: MealOptionInput,
   ) {
-    const { pilot, event } = await this.requireEventWrite(actor, eventId);
-    const code = input.code?.trim().toLowerCase();
-    const name = input.name?.trim();
-    if (!code || !name) {
-      throw new BadRequestException("code e name são obrigatórios");
-    }
-    const kind = input.kind ?? "CUSTOM";
-    if (!MEAL_KINDS.includes(kind)) {
-      throw new BadRequestException("kind de alimentação inválido");
-    }
-    if (input.capacity != null && input.capacity < 1) {
-      throw new BadRequestException("capacity inválida");
-    }
-    return this.prisma.$transaction(async (tx) => {
-      const row = await tx.eventMealOption.create({
-        data: {
-          eventId: event.id,
-          code,
-          name,
-          kind,
-          capacity: input.capacity ?? null,
-          sortOrder: input.sortOrder ?? 0,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "event_meal_option.create",
-          resourceType: "event_meal_option",
-          resourceId: row.id,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          metadata: { eventId, code, kind },
-        },
-      });
-      return this.toResourceOptionDto(row);
+    return this.createResourceOption(actor, eventId, input, {
+      allowedKinds: MEAL_KINDS,
+      kindError: "kind de alimentação inválido",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data) => tx.eventMealOption.create({ data }),
+      auditAction: "event_meal_option.create",
+      auditResourceType: "event_meal_option",
     });
   }
 
   async listMealOptions(actor: AuthUser, eventId: string) {
-    const { event } = await this.requireEventWrite(actor, eventId);
-    const rows = await this.prisma.eventMealOption.findMany({
-      where: { eventId: event.id },
-      orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+    return this.listResourceOptions(actor, eventId, {
+      key: "mealOptions",
+      occupyField: "mealOptionId",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eid: string) =>
+        prisma.eventMealOption.findMany({
+          where: { eventId: eid },
+          orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+        }),
     });
-    const occupied = await this.occupiedByResource(event.id, "mealOptionId");
-    return {
-      eventId: event.id,
-      mealOptions: rows.map((r) =>
-        this.toResourceOptionDto(r, occupied.get(r.id) ?? 0),
-      ),
-    };
   }
 
   async createTransportOption(
     actor: AuthUser,
     eventId: string,
     input: TransportOptionInput,
+  ) {
+    return this.createResourceOption(actor, eventId, input, {
+      allowedKinds: TRANSPORT_KINDS,
+      kindError: "kind de transporte inválido",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data) => tx.eventTransportOption.create({ data }),
+      auditAction: "event_transport_option.create",
+      auditResourceType: "event_transport_option",
+    });
+  }
+
+  async listTransportOptions(actor: AuthUser, eventId: string) {
+    return this.listResourceOptions(actor, eventId, {
+      key: "transportOptions",
+      occupyField: "transportOptionId",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eid: string) =>
+        prisma.eventTransportOption.findMany({
+          where: { eventId: eid },
+          orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+        }),
+    });
+  }
+
+  private async createResourceOption(
+    actor: AuthUser,
+    eventId: string,
+    input: {
+      code?: string;
+      name?: string;
+      kind?: string;
+      capacity?: number | null;
+      sortOrder?: number;
+    },
+    opts: {
+      allowedKinds: readonly string[];
+      kindError: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createRow: (tx: any, data: Record<string, unknown>) => Promise<any>;
+      auditAction: string;
+      auditResourceType: string;
+    },
   ) {
     const { pilot, event } = await this.requireEventWrite(actor, eventId);
     const code = input.code?.trim().toLowerCase();
@@ -380,28 +360,26 @@ export class EventRegistrationsService {
       throw new BadRequestException("code e name são obrigatórios");
     }
     const kind = input.kind ?? "CUSTOM";
-    if (!TRANSPORT_KINDS.includes(kind)) {
-      throw new BadRequestException("kind de transporte inválido");
+    if (!opts.allowedKinds.includes(kind)) {
+      throw new BadRequestException(opts.kindError);
     }
     if (input.capacity != null && input.capacity < 1) {
       throw new BadRequestException("capacity inválida");
     }
     return this.prisma.$transaction(async (tx) => {
-      const row = await tx.eventTransportOption.create({
-        data: {
-          eventId: event.id,
-          code,
-          name,
-          kind,
-          capacity: input.capacity ?? null,
-          sortOrder: input.sortOrder ?? 0,
-        },
+      const row = await opts.createRow(tx, {
+        eventId: event.id,
+        code,
+        name,
+        kind,
+        capacity: input.capacity ?? null,
+        sortOrder: input.sortOrder ?? 0,
       });
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
-          action: "event_transport_option.create",
-          resourceType: "event_transport_option",
+          action: opts.auditAction,
+          resourceType: opts.auditResourceType,
           resourceId: row.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
@@ -412,19 +390,22 @@ export class EventRegistrationsService {
     });
   }
 
-  async listTransportOptions(actor: AuthUser, eventId: string) {
+  private async listResourceOptions(
+    actor: AuthUser,
+    eventId: string,
+    opts: {
+      key: "lodgingOptions" | "mealOptions" | "transportOptions";
+      occupyField: "lodgingOptionId" | "mealOptionId" | "transportOptionId";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: (prisma: any, eventId: string) => Promise<any[]>;
+    },
+  ) {
     const { event } = await this.requireEventWrite(actor, eventId);
-    const rows = await this.prisma.eventTransportOption.findMany({
-      where: { eventId: event.id },
-      orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
-    });
-    const occupied = await this.occupiedByResource(
-      event.id,
-      "transportOptionId",
-    );
+    const rows = await opts.findMany(this.prisma, event.id);
+    const occupied = await this.occupiedByResource(event.id, opts.occupyField);
     return {
       eventId: event.id,
-      transportOptions: rows.map((r) =>
+      [opts.key]: rows.map((r) =>
         this.toResourceOptionDto(r, occupied.get(r.id) ?? 0),
       ),
     };
