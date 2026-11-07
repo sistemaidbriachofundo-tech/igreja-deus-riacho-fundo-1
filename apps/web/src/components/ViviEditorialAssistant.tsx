@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
+import type { ViviChatRequest, ViviChatResponse, ViviStatusResponse } from "@idbrf/shared";
 import type { SiteLayout } from "../lib/site-layout";
 import {
   parseRiachinhoSuggestion,
@@ -10,24 +11,8 @@ import {
 } from "../lib/riachinho-suggestion";
 import s from "./vivi-editorial-assistant.module.css";
 
-type Status = {
-  assistant: string;
-  displayName?: string;
-  provider: "manus" | "gemini" | "mock";
-  model: string;
-  lgpdNotice: string;
-  manusUrlConfigured?: boolean;
-  manusKeyConfigured?: boolean;
-  geminiKeyConfigured?: boolean;
-};
-
-type Answer = {
-  reply: string;
-  provider: string;
-  model: string;
-  refused: boolean;
-  lgpdNotice: string;
-};
+type Status = ViviStatusResponse;
+type Answer = ViviChatResponse;
 
 type Intent = "revisar" | "chamada" | "galeria" | "alt" | "comunicacao" | "livre";
 
@@ -229,7 +214,7 @@ export function ViviEditorialAssistant({
           messages: [{ role: "user", content }],
           consentAiProcessing: true,
           sessionId: "site-riachinho",
-        }),
+        } satisfies ViviChatRequest),
       });
       if (!res.ok) {
         throw new Error(
