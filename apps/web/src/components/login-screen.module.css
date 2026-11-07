@@ -49,3 +49,8 @@
 @media(max-width:890px){.page{padding:15px}.layout{grid-template-columns:1fr;min-height:0;border-radius:18px}.story{min-height:240px;gap:30px;padding:25px 32px}.brand img{width:48px;height:48px}.story h1{font-size:clamp(27px,5.2vw,40px);margin:12px 0}.story p,.footerMark{display:none}.panel{padding:42px 25px 50px}.sectionNumber{margin-bottom:25px}}
 @media(max-width:510px){.page{padding:11px}.back{margin-bottom:12px}.story{min-height:190px;padding:23px 24px}.story h1{font-size:27px;margin:15px 0 0}.storyContent .eyebrow{font-size:9px}.brand strong{font-size:12px}.brand span{font-size:8px}.panel{padding:32px 22px 36px}.heading{margin-bottom:26px}.heading h2{font-size:30px}.sectionNumber{font-size:9px;margin-bottom:22px}.protection{margin-top:25px}}
 @media(prefers-reduced-motion:reduce){.page *{transition:none!important}}
+
+.waiting{min-height:100dvh;background:radial-gradient(circle at 50% 10%,#f9f2e5,#eee6d9 65%);color:#53321e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center}
+.waitingIcon{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:#4a2612;color:#e6bd76;font-size:28px;margin-bottom:9px}
+.waiting strong{font:800 20px Montserrat,Inter,sans-serif;letter-spacing:-.025em}
+.waiting p{max-width:380px;font:450 13px/1.6 Inter,sans-serif;color:#8d735d;margin:0}
