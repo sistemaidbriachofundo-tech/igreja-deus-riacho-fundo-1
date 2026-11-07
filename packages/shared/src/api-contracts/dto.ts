@@ -450,8 +450,11 @@ export interface SwitchChurchRequest {
   churchId: string;
 }
 
+/** RF-029 — agregações Prisma reais; sem métricas espirituais. */
 export interface IndicatorsSummaryDto {
-  stub: true;
+  stub: false;
+  /** Sempre true — contagens operacionais apenas. */
+  spiritualScoreExcluded: true;
   organizationId: string;
   churchId: string | null;
   scope: "church" | "organization";
@@ -459,14 +462,23 @@ export interface IndicatorsSummaryDto {
   counts: {
     membershipsActive: number;
     membershipsPending: number;
+    visitorsActive: number;
     admissionsOpen: number;
     transfersOpen: number;
     pastoralOpen: number;
+    ministriesTotal: number;
+    ministriesPublished: number;
+    eventsPublished: number;
+    eventsPublishedUpcoming: number;
+    rostersDraft: number;
+    rostersPublished: number;
+    rosterAssignmentsPending: number;
   };
 }
 
 export interface IndicatorsMembershipDto {
-  stub: true;
+  stub: false;
+  spiritualScoreExcluded: true;
   organizationId: string;
   churchId: string;
   generatedAt: string;

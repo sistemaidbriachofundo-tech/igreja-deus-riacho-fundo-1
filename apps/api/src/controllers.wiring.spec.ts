@@ -682,8 +682,8 @@ describe("controller wiring (delegates to services)", () => {
 
   it("IndicatorsController", async () => {
     const indicators = {
-      summary: jest.fn().mockResolvedValue({ stub: true }),
-      membership: jest.fn().mockResolvedValue({ stub: true }),
+      summary: jest.fn().mockResolvedValue({ stub: false }),
+      membership: jest.fn().mockResolvedValue({ stub: false }),
     };
     const c = new IndicatorsController(indicators as never);
     await c.summary(user, "ch1", undefined);
