@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { apiPost } from "../lib/api";
 import { dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import styles from "./roster-board.module.css";
+import { PersonPicker } from "./PersonPicker";
 
 type Props={rows:DasRecord[];token:string;personId:string;roles:readonly string[];refresh:()=>void};
 
@@ -94,7 +95,7 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
                           <button type="button" disabled={saving} onClick={()=>void execute("/assignments/"+encodeURIComponent(aId)+"/decline")}>Recusar</button>
                         </div>}
                         {leader&&aId&&a.status!=="SUBSTITUTED"&&<form className={styles.replace} onSubmit={e=>{e.preventDefault();if((replacement[aId]??"").trim())void execute("/assignments/"+encodeURIComponent(aId)+"/substitute",{personId:(replacement[aId]??"").trim()}).then(ok=>{if(ok)setReplacement(prev=>({...prev,[aId]:""}));});}}>
-                          <label><span>Substituir por ID de pessoa fictícia</span><input value={replacement[aId]??""} onChange={e=>setReplacement(prev=>({...prev,[aId]:e.target.value}))} placeholder="ID da pessoa autorizada" required/></label>
+                          <PersonPicker token={token} roles={roles} label="Voluntário substituto" value={replacement[aId]??""} onChange={next=>setReplacement(prev=>({...prev,[aId]:next}))} required/>
                           <button type="submit" disabled={saving||!(replacement[aId]??"").trim()}>Substituir</button>
                         </form>}
                       </div>;
@@ -116,8 +117,8 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
       <h3>Designar pessoa à função selecionada</h3>
       <p>O backend verifica disponibilidade, conflitos e regras de casal. Use exclusivamente IDs de cadastro sintético.</p>
       <div className={styles.assignGrid}>
-        <label><span>ID da pessoa</span><input required value={volunteer} onChange={e=>setVolunteer(e.target.value)} placeholder="ID do cadastro fictício"/></label>
-        <label><span>ID do par (se necessário)</span><input value={partner} onChange={e=>setPartner(e.target.value)} placeholder="Opcional"/></label>
+        <PersonPicker token={token} roles={roles} label="Voluntário fictício" value={volunteer} onChange={setVolunteer} required/>
+        <PersonPicker token={token} roles={roles} label="Par, caso necessário" value={partner} onChange={setPartner}/>
       </div>
       <button type="submit" disabled={saving||!volunteer.trim()}>Validar e designar na API</button>
       <button type="button" className={styles.cancel} onClick={()=>setSlotId("")}>Cancelar seleção</button>
