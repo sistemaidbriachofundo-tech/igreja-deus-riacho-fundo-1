@@ -80,3 +80,41 @@ export function riachinhoPublicError(status: number, body: unknown): string {
   if (status === 400) return "Não foi possível processar esta mensagem. Revise o texto e tente novamente.";
   return "Não foi possível consultar o Riachinho agora. Sua pergunta continua disponível para tentar novamente.";
 }
+
+/**
+ * Public API boundary: only a consented request can leave the browser.
+ * The backend is the sole owner of provider credentials and institutional knowledge.
+ */
+export async function requestRiachinhoPublicAnswer(
+  apiUrl: string,
+  request: ViviChatRequest,
+  fetcher: typeof fetch = fetch,
+): Promise<ViviChatResponse> {
+  if (request.consentAiProcessing !== true)
+    throw new Error("Confirme o consentimento antes de enviar.");
+  const base = publicApiBase(apiUrl);
+  if (!base || (process.env.NODE_ENV !== "development" && !base.startsWith("https://")))
+    throw new Error("A conexão segura com o Riachinho não está configurada.");
+
+  let response: Response;
+  try {
+    response = await fetcher(base + "/public/vivi/chat", {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(request),
+    });
+  } catch {
+    throw new Error("Falha de conexão com o Riachinho. Sua pergunta foi preservada para tentar novamente.");
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(riachinhoPublicError(response.status, body));
+  const answer = parseRiachinhoAnswer(body);
+  if (!answer) throw new Error("A resposta recebida não é válida. Tente novamente.");
+  if (answer.provider === "mock")
+    throw new Error("O servidor retornou uma simulação. O Riachinho real está indisponível.");
+  return answer;
+}
