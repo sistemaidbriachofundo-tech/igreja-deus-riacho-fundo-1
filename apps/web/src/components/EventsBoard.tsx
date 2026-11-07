@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { apiPatch } from "../lib/api";
-import { dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
+import { churchLocalToISO, dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import styles from "./care-boards.module.css";
 
 type Props={rows:DasRecord[];token:string;refresh:()=>void};
@@ -22,8 +22,8 @@ function patch(d:EventDraft,source:DasRecord):Record<string,unknown>{
   for(const key of ["name","slug","description","locationText"] as const){
     if(d[key]!==asText(source[key])) body[key]=d[key];
   }
-  if(d.startsAt)body.startsAt=new Date(d.startsAt).toISOString();
-  if(d.endsAt)body.endsAt=new Date(d.endsAt).toISOString();
+  if(d.startsAt){const iso=churchLocalToISO(d.startsAt);if(iso)body.startsAt=iso;}
+  if(d.endsAt){const iso=churchLocalToISO(d.endsAt);if(iso)body.endsAt=iso;}
   return body;
 }
 export function EventsBoard({rows,token,refresh}:Props){
@@ -46,10 +46,10 @@ export function EventsBoard({rows,token,refresh}:Props){
     if(draft.name.trim().length<3||!/^[a-z0-9-]{3,80}$/.test(draft.slug)){
       setNotice("Nome e identificador (slug) inválidos.");return;
     }
-    if(draft.startsAt&&!Number.isFinite(Date.parse(draft.startsAt))){setNotice("Data inicial inválida.");return;}
-    if(draft.endsAt&&!Number.isFinite(Date.parse(draft.endsAt))){setNotice("Data final inválida.");return;}
-    const start=draft.startsAt?Date.parse(draft.startsAt):Date.parse(asText(selectedRow.startsAt));
-    const end=draft.endsAt?Date.parse(draft.endsAt):Date.parse(asText(selectedRow.endsAt));
+    if(draft.startsAt&&!churchLocalToISO(draft.startsAt)){setNotice("Data inicial inválida.");return;}
+    if(draft.endsAt&&!churchLocalToISO(draft.endsAt)){setNotice("Data final inválida.");return;}
+    const start=draft.startsAt?Date.parse(churchLocalToISO(draft.startsAt)!):Date.parse(asText(selectedRow.startsAt));
+    const end=draft.endsAt?Date.parse(churchLocalToISO(draft.endsAt)!):Date.parse(asText(selectedRow.endsAt));
     if(Number.isFinite(end)&&Number.isFinite(start)&&end<start){setNotice("O encerramento precisa acontecer após o início.");return;}
     const body=patch(draft,selectedRow);
     if(Object.keys(body).length===0){setNotice("Nenhuma alteração identificada.");return;}
