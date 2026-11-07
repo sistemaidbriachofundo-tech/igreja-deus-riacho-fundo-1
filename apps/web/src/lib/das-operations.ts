@@ -22,7 +22,7 @@ export const DAS_MODULES: readonly DasDefinition[] = [
   {id:"ministerios",label:"Ministérios",phase:"F3",description:"Equipes, líderes e vínculos dos voluntários.",endpoint:"/ministries",envelope:"ministries",allowedRoles:["PASTOR","SECRETARIA","LIDER_MINISTERIO"]},
   {id:"escalas",label:"Escalas",phase:"F3",description:"Cultos, funções, atribuições e confirmações.",endpoint:"/rosters",envelope:"rosters",allowedRoles:["PASTOR","SECRETARIA","LIDER_MINISTERIO","MEMBRO"]},
   {id:"financeiro",label:"Tesouraria",phase:"F4",description:"Plano de contas, lançamentos e conciliações restritas.",endpoint:"/ledger/accounts",envelope:"accounts",allowedRoles:["TESOURARIA"]},
-  {id:"eventos",label:"Eventos",phase:"F4",description:"Programação administrativa, sem inscrições ou pagamentos fictícios.",endpoint:"/events",envelope:"events",allowedRoles:["PASTOR","SECRETARIA"]},
+  {id:"eventos",label:"Eventos",phase:"F4",description:"Programação administrativa, sem inscrições ou pagamentos fictícios.",endpoint:"/events",envelope:"events",allowedRoles:["PASTOR","SECRETARIA","LIDER_MINISTERIO","PLATFORM_ADMIN"]},
   {id:"indicadores",label:"Indicadores",phase:"F6",description:"Resumo institucional disponibilizado pela API, sujeito a métricas ainda em evolução.",endpoint:"/indicators/summary",envelope:"summary",allowedRoles:["PASTOR","SECRETARIA","TESOURARIA"],dataKind:"summary"},
 ] as const;
 
