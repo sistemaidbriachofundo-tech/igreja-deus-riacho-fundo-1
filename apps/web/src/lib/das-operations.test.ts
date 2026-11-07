@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DAS_MODULES, DAS_RESOURCE_TABS, canViewDasModule, dasError, formatChurchDate,
+  parseAmountCents, formatBRL,
   readDasRows, readDasSummary, scalarLabel, shortStatus
 } from "./das-operations";
 
@@ -54,5 +55,20 @@ describe("DAS — respostas de API",()=>{
     expect(dasError(new Error("GET /pastoral-cases falhou (403)"))).toMatch(/autorização/);
     expect(dasError(new Error("POST /rosters falhou (409)"))).toMatch(/Conflito/);
     expect(dasError(new Error("sensitive internal connection url"))).not.toContain("internal connection");
+  });
+});
+
+describe("Tesouraria — valores sem arredondamento",()=>{
+  it.each([
+    ["1",100],["1,5",150],["1,05",105],["1234,56",123456],
+    ["1.234,56",123456],["1234.56",123456],["10.000",1000000],
+  ])("converte %s exatamente para %i centavos",(amount,expected)=>{
+    expect(parseAmountCents(amount)).toBe(expected);
+  });
+  it.each(["","0","0,00","-12,50","1,234","1,2,3","R$ 10,00","1e3","1.2.3","NaN","Infinity"])(
+    "rejeita valor inválido %s",value=>expect(parseAmountCents(value)).toBeNull()
+  );
+  it("exibe BRL correto sem ponto flutuante de entrada",()=> {
+    expect(formatBRL(123456)).toContain("1.234,56");
   });
 });
