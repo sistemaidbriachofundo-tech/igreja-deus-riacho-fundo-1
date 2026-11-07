@@ -40,7 +40,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
-          <Link href="/app/" className={d.headerLogin} aria-label="Login ID Riacho 1 — ambiente de demonstração" title="Abrir painel demonstrativo ID Riacho 1">Login</Link>
+          <Link href="/login/" className={d.headerLogin} aria-label="Login ID Riacho 1 — abrir tela de e-mail e senha" title="Entrar na plataforma ID Riacho 1">Login</Link>
           <Link href="/visita/" className={d.headerCta} aria-label="Planejar primeira visita"><span className={d.ctaFull}>Participe conosco</span><span className={d.ctaShort}>Visitar</span><PortalGlyph name="arrow" /></Link>
           <MobilePortalMenu links={navigation} />
         </div>
@@ -60,7 +60,7 @@ export function PortalFooter() {
         <div className={s.footerLinks}>
           <div><span className={s.footerLabel}>Explore</span><Link href="/a-igreja/">Nossa igreja</Link><Link href="/ministerios/">Ministérios</Link><Link href="/eventos/">Agenda</Link><Link href="/novidades/">Novidades</Link></div>
           <div><span className={s.footerLabel}>Conecte-se</span><Link href="/visita/">Primeira visita</Link><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Instagram ↗</a><a href="https://www.youtube.com/@IDBRiachoFundo1" rel="noopener noreferrer" target="_blank">YouTube ↗</a><Link href="/ministerios/atmosfera/">Seja voluntário</Link></div>
-          <div><span className={s.footerLabel}>ID Riacho 1</span><Link href="/app/">Login</Link><span className={s.footerNote}>Acesso demonstrativo, com dados fictícios.</span></div>
+          <div><span className={s.footerLabel}>ID Riacho 1</span><Link href="/login/">Login</Link><span className={s.footerNote}>Acesso à área administrativa mediante autenticação.</span></div>
         </div>
       </div>
       <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span><span>Fé · Família · Comunhão · Missão</span></div>
