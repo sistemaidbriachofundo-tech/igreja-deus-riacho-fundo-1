@@ -26,6 +26,22 @@ export const DAS_MODULES: readonly DasDefinition[] = [
   {id:"indicadores",label:"Indicadores",phase:"F6",description:"Resumo institucional disponibilizado pela API, sujeito a métricas ainda em evolução.",endpoint:"/indicators/summary",envelope:"summary",allowedRoles:["PASTOR","SECRETARIA","TESOURARIA"],dataKind:"summary"},
 ] as const;
 
+
+/** Views complementares suportadas pela API; nenhuma publicação/ação financeira é automática. */
+export type DasResourceTab={id:string;label:string;endpoint:string;envelope:string;dataKind?:"summary"|"list"};
+export const DAS_RESOURCE_TABS:Partial<Record<DasModule,readonly DasResourceTab[]>>={
+  financeiro:[
+    {id:"accounts",label:"Plano de contas",endpoint:"/ledger/accounts",envelope:"accounts"},
+    {id:"entries",label:"Lançamentos",endpoint:"/ledger/entries",envelope:"entries"},
+    {id:"imports",label:"Importações",endpoint:"/ledger/imports",envelope:"batches"},
+    {id:"reconciliations",label:"Conciliação",endpoint:"/ledger/reconciliations",envelope:"reconciliations"},
+  ],
+  indicadores:[
+    {id:"summary",label:"Resumo institucional",endpoint:"/indicators/summary",envelope:"summary",dataKind:"summary"},
+    {id:"memberships",label:"Membresia",endpoint:"/indicators/membership",envelope:"summary",dataKind:"summary"},
+  ],
+};
+
 export function canViewDasModule(grants: readonly string[], roles: readonly string[]) {
   // PLATFORM_ADMIN não tem acesso implícito a pastoral ou tesouraria.
   const restricted=roles.length===1 && (roles[0]==="PASTOR" || roles[0]==="TESOURARIA");
