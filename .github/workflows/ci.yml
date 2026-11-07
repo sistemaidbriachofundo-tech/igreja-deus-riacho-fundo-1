@@ -112,6 +112,10 @@ jobs:
       - name: Build web
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ env.NEXT_PUBLIC_BASE_PATH }}
+          # O site oficial é publicado EXCLUSIVAMENTE no GitHub Pages.
+          # Somente o build de main recebe o chat público e a URL da API.
+          NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          NEXT_PUBLIC_API_URL: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'https://id-riacho1-api-hml.vercel.app' || '' }}
         run: |
           for attempt in 1 2 3; do
             if npm run build -w @idbrf/web; then
