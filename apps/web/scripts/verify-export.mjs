@@ -62,6 +62,14 @@ for (const page of findHtml(outDir)) {
       }
     }
   }
+  if (relative(outDir, page) === "login/index.html") {
+    if (!/<input[^>]+type="email"/.test(html) || !/<input[^>]+type="password"/.test(html)) {
+      failures.push("Login must display email and password inputs before opening the dashboard.");
+    }
+  }
+  if (relative(outDir, page) === "app/index.html" && !html.includes("Verificando seu acesso")) {
+    failures.push("Admin route must start behind the authentication gate.");
+  }
   if (requiredPages.includes(relative(outDir, page))) {
     const headingCount = [...html.matchAll(/<h1(?:\s|>)/gi)].length;
     if (headingCount !== 1) failures.push(`${relative(outDir, page)} has ${headingCount} H1 headings (expected 1)`);
