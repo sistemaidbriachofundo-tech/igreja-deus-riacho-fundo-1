@@ -118,3 +118,40 @@ export async function requestRiachinhoPublicAnswer(
     throw new Error("O servidor retornou uma simulação. O Riachinho real está indisponível.");
   return answer;
 }
+
+/** Untrusted provider metadata must never become an arbitrary link or admin route. */
+export type RiachinhoPublicKnowledgeSource = {
+  kind: "ministry" | "event" | "cms";
+  slug: string;
+  title: string;
+};
+
+export function parseRiachinhoPublicKnowledgeSources(value: unknown): RiachinhoPublicKnowledgeSource[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const safe: RiachinhoPublicKnowledgeSource[] = [];
+  for (const item of value.slice(0, 20)) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    if (row.kind !== "ministry" && row.kind !== "event" && row.kind !== "cms") continue;
+    if (typeof row.slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(row.slug)) continue;
+    if (typeof row.title !== "string") continue;
+    const title = row.title.trim();
+    if (!title || title.length > 140) continue;
+    const key = row.kind + ":" + row.slug;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    safe.push({ kind: row.kind, slug: row.slug, title });
+    if (safe.length === 8) break;
+  }
+  return safe;
+}
+
+export function riachinhoKnowledgeSection(
+  kind: RiachinhoPublicKnowledgeSource["kind"],
+): { href: string; label: string } | null {
+  if (kind === "ministry") return { href: "/ministerios/", label: "Ver ministérios" };
+  if (kind === "event") return { href: "/eventos/", label: "Ver agenda" };
+  // CMS slugs can represent banners/pages/news, so no speculative deep link.
+  return null;
+}
