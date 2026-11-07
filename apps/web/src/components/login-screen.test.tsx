@@ -22,8 +22,8 @@ describe("Acesso institucional antes do painel", () => {
     const html = renderToStaticMarkup(<LoginScreen />);
     expect(html).toContain('type="email"');
     expect(html).toContain('type="password"');
-    expect(html).toContain('autocomplete="username"');
-    expect(html).toContain('autocomplete="current-password"');
+    expect(html).toMatch(/autocomplete="username"/i);
+    expect(html).toMatch(/autocomplete="current-password"/i);
     expect(html).toContain("Entrar no painel");
     expect(html).not.toContain('value="fake-token"');
   });
