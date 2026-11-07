@@ -210,24 +210,26 @@ export class GroupsService {
         memberPersonIds.add(personId);
       }
 
-      const members = [...memberPersonIds].sort().map((personId) => {
-        const stats = byPerson.get(personId) ?? {
-          presentCount: 0,
-          absentCount: 0,
-        };
-        const recorded = stats.presentCount + stats.absentCount;
-        return {
-          personId,
-          meetingsInPeriod: meetingCount,
-          recordedAttendanceCount: recorded,
-          presentCount: stats.presentCount,
-          absentCount: stats.absentCount,
-          presentRate:
-            recorded === 0
-              ? null
-              : Number((stats.presentCount / recorded).toFixed(4)),
-        };
-      });
+      const members = [...memberPersonIds]
+        .sort((a, b) => a.localeCompare(b))
+        .map((personId) => {
+          const stats = byPerson.get(personId) ?? {
+            presentCount: 0,
+            absentCount: 0,
+          };
+          const recorded = stats.presentCount + stats.absentCount;
+          return {
+            personId,
+            meetingsInPeriod: meetingCount,
+            recordedAttendanceCount: recorded,
+            presentCount: stats.presentCount,
+            absentCount: stats.absentCount,
+            presentRate:
+              recorded === 0
+                ? null
+                : Number((stats.presentCount / recorded).toFixed(4)),
+          };
+        });
 
       return {
         groupId: group.id,

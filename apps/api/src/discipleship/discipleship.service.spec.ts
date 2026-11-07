@@ -376,10 +376,13 @@ describe("DiscipleshipService", () => {
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
 
-  it("rejects empty stage title and missing track", async () => {
+  it("rejects empty stage title, missing track, and invalid sortOrder", async () => {
     const prisma = {
       discipleshipTrack: {
-        findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValue(trackRow),
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue(trackRow),
       },
       discipleshipTrackStage: { aggregate: jest.fn() },
       $transaction: jest.fn(),
@@ -396,6 +399,41 @@ describe("DiscipleshipService", () => {
     await expect(
       service.createStage(lider, "t1", { title: "  " }),
     ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.createStage(lider, "t1", { title: "X", sortOrder: 0 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("creates stage with explicit sortOrder and lists enrollments without filters", async () => {
+    const tx = {
+      discipleshipTrackStage: {
+        create: jest.fn().mockResolvedValue({ ...stageRow, sortOrder: 5 }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      discipleshipTrack: { findFirst: jest.fn().mockResolvedValue(trackRow) },
+      discipleshipTrackStage: { aggregate: jest.fn() },
+      discipleshipEnrollment: {
+        findMany: jest.fn().mockResolvedValue([enrollmentRow]),
+      },
+      ...withTx(tx),
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const stage = await service.createStage(lider, "t1", {
+      title: "Avançado",
+      sortOrder: 5,
+    });
+    expect(stage.sortOrder).toBe(5);
+    expect(prisma.discipleshipTrackStage.aggregate).not.toHaveBeenCalled();
+
+    const listed = await service.listEnrollments(lider);
+    expect(listed.enrollments).toHaveLength(1);
   });
 
   it("lists stages ordered", async () => {
@@ -530,6 +568,10 @@ describe("DiscipleshipService", () => {
 
     await expect(
       service.recordProgress(lider, "e1", { stageId: "s1", kind: "BLESSED" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.recordProgress(lider, "e1", { stageId: "  ", kind: "STARTED" }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     await expect(

@@ -409,7 +409,7 @@ describe("GroupsService", () => {
     );
   });
 
-  it("rejects inverted frequency range and forbids MEMBRO", async () => {
+  it("rejects inverted/invalid frequency range and forbids MEMBRO", async () => {
     const prisma = {
       smallGroup: { findFirst: jest.fn(), findMany: jest.fn() },
     };
@@ -426,11 +426,44 @@ describe("GroupsService", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     await expect(
+      service.frequencyReport(secretaria, {
+        from: "not-a-date",
+        to: "2026-11-01T00:00:00Z",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
       service.frequencyReport(membro, {
         from: "2026-11-01T00:00:00Z",
         to: "2026-11-30T00:00:00Z",
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("uses default 30-day window when from/to omitted", async () => {
+    const prisma = {
+      smallGroup: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...groupRow,
+            members: [],
+            meetings: [],
+          },
+        ]),
+      },
+    };
+    const service = new GroupsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const result = await service.frequencyReport(secretaria);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].presentRate).toBeNull();
+    expect(result.groups[0].members).toEqual([]);
+    const fromMs = Date.parse(result.from);
+    const toMs = Date.parse(result.to);
+    expect(toMs - fromMs).toBeGreaterThanOrEqual(29 * 24 * 60 * 60 * 1000);
   });
 
   it("404s frequency report for unknown groupId", async () => {
