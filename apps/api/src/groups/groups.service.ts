@@ -136,6 +136,128 @@ export class GroupsService {
     });
   }
 
+  /**
+   * Relatório operacional de frequência (RF-011).
+   * Agrega presença já registrada — sem pontuação espiritual / maturidade.
+   */
+  async frequencyReport(
+    actor: AuthUser,
+    filters: { from?: string; to?: string; groupId?: string } = {},
+  ) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+
+    const { from, to } = this.requireDateRange(filters.from, filters.to);
+
+    if (filters.groupId) {
+      await this.requireGroup(filters.groupId, pilot);
+    }
+
+    const groups = await this.prisma.smallGroup.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        ...(filters.groupId ? { id: filters.groupId } : {}),
+      },
+      orderBy: { name: "asc" },
+      include: {
+        members: {
+          select: { personId: true, role: true, joinedAt: true },
+        },
+        meetings: {
+          where: {
+            occurredAt: { gte: from, lte: to },
+          },
+          orderBy: { occurredAt: "asc" },
+          include: {
+            attendances: {
+              select: { personId: true, present: true },
+            },
+          },
+        },
+      },
+    });
+
+    const groupReports = groups.map((group) => {
+      const meetingCount = group.meetings.length;
+      let presentCount = 0;
+      let absentCount = 0;
+      const byPerson = new Map<
+        string,
+        { presentCount: number; absentCount: number }
+      >();
+
+      for (const meeting of group.meetings) {
+        for (const att of meeting.attendances) {
+          const bucket = byPerson.get(att.personId) ?? {
+            presentCount: 0,
+            absentCount: 0,
+          };
+          if (att.present) {
+            presentCount += 1;
+            bucket.presentCount += 1;
+          } else {
+            absentCount += 1;
+            bucket.absentCount += 1;
+          }
+          byPerson.set(att.personId, bucket);
+        }
+      }
+
+      const attendanceRecords = presentCount + absentCount;
+      const memberPersonIds = new Set(group.members.map((m) => m.personId));
+      for (const personId of byPerson.keys()) {
+        memberPersonIds.add(personId);
+      }
+
+      const members = [...memberPersonIds]
+        .sort((a, b) => a.localeCompare(b))
+        .map((personId) => {
+          const stats = byPerson.get(personId) ?? {
+            presentCount: 0,
+            absentCount: 0,
+          };
+          const recorded = stats.presentCount + stats.absentCount;
+          return {
+            personId,
+            meetingsInPeriod: meetingCount,
+            recordedAttendanceCount: recorded,
+            presentCount: stats.presentCount,
+            absentCount: stats.absentCount,
+            presentRate:
+              recorded === 0
+                ? null
+                : Number((stats.presentCount / recorded).toFixed(4)),
+          };
+        });
+
+      return {
+        groupId: group.id,
+        name: group.name,
+        leaderPersonId: group.leaderPersonId,
+        memberCount: group.members.length,
+        meetingCount,
+        attendanceRecords,
+        presentCount,
+        absentCount,
+        presentRate:
+          attendanceRecords === 0
+            ? null
+            : Number((presentCount / attendanceRecords).toFixed(4)),
+        members,
+      };
+    });
+
+    return {
+      churchId: pilot.churchId,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      spiritualScoreExcluded: true as const,
+      metric: "operational_attendance" as const,
+      groups: groupReports,
+    };
+  }
+
   async createMeeting(
     actor: AuthUser,
     groupId: string,
@@ -262,6 +384,24 @@ export class GroupsService {
       return role as MemberRole;
     }
     throw new BadRequestException(`role inválido: ${role}`);
+  }
+
+  private requireDateRange(fromRaw?: string, toRaw?: string): {
+    from: Date;
+    to: Date;
+  } {
+    const to = toRaw ? new Date(toRaw) : new Date();
+    const from = fromRaw
+      ? new Date(fromRaw)
+      : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException("from/to inválidos (ISO-8601)");
+    }
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException("from deve ser <= to");
+    }
+    return { from, to };
   }
 
   private toGroupDto(group: {

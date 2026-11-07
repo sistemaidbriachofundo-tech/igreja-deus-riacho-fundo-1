@@ -19,5 +19,11 @@ describe("MetaController", () => {
     expect(
       meta.endpoints["DELETE /admissions/:admissionId/documents/:documentId"],
     ).toBe("implemented");
+    expect(
+      meta.endpoints["POST /discipleship/enrollments/:enrollmentId/progress"],
+    ).toBe("implemented");
+    expect(meta.endpoints["GET /small-groups/frequency-report"]).toBe(
+      "implemented",
+    );
   });
 });

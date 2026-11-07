@@ -331,4 +331,155 @@ describe("GroupsService", () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it("builds operational frequency report without spiritual score", async () => {
+    const prisma = {
+      smallGroup: {
+        findFirst: jest.fn().mockResolvedValue(groupRow),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...groupRow,
+            members: [
+              {
+                personId: "p1",
+                role: "MEMBER",
+                joinedAt: now,
+              },
+              {
+                personId: "p2",
+                role: "LEADER",
+                joinedAt: now,
+              },
+            ],
+            meetings: [
+              {
+                id: "m1",
+                occurredAt: now,
+                attendances: [
+                  { personId: "p1", present: true },
+                  { personId: "p2", present: false },
+                ],
+              },
+              {
+                id: "m2",
+                occurredAt: new Date("2026-11-12T20:00:00Z"),
+                attendances: [
+                  { personId: "p1", present: true },
+                  { personId: "p2", present: true },
+                ],
+              },
+            ],
+          },
+        ]),
+      },
+    };
+    const service = new GroupsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const result = await service.frequencyReport(secretaria, {
+      from: "2026-11-01T00:00:00Z",
+      to: "2026-11-30T23:59:59Z",
+      groupId: "g1",
+    });
+
+    expect(result.spiritualScoreExcluded).toBe(true);
+    expect(result.metric).toBe("operational_attendance");
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].meetingCount).toBe(2);
+    expect(result.groups[0].presentCount).toBe(3);
+    expect(result.groups[0].absentCount).toBe(1);
+    expect(result.groups[0].presentRate).toBe(0.75);
+    expect(result.groups[0].members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          personId: "p1",
+          presentCount: 2,
+          absentCount: 0,
+          presentRate: 1,
+        }),
+        expect.objectContaining({
+          personId: "p2",
+          presentCount: 1,
+          absentCount: 1,
+          presentRate: 0.5,
+        }),
+      ]),
+    );
+  });
+
+  it("rejects inverted/invalid frequency range and forbids MEMBRO", async () => {
+    const prisma = {
+      smallGroup: { findFirst: jest.fn(), findMany: jest.fn() },
+    };
+    const service = new GroupsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.frequencyReport(secretaria, {
+        from: "2026-12-01T00:00:00Z",
+        to: "2026-11-01T00:00:00Z",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.frequencyReport(secretaria, {
+        from: "not-a-date",
+        to: "2026-11-01T00:00:00Z",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.frequencyReport(membro, {
+        from: "2026-11-01T00:00:00Z",
+        to: "2026-11-30T00:00:00Z",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("uses default 30-day window when from/to omitted", async () => {
+    const prisma = {
+      smallGroup: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...groupRow,
+            members: [],
+            meetings: [],
+          },
+        ]),
+      },
+    };
+    const service = new GroupsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const result = await service.frequencyReport(secretaria);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].presentRate).toBeNull();
+    expect(result.groups[0].members).toEqual([]);
+    const fromMs = Date.parse(result.from);
+    const toMs = Date.parse(result.to);
+    expect(toMs - fromMs).toBeGreaterThanOrEqual(29 * 24 * 60 * 60 * 1000);
+  });
+
+  it("404s frequency report for unknown groupId", async () => {
+    const prisma = {
+      smallGroup: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new GroupsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.frequencyReport(secretaria, {
+        groupId: "missing",
+        from: "2026-11-01T00:00:00Z",
+        to: "2026-11-30T00:00:00Z",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 });

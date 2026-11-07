@@ -564,9 +564,30 @@ model DiscipleshipTrack {
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
   enrollments  DiscipleshipEnrollment[]
+  stages       DiscipleshipTrackStage[]
 
   @@index([organizationId, churchId])
   @@map("discipleship_tracks")
+}
+
+/// Etapa ordenada de uma trilha (RF-010). Não pontua espiritualmente.
+model DiscipleshipTrackStage {
+  id          String   @id @default(cuid())
+  trackId     String   @map("track_id")
+  sortOrder   Int      @map("sort_order")
+  code        String?
+  title       String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  track    DiscipleshipTrack            @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  progress DiscipleshipProgressEvent[]
+
+  @@unique([trackId, sortOrder])
+  @@unique([trackId, code])
+  @@index([trackId])
+  @@map("discipleship_track_stages")
 }
 
 enum DiscipleshipEnrollmentStatus {
@@ -574,6 +595,13 @@ enum DiscipleshipEnrollmentStatus {
   COMPLETED
   PAUSED
   CANCELLED
+}
+
+/// Evento append-only de progresso por etapa (histórico granular RF-010).
+enum DiscipleshipProgressKind {
+  STARTED
+  COMPLETED
+  REOPENED
 }
 
 model DiscipleshipEnrollment {
@@ -587,13 +615,33 @@ model DiscipleshipEnrollment {
   createdAt      DateTime                     @default(now()) @map("created_at")
   updatedAt      DateTime                     @updatedAt @map("updated_at")
 
-  track   DiscipleshipTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  person  Person            @relation(fields: [personId], references: [id])
-  mentor  Person?           @relation("DiscipleshipMentor", fields: [mentorPersonId], references: [id])
+  track    DiscipleshipTrack           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  person   Person                      @relation(fields: [personId], references: [id])
+  mentor   Person?                     @relation("DiscipleshipMentor", fields: [mentorPersonId], references: [id])
+  progress DiscipleshipProgressEvent[]
 
   @@unique([trackId, personId])
   @@index([personId])
   @@map("discipleship_enrollments")
+}
+
+model DiscipleshipProgressEvent {
+  id               String                   @id @default(cuid())
+  enrollmentId     String                   @map("enrollment_id")
+  stageId          String                   @map("stage_id")
+  kind             DiscipleshipProgressKind
+  /// Nota operacional curta (não é avaliação espiritual).
+  note             String?
+  recordedByUserId String?                  @map("recorded_by_user_id")
+  recordedAt       DateTime                 @default(now()) @map("recorded_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+
+  enrollment DiscipleshipEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  stage      DiscipleshipTrackStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId, recordedAt])
+  @@index([stageId])
+  @@map("discipleship_progress_events")
 }
 
 enum MinistryVisibility {
