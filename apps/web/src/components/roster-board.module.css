@@ -1,0 +1,32 @@
+.wrap{background:#fffdf9;border:1px solid #e7d7c1;border-radius:20px;padding:25px;display:grid;gap:20px;box-shadow:0 6px 22px rgba(61,37,18,.04)}
+.heading h2{font-family:Montserrat,Inter,sans-serif;font-size:20px;letter-spacing:-.025em;margin:8px 0}
+.heading p{font-size:13px;color:#79614d;line-height:1.6;margin:0}
+.eyebrow{font-weight:800;letter-spacing:.1em;font-size:10px;color:#9d6e31}
+.rosters{display:grid;gap:12px}.roster{border:1px solid #e9dccb;border-radius:15px;overflow:hidden}
+.toggle{background:#faf5ec;border:0;cursor:pointer;width:100%;padding:18px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#482f1e;font:inherit}
+.toggle>div{display:grid;gap:5px}.toggle strong{font-size:14px}.toggle span{font-size:11px;color:#846952}.toggle:focus-visible{outline:3px solid #ba8946;outline-offset:-3px}
+.count{white-space:nowrap;background:#eee2d0;border-radius:999px;padding:8px 12px;font-weight:700!important}
+.details{padding:16px;background:#fffdfa;display:grid;gap:14px}
+.slot{border-left:3px solid #b88946;background:#faf6ee;border-radius:0 12px 12px 0;padding:14px;display:grid;gap:12px}
+.slotHeader{display:flex;justify-content:space-between;gap:15px;align-items:center}
+.slotHeader>div{display:grid;gap:5px}.slotHeader strong{font-size:13px}.slotHeader small,.slotHeader>span{font-size:11px;color:#876a50}
+.assignment{border-top:1px solid #e7d8c8;padding-top:12px;display:grid;gap:8px}
+.assignmentTitle{font-size:12px;color:#70553b;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.assignmentTitle strong{color:#4a2d19}.assignmentTitle small{padding:3px 7px;background:#e9decf;border-radius:6px;font-size:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions button,.replace button,.addSlot button,.assignPanel button:not(.cancel){border:0;color:#fff6e8;background:#4a2612;padding:9px 14px;border-radius:9px;font:inherit;font-weight:700;font-size:11px;cursor:pointer}
+.actions button:nth-child(2){background:#835b37}.actions button:disabled,.replace button:disabled,.addSlot button:disabled,.assignPanel button:disabled{opacity:.58;cursor:not-allowed}
+.replace{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.replace label{display:grid;gap:5px;flex:1}
+.replace label span,.addSlot label span,.assignPanel label span{font-size:11px;font-weight:700;color:#6a4d35}
+.replace input,.addSlot input:not([type=checkbox]),.assignPanel input{border:1px solid #decbb6;background:#fffefa;border-radius:9px;padding:10px 12px;font:inherit;font-size:12px;min-width:0;width:100%}
+.pick{justify-self:start;background:transparent;border:1px solid #d9c4ac;color:#75532b;border-radius:9px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.addSlot{border-top:1px solid #efe3d5;padding-top:15px;display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.addSlot h3{font-size:12px;width:100%;margin:0}.addSlot label:not(.check){display:grid;gap:6px;flex:1;min-width:160px}
+.check{display:flex;align-items:center;gap:7px;padding:10px}.check input{accent-color:#7b501d}
+.assignPanel{border:1px solid #dec8a7;border-radius:14px;background:#faf2e6;padding:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.assignPanel h3{font-size:15px;width:100%;margin:0}.assignPanel p{font-size:12px;color:#775e47;margin:0;width:100%}
+.assignGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}.assignGrid label{display:grid;gap:6px}
+.cancel{background:transparent;border:1px solid #dbc3a7;border-radius:9px;padding:9px 12px;color:#6f5133;cursor:pointer}
+.notice{background:#f4ecd9;border:1px solid #e4ce9d;color:#694825;border-radius:9px;padding:12px 14px;font-size:12px}
+.empty{margin:0;color:#907358;font-size:12px;padding:14px}
+@media(max-width:650px){.wrap{padding:16px;border-radius:15px}.slotHeader{flex-wrap:wrap}.assignGrid{grid-template-columns:1fr}.addSlot{align-items:stretch;flex-direction:column}.replace{align-items:stretch;flex-direction:column}}
