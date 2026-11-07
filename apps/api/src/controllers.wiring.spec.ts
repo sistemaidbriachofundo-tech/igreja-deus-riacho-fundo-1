@@ -20,7 +20,11 @@ import {
 import { ChannelsController } from "./channels/channels.controller";
 import { ChurchesController } from "./churches/churches.controller";
 import { CmsController } from "./cms/cms.controller";
-import { EventsController } from "./events/events.controller";
+import {
+  EventPaymentWebhookController,
+  EventsController,
+  RegistrationsController,
+} from "./events/events.controller";
 import { FinanceController } from "./finance/finance.controller";
 import { IndicatorsController } from "./indicators/indicators.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
@@ -427,7 +431,18 @@ describe("controller wiring (delegates to services)", () => {
       cancel: jest.fn(),
       archive: jest.fn(),
     };
-    const c = new EventsController(events as never);
+    const registrations = {
+      createModality: jest.fn(),
+      listModalities: jest.fn(),
+      createLot: jest.fn(),
+      listLots: jest.fn(),
+      listRegistrations: jest.fn(),
+      createStaffRegistration: jest.fn(),
+      checkIn: jest.fn(),
+      cancel: jest.fn(),
+      handleMockPaymentWebhook: jest.fn(),
+    };
+    const c = new EventsController(events as never, registrations as never);
     await c.create(user, {
       name: "Encontro",
       slug: "encontro",
@@ -439,7 +454,29 @@ describe("controller wiring (delegates to services)", () => {
     await c.publish(user, "e1");
     await c.cancel(user, "e1");
     await c.archive(user, "e1");
+    await c.createModality(user, "e1", { code: "ind", name: "Individual" });
+    await c.listModalities(user, "e1");
+    await c.createLot(user, "e1", { code: "l1", name: "Lote 1", priceCents: 0 });
+    await c.listLots(user, "e1");
+    await c.listRegistrations(user, "e1");
+    await c.createRegistration(user, "e1", {
+      displayName: "Demo",
+      modalityId: "mod1",
+    });
     expect(events.archive).toHaveBeenCalledWith(user, "e1");
+    expect(registrations.createStaffRegistration).toHaveBeenCalled();
+
+    const r = new RegistrationsController(registrations as never);
+    await r.checkIn(user, "reg1", {});
+    await r.cancel(user, "reg1");
+    expect(registrations.checkIn).toHaveBeenCalledWith(user, "reg1", undefined);
+
+    const wh = new EventPaymentWebhookController(registrations as never);
+    await wh.mockConfirm("sig", "idem-12345678", {
+      paymentIntentId: "pi1",
+      status: "CONFIRMED_MOCK",
+    });
+    expect(registrations.handleMockPaymentWebhook).toHaveBeenCalled();
   });
 
   it("PublicPortalController", async () => {
@@ -448,18 +485,39 @@ describe("controller wiring (delegates to services)", () => {
       listMinistries: jest.fn(),
       getMinistryBySlug: jest.fn(),
       listEvents: jest.fn(),
-      getEventBySlug: jest.fn(),
+      getEventBySlug: jest.fn().mockResolvedValue({ id: "e1", slug: "encontro-jovens-demo" }),
       getContentBySlug: jest.fn(),
     };
-    const c = new PublicPortalController(portal as never, { published: jest.fn() } as never);
+    const registrations = {
+      publicCatalogForEvent: jest.fn().mockResolvedValue({
+        modalities: [],
+        lots: [],
+        paymentMode: "MOCK_ONLY",
+        rf022LodgingPending: true,
+      }),
+      createPublicRegistration: jest.fn(),
+      getPublicRegistrationStatus: jest.fn(),
+    };
+    const c = new PublicPortalController(
+      portal as never,
+      { published: jest.fn() } as never,
+      registrations as never,
+    );
     await c.publishedSiteLayout();
     await c.home();
     await c.listMinistries();
     await c.getMinistry("jovens");
     await c.listEvents();
     await c.getEvent("encontro-jovens-demo");
+    await c.createRegistration("encontro-jovens-demo", {
+      displayName: "Demo",
+      modalityId: "mod1",
+      lotId: "lot1",
+    });
+    await c.registrationStatus("abc123code");
     await c.getContent("sobre-nos");
     expect(portal.getContentBySlug).toHaveBeenCalledWith("sobre-nos");
+    expect(registrations.createPublicRegistration).toHaveBeenCalled();
   });
 
   it("CmsController", async () => {

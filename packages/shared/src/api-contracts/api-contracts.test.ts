@@ -127,6 +127,34 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["GET /public/home"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /events"], "implemented");
     assert.equal(
+      API_ENDPOINT_STATUS["POST /events/:eventId/modalities"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /events/:eventId/lots"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /events/:eventId/registrations"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /registrations/:registrationId/check-in"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /webhooks/event-payments/mock"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /public/events/:slug/registrations"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["GET /public/registrations/:checkInCode"],
+      "implemented",
+    );
+    assert.equal(
       API_ENDPOINT_STATUS["PATCH /ministries/:ministryId"],
       "implemented",
     );

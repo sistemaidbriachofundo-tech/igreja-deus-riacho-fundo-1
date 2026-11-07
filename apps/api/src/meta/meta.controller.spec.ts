@@ -13,6 +13,10 @@ describe("MetaController", () => {
     expect(meta.notes.some((n) => n.includes("0.7.3-das-etapa3"))).toBe(true);
     expect(meta.endpoints["POST /persons/candidates"]).toBe("implemented");
     expect(meta.endpoints["POST /letters/:letterId/pdf"]).toBe("implemented");
+    expect(meta.endpoints["POST /events/:eventId/registrations"]).toBe(
+      "implemented",
+    );
+    expect(meta.endpoints["POST /webhooks/event-payments/mock"]).toBe(
     expect(meta.endpoints["POST /admissions/:admissionId/cancel"]).toBe(
       "implemented",
     );
