@@ -53,6 +53,12 @@ export const VIVI_SENSITIVE_REFUSAL =
   "Para assuntos confidenciais, fale com a secretaria ou a equipe pastoral pelo canal oficial da igreja. " +
   "Posso ajudar com informações públicas do portal (ministérios, eventos, voluntariado).";
 
+/** Fail-soft quando Manus/Gemini cai — resposta estável sem 502/503 no chat. */
+export const VIVI_PROVIDER_SOFT_FAILURE =
+  "O Riachinho está temporariamente indisponível. " +
+  "Tente de novo em instantes ou consulte as informações públicas do portal " +
+  "(ministérios, eventos e voluntariado).";
+
 /** Trecho adicional para chat autenticado (equipe editorial). */
 export const VIVI_ADMIN_EDITORIAL_ADDENDUM =
   "\nAlém de orientar visitantes, você pode auxiliar a equipe autorizada a REVISAR TEXTO PÚBLICO para o site. " +

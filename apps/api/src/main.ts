@@ -5,6 +5,18 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Vercel / reverse proxy: habilita req.ip a partir de X-Forwarded-For (rate-limit).
+  const trustProxy =
+    process.env.TRUST_PROXY === "1" ||
+    process.env.VERCEL === "1" ||
+    Boolean(process.env.VERCEL_ENV);
+  if (trustProxy) {
+    const expressApp = app.getHttpAdapter().getInstance() as {
+      set: (k: string, v: unknown) => void;
+    };
+    expressApp.set("trust proxy", 1);
+  }
+
   const isProd = process.env.NODE_ENV === "production";
   const corsOrigin = process.env.CORS_ORIGIN?.split(",")
     .map((s) => s.trim())
