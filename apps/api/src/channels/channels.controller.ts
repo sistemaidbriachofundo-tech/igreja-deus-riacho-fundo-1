@@ -183,6 +183,20 @@ class DispatchPendingBody {
   limit?: number;
 }
 
+class ResendOutboxBody {
+  @IsString()
+  @MinLength(1)
+  sourceType!: string;
+
+  @IsString()
+  @MinLength(1)
+  sourceId!: string;
+
+  @IsOptional()
+  @IsIn(["WHATSAPP", "EMAIL", "PUSH"])
+  channel?: "WHATSAPP" | "EMAIL" | "PUSH";
+}
+
 const ADMIN_ROLES = [
   ROLE_CODES.SECRETARIA,
   ROLE_CODES.PASTOR,
@@ -280,6 +294,15 @@ export class ChannelsController {
     @Body() body: DispatchPendingBody,
   ) {
     return this.channels.dispatchPending(user, body.limit);
+  }
+
+  @Roles(...ADMIN_ROLES)
+  @Post("outbox/resend")
+  resendOutbox(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ResendOutboxBody,
+  ) {
+    return this.channels.resendOutbox(user, body);
   }
 
   @Roles(...ADMIN_ROLES)

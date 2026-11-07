@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.3-rf016
+  version: 0.7.3-das-etapa3
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -29,12 +29,11 @@ info:
       RF-010 discipleship stages/progress + RF-011 cell frequency report;
       RF-020/021 modalidades, inscrição, check-in e pagamento mock;
       RF-029 indicadores reais — `GET /indicators/*` com `stub: false`;
-      RF-023 cursos/EBD/turmas/matrícula/frequência/conclusão (≠ discipulado RF-010);
-      RF-009 retenção/export pastoral; RF-030 patrimônio mínimo;
+      RF-023 cursos/EBD; RF-009 retenção/export pastoral; RF-030 patrimônio;
+      RF-016…019 fundos/CC, orçamento+competência, OFX real, comprovantes;
+      RF-014 disponibilidade/impedimentos + exceções de casal;
+      RF-015 alertas confirm/decline/substitute via outbox mock + resend;
       notes OIDC_NOT_LIVE / MFA challenge
-    - 0.7.3-rf016: RF-016…019 — fundos/centros de custo, orçamento + competência/fechamento,
-      parser OFX real, PDF_META=META_ONLY (sem OCR), comprovantes em storage privado,
-      adapters FILE/MOCK/SICOOB/BRB/CORA sem API bancária live; matching RF-018 reutilizado
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -170,7 +169,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.3-rf016 }
+        contractVersion: { type: string, example: 0.7.3-das-etapa3 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
@@ -2865,7 +2864,7 @@ paths:
     post:
       tags: [ministries]
       x-implementation: implemented
-      summary: Designa pessoa (conflito de horário / casal)
+      summary: Designa pessoa (conflito / disponibilidade / casal RF-014)
       security: [{ bearerAuth: [] }]
       parameters:
         - name: slotId
@@ -2882,11 +2881,16 @@ paths:
               properties:
                 personId: { type: string }
                 partnerPersonId: { type: string }
+                coupleExceptionId:
+                  type: string
+                  description: Exceção APPROVED para solo em requiresCouple
       responses:
         "201":
           description: Assignment PENDING
+        "400":
+          description: COUPLE_REQUIRED / COUPLE_EXCEPTION_INVALID
         "409":
-          description: Conflito de escala no mesmo serviceAt
+          description: ROSTER_SERVICE_CONFLICT / ROSTER_UNAVAILABLE / ROSTER_IMPEDIMENT
 
   /assignments/{assignmentId}/confirm:
     post:
@@ -2939,9 +2943,232 @@ paths:
               properties:
                 personId: { type: string }
                 partnerPersonId: { type: string }
+                coupleExceptionId: { type: string, description: Exceção APPROVED quando solo em slot requiresCouple }
       responses:
         "201":
-          description: Novo assignment PENDING; original SUBSTITUTED
+          description: Novo assignment PENDING; original SUBSTITUTED; alerta outbox mock (RF-015)
+
+  /assignments/{assignmentId}/alerts/resend:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Reenvia alerta de escala via outbox mock (idempotente)
+      description: |
+        RF-015. `sourceType=roster_assignment`, `sourceId={assignmentId}:{kind}`.
+        PENDING/QUEUED/SENDING → reusa; senão cria novo PENDING. Sem WABA live.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind:
+                  type: string
+                  enum: [confirm, decline, substitute, confirm_request]
+      responses:
+        "200":
+          description: `{ notified, outbox[], reused }`
+
+  /volunteer-availabilities:
+    get:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Lista janelas de disponibilidade (RF-014)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope availabilities[]
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Cria janela recorrente UTC (weekday 0–6 + minutos)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, weekday, startMinute, endMinute]
+              properties:
+                personId: { type: string }
+                weekday: { type: integer, minimum: 0, maximum: 6 }
+                startMinute: { type: integer, minimum: 0, maximum: 1439 }
+                endMinute: { type: integer, minimum: 1, maximum: 1440 }
+                notes: { type: string, nullable: true }
+      responses:
+        "201":
+          description: Availability DTO · audit `roster.availability.create`
+
+  /volunteer-availabilities/{availabilityId}/deactivate:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Desativa janela de disponibilidade
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: availabilityId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: active=false · audit `roster.availability.deactivate`
+
+  /volunteer-impediments:
+    get:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Lista impedimentos pontuais (RF-014)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope impediments[]
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Cria impedimento (bloqueia serviceAt no intervalo)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, startsAt, endsAt]
+              properties:
+                personId: { type: string }
+                startsAt: { type: string, format: date-time }
+                endsAt: { type: string, format: date-time }
+                reason: { type: string, nullable: true }
+      responses:
+        "201":
+          description: Impediment DTO · audit `roster.impediment.create`
+
+  /volunteer-impediments/{impedimentId}:
+    delete:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Remove impedimento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: impedimentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: `{ deleted: true }` · audit `roster.impediment.delete`
+
+  /roster-couple-exceptions:
+    get:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Lista exceções de casal (RF-014)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, APPROVED, REJECTED, CANCELLED] }
+        - name: personId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope exceptions[]
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Configura exceção (default APPROVED se approveNow omitido/true)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, reason]
+              properties:
+                personId: { type: string }
+                reason: { type: string }
+                slotId: { type: string }
+                rosterId: { type: string }
+                ministryId: { type: string }
+                notes: { type: string, nullable: true }
+                approveNow: { type: boolean, default: true }
+      responses:
+        "201":
+          description: Exception DTO · audit `roster.couple_exception.configure`
+
+  /roster-couple-exceptions/simulate:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Simula exceção PENDING (aguarda approve)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId, reason]
+              properties:
+                personId: { type: string }
+                reason: { type: string }
+                slotId: { type: string }
+                rosterId: { type: string }
+                ministryId: { type: string }
+                notes: { type: string, nullable: true }
+      responses:
+        "201":
+          description: PENDING · audit `roster.couple_exception.simulate`
+
+  /roster-couple-exceptions/{exceptionId}/approve:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Aprova exceção PENDING → APPROVED
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: exceptionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: APPROVED · 409 COUPLE_EXCEPTION_NOT_PENDING
+
+  /roster-couple-exceptions/{exceptionId}/reject:
+    post:
+      tags: [ministries]
+      x-implementation: implemented
+      summary: Rejeita exceção PENDING → REJECTED
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: exceptionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: REJECTED
 
   /ministries/{ministryId}:
     get:
@@ -4599,6 +4826,33 @@ paths:
       responses:
         "200":
           description: processed + results[]
+
+  /channels/outbox/resend:
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Reenvio idempotente por sourceType+sourceId (RF-015)
+      description: |
+        PENDING/QUEUED/SENDING → devolve existente (`reused:true`).
+        SENT/DELIVERED/FAILED/DEAD → clona novo PENDING com mesmo source.
+        Sem WABA live.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceType, sourceId]
+              properties:
+                sourceType: { type: string, example: roster_assignment }
+                sourceId: { type: string, example: "a1:confirm" }
+                channel: { type: string, enum: [WHATSAPP, EMAIL, PUSH] }
+      responses:
+        "200":
+          description: `{ reused, outbox }`
+        "404":
+          description: OUTBOX_SOURCE_NOT_FOUND
 
   /channels/outbox/{outboxId}:
     get:

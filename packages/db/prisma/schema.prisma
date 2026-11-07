@@ -87,6 +87,9 @@ model Organization {
   portalEvents   PortalEvent[]
   cmsContents    CmsContent[]
   volunteerInterests VolunteerInterest[]
+  volunteerAvailabilities VolunteerAvailability[]
+  volunteerImpediments VolunteerImpediment[]
+  rosterCoupleExceptions RosterCoupleException[]
   oidcProviders  OidcProviderConfig[]
   ledgerAccounts LedgerAccount[]
   ledgerEntries  LedgerEntry[]
@@ -138,6 +141,9 @@ model Church {
   portalEvents  PortalEvent[]
   cmsContents   CmsContent[]
   volunteerInterests VolunteerInterest[]
+  volunteerAvailabilities VolunteerAvailability[]
+  volunteerImpediments VolunteerImpediment[]
+  rosterCoupleExceptions RosterCoupleException[]
   ledgerAccounts LedgerAccount[]
   ledgerEntries  LedgerEntry[]
   bankImportBatches BankImportBatch[]
@@ -216,6 +222,9 @@ model Person {
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
   volunteerInterests VolunteerInterest[]
+  volunteerAvailabilities VolunteerAvailability[]
+  volunteerImpediments VolunteerImpediment[]
+  rosterCoupleExceptions RosterCoupleException[]
 
   communicationConsents CommunicationConsent[]
   communicationOutbox CommunicationOutbox[]
@@ -1178,6 +1187,91 @@ model RosterAssignment {
   @@index([slotId, status])
   @@index([personId])
   @@map("roster_assignments")
+}
+
+/// RF-014 — janela recorrente de disponibilidade (UTC weekday + minutos do dia).
+model VolunteerAvailability {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  personId       String   @map("person_id")
+  /// 0=Domingo … 6=Sábado (getUTCDay)
+  weekday        Int
+  /// Minutos desde 00:00 UTC inclusivo
+  startMinute    Int      @map("start_minute")
+  /// Minutos desde 00:00 UTC exclusivo
+  endMinute      Int      @map("end_minute")
+  notes          String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@index([churchId, personId, active])
+  @@index([personId])
+  @@map("volunteer_availabilities")
+}
+
+/// RF-014 — impedimento pontual (bloqueia escala no intervalo).
+model VolunteerImpediment {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  churchId        String   @map("church_id")
+  personId        String   @map("person_id")
+  startsAt        DateTime @map("starts_at")
+  endsAt          DateTime @map("ends_at")
+  reason          String?
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@index([churchId, personId, startsAt, endsAt])
+  @@index([personId])
+  @@map("volunteer_impediments")
+}
+
+enum CoupleExceptionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// RF-014 — exceção configurável à regra requiresCouple (simulação + aprovação).
+model RosterCoupleException {
+  id                String                @id @default(cuid())
+  organizationId    String                @map("organization_id")
+  churchId          String                @map("church_id")
+  ministryId        String?               @map("ministry_id")
+  rosterId          String?               @map("roster_id")
+  slotId            String?               @map("slot_id")
+  personId          String                @map("person_id")
+  reason            String
+  status            CoupleExceptionStatus @default(PENDING)
+  /// true = criada via simulate (aguarda aprovação); false = configurada direto
+  simulation        Boolean               @default(true)
+  requestedByUserId String                @map("requested_by_user_id")
+  reviewedByUserId  String?               @map("reviewed_by_user_id")
+  reviewedAt        DateTime?             @map("reviewed_at")
+  notes             String?
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@index([churchId, personId, status])
+  @@index([slotId, status])
+  @@index([rosterId, status])
+  @@map("roster_couple_exceptions")
 }
 
 // —— F1/F2 hooks: MFA (TOTP) + OIDC config (sem IdP live) ——

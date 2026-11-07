@@ -112,6 +112,18 @@ describe("MinistriesService", () => {
     };
   }
 
+  /** RF-014: defaults “sem janelas / sem impedimento”. */
+  function schedulableOk() {
+    return {
+      volunteerAvailability: { findMany: jest.fn().mockResolvedValue([]) },
+      volunteerImpediment: { findFirst: jest.fn().mockResolvedValue(null) },
+      rosterCoupleException: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+  }
+
   it("forbids MEMBRO from creating ministries", async () => {
     const service = new MinistriesService(
       { $transaction: jest.fn() } as never,
@@ -521,6 +533,7 @@ describe("MinistriesService", () => {
           .mockResolvedValueOnce({ id: "p-partner" }),
       },
       rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      ...schedulableOk(),
       ...withTx(tx),
     };
     const service = new MinistriesService(
@@ -548,6 +561,7 @@ describe("MinistriesService", () => {
             id: "r1",
             organizationId: pilot.organizationId,
             churchId: pilot.churchId,
+            ministryId: "m1",
             serviceAt,
           },
         }),
@@ -556,6 +570,7 @@ describe("MinistriesService", () => {
         findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }),
       },
       rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      ...schedulableOk(),
       $transaction: jest.fn(),
     };
     const service = new MinistriesService(
@@ -565,7 +580,9 @@ describe("MinistriesService", () => {
 
     await expect(
       service.addAssignment(lider, "slot1", { personId: "p-mem" }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "COUPLE_REQUIRED" }),
+    });
   });
 
   it("rejects conflicting PENDING/CONFIRMED assignment at same serviceAt", async () => {
@@ -591,6 +608,7 @@ describe("MinistriesService", () => {
       rosterAssignment: {
         findMany: jest.fn().mockResolvedValue([{ id: "a-other", personId: "p-mem" }]),
       },
+      ...schedulableOk(),
       $transaction: jest.fn(),
     };
     const service = new MinistriesService(
@@ -625,6 +643,7 @@ describe("MinistriesService", () => {
       },
       person: { findFirst: jest.fn().mockResolvedValue(null) },
       rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      ...schedulableOk(),
       $transaction: jest.fn(),
     };
     const service = new MinistriesService(
@@ -843,6 +862,7 @@ describe("MinistriesService", () => {
           .mockResolvedValueOnce({ id: "p-new" }) // happy path person
           .mockResolvedValueOnce({ id: "p-new-partner" }),
       },
+      ...schedulableOk(),
       ...withTx(tx),
     };
     const service = new MinistriesService(
@@ -856,7 +876,9 @@ describe("MinistriesService", () => {
 
     await expect(
       service.substituteAssignment(lider, "a1", { personId: "p-new" }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "COUPLE_REQUIRED" }),
+    });
 
     const result = await service.substituteAssignment(lider, "a1", {
       personId: "p-new",
@@ -895,6 +917,7 @@ describe("MinistriesService", () => {
         findMany: jest.fn().mockResolvedValue([{ id: "a-other", personId: "p-new" }]),
       },
       person: { findFirst: jest.fn().mockResolvedValue({ id: "p-new" }) },
+      ...schedulableOk(),
       $transaction: jest.fn(),
     };
     const service = new MinistriesService(
@@ -1116,5 +1139,326 @@ describe("MinistriesService", () => {
     await expect(
       service.addAssignment(lider, "slot1", { personId: "p-mem" }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("allows solo assignment on requiresCouple with APPROVED exception", async () => {
+    const assignment = {
+      id: "a1",
+      slotId: "slot1",
+      personId: "p-mem",
+      partnerPersonId: null,
+      status: "PENDING",
+      substituteForId: null,
+      confirmedAt: null,
+      declinedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      rosterAssignment: { create: jest.fn().mockResolvedValue(assignment) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      rosterSlot: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "slot1",
+          rosterId: "r1",
+          roleLabel: "Casal",
+          requiresCouple: true,
+          sortOrder: 0,
+          roster: {
+            id: "r1",
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            ministryId: "m1",
+            serviceAt,
+          },
+        }),
+      },
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      volunteerAvailability: { findMany: jest.fn().mockResolvedValue([]) },
+      volunteerImpediment: { findFirst: jest.fn().mockResolvedValue(null) },
+      rosterCoupleException: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "ex1",
+            personId: "p-mem",
+            status: "APPROVED",
+            slotId: "slot1",
+            rosterId: null,
+            ministryId: null,
+          },
+        ]),
+        findFirst: jest.fn(),
+      },
+      ...withTx(tx),
+    };
+    const service = new MinistriesService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.addAssignment(lider, "slot1", {
+      personId: "p-mem",
+    });
+    expect(result.id).toBe("a1");
+  });
+
+  it("blocks assignment on impediment and outside availability windows", async () => {
+    const baseSlot = {
+      id: "slot1",
+      rosterId: "r1",
+      roleLabel: "Voz",
+      requiresCouple: false,
+      sortOrder: 0,
+      roster: {
+        id: "r1",
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        serviceAt,
+      },
+    };
+    const prismaImp = {
+      rosterSlot: { findFirst: jest.fn().mockResolvedValue(baseSlot) },
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      volunteerAvailability: { findMany: jest.fn().mockResolvedValue([]) },
+      volunteerImpediment: {
+        findFirst: jest.fn().mockResolvedValue({ id: "imp1" }),
+      },
+      $transaction: jest.fn(),
+    };
+    const serviceImp = new MinistriesService(
+      prismaImp as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      serviceImp.addAssignment(lider, "slot1", { personId: "p-mem" }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "ROSTER_IMPEDIMENT" }),
+    });
+
+    // serviceAt = 2026-11-09T19:00:00Z → weekday=1 (Mon), minute=1140
+    const prismaAvail = {
+      rosterSlot: { findFirst: jest.fn().mockResolvedValue(baseSlot) },
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      volunteerAvailability: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            weekday: 0,
+            startMinute: 0,
+            endMinute: 60,
+          },
+        ]),
+      },
+      volunteerImpediment: { findFirst: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(),
+    };
+    const serviceAvail = new MinistriesService(
+      prismaAvail as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      serviceAvail.addAssignment(lider, "slot1", { personId: "p-mem" }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "ROSTER_UNAVAILABLE" }),
+    });
+  });
+
+  it("simulates and approves couple exception", async () => {
+    const pending = {
+      id: "ex1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      ministryId: null,
+      rosterId: null,
+      slotId: "slot1",
+      personId: "p-mem",
+      reason: "viúvo",
+      status: "PENDING",
+      simulation: true,
+      requestedByUserId: lider.userId,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      notes: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const approved = {
+      ...pending,
+      status: "APPROVED",
+      reviewedByUserId: lider.userId,
+      reviewedAt: now,
+    };
+    const createTx = {
+      rosterCoupleException: { create: jest.fn().mockResolvedValue(pending) },
+      auditLog: { create: jest.fn() },
+    };
+    const approveTx = {
+      rosterCoupleException: { update: jest.fn().mockResolvedValue(approved) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      rosterSlot: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "slot1",
+          roster: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+          },
+        }),
+      },
+      rosterCoupleException: {
+        findFirst: jest.fn().mockResolvedValue(pending),
+      },
+      $transaction: jest
+        .fn()
+        .mockImplementationOnce(async (fn: (t: typeof createTx) => unknown) =>
+          fn(createTx),
+        )
+        .mockImplementationOnce(async (fn: (t: typeof approveTx) => unknown) =>
+          fn(approveTx),
+        ),
+    };
+    const service = new MinistriesService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const sim = await service.simulateCoupleException(lider, {
+      personId: "p-mem",
+      reason: "viúvo",
+      slotId: "slot1",
+    });
+    expect(sim.status).toBe("PENDING");
+    expect(sim.simulation).toBe(true);
+
+    const ok = await service.approveCoupleException(lider, "ex1");
+    expect(ok.status).toBe("APPROVED");
+  });
+
+  it("creates availability / impediment and enqueues confirm alert", async () => {
+    const avail = {
+      id: "av1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      personId: "p-mem",
+      weekday: 1,
+      startMinute: 1080,
+      endMinute: 1200,
+      notes: null,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const availTx = {
+      volunteerAvailability: { create: jest.fn().mockResolvedValue(avail) },
+      auditLog: { create: jest.fn() },
+    };
+    const imp = {
+      id: "imp1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      personId: "p-mem",
+      startsAt: new Date("2026-11-09T00:00:00Z"),
+      endsAt: new Date("2026-11-10T00:00:00Z"),
+      reason: "viagem",
+      createdByUserId: lider.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const impTx = {
+      volunteerImpediment: { create: jest.fn().mockResolvedValue(imp) },
+      auditLog: { create: jest.fn() },
+    };
+
+    const assignment = {
+      id: "a1",
+      slotId: "slot1",
+      personId: "p-mem",
+      partnerPersonId: null,
+      status: "PENDING",
+      substituteForId: null,
+      confirmedAt: null,
+      declinedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      slot: {
+        id: "slot1",
+        requiresCouple: false,
+        roster: {
+          id: "r1",
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          title: "Culto",
+          serviceAt,
+        },
+      },
+    };
+    const confirmTx = {
+      rosterAssignment: {
+        update: jest.fn().mockResolvedValue({
+          ...assignment,
+          status: "CONFIRMED",
+          confirmedAt: now,
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+
+    const prisma = {
+      person: { findFirst: jest.fn().mockResolvedValue({ id: "p-mem" }) },
+      rosterAssignment: {
+        findFirst: jest.fn().mockResolvedValue(assignment),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      $transaction: jest
+        .fn()
+        .mockImplementationOnce(async (fn: (t: typeof availTx) => unknown) =>
+          fn(availTx),
+        )
+        .mockImplementationOnce(async (fn: (t: typeof impTx) => unknown) =>
+          fn(impTx),
+        )
+        .mockImplementationOnce(async (fn: (t: typeof confirmTx) => unknown) =>
+          fn(confirmTx),
+        ),
+    };
+    const channels = {
+      enqueueRosterAlert: jest.fn().mockResolvedValue({
+        notified: 1,
+        outbox: [{ id: "o1" }],
+        reused: false,
+      }),
+    };
+    const service = new MinistriesService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      channels as never,
+    );
+
+    const a = await service.createAvailability(lider, {
+      personId: "p-mem",
+      weekday: 1,
+      startMinute: 1080,
+      endMinute: 1200,
+    });
+    expect(a.active).toBe(true);
+
+    const i = await service.createImpediment(lider, {
+      personId: "p-mem",
+      startsAt: "2026-11-09T00:00:00Z",
+      endsAt: "2026-11-10T00:00:00Z",
+      reason: "viagem",
+    });
+    expect(i.id).toBe("imp1");
+
+    await service.confirmAssignment(membro, "a1");
+    expect(channels.enqueueRosterAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignmentId: "a1",
+        kind: "confirm",
+        personId: "p-mem",
+      }),
+    );
   });
 });

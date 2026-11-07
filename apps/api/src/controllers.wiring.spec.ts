@@ -17,8 +17,11 @@ import { MetaController } from "./meta/meta.controller";
 import {
   MinistriesController,
   RosterAssignmentsController,
+  RosterCoupleExceptionsController,
   RostersController,
   RosterSlotsController,
+  VolunteerAvailabilityController,
+  VolunteerImpedimentsController,
 } from "./ministries/ministries.controller";
 import { ChannelsController } from "./channels/channels.controller";
 import { ChurchesController } from "./churches/churches.controller";
@@ -463,6 +466,18 @@ describe("controller wiring (delegates to services)", () => {
       confirmAssignment: jest.fn(),
       declineAssignment: jest.fn(),
       substituteAssignment: jest.fn(),
+      resendAssignmentAlert: jest.fn(),
+      createAvailability: jest.fn(),
+      listAvailability: jest.fn(),
+      deactivateAvailability: jest.fn(),
+      createImpediment: jest.fn(),
+      listImpediments: jest.fn(),
+      deleteImpediment: jest.fn(),
+      simulateCoupleException: jest.fn(),
+      configureCoupleException: jest.fn(),
+      listCoupleExceptions: jest.fn(),
+      approveCoupleException: jest.fn(),
+      rejectCoupleException: jest.fn(),
     };
     const m = new MinistriesController(ministries as never);
     await m.create(user, { name: "Louvor", slug: "louvor" });
@@ -486,9 +501,35 @@ describe("controller wiring (delegates to services)", () => {
     await a.confirm(user, "as1");
     await a.decline(user, "as1");
     await a.substitute(user, "as1", { personId: "p2" });
+    await a.resendAlert(user, "as1", { kind: "confirm" });
+    const av = new VolunteerAvailabilityController(ministries as never);
+    await av.create(user, {
+      personId: "p1",
+      weekday: 0,
+      startMinute: 0,
+      endMinute: 60,
+    });
+    await av.list(user, "p1");
+    await av.deactivate(user, "av1");
+    const im = new VolunteerImpedimentsController(ministries as never);
+    await im.create(user, {
+      personId: "p1",
+      startsAt: "2026-11-09T00:00:00Z",
+      endsAt: "2026-11-10T00:00:00Z",
+    });
+    await im.list(user, "p1");
+    await im.remove(user, "imp1");
+    const ce = new RosterCoupleExceptionsController(ministries as never);
+    await ce.simulate(user, { personId: "p1", reason: "solo" });
+    await ce.configure(user, { personId: "p1", reason: "solo" });
+    await ce.list(user, "APPROVED", "p1");
+    await ce.approve(user, "ex1");
+    await ce.reject(user, "ex1");
     expect(ministries.publishRoster).toHaveBeenCalledWith(user, "ro1");
     expect(ministries.closeRoster).toHaveBeenCalledWith(user, "ro1");
     expect(ministries.substituteAssignment).toHaveBeenCalled();
+    expect(ministries.resendAssignmentAlert).toHaveBeenCalled();
+    expect(ministries.simulateCoupleException).toHaveBeenCalled();
   });
 
   it("EventsController", async () => {
@@ -769,6 +810,7 @@ describe("controller wiring (delegates to services)", () => {
       getOutbox: jest.fn(),
       dispatchOne: jest.fn(),
       dispatchPending: jest.fn(),
+      resendOutbox: jest.fn(),
     };
     const c = new ChannelsController(channels as never);
     c.providers();
@@ -793,7 +835,12 @@ describe("controller wiring (delegates to services)", () => {
     await c.getOutbox(user, "o1");
     await c.dispatchOne(user, "o1");
     await c.dispatchPending(user, { limit: 5 });
+    await c.resendOutbox(user, {
+      sourceType: "roster_assignment",
+      sourceId: "a1:confirm",
+    });
     expect(channels.dispatchPending).toHaveBeenCalledWith(user, 5);
+    expect(channels.resendOutbox).toHaveBeenCalled();
   });
 
 

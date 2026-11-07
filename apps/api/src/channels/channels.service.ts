@@ -30,6 +30,12 @@ const CHANNELS: CommChannel[] = ["WHATSAPP", "EMAIL", "PUSH"];
 const OUTBOX_DISPATCHABLE = new Set(["PENDING", "QUEUED", "FAILED"]);
 const MAX_ATTEMPTS = 5;
 
+export type RosterAlertKind =
+  | "confirm"
+  | "decline"
+  | "substitute"
+  | "confirm_request";
+
 export type TemplateInput = {
   channel: CommChannel;
   code: string;
@@ -412,6 +418,224 @@ export class ChannelsService {
       }
     }
     return { notified: created.length, outbox: created };
+  }
+
+  /**
+   * RF-015 — alerta de escala via outbox mock (sem WABA live).
+   * Idempotente: reusa PENDING/QUEUED/SENDING com mesmo sourceType+sourceId+channel.
+   * Soft-fail seguro para líderes (não exige canManageChannels).
+   */
+  async enqueueRosterAlert(params: {
+    actor: AuthUser;
+    assignmentId: string;
+    kind: RosterAlertKind;
+    personId: string;
+    rosterTitle?: string | null;
+    channel?: CommChannel;
+    toAddress?: string | null;
+  }) {
+    const channel = (params.channel ?? "EMAIL") as CommChannel;
+    if (!isChannel(channel)) {
+      return { notified: 0, outbox: [] as ReturnType<ChannelsService["outboxDto"]>[], reused: false };
+    }
+    const sourceType = "roster_assignment";
+    const sourceId = `${params.assignmentId}:${params.kind}`;
+    try {
+      const pilot = await this.pilot.getPilotChurch();
+      const existing = await this.prisma.communicationOutbox.findFirst({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          sourceType,
+          sourceId,
+          channel,
+          status: { in: ["PENDING", "QUEUED", "SENDING"] },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existing) {
+        return {
+          notified: 0,
+          outbox: [this.outboxDto(existing)],
+          reused: true,
+        };
+      }
+
+      const toAddress =
+        params.toAddress?.trim() ||
+        defaultStubAddress(channel, params.personId);
+      const copy = rosterAlertCopy(params.kind, params.rosterTitle ?? null);
+      const item = await this.enqueueSystem(params.actor, pilot, {
+        channel,
+        toAddress,
+        personId: params.personId,
+        skipConsentCheck: true,
+        subject: copy.subject,
+        body: copy.body,
+        sourceType,
+        sourceId,
+        payload: {
+          rosterAlert: true,
+          kind: params.kind,
+          assignmentId: params.assignmentId,
+          liveWaba: false,
+        },
+      });
+      return { notified: 1, outbox: [item], reused: false };
+    } catch {
+      return { notified: 0, outbox: [], reused: false };
+    }
+  }
+
+  /**
+   * RF-015 — reenvio idempotente por sourceType+sourceId.
+   * PENDING/QUEUED/SENDING → devolve o existente; caso contrário clona novo PENDING.
+   */
+  async resendOutbox(
+    actor: AuthUser,
+    input: {
+      sourceType: string;
+      sourceId: string;
+      channel?: CommChannel;
+    },
+  ) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const sourceType = input.sourceType?.trim();
+    const sourceId = input.sourceId?.trim();
+    if (!sourceType || !sourceId) {
+      throw new BadRequestException("sourceType e sourceId são obrigatórios");
+    }
+    const channelFilter =
+      input.channel && isChannel(input.channel) ? input.channel : undefined;
+
+    const latest = await this.prisma.communicationOutbox.findFirst({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        sourceType,
+        sourceId,
+        ...(channelFilter ? { channel: channelFilter } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!latest) {
+      throw new NotFoundException({
+        code: "OUTBOX_SOURCE_NOT_FOUND",
+        message: "Nenhum outbox com este sourceType/sourceId",
+      });
+    }
+
+    if (["PENDING", "QUEUED", "SENDING"].includes(latest.status)) {
+      return {
+        reused: true,
+        outbox: this.outboxDto(latest),
+      };
+    }
+
+    const created = await this.enqueueSystem(actor, pilot, {
+      channel: latest.channel as CommChannel,
+      toAddress: latest.toAddress,
+      personId: latest.personId,
+      skipConsentCheck: true,
+      templateCode: latest.templateCode,
+      subject: latest.subject,
+      body: latest.bodyRendered,
+      sourceType,
+      sourceId,
+      payload: {
+        ...((latest.payload as Record<string, unknown>) ?? {}),
+        resendOf: latest.id,
+      },
+    });
+    return { reused: false, outbox: created };
+  }
+
+  /** Enfileira sem exigir canManageChannels (uso interno CMS/roster). */
+  private async enqueueSystem(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    input: EnqueueInput,
+  ) {
+    this.assertChannel(input.channel);
+    const toAddress = input.toAddress?.trim();
+    if (!toAddress) throw new BadRequestException("toAddress obrigatório");
+
+    let templateId: string | null = null;
+    const templateCode: string | null =
+      input.templateCode?.trim().toLowerCase() ?? null;
+    let subject = input.subject ?? null;
+    let body = input.body?.trim() ?? "";
+
+    if (templateCode) {
+      const template = await this.prisma.messageTemplate.findFirst({
+        where: {
+          churchId: pilot.churchId,
+          channel: input.channel,
+          code: templateCode,
+          active: true,
+        },
+      });
+      if (!template) {
+        throw new BadRequestException(`Template inativo/ausente: ${templateCode}`);
+      }
+      templateId = template.id;
+      const rawSubject = subject ?? template.subject;
+      subject = rawSubject
+        ? renderTemplate(rawSubject, input.variables ?? {})
+        : null;
+      body = renderTemplate(template.body, input.variables ?? {});
+    }
+
+    if (!body) throw new BadRequestException("body ou templateCode obrigatório");
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.communicationOutbox.create({
+        data: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          channel: input.channel,
+          status: "PENDING",
+          personId: input.personId ?? null,
+          toAddress,
+          templateId,
+          templateCode,
+          subject,
+          bodyRendered: body,
+          payload: asJson(input.payload ?? {}),
+          consentCheckedAt: null,
+          scheduledAt: null,
+          nextAttemptAt: new Date(),
+          sourceType: input.sourceType ?? "system",
+          sourceId: input.sourceId ?? null,
+          createdByUserId: actor.userId,
+        },
+      });
+      await tx.outboxDeliveryEvent.create({
+        data: {
+          outboxId: row.id,
+          status: "PENDING",
+          providerResponse: asJson({ enqueued: true, system: true }),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "channels.outbox.enqueue",
+          resourceType: "communication_outbox",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            channel: row.channel,
+            templateCode,
+            system: true,
+            sourceType: row.sourceType,
+            sourceId: row.sourceId,
+          },
+        },
+      });
+      return this.outboxDto(row);
+    });
   }
 
   async listOutbox(
@@ -810,4 +1034,34 @@ function defaultStubAddress(channel: CommChannel, seed: string): string {
   if (channel === "EMAIL") return `cms-notify+${seed}@example.invalid`;
   if (channel === "WHATSAPP") return `+550000000000`;
   return `device-stub-${seed}`;
+}
+
+function rosterAlertCopy(
+  kind: RosterAlertKind,
+  rosterTitle: string | null,
+): { subject: string; body: string } {
+  const title = rosterTitle?.trim() || "escala";
+  switch (kind) {
+    case "confirm":
+      return {
+        subject: `Escala confirmada: ${title}`,
+        body: `Confirmação registrada para "${title}". (stub RF-015 — outbox mock, sem WABA live)`,
+      };
+    case "decline":
+      return {
+        subject: `Escala recusada: ${title}`,
+        body: `Recusa registrada para "${title}". (stub RF-015 — outbox mock, sem WABA live)`,
+      };
+    case "substitute":
+      return {
+        subject: `Substituição na escala: ${title}`,
+        body: `Substituição registrada em "${title}". (stub RF-015 — outbox mock, sem WABA live)`,
+      };
+    case "confirm_request":
+    default:
+      return {
+        subject: `Confirme sua escala: ${title}`,
+        body: `Você foi designado(a) em "${title}". Confirme ou recuse no app. (stub RF-015 — outbox mock, sem WABA live)`,
+      };
+  }
 }
