@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { AdminAccessGate } from "../../components/AdminAccessGate";
 
 export const metadata: Metadata = {
   title: {
@@ -12,5 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function InternalLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <AdminAccessGate>{children}</AdminAccessGate>;
 }
