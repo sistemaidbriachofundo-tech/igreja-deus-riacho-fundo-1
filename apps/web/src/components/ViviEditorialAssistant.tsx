@@ -126,6 +126,12 @@ function intentPrompt(intent: Intent, layout: SiteLayout): { text: string; targe
   };
 }
 
+export function hasActiveRiachinhoProvider(status: Status | null): boolean {
+  return Boolean(status &&
+    ((status.provider === "manus" && status.manusUrlConfigured && status.manusKeyConfigured) ||
+      (status.provider === "gemini" && status.geminiKeyConfigured)));
+}
+
 export function ViviEditorialAssistant({
   token,
   layout,
@@ -182,11 +188,7 @@ export function ViviEditorialAssistant({
     el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
-  const realAi = Boolean(
-    status &&
-      ((status.provider === "manus" && status.manusUrlConfigured && status.manusKeyConfigured) ||
-        (status.provider === "gemini" && status.geminiKeyConfigured)),
-  );
+  const realAi = hasActiveRiachinhoProvider(status);
   // Não enviar nem apresentar respostas simuladas como geração por IA real.
   const canSend = realAi && !statusError && consent && !busy;
 
