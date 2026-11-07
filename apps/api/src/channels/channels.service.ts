@@ -59,7 +59,8 @@ export type ConsentInput = {
 
 export type EnqueueInput = {
   channel: CommChannel;
-  toAddress: string;
+  /** Obrigatório exceto PUSH com personId (resolve token ativo do registry). */
+  toAddress?: string | null;
   personId?: string | null;
   templateCode?: string | null;
   subject?: string | null;
@@ -70,6 +71,16 @@ export type EnqueueInput = {
   sourceId?: string | null;
   skipConsentCheck?: boolean;
   scheduledAt?: string | null;
+};
+
+export type PushPlatform = "ANDROID" | "IOS" | "WEB";
+
+export type RegisterDeviceTokenInput = {
+  token: string;
+  platform: PushPlatform;
+  personId?: string | null;
+  deviceLabel?: string | null;
+  appId?: string | null;
 };
 
 @Injectable()
@@ -86,15 +97,19 @@ export class ChannelsService {
   }
 
   providerModes() {
+    const push = this.providers.push;
     return {
       whatsapp: this.providers.whatsapp.mode,
       email: this.providers.email.mode,
-      push: this.providers.push.mode,
+      push: push.mode,
+      pushAdapter: push.name,
       liveWaba: false,
       liveSmtp: false,
       livePush: false,
+      liveFcm: false,
       notes: [
         "Providers mock/noop apenas — sem WABA/SMTP/FCM live nesta fatia",
+        "Push usa stub FCM (PUSH_PROVIDER=mock|noop); device tokens em /channels/device-tokens",
         "Defina WHATSAPP_PROVIDER / EMAIL_PROVIDER / PUSH_PROVIDER = mock|noop",
       ],
     };
@@ -214,7 +229,7 @@ export class ChannelsService {
   }
 
   async getConsent(actor: AuthUser, personId: string) {
-    const pilot = await this.requireChannelsAdmin(actor);
+    const pilot = await this.requireConsentAccess(actor, personId);
     await this.requirePerson(personId, pilot);
     const row = await this.prisma.communicationConsent.findUnique({
       where: {
@@ -229,16 +244,17 @@ export class ChannelsService {
   }
 
   async upsertConsent(actor: AuthUser, personId: string, input: ConsentInput) {
-    const pilot = await this.requireChannelsAdmin(actor);
+    const pilot = await this.requireConsentAccess(actor, personId);
     await this.requirePerson(personId, pilot);
 
     const revoke = input.revoke === true;
+    const selfService = actor.personId === personId;
     const data = {
       whatsappOptIn: revoke ? false : Boolean(input.whatsappOptIn),
       emailOptIn: revoke ? false : Boolean(input.emailOptIn),
       pushOptIn: revoke ? false : Boolean(input.pushOptIn),
       purposes: asJson(revoke ? [] : (input.purposes ?? [])),
-      source: input.source ?? "admin",
+      source: input.source ?? (selfService ? "self" : "admin"),
       revokedAt: revoke ? new Date() : null,
       recordedAt: new Date(),
     };
@@ -276,11 +292,215 @@ export class ChannelsService {
     });
   }
 
+  async registerDeviceToken(actor: AuthUser, input: RegisterDeviceTokenInput) {
+    const token = input.token?.trim();
+    if (!token || token.length < 8) {
+      throw new BadRequestException("token inválido (mín. 8 chars)");
+    }
+    this.assertPushPlatform(input.platform);
+    const targetPersonId = (input.personId?.trim() || actor.personId) as string;
+    const pilot = await this.requireConsentAccess(actor, targetPersonId);
+    await this.requirePerson(targetPersonId, pilot);
+
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.pushDeviceToken.findUnique({
+        where: {
+          churchId_token: { churchId: pilot.churchId, token },
+        },
+      });
+      const row = existing
+        ? await tx.pushDeviceToken.update({
+            where: { id: existing.id },
+            data: {
+              personId: targetPersonId,
+              platform: input.platform,
+              provider: "FCM",
+              deviceLabel: input.deviceLabel?.trim() || existing.deviceLabel,
+              appId: input.appId?.trim() || existing.appId,
+              lastSeenAt: now,
+              revokedAt: null,
+            },
+          })
+        : await tx.pushDeviceToken.create({
+            data: {
+              organizationId: pilot.organizationId,
+              churchId: pilot.churchId,
+              personId: targetPersonId,
+              token,
+              platform: input.platform,
+              provider: "FCM",
+              deviceLabel: input.deviceLabel?.trim() || null,
+              appId: input.appId?.trim() || null,
+              lastSeenAt: now,
+            },
+          });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: existing
+            ? "channels.device_token.refresh"
+            : "channels.device_token.register",
+          resourceType: "push_device_token",
+          resourceId: row.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            personId: targetPersonId,
+            platform: row.platform,
+            provider: row.provider,
+            tokenSuffix: token.slice(-6),
+          },
+        },
+      });
+      return this.deviceTokenDto(row);
+    });
+  }
+
+  async listDeviceTokens(
+    actor: AuthUser,
+    query: { personId?: string; includeRevoked?: boolean } = {},
+  ) {
+    const targetPersonId = (query.personId?.trim() || actor.personId) as string;
+    const pilot = await this.requireConsentAccess(actor, targetPersonId);
+    const rows = await this.prisma.pushDeviceToken.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        personId: targetPersonId,
+        ...(query.includeRevoked ? {} : { revokedAt: null }),
+      },
+      orderBy: { lastSeenAt: "desc" },
+      take: 50,
+    });
+    return {
+      personId: targetPersonId,
+      churchId: pilot.churchId,
+      liveFcm: false,
+      tokens: rows.map((r) => this.deviceTokenDto(r, { includeToken: false })),
+    };
+  }
+
+  async revokeDeviceToken(actor: AuthUser, tokenId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const row = await this.prisma.pushDeviceToken.findFirst({
+      where: {
+        id: tokenId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) throw new NotFoundException("Device token não encontrado");
+    await this.requireConsentAccess(actor, row.personId);
+    if (row.revokedAt) return this.deviceTokenDto(row);
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.pushDeviceToken.update({
+        where: { id: tokenId },
+        data: { revokedAt: new Date() },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "channels.device_token.revoke",
+          resourceType: "push_device_token",
+          resourceId: tokenId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            personId: row.personId,
+            tokenSuffix: row.token.slice(-6),
+          },
+        },
+      });
+      return this.deviceTokenDto(updated);
+    });
+  }
+
   async enqueue(actor: AuthUser, input: EnqueueInput) {
     const pilot = await this.requireChannelsAdmin(actor);
     this.assertChannel(input.channel);
-    const toAddress = input.toAddress?.trim();
-    if (!toAddress) throw new BadRequestException("toAddress obrigatório");
+
+    let toAddress = input.toAddress?.trim() || "";
+    if (!toAddress) {
+      if (input.channel === "PUSH" && input.personId) {
+        const resolved = await this.resolveLatestPushToken(
+          pilot.churchId,
+          input.personId,
+        );
+        if (!resolved) {
+          throw new BadRequestException({
+            message: "Nenhum device token ativo para a pessoa",
+            code: "DEVICE_TOKEN_REQUIRED",
+          });
+        }
+        toAddress = resolved.token;
+      } else {
+        throw new BadRequestException("toAddress obrigatório");
+      }
+    }
+
+    return this.enqueueResolved(actor, pilot, { ...input, toAddress });
+  }
+
+  /** Fan-out PUSH: um outbox por token ativo (admin canais). */
+  async enqueuePushFanout(
+    actor: AuthUser,
+    input: Omit<EnqueueInput, "channel" | "toAddress"> & {
+      personId: string;
+    },
+  ) {
+    const pilot = await this.requireChannelsAdmin(actor);
+    const personId = input.personId.trim();
+    if (!personId) {
+      throw new BadRequestException("personId obrigatório para push-fanout");
+    }
+    const tokens = await this.prisma.pushDeviceToken.findMany({
+      where: {
+        churchId: pilot.churchId,
+        personId,
+        revokedAt: null,
+      },
+      orderBy: { lastSeenAt: "desc" },
+      take: 20,
+    });
+    if (tokens.length === 0) {
+      throw new BadRequestException({
+        message: "Nenhum device token ativo para a pessoa",
+        code: "DEVICE_TOKEN_REQUIRED",
+      });
+    }
+    const created = [];
+    for (const device of tokens) {
+      const item = await this.enqueueResolved(actor, pilot, {
+        ...input,
+        channel: "PUSH",
+        personId,
+        toAddress: device.token,
+        payload: {
+          ...(input.payload ?? {}),
+          deviceTokenId: device.id,
+          platform: device.platform,
+          pushProvider: "FCM",
+          liveFcm: false,
+        },
+      });
+      created.push(item);
+    }
+    return {
+      fanout: true as const,
+      liveFcm: false,
+      notified: created.length,
+      outbox: created,
+    };
+  }
+
+  private async enqueueResolved(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    input: EnqueueInput & { toAddress: string },
+  ) {
+    const toAddress = input.toAddress.trim();
 
     const rendered = await this.resolveTemplateContent(pilot.churchId, input);
     let consentCheckedAt: Date | null = null;
@@ -862,6 +1082,31 @@ export class ChannelsService {
     return pilot;
   }
 
+  /** Consent: self (personId === actor) ou admin canais. */
+  private async requireConsentAccess(actor: AuthUser, personId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    if (actor.personId === personId) return pilot;
+    if (!canManageChannels(actor.grants, pilot)) {
+      throw new ForbiddenException("Sem permissão de canais (secretaria/pastor)");
+    }
+    return pilot;
+  }
+
+  private async resolveLatestPushToken(churchId: string, personId: string) {
+    return this.prisma.pushDeviceToken.findFirst({
+      where: { churchId, personId, revokedAt: null },
+      orderBy: { lastSeenAt: "desc" },
+    });
+  }
+
+  private assertPushPlatform(
+    platform: string,
+  ): asserts platform is PushPlatform {
+    if (!["ANDROID", "IOS", "WEB"].includes(platform)) {
+      throw new BadRequestException("platform inválido (ANDROID|IOS|WEB)");
+    }
+  }
+
   private async requirePerson(
     personId: string,
     pilot: { organizationId: string; churchId: string },
@@ -951,6 +1196,44 @@ export class ChannelsService {
       recordedAt: null,
       revokedAt: null,
       updatedAt: null,
+    };
+  }
+
+  private deviceTokenDto(
+    row: {
+      id: string;
+      organizationId: string;
+      churchId: string;
+      personId: string;
+      token: string;
+      platform: string;
+      provider: string;
+      deviceLabel: string | null;
+      appId: string | null;
+      lastSeenAt: Date;
+      revokedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    opts: { includeToken?: boolean } = {},
+  ) {
+    const includeToken = opts.includeToken !== false;
+    return {
+      id: row.id,
+      organizationId: row.organizationId,
+      churchId: row.churchId,
+      personId: row.personId,
+      tokenSuffix: row.token.slice(-8),
+      ...(includeToken ? { token: row.token } : {}),
+      platform: row.platform,
+      provider: row.provider,
+      deviceLabel: row.deviceLabel,
+      appId: row.appId,
+      lastSeenAt: row.lastSeenAt.toISOString(),
+      revokedAt: row.revokedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      liveFcm: false,
     };
   }
 

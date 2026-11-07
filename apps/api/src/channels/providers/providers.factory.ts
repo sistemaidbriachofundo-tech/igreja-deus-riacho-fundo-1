@@ -9,6 +9,7 @@ function resolveMode(envKey: string, fallback: ProviderMode): ProviderMode {
     .trim()
     .toLowerCase();
   if (raw === "mock" || raw === "noop") return raw;
+  // "fcm" / "live" / SMTP / WABA etc. → noop (live deliberadamente ausente)
   return fallback;
 }
 
@@ -18,7 +19,7 @@ function build(name: string, mode: ProviderMode): ChannelProvider {
     : new NoopChannelProvider(name);
 }
 
-/** Monta adapters a partir do env. Live WABA/SMTP/FCM deliberadamente ausentes. */
+/** Monta adapters a partir do env. Live WABA/SMTP/FCM deliberadamente ausentes (RF-025). */
 export function createChannelProviders(): ChannelProviders {
   return {
     whatsapp: build(
@@ -26,7 +27,8 @@ export function createChannelProviders(): ChannelProviders {
       resolveMode("WHATSAPP_PROVIDER", "noop"),
     ),
     email: build("email", resolveMode("EMAIL_PROVIDER", "noop")),
-    push: build("push", resolveMode("PUSH_PROVIDER", "noop")),
+    /** Push = stub FCM (adapter name "fcm"); nunca Firebase live. */
+    push: build("fcm", resolveMode("PUSH_PROVIDER", "noop")),
   };
 }
 

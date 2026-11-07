@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.4-rf022` | Contrato BE↔FE — Etapa 3 + RF-014/015 + RF-022 hospedagem/menor |
+| `f2-v0.2.yaml` | `0.7.4-rf025` | Contrato BE↔FE — Etapa 3 + RF-014/015 + RF-022 + RF-025 push/FCM mock |
 
 ## Como o FE consome
 

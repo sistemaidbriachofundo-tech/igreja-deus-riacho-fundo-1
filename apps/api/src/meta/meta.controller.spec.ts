@@ -13,11 +13,13 @@ describe("MetaController", () => {
     expect(meta.notes.some((n) => n.includes("0.7.3-das-etapa3"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("0.7.4-rf014"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("0.7.4-rf022"))).toBe(true);
+    expect(meta.notes.some((n) => n.includes("0.7.4-rf025"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-020/021"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-029"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-023"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-016"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("RF-014"))).toBe(true);
+    expect(meta.endpoints["POST /channels/device-tokens"]).toBe("implemented");
     expect(meta.endpoints["POST /persons/candidates"]).toBe("implemented");
     expect(meta.endpoints["POST /letters/:letterId/pdf"]).toBe("implemented");
     expect(meta.endpoints["POST /events/:eventId/registrations"]).toBe(
