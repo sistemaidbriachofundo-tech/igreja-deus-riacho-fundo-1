@@ -149,7 +149,7 @@ describe("Riachinho — visitor chat", () => {
     const base = { reply: "Confira as informações oficiais.", provider: "gemini", model: "gemini-test", refused: false, lgpdNotice: "LGPD" };
     expect(parseRiachinhoAnswer(base)?.reply).toBe(base.reply);
     const v2 = { ...base, knowledgeMiss: true, sources: [] };
-    expect(parseRiachinhoAnswer(v2)?.knowledgeMiss).toBe(true);
+    expect((parseRiachinhoAnswer(v2) as ({ knowledgeMiss?: boolean } | null))?.knowledgeMiss).toBe(true);
     expect(parseRiachinhoPublicKnowledgeSources(v2.sources)).toEqual([]);
   });
 
