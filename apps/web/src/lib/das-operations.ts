@@ -96,3 +96,20 @@ export function dasError(error:unknown):string {
   if(/429|rate/i.test(error.message))return "Limite temporário de solicitações. Tente mais tarde.";
   return "Operação não concluída. Verifique os dados e a disponibilidade da API.";
 }
+/** Converte valores monetários de entrada, sem arredondamentos implícitos. */
+export function parseAmountCents(input:string):number|null {
+  const raw=input.trim();
+  // Aceita 1234,56, 1.234,56, 1234.56 e 1234; rejeita negativos, notação e excesso de casas.
+  const group=/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/;
+  const simple=/^\d+(?:[,.]\d{1,2})?$/;
+  if(!group.test(raw)&&!simple.test(raw))return null;
+  const normalized=group.test(raw)?raw.replaceAll(".","").replace(",","."):raw.replace(",",".");
+  const [whole,decimal=""]=normalized.split(".");
+  const cents=Number(whole)*100+Number(decimal.padEnd(2,"0"));
+  return Number.isSafeInteger(cents)&&cents>0?cents:null;
+}
+
+export function formatBRL(value:number) {
+  return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(value/100);
+}
+
