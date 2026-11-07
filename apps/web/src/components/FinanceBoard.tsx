@@ -23,6 +23,7 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
   const [end,setEnd]=useState("");
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
+  const [rejectionReasons,setRejectionReasons]=useState<Record<string,string>>({});
 
   useEffect(()=>{
     if(tab!=="entries")return;
@@ -114,6 +115,20 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
             <div className={styles.actions}>
               {entryId&&["DRAFT","REJECTED"].includes(status)&&<button disabled={busy} onClick={()=>transition("entries",entryId,"submit")}>Enviar para aprovação</button>}
               {entryId&&status==="PENDING_APPROVAL"&&<button disabled={busy} onClick={()=>transition("entries",entryId,"approve")}>Registrar aprovação</button>}
+              {entryId&&status==="PENDING_APPROVAL"&&<form className={styles.rejectForm}
+                onSubmit={e=>{e.preventDefault();const reason=(rejectionReasons[entryId]??"").trim();
+                  if(reason.length<6){setMessage("Informe o motivo da rejeição com pelo menos seis caracteres.");return;}
+                  if(!window.confirm("Confirmar rejeição deste lançamento fictício?"))return;
+                  void action("/ledger/entries/"+encodeURIComponent(entryId)+"/reject",{reason})
+                    .then(ok=>{if(ok)setRejectionReasons(prev=>({...prev,[entryId]:""}));});
+                }}>
+                <label>Motivo da rejeição<input required minLength={6} maxLength={180}
+                  value={rejectionReasons[entryId]??""}
+                  onChange={e=>setRejectionReasons(prev=>({...prev,[entryId]:e.target.value}))}
+                  placeholder="Explique a divergência"/></label>
+                <button type="submit" disabled={busy||!(rejectionReasons[entryId]??"").trim()}>Rejeitar</button>
+              </form>}
+
               {entryId&&status==="APPROVED"&&<button disabled={busy} onClick={()=>transition("entries",entryId,"reverse")}>Solicitar estorno</button>}
             </div>
           </article>;
