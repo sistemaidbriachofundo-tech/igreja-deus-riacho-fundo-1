@@ -30,7 +30,7 @@ function canCreate(module:DasModule, roles:readonly string[]) {
   const leader=roles.includes("LIDER_MINISTERIO");
   const staff=roles.includes("SECRETARIA")||roles.includes("PASTOR");
   if(module==="financeiro") return roles.includes("TESOURARIA");
-  if(module==="ministerios"||module==="escalas"||module==="celulas") return leader||staff;
+  if(module==="ministerios"||module==="escalas"||module==="celulas") return leader||staff||roles.includes("PLATFORM_ADMIN");
   if(module==="eventos") return staff||leader||roles.includes("PLATFORM_ADMIN");
   return false;
 }
