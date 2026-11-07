@@ -264,7 +264,7 @@ export function DasOperations() {
         {data.kind==="error"&&<div role="alert" className={styles.formError}>{data.message}</div>}
         {data.kind==="ready"&&<>
           {data.summary?<IndicatorPanel data={data.summary}/>:<>
-            {chosen.id!=="financeiro"&&chosen.id!=="pastoral"&&<Rows key={chosen.id} module={chosen.id} rows={data.rows}/>}
+            {chosen.id==="ministerios"&&<Rows key={chosen.id} module={chosen.id} rows={data.rows}/>}
             {chosen.id==="escalas"&&<RosterBoard rows={data.rows} token={session.token} personId={session.user.personId} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="pastoral"&&roles.includes("PASTOR")&&<PastoralBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="discipulado"&&<DiscipleshipBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
