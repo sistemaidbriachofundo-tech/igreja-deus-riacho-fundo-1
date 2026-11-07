@@ -23,6 +23,11 @@ export function PersonPicker({token,roles,label,value,onChange,placeholder,requi
   const [status,setStatus]=useState<"idle"|"loading"|"ready"|"error">("idle");
   const canSearch=canSearchPersons(roles);
   const term=query.trim();
+  // Limpa o nome visível quando o formulário pai zera o personId após salvar.
+  // A edição manual já limpa selectedName no próprio onChange.
+  useEffect(()=>{
+    if(!value&&selectedName){setSelectedName("");setQuery("");}
+  },[value,selectedName]);
   useEffect(()=>{
     if(!canSearch||term.length<2||value){setHits([]);setStatus("idle");return;}
     let cancelled=false;
