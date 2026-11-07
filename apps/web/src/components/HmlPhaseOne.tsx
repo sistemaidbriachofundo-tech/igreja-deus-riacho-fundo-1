@@ -208,6 +208,19 @@ export function HmlPhaseOne({view}:{view:View}){
               {!pending.length&&<p>Nenhuma pendência para o perfil atual.</p>}
             </section>
           </div>}
+          {view==="overview"&&<section className={s.panel} aria-labelledby="modules-status-heading">
+            <h2 id="modules-status-heading">Visão integrada da plataforma</h2>
+            <p>Este quadro diferencia o que já pode ser exercitado com registros fictícios daquilo que ainda exige integração e testes. Não exibe métricas nem aprovações inventadas.</p>
+            <div className={s.listRow}><strong>Pessoas, famílias, admissões e carteirinhas</strong><span>Fluxos HML para testar</span></div>
+            <div className={s.listRow}><strong>Conteúdo institucional e ministérios</strong><span>CMS disponível; publicação requer aprovação</span></div>
+            <div className={s.listRow}><strong>Cuidado pastoral, discipulado e células</strong><span>Integração operacional pendente</span></div>
+            <div className={s.listRow}><strong>Equipes, voluntários e escalas</strong><span>Integração operacional pendente</span></div>
+            <div className={s.listRow}><strong>Financeiro, conciliação e prestação de contas</strong><span>Integração operacional pendente</span></div>
+            <div className={s.listRow}><strong>Eventos, inscrições, pagamentos e check-in</strong><span>Jornada completa pendente</span></div>
+            <div className={s.listRow}><strong>EBD, cursos, materiais e comunicação</strong><span>Jornada completa pendente</span></div>
+            <div className={s.listRow}><strong>Indicadores, governança e aplicativo do membro</strong><span>Homologação pendente</span></div>
+            <p>Os dados e fluxos indicados como HML são de demonstração e <strong>não substituem a autorização institucional para operar com dados reais.</strong></p>
+          </section>}
           {view==="members"&&<div className={s.grid}>
             <section className={s.panel}><div className={s.panelHeading}><h2>Diretório de membros</h2><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros"/></div>
               {!secretary?<p>Seu perfil não possui permissão para listar todas as pessoas. A API bloqueia a consulta por escopo.</p>:

@@ -116,6 +116,12 @@ jobs:
           # Somente o build de main recebe o chat público e a URL da API.
           NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
           NEXT_PUBLIC_API_URL: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'https://id-riacho1-api-hml.vercel.app' || '' }}
+          # Em /app/ o modo HML exige login real e exibe apenas registros sintéticos
+          # persistidos no banco de homologação. Não habilitar cadastros reais.
+          NEXT_PUBLIC_HML_ENABLED: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          # O seed da API contém eventos/avisos "(demo)". Nunca publicá-los
+          # automaticamente como agenda ou notícias oficiais.
+          NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
         run: |
           for attempt in 1 2 3; do
             if npm run build -w @idbrf/web; then
@@ -383,3 +389,38 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Confere o endereço que os usuários realmente acessam; Vercel é somente API.
+  smoke-pages:
+    name: Smoke do site oficial (GitHub Pages)
+    runs-on: ubuntu-latest
+    needs: deploy-pages
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Conferir site público e evitar conteúdo demonstrativo
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://sistemaidbriachofundo-tech.github.io/igreja-deus-riacho-fundo-1/"
+          curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 8 "$URL" -o /tmp/idbrf-home.html
+          grep -Eiq 'Igreja de Deus|ID Riacho' /tmp/idbrf-home.html
+          if grep -Eiq 'Culto em Família \(demo\)|Encontro de Jovens \(demo\)|Bem-vindo à casa \(demo\)' /tmp/idbrf-home.html; then
+            echo "::error::Conteúdo de demonstração aparece no site oficial!"
+            exit 1
+          fi
+          echo "GitHub Pages responde e não exibe títulos do seed de teste no HTML."
+
+      - name: Conferir API e política CORS do domínio oficial
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://id-riacho1-api-hml.vercel.app"
+          ORIGIN="https://sistemaidbriachofundo-tech.github.io"
+          curl --fail --silent --show-error --retry 4 --retry-delay 5 "$API/health" | grep -q '"status":"ok"'
+          curl --fail --silent --show-error -D /tmp/idbrf-cors.txt -o /dev/null \
+            -X OPTIONS "$API/public/vivi/chat" \
+            -H "Origin: $ORIGIN" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type"
+          grep -Fqi "access-control-allow-origin: $ORIGIN" /tmp/idbrf-cors.txt
+          echo "API online e CORS autoriza o domínio oficial; POST Gemini exige teste de usuário/consentimento."
