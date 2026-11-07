@@ -52,5 +52,5 @@
 
 .waiting{min-height:100dvh;background:radial-gradient(circle at 50% 10%,#f9f2e5,#eee6d9 65%);color:#53321e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center}
 .waitingIcon{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:#4a2612;color:#e6bd76;font-size:28px;margin-bottom:9px}
-.waiting strong{font:800 20px Montserrat,Inter,sans-serif;letter-spacing:-.025em}
+.waiting h1{font:800 20px Montserrat,Inter,sans-serif;letter-spacing:-.025em;margin:0}
 .waiting p{max-width:380px;font:450 13px/1.6 Inter,sans-serif;color:#8d735d;margin:0}
