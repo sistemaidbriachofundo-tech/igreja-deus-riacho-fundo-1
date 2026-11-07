@@ -50,3 +50,14 @@
 .portalLinks a:hover{background:#eef6ed;border-color:#7da589}
 .portalLinks a:focus-visible,.newChat:focus-visible{outline:3px solid #d3af69;outline-offset:2px}
 @media(max-width:620px){.portalLinks{padding:8px 12px}.portalLinks>div{gap:5px}.portalLinks a{font-size:10px}.newChat{font-size:9px}}
+
+/* Evidence and source boundaries: titles are plain text; links navigate to real public sections only. */
+.knowledgeStatus{flex-shrink:0;margin:0;padding:7px 15px;background:#f9f8f1;color:#456b5a;border-bottom:1px solid #ebe9df;font:550 10px/1.45 Inter,Arial,sans-serif}
+.knowledgeSources{margin-top:11px;padding-top:10px;border-top:1px solid #d9e5d9;white-space:normal}
+.knowledgeSources>strong{display:block;color:#345b4b;font:800 10px/1.4 Inter,Arial,sans-serif}
+.knowledgeSources ul{margin:7px 0 0;padding:0;list-style:none;display:grid;gap:7px}
+.knowledgeSources li{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;font:550 10px/1.45 Inter,Arial,sans-serif;color:#496355}
+.knowledgeSources li span{overflow-wrap:anywhere;flex:1 1 120px}
+.knowledgeSources a{color:#1c5946;text-decoration:underline;text-underline-offset:2px;font-weight:750}
+.knowledgeSources a:focus-visible{outline:3px solid #d3af69;outline-offset:2px}
+.missingOfficialData{margin-top:8px!important;padding:8px 9px;border:1px solid #e5d3a2;border-radius:8px;background:#fff6e2;color:#785b24;font:650 10px/1.5 Inter,Arial,sans-serif}
