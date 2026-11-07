@@ -7,6 +7,9 @@ import { publicApiBase } from "../lib/portal-live-data";
 import {
   parseRiachinhoAnswer,
   parseRiachinhoStatus,
+  parseRiachinhoPublicKnowledgeSources,
+  riachinhoKnowledgeSection,
+  type RiachinhoPublicKnowledgeSource,
   prepareRiachinhoPublicRequest,
   requestRiachinhoPublicAnswer,
   riachinhoProviderReady,
@@ -20,6 +23,8 @@ type Message = {
   content: string;
   provider?: string;
   refused?: boolean;
+  knowledgeMiss?: boolean;
+  sources?: RiachinhoPublicKnowledgeSource[];
 };
 
 const WELCOME = "Olá! Sou o Riachinho. Posso ajudar você a conhecer o portal da igreja, seus ministérios e a planejar uma visita. Horários e endereços devem ser confirmados nos canais oficiais.";
@@ -135,7 +140,15 @@ export function RiachinhoPublicChat() {
       setMessages((prev) => [
         ...prev,
         { id: ++serial.current, role: "user", content: text },
-        { id: ++serial.current, role: "assistant", content: answer.reply, provider: answer.provider, refused: answer.refused },
+        {
+          id: ++serial.current,
+          role: "assistant",
+          content: answer.reply,
+          provider: answer.provider,
+          refused: answer.refused,
+          knowledgeMiss: answer.knowledgeMiss === true,
+          sources: parseRiachinhoPublicKnowledgeSources(answer.sources),
+        },
       ]);
       setLastNotice(answer.lgpdNotice);
       setQuestion((current) => current.trim() === text ? "" : current);
@@ -188,6 +201,10 @@ export function RiachinhoPublicChat() {
             <button type="button" className={s.newChat} onClick={resetConversation} disabled={sending}>Nova conversa</button>
           </div>
 
+          {realProvider && status?.knowledge?.mode === "structured-cms" && (
+            <p className={s.knowledgeStatus}>O Riachinho consulta conteúdos institucionais publicados. Informações ausentes devem ser confirmadas com a igreja.</p>
+          )}
+
           <div className={s.log} role="log" aria-label="Conversa com o Riachinho" aria-live="polite" ref={logRef}>
             <div className={s.answer}>
               <span className={s.author}>Riachinho</span>
@@ -197,6 +214,25 @@ export function RiachinhoPublicChat() {
               <div className={message.role === "user" ? s.question : s.answer} key={message.id}>
                 <span className={s.author}>{message.role === "user" ? "Você" : "Riachinho"}</span>
                 <p>{message.content}</p>
+                {message.role === "assistant" && message.knowledgeMiss && (
+                  <p className={s.missingOfficialData} role="status">
+                    Não encontramos uma informação oficial publicada para esta pergunta. Confira a programação e os canais da igreja.
+                  </p>
+                )}
+                {message.role === "assistant" && message.sources && message.sources.length > 0 && (
+                  <div className={s.knowledgeSources} aria-label="Fontes institucionais consultadas">
+                    <strong>Informações oficiais consultadas</strong>
+                    <ul>
+                      {message.sources.map((source) => {
+                        const section = riachinhoKnowledgeSection(source.kind);
+                        return <li key={source.kind + ":" + source.slug}>
+                          <span>{source.title}</span>
+                          {section && <a href={withBasePath(section.href)}>{section.label}</a>}
+                        </li>;
+                      })}
+                    </ul>
+                  </div>
+                )}
               </div>
             ))}
             {sending && <p className={s.thinking} role="status">Riachinho está preparando a resposta…</p>}
