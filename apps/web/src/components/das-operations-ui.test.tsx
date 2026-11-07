@@ -11,6 +11,7 @@ import { DasOperations } from "./DasOperations";
 import { PastoralBoard } from "./CareBoards";
 import { FinanceBoard } from "./FinanceBoard";
 import { EventsBoard } from "./EventsBoard";
+import { EventRegistrations } from "./EventRegistrations";
 
 const original=process.env.NEXT_PUBLIC_HML_ENABLED;
 beforeEach(()=>{process.env.NEXT_PUBLIC_HML_ENABLED="false";});
@@ -38,6 +39,15 @@ describe("Interface DAS — privacidade e estados",()=>{
     const html=renderToStaticMarkup(<FinanceBoard tab="imports" rows={[]} token="token-falso" refresh={()=>{}}/>);
     expect(html).toMatch(/sem parser OFX real/);
     expect(html).not.toContain("Importação concluída");
+  });
+  it("jornada de inscrições não revela informações pessoais sem selecionar evento",()=>{
+    const html=renderToStaticMarkup(<EventRegistrations events={[{
+      id:"event-1",name:"Evento HML",status:"DRAFT",participantEmail:"PII_REAL_INDEVIDA"
+    }]} token="token-falso"/>);
+    expect(html).toContain("Operação do evento");
+    expect(html).toContain("Selecione um evento");
+    expect(html).not.toContain("PII_REAL_INDEVIDA");
+    expect(html).not.toContain("Comprovante da inscrição");
   });
   it("eventos já publicados não oferecem edição pela HML",()=>{
     const html=renderToStaticMarkup(<EventsBoard
