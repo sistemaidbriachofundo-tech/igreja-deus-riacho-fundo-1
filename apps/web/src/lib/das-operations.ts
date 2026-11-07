@@ -27,7 +27,9 @@ export const DAS_MODULES: readonly DasDefinition[] = [
 ] as const;
 
 export function canViewDasModule(grants: readonly string[], roles: readonly string[]) {
-  return grants.includes("PLATFORM_ADMIN") || grants.some(role => roles.includes(role));
+  // PLATFORM_ADMIN não tem acesso implícito a pastoral ou tesouraria.
+  const restricted=roles.length===1 && (roles[0]==="PASTOR" || roles[0]==="TESOURARIA");
+  return grants.some(role => roles.includes(role)) || (!restricted && grants.includes("PLATFORM_ADMIN"));
 }
 
 const asRecord = (value:unknown):DasRecord|null => 
