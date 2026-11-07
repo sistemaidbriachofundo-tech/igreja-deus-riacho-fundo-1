@@ -12,6 +12,7 @@ import { PilotService } from "../pilot/pilot.service";
 import {
   detectSensitiveUserIntent,
   VIVI_ADMIN_EDITORIAL_ADDENDUM,
+  VIVI_PROVIDER_SOFT_FAILURE,
   VIVI_SENSITIVE_REFUSAL,
   VIVI_SYSTEM_PROMPT,
 } from "./system-prompt";
@@ -81,11 +82,14 @@ export class ViviService {
       publicRate: this.rateLimit.snapshot("public", "_status"),
       adminRate: this.rateLimit.snapshot("admin", "_status"),
       lgpdNotice: this.lgpdNotice(),
+      rateLimitBackend: "memory",
       notes: [
         "Nome de produto: Riachinho (rotas internas /vivi/*)",
         "Chaves Manus/Gemini só no backend — nunca no FE/Git",
         "Free tier Google Gemini pode treinar com prompts — evite PII",
         "GEMINI_MODEL default: gemini-2.5-flash-lite (ver nota de depreciação no handoff)",
+        "Rate-limit in-memory (single-node); em serverless multi-instância o limite é best-effort até store compartilhado",
+        "Fail-soft: se Manus/Gemini falhar, o chat devolve reply estável (sem derrubar o FE)",
       ],
     };
   }
@@ -166,26 +170,35 @@ export class ViviService {
     let reply: string;
     let providerName = this.provider.name;
     let model = this.provider.model;
+    let degraded = false;
 
     if (refused) {
       reply = VIVI_SENSITIVE_REFUSAL;
     } else {
-      const result = await this.provider.chat({
-        messages: [
-          {
-            role: "system",
-            content:
-              args.scope === "admin"
-                ? VIVI_SYSTEM_PROMPT + VIVI_ADMIN_EDITORIAL_ADDENDUM
-                : VIVI_SYSTEM_PROMPT,
-          },
-          ...messages,
-        ],
-        maxOutputTokens: 1024,
-      });
-      reply = result.content;
-      providerName = result.provider;
-      model = result.model;
+      try {
+        const result = await this.provider.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                args.scope === "admin"
+                  ? VIVI_SYSTEM_PROMPT + VIVI_ADMIN_EDITORIAL_ADDENDUM
+                  : VIVI_SYSTEM_PROMPT,
+            },
+            ...messages,
+          ],
+          maxOutputTokens: 1024,
+        });
+        reply = result.content;
+        providerName = result.provider;
+        model = result.model;
+      } catch {
+        // Fail-soft: chat não propaga 502/503 — FE recebe reply estável.
+        degraded = true;
+        reply = VIVI_PROVIDER_SOFT_FAILURE;
+        providerName = this.provider.name;
+        model = this.provider.model;
+      }
     }
 
     const latencyMs = Date.now() - started;
@@ -203,6 +216,7 @@ export class ViviService {
       provider: providerName,
       model,
       refused,
+      degraded,
       usage,
       sessionId: args.body.sessionId ?? null,
       churchId: args.churchId,
@@ -301,6 +315,7 @@ export class ViviService {
     provider: string;
     model: string;
     refused: boolean;
+    degraded?: boolean;
     usage: ViviChatResponse["usage"];
     sessionId: string | null;
     churchId?: string | null;
@@ -323,6 +338,7 @@ export class ViviService {
             provider: args.provider,
             model: args.model,
             refused: args.refused,
+            degraded: Boolean(args.degraded),
             inputChars: args.usage.inputChars,
             outputChars: args.usage.outputChars,
             messageCount: args.usage.messageCount,

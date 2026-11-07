@@ -53,10 +53,16 @@ await check("GET /vivi/status", async () => {
       " geminiKey=" +
       Boolean(body.geminiKeyConfigured) +
       " displayName=" +
-      (body.displayName ?? "(ausente neste deploy)"),
+      (body.displayName ?? "(ausente neste deploy — redeploy API HML após PR A)"),
   );
+  if (!body.displayName) {
+    console.log("  AVISO: displayName ausente — deploy HML atrás de main (contrato espera Riachinho)");
+  }
   if (body.provider === "mock") {
     console.log("  BLOQUEIO IA REAL: HML ainda em mock — configure GEMINI_API_KEY ou MANUS_* no Vercel");
+  }
+  if (body.rateLimitBackend === "memory") {
+    console.log("  rateLimitBackend=memory (multi-instância Vercel = best-effort)");
   }
 });
 

@@ -12,6 +12,34 @@ export function stripTrailingSlashes(url: string): string {
   return out;
 }
 
+/**
+ * Redige segredos acidentais em detalhes de erro (key=, Bearer, x-goog-api-key).
+ * Não altera o tipo estrutural além de strings aninhadas.
+ */
+export function redactSecrets(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value
+      .replace(/([?&]key=)[^&\s"']+/gi, "$1[REDACTED]")
+      .replace(/(Bearer\s+)[^\s"']+/gi, "$1[REDACTED]")
+      .replace(/(x-goog-api-key["']?\s*[:=]\s*["']?)[^"'\s,}+]+/gi, "$1[REDACTED]");
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSecrets(item));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (/^(authorization|api[_-]?key|x-goog-api-key)$/i.test(k)) {
+        out[k] = "[REDACTED]";
+      } else {
+        out[k] = redactSecrets(v);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
 export type ProviderHttpLabels = {
   unavailableMessage: string;
   unavailableCode: string;
@@ -46,7 +74,9 @@ export async function postJsonForProvider(
       statusCode: 503,
       message: labels.unavailableMessage,
       code: labels.unavailableCode,
-      detail: err instanceof Error ? err.message : "network_error",
+      detail: redactSecrets(
+        err instanceof Error ? err.message : "network_error",
+      ),
     });
   }
 
@@ -63,7 +93,7 @@ export async function postJsonForProvider(
       statusCode: 502,
       message: labels.rejectMessage,
       code: labels.rejectCode,
-      detail,
+      detail: redactSecrets(detail),
     });
   }
 

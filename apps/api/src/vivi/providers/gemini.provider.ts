@@ -47,16 +47,19 @@ export class GeminiViviProvider implements ViviLlmProvider {
       input.messages,
     );
 
+    // Chave só em header — nunca em query (evita vazamento em logs/URLs de erro).
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/` +
-      `${encodeURIComponent(this.model)}:generateContent` +
-      `?key=${encodeURIComponent(this.apiKey)}`;
+      `${encodeURIComponent(this.model)}:generateContent`;
 
     const body = await postJsonForProvider(
       this.fetchImpl,
       url,
       {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
         body: {
           systemInstruction,
           contents,

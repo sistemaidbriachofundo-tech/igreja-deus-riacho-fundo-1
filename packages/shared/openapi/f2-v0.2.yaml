@@ -3145,9 +3145,12 @@ paths:
       summary: Chat Vivi visitante (consentimento + rate-limit forte)
       description: |
         Sem JWT. Exige `consentAiProcessing=true`.
-        Rate-limit in-memory forte (`VIVI_PUBLIC_RATE_MAX`, default 8/min) + middleware IP.
+        Rate-limit in-memory forte (`VIVI_PUBLIC_RATE_MAX`, default 8/min) + middleware IP
+        (best-effort em serverless multi-instância).
         Recusa heurística de PII/pastoral. Não armazena prompt completo na auditoria.
         LGPD: free tier Google Gemini pode treinar com prompts — não enviar dados de membros.
+        Fail-soft: falha transitória Manus/Gemini devolve HTTP 200/201 com reply estável
+        (sem derrubar o widget); 502/503 só se o adapter for chamado fora do serviço de chat.
       security: []
       requestBody:
         required: true

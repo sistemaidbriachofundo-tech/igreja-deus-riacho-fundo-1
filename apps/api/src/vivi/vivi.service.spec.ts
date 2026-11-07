@@ -190,4 +190,38 @@ describe("ViviService", () => {
     );
     expect(auditCreate).not.toHaveBeenCalled();
   });
+
+  it("fail-soft when provider throws — stable reply, no hard 502", async () => {
+    const failing: ViviLlmProvider = {
+      name: "gemini",
+      model: "gemini-test",
+      chat: jest.fn().mockRejectedValue(new Error("upstream down")),
+    };
+    const { service, auditCreate } = build(failing);
+    const res = await service.chatPublic(
+      {
+        messages: [{ role: "user", content: "Oi Riachinho" }],
+        consentAiProcessing: true,
+        sessionId: "sess-soft",
+      },
+      "ip-soft",
+    );
+    expect(res.refused).toBe(false);
+    expect(res.provider).toBe("gemini");
+    expect(res.reply).toMatch(/temporariamente indisponível/i);
+    expect(res.reply).not.toMatch(/upstream down/i);
+    const meta = auditCreate.mock.calls[0][0].data.metadata as Record<
+      string,
+      unknown
+    >;
+    expect(meta.degraded).toBe(true);
+    expect(JSON.stringify(meta)).not.toMatch(/Oi Riachinho/);
+  });
+
+  it("getStatus documents memory rate-limit and fail-soft", () => {
+    const { service } = build();
+    const status = service.getStatus();
+    expect(status.rateLimitBackend).toBe("memory");
+    expect(status.notes.some((n) => /fail-soft/i.test(n))).toBe(true);
+  });
 });
