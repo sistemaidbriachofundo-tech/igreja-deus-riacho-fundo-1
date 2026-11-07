@@ -4,15 +4,16 @@ import { useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost } from "../lib/api";
 import { churchLocalToISO, dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import styles from "./care-boards.module.css";
+import { PersonPicker } from "./PersonPicker";
 
-type Shared={ rows:DasRecord[]; token:string; refresh:()=>void };
+type Shared={ rows:DasRecord[]; token:string; roles:readonly string[]; refresh:()=>void };
 const value=(v:unknown)=>typeof v==="string"?v.trim():"";
 const record=(v:unknown):DasRecord|null=>v!==null&&typeof v==="object"&&!Array.isArray(v)?v as DasRecord:null;
 const items=(v:unknown):DasRecord[]=>Array.isArray(v)?v.map(record).filter((x):x is DasRecord=>Boolean(x)):[];
 const code=(value:string)=>encodeURIComponent(value);
 
 /** Dados pastorais só são solicitados mediante clique do próprio PASTOR. */
-export function PastoralBoard({rows,token,refresh}:Shared){
+export function PastoralBoard({rows,token,roles,refresh}:Shared){
   const [personId,setPersonId]=useState("");
   const [title,setTitle]=useState("");
   const [kind,setKind]=useState("VISITA");
@@ -59,7 +60,7 @@ export function PastoralBoard({rows,token,refresh}:Shared){
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <form className={styles.form} onSubmit={create}>
       <h3>Abrir caso de teste</h3>
-      <label>ID da pessoa fictícia<input required value={personId} onChange={e=>setPersonId(e.target.value)} maxLength={100}/></label>
+      <PersonPicker token={token} roles={roles} label="Pessoa atendida (fictícia)" value={personId} onChange={setPersonId} required/>
       <label>Categoria de atendimento<select value={kind} onChange={e=>setKind(e.target.value)}>
         <option value="VISITA">Visita</option><option value="ACOLHIMENTO">Acolhimento</option><option value="ACOMPANHAMENTO">Acompanhamento</option>
       </select></label>
@@ -109,7 +110,7 @@ export function PastoralBoard({rows,token,refresh}:Shared){
   </section>;
 }
 
-export function DiscipleshipBoard({rows,token,refresh}:Shared){
+export function DiscipleshipBoard({rows,token,roles,refresh}:Shared){
   const [newName,setNewName]=useState("");
   const [description,setDescription]=useState("");
   const [trackId,setTrackId]=useState("");
@@ -146,8 +147,8 @@ export function DiscipleshipBoard({rows,token,refresh}:Shared){
         <label>Trilha existente<select required value={trackId} onChange={e=>setTrackId(e.target.value)}>
           <option value="">Selecione uma trilha</option>{rows.map((row,i)=><option key={value(row.id)||i} value={value(row.id)}>{value(row.name)||"Trilha sem nome"}</option>)}
         </select></label>
-        <label>ID da pessoa fictícia<input required value={personId} onChange={e=>setPersonId(e.target.value)}/></label>
-        <label>ID do mentor (opcional)<input value={mentorId} onChange={e=>setMentorId(e.target.value)}/></label>
+        <PersonPicker token={token} roles={roles} label="Pessoa fictícia" value={personId} onChange={setPersonId} required/>
+        <PersonPicker token={token} roles={roles} label="Mentor (opcional)" value={mentorId} onChange={setMentorId}/>
         <button disabled={busy||!trackId||!personId.trim()}>Registrar matrícula</button>
       </form>
     </div>
@@ -169,7 +170,7 @@ export function DiscipleshipBoard({rows,token,refresh}:Shared){
   </section>;
 }
 
-export function GroupsBoard({rows,token,refresh}:Shared){
+export function GroupsBoard({rows,token,roles,refresh}:Shared){
   const [selected,setSelected]=useState("");
   const [personId,setPersonId]=useState("");
   const [role,setRole]=useState("MEMBER");
