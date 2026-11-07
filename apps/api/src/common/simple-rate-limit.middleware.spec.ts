@@ -59,4 +59,18 @@ describe("SimpleRateLimitMiddleware", () => {
       expect(body.code).toBe("VIVI_RATE_LIMITED");
     }
   });
+
+  it("accepts X-Forwarded-For as array header value", () => {
+    const mw = new SimpleRateLimitMiddleware();
+    const req = {
+      ip: "10.0.0.9",
+      method: "POST",
+      path: "/auth/login",
+      headers: { "x-forwarded-for": ["198.51.100.10, 10.0.0.9"] },
+      socket: {},
+    };
+    const next = jest.fn();
+    mw.use(req as never, {} as never, next);
+    expect(next).toHaveBeenCalledTimes(1);
+  });
 });

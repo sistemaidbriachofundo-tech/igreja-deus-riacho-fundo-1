@@ -98,6 +98,12 @@ describe("vivi http-json helpers", () => {
     expect(
       redactSecrets({ authorization: "Bearer x", nested: { api_key: "z" } }),
     ).toEqual({ authorization: "[REDACTED]", nested: { api_key: "[REDACTED]" } });
+    expect(redactSecrets(["Bearer sk-arr", { apiKey: "z" }])).toEqual([
+      "Bearer [REDACTED]",
+      { apiKey: "[REDACTED]" },
+    ]);
+    expect(redactSecrets(42)).toBe(42);
+    expect(redactSecrets(null)).toBe(null);
   });
 
   it("redacts secrets in ServiceUnavailable detail", async () => {
