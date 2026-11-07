@@ -10,7 +10,7 @@ import { VolunteerPipeline } from "./VolunteerPipeline";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
-  DAS_MODULES, DAS_RESOURCE_TABS, canViewDasModule, dasError, formatChurchDate,
+  DAS_MODULES, DAS_RESOURCE_TABS, canViewDasModule, dasError, formatChurchDate, churchLocalToISO,
   readDasRows, readDasSummary, scalarLabel, shortStatus,
   type DasModule, type DasRecord,
 } from "../lib/das-operations";
@@ -40,16 +40,16 @@ function createRequest(module:DasModule, form:Draft):{path:string;body:Record<st
   if(module==="celulas" && trimmed(form.name).length>=3)
     return {path:"/small-groups",body:{name:trimmed(form.name),...(trimmed(form.note)?{meetsAtHint:trimmed(form.note)}:{})}};
   if(module==="escalas" && trimmed(form.title).length>=3 && form.date) {
-    const d=new Date(form.date);
-    if(Number.isNaN(d.getTime()))return null;
-    return {path:"/rosters",body:{title:trimmed(form.title),serviceAt:d.toISOString(),...(trimmed(form.ministryId)?{ministryId:trimmed(form.ministryId)}:{})}};
+    const iso=churchLocalToISO(form.date);
+    if(!iso)return null;
+    return {path:"/rosters",body:{title:trimmed(form.title),serviceAt:iso,...(trimmed(form.ministryId)?{ministryId:trimmed(form.ministryId)}:{})}};
   }
   if(module==="financeiro" && trimmed(form.code) && trimmed(form.name).length>=3)
     return {path:"/ledger/accounts",body:{code:trimmed(form.code),name:trimmed(form.name),type:form.type}};
   if(module==="eventos" && trimmed(form.name).length>=3 && /^[a-z0-9-]{3,80}$/.test(trimmed(form.slug)) && form.date){
-    const d=new Date(form.date);
-    if(Number.isNaN(d.getTime()))return null;
-    return {path:"/events",body:{name:trimmed(form.name),slug:trimmed(form.slug),startsAt:d.toISOString()}};
+    const iso=churchLocalToISO(form.date);
+    if(!iso)return null;
+    return {path:"/events",body:{name:trimmed(form.name),slug:trimmed(form.slug),startsAt:iso}};
   }
   return null;
 }
