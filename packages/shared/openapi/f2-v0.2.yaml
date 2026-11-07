@@ -28,8 +28,9 @@ info:
       RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; RF-001 dedupe + RF-006 PDF cartas;
       RF-010 discipleship stages/progress + RF-011 cell frequency report;
       RF-020/021 modalidades, inscrição, check-in e pagamento mock;
-      RF-029 indicadores reais — `GET /indicators/*` com `stub: false` + agregações Prisma
-      (membros, visitantes, admissões, ministérios, eventos, escalas); `spiritualScoreExcluded: true`;
+      RF-029 indicadores reais — `GET /indicators/*` com `stub: false`;
+      RF-023 cursos/EBD/turmas/matrícula/frequência/conclusão (≠ discipulado RF-010);
+      RF-009 retenção/export pastoral; RF-030 patrimônio mínimo;
       notes OIDC_NOT_LIVE / MFA challenge
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
@@ -58,6 +59,8 @@ tags:
   - name: transfers
   - name: letters
   - name: pastoral
+  - name: courses
+  - name: assets
   - name: discipleship
   - name: groups
   - name: ministries
@@ -2038,6 +2041,405 @@ paths:
       responses:
         "200":
           description: Tarefa atualizada
+
+
+  /pastoral-cases/retention-policy:
+    get:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Política de retenção pastoral (RF-009) — só PASTOR
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: closedCaseRetentionDays + redactionEnabled
+        "403":
+          description: Não PASTOR
+    put:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Atualiza política de retenção (só PASTOR)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [closedCaseRetentionDays]
+              properties:
+                closedCaseRetentionDays: { type: integer, minimum: 30, maximum: 36500 }
+                redactionEnabled: { type: boolean }
+      responses:
+        "200":
+          description: Política atualizada + audit
+
+  /pastoral-cases/retention/apply:
+    post:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Redige summary de casos fechados além da retenção (não apaga)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: eligibleCount/redactedCount + cutoffAt
+
+  /pastoral-cases/export:
+    post:
+      tags: [pastoral]
+      x-implementation: implemented
+      summary: Export pastoral controlado — só PASTOR; audit obrigatório (RF-009)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, IN_PROGRESS, DONE, CANCELLED] }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personId: { type: string }
+                from: { type: string, format: date-time }
+                to: { type: string, format: date-time }
+                status: { type: string, enum: [OPEN, IN_PROGRESS, DONE, CANCELLED] }
+      responses:
+        "200":
+          description: cases[] + exportedAt + audit pastoral.export (sem summary no metadata)
+
+  /courses:
+    get:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Lista cursos/EBD (domínio distinto de discipulado)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, ARCHIVED] }
+      responses:
+        "200":
+          description: courses[] + domain=ebd_courses
+    post:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Cria curso/EBD
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                code: { type: string }
+                description: { type: string }
+      responses:
+        "201":
+          description: Curso ACTIVE
+
+  /courses/{courseId}/classes:
+    get:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Lista turmas do curso
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: classes[]
+    post:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Cria turma
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                teacherPersonId: { type: string }
+                startsAt: { type: string, format: date-time }
+                endsAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Turma OPEN
+
+  /courses/enrollments:
+    get:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Lista matrículas (filtro classId/personId/status) — histórico por pessoa
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: classId
+          in: query
+          schema: { type: string }
+        - name: personId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ENROLLED, COMPLETED, DROPPED, CANCELLED] }
+      responses:
+        "200":
+          description: enrollments[]
+
+  /courses/classes/{classId}/enrollments:
+    get:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Matrículas da turma
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: enrollments[]
+    post:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Matricula pessoa na turma OPEN
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId]
+              properties:
+                personId: { type: string }
+      responses:
+        "201":
+          description: Enrollment ENROLLED
+
+  /courses/enrollments/{enrollmentId}/complete:
+    post:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Conclui matrícula; opcional metadado de certificado (sem PDF)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                issueCertificate: { type: boolean }
+      responses:
+        "200":
+          description: Enrollment COMPLETED
+
+  /courses/classes/{classId}/sessions:
+    get:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Lista sessões/frequência da turma
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: sessions[] com attendances
+    post:
+      tags: [courses]
+      x-implementation: implemented
+      summary: Registra sessão + presenças
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [occurredAt]
+              properties:
+                occurredAt: { type: string, format: date-time }
+                title: { type: string }
+                attendances:
+                  type: array
+                  items:
+                    type: object
+                    required: [personId]
+                    properties:
+                      personId: { type: string }
+                      present: { type: boolean }
+      responses:
+        "201":
+          description: Session criada
+
+  /assets:
+    get:
+      tags: [assets]
+      x-implementation: implemented
+      summary: Lista patrimônio da congregação (multi-igreja só com grant)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: churchId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, MAINTENANCE, LOST, DISPOSED] }
+      responses:
+        "200":
+          description: assets[]
+        "403":
+          description: Sem grant na congregação
+    post:
+      tags: [assets]
+      x-implementation: implemented
+      summary: Cadastra bem patrimonial
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                code: { type: string }
+                description: { type: string }
+                location: { type: string }
+                responsiblePersonId: { type: string }
+                status: { type: string, enum: [ACTIVE, MAINTENANCE, LOST, DISPOSED] }
+                acquiredAt: { type: string, format: date-time }
+                churchId: { type: string }
+      responses:
+        "201":
+          description: Asset + history CREATED
+
+  /assets/{assetId}:
+    get:
+      tags: [assets]
+      x-implementation: implemented
+      summary: Detalhe do bem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Asset
+    patch:
+      tags: [assets]
+      x-implementation: implemented
+      summary: Atualiza situação/localização/responsável (gera histórico)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                location: { type: string }
+                responsiblePersonId: { type: string, nullable: true }
+                status: { type: string, enum: [ACTIVE, MAINTENANCE, LOST, DISPOSED] }
+                acquiredAt: { type: string, format: date-time, nullable: true }
+                note: { type: string, maxLength: 280 }
+      responses:
+        "200":
+          description: Asset atualizado
+
+  /assets/{assetId}/history:
+    get:
+      tags: [assets]
+      x-implementation: implemented
+      summary: Histórico do bem
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: history[]
+    post:
+      tags: [assets]
+      x-implementation: implemented
+      summary: Nota operacional no histórico
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string, maxLength: 280 }
+      responses:
+        "201":
+          description: History NOTE
 
   /discipleship/tracks:
     get:

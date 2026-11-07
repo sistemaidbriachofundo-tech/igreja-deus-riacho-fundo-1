@@ -99,6 +99,10 @@ model Organization {
   messageTemplates MessageTemplate[]
   communicationConsents CommunicationConsent[]
   communicationOutbox CommunicationOutbox[]
+  courses Course[]
+  courseClasses CourseClass[]
+  pastoralRetentionPolicies PastoralRetentionPolicy[]
+  churchAssets ChurchAsset[]
   @@map("organizations")
 }
 
@@ -140,6 +144,10 @@ model Church {
   messageTemplates MessageTemplate[]
   communicationConsents CommunicationConsent[]
   communicationOutbox CommunicationOutbox[]
+  courses Course[]
+  courseClasses CourseClass[]
+  pastoralRetentionPolicies PastoralRetentionPolicy[]
+  churchAssets ChurchAsset[]
   @@unique([organizationId, slug])
   @@map("churches")
 }
@@ -201,6 +209,10 @@ model Person {
 
   communicationConsents CommunicationConsent[]
   communicationOutbox CommunicationOutbox[]
+  courseClassTeaches CourseClass[] @relation("CourseClassTeacher")
+  courseEnrollments CourseEnrollment[]
+  courseAttendances CourseAttendance[]
+  churchAssetsResponsible ChurchAsset[] @relation("ChurchAssetResponsible")
   @@index([organizationId])
   @@index([homeChurchId])
   @@index([householdId])
@@ -237,6 +249,9 @@ model User {
   reconciliationsCreated Reconciliation[] @relation("ReconciliationCreator")
   reconciliationsFirstApproved Reconciliation[] @relation("ReconciliationFirstApprover")
   reconciliationsSecondApproved Reconciliation[] @relation("ReconciliationSecondApprover")
+  pastoralRetentionPoliciesUpdated PastoralRetentionPolicy[] @relation("PastoralRetentionUpdater")
+  courseCompletionsApproved CourseEnrollment[] @relation("CourseCompletionApprover")
+  churchAssetHistory ChurchAssetHistory[] @relation("ChurchAssetHistoryActor")
 
   @@map("users")
 }
@@ -1548,4 +1563,211 @@ model OutboxDeliveryEvent {
 
   @@index([outboxId, createdAt])
   @@map("outbox_delivery_events")
+}
+
+
+/// Política de retenção pastoral (RF-009) — por congregação.
+model PastoralRetentionPolicy {
+  id                       String   @id @default(cuid())
+  organizationId           String   @map("organization_id")
+  churchId                 String   @map("church_id")
+  /// Dias após closedAt para casos DONE/CANCELLED elegíveis a minimização.
+  closedCaseRetentionDays  Int      @default(2555) @map("closed_case_retention_days")
+  /// Quando true, apply redige summary (não apaga o caso).
+  redactionEnabled         Boolean  @default(true) @map("redaction_enabled")
+  updatedByUserId          String?  @map("updated_by_user_id")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  updatedBy    User?        @relation("PastoralRetentionUpdater", fields: [updatedByUserId], references: [id])
+
+  @@unique([churchId])
+  @@index([organizationId])
+  @@map("pastoral_retention_policies")
+}
+
+enum CourseStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum CourseClassStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum CourseEnrollmentStatus {
+  ENROLLED
+  COMPLETED
+  DROPPED
+  CANCELLED
+}
+
+/// Curso / EBD (RF-023) — domínio distinto de discipulado (RF-010).
+model Course {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  churchId       String       @map("church_id")
+  code           String?
+  name           String
+  description    String?
+  status         CourseStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  church       Church        @relation(fields: [churchId], references: [id])
+  classes      CourseClass[]
+
+  @@unique([churchId, code])
+  @@index([organizationId, churchId])
+  @@map("courses")
+}
+
+/// Turma de um curso/EBD.
+model CourseClass {
+  id              String            @id @default(cuid())
+  courseId        String            @map("course_id")
+  organizationId  String            @map("organization_id")
+  churchId        String            @map("church_id")
+  name            String
+  teacherPersonId String?           @map("teacher_person_id")
+  startsAt        DateTime?         @map("starts_at")
+  endsAt          DateTime?         @map("ends_at")
+  status          CourseClassStatus @default(OPEN)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  course        Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  organization  Organization        @relation(fields: [organizationId], references: [id])
+  church        Church              @relation(fields: [churchId], references: [id])
+  teacher       Person?             @relation("CourseClassTeacher", fields: [teacherPersonId], references: [id])
+  enrollments   CourseEnrollment[]
+  sessions      CourseSession[]
+
+  @@index([courseId])
+  @@index([organizationId, churchId])
+  @@map("course_classes")
+}
+
+model CourseEnrollment {
+  id                         String                  @id @default(cuid())
+  classId                    String                  @map("class_id")
+  personId                   String                  @map("person_id")
+  status                     CourseEnrollmentStatus  @default(ENROLLED)
+  enrolledAt                 DateTime                @default(now()) @map("enrolled_at")
+  completedAt                DateTime?               @map("completed_at")
+  /// Aprovação mínima para emissão de certificado (metadado; sem PDF nesta fatia).
+  certificateApprovedByUserId String?                @map("certificate_approved_by_user_id")
+  certificateIssuedAt        DateTime?               @map("certificate_issued_at")
+  createdAt                  DateTime                @default(now()) @map("created_at")
+  updatedAt                  DateTime                @updatedAt @map("updated_at")
+
+  class               CourseClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  person              Person      @relation(fields: [personId], references: [id])
+  certificateApprover User?       @relation("CourseCompletionApprover", fields: [certificateApprovedByUserId], references: [id])
+
+  @@unique([classId, personId])
+  @@index([personId])
+  @@index([status])
+  @@map("course_enrollments")
+}
+
+model CourseSession {
+  id         String   @id @default(cuid())
+  classId    String   @map("class_id")
+  title      String?
+  occurredAt DateTime @map("occurred_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  class       CourseClass         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  attendances CourseAttendance[]
+
+  @@index([classId, occurredAt])
+  @@map("course_sessions")
+}
+
+model CourseAttendance {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  personId  String   @map("person_id")
+  present   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  person  Person        @relation(fields: [personId], references: [id])
+
+  @@unique([sessionId, personId])
+  @@index([personId])
+  @@map("course_attendances")
+}
+
+enum ChurchAssetStatus {
+  ACTIVE
+  MAINTENANCE
+  LOST
+  DISPOSED
+}
+
+enum ChurchAssetHistoryKind {
+  CREATED
+  UPDATED
+  STATUS_CHANGE
+  LOCATION_CHANGE
+  RESPONSIBLE_CHANGE
+  NOTE
+}
+
+/// Patrimônio mínimo (RF-030 fatia F6) — registro por congregação.
+model ChurchAsset {
+  id                   String            @id @default(cuid())
+  organizationId       String            @map("organization_id")
+  churchId             String            @map("church_id")
+  code                 String?
+  name                 String
+  description          String?
+  location             String?
+  responsiblePersonId  String?           @map("responsible_person_id")
+  status               ChurchAssetStatus @default(ACTIVE)
+  acquiredAt           DateTime?         @map("acquired_at")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  responsible  Person?              @relation("ChurchAssetResponsible", fields: [responsiblePersonId], references: [id])
+  history      ChurchAssetHistory[]
+
+  @@unique([churchId, code])
+  @@index([organizationId, churchId])
+  @@index([status])
+  @@index([responsiblePersonId])
+  @@map("church_assets")
+}
+
+model ChurchAssetHistory {
+  id                       String                 @id @default(cuid())
+  assetId                  String                 @map("asset_id")
+  kind                     ChurchAssetHistoryKind
+  note                     String?
+  fromStatus               ChurchAssetStatus?     @map("from_status")
+  toStatus                 ChurchAssetStatus?     @map("to_status")
+  fromLocation             String?                @map("from_location")
+  toLocation               String?                @map("to_location")
+  fromResponsiblePersonId  String?                @map("from_responsible_person_id")
+  toResponsiblePersonId    String?                @map("to_responsible_person_id")
+  actorUserId              String?                @map("actor_user_id")
+  recordedAt               DateTime               @default(now()) @map("recorded_at")
+  createdAt                DateTime               @default(now()) @map("created_at")
+
+  asset ChurchAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  actor User?       @relation("ChurchAssetHistoryActor", fields: [actorUserId], references: [id])
+
+  @@index([assetId, recordedAt])
+  @@map("church_asset_history")
 }

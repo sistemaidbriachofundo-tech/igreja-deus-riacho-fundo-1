@@ -218,5 +218,16 @@ describe("api contracts F2", () => {
     assert.equal(API_ENDPOINT_STATUS["GET /vivi/status"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /public/vivi/chat"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["POST /vivi/chat"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /pastoral-cases/retention-policy"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["PUT /pastoral-cases/retention-policy"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /pastoral-cases/retention/apply"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /pastoral-cases/export"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /courses"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /courses/classes/:classId/enrollments"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /courses/enrollments/:enrollmentId/complete"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /courses/classes/:classId/sessions"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["POST /assets"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["PATCH /assets/:assetId"], "implemented");
+    assert.equal(API_ENDPOINT_STATUS["GET /assets/:assetId/history"], "implemented");
   });
 });
