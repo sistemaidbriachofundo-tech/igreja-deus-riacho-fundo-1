@@ -20,16 +20,25 @@ Somente `apps/web`. A equipe de backend (Cursor) mantém `apps/api`, `packages/d
 - Rejeita corpo de resposta inválido e não permite usar saída simulada como sugestão.
 - A publicação permanece ação explícita do editor, fora do escopo do bot.
 
-## Contrato aguardado do Cursor para a próxima UI (não implementado)
-Para exibir fundamentação institucional de respostas **sem inventar dados**, solicitar ao Cursor:
-1. Confirmar qual conteúdo CMS publicado será recuperável por congregação e como o endpoint diferencia informação oficial de resposta generativa.
-2. Definir no `packages/shared` campos opcionais de fontes com título, URL pública permitida e data de atualização, sem quebrar `ViviChatResponse` atual.
-3. Garantir que fontes estejam restritas ao escopo público da igreja e nunca retornem links administrativos.
-4. Definir código ou indicador de "informação oficial não encontrada", evitando resposta com horário, líder ou endereço inventado.
-5. Documentar versionamento, casos 400/401/403/429/5xx e comportamento com IA indisponível.
-6. Manter a feature flag isolada por ambiente e não expor dados pessoais nos logs.
+## Contrato do Cursor: integrado na main (PRs #65 e #66)
+Em 07/11/2026, o backend recebeu os campos opcionais do Riachinho V2 (ver `packages/shared/src/api-contracts/dto.ts`):
+- `sources?: Array<{ kind: "ministry" | "event" | "cms"; slug: string; title: string }>`
+- `knowledgeMiss?: boolean`
+- `promptVersion?: string`
+- `GET /vivi/status` pode indicar `knowledge.mode="structured-cms"`, `ragEnabled=false` e `refreshPolicy="live-db-on-each-request"`.
 
-Após o contrato ser mesclado, o frontend deverá renderizar cartões de fontes verificadas, indicação clara de ausência de dados e acesso ao conteúdo CMS original. **Não adicionar parsing especulativo de campos desconhecidos enquanto o Cursor não definir o contrato.**
+Nesta branch, o FE mostra as referências oficiais consultadas e um aviso específico quando `knowledgeMiss=true`, mantendo compatibilidade com respostas antigas sem os campos opcionais.
+
+**Segurança:** o backend não retorna URLs de fontes. O frontend valida o conjunto de valores, limita os itens, recusa slugs malformados e **não inventa páginas por slug**:
+- Ministério → link genérico para `/ministerios/`.
+- Evento → link genérico para `/eventos/`.
+- Conteúdo CMS → somente o título da fonte, sem navegação inventada.
+
+Esses links levam a seções existentes; não representam links profundos para a publicação específica.
+
+**Bloqueador operacional:** o projeto Vercel `id-riacho1-api-hml` ainda mostrava o commit antigo `731a655e` na checagem de 07/11/2026. É necessário o Cursor/deploy responsável publicar o backend merged em HML e executar smoke tests de `/vivi/status`, `/public/vivi/chat`, `sources`, `knowledgeMiss`, consentimento, 429 e indisponibilidade do Gemini. A presença do contrato em `main` não implica que HML já responde esses campos.
+
+**Integração F2:** o PR #68 atualizou `API_CONTRACT_VERSION` para `0.7.2-f2`; integração das telas autenticadas ficará em um PR próprio após validação de HML, com base em `docs/handoff-frontend-api-f2.md`.
 
 ## Verificações de aceite
 - Testes automatizados de status, payload, consentimento, HTTPS, HTTP 429, falha de rede, resposta malformada e resposta mock.
