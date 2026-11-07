@@ -53,7 +53,7 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
           Planejar minha visita <PortalGlyph name="arrow" width={20}/>
         </Link>
         <a className={s.mobileStaff} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer" onClick={close}>Canal no YouTube <PortalGlyph name="arrow" width={16}/></a>
-        <Link className={s.mobileStaff} href="/app/" onClick={close}>Login · ID Riacho 1 (demonstração) <PortalGlyph name="arrow" width={16}/></Link>
+        <Link className={s.mobileStaff} href="/login/" onClick={close}>Login · Entrar com e-mail e senha <PortalGlyph name="arrow" width={16}/></Link>
         <span className={s.mobileNote}>Igreja de Deus · Riacho Fundo I. Você é bem-vindo.</span>
       </nav>
     </details>
