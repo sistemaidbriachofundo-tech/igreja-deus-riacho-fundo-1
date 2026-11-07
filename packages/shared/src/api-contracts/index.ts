@@ -58,6 +58,7 @@ export type {
   ViviChatMessageDto,
   ViviChatRequest,
   ViviChatUsageDto,
+  ViviKnowledgeSourceDto,
   ViviChatResponse,
   ViviStatusResponse,
 } from "./dto";

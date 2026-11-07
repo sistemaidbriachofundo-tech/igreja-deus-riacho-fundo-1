@@ -4,6 +4,7 @@ import {
 } from "@nestjs/common";
 import {
   postJsonForProvider,
+  redactSecrets,
   requireNonEmptyText,
   stripTrailingSlashes,
 } from "./http-json";
@@ -83,5 +84,54 @@ describe("vivi http-json helpers", () => {
     expect(() => requireNonEmptyText("  ", "empty", "EMPTY")).toThrow(
       BadGatewayException,
     );
+  });
+
+  it("redacts API keys and bearer tokens from error details", () => {
+    expect(
+      redactSecrets(
+        "fetch failed https://generativelanguage.googleapis.com/v1?key=SECRET123&x=1",
+      ),
+    ).toBe(
+      "fetch failed https://generativelanguage.googleapis.com/v1?key=[REDACTED]&x=1",
+    );
+    expect(redactSecrets("Bearer sk-live-abc")).toBe("Bearer [REDACTED]");
+    expect(
+      redactSecrets({ authorization: "Bearer x", nested: { api_key: "z" } }),
+    ).toEqual({ authorization: "[REDACTED]", nested: { api_key: "[REDACTED]" } });
+    expect(redactSecrets(["Bearer sk-arr", { apiKey: "z" }])).toEqual([
+      "Bearer [REDACTED]",
+      { apiKey: "[REDACTED]" },
+    ]);
+    expect(redactSecrets(42)).toBe(42);
+    expect(redactSecrets(null)).toBe(null);
+  });
+
+  it("redacts secrets in ServiceUnavailable detail", async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockRejectedValue(
+        new Error("GET https://x.test/v1?key=LEAKED failed"),
+      );
+    try {
+      await postJsonForProvider(
+        fetchImpl as never,
+        "https://example.test/v1",
+        { headers: {}, body: {} },
+        {
+          unavailableMessage: "down",
+          unavailableCode: "UNAV",
+          rejectMessage: "rej",
+          rejectCode: "REJ",
+        },
+      );
+      throw new Error("expected throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ServiceUnavailableException);
+      const body = (err as ServiceUnavailableException).getResponse() as {
+        detail: string;
+      };
+      expect(body.detail).toContain("key=[REDACTED]");
+      expect(body.detail).not.toContain("LEAKED");
+    }
   });
 });

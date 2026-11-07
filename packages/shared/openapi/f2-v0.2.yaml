@@ -18,9 +18,10 @@ info:
       delivery status, rate limits, providers mock/noop (sem WABA/SMTP/FCM live; sem IA)
     - 0.7.0-das: multi-igreja (grants/switch), audit org-wide PLATFORM_ADMIN, indicadores stub,
       auth refresh claims (mobile-ready; sem app RN) — consolidado pós-merges DAS
-    - 0.7.1-vivi: assistente Vivi (IA) — `POST /public/vivi/chat` (consentimento + rate-limit)
+    - 0.7.1-vivi: assistente Vivi/Riachinho (IA) — `POST /public/vivi/chat` (consentimento + rate-limit)
       e `POST /vivi/chat` (staff); providers Manus Forge (default) | Gemini (`GEMINI_API_KEY` só no BE);
-      auditoria de uso sem armazenar prompt completo; sem RAG / sem dados reais de membros
+      auditoria de uso sem armazenar prompt completo; retrieval estruturado do CMS/portal publicado
+      (sem RAG default); campos aditivos opcionais `sources`/`promptVersion`/`knowledgeMiss` (backward-compat)
     - 0.7.2-f2: fechamento F2 — `auth.login` audit, `POST /admissions/:id/cancel`,
       `DELETE /admissions/:id/documents/:documentId`, polish Person/Audit/Meta schemas
 
@@ -455,6 +456,13 @@ components:
         outputChars: { type: integer }
         messageCount: { type: integer }
         latencyMs: { type: integer }
+    ViviKnowledgeSource:
+      type: object
+      required: [kind, slug, title]
+      properties:
+        kind: { type: string, enum: [ministry, event, cms] }
+        slug: { type: string }
+        title: { type: string }
     ViviChatResponse:
       type: object
       required: [reply, provider, model, refused, lgpdNotice, usage]
@@ -465,6 +473,14 @@ components:
         refused: { type: boolean }
         lgpdNotice: { type: string }
         usage: { $ref: "#/components/schemas/ViviChatUsage" }
+        promptVersion: { type: string, description: "Opcional — versão do system prompt institucional" }
+        sources:
+          type: array
+          description: Opcional — fontes oficiais do retrieval estruturado
+          items: { $ref: "#/components/schemas/ViviKnowledgeSource" }
+        knowledgeMiss:
+          type: boolean
+          description: Opcional — true quando pedido factual sem dado publicado
     ViviStatus:
       type: object
       required: [assistant, displayName, provider, model, manusUrlConfigured, geminiKeyConfigured, lgpdNotice, notes]
@@ -479,6 +495,13 @@ components:
         notes:
           type: array
           items: { type: string }
+        promptVersion: { type: string }
+        knowledge:
+          type: object
+          properties:
+            mode: { type: string, enum: [structured-cms] }
+            ragEnabled: { type: boolean, enum: [false] }
+            refreshPolicy: { type: string, enum: [live-db-on-each-request] }
 
 paths:
   /health:
@@ -3227,9 +3250,14 @@ paths:
       summary: Chat Vivi visitante (consentimento + rate-limit forte)
       description: |
         Sem JWT. Exige `consentAiProcessing=true`.
-        Rate-limit in-memory forte (`VIVI_PUBLIC_RATE_MAX`, default 8/min) + middleware IP.
-        Recusa heurística de PII/pastoral. Não armazena prompt completo na auditoria.
+        Rate-limit in-memory forte (`VIVI_PUBLIC_RATE_MAX`, default 8/min) + middleware IP
+        (best-effort em serverless multi-instância).
+        Recusa heurística de PII/pastoral e anti prompt-injection. Não armazena prompt completo na auditoria.
         LGPD: free tier Google Gemini pode treinar com prompts — não enviar dados de membros.
+        Conhecimento: retrieval estruturado (CMS/ministérios/eventos PUBLICADO) antes do LLM; sem RAG default.
+        Publish no CMS reflete no próximo request (`live-db-on-each-request`).
+        Fail-soft: falha transitória Manus/Gemini devolve HTTP 200/201 com reply estável
+        (sem derrubar o widget); 502/503 só se o adapter for chamado fora do serviço de chat.
       security: []
       requestBody:
         required: true

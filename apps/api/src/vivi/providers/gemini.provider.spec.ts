@@ -49,7 +49,9 @@ describe("GeminiViviProvider", () => {
 
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("models/gemini-2.5-flash-lite:generateContent");
-    expect(url).toContain("key=gk");
+    expect(url).not.toMatch(/[?&]key=/);
+    const headers = init.headers as Record<string, string>;
+    expect(headers["x-goog-api-key"]).toBe("gk");
     const body = JSON.parse(String(init.body)) as {
       systemInstruction: { parts: Array<{ text: string }> };
       contents: Array<{ role: string }>;
