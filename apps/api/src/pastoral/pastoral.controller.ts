@@ -1,12 +1,25 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
   IsBoolean,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
+  Min,
   MinLength,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -65,6 +78,36 @@ class UpdateTaskBody {
   done!: boolean;
 }
 
+class RetentionPolicyBody {
+  @Type(() => Number)
+  @IsInt()
+  @Min(30)
+  @Max(36500)
+  closedCaseRetentionDays!: number;
+
+  @IsOptional()
+  @IsBoolean()
+  redactionEnabled?: boolean;
+}
+
+class ExportBody {
+  @IsOptional()
+  @IsString()
+  personId?: string;
+
+  @IsOptional()
+  @IsString()
+  from?: string;
+
+  @IsOptional()
+  @IsString()
+  to?: string;
+
+  @IsOptional()
+  @IsIn(["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"])
+  status?: string;
+}
+
 @Controller("pastoral-cases")
 export class PastoralController {
   constructor(private readonly pastoral: PastoralService) {}
@@ -79,6 +122,47 @@ export class PastoralController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.pastoral.list(user);
+  }
+
+  /** RF-009 — rotas estáticas antes de `:caseId`. */
+  @Roles(ROLE_CODES.PASTOR)
+  @Get("retention-policy")
+  getRetentionPolicy(@CurrentUser() user: AuthUser) {
+    return this.pastoral.getRetentionPolicy(user);
+  }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Put("retention-policy")
+  upsertRetentionPolicy(
+    @CurrentUser() user: AuthUser,
+    @Body() body: RetentionPolicyBody,
+  ) {
+    return this.pastoral.upsertRetentionPolicy(user, body);
+  }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Post("retention/apply")
+  applyRetention(@CurrentUser() user: AuthUser) {
+    return this.pastoral.applyRetention(user);
+  }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Post("export")
+  exportCases(
+    @CurrentUser() user: AuthUser,
+    @Body() body: ExportBody = {},
+    @Query("personId") personId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("status") status?: string,
+  ) {
+    const payload = body ?? {};
+    return this.pastoral.exportCases(user, {
+      personId: payload.personId ?? personId,
+      from: payload.from ?? from,
+      to: payload.to ?? to,
+      status: payload.status ?? status,
+    });
   }
 
   @Roles(ROLE_CODES.PASTOR)

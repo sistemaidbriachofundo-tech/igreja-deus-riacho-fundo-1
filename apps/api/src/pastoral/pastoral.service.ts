@@ -122,6 +122,263 @@ export class PastoralService {
     };
   }
 
+  /**
+   * RF-009 — política de retenção (default 2555 dias ≈ 7 anos).
+   * Só PASTOR (assertPastoralAccess).
+   */
+  async getRetentionPolicy(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertPastoralAccess(actor, pilot.organizationId, pilot.churchId);
+    const policy = await this.ensureRetentionPolicy(pilot);
+    return this.toRetentionPolicyDto(policy);
+  }
+
+  async upsertRetentionPolicy(
+    actor: AuthUser,
+    input: { closedCaseRetentionDays: number; redactionEnabled?: boolean },
+  ) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertPastoralAccess(actor, pilot.organizationId, pilot.churchId);
+
+    const days = input.closedCaseRetentionDays;
+    if (!Number.isInteger(days) || days < 30 || days > 36500) {
+      throw new BadRequestException(
+        "closedCaseRetentionDays deve ser inteiro entre 30 e 36500",
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const policy = await tx.pastoralRetentionPolicy.upsert({
+        where: { churchId: pilot.churchId },
+        create: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          closedCaseRetentionDays: days,
+          redactionEnabled: input.redactionEnabled ?? true,
+          updatedByUserId: actor.userId,
+        },
+        update: {
+          closedCaseRetentionDays: days,
+          ...(input.redactionEnabled !== undefined
+            ? { redactionEnabled: Boolean(input.redactionEnabled) }
+            : {}),
+          updatedByUserId: actor.userId,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "pastoral.retention.policy.upsert",
+          resourceType: "pastoral_retention_policy",
+          resourceId: policy.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            closedCaseRetentionDays: policy.closedCaseRetentionDays,
+            redactionEnabled: policy.redactionEnabled,
+          },
+        },
+      });
+      return this.toRetentionPolicyDto(policy);
+    });
+  }
+
+  /**
+   * Export pastoral controlado — só PASTOR; audit obrigatório (RF-009).
+   * Metadados de audit não incluem o texto do summary.
+   */
+  async exportCases(
+    actor: AuthUser,
+    filters: {
+      personId?: string;
+      from?: string;
+      to?: string;
+      status?: string;
+    } = {},
+  ) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertPastoralAccess(actor, pilot.organizationId, pilot.churchId);
+
+    const status = filters.status
+      ? this.requireStatus(filters.status)
+      : undefined;
+    const from = filters.from
+      ? this.parseExportDate(filters.from, "from")
+      : undefined;
+    const to = filters.to
+      ? this.parseExportDate(filters.to, "to")
+      : undefined;
+    if (from && to && to < from) {
+      throw new BadRequestException("to deve ser >= from");
+    }
+
+    const rows = await this.prisma.pastoralCase.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        ...(filters.personId ? { personId: filters.personId } : {}),
+        ...(status ? { status } : {}),
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      include: { tasks: { orderBy: { createdAt: "asc" } } },
+    });
+
+    const exportedAt = new Date();
+    const caseIds = rows.map((r) => r.id);
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "pastoral.export",
+        resourceType: "pastoral_case",
+        resourceId: pilot.churchId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: {
+          count: caseIds.length,
+          caseIds,
+          filters: {
+            personId: filters.personId ?? null,
+            from: from?.toISOString() ?? null,
+            to: to?.toISOString() ?? null,
+            status: status ?? null,
+          },
+          purpose: "pastoral_care_export",
+        },
+      },
+    });
+
+    return {
+      churchId: pilot.churchId,
+      exportedAt: exportedAt.toISOString(),
+      count: rows.length,
+      cases: rows.map((row) => this.toCaseDto(row)),
+    };
+  }
+
+  /**
+   * Aplica retenção: redige `summary` de casos fechados além do prazo.
+   * Não apaga o caso (trilha administrativa preservada).
+   */
+  async applyRetention(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertPastoralAccess(actor, pilot.organizationId, pilot.churchId);
+    const policy = await this.ensureRetentionPolicy(pilot);
+
+    if (!policy.redactionEnabled) {
+      return {
+        churchId: pilot.churchId,
+        redactionEnabled: false,
+        eligibleCount: 0,
+        redactedCount: 0,
+        cutoffAt: null as string | null,
+      };
+    }
+
+    const cutoff = new Date(
+      Date.now() - policy.closedCaseRetentionDays * 24 * 60 * 60 * 1000,
+    );
+
+    const eligible = await this.prisma.pastoralCase.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        status: { in: ["DONE", "CANCELLED"] },
+        closedAt: { lte: cutoff },
+        summary: { not: null },
+      },
+      select: { id: true },
+    });
+
+    const ids = eligible.map((e) => e.id);
+
+    return this.prisma.$transaction(async (tx) => {
+      if (ids.length > 0) {
+        await tx.pastoralCase.updateMany({
+          where: { id: { in: ids } },
+          data: { summary: null },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "pastoral.retention.apply",
+          resourceType: "pastoral_retention_policy",
+          resourceId: policy.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            cutoffAt: cutoff.toISOString(),
+            eligibleCount: ids.length,
+            redactedCount: ids.length,
+            caseIds: ids,
+          },
+        },
+      });
+      return {
+        churchId: pilot.churchId,
+        redactionEnabled: true,
+        eligibleCount: ids.length,
+        redactedCount: ids.length,
+        cutoffAt: cutoff.toISOString(),
+      };
+    });
+  }
+
+  private async ensureRetentionPolicy(pilot: {
+    organizationId: string;
+    churchId: string;
+  }) {
+    const existing = await this.prisma.pastoralRetentionPolicy.findUnique({
+      where: { churchId: pilot.churchId },
+    });
+    if (existing) return existing;
+    return this.prisma.pastoralRetentionPolicy.create({
+      data: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+  }
+
+  private parseExportDate(value: string, field: string) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      throw new BadRequestException(`${field} inválido`);
+    }
+    return d;
+  }
+
+  private toRetentionPolicyDto(policy: {
+    id: string;
+    organizationId: string;
+    churchId: string;
+    closedCaseRetentionDays: number;
+    redactionEnabled: boolean;
+    updatedByUserId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: policy.id,
+      organizationId: policy.organizationId,
+      churchId: policy.churchId,
+      closedCaseRetentionDays: policy.closedCaseRetentionDays,
+      redactionEnabled: policy.redactionEnabled,
+      updatedByUserId: policy.updatedByUserId,
+      createdAt: policy.createdAt.toISOString(),
+      updatedAt: policy.updatedAt.toISOString(),
+    };
+  }
+
   async getById(actor: AuthUser, caseId: string) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertPastoralAccess(actor, pilot.organizationId, pilot.churchId);

@@ -410,4 +410,117 @@ describe("PastoralService", () => {
     expect(result.done).toBe(true);
     expect(result.dueAt).toBeNull();
   });
+
+  it("RF-009 forbids SECRETARIA from pastoral export", async () => {
+    const service = new PastoralService(
+      {} as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.exportCases(secretaria)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it("RF-009 exports cases and audits without summary in metadata", async () => {
+    const prisma = {
+      pastoralCase: {
+        findMany: jest.fn().mockResolvedValue([caseRow]),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new PastoralService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const res = await service.exportCases(pastor, { status: "OPEN" });
+    expect(res.count).toBe(1);
+    expect(res.cases[0].id).toBe("pc1");
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "pastoral.export",
+          metadata: expect.objectContaining({
+            count: 1,
+            caseIds: ["pc1"],
+            purpose: "pastoral_care_export",
+          }),
+        }),
+      }),
+    );
+    const meta = (prisma.auditLog.create as jest.Mock).mock.calls[0][0].data
+      .metadata as Record<string, unknown>;
+    expect(meta).not.toHaveProperty("summary");
+    expect(JSON.stringify(meta)).not.toContain("resumo");
+  });
+
+  it("RF-009 upserts retention policy", async () => {
+    const policy = {
+      id: "pol1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      closedCaseRetentionDays: 365,
+      redactionEnabled: true,
+      updatedByUserId: pastor.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      pastoralRetentionPolicy: {
+        upsert: jest.fn().mockResolvedValue(policy),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new PastoralService(
+      withTx(tx) as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const dto = await service.upsertRetentionPolicy(pastor, {
+      closedCaseRetentionDays: 365,
+    });
+    expect(dto.closedCaseRetentionDays).toBe(365);
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "pastoral.retention.policy.upsert",
+        }),
+      }),
+    );
+  });
+
+  it("RF-009 applyRetention redacts closed summaries past cutoff", async () => {
+    const policy = {
+      id: "pol1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      closedCaseRetentionDays: 30,
+      redactionEnabled: true,
+      updatedByUserId: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      pastoralCase: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      ...withTx(tx),
+      pastoralRetentionPolicy: {
+        findUnique: jest.fn().mockResolvedValue(policy),
+      },
+      pastoralCase: {
+        findMany: jest.fn().mockResolvedValue([{ id: "pc-old" }]),
+      },
+    };
+    const service = new PastoralService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const res = await service.applyRetention(pastor);
+    expect(res.redactedCount).toBe(1);
+    expect(tx.pastoralCase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { summary: null },
+      }),
+    );
+  });
 });

@@ -1,9 +1,11 @@
 import { AdmissionsController } from "./admissions/admissions.controller";
+import { AssetsController } from "./assets/assets.controller";
 import { AuditController } from "./audit/audit.controller";
 import { AuthController } from "./auth/auth.controller";
 import { MfaController } from "./auth/mfa/mfa.controller";
 import { OidcController } from "./auth/oidc/oidc.controller";
 import { CredentialsController } from "./credentials/credentials.controller";
+import { CoursesController } from "./courses/courses.controller";
 import { DiscipleshipController } from "./discipleship/discipleship.controller";
 import { GroupsController } from "./groups/groups.controller";
 import { HealthController } from "./health.controller";
@@ -301,16 +303,83 @@ describe("controller wiring (delegates to services)", () => {
       assign: jest.fn(),
       addTask: jest.fn(),
       updateTaskDone: jest.fn(),
+      getRetentionPolicy: jest.fn(),
+      upsertRetentionPolicy: jest.fn(),
+      applyRetention: jest.fn(),
+      exportCases: jest.fn(),
     };
     const c = new PastoralController(pastoral as never);
     await c.create(user, { personId: "p1", kind: "VISITA", title: "x" });
     await c.list(user);
+    await c.getRetentionPolicy(user);
+    await c.upsertRetentionPolicy(user, { closedCaseRetentionDays: 365 });
+    await c.applyRetention(user);
+    await c.exportCases(user, { personId: "p1" }, undefined, undefined, undefined, undefined);
     await c.get(user, "pc1");
     await c.updateStatus(user, "pc1", { status: "DONE" });
     await c.assign(user, "pc1", { assignedToUserId: "u2" });
     await c.addTask(user, "pc1", { title: "task" });
     await c.updateTask(user, "pc1", "tk1", { done: true });
     expect(pastoral.updateTaskDone).toHaveBeenCalledWith(user, "pc1", "tk1", true);
+    expect(pastoral.exportCases).toHaveBeenCalledWith(user, {
+      personId: "p1",
+      from: undefined,
+      to: undefined,
+      status: undefined,
+    });
+  });
+
+  it("CoursesController", async () => {
+    const courses = {
+      createCourse: jest.fn(),
+      listCourses: jest.fn(),
+      createClass: jest.fn(),
+      listClasses: jest.fn(),
+      enroll: jest.fn(),
+      listEnrollments: jest.fn(),
+      completeEnrollment: jest.fn(),
+      createSession: jest.fn(),
+      listSessions: jest.fn(),
+    };
+    const c = new CoursesController(courses as never);
+    await c.createCourse(user, { name: "EBD" });
+    await c.listCourses(user, "ACTIVE");
+    await c.listEnrollments(user, undefined, "p1", undefined);
+    await c.completeEnrollment(user, "e1", { issueCertificate: true });
+    await c.listClassEnrollments(user, "cl1", undefined);
+    await c.enroll(user, "cl1", { personId: "p1" });
+    await c.createSession(user, "cl1", {
+      occurredAt: "2026-11-07T20:00:00Z",
+      attendances: [{ personId: "p1" }],
+    });
+    await c.listSessions(user, "cl1");
+    await c.createClass(user, "c1", { name: "Turma A" });
+    await c.listClasses(user, "c1");
+    expect(courses.completeEnrollment).toHaveBeenCalledWith(user, "e1", {
+      issueCertificate: true,
+    });
+  });
+
+  it("AssetsController", async () => {
+    const assets = {
+      create: jest.fn(),
+      list: jest.fn(),
+      getById: jest.fn(),
+      update: jest.fn(),
+      listHistory: jest.fn(),
+      addNote: jest.fn(),
+    };
+    const c = new AssetsController(assets as never);
+    await c.create(user, { name: "Projetor", location: "Sala 1" });
+    await c.list(user, "ch1", "ACTIVE");
+    await c.get(user, "a1");
+    await c.update(user, "a1", { status: "MAINTENANCE" });
+    await c.history(user, "a1");
+    await c.addNote(user, "a1", { note: "ok" });
+    expect(assets.list).toHaveBeenCalledWith(user, {
+      churchId: "ch1",
+      status: "ACTIVE",
+    });
   });
 
   it("DiscipleshipController", async () => {

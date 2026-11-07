@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.3-das-etapa3` | Contrato BE↔FE consolidado DAS Etapa 3 (RF-013/018, RF-001/006, RF-010/011, RF-020/021, RF-029) |
+| `f2-v0.2.yaml` | `0.7.3-das-etapa3` | Contrato BE↔FE consolidado DAS Etapa 3 (RF-013/018 … RF-029 + RF-023/009/030) |
 
 ## Como o FE consome
 

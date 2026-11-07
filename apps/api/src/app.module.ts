@@ -5,6 +5,7 @@ import {
   RequestMethod,
 } from "@nestjs/common";
 import { AdmissionsModule } from "./admissions/admissions.module";
+import { AssetsModule } from "./assets/assets.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { MfaModule } from "./auth/mfa/mfa.module";
@@ -14,6 +15,7 @@ import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware
 import { ChannelsModule } from "./channels/channels.module";
 import { ChurchesModule } from "./churches/churches.module";
 import { CmsModule } from "./cms/cms.module";
+import { CoursesModule } from "./courses/courses.module";
 import { DiscipleshipModule } from "./discipleship/discipleship.module";
 import { EventsModule } from "./events/events.module";
 import { FinanceModule } from "./finance/finance.module";
@@ -54,12 +56,14 @@ import { ViviModule } from "./vivi/vivi.module";
     LettersModule,
     PastoralModule,
     DiscipleshipModule,
+    CoursesModule,
     GroupsModule,
     MinistriesModule,
     EventsModule,
     FinanceModule,
     ChannelsModule,
     IndicatorsModule,
+    AssetsModule,
     CmsModule,
     VolunteersModule,
     PublicPortalModule,
