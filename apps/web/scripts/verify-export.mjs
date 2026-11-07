@@ -14,6 +14,7 @@ const requiredPages = [
   "novidades/index.html", "status/index.html",
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
   "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/site/index.html", "app/demo/index.html",
+  "app/operacao/index.html",
 ];
 const requiredGalleryAssets = ["louvor", "juventude", "oracao", "palavra"].map((name) => `images/galeria-${name}.webp`);
 const failures = [];
