@@ -1,10 +1,10 @@
 # Handoff FE ← BE — contratos F2 (ChatGPT / `apps/web`)
 
-**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.5.1-pdf-mfa"` (F2/F3 + portal B–E + PDF carteirinha + MFA/OIDC hooks)  
+**Contrato:** OpenAPI `packages/shared/openapi/f2-v0.2.yaml` · `API_CONTRACT_VERSION = "0.7.2-f2"` (DAS F1–F6 + Vivi + fechamento F2)  
 **Prefixo:** nenhum (`API_PATH_PREFIX = ""`)  
 **Base DEV:** `http://localhost:3001`  
 **Base HML:** **TBD** (não publicada) — ver `docs/hml-runbook.md` / `docs/hml-hostinger-runbook.md`  
-**Descoberta:** `GET /meta` (público) devolve `contractVersion` + mapa `endpoints`.  
+**Descoberta:** `GET /meta` (público) devolve `contractVersion` + mapa `endpoints` (`implemented` | `proposed`).  
 **Handoff consolidado (store):** `docs/handoff-frontend-completo-das.md` (F2/F3 + portal + exemplos).
 
 > Backend **não** altera `apps/web`.
@@ -13,12 +13,15 @@
 
 | Método | Path | Auth | Status |
 |--------|------|------|--------|
-| POST | `/auth/login` | público | **implemented** |
+| POST | `/auth/login` | público | **implemented** — grava `audit_logs` (`auth.login` / `auth.login_failed`) sem e-mail/senha em claro |
 | GET | `/auth/me` | Bearer | **implemented** |
-| GET | `/auth/rbac-smoke` | SECRETARIA | **implemented** (smoke) |
+| POST | `/auth/refresh` | Bearer | **implemented** |
+| POST | `/auth/switch-church` | Bearer | **implemented** |
+| GET | `/auth/rbac-smoke` | SECRETARIA | **implemented** (smoke; fora do OpenAPI) |
 
-Login body `{ email, password }` → 201 `{ accessToken, tokenType, expiresInSeconds, user }`  
-Header: `Authorization: Bearer <token>`
+Login body `{ email, password }` → `{ accessToken, tokenType, expiresInSeconds, user, mfa? }`  
+Header: `Authorization: Bearer <token>`  
+`user` inclui `organizationId` / `churchId` ativos (F6).
 
 ### Seed fictício
 
@@ -27,24 +30,24 @@ Header: `Authorization: Bearer <token>`
 | `ana.demo@example.test` | `admin` | SECRETARIA |
 | `pastor.demo@example.test` | `admin` | PASTOR |
 | `bruno.demo@example.test` | `admin` | MEMBRO |
+| `demoPersonMenor01` (Eduardo) | — | menor; guardião Ana |
 
-## Pessoas / famílias (0.2.1–0.2.3)
+## Pessoas / famílias
 
 | Método | Path | Papéis | Status |
 |--------|------|--------|--------|
 | GET | `/persons/search?q=&limit=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
-| GET | `/persons/:personId` | staff ou próprio MEMBRO | **implemented** |
+| GET | `/persons/:personId` | staff ou próprio MEMBRO | **implemented** (`kind`, `isMinor`, `legalGuardianPersonId`) |
 | GET | `/persons/:personId/dossier` | staff ou próprio MEMBRO | **implemented** |
-| PATCH | `/persons/:personId` | SECRETARIA | **implemented** — `isMinor`, `legalGuardianPersonId`, `householdId` |
-| GET | `/households` | SECRETARIA | **implemented** (0.2.3) |
-| POST | `/households` | SECRETARIA | **implemented** |
+| PATCH | `/persons/:personId` | SECRETARIA | **implemented** |
+| GET | `/households` | SECRETARIA | **implemented** |
+| POST | `/households` | SECRETARIA | **implemented** (resposta com `members[]`) |
 | GET | `/households/:id` | SECRETARIA | **implemented** |
 | POST | `/households/:id/members` | SECRETARIA | **implemented** |
 | DELETE | `/households/:id/members/:personId` | SECRETARIA | **implemented** |
 
 - Busca: `autoMergeForbidden: true` sempre  
 - Menor **exige** responsável legal adulto no mesmo org  
-- Seed: `demoPersonMenor01` (Eduardo) com guardião `demoPersonRiacho01` (Ana)
 
 ## Admissão + documentos
 
@@ -53,8 +56,10 @@ Header: `Authorization: Bearer <token>`
 | GET/POST | `/admissions` | **implemented** |
 | GET | `/admissions/:id` | **implemented** |
 | POST | `/admissions/:id/advance` | **implemented** |
+| POST | `/admissions/:id/cancel` | **implemented** (SECRETARIA → `CANCELLED`) |
 | GET/POST | `/admissions/:id/documents` | **implemented** (multipart `file`) |
-| GET | `/admissions/:id/documents/:documentId` | **implemented** (download autorizado) |
+| GET | `/admissions/:id/documents/:documentId` | **implemented** (download) |
+| DELETE | `/admissions/:id/documents/:documentId` | **implemented** (SECRETARIA) |
 
 Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL pública**.
 
@@ -72,16 +77,17 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 
 | Path | Status | Nota |
 |------|--------|------|
-| GET/POST `/memberships` | **implemented** | preferir `/admissions` |
+| GET/POST `/memberships` | **implemented** | preferir `/admissions`; list inclui `person.kind` / `isMinor` |
 | GET `/credentials/me` | **implemented** | |
-| POST `/credentials/issue|reissue|revoke/...` | **implemented** | gate pastoral |
+| POST `/credentials/issue\|reissue\|revoke/...` | **implemented** | gate pastoral |
+| POST/GET `/credentials/:id/pdf` (+ `pdf-meta`) | **implemented** | QR opaco, sem CPF |
 | GET `/credentials/verify/:opaqueToken` | **implemented** | público + rate limit |
 
 ## Auditoria
 
 | Método | Path | Papéis | Status |
 |--------|------|--------|--------|
-| GET | `/audit-logs?limit=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** |
+| GET | `/audit-logs?limit=&churchId=&scope=` | SECRETARIA, PASTOR, PLATFORM_ADMIN | **implemented** (`churchId` nullable em scope=organization) |
 
 ## Transferências / cartas (F2 completo)
 
@@ -100,18 +106,11 @@ Tipos: PDF/JPEG/PNG ≤ 5 MiB. Storage privado (`STORAGE_ROOT`) — **sem URL p�
 | GET/POST | `/discipleship/tracks`, `/discipleship/enrollments` | líder/secretaria/pastor | **implemented** |
 | GET/POST | `/small-groups` (+ members/meetings) | líder/secretaria/pastor | **implemented** |
 | GET/POST | `/ministries`, `/rosters` (+ slots/assignments) | líder/secretaria/pastor | **implemented** |
-| GET/PATCH | `/ministries/:id` (+ publish/archive) | líder **só próprio** ministry | **implemented** (0.4.0-portal) |
+| GET/PATCH | `/ministries/:id` (+ publish/archive) | líder **só próprio** ministry | **implemented** |
 
-## Portal público (0.5.0-portal) — ver handoff dedicado
+## Portal público — ver handoff dedicado
 
 Detalhe FE: **`docs/handoff-frontend-portal-publico.md`**
-
-| Método | Path | Status |
-|--------|------|--------|
-| GET | `/public/home`, `/public/ministries`, `/public/ministries/:slug` | **implemented** |
-| GET | `/public/events`, `/public/events/:slug`, `/public/content/:slug` | **implemented** |
-| POST | `/public/volunteer-interests` | **implemented** (rate-limit) |
-| CRUD | `/events`, `/cms/contents`, `/volunteer-interests` | **implemented** |
 
 ## Pendente / precisa aprovação
 
@@ -119,10 +118,8 @@ Detalhe FE: **`docs/handoff-frontend-portal-publico.md`**
 |------|--------|
 | URL HML HTTPS pública | **pendente autorização** (`TBD` no runbook) |
 | Object storage gerenciado (S3) | arquitetura local pronta; migração cloud pendente |
-| OIDC/MFA | hooks implemented (TOTP local + OIDC config); IdP live ainda proposed |
-| PDF carteirinha | `POST/GET /credentials/:id/pdf` (+ `pdf-meta`) — QR opaco, sem CPF |
-| FE consumindo 0.5.1-pdf-mfa | ChatGPT / `apps/web` |
-| F4 finanças / F5 canais-IA | fora do portal |
+| OIDC IdP live / MFA hard gate no login | hooks **implemented**; live ainda fora |
+| FE consumindo `0.7.2-f2` | ChatGPT / `apps/web` (fora deste PR) |
 
 ## Como testar
 

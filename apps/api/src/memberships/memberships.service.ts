@@ -43,6 +43,8 @@ export class MembershipsService {
             email: true,
             status: true,
             householdId: true,
+            kind: true,
+            isMinor: true,
           },
         },
         credentials: {
@@ -151,6 +153,8 @@ export class MembershipsService {
             email: true,
             status: true,
             householdId: true,
+            kind: true,
+            isMinor: true,
           },
         },
       },

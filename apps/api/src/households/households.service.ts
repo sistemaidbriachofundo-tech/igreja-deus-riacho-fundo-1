@@ -33,13 +33,24 @@ export class HouseholdsService {
     const memberIds = [...new Set(input.memberPersonIds ?? [])];
 
     return this.prisma.$transaction(async (tx) => {
+      let persons: Array<{
+        id: string;
+        displayName: string;
+        isMinor: boolean;
+      }> = [];
+
       if (memberIds.length) {
         const found = await tx.person.findMany({
           where: {
             id: { in: memberIds },
             organizationId: pilot.organizationId,
           },
-          select: { id: true, isMinor: true, legalGuardianPersonId: true },
+          select: {
+            id: true,
+            displayName: true,
+            isMinor: true,
+            legalGuardianPersonId: true,
+          },
         });
         if (found.length !== memberIds.length) {
           throw new BadRequestException(
@@ -53,6 +64,11 @@ export class HouseholdsService {
             );
           }
         }
+        persons = found.map((p) => ({
+          id: p.id,
+          displayName: p.displayName,
+          isMinor: p.isMinor,
+        }));
       }
 
       const household = await tx.household.create({
@@ -82,14 +98,7 @@ export class HouseholdsService {
         },
       });
 
-      return {
-        id: household.id,
-        label: household.label,
-        churchId: household.churchId,
-        organizationId: household.organizationId,
-        memberPersonIds: memberIds,
-        createdAt: household.createdAt.toISOString(),
-      };
+      return this.toDto({ ...household, persons });
     });
   }
 

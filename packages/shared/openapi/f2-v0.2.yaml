@@ -1,12 +1,13 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.1-vivi
+  version: 0.7.2-f2
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
 
     - `x-implementation: implemented` — disponível na API Nest
+    - `x-implementation: proposed` — contrato acordado; backend ainda não entrega (hoje: **0** no mapa F2)
     - 0.2.1–0.2.3: pessoas, famílias, docs, meta, audit, list households
     - 0.3.0-f3: transferências, cartas versionadas, pastoral, discipulado, células, escalas
     - 0.4.0-portal: perfil público Ministry, eventos portal, GET /public/*
@@ -21,6 +22,8 @@ info:
       e `POST /vivi/chat` (staff); providers Manus Forge (default) | Gemini (`GEMINI_API_KEY` só no BE);
       auditoria de uso sem armazenar prompt completo; retrieval estruturado do CMS/portal publicado
       (sem RAG default); campos aditivos opcionais `sources`/`promptVersion`/`knowledgeMiss` (backward-compat)
+    - 0.7.2-f2: fechamento F2 — `auth.login` audit, `POST /admissions/:id/cancel`,
+      `DELETE /admissions/:id/documents/:documentId`, polish Person/Audit/Meta schemas
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -100,6 +103,8 @@ components:
         grants:
           type: array
           items: { $ref: "#/components/schemas/AuthGrant" }
+        organizationId: { type: string, nullable: true, description: Contexto ativo F6 (default RF1) }
+        churchId: { type: string, nullable: true, description: Congregação ativa no JWT }
     LoginRequest:
       type: object
       required: [email, password]
@@ -133,13 +138,17 @@ components:
         householdId: { type: string, nullable: true }
         kind: { type: string, enum: [VISITOR, MEMBER] }
         isMinor: { type: boolean }
+        legalGuardianPersonId:
+          type: string
+          nullable: true
+          description: Obrigatório quando isMinor=true (detalhe/dossiê)
     MetaResponse:
       type: object
       required: [app, slug, contractVersion, apiPathPrefix, pilot, endpoints, hmlPublicUrl, notes]
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.2.3-f2 }
+        contractVersion: { type: string, example: 0.7.2-f2 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
@@ -166,7 +175,12 @@ components:
       type: object
       required: [churchId, logs]
       properties:
-        churchId: { type: string }
+        organizationId: { type: string }
+        churchId:
+          type: string
+          nullable: true
+          description: Null quando scope=organization (PLATFORM_ADMIN org-wide)
+        scope: { type: string, enum: [church, organization] }
         logs:
           type: array
           items: { $ref: "#/components/schemas/AuditLogEntry" }
@@ -950,6 +964,8 @@ paths:
                       email: carla.demo@example.test
                       status: ACTIVE
                       householdId: hh_demo
+                      kind: VISITOR
+                      isMinor: false
                     score: 0.94
                     matchReasons: [displayName, email]
 
@@ -1147,6 +1163,40 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Admission" }
+
+  /admissions/{admissionId}/cancel:
+    post:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Cancelar protocolo em andamento (SECRETARIA)
+      description: |
+        Status → CANCELLED. Não reabre APPROVED/REJECTED/CANCELLED (`ADMISSION_CLOSED`).
+        REJECT via `/advance` permanece para alçadas secretaria/pastor.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: { type: string }
+      responses:
+        "200":
+          description: Protocolo cancelado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Admission" }
+        "409":
+          description: Protocolo já encerrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
 
   /admissions/{admissionId}/advance:
     post:
@@ -1390,6 +1440,38 @@ paths:
             application/pdf: {}
             image/jpeg: {}
             image/png: {}
+    delete:
+      tags: [admissions]
+      x-implementation: implemented
+      summary: Remover documento (SECRETARIA) — metadados + bytes privados
+      description: Hard delete + `storage.remove`. Auditoria `admission_document.delete` sem PII.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: admissionId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Confirmação
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, id, admissionId]
+                properties:
+                  deleted: { type: boolean, enum: [true] }
+                  id: { type: string }
+                  admissionId: { type: string }
+        "404":
+          description: Documento ou protocolo inexistente
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
 
   /transfers:
     get:

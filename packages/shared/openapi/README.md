@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.1-vivi` | Contrato BE↔FE consolidado DAS + Vivi IA (Manus/Gemini gateway) |
+| `f2-v0.2.yaml` | `0.7.2-f2` | Contrato BE↔FE consolidado DAS + Vivi + fechamento F2 (login audit / cancel / docs delete) |
 
 ## Como o FE consome
 

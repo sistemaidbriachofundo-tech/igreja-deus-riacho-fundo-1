@@ -53,6 +53,8 @@ export interface PersonSummaryDto {
   householdId: string | null;
   kind?: string;
   isMinor?: boolean;
+  /** Presente no detalhe GET /persons/:id e no dossiê. */
+  legalGuardianPersonId?: string | null;
 }
 
 export interface MembershipDto {

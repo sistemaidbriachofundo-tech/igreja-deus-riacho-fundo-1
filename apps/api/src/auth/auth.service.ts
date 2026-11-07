@@ -55,6 +55,12 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<TokenPair> {
     const email = input.email.trim().toLowerCase();
+    const emailFingerprint = createHash("sha256")
+      .update(email, "utf8")
+      .digest("hex")
+      .slice(0, 16);
+    const pilot = await this.pilot.getPilotChurch();
+
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
@@ -68,16 +74,29 @@ export class AuthService {
     });
 
     if (!user || user.status !== "ACTIVE") {
+      await this.writeLoginAudit({
+        actorUserId: null,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        action: "auth.login_failed",
+        metadata: { reason: "invalid_user", emailFingerprint },
+      });
       throw new UnauthorizedException("Credenciais inválidas");
     }
 
     if (!(await verifyPassword(input.password, user.passwordHash))) {
+      await this.writeLoginAudit({
+        actorUserId: user.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        action: "auth.login_failed",
+        metadata: { reason: "invalid_password", emailFingerprint },
+      });
       throw new UnauthorizedException("Credenciais inválidas");
     }
 
     const personId = assertPersonId(user.personId);
     const grants = mapGrants(user.grants);
-    const pilot = await this.pilot.getPilotChurch();
     const active = resolveDefaultActiveContext(grants, pilot);
 
     const authUser: AuthUser = {
@@ -92,6 +111,19 @@ export class AuthService {
     const mfaEnabled = user.mfaFactors.length > 0;
     const mfaRequired = user.mfaRequired;
 
+    await this.writeLoginAudit({
+      actorUserId: user.id,
+      organizationId: active.organizationId,
+      churchId: active.churchId,
+      action: "auth.login",
+      metadata: {
+        emailFingerprint,
+        mfaEnabled,
+        mfaRequired,
+        // sem senha / sem e-mail em claro
+      },
+    });
+
     return {
       ...this.issueTokenPair(authUser),
       /** Hint MFA — challenge hard ainda não bloqueia JWT neste contrato. */
@@ -102,6 +134,32 @@ export class AuthService {
         oidcLive: false as const,
       },
     };
+  }
+
+  /** Auditoria de login sem PII (e-mail só como fingerprint curto). */
+  private async writeLoginAudit(input: {
+    actorUserId: string | null;
+    organizationId: string | null;
+    churchId: string | null;
+    action: "auth.login" | "auth.login_failed";
+    metadata: {
+      emailFingerprint: string;
+      reason?: string;
+      mfaEnabled?: boolean;
+      mfaRequired?: boolean;
+    };
+  }): Promise<void> {
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: input.actorUserId,
+        action: input.action,
+        resourceType: "auth",
+        resourceId: input.actorUserId,
+        organizationId: input.organizationId,
+        churchId: input.churchId,
+        metadata: input.metadata,
+      },
+    });
   }
 
   /**

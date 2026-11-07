@@ -76,7 +76,12 @@ describe("HouseholdsService", () => {
     const tx = buildTx({
       person: {
         findMany: jest.fn().mockResolvedValue([
-          { id: "p1", isMinor: false, legalGuardianPersonId: null },
+          {
+            id: "p1",
+            displayName: "Ana Demo",
+            isMinor: false,
+            legalGuardianPersonId: null,
+          },
         ]),
         updateMany: jest.fn(),
       },
@@ -98,6 +103,9 @@ describe("HouseholdsService", () => {
     });
     expect(result.id).toBe("h1");
     expect(result.memberPersonIds).toEqual(["p1"]);
+    expect(result.members).toEqual([
+      { id: "p1", displayName: "Ana Demo", isMinor: false },
+    ]);
     expect(tx.person.updateMany).toHaveBeenCalled();
     expect(tx.auditLog.create).toHaveBeenCalled();
   });

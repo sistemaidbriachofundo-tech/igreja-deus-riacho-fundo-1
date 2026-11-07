@@ -148,6 +148,53 @@ export class AdmissionDocumentsService {
     };
   }
 
+  /** Remove metadados + bytes privados (SECRETARIA). Sem soft-delete neste contrato. */
+  async remove(actor: AuthUser, admissionId: string, documentId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    if (
+      !canManageAdmissions(actor.grants, {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      })
+    ) {
+      throw new ForbiddenException("Somente secretaria pode remover documentos");
+    }
+    await this.requireAdmission(admissionId, pilot);
+
+    const row = await this.prisma.admissionDocument.findFirst({
+      where: {
+        id: documentId,
+        admissionId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException("Documento não encontrado");
+    }
+
+    await this.prisma.admissionDocument.delete({ where: { id: row.id } });
+    await this.storage.remove(row.storageKey);
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "admission_document.delete",
+        resourceType: "admission_document",
+        resourceId: row.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: {
+          admissionId,
+          contentType: row.contentType,
+          byteSize: row.byteSize,
+        },
+      },
+    });
+
+    return { deleted: true as const, id: row.id, admissionId };
+  }
+
   private assertCanRead(
     actor: AuthUser,
     organizationId: string,
