@@ -16,11 +16,13 @@ export function riachinhoPublicEnabled(
 export function parseRiachinhoStatus(value: unknown): ViviStatusResponse | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const data = value as Partial<ViviStatusResponse>;
-  if (data.assistant !== "vivi" || data.displayName !== "Riachinho") return null;
+  if (data.assistant !== "vivi") return null;
+  // HML may serve contract 0.7.1 without the optional product displayName.
+  if (data.displayName !== undefined && data.displayName !== "Riachinho") return null;
   if (!["manus", "gemini", "mock"].includes(String(data.provider))) return null;
   if (typeof data.model !== "string" || !data.model.trim()) return null;
   if (typeof data.lgpdNotice !== "string" || !data.lgpdNotice.trim()) return null;
-  return data as ViviStatusResponse;
+  return { ...data, displayName: "Riachinho" } as ViviStatusResponse;
 }
 
 export function riachinhoProviderReady(status: ViviStatusResponse | null): boolean {
