@@ -116,6 +116,12 @@ jobs:
           # Somente o build de main recebe o chat público e a URL da API.
           NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
           NEXT_PUBLIC_API_URL: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'https://id-riacho1-api-hml.vercel.app' || '' }}
+          # Em /app/ o modo HML exige login real e exibe apenas registros sintéticos
+          # persistidos no banco de homologação. Não habilitar cadastros reais.
+          NEXT_PUBLIC_HML_ENABLED: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          # O seed da API contém eventos/avisos "(demo)". Nunca publicá-los
+          # automaticamente como agenda ou notícias oficiais.
+          NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
         run: |
           for attempt in 1 2 3; do
             if npm run build -w @idbrf/web; then
