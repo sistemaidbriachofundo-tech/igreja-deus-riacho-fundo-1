@@ -126,6 +126,12 @@ function intentPrompt(intent: Intent, layout: SiteLayout): { text: string; targe
   };
 }
 
+export function hasActiveRiachinhoProvider(status: Status | null): boolean {
+  return Boolean(status &&
+    ((status.provider === "manus" && status.manusUrlConfigured && status.manusKeyConfigured) ||
+      (status.provider === "gemini" && status.geminiKeyConfigured)));
+}
+
 export function ViviEditorialAssistant({
   token,
   layout,
@@ -182,13 +188,9 @@ export function ViviEditorialAssistant({
     el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
-  const realAi = Boolean(
-    status &&
-      ((status.provider === "manus" && status.manusUrlConfigured && status.manusKeyConfigured) ||
-        (status.provider === "gemini" && status.geminiKeyConfigured)),
-  );
-  const apiOk = Boolean(status) && !statusError;
-  const canSend = apiOk && consent && !busy;
+  const realAi = hasActiveRiachinhoProvider(status);
+  // Não enviar nem apresentar respostas simuladas como geração por IA real.
+  const canSend = realAi && !statusError && consent && !busy;
 
   async function ask(nextIntent: Intent, freeText?: string) {
     if (!canSend) return;
@@ -252,6 +254,10 @@ export function ViviEditorialAssistant({
         },
       ]);
     } catch (err) {
+      // Uma falha do backend não deve apagar o pedido digitado pelo operador.
+      if (nextIntent === "livre" && freeText) {
+        setDraft((current) => current.trim() || freeText);
+      }
       setError(err instanceof Error ? err.message : "Assistente indisponível.");
     } finally {
       setBusy(false);
@@ -314,7 +320,7 @@ export function ViviEditorialAssistant({
       {!statusError && status && !realAi && (
         <p className={s.warning}>
           O Riachinho está conectado à API, mas ainda utiliza um provedor simulado neste ambiente.
-          Para sugestões reais, um administrador deve configurar <code>GEMINI_API_KEY</code> ou{" "}
+          O envio fica bloqueado até um modelo real ser ativado e validado. Para sugestões reais, um administrador deve configurar <code>GEMINI_API_KEY</code> ou{" "}
           <code>MANUS_API_KEY</code> + <code>MANUS_FORGE_URL</code> no servidor (Vercel HML). Não
           coloque chaves no navegador.
         </p>
@@ -392,7 +398,7 @@ export function ViviEditorialAssistant({
           placeholder="Pergunte ao Riachinho ou peça um ajuste específico…"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && draft.trim()) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSend && draft.trim()) {
               e.preventDefault();
               const text = draft.trim();
               setDraft("");
@@ -415,7 +421,7 @@ export function ViviEditorialAssistant({
           >
             {busy ? "Consultando o Riachinho…" : "Enviar"}
           </button>
-          <span className={s.privacy}>Enter+Ctrl envia · nada é publicado automaticamente</span>
+          <span className={s.privacy}>Ctrl+Enter ou Cmd+Enter envia quando a IA estiver ativa · nada é publicado automaticamente</span>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import { PortalFaithGallery } from "../components/PortalFaithGallery";
 import { PortalHomeSections } from "../components/PortalHomeSections";
 import { SiteManager } from "../components/SiteManager";
 import { SiteMediaLibrary } from "../components/SiteMediaLibrary";
-import { ViviEditorialAssistant } from "../components/ViviEditorialAssistant";
+import { ViviEditorialAssistant, hasActiveRiachinhoProvider } from "../components/ViviEditorialAssistant";
 import { PublishedSiteLayoutProvider } from "./use-published-site-layout";
 
 describe("Gestão do Site — editor visual",()=>{
@@ -47,6 +47,25 @@ describe("Gestão do Site — editor visual",()=>{
     expect(html).toContain('type="file"');
     expect(html).toContain("autorização");
   });
+  it("enables the Riachinho only when the backend reports a configured real model", () => {
+    expect(hasActiveRiachinhoProvider(null)).toBe(false);
+    expect(hasActiveRiachinhoProvider({
+      assistant:"vivi", provider:"mock", model:"mock-vivi-idbrf", lgpdNotice:"",
+    })).toBe(false);
+    expect(hasActiveRiachinhoProvider({
+      assistant:"vivi", provider:"gemini", model:"gemini-2.5-flash-lite", lgpdNotice:"",
+      geminiKeyConfigured:false,
+    })).toBe(false);
+    expect(hasActiveRiachinhoProvider({
+      assistant:"vivi", provider:"gemini", model:"gemini-2.5-flash-lite", lgpdNotice:"",
+      geminiKeyConfigured:true,
+    })).toBe(true);
+    expect(hasActiveRiachinhoProvider({
+      assistant:"vivi", provider:"manus", model:"manus", lgpdNotice:"",
+      manusUrlConfigured:true, manusKeyConfigured:false,
+    })).toBe(false);
+  });
+
   it("connects the Riachinho panel without inventing a live AI provider",()=>{
     const html=renderToStaticMarkup(<ViviEditorialAssistant token="demo-token" layout={defaultSiteLayout}/>);
     expect(html).toContain("Riachinho");

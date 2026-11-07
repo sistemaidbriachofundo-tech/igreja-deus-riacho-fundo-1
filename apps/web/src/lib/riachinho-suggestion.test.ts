@@ -29,6 +29,28 @@ describe("parseRiachinhoSuggestion", () => {
     expect(parsed?.alts).toEqual(["Pessoa em louvor.", "Jovens no palco."]);
   });
 
+  it("preserves explicit positions for sparse photo alt suggestions", () => {
+    const parsed = parseRiachinhoSuggestion(
+      "Alt 2: Dois adolescentes no palco.\nAlt 4: Pessoa falando ao microfone.",
+      "alts",
+    );
+    expect(parsed?.target).toBe("alts");
+    expect(parsed?.alts).toEqual([
+      null,
+      "Dois adolescentes no palco.",
+      null,
+      "Pessoa falando ao microfone.",
+    ]);
+    const original = ["Foto 1", "Foto 2", "Foto 3", "Foto 4"];
+    const applied = original.map((alt, i) => parsed?.alts?.[i] ?? alt);
+    expect(applied).toEqual([
+      "Foto 1",
+      "Dois adolescentes no palco.",
+      "Foto 3",
+      "Pessoa falando ao microfone.",
+    ]);
+  });
+
   it("returns null when there are no structured fields", () => {
     expect(parseRiachinhoSuggestion("Olá! Eu sou o Riachinho.")).toBeNull();
   });
