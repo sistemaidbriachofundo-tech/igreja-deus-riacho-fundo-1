@@ -53,6 +53,7 @@ export function MemberDirectory(){
   const [notes,setNotes]=useState("");
   const [modality,setModality]=useState<Modality>("BATISMO");
   const [notice,setNotice]=useState("");
+  const [resetPending,setResetPending]=useState(false);
   const perPage=view==="GRID"?9:10;
   const stats=useMemo(()=>summarize(members),[members]);
   const filtered=useMemo(()=>{
@@ -95,13 +96,14 @@ export function MemberDirectory(){
   function clear(){
     reset();setSelectedId("RF1-0001");setInspectorOpen(false);setPage(1);setQuery("");setFilter("ALL");
     setNotice("Base sintética restaurada. Nenhum dado oficial foi alterado.");
+    setResetPending(false);
   }
 
   return <AppShell active="membros" meta="Membros e famílias">
     <div className={s.page}>
       <header className={s.pageHeader}>
         <div className={s.headingContent}>
-          <span className={s.eyebrow}><span/> PESSOAS & RELACIONAMENTOS / 2026</span>
+          <span className={s.eyebrow}><span/> PESSOAS & RELACIONAMENTOS</span>
           <h1>Pessoas fazem a <em>igreja.</em></h1>
           <p>Uma visão viva de cada história, família e jornada de pertencimento.</p>
         </div>
@@ -125,19 +127,27 @@ export function MemberDirectory(){
         <section className={s.listPanel} aria-labelledby="people-title">
           <div className={s.panelHeader}><div><span className={s.panelKicker}>DIRETÓRIO CENTRAL</span><h2 id="people-title">Sua comunidade <span>{filtered.length}</span></h2><p>Todos os registros acessíveis neste ambiente de avaliação.</p></div>
             <div className={s.panelHeaderButtons}>
-              <button type="button" aria-label="Restaurar base de avaliação" title="Restaurar base de avaliação" onClick={clear}><UIIcon name="refresh" size={17}/></button>
+              <button type="button" aria-label="Restaurar base de avaliação" title="Restaurar base de avaliação" aria-expanded={resetPending} aria-controls="confirmar-restauracao" onClick={()=>setResetPending(pending=>!pending)}><UIIcon name="refresh" size={17}/></button>
               <span className={s.viewSwitch} role="group" aria-label="Alternar visualização">
                 <button type="button" className={view==="LIST"?s.viewActive:""} aria-label="Visualização em lista" aria-pressed={view==="LIST"} onClick={()=>{setView("LIST");setPage(1);}}><UIIcon name="layers" size={16}/></button>
                 <button type="button" className={view==="GRID"?s.viewActive:""} aria-label="Visualização em galeria" aria-pressed={view==="GRID"} onClick={()=>{setView("GRID");setPage(1);}}><UIIcon name="grid" size={16}/></button>
               </span>
             </div>
           </div>
+          {resetPending&&<div id="confirmar-restauracao" className={s.resetConfirm} role="group" aria-label="Confirmação de restauração de dados sintéticos">
+            <UIIcon name="shield" size={22}/>
+            <div><strong>Restaurar os dados de demonstração?</strong><p>Isso descarta cadastros, anotações e alterações desta base fictícia no seu navegador. Nenhum registro oficial da igreja será alterado.</p></div>
+            <div className={s.resetConfirmActions}>
+              <button type="button" onClick={()=>setResetPending(false)}>Cancelar</button>
+              <button type="button" onClick={clear}>Restaurar dados fictícios</button>
+            </div>
+          </div>}
           <div className={s.controls}>
             <label className={s.search}><UIIcon name="search" size={18}/><input aria-label="Buscar pessoa, família ou ministério" placeholder="Buscar pessoas, famílias e ministérios..." value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/></label>
             <label className={s.sort}><span>Ordenar:</span><select value={sort} onChange={e=>setSort(e.target.value as typeof sort)} aria-label="Ordenar pessoas"><option value="NAME">Nome A–Z</option><option value="RECENT">Mais recentes</option></select></label>
           </div>
           <div className={s.filters} role="group" aria-label="Situação da membresia">
-            {FILTERS.map(x=><button type="button" key={x.key} className={filter===x.key?s.activeFilter:s.filter} onClick={()=>{setFilter(x.key);setPage(1);}}>{x.label}</button>)}
+            {FILTERS.map(x=><button type="button" key={x.key} className={filter===x.key?s.activeFilter:s.filter} aria-pressed={filter===x.key} onClick={()=>{setFilter(x.key);setPage(1);}}>{x.label}</button>)}
           </div>
 
           {view==="LIST"?

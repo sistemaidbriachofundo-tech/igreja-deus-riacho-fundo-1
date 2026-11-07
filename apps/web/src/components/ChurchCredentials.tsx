@@ -60,7 +60,7 @@ export function ChurchCredentials(){
               <div className={s.identityTop}><div className={s.brandGroup}>
                 <span className={s.brandLogo} style={{backgroundImage:`url("${withBasePath("/images/logo-igreja-aprovada.webp")}")`}} role="img" aria-label="Logomarca da Igreja de Deus"/>
                 <span><strong>IGREJA DE DEUS</strong><small>NO RIACHO FUNDO I</small></span>
-              </div><span className={s.identityEdition}>MEMBRESIA / 2026</span></div>
+              </div><span className={s.identityEdition}>MEMBRESIA / DEMONSTRAÇÃO</span></div>
               <div className={s.identityCenter}>
                 <span className={s.cardOverline}>IDENTIFICAÇÃO ECLESIÁSTICA</span>
                 <div className={s.identityProfile}><Photo person={selected} wide/><span><strong>{selected.name}</strong><small>{selected.family}</small><em>Membro da congregação</em></span></div>
@@ -91,11 +91,11 @@ export function ChurchCredentials(){
         <div className={s.directoryControls}>
           <label className={s.search}><UIIcon name="search" size={18}/><input placeholder="Buscar por nome, família ou matrícula" aria-label="Pesquisar carteirinhas" value={query} onChange={e=>setQuery(e.target.value)}/></label>
           <div className={s.filterGroup} role="group" aria-label="Filtrar carteirinhas">
-            {([{id:"ALL",label:"Todas"},{id:"ACTIVE",label:"Ativas"},{id:"PENDING",label:"Pendentes"}] as const).map(opt=><button type="button" key={opt.id} className={filter===opt.id?s.filterActive:s.filter} onClick={()=>setFilter(opt.id)}>{opt.label}</button>)}
+            {([{id:"ALL",label:"Todas"},{id:"ACTIVE",label:"Ativas"},{id:"PENDING",label:"Pendentes"}] as const).map(opt=><button type="button" key={opt.id} className={filter===opt.id?s.filterActive:s.filter} aria-pressed={filter===opt.id} onClick={()=>setFilter(opt.id)}>{opt.label}</button>)}
           </div>
         </div>
         <div className={s.directoryGrid}>
-          {visible.map(person=><button key={person.id} type="button" onClick={()=>{setSelectedId(person.id);setNotice("");window.scrollTo({top:0,behavior:"smooth"});}} className={selected?.id===person.id?s.personSelected:s.person}>
+          {visible.map(person=><button key={person.id} type="button" onClick={()=>{setSelectedId(person.id);setNotice("");window.scrollTo({top:0,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});}} className={selected?.id===person.id?s.personSelected:s.person}>
             <Photo person={person}/><span><strong>{person.name}</strong><small>{person.id} · {person.family}</small></span><span className={person.card==="ACTIVE"?s.activeBadge:s.pendingBadge}><i/>{stateText(person)}</span><UIIcon name="chevron" size={18}/>
           </button>)}
           {visible.length===0&&<p className={s.empty}>Nenhuma carteirinha corresponde aos filtros informados.</p>}
