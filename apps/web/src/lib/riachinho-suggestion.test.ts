@@ -26,7 +26,18 @@ describe("parseRiachinhoSuggestion", () => {
       "gallery",
     );
     expect(parsed?.target).toBe("alts");
-    expect(parsed?.alts).toEqual(["Pessoa em louvor.", "Jovens no palco."]);
+    expect(parsed?.alts).toEqual(["Pessoa em louvor.", "Jovens no palco.", undefined, undefined]);
+  });
+
+  it("keeps numbered alt text attached to its original photo slot", () => {
+    const parsed = parseRiachinhoSuggestion("Alt 3: Jovens reunidos.", "alts");
+    expect(parsed?.target).toBe("alts");
+    expect(parsed?.alts).toEqual([undefined, undefined, "Jovens reunidos.", undefined]);
+  });
+
+  it("does not reorder numbered alt text when it arrives out of order", () => {
+    const parsed = parseRiachinhoSuggestion("Alt 4: Culto.\\nAlt 2: Oração.".replace("\\\\n", "\\n"), "alts");
+    expect(parsed?.alts).toEqual([undefined, "Oração.", undefined, "Culto."]);
   });
 
   it("returns null when there are no structured fields", () => {
