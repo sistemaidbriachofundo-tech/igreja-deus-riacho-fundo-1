@@ -1143,5 +1143,128 @@ describe("ChannelsService", () => {
         sourceId: "missing",
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      build({}).resendOutbox(secretaria, {
+        sourceType: "  ",
+        sourceId: "a1:confirm",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("soft-fails roster alert on bad channel and covers alert copy kinds", async () => {
+    const soft = await build({}).enqueueRosterAlert({
+      actor: membro,
+      assignmentId: "a1",
+      kind: "confirm",
+      personId: "p-mem",
+      channel: "SMS" as never,
+    });
+    expect(soft).toEqual({ notified: 0, outbox: [], reused: false });
+
+    const createdRow = {
+      id: "o-new",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      channel: "EMAIL",
+      status: "PENDING",
+      personId: "p-mem",
+      toAddress: "cms-notify+p-mem@example.invalid",
+      templateId: null,
+      templateCode: null,
+      subject: "x",
+      bodyRendered: "body",
+      payload: {},
+      consentCheckedAt: null,
+      providerMessageId: null,
+      lastError: null,
+      attemptCount: 0,
+      nextAttemptAt: now,
+      scheduledAt: null,
+      sentAt: null,
+      deliveredAt: null,
+      sourceType: "roster_assignment",
+      sourceId: "a1:decline",
+      createdByUserId: "u-mem",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const tx = {
+      communicationOutbox: { create: jest.fn().mockResolvedValue(createdRow) },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      communicationOutbox: { findFirst: jest.fn().mockResolvedValue(null) },
+      messageTemplate: { findFirst: jest.fn() },
+      ...withTx(tx),
+    };
+    const service = build(prisma);
+    for (const kind of [
+      "decline",
+      "substitute",
+      "confirm_request",
+    ] as const) {
+      await service.enqueueRosterAlert({
+        actor: membro,
+        assignmentId: "a1",
+        kind,
+        personId: "p-mem",
+        rosterTitle: "  ",
+      });
+    }
+    expect(tx.communicationOutbox.create).toHaveBeenCalled();
+
+    // template path via system enqueue (resend clone with templateCode)
+    const sent = {
+      ...createdRow,
+      id: "o-sent",
+      status: "SENT",
+      templateCode: "roster.confirm",
+      bodyRendered: "old",
+    };
+    const template = {
+      id: "t1",
+      subject: "Sub {{name}}",
+      body: "Body {{name}}",
+    };
+    const cloneTx = {
+      communicationOutbox: {
+        create: jest.fn().mockResolvedValue({ ...createdRow, id: "o-tpl" }),
+      },
+      outboxDeliveryEvent: { create: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    await build({
+      communicationOutbox: { findFirst: jest.fn().mockResolvedValue(sent) },
+      messageTemplate: { findFirst: jest.fn().mockResolvedValue(template) },
+      ...withTx(cloneTx),
+    }).resendOutbox(secretaria, {
+      sourceType: "roster_assignment",
+      sourceId: "a1:decline",
+    });
+    expect(cloneTx.communicationOutbox.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          templateId: "t1",
+          bodyRendered: "Body ",
+        }),
+      }),
+    );
+
+    await expect(
+      build({
+        communicationOutbox: { findFirst: jest.fn().mockResolvedValue(sent) },
+        messageTemplate: { findFirst: jest.fn().mockResolvedValue(null) },
+        ...withTx({
+          communicationOutbox: { create: jest.fn() },
+          outboxDeliveryEvent: { create: jest.fn() },
+          auditLog: { create: jest.fn() },
+        }),
+      }).resendOutbox(secretaria, {
+        sourceType: "roster_assignment",
+        sourceId: "a1:decline",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

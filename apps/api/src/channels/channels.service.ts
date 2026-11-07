@@ -282,34 +282,7 @@ export class ChannelsService {
     const toAddress = input.toAddress?.trim();
     if (!toAddress) throw new BadRequestException("toAddress obrigatório");
 
-    let templateId: string | null = null;
-    const templateCode: string | null =
-      input.templateCode?.trim().toLowerCase() ?? null;
-    let subject = input.subject ?? null;
-    let body = input.body?.trim() ?? "";
-
-    if (templateCode) {
-      const template = await this.prisma.messageTemplate.findFirst({
-        where: {
-          churchId: pilot.churchId,
-          channel: input.channel,
-          code: templateCode,
-          active: true,
-        },
-      });
-      if (!template) {
-        throw new BadRequestException(`Template inativo/ausente: ${templateCode}`);
-      }
-      templateId = template.id;
-      const rawSubject = subject ?? template.subject;
-      subject = rawSubject
-        ? renderTemplate(rawSubject, input.variables ?? {})
-        : null;
-      body = renderTemplate(template.body, input.variables ?? {});
-    }
-
-    if (!body) throw new BadRequestException("body ou templateCode obrigatório");
-
+    const rendered = await this.resolveTemplateContent(pilot.churchId, input);
     let consentCheckedAt: Date | null = null;
     if (input.personId && !input.skipConsentCheck) {
       const ok = await this.hasChannelConsent(
@@ -333,47 +306,17 @@ export class ChannelsService {
       throw new BadRequestException("scheduledAt inválido");
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const row = await tx.communicationOutbox.create({
-        data: {
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          channel: input.channel,
-          status: "PENDING",
-          personId: input.personId ?? null,
-          toAddress,
-          templateId,
-          templateCode,
-          subject,
-          bodyRendered: body,
-          payload: asJson(input.payload ?? {}),
-          consentCheckedAt,
-          scheduledAt,
-          nextAttemptAt: scheduledAt ?? new Date(),
-          sourceType: input.sourceType ?? "manual",
-          sourceId: input.sourceId ?? null,
-          createdByUserId: actor.userId,
-        },
-      });
-      await tx.outboxDeliveryEvent.create({
-        data: {
-          outboxId: row.id,
-          status: "PENDING",
-          providerResponse: asJson({ enqueued: true }),
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "channels.outbox.enqueue",
-          resourceType: "communication_outbox",
-          resourceId: row.id,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          metadata: { channel: row.channel, templateCode },
-        },
-      });
-      return this.outboxDto(row);
+    return this.persistOutbox(actor, pilot, {
+      channel: input.channel,
+      toAddress,
+      personId: input.personId ?? null,
+      ...rendered,
+      payload: input.payload ?? {},
+      consentCheckedAt,
+      scheduledAt,
+      sourceType: input.sourceType ?? "manual",
+      sourceId: input.sourceId ?? null,
+      system: false,
     });
   }
 
@@ -559,7 +502,30 @@ export class ChannelsService {
     this.assertChannel(input.channel);
     const toAddress = input.toAddress?.trim();
     if (!toAddress) throw new BadRequestException("toAddress obrigatório");
+    const rendered = await this.resolveTemplateContent(pilot.churchId, input);
+    return this.persistOutbox(actor, pilot, {
+      channel: input.channel,
+      toAddress,
+      personId: input.personId ?? null,
+      ...rendered,
+      payload: input.payload ?? {},
+      consentCheckedAt: null,
+      scheduledAt: null,
+      sourceType: input.sourceType ?? "system",
+      sourceId: input.sourceId ?? null,
+      system: true,
+    });
+  }
 
+  private async resolveTemplateContent(
+    churchId: string,
+    input: EnqueueInput,
+  ): Promise<{
+    templateId: string | null;
+    templateCode: string | null;
+    subject: string | null;
+    body: string;
+  }> {
     let templateId: string | null = null;
     const templateCode: string | null =
       input.templateCode?.trim().toLowerCase() ?? null;
@@ -569,7 +535,7 @@ export class ChannelsService {
     if (templateCode) {
       const template = await this.prisma.messageTemplate.findFirst({
         where: {
-          churchId: pilot.churchId,
+          churchId,
           channel: input.channel,
           code: templateCode,
           active: true,
@@ -587,26 +553,47 @@ export class ChannelsService {
     }
 
     if (!body) throw new BadRequestException("body ou templateCode obrigatório");
+    return { templateId, templateCode, subject, body };
+  }
 
+  private async persistOutbox(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    data: {
+      channel: CommChannel;
+      toAddress: string;
+      personId: string | null;
+      templateId: string | null;
+      templateCode: string | null;
+      subject: string | null;
+      body: string;
+      payload: Record<string, unknown>;
+      consentCheckedAt: Date | null;
+      scheduledAt: Date | null;
+      sourceType: string;
+      sourceId: string | null;
+      system: boolean;
+    },
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.communicationOutbox.create({
         data: {
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          channel: input.channel,
+          channel: data.channel,
           status: "PENDING",
-          personId: input.personId ?? null,
-          toAddress,
-          templateId,
-          templateCode,
-          subject,
-          bodyRendered: body,
-          payload: asJson(input.payload ?? {}),
-          consentCheckedAt: null,
-          scheduledAt: null,
-          nextAttemptAt: new Date(),
-          sourceType: input.sourceType ?? "system",
-          sourceId: input.sourceId ?? null,
+          personId: data.personId,
+          toAddress: data.toAddress,
+          templateId: data.templateId,
+          templateCode: data.templateCode,
+          subject: data.subject,
+          bodyRendered: data.body,
+          payload: asJson(data.payload),
+          consentCheckedAt: data.consentCheckedAt,
+          scheduledAt: data.scheduledAt,
+          nextAttemptAt: data.scheduledAt ?? new Date(),
+          sourceType: data.sourceType,
+          sourceId: data.sourceId,
           createdByUserId: actor.userId,
         },
       });
@@ -614,7 +601,10 @@ export class ChannelsService {
         data: {
           outboxId: row.id,
           status: "PENDING",
-          providerResponse: asJson({ enqueued: true, system: true }),
+          providerResponse: asJson({
+            enqueued: true,
+            ...(data.system ? { system: true } : {}),
+          }),
         },
       });
       await tx.auditLog.create({
@@ -627,10 +617,14 @@ export class ChannelsService {
           churchId: pilot.churchId,
           metadata: {
             channel: row.channel,
-            templateCode,
-            system: true,
-            sourceType: row.sourceType,
-            sourceId: row.sourceId,
+            templateCode: data.templateCode,
+            ...(data.system
+              ? {
+                  system: true,
+                  sourceType: row.sourceType,
+                  sourceId: row.sourceId,
+                }
+              : {}),
           },
         },
       });

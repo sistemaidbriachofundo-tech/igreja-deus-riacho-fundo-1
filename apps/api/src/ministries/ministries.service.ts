@@ -586,71 +586,51 @@ export class MinistriesService {
   }
 
   async confirmAssignment(actor: AuthUser, assignmentId: string) {
-    const pilot = await this.pilot.getPilotChurch();
-    const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
-    this.assertRosterNotClosed(loaded.roster);
-    this.assertCanRespondOwnOrLead(actor, loaded.assignment.personId, pilot);
-
-    await this.assertNoServiceConflict(
-      pilot.churchId,
-      loaded.roster.serviceAt,
-      [
-        loaded.assignment.personId,
-        loaded.assignment.partnerPersonId,
-      ].filter(Boolean) as string[],
-      assignmentId,
-    );
-
-    const dto = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.rosterAssignment.update({
-        where: { id: assignmentId },
-        data: {
-          status: "CONFIRMED",
-          confirmedAt: new Date(),
-          declinedAt: null,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "roster.assignment.confirm",
-          resourceType: "roster_assignment",
-          resourceId: assignmentId,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-          metadata: {},
-        },
-      });
-      return this.toAssignmentDto(updated);
-    });
-    await this.softRosterAlert(actor, {
-      assignmentId,
-      kind: "confirm",
-      personId: loaded.assignment.personId,
-      rosterTitle: loaded.roster.title,
-    });
-    return dto;
+    return this.respondAssignment(actor, assignmentId, "CONFIRMED");
   }
 
   async declineAssignment(actor: AuthUser, assignmentId: string) {
+    return this.respondAssignment(actor, assignmentId, "DECLINED");
+  }
+
+  private async respondAssignment(
+    actor: AuthUser,
+    assignmentId: string,
+    status: "CONFIRMED" | "DECLINED",
+  ) {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
     this.assertRosterNotClosed(loaded.roster);
     this.assertCanRespondOwnOrLead(actor, loaded.assignment.personId, pilot);
 
+    if (status === "CONFIRMED") {
+      await this.assertNoServiceConflict(
+        pilot.churchId,
+        loaded.roster.serviceAt,
+        [
+          loaded.assignment.personId,
+          loaded.assignment.partnerPersonId,
+        ].filter(Boolean) as string[],
+        assignmentId,
+      );
+    }
+
+    const now = new Date();
     const dto = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.rosterAssignment.update({
         where: { id: assignmentId },
-        data: {
-          status: "DECLINED",
-          declinedAt: new Date(),
-          confirmedAt: null,
-        },
+        data:
+          status === "CONFIRMED"
+            ? { status, confirmedAt: now, declinedAt: null }
+            : { status, declinedAt: now, confirmedAt: null },
       });
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
-          action: "roster.assignment.decline",
+          action:
+            status === "CONFIRMED"
+              ? "roster.assignment.confirm"
+              : "roster.assignment.decline",
           resourceType: "roster_assignment",
           resourceId: assignmentId,
           organizationId: pilot.organizationId,
@@ -662,7 +642,7 @@ export class MinistriesService {
     });
     await this.softRosterAlert(actor, {
       assignmentId,
-      kind: "decline",
+      kind: status === "CONFIRMED" ? "confirm" : "decline",
       personId: loaded.assignment.personId,
       rosterTitle: loaded.roster.title,
     });
