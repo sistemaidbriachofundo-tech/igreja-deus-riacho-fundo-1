@@ -28,7 +28,7 @@ export class MetaController {
         "0.6.0-f6: multi-igreja BE (grants/switch/audit org-wide/indicadores stub); produto default RF1",
         "0.7.1-vivi: assistente Riachinho (rotas /vivi/*; Manus Forge default + Gemini opcional); chaves só no backend",
         "0.7.2-f2: fechamento F2 — login audit, cancel admissão, delete documentos, polish contratos",
-        "0.7.3-das-etapa3: RF-013 roster publish/close + RF-018 bank-line match; RF-001 candidatos/dedupe + RF-006 PDF cartas; RF-010 discipleship stages/progress + RF-011 cell frequency; RF-020/021 inscrição/check-in/pagamento mock; OIDC_NOT_LIVE / MFA challenge notes",
+        "0.7.3-das-etapa3: RF-013 roster publish/close + RF-018 bank-line match; RF-001 candidatos/dedupe + RF-006 PDF cartas; RF-010 discipleship stages/progress + RF-011 cell frequency; RF-020/021 inscrição/check-in/pagamento mock; RF-029 indicadores reais (stub:false); OIDC_NOT_LIVE / MFA challenge notes",
       ],
     };
   }

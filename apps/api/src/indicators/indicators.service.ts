@@ -8,8 +8,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 
 /**
- * Stubs de leitura F6 — indicadores institucionais.
- * Contagens reais mínimas; contrato marcado `stub: true` até dashboards maduros.
+ * RF-029 — indicadores institucionais com agregações Prisma reais.
+ * Sem métricas espirituais / scores de maturidade — só contagens operacionais.
  */
 @Injectable()
 export class IndicatorsService {
@@ -59,7 +59,8 @@ export class IndicatorsService {
     }
 
     return {
-      stub: true as const,
+      stub: false as const,
+      spiritualScoreExcluded: true as const,
       organizationId,
       churchId,
       generatedAt: new Date().toISOString(),
@@ -72,13 +73,29 @@ export class IndicatorsService {
     churchId: string | null,
   ) {
     const churchFilter = churchId ? { churchId } : {};
+    const now = new Date();
+
+    const visitorWhere = {
+      organizationId,
+      kind: "VISITOR" as const,
+      status: "ACTIVE" as const,
+      ...(churchId ? { homeChurchId: churchId } : {}),
+    };
 
     const [
       membershipsActive,
       membershipsPending,
+      visitorsActive,
       admissionsOpen,
       transfersOpen,
       pastoralOpen,
+      ministriesTotal,
+      ministriesPublished,
+      eventsPublished,
+      eventsPublishedUpcoming,
+      rostersDraft,
+      rostersPublished,
+      rosterAssignmentsPending,
     ] = await Promise.all([
       this.prisma.churchMembership.count({
         where: {
@@ -94,6 +111,7 @@ export class IndicatorsService {
           status: "PENDING_ADMISSION",
         },
       }),
+      this.prisma.person.count({ where: visitorWhere }),
       this.prisma.admissionProtocol.count({
         where: {
           organizationId,
@@ -128,10 +146,65 @@ export class IndicatorsService {
           status: { in: ["OPEN", "IN_PROGRESS"] },
         },
       }),
+      this.prisma.ministry.count({
+        where: {
+          organizationId,
+          ...churchFilter,
+          publishStatus: { not: "ARCHIVED" },
+        },
+      }),
+      this.prisma.ministry.count({
+        where: {
+          organizationId,
+          ...churchFilter,
+          publishStatus: "PUBLISHED",
+        },
+      }),
+      this.prisma.portalEvent.count({
+        where: {
+          organizationId,
+          ...churchFilter,
+          status: "PUBLISHED",
+        },
+      }),
+      this.prisma.portalEvent.count({
+        where: {
+          organizationId,
+          ...churchFilter,
+          status: "PUBLISHED",
+          startsAt: { gte: now },
+        },
+      }),
+      this.prisma.roster.count({
+        where: {
+          organizationId,
+          ...churchFilter,
+          status: "DRAFT",
+        },
+      }),
+      this.prisma.roster.count({
+        where: {
+          organizationId,
+          ...churchFilter,
+          status: "PUBLISHED",
+        },
+      }),
+      this.prisma.rosterAssignment.count({
+        where: {
+          status: "PENDING",
+          slot: {
+            roster: {
+              organizationId,
+              ...churchFilter,
+            },
+          },
+        },
+      }),
     ]);
 
     return {
-      stub: true as const,
+      stub: false as const,
+      spiritualScoreExcluded: true as const,
       organizationId,
       churchId,
       scope: churchId ? ("church" as const) : ("organization" as const),
@@ -139,9 +212,17 @@ export class IndicatorsService {
       counts: {
         membershipsActive,
         membershipsPending,
+        visitorsActive,
         admissionsOpen,
         transfersOpen,
         pastoralOpen,
+        ministriesTotal,
+        ministriesPublished,
+        eventsPublished,
+        eventsPublishedUpcoming,
+        rostersDraft,
+        rostersPublished,
+        rosterAssignmentsPending,
       },
     };
   }

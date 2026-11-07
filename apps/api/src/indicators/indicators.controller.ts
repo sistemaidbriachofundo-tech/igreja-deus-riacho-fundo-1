@@ -7,7 +7,7 @@ import { IndicatorsService } from "./indicators.service";
 export class IndicatorsController {
   constructor(private readonly indicators: IndicatorsService) {}
 
-  /** Stub F6 — resumo institucional (leitura). */
+  /** RF-029 — resumo institucional (agregações Prisma reais). */
   @Get("summary")
   summary(
     @CurrentUser() user: AuthUser,
@@ -17,7 +17,7 @@ export class IndicatorsController {
     return this.indicators.summary(user, { churchId, scope });
   }
 
-  /** Stub F6 — membresia por status (leitura). */
+  /** RF-029 — membresia por status (groupBy real). */
   @Get("membership")
   membership(
     @CurrentUser() user: AuthUser,

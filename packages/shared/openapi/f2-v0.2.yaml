@@ -28,6 +28,8 @@ info:
       RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; RF-001 dedupe + RF-006 PDF cartas;
       RF-010 discipleship stages/progress + RF-011 cell frequency report;
       RF-020/021 modalidades, inscrição, check-in e pagamento mock;
+      RF-029 indicadores reais — `GET /indicators/*` com `stub: false` + agregações Prisma
+      (membros, visitantes, admissões, ministérios, eventos, escalas); `spiritualScoreExcluded: true`;
       notes OIDC_NOT_LIVE / MFA challenge
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
@@ -574,6 +576,98 @@ components:
             mode: { type: string, enum: [structured-cms] }
             ragEnabled: { type: boolean, enum: [false] }
             refreshPolicy: { type: string, enum: [live-db-on-each-request] }
+
+    IndicatorsSummary:
+      type: object
+      required:
+        - stub
+        - spiritualScoreExcluded
+        - organizationId
+        - churchId
+        - scope
+        - generatedAt
+        - counts
+      description: |
+        Agregações Prisma operacionais (RF-029). Sem métricas espirituais.
+        Fórmulas (escopo church = filtro `churchId`; organization = org inteira):
+        - membershipsActive = count ChurchMembership status=ACTIVE
+        - membershipsPending = count ChurchMembership status=PENDING_ADMISSION
+        - visitorsActive = count Person kind=VISITOR status=ACTIVE
+          (church: homeChurchId=churchId; org: sem filtro home)
+        - admissionsOpen = count AdmissionProtocol status ∈
+          {DRAFT,AWAITING_DOCUMENTS,AWAITING_SECRETARIA,AWAITING_PASTOR}
+        - transfersOpen = count MembershipTransfer status ∈
+          {DRAFT,AWAITING_ORIGIN,AWAITING_DESTINATION}
+          (church: fromChurchId OU toChurchId)
+        - pastoralOpen = count PastoralCase status ∈ {OPEN,IN_PROGRESS}
+          (contagem operacional de casos — **não** score espiritual)
+        - ministriesTotal = count Ministry publishStatus ≠ ARCHIVED
+        - ministriesPublished = count Ministry publishStatus=PUBLISHED
+        - eventsPublished = count PortalEvent status=PUBLISHED
+        - eventsPublishedUpcoming = eventsPublished com startsAt ≥ now
+        - rostersDraft / rostersPublished = count Roster por status
+        - rosterAssignmentsPending = count RosterAssignment status=PENDING
+          cujo slot.roster está no escopo
+      properties:
+        stub: { type: boolean, enum: [false] }
+        spiritualScoreExcluded: { type: boolean, enum: [true] }
+        organizationId: { type: string }
+        churchId: { type: string, nullable: true }
+        scope: { type: string, enum: [church, organization] }
+        generatedAt: { type: string, format: date-time }
+        counts:
+          type: object
+          required:
+            - membershipsActive
+            - membershipsPending
+            - visitorsActive
+            - admissionsOpen
+            - transfersOpen
+            - pastoralOpen
+            - ministriesTotal
+            - ministriesPublished
+            - eventsPublished
+            - eventsPublishedUpcoming
+            - rostersDraft
+            - rostersPublished
+            - rosterAssignmentsPending
+          properties:
+            membershipsActive: { type: integer, minimum: 0 }
+            membershipsPending: { type: integer, minimum: 0 }
+            visitorsActive: { type: integer, minimum: 0 }
+            admissionsOpen: { type: integer, minimum: 0 }
+            transfersOpen: { type: integer, minimum: 0 }
+            pastoralOpen: { type: integer, minimum: 0 }
+            ministriesTotal: { type: integer, minimum: 0 }
+            ministriesPublished: { type: integer, minimum: 0 }
+            eventsPublished: { type: integer, minimum: 0 }
+            eventsPublishedUpcoming: { type: integer, minimum: 0 }
+            rostersDraft: { type: integer, minimum: 0 }
+            rostersPublished: { type: integer, minimum: 0 }
+            rosterAssignmentsPending: { type: integer, minimum: 0 }
+
+    IndicatorsMembership:
+      type: object
+      required:
+        - stub
+        - spiritualScoreExcluded
+        - organizationId
+        - churchId
+        - generatedAt
+        - byStatus
+      description: |
+        Fórmula: `groupBy ChurchMembership.status` com `_count` onde
+        organizationId + churchId (grant obrigatório). Sem score espiritual.
+      properties:
+        stub: { type: boolean, enum: [false] }
+        spiritualScoreExcluded: { type: boolean, enum: [true] }
+        organizationId: { type: string }
+        churchId: { type: string }
+        generatedAt: { type: string, format: date-time }
+        byStatus:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+          description: Chaves = MembershipStatus (ACTIVE, PENDING_ADMISSION, …)
 
 paths:
   /health:
@@ -3852,10 +3946,13 @@ paths:
     get:
       tags: [indicators]
       x-implementation: implemented
-      summary: Stub F6 — resumo de indicadores (leitura)
+      summary: RF-029 — resumo de indicadores (agregações Prisma)
       description: |
-        Contagens mínimas reais; `stub: true` até dashboards maduros.
-        `scope=organization` só PLATFORM_ADMIN (cross-church).
+        Contagens operacionais reais (`stub: false`, `spiritualScoreExcluded: true`).
+        Fórmulas documentadas no schema `IndicatorsSummary`.
+        Sem métricas espirituais / maturidade / frequência de culto inventada.
+        Escopo default = church do JWT / piloto; `scope=organization` só PLATFORM_ADMIN.
+        RBAC: `canAccessChurch` no churchId solicitado.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: churchId
@@ -3871,13 +3968,16 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/IndicatorsSummary" }
         "403":
-          description: Sem grant
+          description: Sem grant / org-wide sem PLATFORM_ADMIN
 
   /indicators/membership:
     get:
       tags: [indicators]
       x-implementation: implemented
-      summary: Stub F6 — membresia por status (leitura)
+      summary: RF-029 — membresia por status (groupBy real)
+      description: |
+        `stub: false`. Contagem por `MembershipStatus` na congregação.
+        Fórmula no schema `IndicatorsMembership`. Exige grant na church.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: churchId
