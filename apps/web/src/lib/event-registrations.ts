@@ -50,10 +50,7 @@ export function toRegistrationPayload(input:EventRegistrationInput) {
 }
 
 export function canCheckInRegistration(row:DasRecord):boolean {
-  return row.status!=="CANCELLED" && row.status!=="CHECKED_IN"
-    && row.status!=="PENDING_PAYMENT"
-    && (row.paymentStatus==="CONFIRMED_MOCK"||row.paymentStatus==="NOT_REQUIRED"
-      ||row.paymentStatus==="NONE"||row.paymentStatus==="FREE");
+  return row.status==="CONFIRMED" && row.paymentStatus==="CONFIRMED_MOCK";
 }
 
 export function formatMockPrice(amount:unknown):string {
