@@ -11,6 +11,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
   detectSensitiveUserIntent,
+  VIVI_ADMIN_EDITORIAL_ADDENDUM,
   VIVI_SENSITIVE_REFUSAL,
   VIVI_SYSTEM_PROMPT,
 } from "./system-prompt";
@@ -69,7 +70,9 @@ export class ViviService {
   getStatus() {
     const cfg = describeViviProviderConfig();
     return {
+      /** Alias interno estável (rotas `/vivi/*`). */
       assistant: "vivi",
+      displayName: "Riachinho",
       provider: cfg.mode,
       model: cfg.model,
       manusUrlConfigured: cfg.manusUrlConfigured,
@@ -79,6 +82,7 @@ export class ViviService {
       adminRate: this.rateLimit.snapshot("admin", "_status"),
       lgpdNotice: this.lgpdNotice(),
       notes: [
+        "Nome de produto: Riachinho (rotas internas /vivi/*)",
         "Chaves Manus/Gemini só no backend — nunca no FE/Git",
         "Free tier Google Gemini pode treinar com prompts — evite PII",
         "GEMINI_MODEL default: gemini-2.5-flash-lite (ver nota de depreciação no handoff)",
@@ -103,7 +107,7 @@ export class ViviService {
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: "Limite de mensagens da Vivi atingido — aguarde um minuto",
+          message: "Limite de mensagens do Riachinho atingido — aguarde um minuto",
           code: "VIVI_RATE_LIMITED",
         },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -127,7 +131,7 @@ export class ViviService {
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: "Limite admin da Vivi atingido — aguarde",
+          message: "Limite admin do Riachinho atingido — aguarde",
           code: "VIVI_RATE_LIMITED",
         },
         HttpStatus.TOO_MANY_REQUESTS,
@@ -168,9 +172,13 @@ export class ViviService {
     } else {
       const result = await this.provider.chat({
         messages: [
-          { role: "system", content: args.scope === "admin"
-            ? VIVI_SYSTEM_PROMPT + "\nAlém de orientar visitantes, você pode auxiliar a equipe autorizada a REVISAR TEXTO PÚBLICO para o site. Sugira títulos e descrições com linguagem simples, sem inventar fatos, testemunhos, horários ou nomes. Nenhuma sugestão pode publicar conteúdo ou executar ações no sistema."
-            : VIVI_SYSTEM_PROMPT },
+          {
+            role: "system",
+            content:
+              args.scope === "admin"
+                ? VIVI_SYSTEM_PROMPT + VIVI_ADMIN_EDITORIAL_ADDENDUM
+                : VIVI_SYSTEM_PROMPT,
+          },
           ...messages,
         ],
         maxOutputTokens: 1024,

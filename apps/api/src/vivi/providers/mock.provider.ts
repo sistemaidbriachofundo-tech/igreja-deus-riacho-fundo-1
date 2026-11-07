@@ -22,8 +22,8 @@ export class MockViviProvider implements ViviLlmProvider {
       .find((m) => m.role === "user");
     const snippet = (lastUser?.content ?? "").trim().slice(0, 80);
     const content = [
-      "Olá! Sou a Vivi, assistente institucional da Igreja de Deus no Riacho Fundo I.",
-      "Posso ajudar com horários públicos, ministérios do portal e informações gerais do site.",
+      "Olá! Eu sou o Riachinho, assistente institucional da Igreja de Deus no Riacho Fundo I.",
+      "Posso ajudar com horários públicos, ministérios do portal e textos editoriais do site.",
       "Não acesso dados de membros, casos pastorais nem informações pessoais.",
       snippet
         ? `Recebi sua mensagem (demo): «${snippet}${snippet.length >= 80 ? "…" : ""}».`

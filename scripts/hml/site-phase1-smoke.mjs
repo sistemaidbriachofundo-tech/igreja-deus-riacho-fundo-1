@@ -27,7 +27,7 @@ await check("/ready",(s,v)=>s===200&&v?.database==="ok","PostgreSQL online");
 await check("/cms/site-layout",s=>s===401,"Editor não acessível sem autenticação");
 await check("/cms/site-media",s=>s===401,"Biblioteca não acessível sem autenticação");
 await check("/vivi/chat",s=>s===404||s===405||s===401,"Chat de equipe não liberado anonimamente");
-await check("/vivi/status",(s,v)=>s===200&&["mock","gemini","manus"].includes(v?.provider),"Vivi registrada no backend");
+await check("/vivi/status",(s,v)=>s===200&&["mock","gemini","manus"].includes(v?.provider)&&(v?.displayName==="Riachinho"||v?.assistant==="vivi"),"Riachinho registrado no backend (/vivi/status)");
 await check("/public/site-layout",(s,v)=>s===200&&typeof v==="object"&&v!==null&&Object.prototype.hasOwnProperty.call(v,"layout")&&!Object.prototype.hasOwnProperty.call(v,"draft"),"Somente layout publicado exposto");
 if(failures){console.error("HML: "+failures+" verificações falharam");process.exitCode=1}
 else console.log("HML Fase 1: todas as verificações anônimas passaram.");

@@ -453,9 +453,10 @@ components:
         usage: { $ref: "#/components/schemas/ViviChatUsage" }
     ViviStatus:
       type: object
-      required: [assistant, provider, model, manusUrlConfigured, geminiKeyConfigured, lgpdNotice, notes]
+      required: [assistant, displayName, provider, model, manusUrlConfigured, geminiKeyConfigured, lgpdNotice, notes]
       properties:
-        assistant: { type: string, enum: [vivi] }
+        assistant: { type: string, enum: [vivi], description: Alias interno; rotas /vivi/* }
+        displayName: { type: string, enum: [Riachinho], description: Nome de produto exibido ao usuário }
         provider: { type: string, enum: [manus, gemini, mock] }
         model: { type: string }
         manusUrlConfigured: { type: boolean }

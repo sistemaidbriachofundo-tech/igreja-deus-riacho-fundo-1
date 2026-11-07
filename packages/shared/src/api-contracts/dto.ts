@@ -295,7 +295,7 @@ export interface MetaResponse {
   notes: string[];
 }
 
-/** Mensagem de chat da Vivi (FE → API). */
+/** Mensagem de chat do Riachinho (alias interno Vivi; FE → API `/vivi/*`). */
 export interface ViviChatMessageDto {
   role: "user" | "assistant" | "system";
   content: string;
@@ -325,7 +325,10 @@ export interface ViviChatResponse {
 }
 
 export interface ViviStatusResponse {
+  /** Alias interno estável (rotas `/vivi/*`). */
   assistant: "vivi";
+  /** Nome de produto exibido ao usuário. */
+  displayName: "Riachinho";
   provider: "manus" | "gemini" | "mock";
   model: string;
   manusUrlConfigured: boolean;
