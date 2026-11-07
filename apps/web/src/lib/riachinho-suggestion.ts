@@ -5,7 +5,7 @@ export type RiachinhoParsedSuggestion = {
   title?: string;
   accent?: string;
   description?: string;
-  alts?: string[];
+  alts?: Array<string | undefined>;
 };
 
 const FIELD =
@@ -29,7 +29,9 @@ export function parseRiachinhoSuggestion(
 ): RiachinhoParsedSuggestion | null {
   const lines = reply.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const out: RiachinhoParsedSuggestion = { target: preferred };
-  const alts: string[] = [];
+  // Preserve absolute gallery positions: Alt 3 must never overwrite photo 1.
+  const alts: Array<string | undefined> = Array(4).fill(undefined);
+  let nextAltIndex = 0;
 
   for (const line of lines) {
     const match = FIELD.exec(line);
@@ -45,15 +47,14 @@ export function parseRiachinhoSuggestion(
       if (altIndex && altIndex >= 1 && altIndex <= 4) {
         alts[altIndex - 1] = value.slice(0, 220);
       } else {
-        alts.push(value.slice(0, 220));
+        while (nextAltIndex < alts.length && alts[nextAltIndex]) nextAltIndex++;
+        if (nextAltIndex < alts.length) alts[nextAltIndex++] = value.slice(0, 220);
       }
     }
   }
 
   if (alts.some(Boolean)) {
-    out.alts = Array.from({ length: 4 }, (_, i) => alts[i]).filter(
-      (x): x is string => Boolean(x),
-    );
+    out.alts = alts;
     out.target = "alts";
   }
 
