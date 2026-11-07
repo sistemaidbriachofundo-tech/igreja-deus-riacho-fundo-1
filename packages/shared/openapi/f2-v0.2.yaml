@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.4-rf022
+  version: 0.7.4-rf025
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -38,6 +38,10 @@ info:
     - 0.7.4-rf022: hospedagem/alimentação/transporte (opções por evento + capacidade) e
       autorização formal de responsável vinculada à inscrição de menor; check-in bloqueia
       guardian PENDING/REVOKED; `rf022LodgingPending=false` no catálogo público
+    - 0.7.4-rf025: RF-025 push-ready — registry `PushDeviceToken` + stub FCM mock/noop no outbox;
+      `POST/GET /channels/device-tokens`, revoke; consent self `/channels/consents/me`;
+      enqueue PUSH resolve token do registry (`toAddress` opcional) + `POST .../push-fanout`;
+      **sem FCM/WABA live**
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -173,7 +177,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.4-rf022 }
+        contractVersion: { type: string, example: 0.7.4-rf025 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
@@ -4876,11 +4880,44 @@ paths:
         "200":
           description: Template atualizado
 
+  /channels/consents/me:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Lê consentimento do usuário autenticado (self)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Consent DTO (ou defaults false)
+    put:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Upsert opt-in/opt-out do próprio usuário (LGPD self-service)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                whatsappOptIn: { type: boolean }
+                emailOptIn: { type: boolean }
+                pushOptIn: { type: boolean }
+                purposes:
+                  type: array
+                  items: { type: string }
+                source: { type: string }
+                revoke: { type: boolean }
+      responses:
+        "200":
+          description: Consent atualizado
+
   /channels/consents/{personId}:
     get:
       tags: [channels]
       x-implementation: implemented
-      summary: Lê flags de consentimento por pessoa
+      summary: Lê flags de consentimento por pessoa (self ou admin canais)
       security: [{ bearerAuth: [] }]
       parameters:
         - name: personId
@@ -4893,7 +4930,7 @@ paths:
     put:
       tags: [channels]
       x-implementation: implemented
-      summary: Upsert opt-in WhatsApp/e-mail/push
+      summary: Upsert opt-in WhatsApp/e-mail/push (self ou admin canais)
       security: [{ bearerAuth: [] }]
       parameters:
         - name: personId
@@ -4918,6 +4955,67 @@ paths:
       responses:
         "200":
           description: Consent atualizado
+
+  /channels/device-tokens:
+    get:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Lista device tokens FCM registrados (self default; admin pode filtrar personId)
+      description: |
+        RF-025. Registry local — **sem FCM live**. Lista omite o token completo (só `tokenSuffix`).
+        `liveFcm` sempre false.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: personId
+          in: query
+          schema: { type: string }
+        - name: includeRevoked
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Envelope tokens[] + liveFcm false
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Registra ou refresca device token FCM (upsert por church+token)
+      description: |
+        App membro envia token FCM após login. Self = personId omitido.
+        Admin canais pode registrar para outra pessoa. Provider fixo `FCM` (stub).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, platform]
+              properties:
+                token: { type: string, minLength: 8 }
+                platform: { type: string, enum: [ANDROID, IOS, WEB] }
+                personId: { type: string, nullable: true }
+                deviceLabel: { type: string, nullable: true }
+                appId: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Device token DTO (inclui token no registro)
+
+  /channels/device-tokens/{tokenId}/revoke:
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Revoga device token (logout/opt-out de device)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Token com revokedAt
+        "404":
+          description: Token ausente
 
   /channels/outbox:
     get:
@@ -4944,6 +5042,9 @@ paths:
       tags: [channels]
       x-implementation: implemented
       summary: Enfileira mensagem (exige consentimento se personId)
+      description: |
+        PUSH sem `toAddress` + `personId` resolve o device token ativo mais recente.
+        Para todos os devices, use `POST /channels/outbox/push-fanout`. Provider = stub FCM mock/noop.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -4951,10 +5052,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [channel, toAddress]
+              required: [channel]
               properties:
                 channel: { type: string, enum: [WHATSAPP, EMAIL, PUSH] }
-                toAddress: { type: string }
+                toAddress:
+                  type: string
+                  nullable: true
+                  description: Obrigatório exceto PUSH com personId (registry)
                 personId: { type: string, nullable: true }
                 templateCode: { type: string, nullable: true }
                 subject: { type: string, nullable: true }
@@ -4970,6 +5074,43 @@ paths:
       responses:
         "200":
           description: Outbox item PENDING
+        "400":
+          description: DEVICE_TOKEN_REQUIRED | toAddress obrigatório
+        "403":
+          description: CONSENT_REQUIRED
+
+  /channels/outbox/push-fanout:
+    post:
+      tags: [channels]
+      x-implementation: implemented
+      summary: Enfileira PUSH para todos os device tokens ativos da pessoa
+      description: Stub FCM — um outbox por token; `liveFcm` sempre false.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [personId]
+              properties:
+                personId: { type: string }
+                templateCode: { type: string, nullable: true }
+                subject: { type: string, nullable: true }
+                body: { type: string, nullable: true }
+                variables:
+                  type: object
+                  additionalProperties: { type: string }
+                payload: { type: object, additionalProperties: true }
+                sourceType: { type: string }
+                sourceId: { type: string }
+                skipConsentCheck: { type: boolean }
+                scheduledAt: { type: string, format: date-time, nullable: true }
+      responses:
+        "200":
+          description: Envelope { fanout, liveFcm, notified, outbox[] }
+        "400":
+          description: DEVICE_TOKEN_REQUIRED
         "403":
           description: CONSENT_REQUIRED
 
