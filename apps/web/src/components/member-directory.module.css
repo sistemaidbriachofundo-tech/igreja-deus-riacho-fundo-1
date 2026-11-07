@@ -173,3 +173,16 @@
 .stripMetric{border-color:#e1e8e0}
 .mainGrid :is(button,input,select):focus-visible{outline-color:#d8aa60}
 .personSelected{background:#ecf2ed}
+
+/* Explicit, reversible confirmation for resetting local demonstration data. */
+.resetConfirm{display:flex;align-items:center;gap:1rem;padding:1rem 1.1rem;margin:0 0 1rem;border:1px solid #e3ca98;border-radius:14px;background:#fff7e9;color:#6d491b;box-shadow:0 7px 18px #4a26120b}
+.resetConfirm>svg{flex:none;align-self:flex-start;color:#a06d2d}
+.resetConfirm>div:nth-child(2){flex:1;min-width:0}
+.resetConfirm strong{display:block;font:800 .85rem/1.4 var(--font-title)}
+.resetConfirm p{font:.76rem/1.55 var(--font-body);margin:.25rem 0 0;color:#806447}
+.resetConfirmActions{display:flex;gap:.55rem;flex-wrap:wrap;justify-content:flex-end}
+.resetConfirmActions button{border:1px solid #d9be8a;border-radius:9px;background:#fff;color:#654522;padding:.65rem .85rem;font:750 .75rem var(--font-title);cursor:pointer}
+.resetConfirmActions button:last-child{background:#5a3019;color:#fff7e8;border-color:#5a3019}
+.resetConfirmActions button:focus-visible{outline:3px solid #c89748;outline-offset:3px}
+@media(max-width:900px){.resetConfirm{align-items:flex-start;flex-wrap:wrap}.resetConfirmActions{width:100%;justify-content:flex-start}}
+@media(max-width:440px){.resetConfirmActions button{flex:1 1 135px}}
