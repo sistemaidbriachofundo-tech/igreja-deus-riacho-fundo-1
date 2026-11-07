@@ -16,3 +16,8 @@
 .row button:hover{background:#693a1c}.warning,.info,.notice{font-size:12px;line-height:1.65;border-radius:12px;padding:14px 16px;margin:0}
 .warning{color:#7d501a;background:#fff1d9;border:1px solid #ead3a3}.info{color:#635f47;background:#f8f1e5;border:1px solid #e7dbc8}.notice{color:#5b572b;background:#f5f2dd;border:1px solid #ded8b3}
 @media(max-width:650px){.board{padding:17px;border-radius:16px}.form{grid-template-columns:1fr;padding:15px}.row{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions button{flex:1}.wide,.form h3,.form p{grid-column:1}}
+
+.rejectForm{display:flex;gap:8px;align-items:end;flex-wrap:wrap;width:100%;padding:9px 0 0}
+.rejectForm label{min-width:170px;flex:1;display:grid;gap:6px;font-size:11px;color:#856242;font-weight:650}
+.rejectForm input{border:1px solid #ddcbb8;background:#fffefa;color:#432b1e;border-radius:9px;padding:9px 11px;font:inherit;font-size:12px;width:100%}
+.rejectForm button{background:#7e4a32;border-color:#7e4a32}
