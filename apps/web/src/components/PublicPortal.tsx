@@ -8,6 +8,7 @@ import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
 import { PortalButton } from "./PortalButton";
 import { PortalGlyph } from "./PortalGlyph";
+import { RiachinhoPublicChat } from "./RiachinhoPublicChat";
 import d from "./portal-design-system.module.css";
 
 export { s as portalStyles };
@@ -67,7 +68,7 @@ export function PortalFooter() {
 }
 
 export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PortalMotion />{children}<PortalFooter /></div>;
+  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PortalMotion />{children}<PortalFooter /><RiachinhoPublicChat /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {
