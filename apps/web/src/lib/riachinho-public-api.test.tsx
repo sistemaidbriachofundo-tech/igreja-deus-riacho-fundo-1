@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { RiachinhoPublicChat } from "../components/RiachinhoPublicChat";
 import {
   parseRiachinhoAnswer, parseRiachinhoStatus, prepareRiachinhoPublicRequest,
+  requestRiachinhoPublicAnswer,
   riachinhoProviderReady, riachinhoPublicEnabled, riachinhoPublicError,
 } from "./riachinho-public-api";
 
@@ -88,4 +89,59 @@ describe("Riachinho — visitor chat", () => {
       else process.env.NEXT_PUBLIC_API_URL = prevApi;
     }
   });
+  it("posts to the public endpoint only, never sends auth headers or browser credentials", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Como visitar?", "session-test", true);
+    const answer = { reply: "Confira a página Primeira visita.", provider: "gemini", model: "gemini-test", refused: false, lgpdNotice: "LGPD" };
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(answer), { status: 201 }));
+    const result = await requestRiachinhoPublicAnswer("https://id-riacho1-api-hml.vercel.app", request, fetcher);
+    expect(result.reply).toBe(answer.reply);
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://id-riacho1-api-hml.vercel.app/public/vivi/chat",
+      expect.objectContaining({
+        method: "POST",
+        mode: "cors",
+        credentials: "omit",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
+  it("blocks public requests without explicit consent before calling the network", async () => {
+    const request = { ...prepareRiachinhoPublicRequest([], "Olá", "sessao", true), consentAiProcessing: false };
+    const fetcher = vi.fn(async () => new Response("{}"));
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, fetcher))
+      .rejects.toThrow("consentimento");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("never exposes a simulated response as Gemini output", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Olá", "sessao", true);
+    const mockAnswer = { reply: "Texto sintético", provider: "mock", model: "demo", refused: false, lgpdNotice: "LGPD" };
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () =>
+      new Response(JSON.stringify(mockAnswer), { status: 201 }),
+    )).rejects.toThrow("simulação");
+  });
+
+  it("distinguishes rate limit, transport failure and invalid successful bodies", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Olá", "sessao", true);
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () =>
+      new Response(JSON.stringify({ code: "VIVI_RATE_LIMITED" }), { status: 429 }),
+    )).rejects.toThrow("Aguarde");
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () => {
+      throw new Error("network unavailable");
+    })).rejects.toThrow("preservada");
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () =>
+      new Response("<html>not json</html>", { status: 201 }),
+    )).rejects.toThrow("válida");
+  });
+
+  it("refuses insecure API URLs outside local development", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Olá", "sessao", true);
+    const fetcher = vi.fn(async () => new Response("{}"));
+    await expect(requestRiachinhoPublicAnswer("http://invalid.example", request, fetcher))
+      .rejects.toThrow("segura");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
 });
