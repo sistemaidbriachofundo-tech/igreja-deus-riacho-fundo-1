@@ -28,8 +28,8 @@ describe("portal público da igreja", () => {
     expect(home).not.toContain('href="/app/membros/"');
     expect(shell).toContain('>Login</Link>');
     expect(shell).toContain('className={d.headerLogin}');
-    expect(shell).toContain("ambiente de demonstração");
-    expect(shell).toContain("/app/");
+    expect(shell).toContain("abrir tela de e-mail e senha");
+    expect(shell).toContain("/login/");
     expect(appShell).toContain("Membros e famílias");
     expect(appShell).toContain("Estúdio editorial");
     expect(appShell).toContain("Gestão do site");
