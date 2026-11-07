@@ -213,7 +213,7 @@ export function DasOperations() {
   },[session,chosen]);
 
   return <AppShell active="operacao" meta="Operação integrada · DAS">
-    <main className={styles.page}>
+    <div className={styles.page}>
       <div className={styles.breadcrumb}>Gestão institucional <span>/</span> Operação integrada</div>
       <header className={styles.hero}>
         <div><span className={styles.eyebrow}>IGREJA DE DEUS · DAS V1.1</span>
@@ -271,6 +271,6 @@ export function DasOperations() {
             Regras de privacidade e autorização são aplicadas no backend. Sem emissão, pagamento ou disparo de mensagens reais por esta tela.</p>
         </footer>
       </>}
-    </main>
+    </div>
   </AppShell>;
 }
