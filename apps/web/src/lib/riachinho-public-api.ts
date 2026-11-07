@@ -80,3 +80,78 @@ export function riachinhoPublicError(status: number, body: unknown): string {
   if (status === 400) return "Não foi possível processar esta mensagem. Revise o texto e tente novamente.";
   return "Não foi possível consultar o Riachinho agora. Sua pergunta continua disponível para tentar novamente.";
 }
+
+/**
+ * Public API boundary: only a consented request can leave the browser.
+ * The backend is the sole owner of provider credentials and institutional knowledge.
+ */
+export async function requestRiachinhoPublicAnswer(
+  apiUrl: string,
+  request: ViviChatRequest,
+  fetcher: typeof fetch = fetch,
+): Promise<ViviChatResponse> {
+  if (request.consentAiProcessing !== true)
+    throw new Error("Confirme o consentimento antes de enviar.");
+  const base = publicApiBase(apiUrl);
+  if (!base || (process.env.NODE_ENV !== "development" && !base.startsWith("https://")))
+    throw new Error("A conexão segura com o Riachinho não está configurada.");
+
+  let response: Response;
+  try {
+    response = await fetcher(base + "/public/vivi/chat", {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(request),
+    });
+  } catch {
+    throw new Error("Falha de conexão com o Riachinho. Sua pergunta foi preservada para tentar novamente.");
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(riachinhoPublicError(response.status, body));
+  const answer = parseRiachinhoAnswer(body);
+  if (!answer) throw new Error("A resposta recebida não é válida. Tente novamente.");
+  if (answer.provider === "mock")
+    throw new Error("O servidor retornou uma simulação. O Riachinho real está indisponível.");
+  return answer;
+}
+
+/** Untrusted provider metadata must never become an arbitrary link or admin route. */
+export type RiachinhoPublicKnowledgeSource = {
+  kind: "ministry" | "event" | "cms";
+  slug: string;
+  title: string;
+};
+
+export function parseRiachinhoPublicKnowledgeSources(value: unknown): RiachinhoPublicKnowledgeSource[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const safe: RiachinhoPublicKnowledgeSource[] = [];
+  for (const item of value.slice(0, 20)) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    if (row.kind !== "ministry" && row.kind !== "event" && row.kind !== "cms") continue;
+    if (typeof row.slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(row.slug)) continue;
+    if (typeof row.title !== "string") continue;
+    const title = row.title.trim();
+    if (!title || title.length > 140) continue;
+    const key = row.kind + ":" + row.slug;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    safe.push({ kind: row.kind, slug: row.slug, title });
+    if (safe.length === 8) break;
+  }
+  return safe;
+}
+
+export function riachinhoKnowledgeSection(
+  kind: RiachinhoPublicKnowledgeSource["kind"],
+): { href: string; label: string } | null {
+  if (kind === "ministry") return { href: "/ministerios/", label: "Ver ministérios" };
+  if (kind === "event") return { href: "/eventos/", label: "Ver agenda" };
+  // CMS slugs can represent banners/pages/news, so no speculative deep link.
+  return null;
+}

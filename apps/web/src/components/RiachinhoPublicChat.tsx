@@ -2,16 +2,24 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { ViviChatResponse, ViviStatusResponse } from "@idbrf/shared";
+import { withBasePath } from "../lib/paths";
 import { publicApiBase } from "../lib/portal-live-data";
 import {
   parseRiachinhoAnswer,
   parseRiachinhoStatus,
+  parseRiachinhoPublicKnowledgeSources,
+  riachinhoKnowledgeSection,
+  type RiachinhoPublicKnowledgeSource,
   prepareRiachinhoPublicRequest,
+  requestRiachinhoPublicAnswer,
   riachinhoProviderReady,
   riachinhoPublicEnabled,
-  riachinhoPublicError,
 } from "../lib/riachinho-public-api";
 import s from "./riachinho-public-chat.module.css";
+
+/** V2 fields are optional; the PR branch also builds against the previous shared DTO. */
+type OptionalKnowledgeAnswer = ViviChatResponse & { knowledgeMiss?: boolean; sources?: unknown };
+type OptionalKnowledgeStatus = ViviStatusResponse & { knowledge?: { mode?: string } };
 
 type Message = {
   id: number;
@@ -19,6 +27,8 @@ type Message = {
   content: string;
   provider?: string;
   refused?: boolean;
+  knowledgeMiss?: boolean;
+  sources?: RiachinhoPublicKnowledgeSource[];
 };
 
 const WELCOME = "Olá! Sou o Riachinho. Posso ajudar você a conhecer o portal da igreja, seus ministérios e a planejar uma visita. Horários e endereços devem ser confirmados nos canais oficiais.";
@@ -28,12 +38,21 @@ const OPTIONS = [
   "Como participar do voluntariado Atmosfera?",
 ] as const;
 
+const PORTAL_LINKS = [
+  { href: "/visita/", label: "Primeira visita" },
+  { href: "/ministerios/", label: "Ministérios" },
+  { href: "/eventos/", label: "Agenda oficial" },
+  { href: "/contato/", label: "Fale com a igreja" },
+] as const;
+
 /** Optional visitor assistant; only rendered when explicitly enabled for the HML build. */
 export function RiachinhoPublicChat() {
   const enabled = riachinhoPublicEnabled();
   const panelId = useId();
   const chatId = useId();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const openedOnceRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef("");
   const serial = useRef(0);
@@ -83,8 +102,22 @@ export function RiachinhoPublicChat() {
   }, [enabled, open]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open, loadingStatus]);
+    if (open) {
+      openedOnceRef.current = true;
+      inputRef.current?.focus();
+    } else if (openedOnceRef.current) {
+      launcherRef.current?.focus();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function escapeToClose(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", escapeToClose);
+    return () => document.removeEventListener("keydown", escapeToClose);
+  }, [open]);
 
   useEffect(() => {
     if (open && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -93,6 +126,7 @@ export function RiachinhoPublicChat() {
   if (!enabled) return null;
 
   const realProvider = riachinhoProviderReady(status) && !offline;
+  const hasPublishedKnowledge = (status as OptionalKnowledgeStatus | null)?.knowledge?.mode === "structured-cms";
   const canSend = realProvider && consent && !sending && !loadingStatus && !!question.trim();
 
   async function submit(event?: FormEvent<HTMLFormElement>) {
@@ -107,20 +141,19 @@ export function RiachinhoPublicChat() {
       const request = prepareRiachinhoPublicRequest(messages, text, sessionRef.current, consent);
       const base = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
       if (!base) throw new Error("A conexão com o Riachinho não está configurada.");
-      const response = await fetch(base + "/public/vivi/chat", {
-        method: "POST", mode: "cors", credentials: "omit", cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(request),
-      });
-      const body: unknown = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(riachinhoPublicError(response.status, body));
-      const answer: ViviChatResponse | null = parseRiachinhoAnswer(body);
-      if (!answer) throw new Error("A resposta recebida não é válida. Tente novamente.");
-      if (answer.provider === "mock") throw new Error("O servidor retornou uma simulação. O Riachinho real está indisponível.");
+      const answer: OptionalKnowledgeAnswer = await requestRiachinhoPublicAnswer(base, request);
       setMessages((prev) => [
         ...prev,
         { id: ++serial.current, role: "user", content: text },
-        { id: ++serial.current, role: "assistant", content: answer.reply, provider: answer.provider, refused: answer.refused },
+        {
+          id: ++serial.current,
+          role: "assistant",
+          content: answer.reply,
+          provider: answer.provider,
+          refused: answer.refused,
+          knowledgeMiss: answer.knowledgeMiss === true,
+          sources: parseRiachinhoPublicKnowledgeSources(answer.sources),
+        },
       ]);
       setLastNotice(answer.lgpdNotice);
       setQuestion((current) => current.trim() === text ? "" : current);
@@ -129,6 +162,17 @@ export function RiachinhoPublicChat() {
     } finally {
       setSending(false);
     }
+  }
+
+  function resetConversation() {
+    if (sending) return;
+    sessionRef.current = "";
+    serial.current = 0;
+    setMessages([]);
+    setQuestion("");
+    setConsent(false);
+    setError("");
+    inputRef.current?.focus();
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -152,12 +196,19 @@ export function RiachinhoPublicChat() {
             <button type="button" className={s.close} onClick={() => setOpen(false)} aria-label="Fechar conversa com o Riachinho">×</button>
           </header>
 
-          <div className={s.status} aria-live="polite">
-            {loadingStatus ? "Conectando ao Riachinho…" :
-              offline ? "Assistente temporariamente indisponível" :
-              realProvider ? "Assistente disponível para perguntas públicas" :
-              "Assistente indisponível neste ambiente"}
+          <div className={s.status}>
+            <span aria-live="polite">
+              {loadingStatus ? "Conectando ao Riachinho…" :
+                offline ? "Assistente temporariamente indisponível" :
+                realProvider ? "Assistente disponível para perguntas públicas" :
+                "Assistente indisponível neste ambiente"}
+            </span>
+            <button type="button" className={s.newChat} onClick={resetConversation} disabled={sending}>Nova conversa</button>
           </div>
+
+          {realProvider && hasPublishedKnowledge && (
+            <p className={s.knowledgeStatus}>O Riachinho consulta conteúdos institucionais publicados. Informações ausentes devem ser confirmadas com a igreja.</p>
+          )}
 
           <div className={s.log} role="log" aria-label="Conversa com o Riachinho" aria-live="polite" ref={logRef}>
             <div className={s.answer}>
@@ -168,6 +219,25 @@ export function RiachinhoPublicChat() {
               <div className={message.role === "user" ? s.question : s.answer} key={message.id}>
                 <span className={s.author}>{message.role === "user" ? "Você" : "Riachinho"}</span>
                 <p>{message.content}</p>
+                {message.role === "assistant" && message.knowledgeMiss && (
+                  <p className={s.missingOfficialData} role="status">
+                    Não encontramos uma informação oficial publicada para esta pergunta. Confira a programação e os canais da igreja.
+                  </p>
+                )}
+                {message.role === "assistant" && message.sources && message.sources.length > 0 && (
+                  <div className={s.knowledgeSources} aria-label="Fontes institucionais consultadas">
+                    <strong>Informações oficiais consultadas</strong>
+                    <ul>
+                      {message.sources.map((source) => {
+                        const section = riachinhoKnowledgeSection(source.kind);
+                        return <li key={source.kind + ":" + source.slug}>
+                          <span>{source.title}</span>
+                          {section && <a href={withBasePath(section.href)}>{section.label}</a>}
+                        </li>;
+                      })}
+                    </ul>
+                  </div>
+                )}
               </div>
             ))}
             {sending && <p className={s.thinking} role="status">Riachinho está preparando a resposta…</p>}
@@ -188,6 +258,11 @@ export function RiachinhoPublicChat() {
             <p className={s.warning}>Este ambiente está em simulação. Nenhuma resposta fictícia será apresentada como IA real.</p>
           )}
           {offline && <p className={s.warning}>Você ainda pode explorar o site e encontrar os canais oficiais de contato normalmente.</p>}
+
+          <nav className={s.portalLinks} aria-label="Informações oficiais da igreja">
+            <span>Consulte também no portal:</span>
+            <div>{PORTAL_LINKS.map((link) => <a key={link.href} href={withBasePath(link.href)}>{link.label}</a>)}</div>
+          </nav>
 
           <form className={s.form} onSubmit={(event) => void submit(event)}>
             <label className={s.consent}>
@@ -211,7 +286,7 @@ export function RiachinhoPublicChat() {
           </details>
         </section>
       )}
-      <button type="button" className={s.launcher} aria-expanded={open} aria-controls={open ? panelId : undefined}
+      <button ref={launcherRef} type="button" className={s.launcher} aria-expanded={open} aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((current) => !current)}>
         <span className={s.launchIcon} aria-hidden="true">✦</span>
         <span>{open ? "Fechar Riachinho" : "Pergunte ao Riachinho"}</span>

@@ -1,8 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { RiachinhoPublicChat } from "../components/RiachinhoPublicChat";
 import {
   parseRiachinhoAnswer, parseRiachinhoStatus, prepareRiachinhoPublicRequest,
+  requestRiachinhoPublicAnswer,
+  parseRiachinhoPublicKnowledgeSources, riachinhoKnowledgeSection,
   riachinhoProviderReady, riachinhoPublicEnabled, riachinhoPublicError,
 } from "./riachinho-public-api";
 
@@ -88,4 +90,99 @@ describe("Riachinho — visitor chat", () => {
       else process.env.NEXT_PUBLIC_API_URL = prevApi;
     }
   });
+  it("posts to the public endpoint only, never sends auth headers or browser credentials", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Como visitar?", "session-test", true);
+    const answer = { reply: "Confira a página Primeira visita.", provider: "gemini", model: "gemini-test", refused: false, lgpdNotice: "LGPD" };
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(answer), { status: 201 }));
+    const result = await requestRiachinhoPublicAnswer("https://id-riacho1-api-hml.vercel.app", request, fetcher);
+    expect(result.reply).toBe(answer.reply);
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://id-riacho1-api-hml.vercel.app/public/vivi/chat",
+      expect.objectContaining({
+        method: "POST",
+        mode: "cors",
+        credentials: "omit",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
+  it("blocks public requests without explicit consent before calling the network", async () => {
+    const request = { ...prepareRiachinhoPublicRequest([], "Olá", "sessao", true), consentAiProcessing: false };
+    const fetcher = vi.fn(async () => new Response("{}"));
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, fetcher))
+      .rejects.toThrow("consentimento");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("never exposes a simulated response as Gemini output", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Olá", "sessao", true);
+    const mockAnswer = { reply: "Texto sintético", provider: "mock", model: "demo", refused: false, lgpdNotice: "LGPD" };
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () =>
+      new Response(JSON.stringify(mockAnswer), { status: 201 }),
+    )).rejects.toThrow("simulação");
+  });
+
+  it("distinguishes rate limit, transport failure and invalid successful bodies", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Olá", "sessao", true);
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () =>
+      new Response(JSON.stringify({ code: "VIVI_RATE_LIMITED" }), { status: 429 }),
+    )).rejects.toThrow("Aguarde");
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () => {
+      throw new Error("network unavailable");
+    })).rejects.toThrow("preservada");
+    await expect(requestRiachinhoPublicAnswer("https://example.org", request, async () =>
+      new Response("<html>not json</html>", { status: 201 }),
+    )).rejects.toThrow("válida");
+  });
+
+  it("refuses insecure API URLs outside local development", async () => {
+    const request = prepareRiachinhoPublicRequest([], "Olá", "sessao", true);
+    const fetcher = vi.fn(async () => new Response("{}"));
+    await expect(requestRiachinhoPublicAnswer("http://invalid.example", request, fetcher))
+      .rejects.toThrow("segura");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("recognizes optional Gemini V2 knowledge without making it mandatory for V1", () => {
+    const base = { reply: "Confira as informações oficiais.", provider: "gemini", model: "gemini-test", refused: false, lgpdNotice: "LGPD" };
+    expect(parseRiachinhoAnswer(base)?.reply).toBe(base.reply);
+    const v2 = { ...base, knowledgeMiss: true, sources: [] };
+    expect((parseRiachinhoAnswer(v2) as ({ knowledgeMiss?: boolean } | null))?.knowledgeMiss).toBe(true);
+    expect(parseRiachinhoPublicKnowledgeSources(v2.sources)).toEqual([]);
+  });
+
+  it("accepts only public, well-formed institutional references and deduplicates them", () => {
+    const sources = parseRiachinhoPublicKnowledgeSources([
+      { kind: "ministry", slug: "atmosfera", title: "Atmosfera" },
+      { kind: "ministry", slug: "atmosfera", title: "Duplicada" },
+      { kind: "event", slug: "conferencia-one", title: "Conferência" },
+      { kind: "cms", slug: "historia-da-igreja", title: "História" },
+      { kind: "cms", slug: "../app/secretaria", title: "Tentativa de acesso interno" },
+      { kind: "admin", slug: "secreto", title: "Interno" },
+      { kind: "event", slug: "https://evil.example", title: "URL externa" },
+      { kind: "cms", slug: "ok", title: "" },
+    ]);
+    expect(sources).toEqual([
+      { kind: "ministry", slug: "atmosfera", title: "Atmosfera" },
+      { kind: "event", slug: "conferencia-one", title: "Conferência" },
+      { kind: "cms", slug: "historia-da-igreja", title: "História" },
+    ]);
+    expect(parseRiachinhoPublicKnowledgeSources(null)).toEqual([]);
+    expect(parseRiachinhoPublicKnowledgeSources(Array.from({ length: 20 }, (_, i) => ({
+      kind: "ministry", slug: "grupo-" + i, title: "Grupo " + i,
+    })))).toHaveLength(8);
+  });
+
+  it("links only to existing public sections, never invents source deep links", () => {
+    expect(riachinhoKnowledgeSection("ministry")).toEqual({
+      href: "/ministerios/", label: "Ver ministérios",
+    });
+    expect(riachinhoKnowledgeSection("event")).toEqual({
+      href: "/eventos/", label: "Ver agenda",
+    });
+    expect(riachinhoKnowledgeSection("cms")).toBeNull();
+  });
+
 });
