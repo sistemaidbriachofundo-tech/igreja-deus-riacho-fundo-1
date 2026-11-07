@@ -523,4 +523,93 @@ describe("PastoralService", () => {
       }),
     );
   });
+
+  it("RF-009 getRetentionPolicy creates default when missing", async () => {
+    const created = {
+      id: "pol-new",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      closedCaseRetentionDays: 2555,
+      redactionEnabled: true,
+      updatedByUserId: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const prisma = {
+      pastoralRetentionPolicy: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(created),
+      },
+    };
+    const service = new PastoralService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const dto = await service.getRetentionPolicy(pastor);
+    expect(dto.closedCaseRetentionDays).toBe(2555);
+    expect(prisma.pastoralRetentionPolicy.create).toHaveBeenCalled();
+  });
+
+  it("RF-009 rejects invalid retention days and export range/date", async () => {
+    const prisma = {
+      pastoralCase: { findMany: jest.fn().mockResolvedValue([]) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new PastoralService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.upsertRetentionPolicy(pastor, { closedCaseRetentionDays: 10 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.exportCases(pastor, {
+        from: "2026-12-01T00:00:00Z",
+        to: "2026-11-01T00:00:00Z",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.exportCases(pastor, { from: "not-a-date" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("RF-009 export with date window and applyRetention when redaction disabled", async () => {
+    const prisma = {
+      pastoralCase: { findMany: jest.fn().mockResolvedValue([caseRow]) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+      pastoralRetentionPolicy: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "pol1",
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          closedCaseRetentionDays: 365,
+          redactionEnabled: false,
+          updatedByUserId: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+      },
+    };
+    const service = new PastoralService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const exported = await service.exportCases(pastor, {
+      personId: "p1",
+      from: "2026-11-01T00:00:00Z",
+      to: "2026-11-30T00:00:00Z",
+    });
+    expect(exported.count).toBe(1);
+    expect(prisma.pastoralCase.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          personId: "p1",
+          createdAt: expect.any(Object),
+        }),
+      }),
+    );
+    const skipped = await service.applyRetention(pastor);
+    expect(skipped.redactionEnabled).toBe(false);
+    expect(skipped.redactedCount).toBe(0);
+  });
 });
