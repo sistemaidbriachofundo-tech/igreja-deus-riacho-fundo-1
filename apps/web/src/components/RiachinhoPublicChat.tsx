@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import type { ViviStatusResponse } from "@idbrf/shared";
+import type { ViviChatResponse, ViviStatusResponse } from "@idbrf/shared";
 import { withBasePath } from "../lib/paths";
 import { publicApiBase } from "../lib/portal-live-data";
 import {
@@ -16,6 +16,10 @@ import {
   riachinhoPublicEnabled,
 } from "../lib/riachinho-public-api";
 import s from "./riachinho-public-chat.module.css";
+
+/** V2 fields are optional; the PR branch also builds against the previous shared DTO. */
+type OptionalKnowledgeAnswer = ViviChatResponse & { knowledgeMiss?: boolean; sources?: unknown };
+type OptionalKnowledgeStatus = ViviStatusResponse & { knowledge?: { mode?: string } };
 
 type Message = {
   id: number;
@@ -122,6 +126,7 @@ export function RiachinhoPublicChat() {
   if (!enabled) return null;
 
   const realProvider = riachinhoProviderReady(status) && !offline;
+  const hasPublishedKnowledge = (status as OptionalKnowledgeStatus | null)?.knowledge?.mode === "structured-cms";
   const canSend = realProvider && consent && !sending && !loadingStatus && !!question.trim();
 
   async function submit(event?: FormEvent<HTMLFormElement>) {
@@ -136,7 +141,7 @@ export function RiachinhoPublicChat() {
       const request = prepareRiachinhoPublicRequest(messages, text, sessionRef.current, consent);
       const base = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
       if (!base) throw new Error("A conexão com o Riachinho não está configurada.");
-      const answer = await requestRiachinhoPublicAnswer(base, request);
+      const answer: OptionalKnowledgeAnswer = await requestRiachinhoPublicAnswer(base, request);
       setMessages((prev) => [
         ...prev,
         { id: ++serial.current, role: "user", content: text },
@@ -201,7 +206,7 @@ export function RiachinhoPublicChat() {
             <button type="button" className={s.newChat} onClick={resetConversation} disabled={sending}>Nova conversa</button>
           </div>
 
-          {realProvider && status?.knowledge?.mode === "structured-cms" && (
+          {realProvider && hasPublishedKnowledge && (
             <p className={s.knowledgeStatus}>O Riachinho consulta conteúdos institucionais publicados. Informações ausentes devem ser confirmadas com a igreja.</p>
           )}
 
