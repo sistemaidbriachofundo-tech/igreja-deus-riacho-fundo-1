@@ -1099,10 +1099,81 @@ async function main() {
     },
   });
 
+  const demoFund = await prisma.fund.upsert({
+    where: { churchId_code: { churchId: church.id, code: "GERAL" } },
+    update: { name: "Fundo geral (demo)", active: true },
+    create: {
+      id: "demoFundGeral01",
+      organizationId: org.id,
+      churchId: church.id,
+      code: "GERAL",
+      name: "Fundo geral (demo)",
+    },
+  });
+  const demoCostCenter = await prisma.costCenter.upsert({
+    where: { churchId_code: { churchId: church.id, code: "ADM" } },
+    update: { name: "Administrativo (demo)", active: true },
+    create: {
+      id: "demoCostCenterAdm01",
+      organizationId: org.id,
+      churchId: church.id,
+      code: "ADM",
+      name: "Administrativo (demo)",
+    },
+  });
+  await prisma.budget.upsert({
+    where: {
+      churchId_year_title: {
+        churchId: church.id,
+        year: 2026,
+        title: "Orçamento demo 2026",
+      },
+    },
+    update: { status: "ACTIVE" },
+    create: {
+      id: "demoBudget2026",
+      organizationId: org.id,
+      churchId: church.id,
+      year: 2026,
+      title: "Orçamento demo 2026",
+      status: "ACTIVE",
+      notes: "Seed sintético RF-019",
+      createdByUserId: tesouraUser.id,
+      lines: {
+        create: [
+          {
+            id: "demoBudgetLine01",
+            accountId: accDespesas.id,
+            fundId: demoFund.id,
+            costCenterId: demoCostCenter.id,
+            plannedCents: 500000,
+            notes: "Despesas gerais planejadas",
+          },
+        ],
+      },
+    },
+  });
+  await prisma.accountingPeriod.upsert({
+    where: {
+      churchId_year_month: { churchId: church.id, year: 2026, month: 11 },
+    },
+    update: { status: "OPEN" },
+    create: {
+      id: "demoPeriod202611",
+      organizationId: org.id,
+      churchId: church.id,
+      year: 2026,
+      month: 11,
+      status: "OPEN",
+      notes: "Competência Nov/2026 aberta (demo)",
+    },
+  });
+
   await prisma.bankImportBatch.upsert({
     where: { id: "demoBankImport01" },
     update: {
-      status: "PARSED_STUB",
+      status: "PARSED",
+      adapter: "FILE",
       stubNote: "CSV sintético seed",
       lineCount: 2,
     },
@@ -1111,7 +1182,8 @@ async function main() {
       organizationId: org.id,
       churchId: church.id,
       format: "CSV",
-      status: "PARSED_STUB",
+      status: "PARSED",
+      adapter: "FILE",
       filename: "extrato-sintetico-nov.csv",
       stubNote: "CSV sintético seed — sem dados bancários reais",
       lineCount: 2,
@@ -1206,6 +1278,10 @@ async function main() {
       entry: "demoLedgerEntry01",
       import: "demoBankImport01",
       reconciliation: "demoReconciliation01",
+      fund: demoFund.code,
+      costCenter: demoCostCenter.code,
+      budget: "demoBudget2026",
+      period: "demoPeriod202611",
     },
   });
 }

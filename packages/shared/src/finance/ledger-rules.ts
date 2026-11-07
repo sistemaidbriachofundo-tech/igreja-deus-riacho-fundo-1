@@ -26,6 +26,24 @@ export type LedgerLineSideCode = (typeof LEDGER_LINE_SIDES)[number];
 export const BANK_IMPORT_FORMATS = ["CSV", "OFX", "PDF_META"] as const;
 export type BankImportFormatCode = (typeof BANK_IMPORT_FORMATS)[number];
 
+export const BANK_IMPORT_STATUSES = [
+  "RECEIVED",
+  "PARSED",
+  "PARSED_STUB",
+  "META_ONLY",
+  "FAILED",
+] as const;
+export type BankImportStatusCode = (typeof BANK_IMPORT_STATUSES)[number];
+
+export const BANK_IMPORT_ADAPTERS = [
+  "FILE",
+  "MOCK",
+  "SICOOB",
+  "BRB",
+  "CORA",
+] as const;
+export type BankImportAdapterCode = (typeof BANK_IMPORT_ADAPTERS)[number];
+
 export const RECONCILIATION_STATUSES = [
   "OPEN",
   "PENDING_APPROVAL",
@@ -34,6 +52,25 @@ export const RECONCILIATION_STATUSES = [
 ] as const;
 
 export type ReconciliationStatusCode = (typeof RECONCILIATION_STATUSES)[number];
+
+export const BUDGET_STATUSES = ["DRAFT", "ACTIVE", "CLOSED"] as const;
+export type BudgetStatusCode = (typeof BUDGET_STATUSES)[number];
+
+export const ACCOUNTING_PERIOD_STATUSES = ["OPEN", "CLOSED"] as const;
+export type AccountingPeriodStatusCode =
+  (typeof ACCOUNTING_PERIOD_STATUSES)[number];
+
+/** Competência válida: mês 1–12. */
+export function isValidCompetence(year: number, month: number): boolean {
+  return (
+    Number.isInteger(year) &&
+    year >= 2000 &&
+    year <= 2100 &&
+    Number.isInteger(month) &&
+    month >= 1 &&
+    month <= 12
+  );
+}
 
 export interface LedgerLineInput {
   accountId: string;

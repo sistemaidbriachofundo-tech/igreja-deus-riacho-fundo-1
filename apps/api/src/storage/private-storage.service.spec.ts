@@ -60,6 +60,15 @@ describe("PrivateStorageService", () => {
     });
     expect(photoKey.startsWith("persons/org/p1/photo/")).toBe(true);
     expect(photoKey.endsWith(".png")).toBe(true);
+
+    const ledgerKey = storage.buildLedgerAttachmentKey({
+      organizationId: "org",
+      churchId: "ch",
+      entryId: "e1",
+      extension: "pdf",
+    });
+    expect(ledgerKey.startsWith("ledger/org/ch/e1/")).toBe(true);
+    expect(ledgerKey.endsWith(".pdf")).toBe(true);
   });
 
   it("rejects path traversal keys", async () => {

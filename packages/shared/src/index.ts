@@ -81,18 +81,35 @@ export {
   LEDGER_ENTRY_STATUSES,
   LEDGER_LINE_SIDES,
   BANK_IMPORT_FORMATS,
+  BANK_IMPORT_STATUSES,
+  BANK_IMPORT_ADAPTERS,
   RECONCILIATION_STATUSES,
+  BUDGET_STATUSES,
+  ACCOUNTING_PERIOD_STATUSES,
   checkBalancedLines,
   nextDualApprovalStage,
   parseSyntheticCsvLines,
+  isValidCompetence,
   type LedgerAccountTypeCode,
   type LedgerEntryStatusCode,
   type LedgerLineSideCode,
   type BankImportFormatCode,
+  type BankImportStatusCode,
+  type BankImportAdapterCode,
   type ReconciliationStatusCode,
+  type BudgetStatusCode,
+  type AccountingPeriodStatusCode,
   type LedgerLineInput,
   type BalanceCheckResult,
 } from "./finance/ledger-rules";
+
+export {
+  parseOfxLines,
+  parseOfxAmountToCents,
+  parseOfxDate,
+  type OfxParsedLine,
+  type OfxParseResult,
+} from "./finance/ofx-parser";
 
 export {
   assertAdmissionStepAllowed,

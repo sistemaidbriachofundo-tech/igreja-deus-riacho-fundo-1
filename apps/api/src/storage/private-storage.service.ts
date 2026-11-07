@@ -92,6 +92,27 @@ export class PrivateStorageService {
     ].join("/");
   }
 
+  /** Comprovante/anexo de lançamento financeiro (STORAGE_ROOT privado). */
+  buildLedgerAttachmentKey(parts: {
+    organizationId: string;
+    churchId: string;
+    entryId: string;
+    extension?: string;
+  }): string {
+    const safe = this.safeSegment;
+    const id = randomUUID();
+    const ext =
+      (parts.extension ?? "bin").replace(/[^a-z0-9]/gi, "").toLowerCase() ||
+      "bin";
+    return [
+      "ledger",
+      safe(parts.organizationId),
+      safe(parts.churchId),
+      safe(parts.entryId),
+      `${id}.${ext}`,
+    ].join("/");
+  }
+
   private safeSegment(value: string): string {
     const trimmed = value.trim();
     if (!trimmed || trimmed.includes("..") || /[/\\]/.test(trimmed)) {

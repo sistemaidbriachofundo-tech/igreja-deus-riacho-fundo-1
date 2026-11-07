@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.3-das-etapa3
+  version: 0.7.3-rf016
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -32,6 +32,9 @@ info:
       RF-023 cursos/EBD/turmas/matrícula/frequência/conclusão (≠ discipulado RF-010);
       RF-009 retenção/export pastoral; RF-030 patrimônio mínimo;
       notes OIDC_NOT_LIVE / MFA challenge
+    - 0.7.3-rf016: RF-016…019 — fundos/centros de custo, orçamento + competência/fechamento,
+      parser OFX real, PDF_META=META_ONLY (sem OCR), comprovantes em storage privado,
+      adapters FILE/MOCK/SICOOB/BRB/CORA sem API bancária live; matching RF-018 reutilizado
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -167,7 +170,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.3-das-etapa3 }
+        contractVersion: { type: string, example: 0.7.3-rf016 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
@@ -3867,7 +3870,7 @@ paths:
     get:
       tags: [ledger]
       x-implementation: implemented
-      summary: Lista lotes de importação stub
+      summary: Lista lotes de importação (CSV/OFX/PDF_META)
       security: [{ bearerAuth: [] }]
       responses:
         "200":
@@ -3875,7 +3878,7 @@ paths:
     post:
       tags: [ledger]
       x-implementation: implemented
-      summary: Import CSV/OFX/PDF_META stub (sem parser OFX real)
+      summary: Import CSV (mínimo) / OFX real / PDF_META=META_ONLY — sem postagem automática nem API bancária live
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -3887,10 +3890,16 @@ paths:
               properties:
                 format: { type: string, enum: [CSV, OFX, PDF_META] }
                 filename: { type: string }
-                textContent: { type: string, description: "CSV sintético opcional date,amountCents,description" }
+                textContent:
+                  type: string
+                  description: CSV ou OFX SGML; PDF_META só hint de metadados (0 linhas)
+                adapter:
+                  type: string
+                  enum: [FILE, MOCK, SICOOB, BRB, CORA]
+                  description: Rótulo de origem; SICOOB/BRB/CORA = arquivo/mock (sem HTTP live)
       responses:
         "201":
-          description: Batch PARSED_STUB ou FAILED
+          description: Batch PARSED | META_ONLY | PARSED_STUB | FAILED
 
   /ledger/imports/{batchId}:
     get:
@@ -4046,6 +4055,341 @@ paths:
           description: Linha UNMATCHED
         "409":
           description: BANK_LINE_NOT_MATCHED | RECONCILIATION_CLOSED
+
+  /ledger/bank-adapters:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista adapters bancários (FILE/MOCK/SICOOB/BRB/CORA) — sempre live=false
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: adapters[] + liveBankApis=false
+
+  /ledger/funds:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista fundos (RF-016)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope funds[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Cria fundo
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+      responses:
+        "201":
+          description: Fundo criado
+        "409":
+          description: FUND_CODE_EXISTS
+
+  /ledger/funds/{fundId}:
+    patch:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Atualiza fundo (name/active)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fundId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Fundo atualizado
+
+  /ledger/cost-centers:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista centros de custo (RF-016)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope costCenters[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Cria centro de custo
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+      responses:
+        "201":
+          description: Centro criado
+        "409":
+          description: COST_CENTER_CODE_EXISTS
+
+  /ledger/cost-centers/{costCenterId}:
+    patch:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Atualiza centro de custo
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: costCenterId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Centro atualizado
+
+  /ledger/budgets:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista orçamentos (RF-019)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Envelope budgets[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Cria orçamento anual DRAFT
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [year, title]
+              properties:
+                year: { type: integer }
+                title: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Orçamento criado
+
+  /ledger/budgets/{budgetId}:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Detalhe do orçamento + linhas
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: budgetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Budget DTO
+    patch:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Atualiza status/notes (CLOSED não reabre)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: budgetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+                notes: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Budget atualizado
+
+  /ledger/budgets/{budgetId}/lines:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Adiciona linha planejada ao orçamento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: budgetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, plannedCents]
+              properties:
+                accountId: { type: string }
+                plannedCents: { type: integer, minimum: 0 }
+                fundId: { type: string }
+                costCenterId: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Budget com linhas
+
+  /ledger/periods:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista períodos de competência (RF-019)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Envelope periods[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Abre período year/month OPEN
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [year, month]
+              properties:
+                year: { type: integer }
+                month: { type: integer, minimum: 1, maximum: 12 }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Período OPEN
+
+  /ledger/periods/{periodId}/close:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Fecha competência — bloqueia novos lançamentos no mês
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: periodId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Período CLOSED
+        "409":
+          description: PERIOD_ALREADY_CLOSED
+
+  /ledger/entries/{entryId}/attachments:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Lista comprovantes do lançamento (metadados; sem storageKey)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope attachments[]
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Upload multipart comprovante (PDF/JPEG/PNG ≤5MiB) → STORAGE_ROOT privado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Metadados do anexo
+
+  /ledger/entries/{entryId}/attachments/{attachmentId}:
+    get:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Download bytes do comprovante (privado)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bytes (Content-Type do arquivo)
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+    delete:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Remove anexo + bytes privados
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: deleted=true
 
   /channels/providers:
     get:

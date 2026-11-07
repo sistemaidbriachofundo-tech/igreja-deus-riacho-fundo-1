@@ -95,6 +95,11 @@ model Organization {
   eventRegistrations EventRegistration[]
   eventPaymentIntents EventPaymentIntent[]
   eventPaymentWebhookReceipts EventPaymentWebhookReceipt[]
+  costCenters    CostCenter[]
+  funds          Fund[]
+  budgets        Budget[]
+  accountingPeriods AccountingPeriod[]
+  ledgerEntryAttachments LedgerEntryAttachment[]
 
   messageTemplates MessageTemplate[]
   communicationConsents CommunicationConsent[]
@@ -140,6 +145,11 @@ model Church {
   eventRegistrations EventRegistration[]
   eventPaymentIntents EventPaymentIntent[]
   eventPaymentWebhookReceipts EventPaymentWebhookReceipt[]
+  costCenters    CostCenter[]
+  funds          Fund[]
+  budgets        Budget[]
+  accountingPeriods AccountingPeriod[]
+  ledgerEntryAttachments LedgerEntryAttachment[]
 
   messageTemplates MessageTemplate[]
   communicationConsents CommunicationConsent[]
@@ -252,6 +262,9 @@ model User {
   pastoralRetentionPoliciesUpdated PastoralRetentionPolicy[] @relation("PastoralRetentionUpdater")
   courseCompletionsApproved CourseEnrollment[] @relation("CourseCompletionApprover")
   churchAssetHistory ChurchAssetHistory[] @relation("ChurchAssetHistoryActor")
+  budgetsCreated Budget[] @relation("BudgetCreator")
+  accountingPeriodsClosed AccountingPeriod[] @relation("AccountingPeriodCloser")
+  ledgerEntryAttachmentsUploaded LedgerEntryAttachment[] @relation("LedgerAttachmentUploader")
 
   @@map("users")
 }
@@ -1258,8 +1271,32 @@ enum BankImportFormat {
 
 enum BankImportStatus {
   RECEIVED
+  /// CSV/OFX com linhas válidas parseadas.
+  PARSED
+  /// Legado / CSV vazio sem conteúdo — manter compat seed.
   PARSED_STUB
+  /// PDF_META: só metadados; sem linhas de extrato (limitação honesta).
+  META_ONLY
   FAILED
+}
+
+enum BankImportAdapter {
+  FILE
+  MOCK
+  SICOOB
+  BRB
+  CORA
+}
+
+enum BudgetStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSED
 }
 
 enum BankLineMatchStatus {
@@ -1276,6 +1313,49 @@ enum ReconciliationStatus {
   CLOSED
 }
 
+/// Centro de custo first-class (RF-016) — string legado `LedgerAccount.costCenter` permanece.
+model CostCenter {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  code           String
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  accounts     LedgerAccount[]
+  entries      LedgerEntry[]
+  budgetLines  BudgetLine[]
+
+  @@unique([churchId, code])
+  @@index([organizationId, churchId])
+  @@map("cost_centers")
+}
+
+/// Fundo / caixa restrito (ex.: missões, construção) — RF-016.
+model Fund {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  code           String
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  entries      LedgerEntry[]
+  budgetLines  BudgetLine[]
+
+  @@unique([churchId, code])
+  @@index([organizationId, churchId])
+  @@map("funds")
+}
+
 /// Plano de contas por congregação (church-scoped).
 model LedgerAccount {
   id             String            @id @default(cuid())
@@ -1285,7 +1365,9 @@ model LedgerAccount {
   name           String
   type           LedgerAccountType
   parentId       String?           @map("parent_id")
+  /// Legado livre (compat F4); preferir `costCenterId`.
   costCenter     String?           @map("cost_center")
+  costCenterId   String?           @map("cost_center_id")
   active         Boolean           @default(true)
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
@@ -1294,11 +1376,14 @@ model LedgerAccount {
   church       Church            @relation(fields: [churchId], references: [id])
   parent       LedgerAccount?    @relation("LedgerAccountTree", fields: [parentId], references: [id])
   children     LedgerAccount[]   @relation("LedgerAccountTree")
+  costCenterRef CostCenter?      @relation(fields: [costCenterId], references: [id])
   lines        LedgerEntryLine[]
+  budgetLines  BudgetLine[]
 
   @@unique([churchId, code])
   @@index([organizationId, churchId])
   @@index([churchId, type, active])
+  @@index([costCenterId])
   @@map("ledger_accounts")
 }
 
@@ -1324,6 +1409,11 @@ model LedgerEntry {
   reversalOfEntryId      String?           @unique @map("reversal_of_entry_id")
   importBatchId          String?           @map("import_batch_id")
   reconciliationId       String?           @map("reconciliation_id")
+  fundId                 String?           @map("fund_id")
+  costCenterId           String?           @map("cost_center_id")
+  /// Competência contábil (ano/mês); default = entryDate.
+  competenceYear         Int?              @map("competence_year")
+  competenceMonth        Int?              @map("competence_month")
   createdAt              DateTime          @default(now()) @map("created_at")
   updatedAt              DateTime          @updatedAt @map("updated_at")
 
@@ -1336,14 +1426,43 @@ model LedgerEntry {
   reversedBy    LedgerEntry?     @relation("LedgerEntryReversal")
   importBatch   BankImportBatch? @relation(fields: [importBatchId], references: [id])
   reconciliation Reconciliation? @relation(fields: [reconciliationId], references: [id])
+  fund          Fund?            @relation(fields: [fundId], references: [id])
+  costCenterRef CostCenter?      @relation(fields: [costCenterId], references: [id])
   lines         LedgerEntryLine[]
   matchedBankLines BankStatementLine[]
+  attachments   LedgerEntryAttachment[]
 
   @@index([organizationId, churchId, status])
   @@index([churchId, entryDate])
   @@index([importBatchId])
   @@index([reconciliationId])
+  @@index([fundId])
+  @@index([costCenterId])
+  @@index([churchId, competenceYear, competenceMonth])
   @@map("ledger_entries")
+}
+
+/// Comprovante/anexo de lançamento — bytes em STORAGE_ROOT privado (RF-016).
+model LedgerEntryAttachment {
+  id               String   @id @default(cuid())
+  entryId          String   @map("entry_id")
+  organizationId   String   @map("organization_id")
+  churchId         String   @map("church_id")
+  uploadedByUserId String   @map("uploaded_by_user_id")
+  displayName      String   @map("display_name")
+  contentType      String   @map("content_type")
+  byteSize         Int      @map("byte_size")
+  storageKey       String   @unique @map("storage_key")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  entry          LedgerEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  church         Church       @relation(fields: [churchId], references: [id])
+  uploadedBy     User         @relation("LedgerAttachmentUploader", fields: [uploadedByUserId], references: [id])
+
+  @@index([entryId])
+  @@index([organizationId, churchId])
+  @@map("ledger_entry_attachments")
 }
 
 model LedgerEntryLine {
@@ -1362,19 +1481,21 @@ model LedgerEntryLine {
   @@map("ledger_entry_lines")
 }
 
-/// Importação CSV/OFX — stub (sem parser OFX real; CSV sintético opcional).
+/// Importação CSV/OFX/PDF_META — OFX real; PDF_META = META_ONLY (sem linhas).
 model BankImportBatch {
-  id              String           @id @default(cuid())
-  organizationId  String           @map("organization_id")
-  churchId        String           @map("church_id")
+  id              String            @id @default(cuid())
+  organizationId  String            @map("organization_id")
+  churchId        String            @map("church_id")
   format          BankImportFormat
-  status          BankImportStatus @default(RECEIVED)
+  status          BankImportStatus  @default(RECEIVED)
+  /// Adapter de origem: FILE (padrão), MOCK, ou rótulos SICOOB/BRB/CORA sem API live.
+  adapter         BankImportAdapter @default(FILE)
   filename        String
-  stubNote        String?          @map("stub_note")
-  lineCount       Int              @default(0) @map("line_count")
-  createdByUserId String           @map("created_by_user_id")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  stubNote        String?           @map("stub_note")
+  lineCount       Int               @default(0) @map("line_count")
+  createdByUserId String            @map("created_by_user_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   organization Organization        @relation(fields: [organizationId], references: [id])
   church       Church              @relation(fields: [churchId], references: [id])
@@ -1383,6 +1504,7 @@ model BankImportBatch {
   ledgerEntries LedgerEntry[]
 
   @@index([organizationId, churchId, status])
+  @@index([adapter])
   @@map("bank_import_batches")
 }
 
@@ -1434,6 +1556,73 @@ model Reconciliation {
   @@index([organizationId, churchId, status])
   @@index([churchId, periodStart, periodEnd])
   @@map("reconciliations")
+}
+
+/// Orçamento anual mínimo (RF-019) — linhas planejadas por conta/fundo/CC.
+model Budget {
+  id              String       @id @default(cuid())
+  organizationId  String       @map("organization_id")
+  churchId        String       @map("church_id")
+  year            Int
+  title           String
+  status          BudgetStatus @default(DRAFT)
+  notes           String?
+  createdByUserId String       @map("created_by_user_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  createdBy    User         @relation("BudgetCreator", fields: [createdByUserId], references: [id])
+  lines        BudgetLine[]
+
+  @@unique([churchId, year, title])
+  @@index([organizationId, churchId, status])
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id            String   @id @default(cuid())
+  budgetId      String   @map("budget_id")
+  accountId     String   @map("account_id")
+  fundId        String?  @map("fund_id")
+  costCenterId  String?  @map("cost_center_id")
+  plannedCents  Int      @map("planned_cents")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  budget     Budget      @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  account    LedgerAccount @relation(fields: [accountId], references: [id])
+  fund       Fund?       @relation(fields: [fundId], references: [id])
+  costCenter CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  @@index([budgetId])
+  @@index([accountId])
+  @@map("budget_lines")
+}
+
+/// Competência / fechamento mínimo mensal (RF-019) — bloqueia novos lançamentos no mês CLOSED.
+model AccountingPeriod {
+  id              String                 @id @default(cuid())
+  organizationId  String                 @map("organization_id")
+  churchId        String                 @map("church_id")
+  year            Int
+  month           Int
+  status          AccountingPeriodStatus @default(OPEN)
+  closedAt        DateTime?              @map("closed_at")
+  closedByUserId  String?                @map("closed_by_user_id")
+  notes           String?
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  closedBy     User?        @relation("AccountingPeriodCloser", fields: [closedByUserId], references: [id])
+
+  @@unique([churchId, year, month])
+  @@index([organizationId, churchId, status])
+  @@map("accounting_periods")
 }
 
 // —— F5 Canais (sem WABA/SMTP/FCM live; providers mock/noop) ——
