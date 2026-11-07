@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../lib/api";
-import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
+import { dasError, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { canCheckInRegistration, formatMockPrice, toRegistrationPayload, validateRegistration } from "../lib/event-registrations";
 import s from "./event-registrations.module.css";
 
