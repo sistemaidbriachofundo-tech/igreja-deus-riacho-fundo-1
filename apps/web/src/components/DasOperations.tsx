@@ -6,7 +6,7 @@ import { RosterBoard } from "./RosterBoard";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
-  DAS_MODULES, canViewDasModule, dasError, formatChurchDate,
+  DAS_MODULES, DAS_RESOURCE_TABS, canViewDasModule, dasError, formatChurchDate,
   readDasRows, readDasSummary, scalarLabel, shortStatus,
   type DasModule, type DasRecord,
 } from "../lib/das-operations";
@@ -163,6 +163,7 @@ export function DasOperations() {
   const [checking,setChecking]=useState(true);
   const [active,setActive]=useState<DasModule>("ministerios");
   const [reload,setReload]=useState(0);
+  const [resourceId,setResourceId]=useState("");
   const [data,setData]=useState<LoadState>({kind:"idle",rows:[],summary:null});
   const [saving,setSaving]=useState(false);
   const [notice,setNotice]=useState("");
@@ -182,19 +183,21 @@ export function DasOperations() {
   const roles=useMemo(()=>session?.user.grants.map(grant=>grant.roleCode)??[],[session]);
   const visible=useMemo(()=>DAS_MODULES.filter(module=>canViewDasModule(roles,module.allowedRoles)),[roles]);
   const chosen=visible.find(module=>module.id===active)??visible[0];
+  const resourceTabs=chosen?DAS_RESOURCE_TABS[chosen.id]??[]:[];
+  const resource=resourceTabs.find(tab=>tab.id===resourceId)??resourceTabs[0];
 
   useEffect(()=>{
     if(!session||!chosen){setData({kind:"idle",rows:[],summary:null});return;}
     let cancelled=false;
     setData({kind:"loading",rows:[],summary:null});
-    void apiGet<unknown>(chosen.endpoint,session.token).then(body=>{
+    void apiGet<unknown>(resource?.endpoint??chosen.endpoint,session.token).then(body=>{
       if(cancelled)return;
-      const summary=chosen.dataKind==="summary"?readDasSummary(body):null;
-      const rows=summary?[]:readDasRows(body,chosen.envelope);
+      const summary=(resource?.dataKind??chosen.dataKind)==="summary"?readDasSummary(body):null;
+      const rows=summary?[]:readDasRows(body,resource?.envelope??chosen.envelope);
       setData({kind:"ready",rows,summary});
     }).catch(err=>{if(!cancelled)setData({kind:"error",rows:[],summary:null,message:dasError(err)});});
     return()=>{cancelled=true;};
-  },[session,chosen,reload]);
+  },[session,chosen,resource,reload]);
 
   const doCreate=useCallback(async(request:{path:string;body:Record<string,unknown>})=>{
     if(!session||!chosen)return;
@@ -245,6 +248,14 @@ export function DasOperations() {
         </div><button type="button" className={styles.refresh} onClick={()=>{setReload(n=>n+1);setNotice("");}} disabled={data.kind==="loading"}>
           <UIIcon name="refresh" size={17}/> Atualizar
         </button></div>
+        {resourceTabs.length>0&&<nav className={styles.resourceTabs} aria-label="Consultas de ${chosen.label}">
+          {resourceTabs.map(tab=><button type="button" key={tab.id}
+            className={resource?.id===tab.id?styles.resourceActive:styles.resourceTab}
+            aria-current={resource?.id===tab.id?"page":undefined}
+            onClick={()=>{setResourceId(tab.id);setNotice("");}}>
+            {tab.label}
+          </button>)}
+        </nav>}
         {notice&&<div role="status" className={styles.notice}>{notice}</div>}
         {data.kind==="loading"&&<div role="status" className={styles.card}>Consultando registros autorizados na API…</div>}
         {data.kind==="error"&&<div role="alert" className={styles.formError}>{data.message}</div>}
@@ -253,7 +264,7 @@ export function DasOperations() {
             <Rows key={chosen.id} module={chosen.id} rows={data.rows}/>
             {chosen.id==="escalas"&&<RosterBoard rows={data.rows} token={session.token} personId={session.user.personId} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
           </>}
-          {canCreate(chosen.id,roles)&&<CreationForm key={chosen.id} module={chosen.id} onCreate={doCreate} busy={saving}/>}
+          {canCreate(chosen.id,roles)&&(!resource||chosen.id!=="financeiro"||resource.id==="accounts")&&<CreationForm key={chosen.id} module={chosen.id} onCreate={doCreate} busy={saving}/>}
         </>}
         <footer className={styles.disclaimer}><UIIcon name="shield" size={18}/>
           <p>Os dados exibidos pertencem à homologação. A existência de uma rota não significa que um requisito do DAS foi homologado.
