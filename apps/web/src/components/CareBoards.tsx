@@ -74,13 +74,13 @@ export function PastoralBoard({rows,token,refresh}:Shared){
           <div className={styles.itemHead}>
             <div><strong>{value(row.title)||"Atendimento sem título"}</strong>
               <small>Estado: {value(row.status)||"não informado"} · {formatChurchDate(row.createdAt)}</small></div>
-            <button type="button" disabled={!id||busy} onClick={()=>void showCase(id)} aria-expanded={selected}>
+            <button type="button" disabled={!id||busy} onClick={()=>{setOpened(null);setDetail(null);}} aria-expanded={selected}>
               {selected?"Ocultar":"Abrir com autorização"}
             </button>
           </div>
           {selected&&detail&&<div className={styles.details}>
             <label>Andamento<select aria-label="Estado do atendimento" value={value(detail.status)||"OPEN"}
-              onChange={e=>void execute(()=>apiPatch("/pastoral-cases/"+code(id)+"/status",token,{status:e.target.value}),()=>void showCase(id))} disabled={busy}>
+              onChange={e=>void execute(()=>apiPatch("/pastoral-cases/"+code(id)+"/status",token,{status:e.target.value}),()=>{setOpened(null);setDetail(null);})} disabled={busy}>
               <option value="OPEN">Aberto</option><option value="IN_PROGRESS">Em andamento</option><option value="DONE">Concluído</option><option value="CANCELLED">Cancelado</option>
             </select></label>
             <form onSubmit={e=>{e.preventDefault();if(assignee.trim())void execute(()=>apiPatch("/pastoral-cases/"+code(id)+"/assign",token,{assignedToUserId:assignee.trim()}),()=>setAssignee(""));}}>
@@ -93,7 +93,7 @@ export function PastoralBoard({rows,token,refresh}:Shared){
               return <div className={styles.task} key={taskId||i}>
                 <span>{value(entry.title)||"Tarefa"} {entry.done===true?"· Concluída":"· Pendente"}</span>
                 <button disabled={busy||!taskId} type="button"
-                  onClick={()=>void execute(()=>apiPatch("/pastoral-cases/"+code(id)+"/tasks/"+code(taskId),token,{done:entry.done!==true}),()=>void showCase(id))}>
+                  onClick={()=>void execute(()=>apiPatch("/pastoral-cases/"+code(id)+"/tasks/"+code(taskId),token,{done:entry.done!==true}),()=>{setOpened(null);setDetail(null);})}>
                   {entry.done===true?"Reabrir":"Concluir"}
                 </button>
               </div>;
@@ -153,7 +153,7 @@ export function DiscipleshipBoard({rows,token,refresh}:Shared){
     </div>
     <div className={styles.stack}>
       {rows.map((row,i)=><article key={value(row.id)||i} className={styles.item}>
-        <div className={styles.itemHead}><div><strong>{value(row.name)||"Trilha"}</strong><small>{items(row.enrollments).length} matrículas na resposta atual</small></div></div>
+        <div className={styles.itemHead}><div><strong>{value(row.name)||"Trilha"}</strong><small>{Array.isArray(row.enrollments)?items(row.enrollments).length+" matrículas na resposta atual":"A API não incluiu matrículas nesta consulta"}</small></div></div>
         {items(row.enrollments).map((enrollment,i)=>{
           const eid=value(enrollment.id);const status=value(enrollment.status);
           return <div className={styles.task} key={eid||i}>
