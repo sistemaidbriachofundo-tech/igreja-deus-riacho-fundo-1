@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DAS_MODULES, canViewDasModule, dasError, formatChurchDate,
+  DAS_MODULES, DAS_RESOURCE_TABS, canViewDasModule, dasError, formatChurchDate,
   readDasRows, readDasSummary, scalarLabel, shortStatus
 } from "./das-operations";
 
@@ -10,6 +10,12 @@ describe("DAS — catálogo de módulos integrados",()=>{
       "pastoral","discipulado","celulas","ministerios","escalas","financeiro","eventos","indicadores"
     ]);
     expect(DAS_MODULES.every(x=>x.endpoint.startsWith("/"))).toBe(true);
+    expect(DAS_RESOURCE_TABS.financeiro?.map(v=>v.envelope)).toEqual([
+      "accounts","entries","batches","reconciliations"
+    ]);
+    expect(DAS_RESOURCE_TABS.indicadores?.map(v=>v.dataKind)).toEqual([
+      "summary","summary"
+    ]);
   });
   it("administrador não ganha direito implícito ao sigilo pastoral ou financeiro",()=>{
     expect(canViewDasModule(["PLATFORM_ADMIN"],["PASTOR"])).toBe(false);
