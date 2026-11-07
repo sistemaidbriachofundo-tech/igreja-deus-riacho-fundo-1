@@ -170,7 +170,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.3-das-etapa3 }
+        contractVersion: { type: string, example: 0.7.3-rf016 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
