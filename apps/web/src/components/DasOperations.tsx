@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
+import { RosterBoard } from "./RosterBoard";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
@@ -248,7 +249,10 @@ export function DasOperations() {
         {data.kind==="loading"&&<div role="status" className={styles.card}>Consultando registros autorizados na API…</div>}
         {data.kind==="error"&&<div role="alert" className={styles.formError}>{data.message}</div>}
         {data.kind==="ready"&&<>
-          {data.summary?<IndicatorPanel data={data.summary}/>:<Rows key={chosen.id} module={chosen.id} rows={data.rows}/>}
+          {data.summary?<IndicatorPanel data={data.summary}/>:<>
+            <Rows key={chosen.id} module={chosen.id} rows={data.rows}/>
+            {chosen.id==="escalas"&&<RosterBoard rows={data.rows} token={session.token} personId={session.user.personId} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
+          </>}
           {canCreate(chosen.id,roles)&&<CreationForm key={chosen.id} module={chosen.id} onCreate={doCreate} busy={saving}/>}
         </>}
         <footer className={styles.disclaimer}><UIIcon name="shield" size={18}/>
