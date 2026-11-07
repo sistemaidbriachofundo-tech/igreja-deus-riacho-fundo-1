@@ -221,6 +221,28 @@ describe("AdmissionsService", () => {
     await expect(
       mk({}).create(member, { displayName: "X" }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+
+    try {
+      await mk({
+        person: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: "existing",
+            displayName: "Ana Demo",
+            email: "ana.demo@example.test",
+          }),
+          create: jest.fn(),
+        },
+      }).create(secretaria, {
+        displayName: "Nova Ana",
+        email: "ana.demo@example.test",
+      });
+      throw new Error("expected PERSON_EMAIL_CANDIDATE");
+    } catch (err) {
+      expect(err).toBeInstanceOf(BusinessException);
+      expect((err as BusinessException).getResponse()).toMatchObject({
+        code: "PERSON_EMAIL_CANDIDATE",
+      });
+    }
   });
 
   it("create validates household when creating person", async () => {

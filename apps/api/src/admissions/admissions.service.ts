@@ -98,13 +98,31 @@ export class AdmissionsService {
             throw new NotFoundException("Família não encontrada no piloto");
           }
         }
+        const emailNorm = input.email?.trim().toLowerCase() || null;
+        // RF-001: e-mail exato → não cria pessoa nova (sem merge automático).
+        // FE deve POST /persons/candidates e reutilizar personId.
+        if (emailNorm) {
+          const emailHit = await tx.person.findFirst({
+            where: {
+              organizationId: pilot.organizationId,
+              email: { equals: emailNorm, mode: "insensitive" },
+            },
+            select: { id: true, displayName: true, email: true },
+          });
+          if (emailHit) {
+            throw new BusinessException(
+              "Já existe pessoa com este e-mail — use personId (POST /persons/candidates). Merge automático é proibido.",
+              "PERSON_EMAIL_CANDIDATE",
+            );
+          }
+        }
         const person = await tx.person.create({
           data: {
             organizationId: pilot.organizationId,
             homeChurchId: pilot.churchId,
             householdId: input.householdId ?? null,
             displayName,
-            email: input.email?.trim().toLowerCase() || null,
+            email: emailNorm,
             kind: "VISITOR",
             status: "ACTIVE",
           },

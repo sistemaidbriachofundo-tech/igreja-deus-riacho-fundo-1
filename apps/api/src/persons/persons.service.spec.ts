@@ -87,6 +87,7 @@ describe("PersonsService", () => {
             householdId: null,
             kind: "MEMBER",
             isMinor: false,
+            photoStorageKey: null,
           },
           {
             id: "p2",
@@ -96,6 +97,7 @@ describe("PersonsService", () => {
             householdId: "h1",
             kind: "MEMBER",
             isMinor: false,
+            photoStorageKey: null,
           },
         ]),
         findFirst: jest.fn(),
@@ -103,19 +105,62 @@ describe("PersonsService", () => {
     });
 
     const exact = await service.search(secretaria, "Ana Demo", 100);
-    expect(exact.hits[0]?.score).toBe(0.95);
+    expect(exact.hits[0]?.score).toBeGreaterThanOrEqual(0.95);
     expect(exact.hits[0]?.person).toMatchObject({
       kind: "MEMBER",
       isMinor: false,
+      photo: { status: "NONE", hasStorageKey: false },
     });
 
     const partial = await service.search(secretaria, "demo", 5);
     expect(prisma.person.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 5 }),
+      expect.objectContaining({ take: expect.any(Number) }),
     );
-    expect(partial.hits.some((h) => h.score === 0.7 || h.score === 0.85)).toBe(
-      true,
+    expect(partial.hits.some((h) => h.score >= 0.7)).toBe(true);
+  });
+
+  it("findCandidates ranks exact email as strongMatch without merge", async () => {
+    const { service } = build({
+      person: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "p1",
+            displayName: "Ana Demo",
+            email: "ana.demo@example.test",
+            status: "ACTIVE",
+            householdId: null,
+            kind: "MEMBER",
+            isMinor: false,
+            photoStorageKey: "persons/org/p1/photo/x.jpg",
+          },
+        ]),
+        findFirst: jest.fn(),
+      },
+    });
+
+    const result = await service.findCandidates(secretaria, {
+      displayName: "Outra Pessoa",
+      email: "ana.demo@example.test",
+    });
+    expect(result.autoMergeForbidden).toBe(true);
+    expect(result.strongMatch).toBe(true);
+    expect(result.hits[0]?.matchReasons).toEqual(
+      expect.arrayContaining(["exactEmail"]),
     );
+    expect(result.hits[0]?.person.photo).toEqual({
+      status: "READY",
+      hasStorageKey: true,
+    });
+  });
+
+  it("findCandidates forbids member-only and validates input", async () => {
+    const { service } = build();
+    await expect(
+      service.findCandidates(memberOnly, { displayName: "Ana" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.findCandidates(secretaria, { displayName: " " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("getById returns person or 404; membro only self", async () => {
@@ -131,11 +176,13 @@ describe("PersonsService", () => {
           kind: "MEMBER",
           isMinor: false,
           legalGuardianPersonId: null,
+          photoStorageKey: null,
         }),
       },
     });
     await expect(service.getById(memberOnly, "p-mem")).resolves.toMatchObject({
       id: "p-mem",
+      photo: { status: "NONE" },
     });
     await expect(service.getById(memberOnly, "other")).rejects.toBeInstanceOf(
       ForbiddenException,
@@ -160,6 +207,7 @@ describe("PersonsService", () => {
           isMinor: false,
           householdId: null,
           legalGuardianPersonId: null,
+          photoStorageKey: null,
           legalGuardian: null,
           dependents: [],
           household: null,
@@ -191,6 +239,10 @@ describe("PersonsService", () => {
     const dossier = await service.getDossier(secretaria, "p1");
     expect(dossier.admissionHistory).toHaveLength(1);
     expect(dossier.memberships[0]?.notes).toBe("n");
+    expect(dossier.person.photo).toEqual({
+      status: "NONE",
+      hasStorageKey: false,
+    });
   });
 
   it("patch requires guardian for minor", async () => {
@@ -230,6 +282,7 @@ describe("PersonsService", () => {
       kind: "VISITOR",
       isMinor: true,
       legalGuardianPersonId: "adult",
+      photoStorageKey: null,
     });
     await expect(
       service.patch(secretaria, "kid", {

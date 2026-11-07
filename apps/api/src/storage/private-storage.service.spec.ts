@@ -43,6 +43,25 @@ describe("PrivateStorageService", () => {
     expect(key.endsWith(".pdf")).toBe(true);
   });
 
+  it("builds letter PDF and person photo keys under private prefixes", () => {
+    const storage = new PrivateStorageService();
+    const letterKey = storage.buildLetterPdfKey({
+      organizationId: "org",
+      churchId: "ch",
+      letterId: "L1",
+    });
+    expect(letterKey.startsWith("letters/org/ch/L1/")).toBe(true);
+    expect(letterKey.endsWith(".pdf")).toBe(true);
+
+    const photoKey = storage.buildPersonPhotoKey({
+      organizationId: "org",
+      personId: "p1",
+      extension: "png",
+    });
+    expect(photoKey.startsWith("persons/org/p1/photo/")).toBe(true);
+    expect(photoKey.endsWith(".png")).toBe(true);
+  });
+
   it("rejects path traversal keys", async () => {
     const storage = new PrivateStorageService();
     await expect(storage.get("../etc/passwd")).rejects.toBeInstanceOf(

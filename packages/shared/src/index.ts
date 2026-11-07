@@ -37,6 +37,15 @@ export {
 } from "./credential-token";
 
 export {
+  normalizePersonSearchText,
+  tokenizePersonName,
+  scorePersonDedupeMatch,
+  isStrongPersonDedupeMatch,
+  type PersonDedupeMatchReason,
+  type PersonDedupeCandidateInput,
+} from "./person-dedupe";
+
+export {
   canManageMemberships,
   canViewOwnCredential,
   canManageAdmissions,
@@ -128,6 +137,12 @@ export {
   type PersonSearchRequest,
   type PersonSearchHit,
   type PersonSearchResponse,
+  type PersonMatchReason,
+  type PersonPhotoStubDto,
+  type PersonCandidatesRequest,
+  type PersonCandidatesResponse,
+  type LetterPdfMetaDto,
+  type ChurchLetterDto,
   type AdmissionChecklistDto,
   type AdmissionDto,
   type CreateAdmissionRequest,

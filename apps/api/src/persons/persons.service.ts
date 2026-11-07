@@ -4,7 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canSearchPersons, canManageMemberships } from "@idbrf/shared";
+import {
+  canSearchPersons,
+  canManageMemberships,
+  isStrongPersonDedupeMatch,
+  scorePersonDedupeMatch,
+  type PersonDedupeMatchReason,
+  type PersonPhotoStubDto,
+} from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -41,7 +48,7 @@ export class PersonsService {
           { email: { contains: query, mode: "insensitive" } },
         ],
       },
-      take,
+      take: Math.min(take * 3, 150),
       orderBy: { displayName: "asc" },
       select: {
         id: true,
@@ -51,37 +58,133 @@ export class PersonsService {
         householdId: true,
         kind: true,
         isMinor: true,
+        photoStorageKey: true,
       },
     });
 
-    const qLower = query.toLowerCase();
-    const hits = rows.map((person) => {
-      const matchReasons: Array<"displayName" | "email"> = [];
-      if (person.displayName.toLowerCase().includes(qLower)) {
-        matchReasons.push("displayName");
-      }
-      if (person.email?.toLowerCase().includes(qLower)) {
-        matchReasons.push("email");
-      }
-      const exactName = person.displayName.toLowerCase() === qLower;
-      const exactEmail = person.email?.toLowerCase() === qLower;
-      const score = exactEmail || exactName ? 0.95 : matchReasons.length > 1 ? 0.85 : 0.7;
-      return {
-        person: {
-          id: person.id,
-          displayName: person.displayName,
-          email: person.email,
-          status: person.status,
-          householdId: person.householdId,
-          kind: person.kind,
-          isMinor: person.isMinor,
-        },
-        score,
-        matchReasons,
-      };
-    });
+    const hits = rows
+      .map((person) => {
+        const scored = scorePersonDedupeMatch({ q: query }, person);
+        if (scored.score <= 0) {
+          // Prisma contains pode achar substring que o scorer ignora — fallback leve
+          const qLower = query.toLowerCase();
+          const reasons: PersonDedupeMatchReason[] = [];
+          if (person.displayName.toLowerCase().includes(qLower)) {
+            reasons.push("displayName");
+          }
+          if (person.email?.toLowerCase().includes(qLower)) {
+            reasons.push("email");
+          }
+          if (reasons.length === 0) return null;
+          return {
+            person: this.toSummary(person),
+            score: reasons.length > 1 ? 0.85 : 0.7,
+            matchReasons: reasons,
+          };
+        }
+        return {
+          person: this.toSummary(person),
+          score: scored.score,
+          matchReasons: scored.matchReasons,
+        };
+      })
+      .filter((h): h is NonNullable<typeof h> => h !== null)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, take);
 
     return { query, hits, autoMergeForbidden: true as const };
+  }
+
+  /**
+   * Pré-checagem de duplicidade (RF-001) — candidatos ranqueados, sem merge.
+   * FE deve chamar antes de POST /admissions com displayName novo.
+   */
+  async findCandidates(
+    actor: AuthUser,
+    input: { displayName: string; email?: string; limit?: number },
+  ) {
+    const pilot = await this.pilot.getPilotChurch();
+    if (
+      !canSearchPersons(actor.grants, {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      })
+    ) {
+      throw new ForbiddenException("Sem permissão para buscar pessoas");
+    }
+
+    const displayName = input.displayName?.trim() ?? "";
+    const email = input.email?.trim().toLowerCase() || null;
+    if (displayName.length < 2 && !email) {
+      throw new BadRequestException(
+        "Informe displayName (mín. 2) ou email para buscar candidatos",
+      );
+    }
+
+    const take = Math.min(Math.max(input.limit ?? 10, 1), 50);
+    const orFilters: Array<Record<string, unknown>> = [];
+    if (displayName.length >= 2) {
+      orFilters.push({
+        displayName: { contains: displayName, mode: "insensitive" },
+      });
+      const tokens = displayName.split(/\s+/).filter((t) => t.length >= 3);
+      for (const token of tokens.slice(0, 4)) {
+        orFilters.push({
+          displayName: { contains: token, mode: "insensitive" },
+        });
+      }
+    }
+    if (email) {
+      orFilters.push({ email: { equals: email, mode: "insensitive" } });
+      orFilters.push({ email: { contains: email, mode: "insensitive" } });
+    }
+
+    const rows = await this.prisma.person.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        OR: orFilters.length > 0 ? orFilters : undefined,
+      },
+      take: Math.min(take * 4, 200),
+      orderBy: { displayName: "asc" },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        status: true,
+        householdId: true,
+        kind: true,
+        isMinor: true,
+        photoStorageKey: true,
+      },
+    });
+
+    const hits = rows
+      .map((person) => {
+        const scored = scorePersonDedupeMatch(
+          { displayName, email: email ?? undefined },
+          person,
+        );
+        if (scored.score <= 0) return null;
+        return {
+          person: this.toSummary(person),
+          score: scored.score,
+          matchReasons: scored.matchReasons,
+        };
+      })
+      .filter((h): h is NonNullable<typeof h> => h !== null)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, take);
+
+    const strongMatch = hits.some((h) =>
+      isStrongPersonDedupeMatch(h.score, h.matchReasons),
+    );
+
+    return {
+      query: { displayName, email },
+      hits,
+      strongMatch,
+      autoMergeForbidden: true as const,
+    };
   }
 
   async getById(actor: AuthUser, personId: string) {
@@ -102,12 +205,16 @@ export class PersonsService {
         kind: true,
         isMinor: true,
         legalGuardianPersonId: true,
+        photoStorageKey: true,
       },
     });
     if (!person) {
       throw new NotFoundException("Pessoa não encontrada neste escopo");
     }
-    return person;
+    return {
+      ...this.toSummary(person),
+      legalGuardianPersonId: person.legalGuardianPersonId,
+    };
   }
 
   /**
@@ -129,6 +236,7 @@ export class PersonsService {
         isMinor: true,
         householdId: true,
         legalGuardianPersonId: true,
+        photoStorageKey: true,
         legalGuardian: {
           select: { id: true, displayName: true, email: true },
         },
@@ -182,13 +290,8 @@ export class PersonsService {
 
     return {
       person: {
-        id: person.id,
-        displayName: person.displayName,
+        ...this.toSummary(person),
         email: isStaff || actor.personId === person.id ? person.email : null,
-        status: person.status,
-        kind: person.kind,
-        isMinor: person.isMinor,
-        householdId: person.householdId,
         legalGuardianPersonId: person.legalGuardianPersonId,
       },
       legalGuardian: person.legalGuardian
@@ -325,6 +428,7 @@ export class PersonsService {
         kind: true,
         isMinor: true,
         legalGuardianPersonId: true,
+        photoStorageKey: true,
       },
     });
 
@@ -344,7 +448,40 @@ export class PersonsService {
       },
     });
 
-    return updated;
+    return {
+      ...this.toSummary(updated),
+      legalGuardianPersonId: updated.legalGuardianPersonId,
+    };
+  }
+
+  private toSummary(person: {
+    id: string;
+    displayName: string;
+    email: string | null;
+    status: string;
+    householdId: string | null;
+    kind: string;
+    isMinor: boolean;
+    photoStorageKey?: string | null;
+  }) {
+    return {
+      id: person.id,
+      displayName: person.displayName,
+      email: person.email,
+      status: person.status,
+      householdId: person.householdId,
+      kind: person.kind,
+      isMinor: person.isMinor,
+      photo: this.toPhotoStub(person.photoStorageKey),
+    };
+  }
+
+  private toPhotoStub(photoStorageKey?: string | null): PersonPhotoStubDto {
+    const has = Boolean(photoStorageKey);
+    return {
+      status: has ? "READY" : "NONE",
+      hasStorageKey: has,
+    };
   }
 
   private assertCanReadPerson(
