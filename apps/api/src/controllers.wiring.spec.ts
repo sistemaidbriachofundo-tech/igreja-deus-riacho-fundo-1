@@ -313,37 +313,63 @@ describe("controller wiring (delegates to services)", () => {
     const discipleship = {
       createTrack: jest.fn(),
       listTracks: jest.fn(),
+      createStage: jest.fn(),
+      listStages: jest.fn(),
       enroll: jest.fn(),
+      listEnrollments: jest.fn(),
       updateEnrollmentStatus: jest.fn(),
+      recordProgress: jest.fn(),
+      getProgress: jest.fn(),
     };
     const c = new DiscipleshipController(discipleship as never);
     await c.createTrack(user, { name: "Fundamentos" });
     await c.listTracks(user);
+    await c.createStage(user, "tr1", { title: "Intro" });
+    await c.listStages(user, "tr1");
     await c.enroll(user, { trackId: "tr1", personId: "p1" });
+    await c.listEnrollments(user, "tr1", undefined, "ACTIVE");
     await c.updateEnrollmentStatus(user, "e1", { status: "COMPLETED" });
+    await c.recordProgress(user, "e1", { stageId: "s1", kind: "COMPLETED" });
+    await c.getProgress(user, "e1");
     expect(discipleship.updateEnrollmentStatus).toHaveBeenCalledWith(
       user,
       "e1",
       "COMPLETED",
     );
+    expect(discipleship.recordProgress).toHaveBeenCalledWith(user, "e1", {
+      stageId: "s1",
+      kind: "COMPLETED",
+    });
   });
 
   it("GroupsController", async () => {
     const groups = {
       create: jest.fn(),
       list: jest.fn(),
+      frequencyReport: jest.fn(),
       addMember: jest.fn(),
       createMeeting: jest.fn(),
     };
     const c = new GroupsController(groups as never);
     await c.create(user, { name: "Célula" });
     await c.list(user);
+    await c.frequencyReport(
+      user,
+      "2026-11-01T00:00:00Z",
+      "2026-11-30T00:00:00Z",
+      "g1",
+    );
     await c.addMember(user, "g1", { personId: "p1", role: "MEMBER" });
     await c.createMeeting(user, "g1", {
       occurredAt: "2026-11-05T20:00:00Z",
       attendance: [{ personId: "p1", present: true }],
     });
     expect(groups.createMeeting).toHaveBeenCalled();
+    expect(groups.frequencyReport).toHaveBeenCalledWith(user, {
+      from: "2026-11-01T00:00:00Z",
+      to: "2026-11-30T00:00:00Z",
+      groupId: "g1",
+    });
   });
 
   it("Ministries/Rosters controllers", async () => {

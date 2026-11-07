@@ -334,4 +334,230 @@ describe("DiscipleshipService", () => {
     expect(result.status).toBe("PAUSED");
     expect(result.completedAt).toBeNull();
   });
+
+  const stageRow = {
+    id: "s1",
+    trackId: "t1",
+    sortOrder: 1,
+    code: "INTRO",
+    title: "Introdução",
+    description: "primeira etapa",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  it("creates stage with auto sortOrder and audits", async () => {
+    const tx = {
+      discipleshipTrackStage: {
+        create: jest.fn().mockResolvedValue(stageRow),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      discipleshipTrack: { findFirst: jest.fn().mockResolvedValue(trackRow) },
+      discipleshipTrackStage: {
+        aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 2 } }),
+      },
+      ...withTx(tx),
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const result = await service.createStage(lider, "t1", {
+      title: " Introdução ",
+      code: "INTRO",
+    });
+    expect(result.id).toBe("s1");
+    expect(tx.discipleshipTrackStage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sortOrder: 3, title: "Introdução" }),
+    });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it("rejects empty stage title and missing track", async () => {
+    const prisma = {
+      discipleshipTrack: {
+        findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValue(trackRow),
+      },
+      discipleshipTrackStage: { aggregate: jest.fn() },
+      $transaction: jest.fn(),
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.createStage(lider, "missing", { title: "X" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.createStage(lider, "t1", { title: "  " }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("lists stages ordered", async () => {
+    const prisma = {
+      discipleshipTrack: { findFirst: jest.fn().mockResolvedValue(trackRow) },
+      discipleshipTrackStage: {
+        findMany: jest.fn().mockResolvedValue([stageRow]),
+      },
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.listStages(lider, "t1");
+    expect(result.stages).toHaveLength(1);
+    expect(result.stages[0].code).toBe("INTRO");
+  });
+
+  it("lists enrollments scoped to pilot church", async () => {
+    const prisma = {
+      discipleshipEnrollment: {
+        findMany: jest.fn().mockResolvedValue([enrollmentRow]),
+      },
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.listEnrollments(lider, {
+      trackId: "t1",
+      status: "ACTIVE",
+    });
+    expect(result.enrollments).toHaveLength(1);
+    expect(prisma.discipleshipEnrollment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          trackId: "t1",
+          status: "ACTIVE",
+          track: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("records progress event and returns history summary", async () => {
+    const eventRow = {
+      id: "pe1",
+      enrollmentId: "e1",
+      stageId: "s1",
+      kind: "COMPLETED",
+      note: "ok",
+      recordedByUserId: lider.userId,
+      recordedAt: now,
+      createdAt: now,
+    };
+    const enrollmentScoped = {
+      ...enrollmentRow,
+      track: {
+        id: "t1",
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    };
+    const tx = {
+      discipleshipProgressEvent: {
+        create: jest.fn().mockResolvedValue(eventRow),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      discipleshipEnrollment: {
+        findFirst: jest.fn().mockResolvedValue(enrollmentScoped),
+      },
+      discipleshipTrackStage: {
+        findFirst: jest.fn().mockResolvedValue(stageRow),
+        findMany: jest.fn().mockResolvedValue([
+          stageRow,
+          { ...stageRow, id: "s2", sortOrder: 2, code: "BASE", title: "Bases" },
+        ]),
+      },
+      discipleshipProgressEvent: {
+        findMany: jest.fn().mockResolvedValue([eventRow]),
+      },
+      ...withTx(tx),
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const recorded = await service.recordProgress(lider, "e1", {
+      stageId: "s1",
+      kind: "COMPLETED",
+      note: " ok ",
+    });
+    expect(recorded.kind).toBe("COMPLETED");
+    expect(tx.auditLog.create).toHaveBeenCalled();
+
+    const progress = await service.getProgress(lider, "e1");
+    expect(progress.spiritualScoreExcluded).toBe(true);
+    expect(progress.completedStageCount).toBe(1);
+    expect(progress.totalStageCount).toBe(2);
+    expect(progress.currentStageId).toBe("s2");
+    expect(progress.history).toHaveLength(1);
+  });
+
+  it("rejects invalid progress kind / foreign stage / long note", async () => {
+    const enrollmentScoped = {
+      ...enrollmentRow,
+      track: {
+        id: "t1",
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    };
+    const prisma = {
+      discipleshipEnrollment: {
+        findFirst: jest.fn().mockResolvedValue(enrollmentScoped),
+      },
+      discipleshipTrackStage: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new DiscipleshipService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.recordProgress(lider, "e1", { stageId: "s1", kind: "BLESSED" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.recordProgress(lider, "e1", {
+        stageId: "s-other",
+        kind: "STARTED",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.recordProgress(lider, "e1", {
+        stageId: "s1",
+        kind: "STARTED",
+        note: "x".repeat(281),
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("forbids MEMBRO from recording progress", async () => {
+    const service = new DiscipleshipService(
+      { $transaction: jest.fn() } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.recordProgress(membro, "e1", {
+        stageId: "s1",
+        kind: "STARTED",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

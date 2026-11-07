@@ -25,9 +25,9 @@ info:
     - 0.7.2-f2: fechamento F2 — `auth.login` audit, `POST /admissions/:id/cancel`,
       `DELETE /admissions/:id/documents/:documentId`, polish Person/Audit/Meta schemas
     - 0.7.3-das-etapa3: RF-013 transição roster DRAFT→PUBLISHED→CLOSED (publish/close + conflitos);
-      RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; RF-001 dedupe (`POST /persons/candidates`,
-      search scoring, photo stub) + RF-006 PDF de carta (`POST|GET /letters/:id/pdf`, `GET .../pdf-meta`,
-      storageKey); notes OIDC_NOT_LIVE / MFA challenge
+      RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; RF-001 dedupe + RF-006 PDF cartas;
+      RF-010 discipleship stages/progress + RF-011 cell frequency report;
+      notes OIDC_NOT_LIVE / MFA challenge
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -1972,7 +1972,65 @@ paths:
         "201":
           description: Trilha criada
 
+  /discipleship/tracks/{trackId}/stages:
+    get:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Lista etapas ordenadas da trilha (RF-010)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope stages[]
+    post:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Cria etapa na trilha (RF-010)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: trackId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                code: { type: string }
+                sortOrder: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: Etapa criada
+
   /discipleship/enrollments:
+    get:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Lista matrículas (filtros opcionais)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: trackId
+          in: query
+          schema: { type: string }
+        - name: personId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, COMPLETED, PAUSED, CANCELLED] }
+      responses:
+        "200":
+          description: Envelope enrollments[]
     post:
       tags: [discipleship]
       x-implementation: implemented
@@ -2017,6 +2075,51 @@ paths:
         "200":
           description: Matrícula atualizada
 
+  /discipleship/enrollments/{enrollmentId}/progress:
+    get:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Progresso granular + histórico de etapas (RF-010)
+      description: |
+        Retorna resumo por etapa + history append-only.
+        `spiritualScoreExcluded: true` — não há pontuação espiritual.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Progresso (stages, history, currentStageId)
+    post:
+      tags: [discipleship]
+      x-implementation: implemented
+      summary: Registra evento de progresso em etapa (RF-010)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stageId, kind]
+              properties:
+                stageId: { type: string }
+                kind: { type: string, enum: [STARTED, COMPLETED, REOPENED] }
+                note:
+                  type: string
+                  maxLength: 280
+                  description: Nota operacional curta (não avaliação espiritual)
+      responses:
+        "201":
+          description: Evento de progresso criado
+
   /small-groups:
     get:
       tags: [groups]
@@ -2045,6 +2148,33 @@ paths:
       responses:
         "201":
           description: Grupo criado
+
+  /small-groups/frequency-report:
+    get:
+      tags: [groups]
+      x-implementation: implemented
+      summary: Relatório operacional de frequência de células (RF-011)
+      description: |
+        Agrega reuniões/presenças já registradas no período.
+        `spiritualScoreExcluded: true` e `metric: operational_attendance` —
+        **não** pontua espiritualmente / maturidade / multiplicação.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+          description: Início do período (default = to − 30 dias)
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+          description: Fim do período (default = agora)
+        - name: groupId
+          in: query
+          schema: { type: string }
+          description: Filtra uma célula (scoped à igreja piloto)
+      responses:
+        "200":
+          description: Envelope groups[] com contagens e presentRate operacional
 
   /small-groups/{groupId}/members:
     post:

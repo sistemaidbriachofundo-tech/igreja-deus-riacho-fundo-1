@@ -110,6 +110,18 @@ describe("api contracts F2", () => {
       API_ENDPOINT_STATUS["POST /small-groups/:groupId/meetings"],
       "implemented",
     );
+    assert.equal(
+      API_ENDPOINT_STATUS["GET /discipleship/tracks/:trackId/stages"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["POST /discipleship/enrollments/:enrollmentId/progress"],
+      "implemented",
+    );
+    assert.equal(
+      API_ENDPOINT_STATUS["GET /small-groups/frequency-report"],
+      "implemented",
+    );
     assert.equal(API_ENDPOINT_STATUS["GET /public/ministries"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["GET /public/events"], "implemented");
     assert.equal(API_ENDPOINT_STATUS["GET /public/home"], "implemented");

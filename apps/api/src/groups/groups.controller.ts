@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
   IsArray,
@@ -90,6 +90,22 @@ export class GroupsController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.groups.list(user);
+  }
+
+  @Roles(
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Get("frequency-report")
+  frequencyReport(
+    @CurrentUser() user: AuthUser,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("groupId") groupId?: string,
+  ) {
+    return this.groups.frequencyReport(user, { from, to, groupId });
   }
 
   @Roles(
