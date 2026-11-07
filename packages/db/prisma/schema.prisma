@@ -103,6 +103,7 @@ model Organization {
   budgets        Budget[]
   accountingPeriods AccountingPeriod[]
   ledgerEntryAttachments LedgerEntryAttachment[]
+  eventGuardianAuthorizations EventGuardianAuthorization[]
 
   messageTemplates MessageTemplate[]
   communicationConsents CommunicationConsent[]
@@ -156,6 +157,7 @@ model Church {
   budgets        Budget[]
   accountingPeriods AccountingPeriod[]
   ledgerEntryAttachments LedgerEntryAttachment[]
+  eventGuardianAuthorizations EventGuardianAuthorization[]
 
   messageTemplates MessageTemplate[]
   communicationConsents CommunicationConsent[]
@@ -768,6 +770,9 @@ model PortalEvent {
   lots         EventLot[]
   registrations EventRegistration[]
   paymentIntents EventPaymentIntent[]
+  lodgingOptions   EventLodgingOption[]
+  mealOptions      EventMealOption[]
+  transportOptions EventTransportOption[]
 
   @@unique([churchId, slug])
   @@index([organizationId, churchId])
@@ -856,6 +861,99 @@ model EventLot {
   @@map("event_lots")
 }
 
+enum EventLodgingKind {
+  NONE
+  SHARED
+  COUPLE
+  FAMILY
+  CUSTOM
+}
+
+enum EventMealKind {
+  NONE
+  BREAKFAST
+  LUNCH
+  DINNER
+  FULL_BOARD
+  CUSTOM
+}
+
+enum EventTransportKind {
+  NONE
+  OWN
+  EVENT_BUS
+  CARPOOL
+  CUSTOM
+}
+
+/// Status da autorização formal do responsável (RF-022) — só relevante para menores.
+enum EventGuardianAuthStatus {
+  NOT_REQUIRED
+  PENDING
+  AUTHORIZED
+  REVOKED
+}
+
+/// Opção de hospedagem/alojamento do evento (capacidade própria opcional).
+model EventLodgingOption {
+  id        String           @id @default(cuid())
+  eventId   String           @map("event_id")
+  code      String
+  name      String
+  kind      EventLodgingKind @default(CUSTOM)
+  capacity  Int?
+  sortOrder Int              @default(0) @map("sort_order")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  event          PortalEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations  EventRegistration[]
+
+  @@unique([eventId, code])
+  @@index([eventId, sortOrder])
+  @@map("event_lodging_options")
+}
+
+/// Opção de alimentação do evento.
+model EventMealOption {
+  id        String        @id @default(cuid())
+  eventId   String        @map("event_id")
+  code      String
+  name      String
+  kind      EventMealKind @default(CUSTOM)
+  capacity  Int?
+  sortOrder Int           @default(0) @map("sort_order")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  event          PortalEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations  EventRegistration[]
+
+  @@unique([eventId, code])
+  @@index([eventId, sortOrder])
+  @@map("event_meal_options")
+}
+
+/// Opção de transporte do evento.
+model EventTransportOption {
+  id        String             @id @default(cuid())
+  eventId   String             @map("event_id")
+  code      String
+  name      String
+  kind      EventTransportKind @default(CUSTOM)
+  capacity  Int?
+  sortOrder Int                @default(0) @map("sort_order")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  event          PortalEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations  EventRegistration[]
+
+  @@unique([eventId, code])
+  @@index([eventId, sortOrder])
+  @@map("event_transport_options")
+}
+
 /// Inscrição — rótulos sintéticos apenas (sem CPF/e-mail/telefone reais nesta fatia).
 model EventRegistration {
   id                   String                   @id @default(cuid())
@@ -864,10 +962,16 @@ model EventRegistration {
   eventId              String                   @map("event_id")
   modalityId           String                   @map("modality_id")
   lotId                String?                  @map("lot_id")
+  lodgingOptionId      String?                  @map("lodging_option_id")
+  mealOptionId         String?                  @map("meal_option_id")
+  transportOptionId    String?                  @map("transport_option_id")
   displayName          String                   @map("display_name")
   partySize            Int                      @default(1) @map("party_size")
   isMinor              Boolean                  @default(false) @map("is_minor")
   guardianDisplayName  String?                  @map("guardian_display_name")
+  /// Autorização formal do responsável vinculada à participação (RF-022).
+  guardianAuthStatus   EventGuardianAuthStatus  @default(NOT_REQUIRED) @map("guardian_auth_status")
+  guardianAuthorizedAt DateTime?                @map("guardian_authorized_at")
   status               EventRegistrationStatus  @default(PENDING_PAYMENT)
   paymentStatus        EventPaymentStatus       @default(PENDING) @map("payment_status")
   /// Código opaco para check-in / consulta pública — não é PII.
@@ -882,13 +986,45 @@ model EventRegistration {
   event        PortalEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   modality     EventModality @relation(fields: [modalityId], references: [id])
   lot          EventLot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  lodgingOption   EventLodgingOption?   @relation(fields: [lodgingOptionId], references: [id], onDelete: SetNull)
+  mealOption      EventMealOption?      @relation(fields: [mealOptionId], references: [id], onDelete: SetNull)
+  transportOption EventTransportOption? @relation(fields: [transportOptionId], references: [id], onDelete: SetNull)
   paymentIntents EventPaymentIntent[]
+  guardianAuthorization EventGuardianAuthorization?
 
   @@index([organizationId, churchId])
   @@index([eventId, status])
   @@index([modalityId])
   @@index([lotId])
+  @@index([lodgingOptionId])
+  @@index([mealOptionId])
+  @@index([transportOptionId])
   @@map("event_registrations")
+}
+
+/// Autorização formal de responsável para menor em evento (rótulo sintético; sem PII real).
+model EventGuardianAuthorization {
+  id                   String                  @id @default(cuid())
+  organizationId       String                  @map("organization_id")
+  churchId             String                  @map("church_id")
+  registrationId       String                  @unique @map("registration_id")
+  guardianDisplayName  String                  @map("guardian_display_name")
+  status               EventGuardianAuthStatus @default(PENDING)
+  /// Texto sintético de ciência — não é documento legal digitalizado.
+  acknowledgmentText   String                  @map("acknowledgment_text")
+  authorizedAt         DateTime?               @map("authorized_at")
+  authorizedByUserId   String?                 @map("authorized_by_user_id")
+  revokedAt            DateTime?               @map("revoked_at")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  church       Church            @relation(fields: [churchId], references: [id])
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, churchId])
+  @@index([status])
+  @@map("event_guardian_authorizations")
 }
 
 model EventPaymentIntent {

@@ -27,6 +27,18 @@ class PublicRegistrationBody {
   lotId!: string;
 
   @IsOptional()
+  @IsString()
+  lodgingOptionId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  mealOptionId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  transportOptionId?: string | null;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(20)
@@ -39,6 +51,10 @@ class PublicRegistrationBody {
   @IsOptional()
   @IsString()
   guardianDisplayName?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  guardianAcknowledged?: boolean;
 }
 
 @Controller("public")

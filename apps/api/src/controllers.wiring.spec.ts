@@ -547,10 +547,17 @@ describe("controller wiring (delegates to services)", () => {
       listModalities: jest.fn(),
       createLot: jest.fn(),
       listLots: jest.fn(),
+      createLodgingOption: jest.fn(),
+      listLodgingOptions: jest.fn(),
+      createMealOption: jest.fn(),
+      listMealOptions: jest.fn(),
+      createTransportOption: jest.fn(),
+      listTransportOptions: jest.fn(),
       listRegistrations: jest.fn(),
       createStaffRegistration: jest.fn(),
       checkIn: jest.fn(),
       cancel: jest.fn(),
+      setGuardianAuthorization: jest.fn(),
       handleMockPaymentWebhook: jest.fn(),
     };
     const c = new EventsController(events as never, registrations as never);
@@ -569,6 +576,24 @@ describe("controller wiring (delegates to services)", () => {
     await c.listModalities(user, "e1");
     await c.createLot(user, "e1", { code: "l1", name: "Lote 1", priceCents: 0 });
     await c.listLots(user, "e1");
+    await c.createLodgingOption(user, "e1", {
+      code: "familia",
+      name: "Quarto família",
+      kind: "FAMILY",
+    });
+    await c.listLodgingOptions(user, "e1");
+    await c.createMealOption(user, "e1", {
+      code: "full",
+      name: "Pensão completa",
+      kind: "FULL_BOARD",
+    });
+    await c.listMealOptions(user, "e1");
+    await c.createTransportOption(user, "e1", {
+      code: "bus",
+      name: "Ônibus",
+      kind: "EVENT_BUS",
+    });
+    await c.listTransportOptions(user, "e1");
     await c.listRegistrations(user, "e1");
     await c.createRegistration(user, "e1", {
       displayName: "Demo",
@@ -576,11 +601,14 @@ describe("controller wiring (delegates to services)", () => {
     });
     expect(events.archive).toHaveBeenCalledWith(user, "e1");
     expect(registrations.createStaffRegistration).toHaveBeenCalled();
+    expect(registrations.createLodgingOption).toHaveBeenCalled();
 
     const r = new RegistrationsController(registrations as never);
     await r.checkIn(user, "reg1", {});
     await r.cancel(user, "reg1");
+    await r.setGuardianAuthorization(user, "reg1", { status: "AUTHORIZED" });
     expect(registrations.checkIn).toHaveBeenCalledWith(user, "reg1", undefined);
+    expect(registrations.setGuardianAuthorization).toHaveBeenCalled();
 
     const wh = new EventPaymentWebhookController(registrations as never);
     await wh.mockConfirm("sig", "idem-12345678", {
@@ -603,8 +631,15 @@ describe("controller wiring (delegates to services)", () => {
       publicCatalogForEvent: jest.fn().mockResolvedValue({
         modalities: [],
         lots: [],
+        lodgingOptions: [],
+        mealOptions: [],
+        transportOptions: [],
         paymentMode: "MOCK_ONLY",
-        rf022LodgingPending: true,
+        rf022LodgingPending: false,
+        requiresLodgingOption: false,
+        requiresMealOption: false,
+        requiresTransportOption: false,
+        requiresGuardianAuthorizationForMinors: true,
       }),
       createPublicRegistration: jest.fn(),
       getPublicRegistrationStatus: jest.fn(),

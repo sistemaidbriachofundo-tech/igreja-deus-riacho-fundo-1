@@ -186,6 +186,29 @@ class CreateLotBody {
   sortOrder?: number;
 }
 
+class CreateResourceOptionBody {
+  @IsString()
+  @MinLength(1)
+  code!: string;
+
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  kind?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  capacity?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
+}
+
 class CreateRegistrationBody {
   @IsString()
   @MinLength(2)
@@ -200,6 +223,18 @@ class CreateRegistrationBody {
   lotId?: string | null;
 
   @IsOptional()
+  @IsString()
+  lodgingOptionId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  mealOptionId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  transportOptionId?: string | null;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(20)
@@ -212,12 +247,25 @@ class CreateRegistrationBody {
   @IsOptional()
   @IsString()
   guardianDisplayName?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  guardianAcknowledged?: boolean;
 }
 
 class CheckInBody {
   @IsOptional()
   @IsString()
   checkInCode?: string;
+}
+
+class GuardianAuthorizationBody {
+  @IsIn(["AUTHORIZED", "REVOKED"])
+  status!: "AUTHORIZED" | "REVOKED";
+
+  @IsOptional()
+  @IsString()
+  acknowledgmentText?: string;
 }
 
 class MockPaymentWebhookBody {
@@ -329,6 +377,91 @@ export class EventsController {
   }
 
   @Roles(...EVENT_STAFF)
+  @Post(":eventId/lodging-options")
+  createLodgingOption(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+    @Body() body: CreateResourceOptionBody,
+  ) {
+    return this.registrations.createLodgingOption(user, eventId, {
+      ...body,
+      kind: body.kind as
+        | "NONE"
+        | "SHARED"
+        | "COUPLE"
+        | "FAMILY"
+        | "CUSTOM"
+        | undefined,
+    });
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Get(":eventId/lodging-options")
+  listLodgingOptions(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+  ) {
+    return this.registrations.listLodgingOptions(user, eventId);
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Post(":eventId/meal-options")
+  createMealOption(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+    @Body() body: CreateResourceOptionBody,
+  ) {
+    return this.registrations.createMealOption(user, eventId, {
+      ...body,
+      kind: body.kind as
+        | "NONE"
+        | "BREAKFAST"
+        | "LUNCH"
+        | "DINNER"
+        | "FULL_BOARD"
+        | "CUSTOM"
+        | undefined,
+    });
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Get(":eventId/meal-options")
+  listMealOptions(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+  ) {
+    return this.registrations.listMealOptions(user, eventId);
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Post(":eventId/transport-options")
+  createTransportOption(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+    @Body() body: CreateResourceOptionBody,
+  ) {
+    return this.registrations.createTransportOption(user, eventId, {
+      ...body,
+      kind: body.kind as
+        | "NONE"
+        | "OWN"
+        | "EVENT_BUS"
+        | "CARPOOL"
+        | "CUSTOM"
+        | undefined,
+    });
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Get(":eventId/transport-options")
+  listTransportOptions(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+  ) {
+    return this.registrations.listTransportOptions(user, eventId);
+  }
+
+  @Roles(...EVENT_STAFF)
   @Get(":eventId/registrations")
   listRegistrations(
     @CurrentUser() user: AuthUser,
@@ -369,6 +502,20 @@ export class RegistrationsController {
     @Param("registrationId") registrationId: string,
   ) {
     return this.registrations.cancel(user, registrationId);
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Post(":registrationId/guardian-authorization")
+  setGuardianAuthorization(
+    @CurrentUser() user: AuthUser,
+    @Param("registrationId") registrationId: string,
+    @Body() body: GuardianAuthorizationBody,
+  ) {
+    return this.registrations.setGuardianAuthorization(
+      user,
+      registrationId,
+      body,
+    );
   }
 }
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Igreja de Deus Riacho Fundo I — API DAS F1–F6
-  version: 0.7.4-rf014
+  version: 0.7.4-rf022
   description: |
     Contrato compartilhado BE ↔ FE (DAS v1.1 + protótipo Central de Membresia v5).
     Dados **fictícios** apenas. Sem deploy de produção neste contrato.
@@ -35,6 +35,9 @@ info:
     - 0.7.4-rf014: RF-014 disponibilidade/impedimentos + exceções de casal (simulate/approve);
       RF-015 alertas confirm/decline/substitute via outbox **mock** + resend idempotente
       (`sourceType=roster_assignment`); reusa publish roster (#71); sem WABA live
+    - 0.7.4-rf022: hospedagem/alimentação/transporte (opções por evento + capacidade) e
+      autorização formal de responsável vinculada à inscrição de menor; check-in bloqueia
+      guardian PENDING/REVOKED; `rf022LodgingPending=false` no catálogo público
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
     Base HML: **TBD** — só após autorização (ver `docs/hml-runbook.md`).
@@ -170,7 +173,7 @@ components:
       properties:
         app: { type: string }
         slug: { type: string }
-        contractVersion: { type: string, example: 0.7.4-rf014 }
+        contractVersion: { type: string, example: 0.7.4-rf022 }
         apiPathPrefix: { type: string }
         pilot: { type: boolean }
         endpoints:
@@ -3472,6 +3475,129 @@ paths:
         "201":
           description: Lote criado
 
+  /events/{eventId}/lodging-options:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista opções de hospedagem do evento (RF-022)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope lodgingOptions[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria opção de hospedagem (capacidade opcional)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                kind: { type: string, enum: [NONE, SHARED, COUPLE, FAMILY, CUSTOM] }
+                capacity: { type: integer, minimum: 1, nullable: true }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Opção de hospedagem criada
+
+  /events/{eventId}/meal-options:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista opções de alimentação do evento (RF-022)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope mealOptions[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria opção de alimentação
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                kind: { type: string, enum: [NONE, BREAKFAST, LUNCH, DINNER, FULL_BOARD, CUSTOM] }
+                capacity: { type: integer, minimum: 1, nullable: true }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Opção de alimentação criada
+
+  /events/{eventId}/transport-options:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista opções de transporte do evento (RF-022)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope transportOptions[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria opção de transporte
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                kind: { type: string, enum: [NONE, OWN, EVENT_BUS, CARPOOL, CUSTOM] }
+                capacity: { type: integer, minimum: 1, nullable: true }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Opção de transporte criada
+
   /events/{eventId}/registrations:
     get:
       tags: [events]
@@ -3489,7 +3615,7 @@ paths:
     post:
       tags: [events]
       x-implementation: implemented
-      summary: Cria inscrição staff (sem PII real; guardian se isMinor)
+      summary: Cria inscrição staff (sem PII real; RF-022 opções + guardian se isMinor)
       security: [{ bearerAuth: [] }]
       parameters:
         - name: eventId
@@ -3507,18 +3633,22 @@ paths:
                 displayName: { type: string, minLength: 2 }
                 modalityId: { type: string }
                 lotId: { type: string, nullable: true }
+                lodgingOptionId: { type: string, nullable: true }
+                mealOptionId: { type: string, nullable: true }
+                transportOptionId: { type: string, nullable: true }
                 partySize: { type: integer, minimum: 1 }
                 isMinor: { type: boolean }
                 guardianDisplayName: { type: string, nullable: true }
+                guardianAcknowledged: { type: boolean, description: Obrigatório true quando isMinor }
       responses:
         "201":
-          description: Inscrição + paymentIntent mock opcional
+          description: Inscrição + paymentIntent mock opcional + guardianAuthorization se menor
 
   /registrations/{registrationId}/check-in:
     post:
       tags: [events]
       x-implementation: implemented
-      summary: Check-in (bloqueia PENDING_PAYMENT)
+      summary: Check-in (bloqueia PENDING_PAYMENT e guardian PENDING/REVOKED)
       security: [{ bearerAuth: [] }]
       parameters:
         - name: registrationId
@@ -3551,6 +3681,33 @@ paths:
       responses:
         "200":
           description: CANCELLED
+
+  /registrations/{registrationId}/guardian-authorization:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Autoriza ou revoga autorização formal de responsável (menor; RF-022)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [AUTHORIZED, REVOKED] }
+                acknowledgmentText: { type: string, description: Texto sintético opcional }
+      responses:
+        "200":
+          description: Inscrição + guardianAuthorization atualizados
+        "400":
+          description: Não é menor / status inválido / inscrição cancelada
 
   /webhooks/event-payments/mock:
     post:
@@ -3636,7 +3793,7 @@ paths:
     get:
       tags: [public]
       x-implementation: implemented
-      summary: Detalhe evento PUBLISHED + modalidades/lotes OPEN (vagas; sem PII)
+      summary: Detalhe evento PUBLISHED + modalidades/lotes OPEN + opções RF-022 (vagas; sem PII)
       security: []
       parameters:
         - name: slug
@@ -3645,7 +3802,9 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Evento público + catalog (modalities/lots/paymentMode=MOCK_ONLY)
+          description: |
+            Evento público + catalog (modalities/lots/lodgingOptions/mealOptions/transportOptions;
+            paymentMode=MOCK_ONLY; rf022LodgingPending=false)
         "404":
           description: Não publicado / inexistente
 
@@ -3653,7 +3812,7 @@ paths:
     post:
       tags: [public]
       x-implementation: implemented
-      summary: Inscrição pública (rótulos sintéticos; rejeita email/cpf/telefone; guardian se isMinor)
+      summary: Inscrição pública (rótulos sintéticos; RF-022 opções; rejeita email/cpf/telefone)
       security: []
       parameters:
         - name: slug
@@ -3671,14 +3830,18 @@ paths:
                 displayName: { type: string, minLength: 2 }
                 modalityId: { type: string }
                 lotId: { type: string }
+                lodgingOptionId: { type: string, nullable: true }
+                mealOptionId: { type: string, nullable: true }
+                transportOptionId: { type: string, nullable: true }
                 partySize: { type: integer, minimum: 1 }
                 isMinor: { type: boolean }
                 guardianDisplayName: { type: string, nullable: true }
+                guardianAcknowledged: { type: boolean }
       responses:
         "201":
-          description: Inscrição criada (PENDING_PAYMENT ou CONFIRMED se lote gratuito)
+          description: Inscrição criada (PENDING_PAYMENT ou CONFIRMED se lote gratuito; guardian PENDING se menor)
         "400":
-          description: Capacidade/lote/PII/guardian
+          description: Capacidade/lote/opções/PII/guardian
 
   /public/registrations/{checkInCode}:
     get:
@@ -3693,7 +3856,7 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: status/paymentStatus/eventSlug
+          description: status/paymentStatus/eventSlug/guardianAuthStatus/opção ids
         "404":
           description: Não encontrado
 

@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.4-rf014` | Contrato BE↔FE — RF-014 disponibilidade/casal + RF-015 alertas outbox mock |
+| `f2-v0.2.yaml` | `0.7.4-rf022` | Contrato BE↔FE — Etapa 3 + RF-014/015 + RF-022 hospedagem/menor |
 
 ## Como o FE consome
 

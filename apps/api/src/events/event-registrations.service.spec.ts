@@ -78,10 +78,15 @@ describe("EventRegistrationsService", () => {
     eventId: "e1",
     modalityId: "mod1",
     lotId: "lot1",
+    lodgingOptionId: null as string | null,
+    mealOptionId: null as string | null,
+    transportOptionId: null as string | null,
     displayName: "Demo Participante",
     partySize: 1,
     isMinor: false,
     guardianDisplayName: null as string | null,
+    guardianAuthStatus: "NOT_REQUIRED",
+    guardianAuthorizedAt: null as Date | null,
     status: "PENDING_PAYMENT",
     paymentStatus: "PENDING",
     checkInCode: "abc123def4567890",
@@ -90,6 +95,14 @@ describe("EventRegistrationsService", () => {
     createdAt: now,
     updatedAt: now,
   };
+
+  function emptyResourceCatalog() {
+    return {
+      eventLodgingOption: { findMany: jest.fn().mockResolvedValue([]) },
+      eventMealOption: { findMany: jest.fn().mockResolvedValue([]) },
+      eventTransportOption: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+  }
 
   function withTx(tx: object) {
     return {
@@ -158,6 +171,7 @@ describe("EventRegistrationsService", () => {
       portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
       eventModality: { findFirst: jest.fn().mockResolvedValue(modality) },
       eventLot: { findFirst: jest.fn().mockResolvedValue(lot) },
+      ...emptyResourceCatalog(),
       eventRegistration: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
       },
@@ -194,6 +208,7 @@ describe("EventRegistrationsService", () => {
       portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
       eventModality: { findFirst: jest.fn().mockResolvedValue(modality) },
       eventLot: { findFirst: jest.fn().mockResolvedValue(lot) },
+      ...emptyResourceCatalog(),
       eventRegistration: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
       },
@@ -399,6 +414,7 @@ describe("EventRegistrationsService", () => {
         findFirst: jest.fn().mockResolvedValue({ ...modality, capacity: 1 }),
       },
       eventLot: { findFirst: jest.fn().mockResolvedValue(lot) },
+      ...emptyResourceCatalog(),
       eventRegistration: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 1 } }),
       },
@@ -421,6 +437,7 @@ describe("EventRegistrationsService", () => {
       portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
       eventModality: { findFirst: jest.fn().mockResolvedValue(modality) },
       eventLot: { findFirst: jest.fn().mockResolvedValue(lot) },
+      ...emptyResourceCatalog(),
       eventRegistration: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
         findMany: jest.fn().mockResolvedValue([registration]),
@@ -574,6 +591,7 @@ describe("EventRegistrationsService", () => {
       },
       eventModality: { findFirst: jest.fn().mockResolvedValue(modality) },
       eventLot: { findFirst: jest.fn().mockResolvedValue(freeLot) },
+      ...emptyResourceCatalog(),
       eventRegistration: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
       },
@@ -820,6 +838,9 @@ describe("EventRegistrationsService", () => {
       eventLot: {
         findMany: jest.fn().mockResolvedValue([lot, futureLot, pastLot]),
       },
+      eventLodgingOption: { findMany: jest.fn().mockResolvedValue([]) },
+      eventMealOption: { findMany: jest.fn().mockResolvedValue([]) },
+      eventTransportOption: { findMany: jest.fn().mockResolvedValue([]) },
       eventRegistration: {
         groupBy: jest.fn().mockResolvedValue([]),
       },
@@ -830,7 +851,8 @@ describe("EventRegistrationsService", () => {
     );
     const catalog = await service.publicCatalogForEvent("e1");
     expect(catalog.paymentMode).toBe("MOCK_ONLY");
-    expect(catalog.rf022LodgingPending).toBe(true);
+    expect(catalog.rf022LodgingPending).toBe(false);
+    expect(catalog.requiresGuardianAuthorizationForMinors).toBe(true);
     expect(catalog.lots.map((l) => l.id)).toEqual(["lot1"]);
     expect(catalog.modalities[0].remaining).toBe(10);
   });
@@ -1103,6 +1125,7 @@ describe("EventRegistrationsService", () => {
       portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
       eventModality: { findFirst: jest.fn().mockResolvedValue(couple) },
       eventLot: { findFirst: jest.fn().mockResolvedValue(freeLot) },
+      ...emptyResourceCatalog(),
       eventRegistration: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
       },
@@ -1120,5 +1143,466 @@ describe("EventRegistrationsService", () => {
     });
     expect(result.status).toBe("CONFIRMED");
     expect(result.paymentIntent).toBeNull();
+  });
+
+  describe("RF-022 lodging/meal/transport + guardian authorization", () => {
+    const lodgingOpt = {
+      id: "lod1",
+      eventId: "e1",
+      code: "familia",
+      name: "Quarto família",
+      kind: "FAMILY",
+      capacity: 4,
+      sortOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const mealOpt = {
+      id: "meal1",
+      eventId: "e1",
+      code: "full",
+      name: "Pensão completa",
+      kind: "FULL_BOARD",
+      capacity: 10,
+      sortOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const transportOpt = {
+      id: "tr1",
+      eventId: "e1",
+      code: "bus",
+      name: "Ônibus do evento",
+      kind: "EVENT_BUS",
+      capacity: 2,
+      sortOrder: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    it("creates and lists lodging/meal/transport options", async () => {
+      const tx = {
+        eventLodgingOption: { create: jest.fn().mockResolvedValue(lodgingOpt) },
+        eventMealOption: { create: jest.fn().mockResolvedValue(mealOpt) },
+        eventTransportOption: {
+          create: jest.fn().mockResolvedValue(transportOpt),
+        },
+        auditLog: { create: jest.fn() },
+      };
+      const prisma = {
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        eventLodgingOption: {
+          findMany: jest.fn().mockResolvedValue([lodgingOpt]),
+        },
+        eventMealOption: { findMany: jest.fn().mockResolvedValue([mealOpt]) },
+        eventTransportOption: {
+          findMany: jest.fn().mockResolvedValue([transportOpt]),
+        },
+        eventRegistration: {
+          groupBy: jest
+            .fn()
+            .mockResolvedValue([{ lodgingOptionId: "lod1", _sum: { partySize: 1 } }]),
+        },
+        ...withTx(tx),
+      };
+      // groupBy returns different shapes per field — simplify to empty for meal/transport lists
+      (prisma.eventRegistration.groupBy as jest.Mock).mockResolvedValue([]);
+      const service = new EventRegistrationsService(
+        prisma as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+
+      const lod = await service.createLodgingOption(secretaria, "e1", {
+        code: "familia",
+        name: "Quarto família",
+        kind: "FAMILY",
+        capacity: 4,
+      });
+      expect(lod.kind).toBe("FAMILY");
+      expect(lod.remaining).toBe(4);
+
+      const meal = await service.createMealOption(secretaria, "e1", {
+        code: "full",
+        name: "Pensão completa",
+        kind: "FULL_BOARD",
+      });
+      expect(meal.code).toBe("full");
+
+      const tr = await service.createTransportOption(secretaria, "e1", {
+        code: "bus",
+        name: "Ônibus do evento",
+        kind: "EVENT_BUS",
+        capacity: 2,
+      });
+      expect(tr.kind).toBe("EVENT_BUS");
+
+      const listed = await service.listLodgingOptions(secretaria, "e1");
+      expect(listed.lodgingOptions).toHaveLength(1);
+      await service.listMealOptions(secretaria, "e1");
+      await service.listTransportOptions(secretaria, "e1");
+    });
+
+    it("rejects invalid resource option kinds and missing code", async () => {
+      const prisma = basePrisma();
+      const service = new EventRegistrationsService(
+        prisma as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      await expect(
+        service.createLodgingOption(secretaria, "e1", { code: "", name: "X" }),
+      ).rejects.toThrow(/code e name/);
+      await expect(
+        service.createLodgingOption(secretaria, "e1", {
+          code: "x",
+          name: "X",
+          kind: "NOPE" as never,
+        }),
+      ).rejects.toThrow(/hospedagem inválido/);
+      await expect(
+        service.createMealOption(secretaria, "e1", {
+          code: "x",
+          name: "X",
+          kind: "NOPE" as never,
+        }),
+      ).rejects.toThrow(/alimentação inválido/);
+      await expect(
+        service.createTransportOption(secretaria, "e1", {
+          code: "x",
+          name: "X",
+          kind: "NOPE" as never,
+        }),
+      ).rejects.toThrow(/transporte inválido/);
+      await expect(
+        service.createLodgingOption(secretaria, "e1", {
+          code: "x",
+          name: "X",
+          capacity: 0,
+        }),
+      ).rejects.toThrow(/capacity/);
+    });
+
+    it("requires resource options when catalog configured and enforces capacity", async () => {
+      const prisma = {
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        eventModality: { findFirst: jest.fn().mockResolvedValue(modality) },
+        eventLot: { findFirst: jest.fn().mockResolvedValue(lot) },
+        eventLodgingOption: {
+          findMany: jest.fn().mockResolvedValue([lodgingOpt]),
+        },
+        eventMealOption: { findMany: jest.fn().mockResolvedValue([mealOpt]) },
+        eventTransportOption: {
+          findMany: jest.fn().mockResolvedValue([transportOpt]),
+        },
+        eventRegistration: {
+          aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
+        },
+      };
+      const service = new EventRegistrationsService(
+        prisma as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      await expect(
+        service.createPublicRegistration("retiro-demo", {
+          displayName: "Demo",
+          modalityId: "mod1",
+          lotId: "lot1",
+        }),
+      ).rejects.toThrow(/hospedagem é obrigatória/);
+
+      const prismaCap = {
+        ...prisma,
+        eventRegistration: {
+          aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 2 } }),
+        },
+      };
+      const serviceCap = new EventRegistrationsService(
+        prismaCap as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      await expect(
+        serviceCap.createPublicRegistration("retiro-demo", {
+          displayName: "Demo",
+          modalityId: "mod1",
+          lotId: "lot1",
+          lodgingOptionId: "lod1",
+          mealOptionId: "meal1",
+          transportOptionId: "tr1",
+        }),
+      ).rejects.toThrow(/capacidade de transporte esgotada/);
+    });
+
+    it("creates minor registration with PENDING guardian auth and blocks check-in", async () => {
+      const minorReg = {
+        ...registration,
+        isMinor: true,
+        guardianDisplayName: "Responsável Demo",
+        guardianAuthStatus: "PENDING",
+        lodgingOptionId: "lod1",
+        mealOptionId: "meal1",
+        transportOptionId: "tr1",
+        status: "CONFIRMED",
+        paymentStatus: "CONFIRMED_MOCK",
+      };
+      const guardianAuth = {
+        id: "ga1",
+        status: "PENDING",
+        acknowledgmentText:
+          "Autorização sintética de responsável para participação do menor no evento (sem PII real).",
+        authorizedAt: null,
+        revokedAt: null,
+        guardianDisplayName: "Responsável Demo",
+        createdAt: now,
+        updatedAt: now,
+      };
+      const freeLot = { ...lot, priceCents: 0 };
+      const tx = {
+        eventRegistration: {
+          aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
+          create: jest.fn().mockResolvedValue(minorReg),
+        },
+        eventGuardianAuthorization: {
+          create: jest.fn().mockResolvedValue(guardianAuth),
+        },
+        auditLog: { create: jest.fn() },
+      };
+      const prisma = {
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        eventModality: { findFirst: jest.fn().mockResolvedValue(modality) },
+        eventLot: { findFirst: jest.fn().mockResolvedValue(freeLot) },
+        eventLodgingOption: {
+          findMany: jest.fn().mockResolvedValue([lodgingOpt]),
+        },
+        eventMealOption: { findMany: jest.fn().mockResolvedValue([mealOpt]) },
+        eventTransportOption: {
+          findMany: jest.fn().mockResolvedValue([transportOpt]),
+        },
+        eventRegistration: {
+          aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
+          findFirst: jest.fn().mockResolvedValue(minorReg),
+        },
+        ...withTx(tx),
+      };
+      const service = new EventRegistrationsService(
+        prisma as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+
+      await expect(
+        service.createPublicRegistration("retiro-demo", {
+          displayName: "Menor Demo",
+          modalityId: "mod1",
+          lotId: "lot1",
+          lodgingOptionId: "lod1",
+          mealOptionId: "meal1",
+          transportOptionId: "tr1",
+          isMinor: true,
+          guardianDisplayName: "Responsável Demo",
+        }),
+      ).rejects.toThrow(/guardianAcknowledged/);
+
+      const created = await service.createPublicRegistration("retiro-demo", {
+        displayName: "Menor Demo",
+        modalityId: "mod1",
+        lotId: "lot1",
+        lodgingOptionId: "lod1",
+        mealOptionId: "meal1",
+        transportOptionId: "tr1",
+        isMinor: true,
+        guardianDisplayName: "Responsável Demo",
+        guardianAcknowledged: true,
+      });
+      expect(created.guardianAuthStatus).toBe("PENDING");
+      expect(created.guardianAuthorization?.status).toBe("PENDING");
+      expect(created.lodgingOptionId).toBe("lod1");
+
+      await expect(service.checkIn(secretaria, "reg1")).rejects.toThrow(
+        /Autorização de responsável pendente/,
+      );
+    });
+
+    it("authorizes guardian and allows check-in; idempotent AUTHORIZED", async () => {
+      const pendingReg = {
+        ...registration,
+        isMinor: true,
+        guardianDisplayName: "Responsável Demo",
+        guardianAuthStatus: "PENDING",
+        status: "CONFIRMED",
+        paymentStatus: "CONFIRMED_MOCK",
+      };
+      const authRow = {
+        id: "ga1",
+        status: "PENDING",
+        acknowledgmentText: "ack",
+        authorizedAt: null as Date | null,
+        authorizedByUserId: null as string | null,
+        revokedAt: null as Date | null,
+        guardianDisplayName: "Responsável Demo",
+        createdAt: now,
+        updatedAt: now,
+      };
+      const authorizedAuth = {
+        ...authRow,
+        status: "AUTHORIZED",
+        authorizedAt: now,
+        authorizedByUserId: secretaria.userId,
+      };
+      const authorizedReg = {
+        ...pendingReg,
+        guardianAuthStatus: "AUTHORIZED",
+        guardianAuthorizedAt: now,
+      };
+      const checkedIn = {
+        ...authorizedReg,
+        status: "CHECKED_IN",
+        checkedInAt: now,
+      };
+
+      const txAuth = {
+        eventGuardianAuthorization: {
+          findUnique: jest.fn().mockResolvedValue(authRow),
+          update: jest.fn().mockResolvedValue(authorizedAuth),
+        },
+        eventRegistration: {
+          update: jest.fn().mockResolvedValue(authorizedReg),
+          findUniqueOrThrow: jest.fn().mockResolvedValue(authorizedReg),
+        },
+        auditLog: { create: jest.fn() },
+      };
+      const prismaAuth = {
+        eventRegistration: {
+          findFirst: jest.fn().mockResolvedValue(pendingReg),
+        },
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        ...withTx(txAuth),
+      };
+      const serviceAuth = new EventRegistrationsService(
+        prismaAuth as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      const authResult = await serviceAuth.setGuardianAuthorization(
+        secretaria,
+        "reg1",
+        { status: "AUTHORIZED" },
+      );
+      expect(authResult.guardianAuthStatus).toBe("AUTHORIZED");
+      expect(authResult.guardianAuthorization?.status).toBe("AUTHORIZED");
+
+      txAuth.eventGuardianAuthorization.findUnique.mockResolvedValue(
+        authorizedAuth,
+      );
+      const replay = await serviceAuth.setGuardianAuthorization(
+        secretaria,
+        "reg1",
+        { status: "AUTHORIZED" },
+      );
+      expect(replay.guardianAuthStatus).toBe("AUTHORIZED");
+      expect(txAuth.eventGuardianAuthorization.update).toHaveBeenCalledTimes(1);
+
+      await expect(
+        serviceAuth.setGuardianAuthorization(secretaria, "reg1", {
+          status: "NOPE" as never,
+        }),
+      ).rejects.toThrow(/AUTHORIZED ou REVOKED/);
+
+      const txCheck = {
+        eventRegistration: {
+          update: jest.fn().mockResolvedValue(checkedIn),
+        },
+        auditLog: { create: jest.fn() },
+      };
+      const prismaCheck = {
+        eventRegistration: {
+          findFirst: jest.fn().mockResolvedValue(authorizedReg),
+        },
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        ...withTx(txCheck),
+      };
+      const serviceCheck = new EventRegistrationsService(
+        prismaCheck as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      const cin = await serviceCheck.checkIn(secretaria, "reg1");
+      expect(cin.status).toBe("CHECKED_IN");
+    });
+
+    it("rejects guardian authorization for adults and cancelled regs", async () => {
+      const adult = { ...registration, isMinor: false };
+      const serviceAdult = new EventRegistrationsService(
+        {
+          eventRegistration: { findFirst: jest.fn().mockResolvedValue(adult) },
+          portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        } as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      await expect(
+        serviceAdult.setGuardianAuthorization(secretaria, "reg1", {
+          status: "AUTHORIZED",
+        }),
+      ).rejects.toThrow(/só se aplica a menores/);
+
+      const cancelled = {
+        ...registration,
+        isMinor: true,
+        guardianDisplayName: "R",
+        status: "CANCELLED",
+      };
+      const serviceCancelled = new EventRegistrationsService(
+        {
+          eventRegistration: {
+            findFirst: jest.fn().mockResolvedValue(cancelled),
+          },
+          portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        } as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      await expect(
+        serviceCancelled.setGuardianAuthorization(secretaria, "reg1", {
+          status: "AUTHORIZED",
+        }),
+      ).rejects.toThrow(/cancelada/);
+    });
+
+    it("exposes RF-022 fields on public catalog and status", async () => {
+      const prisma = {
+        eventModality: { findMany: jest.fn().mockResolvedValue([modality]) },
+        eventLot: { findMany: jest.fn().mockResolvedValue([lot]) },
+        eventLodgingOption: {
+          findMany: jest.fn().mockResolvedValue([lodgingOpt]),
+        },
+        eventMealOption: { findMany: jest.fn().mockResolvedValue([mealOpt]) },
+        eventTransportOption: {
+          findMany: jest.fn().mockResolvedValue([transportOpt]),
+        },
+        eventRegistration: {
+          groupBy: jest.fn().mockResolvedValue([]),
+          findFirst: jest.fn().mockResolvedValue({
+            ...registration,
+            lodgingOptionId: "lod1",
+            mealOptionId: "meal1",
+            transportOptionId: "tr1",
+            isMinor: true,
+            guardianAuthStatus: "PENDING",
+            event: { slug: "retiro-demo", name: "Retiro" },
+          }),
+        },
+      };
+      const service = new EventRegistrationsService(
+        prisma as never,
+        { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      );
+      const catalog = await service.publicCatalogForEvent("e1");
+      expect(catalog.rf022LodgingPending).toBe(false);
+      expect(catalog.requiresLodgingOption).toBe(true);
+      expect(catalog.lodgingOptions[0].id).toBe("lod1");
+      expect(catalog.mealOptions[0].id).toBe("meal1");
+      expect(catalog.transportOptions[0].id).toBe("tr1");
+
+      const status = await service.getPublicRegistrationStatus(
+        "abc123def4567890",
+      );
+      expect(status.guardianAuthStatus).toBe("PENDING");
+      expect(status.lodgingOptionId).toBe("lod1");
+      expect(status).not.toHaveProperty("displayName");
+    });
   });
 });
