@@ -1,3 +1,4 @@
+import { BadRequestException } from "@nestjs/common";
 import { AdmissionsController } from "./admissions/admissions.controller";
 import { AssetsController } from "./assets/assets.controller";
 import { AuditController } from "./audit/audit.controller";
@@ -698,6 +699,23 @@ describe("controller wiring (delegates to services)", () => {
     await c.rejectEntry(user, "e1", { reason: "x" });
     await c.reverseEntry(user, "e1");
     await c.listAttachments(user, "e1");
+    await c.uploadAttachment(user, "e1", {
+      originalname: "recibo.pdf",
+      mimetype: "application/pdf",
+      buffer: Buffer.from("%PDF"),
+      size: 4,
+    } as never);
+    finance.downloadAttachment.mockResolvedValue({
+      bytes: Buffer.from("%PDF"),
+      contentType: "application/pdf",
+      displayName: "recibo.pdf",
+    });
+    const res = { setHeader: jest.fn() };
+    await c.downloadAttachment(user, "e1", "att1", res as never);
+    await c.removeAttachment(user, "e1", "att1");
+    expect(() => c.uploadAttachment(user, "e1", undefined)).toThrow(
+      BadRequestException,
+    );
     await c.listImports(user);
     await c.createImport(user, { format: "OFX", filename: "x.ofx" });
     await c.getImport(user, "b1");

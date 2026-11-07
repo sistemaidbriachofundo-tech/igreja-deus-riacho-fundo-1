@@ -33,5 +33,10 @@ describe("bank-adapters", () => {
   it("defaults adapter to FILE", () => {
     expect(requireBankAdapter()).toBe("FILE");
     expect(requireBankAdapter("mock")).toBe("MOCK");
+    expect(requireBankAdapter("SICOOB")).toBe("SICOOB");
+  });
+
+  it("rejects unknown adapter codes", () => {
+    expect(() => requireBankAdapter("LIVE")).toThrow(/INVALID_BANK_ADAPTER/);
   });
 });

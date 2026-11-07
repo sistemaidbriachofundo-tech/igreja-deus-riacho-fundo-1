@@ -97,7 +97,11 @@ export function parseOfxAmountToCents(raw: string): number | null {
 
 /** YYYYMMDD[HHMMSS…] → ISO date (UTC midnight of calendar day). */
 export function parseOfxDate(raw: string): string | null {
-  const digits = raw.trim().replace(/\[.*$/, "").replace(/\D/g, "");
+  // Descarta timezone bracket `[…]` sem regex com backtracking (S8786).
+  const trimmed = raw.trim();
+  const bracket = trimmed.indexOf("[");
+  const withoutTz = bracket >= 0 ? trimmed.slice(0, bracket) : trimmed;
+  const digits = withoutTz.replace(/\D/g, "");
   if (digits.length < 8) {
     return null;
   }
