@@ -29,7 +29,8 @@ describe("Riachinho — visitor chat", () => {
   it("recognizes Gemini status without pretending that mock mode is real AI", () => {
     const parsed = parseRiachinhoStatus(geminiStatus);
     expect(parsed?.displayName).toBe("Riachinho");
-    const {displayName: _omittedByHml, ...legacyStatus} = geminiStatus;
+    const legacyStatus: Partial<typeof geminiStatus> = { ...geminiStatus };
+    delete legacyStatus.displayName;
     expect(parseRiachinhoStatus(legacyStatus)?.displayName).toBe("Riachinho");
     expect(riachinhoProviderReady(parsed)).toBe(true);
     expect(riachinhoProviderReady(parseRiachinhoStatus({...geminiStatus,provider:"mock"}))).toBe(false);
