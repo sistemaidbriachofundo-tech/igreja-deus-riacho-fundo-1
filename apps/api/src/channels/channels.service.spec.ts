@@ -5,7 +5,6 @@ import {
 } from "@nestjs/common";
 import { ChannelRateLimitService } from "./channel-rate-limit.service";
 import { ChannelsService } from "./channels.service";
-import { FcmMockProvider } from "./providers/fcm.provider";
 import { MockChannelProvider } from "./providers/mock.provider";
 import { NoopChannelProvider } from "./providers/noop.provider";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -50,7 +49,7 @@ describe("ChannelsService", () => {
   const providers = {
     whatsapp: new MockChannelProvider("whatsapp"),
     email: new NoopChannelProvider("email"),
-    push: new FcmMockProvider(),
+    push: new MockChannelProvider("fcm"),
   };
 
   function withTx(tx: object) {
