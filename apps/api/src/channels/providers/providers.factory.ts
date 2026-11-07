@@ -19,7 +19,7 @@ function build(name: string, mode: ProviderMode): ChannelProvider {
     : new NoopChannelProvider(name);
 }
 
-/** Monta adapters a partir do env. Live WABA/SMTP/FCM deliberadamente ausentes. */
+/** Monta adapters a partir do env. Live WABA/SMTP/FCM deliberadamente ausentes (RF-025). */
 export function createChannelProviders(): ChannelProviders {
   return {
     whatsapp: build(
