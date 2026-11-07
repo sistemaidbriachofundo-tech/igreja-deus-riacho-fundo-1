@@ -9,12 +9,17 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { ViviKnowledgeService } from "./knowledge/vivi-knowledge.service";
+import type { ViviKnowledgeSourceRef } from "./knowledge/vivi-knowledge.types";
 import {
+  buildSystemPrompt,
+  detectPromptInjection,
   detectSensitiveUserIntent,
-  VIVI_ADMIN_EDITORIAL_ADDENDUM,
+  VIVI_INJECTION_REFUSAL,
+  VIVI_MISSING_OFFICIAL_DATA,
+  VIVI_PROMPT_VERSION,
   VIVI_PROVIDER_SOFT_FAILURE,
   VIVI_SENSITIVE_REFUSAL,
-  VIVI_SYSTEM_PROMPT,
 } from "./system-prompt";
 import {
   createViviProvider,
@@ -49,6 +54,10 @@ export type ViviChatResponse = {
     messageCount: number;
     latencyMs: number;
   };
+  /** Campos aditivos opcionais — backward-compat com FE 0.7.1-vivi. */
+  promptVersion?: string;
+  sources?: Array<Pick<ViviKnowledgeSourceRef, "kind" | "slug" | "title">>;
+  knowledgeMiss?: boolean;
 };
 
 function asJson(value: unknown): Prisma.InputJsonValue {
@@ -63,6 +72,7 @@ export class ViviService {
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
     private readonly rateLimit: ViviRateLimitService,
+    private readonly knowledge: ViviKnowledgeService,
     @Optional() provider?: ViviLlmProvider,
   ) {
     this.provider = provider ?? createViviProvider();
@@ -83,6 +93,12 @@ export class ViviService {
       adminRate: this.rateLimit.snapshot("admin", "_status"),
       lgpdNotice: this.lgpdNotice(),
       rateLimitBackend: "memory",
+      promptVersion: VIVI_PROMPT_VERSION,
+      knowledge: {
+        mode: "structured-cms",
+        ragEnabled: false,
+        refreshPolicy: "live-db-on-each-request",
+      },
       notes: [
         "Nome de produto: Riachinho (rotas internas /vivi/*)",
         "Chaves Manus/Gemini só no backend — nunca no FE/Git",
@@ -90,6 +106,9 @@ export class ViviService {
         "GEMINI_MODEL default: gemini-2.5-flash-lite (ver nota de depreciação no handoff)",
         "Rate-limit in-memory (single-node); em serverless multi-instância o limite é best-effort até store compartilhado",
         "Fail-soft: se Manus/Gemini falhar, o chat devolve reply estável (sem derrubar o FE)",
+        "Conhecimento: retrieval estruturado do CMS/portal publicado (sem RAG); publish → próximo request",
+        `System prompt versionado: ${VIVI_PROMPT_VERSION}`,
+        "Retenção: auditoria sem texto de prompt/reply; sessionId opaco; sem painel extra de cadastro IA",
       ],
     };
   }
@@ -162,42 +181,81 @@ export class ViviService {
   }): Promise<ViviChatResponse> {
     const messages = this.normalizeMessages(args.body.messages);
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const refused = lastUser
-      ? detectSensitiveUserIntent(lastUser.content)
+    const lastUserText = lastUser?.content ?? "";
+
+    const refusedSensitive = lastUser
+      ? detectSensitiveUserIntent(lastUserText)
       : false;
+    const refusedInjection = lastUser
+      ? detectPromptInjection(lastUserText)
+      : false;
+    const refused = refusedSensitive || refusedInjection;
 
     const started = Date.now();
     let reply: string;
     let providerName = this.provider.name;
     let model = this.provider.model;
     let degraded = false;
+    let knowledgeMiss = false;
+    let sources: ViviChatResponse["sources"] = [];
+    let knowledgeHitCount = 0;
+    let knowledgeIntent: string | null = null;
+    let errorCode: string | null = null;
 
-    if (refused) {
+    if (refusedSensitive) {
       reply = VIVI_SENSITIVE_REFUSAL;
+      errorCode = "VIVI_REFUSED_SENSITIVE";
+    } else if (refusedInjection) {
+      reply = VIVI_INJECTION_REFUSAL;
+      errorCode = "VIVI_REFUSED_INJECTION";
     } else {
+      let factsText: string | null = null;
       try {
-        const result = await this.provider.chat({
-          messages: [
-            {
-              role: "system",
-              content:
-                args.scope === "admin"
-                  ? VIVI_SYSTEM_PROMPT + VIVI_ADMIN_EDITORIAL_ADDENDUM
-                  : VIVI_SYSTEM_PROMPT,
-            },
-            ...messages,
-          ],
-          maxOutputTokens: 1024,
-        });
-        reply = result.content;
-        providerName = result.provider;
-        model = result.model;
+        const pack = await this.knowledge.retrieveForQuery(lastUserText);
+        factsText = pack.factsText;
+        knowledgeMiss = pack.missingOfficialData;
+        knowledgeHitCount = pack.sources.length;
+        knowledgeIntent = pack.intent;
+        sources = pack.sources.map((s) => ({
+          kind: s.kind,
+          slug: s.slug,
+          title: s.title,
+        }));
       } catch {
-        // Fail-soft: chat não propaga 502/503 — FE recebe reply estável.
-        degraded = true;
-        reply = VIVI_PROVIDER_SOFT_FAILURE;
-        providerName = this.provider.name;
-        model = this.provider.model;
+        // Retrieval fail-soft: chat segue sem fatos (anti-alucinação reforçada no prompt).
+        factsText = null;
+        errorCode = "VIVI_KNOWLEDGE_UNAVAILABLE";
+      }
+
+      if (knowledgeMiss) {
+        // Resposta determinística para fato ausente — não deixa o LLM inventar.
+        reply = VIVI_MISSING_OFFICIAL_DATA;
+      } else {
+        try {
+          const result = await this.provider.chat({
+            messages: [
+              {
+                role: "system",
+                content: buildSystemPrompt({
+                  scope: args.scope,
+                  factsText,
+                }),
+              },
+              ...messages,
+            ],
+            maxOutputTokens: 1024,
+          });
+          reply = result.content;
+          providerName = result.provider;
+          model = result.model;
+        } catch {
+          // Fail-soft: chat não propaga 502/503 — FE recebe reply estável.
+          degraded = true;
+          errorCode = "VIVI_PROVIDER_DEGRADED";
+          reply = VIVI_PROVIDER_SOFT_FAILURE;
+          providerName = this.provider.name;
+          model = this.provider.model;
+        }
       }
     }
 
@@ -217,6 +275,10 @@ export class ViviService {
       model,
       refused,
       degraded,
+      knowledgeHitCount,
+      knowledgeMiss,
+      knowledgeIntent,
+      errorCode,
       usage,
       sessionId: args.body.sessionId ?? null,
       churchId: args.churchId,
@@ -230,6 +292,9 @@ export class ViviService {
       refused,
       lgpdNotice: this.lgpdNotice(),
       usage,
+      promptVersion: VIVI_PROMPT_VERSION,
+      sources,
+      knowledgeMiss,
     };
   }
 
@@ -301,7 +366,8 @@ export class ViviService {
       "Avisos LGPD: não envie dados pessoais de terceiros. " +
       "O provedor pode processar o texto fora do Brasil; " +
       "o free tier do Google Gemini pode usar prompts para treino. " +
-      "Prefira Manus Forge (VIVI_PROVIDER=manus) quando disponível."
+      "Prefira Manus Forge (VIVI_PROVIDER=manus) quando disponível. " +
+      "Mensagens de chat não são retidas no texto da auditoria (só metadados de uso)."
     );
   }
 
@@ -316,6 +382,10 @@ export class ViviService {
     model: string;
     refused: boolean;
     degraded?: boolean;
+    knowledgeHitCount?: number;
+    knowledgeMiss?: boolean;
+    knowledgeIntent?: string | null;
+    errorCode?: string | null;
     usage: ViviChatResponse["usage"];
     sessionId: string | null;
     churchId?: string | null;
@@ -339,11 +409,16 @@ export class ViviService {
             model: args.model,
             refused: args.refused,
             degraded: Boolean(args.degraded),
+            promptVersion: VIVI_PROMPT_VERSION,
+            knowledgeHitCount: args.knowledgeHitCount ?? 0,
+            knowledgeMiss: Boolean(args.knowledgeMiss),
+            knowledgeIntent: args.knowledgeIntent ?? null,
+            errorCode: args.errorCode ?? null,
             inputChars: args.usage.inputChars,
             outputChars: args.usage.outputChars,
             messageCount: args.usage.messageCount,
             latencyMs: args.usage.latencyMs,
-            // deliberadamente sem prompt/reply
+            // deliberadamente sem prompt/reply / PII
           }),
         },
       });

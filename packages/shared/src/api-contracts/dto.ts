@@ -315,6 +315,13 @@ export interface ViviChatUsageDto {
   latencyMs: number;
 }
 
+/** Referência opcional a fato oficial usado na resposta (aditivo 0.7.1-vivi). */
+export interface ViviKnowledgeSourceDto {
+  kind: "ministry" | "event" | "cms";
+  slug: string;
+  title: string;
+}
+
 export interface ViviChatResponse {
   reply: string;
   provider: "manus" | "gemini" | "mock";
@@ -322,6 +329,12 @@ export interface ViviChatResponse {
   refused: boolean;
   lgpdNotice: string;
   usage: ViviChatUsageDto;
+  /** Versão do system prompt institucional (opcional / backward-compat). */
+  promptVersion?: string;
+  /** Fontes oficiais consultadas no retrieval estruturado (opcional). */
+  sources?: ViviKnowledgeSourceDto[];
+  /** true quando pedido factual não achou dado publicado (opcional). */
+  knowledgeMiss?: boolean;
 }
 
 export interface ViviStatusResponse {
@@ -336,6 +349,13 @@ export interface ViviStatusResponse {
   geminiKeyConfigured: boolean;
   lgpdNotice: string;
   notes: string[];
+  /** Presente após PR B — FE pode ignorar. */
+  promptVersion?: string;
+  knowledge?: {
+    mode: "structured-cms";
+    ragEnabled: false;
+    refreshPolicy: "live-db-on-each-request";
+  };
 }
 
 export interface AuditLogEntryDto {

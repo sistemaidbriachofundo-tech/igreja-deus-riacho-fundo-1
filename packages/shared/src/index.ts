@@ -143,6 +143,7 @@ export {
   type ViviChatMessageDto,
   type ViviChatRequest,
   type ViviChatUsageDto,
+  type ViviKnowledgeSourceDto,
   type ViviChatResponse,
   type ViviStatusResponse,
 } from "./api-contracts";
