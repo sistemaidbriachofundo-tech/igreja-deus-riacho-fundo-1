@@ -11,6 +11,7 @@ describe("MetaController", () => {
     expect(meta.notes.some((n) => n.includes("0.7.1-vivi"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("0.7.2-f2"))).toBe(true);
     expect(meta.notes.some((n) => n.includes("0.7.3-das-etapa3"))).toBe(true);
+    expect(meta.notes.some((n) => n.includes("RF-020/021"))).toBe(true);
     expect(meta.endpoints["POST /persons/candidates"]).toBe("implemented");
     expect(meta.endpoints["POST /letters/:letterId/pdf"]).toBe("implemented");
     expect(meta.endpoints["POST /events/:eventId/registrations"]).toBe(
