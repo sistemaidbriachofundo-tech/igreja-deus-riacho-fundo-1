@@ -17,6 +17,8 @@ describe("MetaController", () => {
       "implemented",
     );
     expect(meta.endpoints["POST /webhooks/event-payments/mock"]).toBe(
+      "implemented",
+    );
     expect(meta.endpoints["POST /admissions/:admissionId/cancel"]).toBe(
       "implemented",
     );
