@@ -6,6 +6,7 @@ import { RosterBoard } from "./RosterBoard";
 import { PastoralBoard, DiscipleshipBoard, GroupsBoard } from "./CareBoards";
 import { FinanceBoard } from "./FinanceBoard";
 import { EventsBoard } from "./EventsBoard";
+import { VolunteerPipeline } from "./VolunteerPipeline";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
@@ -271,6 +272,7 @@ export function DasOperations() {
             {chosen.id==="celulas"&&<GroupsBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="financeiro"&&<FinanceBoard tab={resource?.id??"accounts"} rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="eventos"&&<EventsBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
+            {chosen.id==="ministerios"&&<VolunteerPipeline ministries={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
 
           </>}
           {canCreate(chosen.id,roles)&&(!resource||chosen.id!=="financeiro"||resource.id==="accounts")&&<CreationForm key={chosen.id} module={chosen.id} onCreate={doCreate} busy={saving}/>}
