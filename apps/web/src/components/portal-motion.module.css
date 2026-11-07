@@ -6,3 +6,7 @@
 .toTopVisible:focus-visible{outline:3px solid #e3c080;outline-offset:3px}
 @media(max-width:600px){.toTop,.toTopVisible{width:44px;height:44px;right:17px;bottom:18px;font-size:20px}}
 @media(prefers-reduced-motion:reduce){.toTop,.toTopVisible{transition:none;transform:none}}
+
+/* Avoid covering the back-to-top control when Riachinho is enabled in HML. */
+.toTopAside{left:clamp(17px,3vw,38px);right:auto}
+@media(max-width:600px){.toTopAside{left:17px;right:auto}}

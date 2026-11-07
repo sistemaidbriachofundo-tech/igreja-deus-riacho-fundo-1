@@ -7,7 +7,7 @@ import s from "./portal-motion.module.css";
  * Melhorias progressivas: sem JS, o conteúdo e a navegação continuam visíveis.
  * Não interfere no Church OS em /app e respeita prefers-reduced-motion.
  */
-export function PortalMotion() {
+export function PortalMotion({ withRiachinho = false }: { withRiachinho?: boolean } = {}) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showTop, setShowTop] = useState(false);
 
@@ -61,7 +61,7 @@ export function PortalMotion() {
       </div>
       <button
         type="button"
-        className={showTop ? s.toTopVisible : s.toTop}
+        className={`${showTop ? s.toTopVisible : s.toTop} ${withRiachinho ? s.toTopAside : ""}`}
         aria-label="Voltar ao início da página"
         aria-hidden={!showTop}
         tabIndex={showTop ? 0 : -1}
