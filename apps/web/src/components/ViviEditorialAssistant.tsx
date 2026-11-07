@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
 import type { ViviChatRequest, ViviChatResponse, ViviStatusResponse } from "@idbrf/shared";
 import type { SiteLayout } from "../lib/site-layout";
+import { parseRiachinhoAnswer } from "../lib/riachinho-public-api";
 import {
   parseRiachinhoSuggestion,
   type RiachinhoParsedSuggestion,
@@ -173,7 +174,7 @@ export function ViviEditorialAssistant({
         (status.provider === "gemini" && status.geminiKeyConfigured)),
   );
   const apiOk = Boolean(status) && !statusError;
-  const canSend = apiOk && consent && !busy;
+  const canSend = apiOk && realAi && consent && !busy;
 
   async function ask(nextIntent: Intent, freeText?: string) {
     if (!canSend) return;
@@ -225,7 +226,9 @@ export function ViviEditorialAssistant({
               : "Não foi possível consultar o Riachinho (" + res.status + ").",
         );
       }
-      const answer = (await res.json()) as Answer;
+      const answer = parseRiachinhoAnswer(await res.json().catch(() => null));
+      if (!answer || answer.provider === "mock")
+        throw new Error("O Riachinho não retornou uma resposta real válida. Seu texto foi preservado.");
       if (nextIntent === "livre" && freeText?.trim()) {
         // Clear only the request that succeeded; preserve any newer text typed while waiting.
         setDraft((current) => current.trim() === freeText.trim() ? "" : current);
@@ -241,6 +244,8 @@ export function ViviEditorialAssistant({
         },
       ]);
     } catch (err) {
+      // A failed prompt stays editable and is not duplicated in conversation history.
+      setMessages((prev) => prev.filter((item) => item.id !== userId));
       setError(err instanceof Error ? err.message : "Assistente indisponível.");
     } finally {
       setBusy(false);
@@ -377,6 +382,7 @@ export function ViviEditorialAssistant({
           </span>
         </label>
         <textarea
+          aria-label="Pergunta ou sugestão editorial para o Riachinho"
           value={draft}
           maxLength={1800}
           placeholder="Pergunte ao Riachinho ou peça um ajuste específico…"
@@ -397,7 +403,6 @@ export function ViviEditorialAssistant({
             disabled={!canSend || !draft.trim()}
             onClick={() => {
               const text = draft.trim();
-              setDraft("");
               setIntent("livre");
               void ask("livre", text);
             }}
