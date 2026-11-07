@@ -28,6 +28,7 @@ export class MetaController {
         "0.6.0-f6: multi-igreja BE (grants/switch/audit org-wide/indicadores stub); produto default RF1",
         "0.7.1-vivi: assistente Riachinho (rotas /vivi/*; Manus Forge default + Gemini opcional); chaves só no backend",
         "0.7.2-f2: fechamento F2 — login audit, cancel admissão, delete documentos, polish contratos",
+        "0.7.3-das-etapa3: roster publish/close (RF-013) + bank-line match/unmatch (RF-018); OIDC_NOT_LIVE / MFA challenge notes",
       ],
     };
   }

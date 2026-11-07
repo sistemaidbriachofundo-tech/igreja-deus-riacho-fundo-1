@@ -2,7 +2,7 @@
 
 | Arquivo | Versão | Uso |
 |---|---|---|
-| `f2-v0.2.yaml` | `0.7.2-f2` | Contrato BE↔FE consolidado DAS + Vivi + fechamento F2 (login audit / cancel / docs delete) |
+| `f2-v0.2.yaml` | `0.7.3-das-etapa3` | Contrato BE↔FE consolidado DAS + Vivi + F2 + escalas publish/close + match conciliação |
 
 ## Como o FE consome
 

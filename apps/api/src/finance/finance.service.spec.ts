@@ -688,4 +688,225 @@ describe("FinanceService", () => {
       service.getAccount(treasurer, "missing"),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it("matches and unmatches bank statement line to ledger entry", async () => {
+    const line = {
+      id: "bl1",
+      batchId: "batch1",
+      postedAt: new Date("2026-11-01"),
+      amountCents: 25000,
+      description: "Oferta demo",
+      externalRef: "ref-1",
+      matchStatus: "UNMATCHED",
+      matchedEntryId: null as string | null,
+      createdAt: now,
+      batch: {
+        id: "batch1",
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    };
+    const matched = {
+      ...line,
+      matchStatus: "MATCHED",
+      matchedEntryId: "entry1",
+    };
+    const unmatched = {
+      ...line,
+      matchStatus: "UNMATCHED",
+      matchedEntryId: null,
+    };
+    const entry = {
+      id: "entry1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      entryDate: new Date("2026-11-01"),
+      description: "Oferta",
+      status: "APPROVED",
+      amountCents: 25000,
+      createdByUserId: treasurer.userId,
+      submittedAt: now,
+      firstApprovedByUserId: treasurer2.userId,
+      firstApprovedAt: now,
+      secondApprovedByUserId: "u-tesoura-3",
+      secondApprovedAt: now,
+      rejectedByUserId: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      reversalOfEntryId: null,
+      importBatchId: null,
+      reconciliationId: null as string | null,
+      createdAt: now,
+      updatedAt: now,
+      lines: [],
+      reversedBy: null,
+    };
+    const openRec = {
+      id: "rec1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      title: "Nov",
+      periodStart: new Date("2026-11-01"),
+      periodEnd: new Date("2026-11-30"),
+      status: "OPEN",
+      notes: null,
+      createdByUserId: treasurer.userId,
+      firstApprovedByUserId: null,
+      firstApprovedAt: null,
+      secondApprovedByUserId: null,
+      secondApprovedAt: null,
+      closedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const matchTx = {
+      bankStatementLine: {
+        update: jest.fn().mockResolvedValue(matched),
+      },
+      ledgerEntry: {
+        update: jest.fn().mockResolvedValue({ ...entry, reconciliationId: "rec1" }),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const unmatchTx = {
+      bankStatementLine: {
+        update: jest.fn().mockResolvedValue(unmatched),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+
+    const service = new FinanceService(
+      {
+        bankStatementLine: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(line)
+            .mockResolvedValueOnce(null) // no other match
+            .mockResolvedValueOnce(matched),
+        },
+        ledgerEntry: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(entry)
+            .mockResolvedValueOnce({ reconciliationId: "rec1" }),
+        },
+        reconciliation: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(openRec)
+            .mockResolvedValueOnce({ status: "OPEN" }),
+        },
+        $transaction: jest
+          .fn()
+          .mockImplementationOnce(async (fn: (t: typeof matchTx) => unknown) =>
+            fn(matchTx),
+          )
+          .mockImplementationOnce(async (fn: (t: typeof unmatchTx) => unknown) =>
+            fn(unmatchTx),
+          ),
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const m = await service.matchBankLine(treasurer, "bl1", {
+      entryId: "entry1",
+      reconciliationId: "rec1",
+    });
+    expect(m.matchStatus).toBe("MATCHED");
+    expect(m.matchedEntryId).toBe("entry1");
+    expect(matchTx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "ledger.bank_line.match" }),
+      }),
+    );
+
+    const u = await service.unmatchBankLine(treasurer, "bl1");
+    expect(u.matchStatus).toBe("UNMATCHED");
+    expect(u.matchedEntryId).toBeNull();
+  });
+
+  it("rejects match on amount mismatch and already matched line", async () => {
+    const line = {
+      id: "bl1",
+      batchId: "batch1",
+      postedAt: now,
+      amountCents: 100,
+      description: "x",
+      externalRef: null,
+      matchStatus: "UNMATCHED",
+      matchedEntryId: null,
+      createdAt: now,
+      batch: {
+        id: "batch1",
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    };
+    const entry = {
+      id: "entry1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      entryDate: now,
+      description: "y",
+      status: "DRAFT",
+      amountCents: 999,
+      createdByUserId: treasurer.userId,
+      submittedAt: null,
+      firstApprovedByUserId: null,
+      firstApprovedAt: null,
+      secondApprovedByUserId: null,
+      secondApprovedAt: null,
+      rejectedByUserId: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      reversalOfEntryId: null,
+      importBatchId: null,
+      reconciliationId: null,
+      createdAt: now,
+      updatedAt: now,
+      lines: [],
+      reversedBy: null,
+    };
+    const already = {
+      ...line,
+      matchStatus: "MATCHED",
+      matchedEntryId: "other",
+    };
+
+    const service = new FinanceService(
+      {
+        bankStatementLine: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(line)
+            .mockResolvedValueOnce(already),
+        },
+        ledgerEntry: {
+          findFirst: jest.fn().mockResolvedValue(entry),
+        },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    await expect(
+      service.matchBankLine(treasurer, "bl1", { entryId: "entry1" }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.matchBankLine(treasurer, "bl1", { entryId: "entry1" }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("404s unknown bank line on match", async () => {
+    const service = new FinanceService(
+      {
+        bankStatementLine: { findFirst: jest.fn().mockResolvedValue(null) },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.matchBankLine(treasurer, "missing", { entryId: "e1" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 });

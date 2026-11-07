@@ -794,6 +794,175 @@ export class FinanceService {
     });
   }
 
+  // —— Matching BankStatementLine ↔ LedgerEntry ——
+
+  async matchBankLine(
+    actor: AuthUser,
+    lineId: string,
+    input: { entryId: string; reconciliationId?: string },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    const entryId = input.entryId?.trim();
+    if (!entryId) {
+      throw new BadRequestException("entryId é obrigatório");
+    }
+
+    const line = await this.requireBankLineInPilot(pilot, lineId);
+    if (line.matchStatus === "IGNORED") {
+      throw new ConflictException({
+        code: "BANK_LINE_IGNORED",
+        message: "Linha IGNORED não pode ser casada",
+      });
+    }
+    if (
+      line.matchStatus === "MATCHED" &&
+      line.matchedEntryId &&
+      line.matchedEntryId !== entryId
+    ) {
+      throw new ConflictException({
+        code: "BANK_LINE_ALREADY_MATCHED",
+        message: "Linha já casada com outro lançamento — faça unmatch antes",
+      });
+    }
+
+    const entry = await this.requireEntryInPilot(pilot, entryId);
+    if (Math.abs(line.amountCents) !== Math.abs(entry.amountCents)) {
+      throw new ConflictException({
+        code: "BANK_LINE_AMOUNT_MISMATCH",
+        message:
+          "amountCents da linha e do lançamento devem coincidir (valor absoluto)",
+      });
+    }
+
+    const otherMatch = await this.prisma.bankStatementLine.findFirst({
+      where: {
+        matchedEntryId: entryId,
+        id: { not: lineId },
+        matchStatus: "MATCHED",
+      },
+      select: { id: true },
+    });
+    if (otherMatch) {
+      throw new ConflictException({
+        code: "LEDGER_ENTRY_ALREADY_MATCHED",
+        message: "Lançamento já casado com outra linha do extrato",
+      });
+    }
+
+    let reconciliationId: string | null = input.reconciliationId?.trim() || null;
+    if (reconciliationId) {
+      const rec = await this.requireReconciliationInPilot(
+        pilot,
+        reconciliationId,
+      );
+      if (rec.status === "CLOSED") {
+        throw new ConflictException({
+          code: "RECONCILIATION_CLOSED",
+          message: "Não é possível casar linhas em conciliação CLOSED",
+        });
+      }
+    } else if (entry.reconciliationId) {
+      reconciliationId = entry.reconciliationId;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.bankStatementLine.update({
+        where: { id: lineId },
+        data: {
+          matchStatus: "MATCHED",
+          matchedEntryId: entryId,
+        },
+      });
+
+      if (reconciliationId && entry.reconciliationId !== reconciliationId) {
+        await tx.ledgerEntry.update({
+          where: { id: entryId },
+          data: { reconciliationId },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ledger.bank_line.match",
+          resourceType: "bank_statement_line",
+          resourceId: lineId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            entryId,
+            reconciliationId,
+            amountCents: line.amountCents,
+          },
+        },
+      });
+
+      return this.toBankLineDto(updated);
+    });
+  }
+
+  async unmatchBankLine(actor: AuthUser, lineId: string) {
+    const pilot = await this.requireFinance(actor);
+    const line = await this.requireBankLineInPilot(pilot, lineId);
+
+    if (line.matchStatus !== "MATCHED" && line.matchStatus !== "SUGGESTED") {
+      throw new ConflictException({
+        code: "BANK_LINE_NOT_MATCHED",
+        message: "Só MATCHED/SUGGESTED podem ser desfeitos",
+      });
+    }
+
+    if (line.matchedEntryId) {
+      const entry = await this.prisma.ledgerEntry.findFirst({
+        where: {
+          id: line.matchedEntryId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        },
+        select: { reconciliationId: true },
+      });
+      if (entry?.reconciliationId) {
+        const rec = await this.prisma.reconciliation.findFirst({
+          where: { id: entry.reconciliationId },
+          select: { status: true },
+        });
+        if (rec?.status === "CLOSED") {
+          throw new ConflictException({
+            code: "RECONCILIATION_CLOSED",
+            message: "Não é possível desfazer match de conciliação CLOSED",
+          });
+        }
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.bankStatementLine.update({
+        where: { id: lineId },
+        data: {
+          matchStatus: "UNMATCHED",
+          matchedEntryId: null,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "ledger.bank_line.unmatch",
+          resourceType: "bank_statement_line",
+          resourceId: lineId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            previousEntryId: line.matchedEntryId,
+            previousStatus: line.matchStatus,
+          },
+        },
+      });
+
+      return this.toBankLineDto(updated);
+    });
+  }
+
   // —— helpers ——
 
   private async requireFinance(actor: AuthUser): Promise<PilotScope> {
@@ -888,6 +1057,53 @@ export class FinanceService {
       throw new NotFoundException("Conciliação não encontrada");
     }
     return row;
+  }
+
+  private async requireBankLineInPilot(pilot: PilotScope, lineId: string) {
+    const row = await this.prisma.bankStatementLine.findFirst({
+      where: { id: lineId },
+      include: {
+        batch: {
+          select: {
+            id: true,
+            organizationId: true,
+            churchId: true,
+          },
+        },
+      },
+    });
+    if (
+      !row ||
+      row.batch.organizationId !== pilot.organizationId ||
+      row.batch.churchId !== pilot.churchId
+    ) {
+      throw new NotFoundException("Linha de extrato não encontrada");
+    }
+    return row;
+  }
+
+  private toBankLineDto(row: {
+    id: string;
+    batchId: string;
+    postedAt: Date;
+    amountCents: number;
+    description: string;
+    externalRef: string | null;
+    matchStatus: string;
+    matchedEntryId: string | null;
+    createdAt: Date;
+  }) {
+    return {
+      id: row.id,
+      batchId: row.batchId,
+      postedAt: row.postedAt.toISOString(),
+      amountCents: row.amountCents,
+      description: row.description,
+      externalRef: row.externalRef,
+      matchStatus: row.matchStatus,
+      matchedEntryId: row.matchedEntryId,
+      createdAt: row.createdAt.toISOString(),
+    };
   }
 
   private toAccountDto(row: {
