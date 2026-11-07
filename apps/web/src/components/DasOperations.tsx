@@ -6,6 +6,7 @@ import { RosterBoard } from "./RosterBoard";
 import { PastoralBoard, DiscipleshipBoard, GroupsBoard } from "./CareBoards";
 import { FinanceBoard } from "./FinanceBoard";
 import { EventsBoard } from "./EventsBoard";
+import { EventRegistrations } from "./EventRegistrations";
 import { VolunteerPipeline } from "./VolunteerPipeline";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
@@ -30,7 +31,7 @@ function canCreate(module:DasModule, roles:readonly string[]) {
   const staff=roles.includes("SECRETARIA")||roles.includes("PASTOR");
   if(module==="financeiro") return roles.includes("TESOURARIA");
   if(module==="ministerios"||module==="escalas"||module==="celulas") return leader||staff;
-  if(module==="eventos") return staff;
+  if(module==="eventos") return staff||leader||roles.includes("PLATFORM_ADMIN");
   return false;
 }
 function createRequest(module:DasModule, form:Draft):{path:string;body:Record<string,unknown>}|null {
@@ -272,6 +273,7 @@ export function DasOperations() {
             {chosen.id==="celulas"&&<GroupsBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="financeiro"&&<FinanceBoard tab={resource?.id??"accounts"} rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="eventos"&&<EventsBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
+            {chosen.id==="eventos"&&<EventRegistrations events={data.rows} token={session.token}/>}
             {chosen.id==="ministerios"&&<VolunteerPipeline ministries={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
 
           </>}
