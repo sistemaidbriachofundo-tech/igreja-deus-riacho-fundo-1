@@ -27,6 +27,7 @@ info:
     - 0.7.3-das-etapa3: RF-013 transição roster DRAFT→PUBLISHED→CLOSED (publish/close + conflitos);
       RF-018 match/unmatch `BankStatementLine`↔`LedgerEntry`; RF-001 dedupe + RF-006 PDF cartas;
       RF-010 discipleship stages/progress + RF-011 cell frequency report;
+      RF-020/021 modalidades, inscrição, check-in e pagamento mock;
       notes OIDC_NOT_LIVE / MFA challenge
 
     Base URL DEV: `http://localhost:3001` (rotas na **raiz**, sem prefixo `/api`).
@@ -2542,7 +2543,7 @@ paths:
     post:
       tags: [events]
       x-implementation: implemented
-      summary: Cria evento portal (sem inscrição/financeiro)
+      summary: Cria evento portal (modalidades/lotes/inscrição em rotas filhas; pagamento só MOCK)
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -2655,6 +2656,208 @@ paths:
         "200":
           description: ARCHIVED
 
+  /events/{eventId}/modalities:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista modalidades/trilhas do evento (com occupied/remaining)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope modalities[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria modalidade (INDIVIDUAL|COUPLE|FAMILY|CUSTOM) com capacidade opcional
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                kind: { type: string, enum: [INDIVIDUAL, COUPLE, FAMILY, CUSTOM] }
+                capacity: { type: integer, minimum: 1, nullable: true }
+                minPartySize: { type: integer, minimum: 1 }
+                maxPartySize: { type: integer, minimum: 1 }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Modalidade criada
+
+  /events/{eventId}/lots:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista lotes (preço mock + capacidade)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope lots[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria lote (priceCents mock; paymentMode=MOCK_ONLY)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                modalityId: { type: string, nullable: true }
+                capacity: { type: integer, minimum: 1, nullable: true }
+                priceCents: { type: integer, minimum: 0 }
+                currency: { type: string, default: BRL }
+                opensAt: { type: string, format: date-time, nullable: true }
+                closesAt: { type: string, format: date-time, nullable: true }
+                status: { type: string, enum: [DRAFT, OPEN, CLOSED] }
+                sortOrder: { type: integer }
+      responses:
+        "201":
+          description: Lote criado
+
+  /events/{eventId}/registrations:
+    get:
+      tags: [events]
+      x-implementation: implemented
+      summary: Lista inscrições do evento (staff; rótulos sintéticos)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Envelope registrations[]
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cria inscrição staff (sem PII real; guardian se isMinor)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, modalityId]
+              properties:
+                displayName: { type: string, minLength: 2 }
+                modalityId: { type: string }
+                lotId: { type: string, nullable: true }
+                partySize: { type: integer, minimum: 1 }
+                isMinor: { type: boolean }
+                guardianDisplayName: { type: string, nullable: true }
+      responses:
+        "201":
+          description: Inscrição + paymentIntent mock opcional
+
+  /registrations/{registrationId}/check-in:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Check-in (bloqueia PENDING_PAYMENT)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                checkInCode: { type: string }
+      responses:
+        "200":
+          description: CHECKED_IN
+
+  /registrations/{registrationId}/cancel:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Cancela inscrição (+ intents PENDING → CANCELLED)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CANCELLED
+
+  /webhooks/event-payments/mock:
+    post:
+      tags: [events]
+      x-implementation: implemented
+      summary: Webhook mock assinado/idempotente (CONFIRMED_MOCK|FAILED_MOCK) — sem gateway live
+      security: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8 }
+        - name: X-Webhook-Signature
+          in: header
+          required: true
+          description: hex(HMAC-SHA256(secret, `${Idempotency-Key}:${paymentIntentId}:${status}`))
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentIntentId, status]
+              properties:
+                paymentIntentId: { type: string }
+                status: { type: string, enum: [CONFIRMED_MOCK, FAILED_MOCK] }
+                providerRef: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Confirmação ou replay idempotente
+        "401":
+          description: Assinatura inválida
+
   /public/home:
     get:
       tags: [public]
@@ -2706,7 +2909,7 @@ paths:
     get:
       tags: [public]
       x-implementation: implemented
-      summary: Detalhe evento PUBLISHED
+      summary: Detalhe evento PUBLISHED + modalidades/lotes OPEN (vagas; sem PII)
       security: []
       parameters:
         - name: slug
@@ -2715,9 +2918,57 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Evento público
+          description: Evento público + catalog (modalities/lots/paymentMode=MOCK_ONLY)
         "404":
           description: Não publicado / inexistente
+
+  /public/events/{slug}/registrations:
+    post:
+      tags: [public]
+      x-implementation: implemented
+      summary: Inscrição pública (rótulos sintéticos; rejeita email/cpf/telefone; guardian se isMinor)
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, modalityId, lotId]
+              properties:
+                displayName: { type: string, minLength: 2 }
+                modalityId: { type: string }
+                lotId: { type: string }
+                partySize: { type: integer, minimum: 1 }
+                isMinor: { type: boolean }
+                guardianDisplayName: { type: string, nullable: true }
+      responses:
+        "201":
+          description: Inscrição criada (PENDING_PAYMENT ou CONFIRMED se lote gratuito)
+        "400":
+          description: Capacidade/lote/PII/guardian
+
+  /public/registrations/{checkInCode}:
+    get:
+      tags: [public]
+      x-implementation: implemented
+      summary: Status operacional da inscrição por código opaco (sem displayName)
+      security: []
+      parameters:
+        - name: checkInCode
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: status/paymentStatus/eventSlug
+        "404":
+          description: Não encontrado
 
   /public/content/{slug}:
     get:
