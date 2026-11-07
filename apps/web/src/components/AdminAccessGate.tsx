@@ -38,7 +38,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
   if (access === "checking") {
     return <main className={styles.waiting} role="status" aria-live="polite">
       <span className={styles.waitingIcon} aria-hidden="true">✦</span>
-      <strong>Verificando seu acesso…</strong>
+      <h1>Verificando seu acesso…</h1>
       <p>Antes de abrir a área administrativa, confirmamos sua sessão.</p>
     </main>;
   }
