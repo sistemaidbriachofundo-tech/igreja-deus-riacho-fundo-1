@@ -113,3 +113,36 @@ export function formatBRL(value:number) {
   return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(value/100);
 }
 
+
+/** Interpreta um datetime-local como hora da congregação, não do dispositivo. */
+export function churchLocalToISO(input:string):string|null {
+  const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(input);
+  if(!match)return null;
+  const [,y,m,d,h,min]=match;
+  const [year,month,day,hour,minute]=[y,m,d,h,min].map(Number);
+  const wanted=Date.UTC(year,month-1,day,hour,minute);
+  const original=new Date(wanted);
+  if(!Number.isFinite(wanted)||original.getUTCFullYear()!==year
+    ||original.getUTCMonth()!==month-1||original.getUTCDate()!==day
+    ||original.getUTCHours()!==hour||original.getUTCMinutes()!==minute)return null;
+  const formatter=new Intl.DateTimeFormat("en-GB",{
+    timeZone:"America/Sao_Paulo",hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",
+    hour:"2-digit",minute:"2-digit",
+  });
+  const parts=(timestamp:number)=>{
+    const result:Record<string,number>={};
+    for(const part of formatter.formatToParts(new Date(timestamp))){
+      if(["year","month","day","hour","minute"].includes(part.type))result[part.type]=Number(part.value);
+    }
+    return result;
+  };
+  let timestamp=wanted+3*60*60*1000;
+  for(let pass=0;pass<3;pass++){
+    const p=parts(timestamp);
+    const observed=Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute);
+    timestamp+=wanted-observed;
+  }
+  const p=parts(timestamp);
+  if(p.year!==year||p.month!==month||p.day!==day||p.hour!==hour||p.minute!==minute)return null;
+  return new Date(timestamp).toISOString();
+}
