@@ -5,7 +5,8 @@ export type RiachinhoParsedSuggestion = {
   title?: string;
   accent?: string;
   description?: string;
-  alts?: string[];
+  /** Posições 0–3 correspondem exatamente às fotos 1–4; null significa não alterar. */
+  alts?: (string | null)[];
 };
 
 const FIELD =
@@ -29,7 +30,7 @@ export function parseRiachinhoSuggestion(
 ): RiachinhoParsedSuggestion | null {
   const lines = reply.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const out: RiachinhoParsedSuggestion = { target: preferred };
-  const alts: string[] = [];
+  const alts: (string | null)[] = [null, null, null, null];
 
   for (const line of lines) {
     const match = FIELD.exec(line);
@@ -45,15 +46,16 @@ export function parseRiachinhoSuggestion(
       if (altIndex && altIndex >= 1 && altIndex <= 4) {
         alts[altIndex - 1] = value.slice(0, 220);
       } else {
-        alts.push(value.slice(0, 220));
+        const slot = alts.findIndex((entry) => entry === null);
+        if (slot !== -1) alts[slot] = value.slice(0, 220);
       }
     }
   }
 
   if (alts.some(Boolean)) {
-    out.alts = Array.from({ length: 4 }, (_, i) => alts[i]).filter(
-      (x): x is string => Boolean(x),
-    );
+    // Não compactar: "Alt 4" precisa atualizar a quarta foto, não a primeira.
+    const last = alts.findLastIndex(Boolean);
+    out.alts = alts.slice(0, last + 1);
     out.target = "alts";
   }
 
