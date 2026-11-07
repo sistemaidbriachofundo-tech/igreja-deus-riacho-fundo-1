@@ -26,6 +26,10 @@ describe("DAS — catálogo de módulos integrados",()=>{
   });
   it("membro não acessa módulos sigilosos",()=>{
     expect(canViewDasModule(["MEMBRO"],["PASTOR"])).toBe(false);
+    // GET /rosters é exclusivo de equipe autorizada. MEMBRO só confirma por ID.
+    const roster=DAS_MODULES.find(module=>module.id==="escalas")!;
+    expect(canViewDasModule(["MEMBRO"],roster.allowedRoles)).toBe(false);
+    expect(canViewDasModule(["LIDER_MINISTERIO"],roster.allowedRoles)).toBe(true);
     expect(canViewDasModule(["MEMBRO"],["TESOURARIA"])).toBe(false);
   });
 });
