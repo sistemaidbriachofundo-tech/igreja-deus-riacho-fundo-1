@@ -43,4 +43,30 @@ describe("providers.factory", () => {
     expect(providers.push.mode).toBe("noop");
     expect(providers.push.name).toBe("fcm");
   });
+
+  it("push stub never marks live FCM (mock/noop only)", async () => {
+    process.env.PUSH_PROVIDER = "mock";
+    const mockPush = createChannelProviders().push;
+    const mockResult = await mockPush.send({
+      outboxId: "outbox-12345678",
+      channel: "PUSH",
+      toAddress: "fcm-token-abc",
+      body: "olá",
+    });
+    expect(mockResult.ok).toBe(true);
+    expect(mockResult.delivered).toBe(true);
+    expect(mockResult.raw?.provider).toBe("fcm");
+
+    process.env.PUSH_PROVIDER = "noop";
+    const noopPush = createChannelProviders().push;
+    const noopResult = await noopPush.send({
+      outboxId: "outbox-abcdefgh",
+      channel: "PUSH",
+      toAddress: "fcm-token-xyz",
+      body: "noop",
+    });
+    expect(noopResult.ok).toBe(true);
+    expect(noopResult.delivered).toBe(false);
+    expect(noopResult.raw?.provider).toBe("fcm");
+  });
 });

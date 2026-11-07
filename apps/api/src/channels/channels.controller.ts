@@ -148,18 +148,8 @@ class RegisterDeviceTokenBody {
   appId?: string | null;
 }
 
-class EnqueueOutboxBody {
-  @IsIn(CHANNEL_ENUM)
-  channel!: (typeof CHANNEL_ENUM)[number];
-
-  @IsOptional()
-  @IsString()
-  toAddress?: string | null;
-
-  @IsOptional()
-  @IsString()
-  personId?: string | null;
-
+/** Campos comuns de conteúdo do outbox (evita duplicação Sonar). */
+class OutboxContentBody {
   @IsOptional()
   @IsString()
   templateCode?: string | null;
@@ -197,46 +187,23 @@ class EnqueueOutboxBody {
   scheduledAt?: string | null;
 }
 
-class PushFanoutBody {
+class EnqueueOutboxBody extends OutboxContentBody {
+  @IsIn(CHANNEL_ENUM)
+  channel!: (typeof CHANNEL_ENUM)[number];
+
+  @IsOptional()
+  @IsString()
+  toAddress?: string | null;
+
+  @IsOptional()
+  @IsString()
+  personId?: string | null;
+}
+
+class PushFanoutBody extends OutboxContentBody {
   @IsString()
   @MinLength(1)
   personId!: string;
-
-  @IsOptional()
-  @IsString()
-  templateCode?: string | null;
-
-  @IsOptional()
-  @IsString()
-  subject?: string | null;
-
-  @IsOptional()
-  @IsString()
-  body?: string | null;
-
-  @IsOptional()
-  @IsObject()
-  variables?: Record<string, string>;
-
-  @IsOptional()
-  @IsObject()
-  payload?: Record<string, unknown>;
-
-  @IsOptional()
-  @IsString()
-  sourceType?: string | null;
-
-  @IsOptional()
-  @IsString()
-  sourceId?: string | null;
-
-  @IsOptional()
-  @IsBoolean()
-  skipConsentCheck?: boolean;
-
-  @IsOptional()
-  @IsString()
-  scheduledAt?: string | null;
 }
 
 class DispatchPendingBody {

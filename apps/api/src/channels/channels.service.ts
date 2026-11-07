@@ -299,7 +299,7 @@ export class ChannelsService {
     }
     this.assertPushPlatform(input.platform);
     const targetPersonId = (input.personId?.trim() || actor.personId) as string;
-    const pilot = await this.requireDeviceTokenAccess(actor, targetPersonId);
+    const pilot = await this.requireConsentAccess(actor, targetPersonId);
     await this.requirePerson(targetPersonId, pilot);
 
     const now = new Date();
@@ -362,7 +362,7 @@ export class ChannelsService {
     query: { personId?: string; includeRevoked?: boolean } = {},
   ) {
     const targetPersonId = (query.personId?.trim() || actor.personId) as string;
-    const pilot = await this.requireDeviceTokenAccess(actor, targetPersonId);
+    const pilot = await this.requireConsentAccess(actor, targetPersonId);
     const rows = await this.prisma.pushDeviceToken.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -391,7 +391,7 @@ export class ChannelsService {
       },
     });
     if (!row) throw new NotFoundException("Device token não encontrado");
-    await this.requireDeviceTokenAccess(actor, row.personId);
+    await this.requireConsentAccess(actor, row.personId);
     if (row.revokedAt) return this.deviceTokenDto(row);
 
     return this.prisma.$transaction(async (tx) => {
@@ -1090,11 +1090,6 @@ export class ChannelsService {
       throw new ForbiddenException("Sem permissão de canais (secretaria/pastor)");
     }
     return pilot;
-  }
-
-  /** Device tokens: self ou admin canais. */
-  private async requireDeviceTokenAccess(actor: AuthUser, personId: string) {
-    return this.requireConsentAccess(actor, personId);
   }
 
   private async resolveLatestPushToken(churchId: string, personId: string) {
