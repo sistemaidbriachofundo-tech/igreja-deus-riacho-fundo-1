@@ -288,7 +288,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
               <label>Código do comprovante<input type="text" autoComplete="off" value={checkInCodes[id]??""}
                 onChange={e=>setCheckInCodes(prev=>({...prev,[id]:e.target.value}))} placeholder="Digite o código do participante"/></label>
               <button type="button" disabled={busy||!keyOf(checkInCodes[id])} onClick={()=>checkIn(reg)}>Confirmar</button>
-            </div>:<span className={s.pending}>Aguardando pagamento simulado</span>}
+            </div>:<span className={s.pending}>{reg.isMinor===true&&reg.guardianAuthStatus!=="AUTHORIZED"?"Autorização do responsável pendente":"Aguardando pagamento simulado"}</span>}
             {!finished&&!cancelled&&<button type="button" className={s.cancel} disabled={busy||!id}
               onClick={()=>cancel(reg)}>Cancelar inscrição de teste</button>}
           </article>;
