@@ -52,6 +52,9 @@ describe("Evento — validação de inscrições sintéticas RF-020–022",()=>{
       expect(canCheckInRegistration({status,paymentStatus:"CONFIRMED_MOCK"})).toBe(false);
     }
     expect(canCheckInRegistration({status:"CONFIRMED",paymentStatus:"PENDING"})).toBe(false);
+    expect(canCheckInRegistration({status:"CONFIRMED",paymentStatus:"CONFIRMED_MOCK",isMinor:true,guardianAuthStatus:"PENDING"})).toBe(false);
+    expect(canCheckInRegistration({status:"CONFIRMED",paymentStatus:"CONFIRMED_MOCK",isMinor:true,guardianAuthStatus:"AUTHORIZED"})).toBe(true);
+
   });
   it("preços informam simulação, nunca cobrança efetiva",()=>{
     expect(formatMockPrice(0)).toContain("simulação");
