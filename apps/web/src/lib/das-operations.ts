@@ -1,7 +1,7 @@
 /** DAS v1.1 — visão segura de contratos HML. Não inventar registros de negócio. */
 export type DasModule =
   | "pastoral" | "discipulado" | "celulas" | "ministerios" | "escalas"
-  | "financeiro" | "eventos" | "indicadores";
+  | "financeiro" | "eventos" | "indicadores" | "educacao" | "patrimonio";
 
 export type DasRecord = Record<string, unknown>;
 export type DasDefinition = {
@@ -23,6 +23,8 @@ export const DAS_MODULES: readonly DasDefinition[] = [
   {id:"escalas",label:"Escalas",phase:"F3",description:"Cultos, funções, atribuições e confirmações.",endpoint:"/rosters",envelope:"rosters",allowedRoles:["PASTOR","SECRETARIA","LIDER_MINISTERIO"]},
   {id:"financeiro",label:"Tesouraria",phase:"F4",description:"Plano de contas, lançamentos e conciliações restritas.",endpoint:"/ledger/accounts",envelope:"accounts",allowedRoles:["TESOURARIA"]},
   {id:"eventos",label:"Eventos",phase:"F4",description:"Programação administrativa, sem inscrições ou pagamentos fictícios.",endpoint:"/events",envelope:"events",allowedRoles:["PASTOR","SECRETARIA","LIDER_MINISTERIO","PLATFORM_ADMIN"]},
+  {id:"educacao",label:"Ensino e EBD",phase:"F5",description:"Cursos, turmas, matrículas, frequência e conclusão com trilha de auditoria.",endpoint:"/courses",envelope:"courses",allowedRoles:["PASTOR","SECRETARIA","LIDER_MINISTERIO","PLATFORM_ADMIN"]},
+  {id:"patrimonio",label:"Patrimônio",phase:"F6",description:"Inventário, conservação, responsáveis e histórico por congregação.",endpoint:"/assets",envelope:"assets",allowedRoles:["PASTOR","SECRETARIA","TESOURARIA","PLATFORM_ADMIN"]},
   {id:"indicadores",label:"Indicadores",phase:"F6",description:"Resumo institucional disponibilizado pela API, sujeito a métricas ainda em evolução.",endpoint:"/indicators/summary",envelope:"summary",allowedRoles:["PASTOR","SECRETARIA","TESOURARIA"],dataKind:"summary"},
 ] as const;
 
