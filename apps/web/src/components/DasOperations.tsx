@@ -10,6 +10,7 @@ import { EventRegistrations } from "./EventRegistrations";
 import { VolunteerPipeline } from "./VolunteerPipeline";
 import { EducationBoard } from "./EducationBoard";
 import { AssetsBoard } from "./AssetsBoard";
+import { CommunicationsBoard } from "./CommunicationsBoard";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
@@ -279,6 +280,7 @@ export function DasOperations() {
             {chosen.id==="ministerios"&&<VolunteerPipeline ministries={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="educacao"&&<EducationBoard courses={data.rows} token={session.token} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="patrimonio"&&<AssetsBoard assets={data.rows} token={session.token} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
+            {chosen.id==="comunicacao"&&<CommunicationsBoard templates={data.rows} token={session.token}/> }
 
 
           </>}
