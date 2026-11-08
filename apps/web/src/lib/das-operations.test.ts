@@ -8,7 +8,7 @@ import {
 describe("DAS — catálogo de módulos integrados",()=>{
   it("cobre os domínios sem exibir informações sensíveis sem autenticação",()=>{
     expect(DAS_MODULES.map(x=>x.id)).toEqual([
-      "pastoral","discipulado","celulas","ministerios","escalas","financeiro","eventos","indicadores"
+      "pastoral","discipulado","celulas","ministerios","escalas","financeiro","eventos","educacao","patrimonio","indicadores"
     ]);
     expect(DAS_MODULES.every(x=>x.endpoint.startsWith("/"))).toBe(true);
     expect(DAS_RESOURCE_TABS.financeiro?.map(v=>v.envelope)).toEqual([
@@ -23,6 +23,26 @@ describe("DAS — catálogo de módulos integrados",()=>{
     expect(canViewDasModule(["PLATFORM_ADMIN"],["TESOURARIA"])).toBe(false);
     expect(canViewDasModule(["PASTOR"],["PASTOR"])).toBe(true);
     expect(canViewDasModule(["TESOURARIA"],["TESOURARIA"])).toBe(true);
+  });
+  it("ensino e patrimônio só aparecem para papéis do contrato NestJS",()=>{
+    const education=DAS_MODULES.find(m=>m.id==="educacao")!;
+    const assets=DAS_MODULES.find(m=>m.id==="patrimonio")!;
+    expect(education.endpoint).toBe("/courses");
+    expect(assets.endpoint).toBe("/assets");
+    expect(education.envelope).toBe("courses");
+    expect(assets.envelope).toBe("assets");
+    for(const role of ["PASTOR","SECRETARIA","LIDER_MINISTERIO","PLATFORM_ADMIN"]){
+      expect(canViewDasModule([role],education.allowedRoles)).toBe(true);
+    }
+    expect(canViewDasModule(["TESOURARIA"],education.allowedRoles)).toBe(false);
+    for(const role of ["PASTOR","SECRETARIA","TESOURARIA","PLATFORM_ADMIN"]){
+      expect(canViewDasModule([role],assets.allowedRoles)).toBe(true);
+    }
+    expect(canViewDasModule(["LIDER_MINISTERIO"],assets.allowedRoles)).toBe(false);
+    expect(canViewDasModule(["MEMBRO"],assets.allowedRoles)).toBe(false);
+    expect(readDasRows({courses:[]},"courses")).toEqual([]);
+    expect(readDasRows({assets:[]},"assets")).toEqual([]);
+    expect(()=>readDasRows({data:[]},"assets")).toThrow();
   });
   it("membro não acessa módulos sigilosos",()=>{
     expect(canViewDasModule(["MEMBRO"],["PASTOR"])).toBe(false);
