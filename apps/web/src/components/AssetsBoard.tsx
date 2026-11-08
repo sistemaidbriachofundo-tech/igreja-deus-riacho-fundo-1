@@ -201,8 +201,8 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
               {history.map((row,i)=><article className={s.item} key={str(row.id)||i}>
                 <div><strong>{safe(row.kind,"Registro")}</strong>
                   <small>{formatChurchDate(str(row.recordedAt))}</small>
-                  {row.note&&<p>{safe(row.note)}</p>}
-                  {row.toStatus&&<small>Nova situação: {label(row.toStatus)}</small>}
+                  {typeof row.note==="string"&&row.note.trim()!==""&&<p>{safe(row.note)}</p>}
+                  {typeof row.toStatus==="string"&&row.toStatus!==""&&<small>Nova situação: {label(row.toStatus)}</small>}
                 </div>
               </article>)}
             </div>
