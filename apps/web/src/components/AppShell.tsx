@@ -54,6 +54,8 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
   { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home" },
 ];
 
+const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao","membros","secretaria","operacao"];
+
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
   const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "operacao" ? { code: "06 / GESTÃO INTEGRADA", title: "Toda a igreja, uma plataforma.", detail: "Módulos do DAS sob autenticação." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -132,9 +134,14 @@ export function AppShell({ active, meta, children, editorial = false }: { active
       </div>
 
       <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {NAV.map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
+        {NAV.filter(item=>MOBILE_PRIMARY.includes(item.key)).map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
           <UIIcon name={item.icon} size={20}/><span>{item.short}</span>
         </a>)}
+        <button type="button" className={active&&!MOBILE_PRIMARY.includes(active)?s.mobileActive:s.mobileItem}
+          aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
+          onClick={()=>setPaletteOpen(true)}>
+          <UIIcon name="more" size={20}/><span>Mais</span>
+        </button>
       </nav>
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
