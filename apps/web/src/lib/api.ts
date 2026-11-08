@@ -81,6 +81,24 @@ export async function apiPost<T>(
   return res.json() as Promise<T>;
 }
 
+/** Alterações restritas via backend com validação de papel e escopo na API. */
+export async function apiPatch<T>(
+  path: string,
+  token: string,
+  body: unknown,
+): Promise<T> {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || `PATCH ${path} falhou (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
 const TOKEN_KEY = "idbrf_demo_token";
 
 export function loadStoredToken(): string | null {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  apiGet, apiLogin, apiPost, clearToken, getApiBaseUrl,
+  apiGet, apiLogin, apiPost, apiPatch, clearToken, getApiBaseUrl,
   loadStoredToken, storeToken,
 } from "./api";
 
@@ -164,5 +164,24 @@ describe("API F2: sessão do navegador", () => {
     expect(loadStoredToken()).toBe("fake-jwt");
     clearToken();
     expect(loadStoredToken()).toBeNull();
+  });
+});
+
+describe("DAS — PATCH autenticado",()=>{
+  it("envia token e corpo de atualização para API autorizada",async()=>{
+    const mockFetch=vi.fn().mockResolvedValue(respond({id:"case-1",status:"DONE"}));
+    vi.stubGlobal("fetch",mockFetch);
+    const result=await apiPatch<{status:string}>("/pastoral-cases/case-1/status","fake-token",{status:"DONE"});
+    expect(result.status).toBe("DONE");
+    expect(mockFetch).toHaveBeenCalledWith("https://api.example.test/pastoral-cases/case-1/status",{
+      method:"PATCH",
+      headers:{Authorization:"Bearer fake-token","Content-Type":"application/json"},
+      body:JSON.stringify({status:"DONE"}),
+    });
+  });
+  it("mantém erro 403 sem simular persistência",async()=>{
+    vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response("",{status:403})));
+    await expect(apiPatch("/discipleship/enrollments/test","fake-token",{status:"COMPLETED"}))
+      .rejects.toThrow("PATCH /discipleship/enrollments/test falhou (403)");
   });
 });

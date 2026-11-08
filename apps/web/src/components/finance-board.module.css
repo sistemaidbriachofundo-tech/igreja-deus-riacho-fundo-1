@@ -1,0 +1,23 @@
+.board{background:#fffdfa;border:1px solid #e8dac8;border-radius:20px;padding:27px;display:grid;gap:20px;box-shadow:0 6px 20px rgba(55,30,11,.04)}
+.header span{color:#95642a;font-weight:800;letter-spacing:.1em;font-size:10px}.header h2{font-family:Montserrat,Inter,sans-serif;letter-spacing:-.025em;font-size:22px;margin:8px 0;color:#4c2d1b}
+.header p{font-size:12px;line-height:1.65;color:#806954;max-width:760px;margin:0}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;padding:23px;border:1px solid #e6d5bd;background:#faf5ec;border-radius:15px}
+.form h3{grid-column:1/-1;margin:0;font-size:16px;color:#4b2e1a}.form p{grid-column:1/-1;color:#795e43;font-size:12px;margin:0;line-height:1.6}
+.form label{font-size:12px;color:#644b32;font-weight:700;display:grid;gap:7px;min-width:0}.form :is(input,select){border:1px solid #decab2;border-radius:10px;background:#fffefa;color:#442b1b;font:inherit;font-size:12px;font-weight:450;padding:12px;min-width:0;width:100%}
+.form :is(input,select,button):focus-visible,.row button:focus-visible{outline:2px solid #b38642;outline-offset:3px}
+.form button,.row button{border:1px solid #4a2612;background:#4a2612;color:#fff4e3;border-radius:10px;font:inherit;font-size:12px;font-weight:750;padding:11px 16px;cursor:pointer;min-height:42px}
+.form button:disabled,.row button:disabled{opacity:.5;cursor:not-allowed}
+.wide{grid-column:1/-1}.preview{border:1px dashed #c6ac89;border-radius:12px;padding:12px 15px;background:#fffdfa;display:grid;gap:6px;min-height:89px}
+.preview span,.preview small{color:#887056;font-size:11px}.preview strong{font-size:20px;color:#583718;font-family:Montserrat,Inter,sans-serif}
+.operations{display:grid;gap:13px}.operations h3{font-size:16px;margin:0;color:#4c2e18}
+.operations>p{font-size:12px;color:#886d50}.row{border:1px solid #ebddca;background:#fffefb;border-radius:12px;padding:15px;display:flex;justify-content:space-between;align-items:center;gap:14px}
+.row>div:first-child{display:grid;gap:7px;min-width:0}.row strong{font-size:13px;color:#4b2d1c}.row small{font-size:11px;color:#8a6e52}
+.actions{display:flex;gap:9px;flex-wrap:wrap}.row button{min-height:37px;padding:9px 12px;font-size:11px}
+.row button:hover{background:#693a1c}.warning,.info,.notice{font-size:12px;line-height:1.65;border-radius:12px;padding:14px 16px;margin:0}
+.warning{color:#7d501a;background:#fff1d9;border:1px solid #ead3a3}.info{color:#635f47;background:#f8f1e5;border:1px solid #e7dbc8}.notice{color:#5b572b;background:#f5f2dd;border:1px solid #ded8b3}
+@media(max-width:650px){.board{padding:17px;border-radius:16px}.form{grid-template-columns:1fr;padding:15px}.row{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions button{flex:1}.wide,.form h3,.form p{grid-column:1}}
+
+.rejectForm{display:flex;gap:8px;align-items:end;flex-wrap:wrap;width:100%;padding:9px 0 0}
+.rejectForm label{min-width:170px;flex:1;display:grid;gap:6px;font-size:11px;color:#856242;font-weight:650}
+.rejectForm input{border:1px solid #ddcbb8;background:#fffefa;color:#432b1e;border-radius:9px;padding:9px 11px;font:inherit;font-size:12px;width:100%}
+.rejectForm button{background:#7e4a32;border-color:#7e4a32}
