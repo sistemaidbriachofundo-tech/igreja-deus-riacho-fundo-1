@@ -87,6 +87,7 @@ describe("DAS — respostas de API",()=>{
   it("não exibe mensagens técnicas da API nas telas",()=>{
     expect(dasError(new Error("GET /pastoral-cases falhou (403)"))).toMatch(/autorização/);
     expect(dasError(new Error("POST /rosters falhou (409)"))).toMatch(/Conflito/);
+    expect(dasError(new Error("GET /courses falhou (404)"))).toMatch(/não publicado/);
     expect(dasError(new Error("sensitive internal connection url"))).not.toContain("internal connection");
   });
 });
