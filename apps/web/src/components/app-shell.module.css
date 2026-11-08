@@ -272,3 +272,16 @@
 /* Menus sempre acessíveis em janelas desktop de pouca altura. */
 .rail{overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#8d7854 #06342e}
 .brand,.railContext,.menu,.railBottom{flex-shrink:0}
+
+/* Barra de cinco destinos no telefone: quatro jornadas e acesso a todos os demais módulos. */
+@media(max-width:970px){
+ .mobileNav>button.mobileItem,.mobileNav>button.mobileActive{
+  border:0;cursor:pointer;background:transparent;font:750 10px/1.2 var(--font-title);
+  color:#978f82;appearance:none;min-width:0
+ }
+ .mobileNav>button.mobileActive{color:#6a441d;background:#f5e9d4}
+ .mobileNav>button:focus-visible{outline:3px solid #bf965b;outline-offset:-2px}
+}
+@media(max-width:380px){
+ .mobileNav>button.mobileItem,.mobileNav>button.mobileActive{font-size:9px}
+}
