@@ -8,6 +8,8 @@ import { FinanceBoard } from "./FinanceBoard";
 import { EventsBoard } from "./EventsBoard";
 import { EventRegistrations } from "./EventRegistrations";
 import { VolunteerPipeline } from "./VolunteerPipeline";
+import { EducationBoard } from "./EducationBoard";
+import { AssetsBoard } from "./AssetsBoard";
 import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import {
@@ -275,6 +277,9 @@ export function DasOperations() {
             {chosen.id==="eventos"&&<EventsBoard rows={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="eventos"&&<EventRegistrations events={data.rows} token={session.token}/>}
             {chosen.id==="ministerios"&&<VolunteerPipeline ministries={data.rows} token={session.token} refresh={()=>setReload(n=>n+1)}/>}
+            {chosen.id==="educacao"&&<EducationBoard courses={data.rows} token={session.token} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
+            {chosen.id==="patrimonio"&&<AssetsBoard assets={data.rows} token={session.token} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
+
 
           </>}
           {canCreate(chosen.id,roles)&&(!resource||chosen.id!=="financeiro"||resource.id==="accounts")&&<CreationForm key={chosen.id} module={chosen.id} onCreate={doCreate} busy={saving}/>}
