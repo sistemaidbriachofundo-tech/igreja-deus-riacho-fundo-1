@@ -50,7 +50,8 @@ export function toRegistrationPayload(input:EventRegistrationInput) {
 }
 
 export function canCheckInRegistration(row:DasRecord):boolean {
-  return row.status==="CONFIRMED" && row.paymentStatus==="CONFIRMED_MOCK";
+  return row.status==="CONFIRMED" && row.paymentStatus==="CONFIRMED_MOCK"
+    && (row.isMinor!==true||row.guardianAuthStatus==="AUTHORIZED");
 }
 
 export function formatMockPrice(amount:unknown):string {
