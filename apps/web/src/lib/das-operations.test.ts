@@ -8,7 +8,7 @@ import {
 describe("DAS — catálogo de módulos integrados",()=>{
   it("cobre os domínios sem exibir informações sensíveis sem autenticação",()=>{
     expect(DAS_MODULES.map(x=>x.id)).toEqual([
-      "pastoral","discipulado","celulas","ministerios","escalas","financeiro","eventos","educacao","patrimonio","indicadores"
+      "pastoral","discipulado","celulas","ministerios","escalas","financeiro","eventos","educacao","comunicacao","patrimonio","indicadores"
     ]);
     expect(DAS_MODULES.every(x=>x.endpoint.startsWith("/"))).toBe(true);
     expect(DAS_RESOURCE_TABS.financeiro?.map(v=>v.envelope)).toEqual([
@@ -27,6 +27,15 @@ describe("DAS — catálogo de módulos integrados",()=>{
   it("ensino e patrimônio só aparecem para papéis do contrato NestJS",()=>{
     const education=DAS_MODULES.find(m=>m.id==="educacao")!;
     const assets=DAS_MODULES.find(m=>m.id==="patrimonio")!;
+    const channels=DAS_MODULES.find(m=>m.id==="comunicacao")!;
+    expect(channels.endpoint).toBe("/channels/templates");
+    expect(channels.envelope).toBe("templates");
+    expect(canViewDasModule(["PASTOR"],channels.allowedRoles)).toBe(true);
+    expect(canViewDasModule(["SECRETARIA"],channels.allowedRoles)).toBe(true);
+    expect(canViewDasModule(["PLATFORM_ADMIN"],channels.allowedRoles)).toBe(true);
+    expect(canViewDasModule(["MEMBRO"],channels.allowedRoles)).toBe(false);
+    expect(canViewDasModule(["TESOURARIA"],channels.allowedRoles)).toBe(false);
+
     expect(education.endpoint).toBe("/courses");
     expect(assets.endpoint).toBe("/assets");
     expect(education.envelope).toBe("courses");
