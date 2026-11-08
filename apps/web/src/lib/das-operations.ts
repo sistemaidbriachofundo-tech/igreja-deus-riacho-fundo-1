@@ -96,6 +96,7 @@ export function dasError(error:unknown):string {
   if(/401|jwt|expirad/i.test(error.message))return "Sessão expirada. Faça login novamente no painel.";
   if(/403|permission|forbidden|papel|scope/i.test(error.message))return "Seu perfil não tem autorização para consultar ou alterar estes registros.";
   if(/409|conflict/i.test(error.message))return "Conflito de regra de negócio. Atualize os dados antes de tentar novamente.";
+  if(/404|not found|não encontrad/i.test(error.message))return "Recurso não encontrado ou ainda não publicado na API de homologação.";
   if(/429|rate/i.test(error.message))return "Limite temporário de solicitações. Tente mais tarde.";
   return "Operação não concluída. Verifique os dados e a disponibilidade da API.";
 }
