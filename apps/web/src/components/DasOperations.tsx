@@ -234,7 +234,7 @@ export function DasOperations() {
       checking?<section className={styles.card} role="status">Verificando a sessão…</section>:
       !session?<section className={styles.card}><h2>Entrar para continuar</h2>
         <p>Essa área não mostra informações internas sem autenticação. Acesse o painel com uma conta fictícia autorizada e retorne aqui.</p>
-        <a className={styles.primaryLink} href={withBasePath("/app/")}>Ir para o login de homologação <UIIcon name="arrow" size={17}/></a>
+        <a className={styles.primaryLink} href={withBasePath("/login/")}>Ir para o login de homologação <UIIcon name="arrow" size={17}/></a>
       </section>:
       !chosen?<section className={styles.card}><h2>Nenhuma área habilitada para este perfil</h2>
         <p>Os módulos exigem concessão de acesso por função e congregação. Solicite revisão a um responsável autorizado.</p></section>:
