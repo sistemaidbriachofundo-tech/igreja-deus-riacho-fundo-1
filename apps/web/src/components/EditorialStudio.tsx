@@ -3,13 +3,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { AppShell } from "./AppShell";
+import { SiteMediaLibrary } from "./SiteMediaLibrary";
 import { apiLogin, clearToken, loadStoredToken, storeToken } from "../lib/api";
 import { publicApiBase } from "../lib/portal-live-data";
+import { validSiteImage } from "../lib/site-layout";
 import s from "./editorial-studio.module.css";
 
 type Kind = "NEWS"|"BANNER"|"HOME_BLOCK"|"PAGE"|"MINISTRY_CONTENT";
 type Status = "RASCUNHO"|"REVISAO"|"APROVADO"|"PUBLICADO"|"ARQUIVADO";
 type Content = { id:string;kind:Kind;status:Status;title:string;slug:string;summary:string|null;body:string|null;ministryId:string|null;imageUrl:string|null };
+type Revision = { id:string;fromStatus:Status;toStatus:Status;note:string|null;createdAt:string };
+type ReaderView = { title:string;summary:string|null;body:string|null } | { missing:true };
 type PortalEvent = {id:string;name:string;slug:string;status:string;startsAt:string;description:string|null;locationText:string|null;ministryId:string|null;featuredOnHome:boolean};
 type Ministry = {id:string;name:string;slug:string;publishStatus:string;visibility:string;description:string|null;scheduleText:string|null;participationInfo:string|null;leadershipPublic:{displayName:string;roleTitle:string}[];coverImageUrl:string|null;galleryUrls:string[]};
 type Tab = "conteudos"|"eventos"|"ministerios"|"voluntarios";
@@ -56,17 +60,18 @@ export function EditorialStudio() {
   const [contents,setContents]=useState<Content[]>([]),[events,setEvents]=useState<PortalEvent[]>([]),[ministries,setMinistries]=useState<Ministry[]>([]);
   const [interests,setInterests]=useState<VolunteerInterest[]>([]),[selectedInterest,setSelectedInterest]=useState<string|null>(null);
   const [contentId,setContentId]=useState<string|null>(null),[eventId,setEventId]=useState<string|null>(null),[ministryId,setMinistryId]=useState<string|null>(null);
+  const [canPublish,setCanPublish]=useState(false),[revisions,setRevisions]=useState<Revision[]>([]),[reader,setReader]=useState<ReaderView|null>(null);
   const [content,setContent]=useState(blankContent),[eventData,setEventData]=useState(blankEvent),[ministryData,setMinistryData]=useState(blankMinistry);
 
   useEffect(()=>{setToken(loadStoredToken());setChecking(false);},[]);
   const reload=useCallback(async(t:string)=>{
     const [a,b,c,d]=await Promise.all([
-      request<{contents:Content[]}>(t,"/cms/contents"),
+      request<{contents:Content[];permissions?:{canPublish?:boolean}}>(t,"/cms/contents"),
       request<{events:PortalEvent[]}>(t,"/events"),
       request<{ministries:Ministry[]}>(t,"/ministries"),
       request<{interests:VolunteerInterest[]}>(t,"/volunteer-interests"),
     ]);
-    setContents(a.contents??[]);setEvents(b.events??[]);setMinistries(c.ministries??[]);
+    setContents(a.contents??[]);setCanPublish(a.permissions?.canPublish===true);setEvents(b.events??[]);setMinistries(c.ministries??[]);
     setInterests(d.interests??[]);
   },[]);
   useEffect(()=>{
@@ -90,18 +95,39 @@ export function EditorialStudio() {
     catch(err){setError(err instanceof Error?err.message:"Não foi possível executar a ação.");}
     finally{setBusy(false);}
   }
-  function chooseContent(item:Content){setContentId(item.id);setContent({kind:item.kind,title:item.title,slug:item.slug,summary:item.summary??"",body:item.body??"",ministryId:item.ministryId??"",imageUrl:item.imageUrl??""});}
+  function applyContent(item:Content){setContentId(item.id);setContent({kind:item.kind,title:item.title,slug:item.slug,summary:item.summary??"",body:item.body??"",ministryId:item.ministryId??"",imageUrl:item.imageUrl??""});}
+  function chooseContent(item:Content){
+    applyContent(item);setReader(null);setRevisions([]);
+    if(!token)return;
+    void request<{revisions?:Revision[]}>(token,"/cms/contents/"+item.id).then(detail=>{
+      setRevisions((detail.revisions??[]).map(row=>({id:row.id,fromStatus:row.fromStatus,toStatus:row.toStatus,note:row.note,createdAt:row.createdAt})));
+    }).catch(()=>{});
+  }
   function chooseEvent(item:PortalEvent){setEventId(item.id);setEventData({name:item.name,slug:item.slug,startsAt:localDateTime(item.startsAt),description:item.description??"",locationText:item.locationText??"",ministryId:item.ministryId??"",featuredOnHome:item.featuredOnHome});}
   function chooseMinistry(item:Ministry){setMinistryId(item.id);setMinistryData({description:item.description??"",scheduleText:item.scheduleText??"",participationInfo:item.participationInfo??"",leadershipText:item.leadershipPublic.map(p=>p.displayName+" | "+p.roleTitle).join("\n"),coverImageUrl:item.coverImageUrl??"",galleryText:(item.galleryUrls??[]).join("\n")});}
   function saveContent(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!token)return;
     if(content.kind==="MINISTRY_CONTENT"&&!content.ministryId){setError("Selecione o ministério responsável.");return;}
-    if(!secureImageUrl(content.imageUrl)){setError("A imagem precisa utilizar URL HTTPS.");return;}
+    if(content.imageUrl && !validSiteImage(content.imageUrl)){setError("A imagem precisa vir da biblioteca ou do armazenamento da igreja.");return;}
     const payload={...content,title:content.title.trim(),slug:slugify(content.slug||content.title),summary:content.summary||null,body:content.body||null,ministryId:content.ministryId||null,imageUrl:content.imageUrl.trim()||null};
     void perform(async()=>{
-      if(contentId)await request(token,"/cms/contents/"+contentId,"PATCH",{title:payload.title,summary:payload.summary,body:payload.body,imageUrl:payload.imageUrl});
-      else{const saved=await request<Content>(token,"/cms/contents","POST",payload);setContentId(saved.id);}
-    },"Conteúdo salvo. Siga o fluxo de revisão antes de publicar.");
+      const saved=contentId
+        ? await request<Content>(token,"/cms/contents/"+contentId,"PATCH",{title:payload.title,summary:payload.summary,body:payload.body,imageUrl:payload.imageUrl})
+        : await request<Content>(token,"/cms/contents","POST",payload);
+      applyContent(saved);
+    },"Conteúdo salvo. Reabra o item para conferir a persistência. A publicação continua com o publicador.");
+  }
+  async function viewAsReader(){
+    if(!token||!currentContent)return;
+    setReader(null);setError("");
+    const base=publicApiBase(process.env.NEXT_PUBLIC_API_URL);
+    if(!base)return;
+    const response=await fetch(base+"/public/content/"+encodeURIComponent(currentContent.slug),{mode:"cors",credentials:"omit",cache:"no-store",headers:{Accept:"application/json"}});
+    if(response.status===404){setReader({missing:true});return;}
+    if(!response.ok){setError("Não foi possível abrir a vista do leitor.");return;}
+    const data=await response.json() as {title?:unknown;summary?:unknown;body?:unknown};
+    if(typeof data.title!=="string"){setReader({missing:true});return;}
+    setReader({title:data.title,summary:typeof data.summary==="string"?data.summary:null,body:typeof data.body==="string"?data.body:null});
   }
   function saveEvent(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!token)return;
@@ -175,13 +201,23 @@ export function EditorialStudio() {
               <label>Título<input required value={content.title} onChange={e=>setContent({...content,title:e.target.value})}/></label>
               <label>Resumo<textarea rows={3} value={content.summary} onChange={e=>setContent({...content,summary:e.target.value})}/></label>
               <label>Texto da publicação <small>Texto puro, sem execução de HTML</small><textarea rows={7} value={content.body} onChange={e=>setContent({...content,body:e.target.value})}/></label>
-              <label>Imagem autorizada (URL HTTPS)<input type="url" value={content.imageUrl} placeholder="https://..." onChange={e=>setContent({...content,imageUrl:e.target.value})}/></label>
+              <div className={s.mediaPick}><span>Imagem da biblioteca</span>
+                {content.imageUrl?<p>Selecionada no armazenamento: {content.imageUrl}</p>:<p>Nenhuma foto selecionada. O envio valida o arquivo e não usa um endereço colado.</p>}
+                {content.imageUrl&&<button type="button" onClick={()=>setContent({...content,imageUrl:""})}>Remover imagem</button>}
+                <SiteMediaLibrary token={token} onChoose={url=>setContent({...content,imageUrl:url})}/>
+              </div>
               {content.kind==="MINISTRY_CONTENT"&&<label>Ministério<select required disabled={Boolean(currentContent)} value={content.ministryId} onChange={e=>setContent({...content,ministryId:e.target.value})}><option value="">Selecione</option>{ministries.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}
               <button type="submit" className={s.primary} disabled={busy}>{currentContent?"Salvar alterações":"Criar rascunho"}</button>
             </form>
-            {currentContent&&<div className={s.approval}><strong>Fluxo editorial: {currentContent.status}</strong><p>O backend valida cada transição e registra o histórico. Publique apenas informações verificadas.</p>
-              <div>{transitions[currentContent.status].map(status=><button type="button" key={status} disabled={busy}
+            {currentContent&&<div className={s.approval}><strong>Fluxo editorial: {currentContent.status}</strong><p>O backend valida cada transição e registra o histórico. O editor prepara. O publicador revisa e publica.</p>
+              {!canPublish&&<p>Seu perfil não publica. Aprovar e colocar no ar fica com o publicador.</p>}
+              <div>{transitions[currentContent.status].filter(status=>canPublish||(status!=="APROVADO"&&status!=="PUBLICADO"&&currentContent.status!=="PUBLICADO")).map(status=><button type="button" key={status} disabled={busy}
                 onClick={()=>void perform(()=>request(token,"/cms/contents/"+currentContent.id+"/advance","POST",{toStatus:status}),"Status atualizado: "+status)}>{labels[status]} ↗</button>)}</div>
+              <button type="button" disabled={busy} onClick={()=>void viewAsReader()}>Ver como leitor</button>
+              {reader&&("missing" in reader
+                ? <p className={s.reader} data-reader="missing">O leitor não encontra esta publicação. O rascunho permanece interno.</p>
+                : <article className={s.reader} data-reader="published"><h3>{reader.title}</h3>{reader.summary&&<p>{reader.summary}</p>}{reader.body&&<p>{reader.body}</p>}</article>)}
+              {revisions.length>0&&<ol className={s.history}>{revisions.map(row=><li key={row.id}>{labels[row.fromStatus]} → {labels[row.toStatus]} · {new Date(row.createdAt).toLocaleString("pt-BR")}{row.note?" · "+row.note:""}</li>)}</ol>}
             </div>}
           </div>
         </div>}

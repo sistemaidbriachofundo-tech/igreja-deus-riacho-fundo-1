@@ -142,9 +142,10 @@ export class CmsController {
   constructor(private readonly cms: CmsService) {}
 
   @Roles(
+    ROLE_CODES.EDITOR_SITE,
+    ROLE_CODES.PUBLICADOR_SITE,
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
-    ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
   )
   @Post()
@@ -153,9 +154,10 @@ export class CmsController {
   }
 
   @Roles(
+    ROLE_CODES.EDITOR_SITE,
+    ROLE_CODES.PUBLICADOR_SITE,
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
-    ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
   )
   @Get()
@@ -164,9 +166,10 @@ export class CmsController {
   }
 
   @Roles(
+    ROLE_CODES.EDITOR_SITE,
+    ROLE_CODES.PUBLICADOR_SITE,
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
-    ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
   )
   @Get(":contentId")
@@ -175,9 +178,10 @@ export class CmsController {
   }
 
   @Roles(
+    ROLE_CODES.EDITOR_SITE,
+    ROLE_CODES.PUBLICADOR_SITE,
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
-    ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
   )
   @Patch(":contentId")
@@ -190,9 +194,10 @@ export class CmsController {
   }
 
   @Roles(
+    ROLE_CODES.EDITOR_SITE,
+    ROLE_CODES.PUBLICADOR_SITE,
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
-    ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
   )
   @Post(":contentId/advance")

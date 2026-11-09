@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PILOT_CHURCH_NAME } from "@idbrf/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { RESERVED_SITE_SLUGS } from "../cms/site-layout.service";
 
 /**
  * Superfície pública do portal — só conteúdo PUBLISHED / PUBLIC.
@@ -44,6 +45,7 @@ export class PublicPortalService {
             churchId: pilot.churchId,
             status: "PUBLICADO",
             kind: { in: ["HOME_BLOCK", "NEWS"] },
+            slug: { notIn: [...RESERVED_SITE_SLUGS] },
           },
           orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
           take: 12,
@@ -54,6 +56,7 @@ export class PublicPortalService {
             churchId: pilot.churchId,
             status: "PUBLICADO",
             kind: "BANNER",
+            slug: { notIn: [...RESERVED_SITE_SLUGS] },
           },
           orderBy: [{ sortOrder: "asc" }],
           take: 6,
@@ -76,12 +79,17 @@ export class PublicPortalService {
 
   async getContentBySlug(slug: string) {
     const pilot = await this.pilot.getPilotChurch();
+    const normalized = slug.trim().toLowerCase();
+    if (RESERVED_SITE_SLUGS.includes(normalized as (typeof RESERVED_SITE_SLUGS)[number])) {
+      throw new NotFoundException("Conteúdo público não encontrado");
+    }
     const row = await this.prisma.cmsContent.findFirst({
       where: {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
-        slug: slug.trim().toLowerCase(),
+        slug: normalized,
         status: "PUBLICADO",
+        NOT: { slug: { in: [...RESERVED_SITE_SLUGS] } },
       },
     });
     if (!row) {

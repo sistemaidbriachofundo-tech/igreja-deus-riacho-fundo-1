@@ -111,6 +111,13 @@ describe("PublicPortalService", () => {
     await expect(service.getContentBySlug("rascunho")).rejects.toBeInstanceOf(
       NotFoundException,
     );
+    await expect(service.getContentBySlug("idriacho-home-editor-live")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(service.getContentBySlug("idriacho-home-editor-draft")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.cmsContent.findFirst).toHaveBeenCalledTimes(2);
   });
 
   it("getMinistryBySlug 404 when not public", async () => {
