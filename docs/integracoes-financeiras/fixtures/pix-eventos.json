@@ -1,0 +1,54 @@
+{
+  "schema": "idbrf.finance.pix-events.v1",
+  "synthetic": true,
+  "payerDocument": null,
+  "pixKey": null,
+  "charges": [
+    {
+      "txid": "SYNPIXCOB20261109000000001",
+      "kind": "COB",
+      "amountCents": 5000,
+      "singleUse": true,
+      "linkedE2eid": null,
+      "description": "cobrança imediata sintética — culto demo"
+    }
+  ],
+  "events": [
+    {
+      "id": "match",
+      "e2eid": "E00000000202611091200SYNTHETIC01",
+      "txid": "SYNPIXCOB20261109000000001",
+      "valor": "50.00",
+      "amountCents": 5000,
+      "horario": "2026-11-09T12:00:00Z",
+      "infoPagador": "culto sintetico"
+    },
+    {
+      "id": "amount-mismatch",
+      "e2eid": "E00000000202611091205SYNTHETIC05",
+      "txid": "SYNPIXCOB20261109000000001",
+      "valor": "40.00",
+      "amountCents": 4000,
+      "horario": "2026-11-09T12:05:00Z",
+      "infoPagador": "valor divergente demo"
+    },
+    {
+      "id": "no-txid",
+      "e2eid": "E00000000202611091206SYNTHETIC06",
+      "txid": null,
+      "valor": "15.00",
+      "amountCents": 1500,
+      "horario": "2026-11-09T12:06:00Z",
+      "infoPagador": "dizimo joao demo"
+    },
+    {
+      "id": "static-absent",
+      "e2eid": "E00000000202611091207SYNTHETIC07",
+      "txid": "***",
+      "valor": "10.00",
+      "amountCents": 1000,
+      "horario": "2026-11-09T12:07:00Z",
+      "infoPagador": ""
+    }
+  ]
+}
