@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { W1PortalStudio } from "./W1PortalStudio";
+import { withBasePath } from "../lib/paths";
 
 describe("estúdio W1 renderizado", () => {
   it("mostra a navegação pública, o bloqueio das dependências e o site oficial inativo", () => {
@@ -9,7 +10,7 @@ describe("estúdio W1 renderizado", () => {
     expect(html).toContain("Início");
     expect(html).toContain("Quem somos");
     expect(html).toContain("Agenda");
-    expect(html).toContain('href="/login/"');
+    expect(html).toContain(`href="${withBasePath("/login/")}"`);
     expect(html).not.toContain("/ministerios");
     expect(html).not.toContain("Ministérios");
     expect(html).toContain("BLOCKED");
