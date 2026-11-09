@@ -84,7 +84,7 @@ describe("portal público da igreja", () => {
     expect(css).toContain("@media(max-width:750px)");
     expect(css).toContain("@media(max-width:480px)");
     expect(css).toContain("prefers-reduced-motion");
-    expect(read("components/PortalDesktopNavigation.tsx")).toContain('aria-label="Navegação principal"');
+    expect(read("components/PortalDesktopNavigation.tsx")).toContain('aria-label="Navegação do site público"');
     expect(shell).toContain("<MobilePortalMenu links={navigation} />");
     expect(read("components/MobilePortalMenu.tsx")).toContain('aria-label="Menu mobile"');
     expect(shell).toContain("portal-design-system.module.css");
