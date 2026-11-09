@@ -3,6 +3,7 @@ import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { isAllowedSiteImage } from "./site-media-url";
 
 /**
  * Editor visual da Home, sobre o CMS já existente. Dois registros separados:
@@ -58,12 +59,10 @@ function short(value: unknown, field: string, limit: number): string {
 }
 export function validatedSiteImage(value: unknown): string {
   const url = short(value, "Imagem", 1600);
-  if (/^\/images\/[a-zA-Z0-9/_-]+\.(?:jpg|jpeg|png|webp|avif)$/i.test(url)) return url;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "https:" && !parsed.username && !parsed.password && !parsed.hash) return url;
-  } catch { /* invalid URL */ }
-  throw new BadRequestException("Imagem deve estar na biblioteca do site ou em uma URL HTTPS autorizada");
+  if (!isAllowedSiteImage(url)) {
+    throw new BadRequestException("Imagem deve estar na biblioteca do site ou no armazenamento autorizado da igreja");
+  }
+  return url;
 }
 export function parseSiteLayout(value: unknown): SiteLayout {
   const input = record(value);

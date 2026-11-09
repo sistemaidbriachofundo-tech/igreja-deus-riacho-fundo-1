@@ -20,6 +20,31 @@ const tabs: {key:Tab;label:string}[] = [
 ];
 const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
 
+function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"mobile"}){
+  return <div className={s.previewCanvas} data-device={device} data-appearance={layout.appearance}>
+    <div className={s.previewTop}><span className={s.previewMark}>✝</span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></div>
+    <div className={s.previewCover}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
+      <div><small>IGREJA DE DEUS · RIACHO FUNDO I</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2><p>{layout.hero.description}</p><span>Quero visitar ↗</span></div>
+    </div>
+    {layout.sections.filter(key=>!layout.hidden.includes(key)).map(key=>key==="galeria"?<div className={s.previewGallery} key={key}>
+      <h3>{layout.gallery.title} <em>{layout.gallery.accent}</em></h3><p>{layout.gallery.description}</p>
+      <div>{layout.gallery.items.map((item,index)=><figure key={index}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl(item.imageUrl)} alt={item.alt}/><figcaption>{item.title}</figcaption>
+      </figure>)}</div>
+    </div>:<div className={s.previewOther} key={key}>{sectionNames[key]} <small>Componente original preservado</small></div>)}
+  </div>;
+}
+
+export function SiteReaderPreview({published,device}:{published:SiteLayout|null;device:"desktop"|"mobile"}){
+  if(!published){
+    return <p className={s.readerEmpty} data-reader="empty">O leitor não vê o rascunho. A Home institucional de produção permanece no fallback estático até o gate de publicação ser aprovado pelo integrador.</p>;
+  }
+  return <div data-reader="published"><SiteLayoutCanvas layout={published} device={device}/></div>;
+}
+
 async function siteRequest<T>(token:string,path:string,method:"GET"|"PATCH"|"POST"="GET",body?:unknown):Promise<T>{
   if(!/^\/cms\/site-layout(?:\/draft|\/publish|\/restore\/[a-zA-Z0-9-]+)?$/.test(path))throw new Error("Rota não autorizada");
   const r=await fetch(getApiBaseUrl()+path,{
@@ -40,7 +65,7 @@ export function SiteManager() {
   const [token,setToken]=useState<string|null>(null);
   const [checking,setChecking]=useState(true),[busy,setBusy]=useState(false);
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
-  const [tab,setTab]=useState<Tab>("conteudo"),[previewDevice,setPreviewDevice]=useState<"desktop"|"mobile">("desktop");
+  const [tab,setTab]=useState<Tab>("conteudo"),[previewDevice,setPreviewDevice]=useState<"desktop"|"mobile">("desktop"),[previewMode,setPreviewMode]=useState<"rascunho"|"leitor">("rascunho");
   const [layout,setLayout]=useState<SiteLayout>(defaultSiteLayout);
   const [draftUpdatedAt,setDraftUpdatedAt]=useState<string|null>(null);
   const [published,setPublished]=useState<SiteLayout|null>(null);
@@ -48,7 +73,7 @@ export function SiteManager() {
   const [publishedAt,setPublishedAt]=useState<string|null>(null);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [dirty,setDirty]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
-  const [imageSlot,setImageSlot]=useState<"hero"|0|1|2|3>("hero"),[customUrl,setCustomUrl]=useState("");
+  const [imageSlot,setImageSlot]=useState<"hero"|0|1|2|3>("hero");
 
   const configured=Boolean(process.env.NEXT_PUBLIC_API_URL);
   const refresh=useCallback(async(t:string)=>{
@@ -71,8 +96,9 @@ export function SiteManager() {
       .catch(err=>{
         if(cancelled)return;
         setError(err instanceof Error?err.message:"Falha no acesso.");
+        const denied=err instanceof Error && err.message.includes("não tem autorização");
         if(isInvalidSession(err))clearToken();
-        else setToken(saved);
+        else if(!denied)setToken(saved);
       })
       .finally(()=>{if(!cancelled)setChecking(false);});
     return()=>{cancelled=true;};
@@ -86,13 +112,13 @@ export function SiteManager() {
     update({...layout,gallery:{...layout.gallery,[field]:value}});
   }
   function setPhoto(value:string){
-    if(!validSiteImage(value)){setError("Escolha uma imagem da biblioteca ou informe um endereço HTTPS válido.");return;}
+    if(!validSiteImage(value)){setError("Escolha uma foto da biblioteca ou uma imagem enviada ao armazenamento da igreja.");return;}
     if(imageSlot==="hero")setHero("imageUrl",value);
     else {
       const items=layout.gallery.items.map((item,i)=>i===imageSlot?{...item,imageUrl:value}:item);
       update({...layout,gallery:{...layout.gallery,items}});
     }
-    setCustomUrl("");setError("");
+    setError("");
   }
   function changePhotoText(index:number,field:"title"|"subtitle"|"alt",value:string){
     update({...layout,gallery:{...layout.gallery,
@@ -240,8 +266,6 @@ export function SiteManager() {
                 <option value="hero">Capa principal</option>{[0,1,2,3].map(x=><option value={x} key={x}>Galeria — foto {x+1}</option>)}
               </select></label>
               <SiteMediaLibrary token={token} onChoose={setPhoto}/>
-              <div className={s.urlEntry}><label>Outra foto autorizada (URL HTTPS)<input type="url" placeholder="https://..." value={customUrl} onChange={e=>setCustomUrl(e.target.value)}/></label>
-                <button type="button" disabled={!customUrl.trim()} className={s.lightButton} onClick={()=>setPhoto(customUrl.trim())}>Usar esta imagem</button></div>
             </div>}
             {tab==="aparencia"&&<div className={s.controls}>
               <h2>Aparência</h2><p>Três opções seguras. Logo, tipografia, contrastes mínimos e estrutura técnica permanecem protegidos.</p>
@@ -269,26 +293,20 @@ export function SiteManager() {
             </div>}
           </section>
           <section className={s.preview} aria-label="Pré-visualização da página">
-            <div className={s.previewHead}><div><span className={s.mutedLabel}>VISUALIZAÇÃO INSTANTÂNEA</span><strong>Prévia da Home</strong></div>
-              <div className={s.deviceSwitch}><button type="button" aria-pressed={previewDevice==="desktop"} onClick={()=>setPreviewDevice("desktop")}>Computador</button><button type="button" aria-pressed={previewDevice==="mobile"} onClick={()=>setPreviewDevice("mobile")}>Celular</button></div>
-            </div>
-            <div className={s.previewCanvas} data-device={previewDevice} data-appearance={layout.appearance}>
-              <div className={s.previewTop}><span className={s.previewMark}>✝</span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></div>
-              <div className={s.previewCover}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
-                <div><small>IGREJA DE DEUS · RIACHO FUNDO I</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2><p>{layout.hero.description}</p><span>Quero visitar ↗</span></div>
+            <div className={s.previewHead}><div><span className={s.mutedLabel}>{previewMode==="leitor"?"O QUE O LEITOR VÊ":"RASCUNHO DA EQUIPE"}</span><strong>{previewMode==="leitor"?"Versão publicada":"Prévia do rascunho"}</strong></div>
+              <div className={s.deviceSwitch}>
+                <button type="button" aria-pressed={previewMode==="rascunho"} onClick={()=>setPreviewMode("rascunho")}>Rascunho</button>
+                <button type="button" aria-pressed={previewMode==="leitor"} onClick={()=>setPreviewMode("leitor")}>Como leitor</button>
+                <button type="button" aria-pressed={previewDevice==="desktop"} onClick={()=>setPreviewDevice("desktop")}>Computador</button>
+                <button type="button" aria-pressed={previewDevice==="mobile"} onClick={()=>setPreviewDevice("mobile")}>Celular</button>
               </div>
-              {layout.sections.filter(key=>!layout.hidden.includes(key)).map(key=>key==="galeria"?<div className={s.previewGallery} key={key}>
-                <h3>{layout.gallery.title} <em>{layout.gallery.accent}</em></h3><p>{layout.gallery.description}</p>
-                <div>{layout.gallery.items.map((item,index)=><figure key={index}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imageUrl(item.imageUrl)} alt={item.alt}/><figcaption>{item.title}</figcaption>
-                </figure>)}</div>
-              </div>:<div className={s.previewOther} key={key}>{sectionNames[key]} <small>Componente original preservado</small></div>)}
             </div>
-            <p className={s.previewNote}>Prévia fiel aos textos, fotos, paleta e ordem. O site definitivo preserva os componentes responsivos originais.</p>
-            <p className={s.previewNote}>Salvar não publica. Publicar exige permissão e atualiza somente a versão aprovada; o site oficial precisa ter a leitura dinâmica habilitada.</p>
+            {previewMode==="leitor"
+              ? <SiteReaderPreview published={published} device={previewDevice}/>
+              : <SiteLayoutCanvas layout={layout} device={previewDevice}/>}
+            <p className={s.previewNote}>{previewMode==="leitor"
+              ? "Esta vista usa só a versão publicada. Rascunho, histórico e autores ficam de fora. A Home de produção não muda sem o gate do integrador."
+              : "O rascunho fica nesta tela. Salvar não publica e o leitor continua na versão anterior."}</p>
           </section>
         </div>
       </div>}

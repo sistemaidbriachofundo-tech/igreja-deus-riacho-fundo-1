@@ -7,11 +7,12 @@ import { CmsService } from "./cms.service";
 import { SiteLayoutService } from "./site-layout.service";
 import { SiteLayoutController } from "./site-layout.controller";
 import { SiteMediaController } from "./site-media.controller";
+import { SiteMediaFileController } from "./site-media-file.controller";
 import { SiteMediaService } from "./site-media.service";
 
 @Module({
   imports: [AuthModule, PilotModule, ChannelsModule],
-  controllers: [CmsController, SiteLayoutController, SiteMediaController],
+  controllers: [CmsController, SiteLayoutController, SiteMediaController, SiteMediaFileController],
   providers: [CmsService, SiteLayoutService, SiteMediaService],
   exports: [CmsService, SiteLayoutService],
 })

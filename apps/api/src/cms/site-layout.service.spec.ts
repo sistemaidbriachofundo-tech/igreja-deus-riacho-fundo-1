@@ -35,6 +35,8 @@ describe("SiteLayoutService",()=>{
     expect(()=>parseSiteLayout({...DEFAULT_SITE_LAYOUT,sections:["essencia","essencia"]})).toThrow(BadRequestException);
     expect(()=>parseSiteLayout({...DEFAULT_SITE_LAYOUT,hero:{...DEFAULT_SITE_LAYOUT.hero,imageUrl:"javascript:alert(1)"}})).toThrow(BadRequestException);
     expect(()=>parseSiteLayout({...DEFAULT_SITE_LAYOUT,hero:{...DEFAULT_SITE_LAYOUT.hero,imageUrl:"http://imagem-insegura.test/foto.jpg"}})).toThrow(BadRequestException);
+    expect(()=>parseSiteLayout({...DEFAULT_SITE_LAYOUT,hero:{...DEFAULT_SITE_LAYOUT.hero,imageUrl:"https://exemplo.test/foto.jpg"}})).toThrow(BadRequestException);
+    expect(parseSiteLayout({...DEFAULT_SITE_LAYOUT,hero:{...DEFAULT_SITE_LAYOUT.hero,imageUrl:"https://store.public.blob.vercel-storage.com/church/church1/site/foto.jpg"}}).hero.imageUrl).toContain("blob.vercel-storage.com");
   });
 
   it("blocks unauthorized editorial account before reading database",async()=>{

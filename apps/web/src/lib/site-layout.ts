@@ -46,11 +46,16 @@ export const sectionNames: Record<SiteSection,string> = {
 };
 const isText = (x:unknown,limit:number):x is string =>
   typeof x==="string" && x.trim().length>0 && x.length<=limit;
+const localMedia=/^\/cms\/site-media\/files\/[A-Za-z0-9_-]{1,80}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-z0-9-]{1,45}\.(?:jpg|png|webp|avif)$/i;
+const blobMedia=/^\/church\/[A-Za-z0-9_-]+\/site\/[A-Za-z0-9._-]+\.(?:jpg|jpeg|png|webp|avif)$/i;
 export function validSiteImage(x:unknown):x is string {
   if(!isText(x,1600))return false;
-  if(/^\/images\/[\w/-]+\.(jpg|jpeg|png|webp|avif)$/i.test(x))return true;
-  try{const u=new URL(x);return u.protocol==="https:" && !u.username && !u.password && !u.hash;}
-  catch{return false;}
+  if(/^\/images\/[\w/-]+\.(jpg|jpeg|png|webp|avif)$/i.test(x)||localMedia.test(x))return true;
+  try{
+    const u=new URL(x);
+    return u.protocol==="https:" && !u.username && !u.password && !u.hash
+      && u.hostname.endsWith(".public.blob.vercel-storage.com") && blobMedia.test(u.pathname);
+  }catch{return false;}
 }
 export function parseSiteLayout(value:unknown):SiteLayout|null {
   if(!value||typeof value!=="object"||Array.isArray(value))return null;

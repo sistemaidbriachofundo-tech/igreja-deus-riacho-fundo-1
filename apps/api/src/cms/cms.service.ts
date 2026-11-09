@@ -4,13 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canAdministerMinistries } from "@idbrf/shared";
+import { canAdministerMinistries, hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
-import {
-  assertMinistryScopedWrite,
-  filterRowsForMinistryLeader,
-  requireMinistryInPilot,
-} from "../common/ministry-access";
+import { requireMinistryInPilot } from "../common/ministry-access";
+import { isAllowedSiteImage } from "./site-media-url";
 import { ChannelsService } from "../channels/channels.service";
 import type { CommChannel } from "../channels/providers/channel-provider";
 import { PrismaService } from "../prisma/prisma.service";
@@ -69,7 +66,7 @@ export class CmsService {
 
   async create(actor: AuthUser, input: CmsInput) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertCmsWrite(actor, pilot, input.ministryId ?? null);
+    this.assertInstitutional(actor, pilot);
 
     const kind = input.kind;
     const title = input.title?.trim();
@@ -81,6 +78,7 @@ export class CmsService {
     if (!title || !slug) {
       throw new BadRequestException("title e slug são obrigatórios");
     }
+    const imageUrl = this.cleanImage(input.imageUrl);
     if (kind === "MINISTRY_CONTENT" && !input.ministryId) {
       throw new BadRequestException(
         "ministryId obrigatório para MINISTRY_CONTENT",
@@ -101,7 +99,7 @@ export class CmsService {
           title,
           summary: input.summary ?? null,
           body: input.body ?? null,
-          imageUrl: input.imageUrl ?? null,
+          imageUrl,
           sortOrder: input.sortOrder ?? 0,
           status: "RASCUNHO",
           createdByUserId: actor.userId,
@@ -135,12 +133,7 @@ export class CmsService {
 
   async list(actor: AuthUser, kind?: string) {
     const pilot = await this.pilot.getPilotChurch();
-    if (
-      !canAdministerMinistries(actor.grants, pilot) &&
-      !actor.grants.some((g) => g.roleCode === "LIDER_MINISTERIO")
-    ) {
-      throw new ForbiddenException("Sem permissão CMS");
-    }
+    this.assertInstitutional(actor, pilot);
 
     const rows = await this.prisma.cmsContent.findMany({
       where: {
@@ -151,11 +144,14 @@ export class CmsService {
       orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     });
 
-    const visible = filterRowsForMinistryLeader(rows, actor, pilot)
-      .filter(row => !RESERVED_SITE_SLUGS.includes(row.slug as (typeof RESERVED_SITE_SLUGS)[number]));
+    const visible = rows.filter(row => !RESERVED_SITE_SLUGS.includes(row.slug as (typeof RESERVED_SITE_SLUGS)[number]));
 
     return {
       churchId: pilot.churchId,
+      permissions: {
+        canEdit: true,
+        canPublish: this.canPublishContent(actor, pilot),
+      },
       contents: visible.map((r) => this.toDto(r)),
     };
   }
@@ -164,7 +160,7 @@ export class CmsService {
     const pilot = await this.pilot.getPilotChurch();
     const row = await this.requireContent(contentId, pilot);
     if (RESERVED_SITE_SLUGS.includes(row.slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new NotFoundException("Use a Central de Gestão do Site");
-    this.assertCmsWrite(actor, pilot, row.ministryId);
+    this.assertInstitutional(actor, pilot);
     const revisions = await this.prisma.cmsContentRevision.findMany({
       where: { contentId },
       orderBy: { createdAt: "desc" },
@@ -188,7 +184,7 @@ export class CmsService {
     const pilot = await this.pilot.getPilotChurch();
     const existing = await this.requireContent(contentId, pilot);
     if (RESERVED_SITE_SLUGS.includes(existing.slug as (typeof RESERVED_SITE_SLUGS)[number])) throw new BadRequestException("Use a Central de Gestão do Site");
-    this.assertCmsWrite(actor, pilot, existing.ministryId);
+    this.assertInstitutional(actor, pilot);
 
     const data: Record<string, unknown> = {
       updatedByUserId: actor.userId,
@@ -209,7 +205,7 @@ export class CmsService {
     }
     if (input.summary !== undefined) data.summary = input.summary;
     if (input.body !== undefined) data.body = input.body;
-    if (input.imageUrl !== undefined) data.imageUrl = input.imageUrl;
+    if (input.imageUrl !== undefined) data.imageUrl = this.cleanImage(input.imageUrl);
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder ?? 0;
     if (input.kind !== undefined) {
       if (!isKind(input.kind)) throw new BadRequestException("kind inválido");
@@ -218,7 +214,6 @@ export class CmsService {
     if (input.ministryId !== undefined) {
       if (input.ministryId) {
         await requireMinistryInPilot(this.prisma, input.ministryId, pilot);
-        this.assertCmsWrite(actor, pilot, input.ministryId);
       }
       data.ministryId = input.ministryId;
     }
@@ -228,6 +223,9 @@ export class CmsService {
       nextStatus = input.status;
       if (!WORKFLOW.includes(nextStatus)) {
         throw new BadRequestException("status inválido");
+      }
+      if (this.publicationStep(existing.status as WorkflowStatus, nextStatus) && !this.canPublishContent(actor, pilot)) {
+        throw new ForbiddenException("EDITOR_SITE prepara o rascunho. Publicar ou aprovar exige PUBLICADOR_SITE.");
       }
       const allowed = ALLOWED_TRANSITIONS[existing.status as WorkflowStatus];
       if (!allowed.includes(nextStatus)) {
@@ -242,6 +240,15 @@ export class CmsService {
       if (nextStatus === "RASCUNHO" || nextStatus === "ARQUIVADO") {
         if (nextStatus === "RASCUNHO") data.publishedAt = null;
       }
+    }
+
+    const editorialField = [
+      input.title, input.summary, input.body, input.imageUrl, input.slug,
+      input.kind, input.ministryId, input.sortOrder,
+    ].some((value) => value !== undefined);
+    const resulting = (nextStatus ?? existing.status) as WorkflowStatus;
+    if (existing.status === "PUBLICADO" && resulting === "PUBLICADO" && editorialField) {
+      throw new BadRequestException("Conteúdo publicado não muda no ar. Devolva para revisão antes de editar.");
     }
 
     const row = await this.prisma.$transaction(async (tx) => {
@@ -301,16 +308,54 @@ export class CmsService {
     return this.patch(actor, contentId, { status: toStatus });
   }
 
-  private assertCmsWrite(
+  private isInstitutionalEditor(
     actor: AuthUser,
     pilot: { organizationId: string; churchId: string },
-    ministryId: string | null,
-  ): void {
-    assertMinistryScopedWrite(actor, pilot, ministryId, {
-      missingMinistry:
-        "Líder só edita conteúdo vinculado ao próprio ministério",
-      forbidden: "Sem permissão neste conteúdo/ministério",
+  ): boolean {
+    return hasAccess(actor.grants, {
+      roleCodes: [
+        ROLE_CODES.EDITOR_SITE,
+        ROLE_CODES.PUBLICADOR_SITE,
+        ROLE_CODES.SECRETARIA,
+        ROLE_CODES.PASTOR,
+        ROLE_CODES.PLATFORM_ADMIN,
+      ],
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
     });
+  }
+
+  private canPublishContent(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+  ): boolean {
+    return hasAccess(actor.grants, {
+      roleCodes: [ROLE_CODES.PUBLICADOR_SITE, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN],
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    });
+  }
+
+  /** Aprovação, publicação e qualquer saída do que já está no ar. */
+  private publicationStep(from: WorkflowStatus, to: WorkflowStatus): boolean {
+    return to === "PUBLICADO" || to === "APROVADO" || from === "PUBLICADO";
+  }
+
+  private assertInstitutional(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+  ): void {
+    if (!this.isInstitutionalEditor(actor, pilot)) {
+      throw new ForbiddenException("MEMBRO e líder não editam o CMS institucional");
+    }
+  }
+
+  private cleanImage(value: string | null | undefined): string | null {
+    const image = value?.trim() || null;
+    if (image && !isAllowedSiteImage(image)) {
+      throw new BadRequestException("Imagem deve vir da biblioteca ou do armazenamento autorizado da igreja");
+    }
+    return image;
   }
 
   private async requireContent(
