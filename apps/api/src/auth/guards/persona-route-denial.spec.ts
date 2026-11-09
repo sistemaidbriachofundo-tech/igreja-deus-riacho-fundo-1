@@ -17,7 +17,7 @@ const PROBES: { key: string; path: string; roles: string[] }[] = [
   { key: "atmosfera", path: "/rosters", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "meu-espaco", path: "/rosters/:assignmentId/confirm", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "MEMBRO"] },
   { key: "tesouraria", path: "/ledger/accounts", roles: ["TESOURARIA"] },
-  { key: "editorial", path: "/cms/contents", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
+  { key: "editorial", path: "/cms/contents", roles: ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
   { key: "site", path: "/cms/site-layout", roles: ["EDITOR_SITE", "PUBLICADOR_SITE", "SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
 ];
 
