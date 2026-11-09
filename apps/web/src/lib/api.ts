@@ -22,89 +22,311 @@ export interface LoginResult {
   accessToken: string;
   tokenType: "Bearer";
   expiresInSeconds: number;
-  user: {
-    userId: string;
-    personId: string;
-    email: string;
-    grants: Array<{
-      roleCode: string;
-      organizationId?: string | null;
-      churchId?: string | null;
-    }>;
+  user: AuthUser;
+}
+
+export interface AuthUser {
+  userId: string;
+  personId: string;
+  email: string;
+  grants: Array<{
+    roleCode: string;
+    organizationId?: string | null;
+    churchId?: string | null;
+  }>;
+}
+
+export type ApiFailureKind = "unauthorized" | "forbidden" | "timeout" | "network" | "http";
+
+/** Falha de transporte ou HTTP, com o status real quando a API respondeu. */
+export class ApiRequestError extends Error {
+  readonly status: number | null;
+  readonly kind: ApiFailureKind;
+
+  constructor(message: string, status: number | null, kind: ApiFailureKind) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.kind = kind;
+  }
+}
+
+/** Alinhado ao timeout das leituras públicas. Não é um 401. */
+export const API_TIMEOUT_MS = 8_000;
+/** Evita repetir /auth/me a cada troca de página. O servidor continua autorizando os dados. */
+export const SESSION_FRESH_MS = 120_000;
+export const SESSION_UNAUTHORIZED_EVENT = "idbrf:session-unauthorized";
+
+export type ApiCallOptions = {
+  timeoutMs?: number;
+  /** Ignora a confirmação recente e consulta /auth/me de novo. */
+  fresh?: boolean;
+};
+
+export type ApiTiming = {
+  method: string;
+  path: string;
+  durationMs: number;
+  ok: boolean;
+  status: number | null;
+  fromCache: boolean;
+  at: number;
+};
+
+const timings: ApiTiming[] = [];
+
+function noteTiming(sample: Omit<ApiTiming, "at">): void {
+  timings.push({ ...sample, at: Date.now() });
+  if (timings.length > 200) timings.shift();
+}
+
+export function readApiTimings(): readonly ApiTiming[] {
+  return timings;
+}
+
+export function clearApiTimings(): void {
+  timings.length = 0;
+}
+
+/** Percentil pelo método do posto mais próximo (nearest rank). */
+export function percentile(values: readonly number[], p: number): number | null {
+  if (values.length === 0 || p <= 0 || p > 100) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.ceil((p / 100) * sorted.length);
+  return sorted[Math.min(sorted.length, Math.max(1, rank)) - 1] ?? null;
+}
+
+export function summarizeApiTimings(path?: string): {
+  count: number;
+  network: number;
+  fromCache: number;
+  ok: number;
+  p50Ms: number | null;
+  p95Ms: number | null;
+} {
+  const rows = timings.filter(item => !path || item.path === path);
+  const network = rows.filter(item => !item.fromCache);
+  const durations = network.map(item => item.durationMs);
+  return {
+    count: rows.length,
+    network: network.length,
+    fromCache: rows.filter(item => item.fromCache).length,
+    ok: rows.filter(item => item.ok).length,
+    p50Ms: percentile(durations, 50),
+    p95Ms: percentile(durations, 95),
   };
 }
 
-export async function apiLogin(
-  email: string,
-  password: string,
-): Promise<LoginResult> {
-  const res = await fetch(`${getApiBaseUrl()}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Login falhou (${res.status})`);
-  }
-  return res.json() as Promise<LoginResult>;
+type CachedSession = { token: string; user: AuthUser; at: number };
+let cachedSession: CachedSession | null = null;
+
+function cloneUser(user: AuthUser): AuthUser {
+  return {
+    userId: user.userId,
+    personId: user.personId,
+    email: user.email,
+    grants: user.grants.map(grant => ({ ...grant })),
+  };
 }
 
-export async function apiGet<T>(path: string, token: string): Promise<T> {
-  const res = await fetch(`${getApiBaseUrl()}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `GET ${path} falhou (${res.status})`);
-  }
-  return res.json() as Promise<T>;
+function isAuthUser(value: unknown): value is AuthUser {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<AuthUser>;
+  return typeof record.userId === "string"
+    && typeof record.personId === "string"
+    && typeof record.email === "string"
+    && Array.isArray(record.grants);
 }
 
-export async function apiPost<T>(
+export function rememberValidatedSession(token: string, user: AuthUser, at = Date.now()): void {
+  cachedSession = { token, user: cloneUser(user), at };
+}
+
+export function readValidatedSession(token: string, at = Date.now(), allowStale = false): AuthUser | null {
+  if (!cachedSession || cachedSession.token !== token) return null;
+  if (!allowStale && at - cachedSession.at > SESSION_FRESH_MS) return null;
+  return cloneUser(cachedSession.user);
+}
+
+export function forgetValidatedSession(): void {
+  cachedSession = null;
+}
+
+export function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.kind === "unauthorized";
+}
+
+export function isForbidden(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.kind === "forbidden";
+}
+
+export function isTransientFailure(error: unknown): boolean {
+  return error instanceof ApiRequestError && (error.kind === "timeout" || error.kind === "network");
+}
+
+export function loginFailureMessage(error: unknown): string {
+  if (error instanceof ApiRequestError && error.kind === "timeout") {
+    return "O serviço de acesso demorou para responder. Tente novamente.";
+  }
+  if (error instanceof ApiRequestError && error.kind === "network") {
+    return "Não foi possível conectar ao serviço de acesso. Tente novamente.";
+  }
+  if (isUnauthorized(error) || isForbidden(error)) {
+    return "E-mail ou senha não autorizados. Confira seus dados.";
+  }
+  if (error instanceof ApiRequestError && error.status === 429) {
+    return "Muitas tentativas. Tente novamente mais tarde.";
+  }
+  if (error instanceof Error && /429|limite|rate/i.test(error.message)) {
+    return "Muitas tentativas. Tente novamente mais tarde.";
+  }
+  if (error instanceof Error && /401|403|credencial|senha|autentica|invalid/i.test(error.message)) {
+    return "E-mail ou senha não autorizados. Confira seus dados.";
+  }
+  return "Não foi possível conectar ao serviço de acesso. Tente novamente.";
+}
+
+function monotonicMs(): number {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+function kindForStatus(status: number): ApiFailureKind {
+  if (status === 401) return "unauthorized";
+  if (status === 403) return "forbidden";
+  if (status === 408 || status === 504) return "timeout";
+  return "http";
+}
+
+function emitSessionUnauthorized(): void {
+  if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") return;
+  window.dispatchEvent(new Event(SESSION_UNAUTHORIZED_EVENT));
+}
+
+async function apiFetch(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      cache: "no-store",
+      credentials: "omit",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new ApiRequestError("Tempo esgotado ao contactar o serviço de acesso.", null, "timeout");
+    }
+    const message = error instanceof Error && error.message ? error.message : "Falha de rede";
+    throw new ApiRequestError(message, null, "network");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function requestJson<T>(
+  method: "GET" | "POST" | "PATCH",
   path: string,
-  token: string,
-  body?: unknown,
-): Promise<T> {
-  const res = await fetch(`${getApiBaseUrl()}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  token: string | null,
+  body: unknown | undefined,
+  options: ApiCallOptions | undefined,
+): Promise<{ data: T; status: number }> {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (method !== "GET") headers["Content-Type"] = "application/json";
+  const init: RequestInit = { method, headers };
+  if (method !== "GET") init.body = body === undefined ? undefined : JSON.stringify(body);
+  const res = await apiFetch(`${getApiBaseUrl()}${path}`, init, options?.timeoutMs ?? API_TIMEOUT_MS);
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `POST ${path} falhou (${res.status})`);
+    const fallback = method === "POST" && path === "/auth/login"
+      ? `Login falhou (${res.status})`
+      : `${method} ${path} falhou (${res.status})`;
+    throw new ApiRequestError(text || fallback, res.status, kindForStatus(res.status));
   }
-  return res.json() as Promise<T>;
+  return { data: await res.json() as T, status: res.status };
+}
+
+async function settle<T>(
+  method: "GET" | "POST" | "PATCH",
+  path: string,
+  token: string | null,
+  body: unknown | undefined,
+  options: ApiCallOptions | undefined,
+  authenticated: boolean,
+): Promise<T> {
+  const started = monotonicMs();
+  try {
+    const { data, status } = await requestJson<T>(method, path, token, body, options);
+    noteTiming({
+      method,
+      path,
+      durationMs: Math.max(0, Math.round(monotonicMs() - started)),
+      ok: true,
+      status,
+      fromCache: false,
+    });
+    return data;
+  } catch (error) {
+    const status = error instanceof ApiRequestError ? error.status : null;
+    noteTiming({
+      method,
+      path,
+      durationMs: Math.max(0, Math.round(monotonicMs() - started)),
+      ok: false,
+      status,
+      fromCache: false,
+    });
+    if (authenticated && isUnauthorized(error)) {
+      clearToken();
+      emitSessionUnauthorized();
+    }
+    throw error;
+  }
+}
+
+export async function apiLogin(email: string, password: string, options?: ApiCallOptions): Promise<LoginResult> {
+  return settle<LoginResult>("POST", "/auth/login", null, { email, password }, options, false);
+}
+
+export async function apiGet<T>(path: string, token: string, options?: ApiCallOptions): Promise<T> {
+  if (path === "/auth/me" && options?.fresh !== true) {
+    const cached = readValidatedSession(token);
+    if (cached) {
+      noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
+      return cached as T;
+    }
+  }
+  try {
+    const data = await settle<T>("GET", path, token, undefined, options, true);
+    if (path === "/auth/me" && isAuthUser(data)) rememberValidatedSession(token, data);
+    return data;
+  } catch (error) {
+    if (path === "/auth/me" && isTransientFailure(error)) {
+      const stale = readValidatedSession(token, Date.now(), true);
+      if (stale) {
+        noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
+        return stale as T;
+      }
+    }
+    throw error;
+  }
+}
+
+export async function apiPost<T>(path: string, token: string, body?: unknown, options?: ApiCallOptions): Promise<T> {
+  return settle<T>("POST", path, token, body, options, true);
 }
 
 /** Alterações restritas via backend com validação de papel e escopo na API. */
-export async function apiPatch<T>(
-  path: string,
-  token: string,
-  body: unknown,
-): Promise<T> {
-  const res = await fetch(`${getApiBaseUrl()}${path}`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(detail || `PATCH ${path} falhou (${res.status})`);
-  }
-  return res.json() as Promise<T>;
+export async function apiPatch<T>(path: string, token: string, body: unknown, options?: ApiCallOptions): Promise<T> {
+  return settle<T>("PATCH", path, token, body, options, true);
 }
 
 const TOKEN_KEY = "idbrf_demo_token";
 
 export function loadStoredToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+  if (typeof window === "undefined") return null;
   return window.sessionStorage.getItem(TOKEN_KEY);
 }
 
@@ -113,5 +335,7 @@ export function storeToken(token: string): void {
 }
 
 export function clearToken(): void {
+  forgetValidatedSession();
+  if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(TOKEN_KEY);
 }

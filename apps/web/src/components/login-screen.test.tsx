@@ -8,7 +8,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { LoginScreen } from "./LoginScreen";
-import { AdminAccessGate } from "./AdminAccessGate";
+import { AdminAccessGate, SessionGateNotice } from "./AdminAccessGate";
 
 const original = process.env.NEXT_PUBLIC_HML_ENABLED;
 beforeEach(() => { process.env.NEXT_PUBLIC_HML_ENABLED = "true"; });
@@ -45,5 +45,20 @@ describe("Acesso institucional antes do painel", () => {
       <AdminAccessGate><div>PAINEL INTERNO</div></AdminAccessGate>,
     );
     expect(html).not.toContain("PAINEL INTERNO");
+  });
+
+  it("explica falha de rede sem pedir senha e sem tratar 403 como logout", () => {
+    const unavailable = renderToStaticMarkup(
+      <SessionGateNotice mode="unavailable" onRetry={() => undefined} onSignOut={() => undefined} />,
+    );
+    expect(unavailable).toContain("Você não foi desconectado.");
+    expect(unavailable).toContain("Tentar de novo");
+    expect(unavailable).not.toContain('type="password"');
+    const forbidden = renderToStaticMarkup(
+      <SessionGateNotice mode="forbidden" onSignOut={() => undefined} />,
+    );
+    expect(forbidden).toContain("o servidor não autorizou o painel");
+    expect(forbidden).not.toContain('type="password"');
+    expect(forbidden).toContain("Sair da sessão");
   });
 });

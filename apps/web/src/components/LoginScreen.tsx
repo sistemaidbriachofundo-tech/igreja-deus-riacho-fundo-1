@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { apiGet, apiLogin, clearToken, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
+import {
+  apiGet, apiLogin, clearToken, isForbidden, isUnauthorized, loadStoredToken,
+  loginFailureMessage, readValidatedSession, rememberValidatedSession, storeToken, type LoginResult,
+} from "../lib/api";
+import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
+import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import { authenticatedLanding } from "../lib/auth-destination";
 import styles from "./login-screen.module.css";
@@ -10,17 +15,9 @@ import styles from "./login-screen.module.css";
 type Props = { onAuthenticated?: () => void };
 type Me = LoginResult["user"];
 
-function safeLoginError(error: unknown): string {
-  if (!(error instanceof Error)) return "Não foi possível entrar. Tente novamente.";
-  if (/401|403|credencial|senha|autentica|invalid/i.test(error.message)) {
-    return "E-mail ou senha não autorizados. Confira seus dados.";
-  }
-  if (/429|limite|rate/i.test(error.message)) return "Muitas tentativas. Tente novamente mais tarde.";
-  return "Não foi possível conectar ao serviço de acesso. Tente novamente.";
-}
-
 export function LoginScreen({ onAuthenticated }: Props) {
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const RouterBridge = useAppRouterBridge();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,20 +25,29 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
 
-  // Na rota /login, uma sessão válida leva diretamente ao painel.
+  useEffect(() => { publishPerfProbe(); }, []);
+
+  // Na rota /login, uma sessão já confirmada entra sem novo /auth/me.
   // Quando usado pelo gate, essa validação já ocorreu no componente pai.
   useEffect(() => {
     if (onAuthenticated || !enabled) return;
     const token = loadStoredToken();
     if (!token) return;
+    const cached = readValidatedSession(token);
+    if (cached) {
+      openAuthenticatedArea(authenticatedLanding(cached));
+      return;
+    }
     let cancelled = false;
     setChecking(true);
     void apiGet<Me>("/auth/me", token)
       .then(user => {
-        if (!cancelled) window.location.replace(withBasePath(authenticatedLanding(user)));
+        if (!cancelled) openAuthenticatedArea(authenticatedLanding(user));
       })
-      .catch(() => {
-        clearToken();
+      .catch((problem: unknown) => {
+        // Timeout e rede mantêm o token. 401/403 não entram no painel.
+        if (isUnauthorized(problem) || isForbidden(problem)) clearToken();
+        else if (!cancelled) setError(loginFailureMessage(problem));
       })
       .finally(() => {
         if (!cancelled) setChecking(false);
@@ -56,16 +62,16 @@ export function LoginScreen({ onAuthenticated }: Props) {
     setBusy(true);
     try {
       const login = await apiLogin(email.trim(), password);
-      // Só grava a sessão quando o token também passou em /auth/me.
-      const authenticatedUser = await apiGet<Me>("/auth/me", login.accessToken);
+      // A resposta do login já é a sessão emitida pelo servidor.
+      rememberValidatedSession(login.accessToken, login.user);
       storeToken(login.accessToken);
       setPassword("");
       if (onAuthenticated) onAuthenticated();
-      else window.location.assign(withBasePath(authenticatedLanding(authenticatedUser)));
+      else openAuthenticatedArea(authenticatedLanding(login.user));
     } catch (problem) {
       clearToken();
       setPassword("");
-      setError(safeLoginError(problem));
+      setError(loginFailureMessage(problem));
     } finally {
       setBusy(false);
     }
@@ -73,6 +79,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
 
   return (
     <main className={styles.page} id="conteudo">
+      {RouterBridge ? <RouterBridge /> : null}
       <Link className={styles.back} href="/">← Voltar ao site da igreja</Link>
       <div className={styles.layout}>
         <aside className={styles.story} aria-label="Identidade da Igreja de Deus">

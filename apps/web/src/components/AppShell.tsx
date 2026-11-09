@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react";
+import {
+  beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
+  pushAppRoute, shouldInterceptAppNavigation,
+} from "../lib/app-navigation";
+import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import s from "./app-shell.module.css";
 
@@ -55,6 +60,18 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
 ];
 
 const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao","membros","secretaria","operacao"];
+const NAV_HREFS = NAV.map(item => item.href);
+
+function AppNavLink({
+  href, className, children, ...rest
+}: { href: string; className?: string; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">) {
+  return <a {...rest} href={withBasePath(href)} className={className} data-nav="client" onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+    if (!shouldInterceptAppNavigation(href, event) || !hasAppRouter()) return;
+    event.preventDefault();
+    beginClientNavigation(href);
+    pushAppRoute(href);
+  }}>{children}</a>;
+}
 
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
   const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "operacao" ? { code: "06 / GESTÃO INTEGRADA", title: "Toda a igreja, uma plataforma.", detail: "Módulos do DAS sob autenticação." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
@@ -63,7 +80,12 @@ export function AppShell({ active, meta, children, editorial = false }: { active
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const filtered = NAV.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const RouterBridge = useAppRouterBridge();
 
+  useEffect(() => {
+    finishClientNavigation(window.location.pathname);
+    publishPerfProbe();
+  }, []);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -79,23 +101,24 @@ export function AppShell({ active, meta, children, editorial = false }: { active
 
   return (
     <div className={s.frame}>
+      {RouterBridge ? <RouterBridge prefetch={NAV_HREFS} /> : null}
       <aside className={s.rail} aria-label="Navegação principal">
-        <a href={withBasePath("/app/")} className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
+        <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
-        </a>
+        </AppNavLink>
 
         <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : "Demonstração com dados sintéticos"}</small></span></div>
         <span className={s.groupTitle}>PAINEL DE CONTROLE</span>
         <nav className={s.menu} aria-label="Módulos">
-          {NAV.map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
+          {NAV.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
             <UIIcon name={item.icon} size={19}/><span>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
-          </a>)}
+          </AppNavLink>)}
         </nav>
         <div className={s.railDivider}/>
         <span className={s.groupTitle}>CANAIS E COMUNIDADE</span>
         <a className={s.menuItem} href={withBasePath("/eventos/")}><UIIcon name="calendar" size={19}/><span>Agenda pública</span><UIIcon name="arrow" size={15}/></a>
-        <a className={s.menuItem} href={withBasePath("/app/operacao/")}><UIIcon name="family" size={19}/><span>Gestão de ministérios</span><UIIcon name="arrow" size={15}/></a>
+        <AppNavLink className={s.menuItem} href="/app/operacao/"><UIIcon name="family" size={19}/><span>Gestão de ministérios</span><UIIcon name="arrow" size={15}/></AppNavLink>
         <a className={s.menuItem} href={withBasePath("/")}><UIIcon name="home" size={19}/><span>Portal da igreja</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/status/")}><UIIcon name="activity" size={19}/><span>Evolução do sistema</span></a>
         <a className={s.menuItem} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer"><UIIcon name="activity" size={19}/><span>Canal da igreja</span><UIIcon name="arrow" size={15}/></a>
@@ -117,7 +140,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
             <UIIcon name="search" size={18}/><span>Buscar módulos e páginas...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
-            <a className={s.toolbarAlerts} href={withBasePath("/app/#avisos")} aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></a>
+            <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></AppNavLink>
             <span className={s.toolbarDivider}/>
             <span className={s.account} aria-label="Identificação visual da área de demonstração">ID</span>
             <span className={s.accountInfo}><strong>ID Riacho 1</strong><small>{editorial ? "Estúdio editorial" : "Ambiente de teste"}</small></span>
@@ -134,9 +157,9 @@ export function AppShell({ active, meta, children, editorial = false }: { active
       </div>
 
       <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {NAV.filter(item=>MOBILE_PRIMARY.includes(item.key)).map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
+        {NAV.filter(item=>MOBILE_PRIMARY.includes(item.key)).map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
           <UIIcon name={item.icon} size={20}/><span>{item.short}</span>
-        </a>)}
+        </AppNavLink>)}
         <button type="button" className={active&&!MOBILE_PRIMARY.includes(active)?s.mobileActive:s.mobileItem}
           aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
           onClick={()=>setPaletteOpen(true)}>
@@ -149,7 +172,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
           <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulos e páginas..." autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
           <span className={s.commandTitle}>NAVEGAÇÃO</span>
           <div className={s.commandList}>
-            {filtered.map(item => <a key={item.key} href={withBasePath(item.href)}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></a>)}
+            {filtered.map(item => <AppNavLink key={item.key} href={item.href}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {filtered.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
           <div className={s.commandFooter}><kbd>Esc</kbd> para fechar <span>·</span> <kbd>Ctrl K</kbd> para abrir</div>

@@ -43,6 +43,8 @@ describe("navegação e renderização real de componentes", () => {
       <AppShell active="membros" meta="Exemplo">Teste</AppShell>,
     );
     expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/membros/"');
+    expect(html).toContain('data-nav="client"');
+    expect(html).toContain('href="/igreja-deus-riacho-fundo-1/eventos/"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
   });
 
