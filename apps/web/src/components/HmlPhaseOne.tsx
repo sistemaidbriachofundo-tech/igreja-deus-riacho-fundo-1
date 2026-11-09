@@ -37,6 +37,9 @@ function displayError(error:unknown):string {
   if(/\(409\)|409/.test(error.message))return "Existe um conflito de cadastro ou de etapa. Atualize a lista antes de continuar.";
   return error.message.length>220?error.message.slice(0,220):error.message;
 }
+function isSessionExpired(error:unknown):boolean {
+  return error instanceof Error && /(?:^|\D)401(?:\D|$)|sessão expirad|token expirad|JWT expirad/i.test(error.message);
+}
 function hasRole(user:AuthUser|null,role:Role) {
   return Boolean(user?.grants.some(g=>g.roleCode===role));
 }
@@ -85,9 +88,14 @@ export function HmlPhaseOne({view}:{view:View}){
     let cancelled=false;
     void refresh(stored).then(()=>{
       if(!cancelled)setToken(stored);
-    }).catch(()=>{
-      clearToken();
-      if(!cancelled){setToken(null);setUser(null);}
+    }).catch((err:unknown)=>{
+      if(cancelled)return;
+      if(isSessionExpired(err)){
+        clearToken();setToken(null);setUser(null);
+      }else{
+        // Falha de /memberships, /admissions ou /households não invalida o login.
+        setToken(stored);setError(displayError(err));
+      }
     }).finally(()=>{if(!cancelled)setChecking(false);});
     return()=>{cancelled=true;};
   },[refresh]);
@@ -116,9 +124,14 @@ export function HmlPhaseOne({view}:{view:View}){
     setBusy(true);setError("");setNotice("");
     try{
       const signed=await apiLogin(loginEmail.trim(),password);
-      await refresh(signed.accessToken);
-      storeToken(signed.accessToken);setToken(signed.accessToken);setPassword("");
-      setNotice("Acesso autorizado ao banco fictício de homologação.");
+      storeToken(signed.accessToken);setToken(signed.accessToken);setUser(signed.user);setPassword("");
+      try{
+        await refresh(signed.accessToken);
+        setNotice("Acesso autorizado ao banco fictício de homologação.");
+      }catch(err){
+        if(isSessionExpired(err)){clearToken();setToken(null);setUser(null);}
+        setError(displayError(err));
+      }
     }catch(err){setError(displayError(err));clearToken();setToken(null);}
     finally{setBusy(false);setChecking(false);}
   }
