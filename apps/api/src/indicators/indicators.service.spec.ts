@@ -107,6 +107,9 @@ describe("IndicatorsService", () => {
     expect(result.counts.rostersDraft).toBe(1);
     expect(result.counts.rostersPublished).toBe(2);
     expect(result.counts.rosterAssignmentsPending).toBe(3);
+    expect(result.counts).not.toHaveProperty("pastoralOpen");
+    expect(result.redacted).toEqual(["pastoralOpen"]);
+    expect(prisma.pastoralCase.count).not.toHaveBeenCalled();
 
     expect(prisma.person.count).toHaveBeenCalledWith({
       where: {
@@ -141,6 +144,10 @@ describe("IndicatorsService", () => {
     expect(result.scope).toBe("organization");
     expect(result.churchId).toBeNull();
     expect(result.stub).toBe(false);
+    expect(result.counts.membershipsActive).toBe(2);
+    expect(result.counts).not.toHaveProperty("pastoralOpen");
+    expect(result.redacted).toEqual(["pastoralOpen"]);
+    expect(prisma.pastoralCase.count).not.toHaveBeenCalled();
     expect(prisma.person.count).toHaveBeenCalledWith({
       where: {
         organizationId: "org1",
@@ -181,5 +188,6 @@ describe("IndicatorsService", () => {
     expect(result.spiritualScoreExcluded).toBe(true);
     expect(result.byStatus.ACTIVE).toBe(3);
     expect(result.byStatus.PENDING_ADMISSION).toBe(1);
+    expect(prisma.pastoralCase.count).not.toHaveBeenCalled();
   });
 });
