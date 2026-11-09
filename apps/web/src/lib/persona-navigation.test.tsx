@@ -24,7 +24,15 @@ function account(role: string, email = `${role.toLowerCase()}@example.test`): Au
 }
 
 function hrefs(html: string): string[] {
-  return [...html.matchAll(/href="([^"]+)"/g)].map(match => match[1] ?? "");
+  // Static export applies NEXT_PUBLIC_BASE_PATH to links in CI/Pages.
+  // Test the logical app routes without assuming the deployment mount point.
+  const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/+$/, "");
+  return [...html.matchAll(/href="([^"]+)"/g)].map(match => {
+    const href = match[1] ?? "";
+    return basePath && (href === basePath || href.startsWith(`${basePath}/`))
+      ? href.slice(basePath.length) || "/"
+      : href;
+  });
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
