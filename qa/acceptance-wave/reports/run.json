@@ -1,0 +1,272 @@
+{
+  "generatedAt": "2026-11-09T18:25:46.342Z",
+  "stack": "postgres-local-sintetico",
+  "hmlRemote": false,
+  "counts": {
+    "PASS": 21,
+    "FAIL": 3,
+    "BLOCKED": 5
+  },
+  "productApproved": false,
+  "items": [
+    {
+      "id": "login-frio-ui",
+      "persona": "SECRETARIA",
+      "journey": "Login frio abre o painel",
+      "status": "PASS",
+      "ms": 377,
+      "detail": "URL http://127.0.0.1:3000/app/. runtimeId mw9ldevz-7ul769.",
+      "owner": "PR #103"
+    },
+    {
+      "id": "secretaria-buscar-ui",
+      "persona": "SECRETARIA",
+      "journey": "Buscar pessoa na interface",
+      "status": "PASS",
+      "detail": "A busca isolou Bruno Demo Membro.",
+      "evidence": "reports/evidence/diretorio-busca-bruno-1440.png",
+      "owner": "PR #106"
+    },
+    {
+      "id": "secretaria-abrir-ui",
+      "persona": "SECRETARIA",
+      "journey": "Abrir ficha na interface",
+      "status": "PASS",
+      "detail": "O diretório oferece Abrir ficha para a pessoa sintética.",
+      "evidence": "reports/evidence/diretorio-busca-bruno-1440.png",
+      "owner": "PR #106"
+    },
+    {
+      "id": "secretaria-editar-ui",
+      "persona": "SECRETARIA",
+      "journey": "Editar família, salvar e ver o valor na ficha",
+      "status": "PASS",
+      "ms": 169,
+      "detail": "Select após salvar/reabrir: (sem família).",
+      "evidence": "reports/evidence/ficha-reaberta-1440.png",
+      "owner": "PR #106"
+    },
+    {
+      "id": "secretaria-reabrir-ui",
+      "persona": "SECRETARIA",
+      "journey": "Fechar e reabrir a mesma ficha",
+      "status": "PASS",
+      "detail": "A ficha reaberta mostrou o valor gravado, não só a linha da busca.",
+      "evidence": "reports/evidence/ficha-reaberta-1440.png",
+      "owner": "PR #106"
+    },
+    {
+      "id": "secretaria-persistencia-api",
+      "persona": "SECRETARIA",
+      "journey": "PATCH de família persiste no Postgres e volta no GET",
+      "status": "PASS",
+      "http": 200,
+      "detail": "GET depois do salvamento devolveu o householdId gravado pela interface.",
+      "owner": "API persons / Postgres local"
+    },
+    {
+      "id": "secretaria-restaurar-seed",
+      "persona": "SECRETARIA",
+      "journey": "Restaurar o household sintético original",
+      "status": "PASS",
+      "http": 200,
+      "detail": "O household da pessoa sintética voltou ao valor do seed.",
+      "owner": "harness"
+    },
+    {
+      "id": "ficha-teclado-escape",
+      "persona": "SECRETARIA",
+      "journey": "Escape fecha o diálogo da ficha",
+      "status": "PASS",
+      "detail": "Escape dispensou o diálogo.",
+      "owner": "PR #106"
+    },
+    {
+      "id": "viewport-1440",
+      "persona": "SECRETARIA",
+      "journey": "Ficha aberta em 1440px sem overflow horizontal",
+      "status": "PASS",
+      "detail": "overflow 0px. título legível. Salvar campos permitidos 183x42; Reabrir ficha 104x42; Fechar ficha 70x42.",
+      "evidence": "reports/evidence/ficha-1440.png",
+      "owner": "PR #106 / PR #102 não cobre esta tela"
+    },
+    {
+      "id": "viewport-768",
+      "persona": "SECRETARIA",
+      "journey": "Ficha aberta em 768px sem overflow horizontal",
+      "status": "FAIL",
+      "detail": "overflow 0px. título encoberto. Salvar campos permitidos 183x42; Reabrir ficha 104x42; Fechar ficha 70x42.",
+      "evidence": "reports/evidence/ficha-768.png",
+      "owner": "PR #106 / PR #102 não cobre esta tela"
+    },
+    {
+      "id": "viewport-360",
+      "persona": "SECRETARIA",
+      "journey": "Ficha aberta em 360px sem overflow horizontal",
+      "status": "FAIL",
+      "detail": "overflow 0px. título encoberto. Salvar campos permitidos 306x42; Reabrir ficha 306x42; Fechar ficha 306x42.",
+      "evidence": "reports/evidence/ficha-360.png",
+      "owner": "PR #106 / PR #102 não cobre esta tela"
+    },
+    {
+      "id": "navegacao-sem-reload",
+      "persona": "SECRETARIA",
+      "journey": "Membros → Secretaria → Membros sem recarga completa",
+      "status": "PASS",
+      "ms": 270,
+      "detail": "runtime antes mw9ldfia-2auqbl / depois mw9ldfia-2auqbl; navigation entries 1 → 1.",
+      "owner": "PR #103"
+    },
+    {
+      "id": "sessao-refresh-falho",
+      "persona": "SECRETARIA",
+      "journey": "Falha de lista no refresh preserva o token",
+      "status": "FAIL",
+      "detail": "HmlPhaseOne apagou o token em falha que não é 401. O catch de refresh chama clearToken para qualquer erro.",
+      "evidence": "reports/evidence/sessao-refresh-falho.png",
+      "owner": "PR #106 (HmlPhaseOne) com o contrato de sessão do PR #103"
+    },
+    {
+      "id": "api-401-sem-sessao",
+      "persona": "PUBLICACAO",
+      "journey": "Busca de pessoas sem sessão",
+      "status": "PASS",
+      "http": 401,
+      "detail": "HTTP 401. Esperado 401.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-403-admin-pastoral",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem pastoral",
+      "status": "PASS",
+      "http": 403,
+      "detail": "HTTP 403. Esperado 403.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-403-admin-ledger",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem ledger",
+      "status": "PASS",
+      "http": 403,
+      "detail": "HTTP 403. Esperado 403.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-403-tesouraria-pessoas",
+      "persona": "TESOURARIA",
+      "journey": "Tesouraria não busca pessoas",
+      "status": "PASS",
+      "http": 403,
+      "detail": "HTTP 403. Esperado 403.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-403-membro-ficha-alheia",
+      "persona": "MEMBRO",
+      "journey": "Membro não abre ficha alheia",
+      "status": "PASS",
+      "http": 403,
+      "detail": "HTTP 403. Esperado 403.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-200-secretaria-ficha",
+      "persona": "SECRETARIA",
+      "journey": "Secretaria abre ficha sintética",
+      "status": "PASS",
+      "http": 200,
+      "detail": "HTTP 200. Esperado 200.",
+      "owner": "API persons"
+    },
+    {
+      "id": "api-200-pastor-pastoral",
+      "persona": "PASTOR",
+      "journey": "Pastor lê casos pastorais",
+      "status": "PASS",
+      "http": 200,
+      "detail": "HTTP 200. Esperado 200.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-403-pastor-editar",
+      "persona": "PASTOR",
+      "journey": "Pastor não edita ficha",
+      "status": "PASS",
+      "http": 403,
+      "detail": "HTTP 403. Esperado 403.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-200-tesouraria-ledger",
+      "persona": "TESOURARIA",
+      "journey": "Tesouraria lê o ledger",
+      "status": "PASS",
+      "http": 200,
+      "detail": "HTTP 200. Esperado 200.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "api-403-lider-ficha",
+      "persona": "LIDER",
+      "journey": "Líder não abre ficha geral",
+      "status": "PASS",
+      "http": 403,
+      "detail": "HTTP 403. Esperado 403.",
+      "owner": "PR #101"
+    },
+    {
+      "id": "editor-conta",
+      "persona": "EDITOR",
+      "journey": "Conta sintética EDITOR_SITE",
+      "status": "BLOCKED",
+      "http": 401,
+      "detail": "O catálogo tem EDITOR_SITE e o seed não cria editor.demo@example.test (HTTP 401). Dependência de identidade, fora desta frente.",
+      "owner": "PR #101 / seed"
+    },
+    {
+      "id": "indicadores-pastoral-open",
+      "persona": "ADMIN",
+      "journey": "Admin técnico não recebe contagem pastoralOpen",
+      "status": "BLOCKED",
+      "http": 200,
+      "detail": "GET /indicators/summary HTTP 200 ainda inclui a chave pastoralOpen. Correção é de indicators, não desta frente.",
+      "owner": "apps/api/src/indicators"
+    },
+    {
+      "id": "auditoria-metadata",
+      "persona": "SECRETARIA",
+      "journey": "Trilha de auditoria sem metadata cru",
+      "status": "BLOCKED",
+      "http": 200,
+      "detail": "HTTP 200. Não houve metadata não nulo nesta página; o service da main ainda serializa metadata cru quando existe.",
+      "owner": "apps/api/src/audit"
+    },
+    {
+      "id": "ci-pipeline",
+      "persona": "PLATAFORMA",
+      "journey": "Suíte ligada ao workflow compartilhado",
+      "status": "BLOCKED",
+      "detail": ".github/workflows não entra neste PR. O agente integrador segue dono do CI.",
+      "owner": "integrador"
+    },
+    {
+      "id": "hml-remota",
+      "persona": "PLATAFORMA",
+      "journey": "Homologação remota",
+      "status": "BLOCKED",
+      "detail": "Não há HML de teste alcançável. A execução usou Postgres local e contas *.demo@example.test.",
+      "owner": "ambiente"
+    },
+    {
+      "id": "design-system-vitrine",
+      "persona": "PUBLICACAO",
+      "journey": "Vitrine /design-system nas larguras 360, 768 e 1440",
+      "status": "PASS",
+      "detail": "1440 HTTP 200 overflow 0px; 768 HTTP 200 overflow 0px; 360 HTTP 200 overflow 0px. A vitrine não substitui o painel logado.",
+      "evidence": "reports/evidence/design-system-1440.png",
+      "owner": "PR #102"
+    }
+  ]
+}

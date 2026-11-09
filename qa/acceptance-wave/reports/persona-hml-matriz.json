@@ -1,0 +1,621 @@
+{
+  "generatedAt": "2026-11-09T18:26:34.503Z",
+  "rows": [
+    {
+      "id": "SECRETARIA/abrir-api",
+      "persona": "SECRETARIA",
+      "journey": "Abrir ficha",
+      "status": "PASS",
+      "detail": "GET da ficha sintética respondeu 200."
+    },
+    {
+      "id": "SECRETARIA/abrir-ui",
+      "persona": "SECRETARIA",
+      "journey": "Abrir ficha na interface",
+      "status": "PASS",
+      "detail": "Existe um controle para abrir a ficha a partir da busca.",
+      "evidence": "reports/evidence/hml-membros-busca.png"
+    },
+    {
+      "id": "SECRETARIA/api-busca-pessoas",
+      "persona": "SECRETARIA",
+      "journey": "API /persons/search",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "SECRETARIA/api-carteirinha",
+      "persona": "SECRETARIA",
+      "journey": "API /credentials/me",
+      "status": "PASS",
+      "detail": "Papel com rota própria respondeu HTTP 200."
+    },
+    {
+      "id": "SECRETARIA/api-membros",
+      "persona": "SECRETARIA",
+      "journey": "API /memberships",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "SECRETARIA/api-ministerios",
+      "persona": "SECRETARIA",
+      "journey": "API /ministries",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "SECRETARIA/api-pastoral",
+      "persona": "SECRETARIA",
+      "journey": "API /pastoral-cases",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "SECRETARIA/api-site",
+      "persona": "SECRETARIA",
+      "journey": "API /cms/site-layout",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "SECRETARIA/api-tesouraria",
+      "persona": "SECRETARIA",
+      "journey": "API /ledger/accounts",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "SECRETARIA/buscar-api",
+      "persona": "SECRETARIA",
+      "journey": "Buscar pessoa",
+      "status": "PASS",
+      "detail": "A busca devolveu a pessoa sintética Bruno do seed."
+    },
+    {
+      "id": "SECRETARIA/buscar-ui",
+      "persona": "SECRETARIA",
+      "journey": "Buscar pessoa na interface",
+      "status": "PASS",
+      "detail": "O diretório HML filtrou a pessoa sintética Bruno e escondeu as demais linhas.",
+      "evidence": "reports/evidence/hml-membros-busca.png"
+    },
+    {
+      "id": "SECRETARIA/editar-api",
+      "persona": "SECRETARIA",
+      "journey": "Editar ficha",
+      "status": "PASS",
+      "detail": "PATCH idempotente do núcleo familiar sintético foi aceito e auditado pela API."
+    },
+    {
+      "id": "SECRETARIA/editar-ui",
+      "persona": "SECRETARIA",
+      "journey": "Editar ficha na interface",
+      "status": "FAIL",
+      "detail": "Não há formulário de edição persistida. O PATCH de pessoa existe na API e não nesta tela."
+    },
+    {
+      "id": "SECRETARIA/login-frio",
+      "persona": "SECRETARIA",
+      "journey": "Login frio",
+      "status": "PASS",
+      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
+      "durationMs": 556,
+      "evidence": "reports/evidence/hml-painel-apos-login-frio.png"
+    },
+    {
+      "id": "SECRETARIA/login-quente",
+      "persona": "SECRETARIA",
+      "journey": "Login quente",
+      "status": "PASS",
+      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
+      "durationMs": 411
+    },
+    {
+      "id": "SECRETARIA/modulo",
+      "persona": "SECRETARIA",
+      "journey": "Módulo Secretaria distinto do login",
+      "status": "PASS",
+      "detail": "Módulo operacional visível (Protocolos de admissão, Admissões e secretaria, Abrir protocolo fictício, Gestão do site). Esta evidência não é a tela de login.",
+      "evidence": "reports/evidence/hml-secretaria-operacional.png"
+    },
+    {
+      "id": "SECRETARIA/modulos-ui",
+      "persona": "SECRETARIA",
+      "journey": "Módulos visíveis na operação",
+      "status": "PASS",
+      "detail": "A navegação mostra só as áreas do papel."
+    },
+    {
+      "id": "SECRETARIA/reabrir-api",
+      "persona": "SECRETARIA",
+      "journey": "Reabrir ficha",
+      "status": "PASS",
+      "detail": "A reabertura devolveu a mesma ficha sintética persistida."
+    },
+    {
+      "id": "SECRETARIA/reabrir-ui",
+      "persona": "SECRETARIA",
+      "journey": "Reabrir ficha na interface",
+      "status": "FAIL",
+      "detail": "Sem ficha aberta, não há como fechar e reabrir o mesmo cadastro na interface HML."
+    },
+    {
+      "id": "SECRETARIA/viewport-membros-1440",
+      "persona": "SECRETARIA",
+      "journey": "Membros em 1440px",
+      "status": "PASS",
+      "detail": "Overflow horizontal 0px no diretório autenticado.",
+      "evidence": "reports/evidence/hml-membros-1440.png",
+      "durationMs": 891
+    },
+    {
+      "id": "SECRETARIA/viewport-membros-360",
+      "persona": "SECRETARIA",
+      "journey": "Membros em 360px",
+      "status": "PASS",
+      "detail": "Overflow horizontal 0px no diretório autenticado.",
+      "evidence": "reports/evidence/hml-membros-360.png",
+      "durationMs": 914
+    },
+    {
+      "id": "SECRETARIA/viewport-membros-768",
+      "persona": "SECRETARIA",
+      "journey": "Membros em 768px",
+      "status": "PASS",
+      "detail": "Overflow horizontal 0px no diretório autenticado.",
+      "evidence": "reports/evidence/hml-membros-768.png",
+      "durationMs": 833
+    },
+    {
+      "id": "SECRETARIA/viewport-secretaria-1440",
+      "persona": "SECRETARIA",
+      "journey": "Secretaria em 1440px",
+      "status": "PASS",
+      "detail": "Overflow horizontal 0px no módulo Secretaria.",
+      "durationMs": 411
+    },
+    {
+      "id": "SECRETARIA/viewport-secretaria-360",
+      "persona": "SECRETARIA",
+      "journey": "Secretaria em 360px",
+      "status": "PASS",
+      "detail": "Overflow horizontal 0px no módulo Secretaria.",
+      "durationMs": 405
+    },
+    {
+      "id": "SECRETARIA/viewport-secretaria-768",
+      "persona": "SECRETARIA",
+      "journey": "Secretaria em 768px",
+      "status": "PASS",
+      "detail": "Overflow horizontal 0px no módulo Secretaria.",
+      "durationMs": 418
+    },
+    {
+      "id": "PASTOR/api-busca-pessoas",
+      "persona": "PASTOR",
+      "journey": "API /persons/search",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "PASTOR/api-carteirinha",
+      "persona": "PASTOR",
+      "journey": "API /credentials/me",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "PASTOR/api-membros",
+      "persona": "PASTOR",
+      "journey": "API /memberships",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "PASTOR/api-ministerios",
+      "persona": "PASTOR",
+      "journey": "API /ministries",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "PASTOR/api-pastoral",
+      "persona": "PASTOR",
+      "journey": "API /pastoral-cases",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "PASTOR/api-site",
+      "persona": "PASTOR",
+      "journey": "API /cms/site-layout",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "PASTOR/api-tesouraria",
+      "persona": "PASTOR",
+      "journey": "API /ledger/accounts",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "PASTOR/editar-negado",
+      "persona": "PASTOR",
+      "journey": "Pastor não edita ficha de secretaria",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "PASTOR/login-frio",
+      "persona": "PASTOR",
+      "journey": "Login frio",
+      "status": "PASS",
+      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
+      "durationMs": 553
+    },
+    {
+      "id": "PASTOR/login-quente",
+      "persona": "PASTOR",
+      "journey": "Login quente",
+      "status": "PASS",
+      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
+      "durationMs": 391
+    },
+    {
+      "id": "PASTOR/modulos-ui",
+      "persona": "PASTOR",
+      "journey": "Módulos visíveis na operação",
+      "status": "PASS",
+      "detail": "A navegação mostra só as áreas do papel.",
+      "evidence": "reports/evidence/hml-operacao-pastor.png"
+    },
+    {
+      "id": "TESOURARIA/api-busca-pessoas",
+      "persona": "TESOURARIA",
+      "journey": "API /persons/search",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "TESOURARIA/api-carteirinha",
+      "persona": "TESOURARIA",
+      "journey": "API /credentials/me",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "TESOURARIA/api-membros",
+      "persona": "TESOURARIA",
+      "journey": "API /memberships",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "TESOURARIA/api-ministerios",
+      "persona": "TESOURARIA",
+      "journey": "API /ministries",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "TESOURARIA/api-pastoral",
+      "persona": "TESOURARIA",
+      "journey": "API /pastoral-cases",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "TESOURARIA/api-site",
+      "persona": "TESOURARIA",
+      "journey": "API /cms/site-layout",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "TESOURARIA/api-tesouraria",
+      "persona": "TESOURARIA",
+      "journey": "API /ledger/accounts",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "TESOURARIA/busca-negada",
+      "persona": "TESOURARIA",
+      "journey": "Tesouraria não busca pessoas",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "TESOURARIA/login-frio",
+      "persona": "TESOURARIA",
+      "journey": "Login frio",
+      "status": "PASS",
+      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
+      "durationMs": 546
+    },
+    {
+      "id": "TESOURARIA/login-quente",
+      "persona": "TESOURARIA",
+      "journey": "Login quente",
+      "status": "PASS",
+      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
+      "durationMs": 420
+    },
+    {
+      "id": "TESOURARIA/modulos-ui",
+      "persona": "TESOURARIA",
+      "journey": "Módulos visíveis na operação",
+      "status": "PASS",
+      "detail": "A navegação mostra só as áreas do papel.",
+      "evidence": "reports/evidence/hml-operacao-tesouraria.png"
+    },
+    {
+      "id": "LIDER/api-busca-pessoas",
+      "persona": "LIDER",
+      "journey": "API /persons/search",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "LIDER/api-carteirinha",
+      "persona": "LIDER",
+      "journey": "API /credentials/me",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "LIDER/api-membros",
+      "persona": "LIDER",
+      "journey": "API /memberships",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "LIDER/api-ministerios",
+      "persona": "LIDER",
+      "journey": "API /ministries",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "LIDER/api-pastoral",
+      "persona": "LIDER",
+      "journey": "API /pastoral-cases",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "LIDER/api-site",
+      "persona": "LIDER",
+      "journey": "API /cms/site-layout",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "LIDER/api-tesouraria",
+      "persona": "LIDER",
+      "journey": "API /ledger/accounts",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "LIDER/ficha-negada",
+      "persona": "LIDER",
+      "journey": "Líder não abre ficha geral",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "LIDER/login-frio",
+      "persona": "LIDER",
+      "journey": "Login frio",
+      "status": "PASS",
+      "detail": "Saiu do gate e abriu superfície operacional em /app/operacao/.",
+      "durationMs": 550
+    },
+    {
+      "id": "LIDER/login-quente",
+      "persona": "LIDER",
+      "journey": "Login quente",
+      "status": "PASS",
+      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
+      "durationMs": 408
+    },
+    {
+      "id": "LIDER/modulos-ui",
+      "persona": "LIDER",
+      "journey": "Módulos visíveis na operação",
+      "status": "PASS",
+      "detail": "A navegação mostra só as áreas do papel."
+    },
+    {
+      "id": "MEMBRO/api-busca-pessoas",
+      "persona": "MEMBRO",
+      "journey": "API /persons/search",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "MEMBRO/api-carteirinha",
+      "persona": "MEMBRO",
+      "journey": "API /credentials/me",
+      "status": "PASS",
+      "detail": "Papel com rota própria respondeu HTTP 200."
+    },
+    {
+      "id": "MEMBRO/api-membros",
+      "persona": "MEMBRO",
+      "journey": "API /memberships",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "MEMBRO/api-ministerios",
+      "persona": "MEMBRO",
+      "journey": "API /ministries",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "MEMBRO/api-pastoral",
+      "persona": "MEMBRO",
+      "journey": "API /pastoral-cases",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "MEMBRO/api-site",
+      "persona": "MEMBRO",
+      "journey": "API /cms/site-layout",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "MEMBRO/api-tesouraria",
+      "persona": "MEMBRO",
+      "journey": "API /ledger/accounts",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "MEMBRO/ficha-alheia",
+      "persona": "MEMBRO",
+      "journey": "Membro não abre ficha de outra pessoa",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "MEMBRO/ficha-propria",
+      "persona": "MEMBRO",
+      "journey": "Membro abre a própria ficha",
+      "status": "PASS",
+      "detail": "HTTP 200, como o contrato atual determina."
+    },
+    {
+      "id": "MEMBRO/login-frio",
+      "persona": "MEMBRO",
+      "journey": "Login frio",
+      "status": "PASS",
+      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
+      "durationMs": 549
+    },
+    {
+      "id": "MEMBRO/login-quente",
+      "persona": "MEMBRO",
+      "journey": "Login quente",
+      "status": "PASS",
+      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
+      "durationMs": 413
+    },
+    {
+      "id": "MEMBRO/modulos-ui",
+      "persona": "MEMBRO",
+      "journey": "Módulos visíveis na operação",
+      "status": "PASS",
+      "detail": "A navegação mostra só as áreas do papel."
+    },
+    {
+      "id": "EDITOR/conta-sintetica",
+      "persona": "EDITOR",
+      "journey": "Login da persona Editor",
+      "status": "BLOCKED",
+      "detail": "O catálogo tem o papel EDITOR_SITE, porém não há usuário sintético no seed (login HTTP 401). Dependência da frente de RBAC/identidade. Nenhuma senha ou token foi registrado."
+    },
+    {
+      "id": "EDITOR/permissoes",
+      "persona": "EDITOR",
+      "journey": "Controles de permissão",
+      "status": "BLOCKED",
+      "detail": "Sem usuário sintético EDITOR_SITE no seed. A checagem de editor fica bloqueada na frente de identidade."
+    },
+    {
+      "id": "ADMIN/api-busca-pessoas",
+      "persona": "ADMIN",
+      "journey": "API /persons/search",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "ADMIN/api-carteirinha",
+      "persona": "ADMIN",
+      "journey": "API /credentials/me",
+      "status": "PASS",
+      "detail": "Papel com rota própria respondeu HTTP 200."
+    },
+    {
+      "id": "ADMIN/api-membros",
+      "persona": "ADMIN",
+      "journey": "API /memberships",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "ADMIN/api-ministerios",
+      "persona": "ADMIN",
+      "journey": "API /ministries",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "ADMIN/api-pastoral",
+      "persona": "ADMIN",
+      "journey": "API /pastoral-cases",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "ADMIN/api-site",
+      "persona": "ADMIN",
+      "journey": "API /cms/site-layout",
+      "status": "PASS",
+      "detail": "Acesso permitido (HTTP 200)."
+    },
+    {
+      "id": "ADMIN/api-tesouraria",
+      "persona": "ADMIN",
+      "journey": "API /ledger/accounts",
+      "status": "PASS",
+      "detail": "Acesso recusado com HTTP 403."
+    },
+    {
+      "id": "ADMIN/financeiro-negado",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem acesso financeiro",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "ADMIN/login-frio",
+      "persona": "ADMIN",
+      "journey": "Login frio",
+      "status": "PASS",
+      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
+      "durationMs": 557
+    },
+    {
+      "id": "ADMIN/login-quente",
+      "persona": "ADMIN",
+      "journey": "Login quente",
+      "status": "PASS",
+      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
+      "durationMs": 396
+    },
+    {
+      "id": "ADMIN/modulos-ui",
+      "persona": "ADMIN",
+      "journey": "Módulos visíveis na operação",
+      "status": "PASS",
+      "detail": "A navegação mostra só as áreas do papel.",
+      "evidence": "reports/evidence/hml-operacao-admin.png"
+    },
+    {
+      "id": "ADMIN/pastoral-negado",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem acesso pastoral",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    }
+  ]
+}
