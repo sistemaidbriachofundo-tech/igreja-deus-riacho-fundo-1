@@ -32,7 +32,7 @@ export default function EventsPage() {
       <section className={s.hubFinal}>
         <span>NOSSA CASA ESTÁ DE PORTAS ABERTAS</span>
         <h2>O próximo encontro <em>pode mudar sua história.</em></h2>
-        <Link href="/visita/">Planejar uma visita <span aria-hidden="true">↗</span></Link>
+        <Link href="/a-igreja/">Conheça nossa igreja <span aria-hidden="true">↗</span></Link>
       </section>
     </main>
   </PublicPage>;
