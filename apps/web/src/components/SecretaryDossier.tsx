@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useReducer, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPatch } from "../lib/api";
 import {
   UNSUPPORTED_PERSON_FIELDS,
@@ -146,7 +147,9 @@ export function SecretaryDossier({
       }
     : null;
 
-  return (
+  // Fora do contexto de empilhamento do AppShell; o cabeçalho fixo não cobre a ficha.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className={s.overlay}>
       <section
         className={s.dialog}
@@ -285,6 +288,7 @@ export function SecretaryDossier({
           </p>
         )}
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
