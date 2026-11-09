@@ -1,13 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ministries, instagramUrl, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
+import { ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
 import { PortalMotion } from "./PortalMotion";
 import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
 import { PortalButton } from "./PortalButton";
-import { PortalGlyph } from "./PortalGlyph";
 import { RiachinhoPublicChat } from "./RiachinhoPublicChat";
 import { riachinhoPublicEnabled } from "../lib/riachinho-public-api";
 import d from "./portal-design-system.module.css";
@@ -25,12 +24,9 @@ function Logo({ inverse = false }: { inverse?: boolean }) {
 }
 
 const navigation = [
-  { href: "/a-igreja/", label: "A Igreja" },
-  { href: "/ministerios/", label: "Ministérios" },
+  { href: "/", label: "Início" },
+  { href: "/a-igreja/", label: "Quem somos" },
   { href: "/eventos/", label: "Agenda" },
-  { href: "/novidades/", label: "Novidades" },
-  { href: "/visita/", label: "Primeira Visita" },
-  { href: "/contato/", label: "Contato" },
 ];
 
 export function PortalHeader({ light = false }: { light?: boolean }) {
@@ -41,7 +37,6 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
           <Link href="/login/" className={d.headerLogin} aria-label="Login ID Riacho 1 — abrir tela de e-mail e senha" title="Entrar na plataforma ID Riacho 1">Login</Link>
-          <Link href="/visita/" className={d.headerCta} aria-label="Planejar primeira visita"><span className={d.ctaFull}>Participe conosco</span><span className={d.ctaShort}>Visitar</span><PortalGlyph name="arrow" /></Link>
           <MobilePortalMenu links={navigation} />
         </div>
       </div>
@@ -57,11 +52,17 @@ export function PortalFooter() {
           <Logo inverse />
           <p>Uma igreja para Deus, pelas famílias. Um lugar de fé, comunhão e cuidado para cada história.</p>
         </div>
-        <div className={s.footerLinks}>
-          <div><span className={s.footerLabel}>Explore</span><Link href="/a-igreja/">Nossa igreja</Link><Link href="/ministerios/">Ministérios</Link><Link href="/eventos/">Agenda</Link><Link href="/novidades/">Novidades</Link></div>
-          <div><span className={s.footerLabel}>Conecte-se</span><Link href="/visita/">Primeira visita</Link><a href={instagramUrl} rel="noopener noreferrer" target="_blank">Instagram ↗</a><a href="https://www.youtube.com/@IDBRiachoFundo1" rel="noopener noreferrer" target="_blank">YouTube ↗</a><Link href="/ministerios/atmosfera/">Seja voluntário</Link></div>
-          <div><span className={s.footerLabel}>ID Riacho 1</span><Link href="/login/">Login</Link><span className={s.footerNote}>Acesso à área administrativa mediante autenticação.</span></div>
-        </div>
+        <nav className={s.footerLinks} aria-label="Navegação do rodapé">
+          <div><span className={s.footerLabel}>Navegue</span>
+            <Link href="/">Início</Link>
+            <Link href="/a-igreja/">Quem somos</Link>
+            <Link href="/eventos/">Agenda</Link>
+          </div>
+          <div><span className={s.footerLabel}>Área restrita</span>
+            <Link href="/login/">Login</Link>
+            <span className={s.footerNote}>Gestão interna de equipes, ministérios e recursos com acesso autorizado.</span>
+          </div>
+        </nav>
       </div>
       <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span><span>Fé · Família · Comunhão · Missão</span></div>
     </footer>

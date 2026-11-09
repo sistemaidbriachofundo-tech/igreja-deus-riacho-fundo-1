@@ -101,3 +101,29 @@
 .hubExplore:hover{transform:translateY(-2px);background:#edcc9050}
 .hubFinal{background:linear-gradient(132deg,#102d32,#163d3e);color:#fff}
 @media(prefers-reduced-motion:reduce){.hubExplore{transition:none}}
+
+/* Que Somos/Agenda: títulos controlados em 320–768px sem overflow de texto. */
+@media(max-width:900px){
+  .hubHero h1{font-size:clamp(47px,7.2vw,82px);line-height:1.04;letter-spacing:-.07em;overflow-wrap:break-word}
+  .hubHeroContent{padding-top:130px;padding-bottom:70px}
+  .hubLead{max-width:520px;font-size:16px;line-height:1.65}
+  .hubFinal h2{font-size:clamp(38px,5.4vw,64px)}
+}
+@media(max-width:700px){
+  .hubHero{min-height:clamp(500px,75svh,680px)}
+  .hubHeroContent{padding:127px 22px 70px}
+  .hubHero h1{font-size:clamp(39px,9.4vw,59px);line-height:1.07;letter-spacing:-.075em;margin:18px 0 20px;text-wrap:balance}
+  .hubLead{font-size:14px;max-width:420px}
+  .hubFinal{padding:62px 22px}
+  .hubFinal h2{font-size:clamp(35px,7.6vw,50px)}
+  .detailPurpose,.detailPillars{padding:64px 22px;gap:18px}
+  .detailPurpose h2,.detailPillars h2{font-size:clamp(35px,7.6vw,50px);line-height:1.13}
+  .detailPurpose p{font-size:14px;line-height:1.75}
+  .publishedAgendaSection{padding:62px 22px}
+}
+@media(max-width:370px){
+  .hubHeroContent{padding-left:17px;padding-right:17px}
+  .hubHero h1{font-size:clamp(35px,9.5vw,42px)}
+  .hubFinal h2{font-size:34px}
+  .publishedAgendaSection{padding-inline:17px}
+}

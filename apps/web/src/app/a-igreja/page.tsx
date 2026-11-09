@@ -21,7 +21,7 @@ export default function AboutPage() {
           <span className={s.label}>NOSSA COMUNIDADE</span>
           <h1>Mais que uma igreja.<br/><em>Uma família.</em></h1>
           <p className={s.hubLead}>Um lugar para adorar a Deus, construir amizades e caminhar em fé, com espaço para cada história.</p>
-          <Link href="/contato/" className={s.hubExplore}>QUERO CONHECER <span aria-hidden="true">↗</span></Link>
+          <Link href="/eventos/" className={s.hubExplore}>VER AGENDA <span aria-hidden="true">↗</span></Link>
         </div>
         <span className={s.photoDisclosure}>IMAGEM ILUSTRATIVA</span>
       </section>
@@ -37,7 +37,7 @@ export default function AboutPage() {
           <div className={s.pillarRow}><span>03</span><h3>Servir</h3><p>Expressar a fé com ações que transformam o nosso entorno.</p></div>
         </div>
       </section>
-      <section className={s.hubFinal}><span>UMA CASA ABERTA</span><h2>Essa história <em>também pode ser sua.</em></h2><Link href="/contato/">Prepare sua visita <span aria-hidden="true">↗</span></Link></section>
+      <section className={s.hubFinal}><span>UMA CASA ABERTA</span><h2>Essa história <em>também pode ser sua.</em></h2><Link href="/eventos/">Conheça nossa agenda <span aria-hidden="true">↗</span></Link></section>
     </main>
   </PublicPage>;
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiLogin, clearToken, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
 import { withBasePath } from "../lib/paths";
+import { authenticatedLanding } from "../lib/auth-destination";
 import styles from "./login-screen.module.css";
 
 type Props = { onAuthenticated?: () => void };
@@ -36,8 +37,8 @@ export function LoginScreen({ onAuthenticated }: Props) {
     let cancelled = false;
     setChecking(true);
     void apiGet<Me>("/auth/me", token)
-      .then(() => {
-        if (!cancelled) window.location.replace(withBasePath("/app/"));
+      .then(user => {
+        if (!cancelled) window.location.replace(withBasePath(authenticatedLanding(user)));
       })
       .catch(() => {
         clearToken();
@@ -56,11 +57,11 @@ export function LoginScreen({ onAuthenticated }: Props) {
     try {
       const login = await apiLogin(email.trim(), password);
       // Só grava a sessão quando o token também passou em /auth/me.
-      await apiGet<Me>("/auth/me", login.accessToken);
+      const authenticatedUser = await apiGet<Me>("/auth/me", login.accessToken);
       storeToken(login.accessToken);
       setPassword("");
       if (onAuthenticated) onAuthenticated();
-      else window.location.assign(withBasePath("/app/"));
+      else window.location.assign(withBasePath(authenticatedLanding(authenticatedUser)));
     } catch (problem) {
       clearToken();
       setPassword("");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { instagramUrl } from "../lib/portal-content";
 import {
   currentPublishedEvents, formatPortalDate,
@@ -35,7 +35,7 @@ function VisitFallback({ compact = false }: { compact?: boolean }) {
     <strong>Programação em atualização</strong>
     <p>Os próximos encontros aparecem aqui quando forem confirmados e publicados pela igreja. Para informações atuais, consulte os canais da comunidade.</p>
     <div className={s.fallbackLinks}>
-      <Link href="/visita/">Planeje sua visita <span aria-hidden="true">↗</span></Link>
+      <Link href="/a-igreja/">Conheça nossa igreja <span aria-hidden="true">↗</span></Link>
       <a href={instagramUrl} rel="noopener noreferrer" target="_blank">Acompanhe os avisos <span aria-hidden="true">↗</span></a>
     </div>
   </div>;
@@ -74,13 +74,7 @@ export function PublishedHomeSpotlight() {
 
 export function PublishedAgenda() {
   const { status, data } = usePublishedResource("/public/events", parsePublishedEvents);
-  const [filter, setFilter] = useState("todos");
-  const home = usePublishedResource("/public/home", parsePublishedHome);
   const events = useMemo(() => currentPublishedEvents(data ?? []), [data]);
-  const possibleMinistries = new Map((home.data?.ministries ?? []).map((ministry) => [ministry.id, ministry.name]));
-  const ministryIds = new Set(events.map((event) => event.ministryId).filter((id): id is string => Boolean(id)));
-  const categories = ["todos", ...[...ministryIds].filter((id) => possibleMinistries.has(id)).sort()];
-  const results = filter === "todos" ? events : events.filter((event) => event.ministryId === filter);
 
   return (
     <div className={s.agendaArea}>
@@ -90,19 +84,9 @@ export function PublishedAgenda() {
       </div>
       {status === "loading" && <p role="status" className={s.loading}>Consultando eventos publicados…</p>}
       {status !== "loading" && events.length === 0 && <VisitFallback />}
-      {events.length > 0 && <>
-        {categories.length > 1 && <div className={s.filters} role="group" aria-label="Filtrar eventos publicados">
-          {categories.map((id) => <button type="button" key={id}
-            aria-pressed={filter === id} className={filter === id ? s.filterSelected : s.filter}
-            onClick={() => setFilter(id)}>
-            {id === "todos" ? "Todos os encontros" : (possibleMinistries.get(id) ?? "Ministério")}
-          </button>)}
-        </div>}
-        <div className={s.eventList}>
-          {results.map((event) => <EventLine event={event} key={event.id} />)}
-          {results.length === 0 && <p className={s.loading}>Nenhum encontro publicado para este filtro.</p>}
-        </div>
-      </>}
+      {events.length > 0 && <div className={s.eventList}>
+        {events.map((event) => <EventLine event={event} key={event.id}/>)}
+      </div>}
     </div>
   );
 }
