@@ -181,6 +181,12 @@ export class EventsService {
   }
 
   async publish(actor: AuthUser, eventId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const existing = await this.requireEvent(eventId, pilot);
+    const blocked = eventPublicationBlockReason(existing);
+    if (blocked) {
+      throw new BadRequestException(blocked);
+    }
     return this.patch(actor, eventId, { status: "PUBLISHED" });
   }
 
@@ -292,4 +298,35 @@ function parseDate(value: string, field: string): Date {
     throw new BadRequestException(`${field} inválido`);
   }
   return d;
+}
+
+const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
+const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
+
+/** Bloqueia publicação na agenda quando o texto parece e-mail, telefone ou CPF. */
+export function eventPublicationBlockReason(event: {
+  name?: string | null;
+  slug?: string | null;
+  description?: string | null;
+  locationText?: string | null;
+  imageUrl?: string | null;
+}): string | null {
+  const text = [
+    event.name,
+    event.slug,
+    event.description,
+    event.locationText,
+    event.imageUrl,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join("\n");
+  if (
+    PERSONAL_EMAIL.test(text) ||
+    PERSONAL_CPF.test(text) ||
+    PERSONAL_PHONE.test(text)
+  ) {
+    return "Publicação bloqueada: revise nome, descrição ou local. O texto parece conter e-mail, telefone ou CPF.";
+  }
+  return null;
 }
