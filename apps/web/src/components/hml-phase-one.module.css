@@ -18,6 +18,7 @@
 .grid{grid-template-columns:minmax(0,1.65fr) minmax(250px,.75fr)}
 .panel{min-width:0;background:#fffefa;border:1px solid #dde7dd;border-radius:18px;padding:23px;box-shadow:0 8px 25px #18443310}
 .panel h2{font:800 18px/1.3 Montserrat,Arial,sans-serif;letter-spacing:-.04em;margin:0 0 10px;color:#153831}
+.panel h2.follow{margin-top:22px}
 .panel p{font:500 12px/1.6 Inter,Arial,sans-serif;color:#647e74}
 .links{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
 .links a{display:flex;justify-content:center;align-items:center;min-height:60px;text-align:center;text-decoration:none;background:#ebf5ef;border:1px solid #d0e1d6;border-radius:14px;color:#165547;font:800 12px/1.35 Inter,sans-serif;padding:8px}
