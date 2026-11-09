@@ -1,99 +1,71 @@
 # Matriz QA E2E por persona
 
-Gerada em 2026-11-09T16:39:27.210Z. Contagens: **86 PASS**, **3 FAIL**, **2 BLOCKED**.
+Gerada em 2026-11-09T20:56:12.140Z. Contagens: **52 PASS**, **4 FAIL**, **7 BLOCKED**.
 
 Uma linha PASS em tela de login não conta como módulo operacional. Jornadas que só encontraram o gate ficam FAIL ou BLOCKED, com o motivo explícito.
 
 | Persona | Jornada | Resultado | ms | Detalhe |
 |---|---|---|---:|---|
-| PUBLICACAO | Rota /app/ sem sessão | PASS | — | A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões. Evidência: `reports/evidence/public-app-login-gate-1440.png`. |
-| PUBLICACAO | Rota /app/membros/ sem sessão | PASS | — | A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões. Evidência: `reports/evidence/public-appmembros-login-gate-1440.png`. |
-| PUBLICACAO | Rota /app/secretaria/ sem sessão | PASS | — | A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões. Evidência: `reports/evidence/public-appsecretaria-login-gate-1440.png`. |
-| PUBLICACAO | Login frio na publicação | PASS | 516 | O botão de entrar permanece desabilitado e a página avisa que nenhuma credencial será enviada. Evidência: `reports/evidence/public-login-1440.png`. |
-| PUBLICACAO | Layout 1440px do gate em /app/secretaria/ | PASS | 1368 | Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo. Evidência: `reports/evidence/public-secretaria-gate-1440.png`. |
-| PUBLICACAO | Layout 360px do gate em /app/secretaria/ | PASS | 1129 | Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo. Evidência: `reports/evidence/public-secretaria-gate-360.png`. |
-| PUBLICACAO | Layout 768px do gate em /app/secretaria/ | PASS | 1250 | Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo. Evidência: `reports/evidence/public-secretaria-gate-768.png`. |
-| SECRETARIA | Abrir ficha | PASS | — | GET da ficha sintética respondeu 200. |
-| SECRETARIA | Abrir ficha na interface | FAIL | — | A lista HML não oferece controle para abrir a ficha. A tela de membros não aprova a jornada de prontuário. Evidência: `reports/evidence/hml-membros-busca.png`. |
-| SECRETARIA | API /persons/search | PASS | — | Acesso permitido (HTTP 200). |
-| SECRETARIA | API /credentials/me | PASS | — | Papel com rota própria respondeu HTTP 200. |
-| SECRETARIA | API /memberships | PASS | — | Acesso permitido (HTTP 200). |
-| SECRETARIA | API /ministries | PASS | — | Acesso permitido (HTTP 200). |
-| SECRETARIA | API /pastoral-cases | PASS | — | Acesso recusado com HTTP 403. |
-| SECRETARIA | API /cms/site-layout | PASS | — | Acesso permitido (HTTP 200). |
-| SECRETARIA | API /ledger/accounts | PASS | — | Acesso recusado com HTTP 403. |
-| SECRETARIA | Buscar pessoa | PASS | — | A busca devolveu a pessoa sintética Bruno do seed. |
-| SECRETARIA | Buscar pessoa na interface | PASS | — | O diretório HML filtrou a pessoa sintética Bruno e escondeu as demais linhas. Evidência: `reports/evidence/hml-membros-busca.png`. |
-| SECRETARIA | Editar ficha | PASS | — | PATCH idempotente do núcleo familiar sintético foi aceito e auditado pela API. |
-| SECRETARIA | Editar ficha na interface | FAIL | — | Não há formulário de edição persistida. O PATCH de pessoa existe na API e não nesta tela. |
-| SECRETARIA | Login frio | PASS | 1067 | Saiu do gate e abriu superfície operacional em /app/. Evidência: `reports/evidence/hml-painel-apos-login-frio.png`. |
-| SECRETARIA | Login quente | PASS | 543 | A sessão já armazenada abriu o painel sem novo envio de senha. |
-| SECRETARIA | Módulo Secretaria distinto do login | PASS | — | Módulo operacional visível (Protocolos de admissão, Admissões e secretaria, Abrir protocolo fictício, Gestão do site). Esta evidência não é a tela de login. Evidência: `reports/evidence/hml-secretaria-operacional.png`. |
-| SECRETARIA | Módulos visíveis na operação | PASS | — | A navegação mostra só as áreas do papel. |
-| SECRETARIA | Reabrir ficha | PASS | — | A reabertura devolveu a mesma ficha sintética persistida. |
-| SECRETARIA | Reabrir ficha na interface | FAIL | — | Sem ficha aberta, não há como fechar e reabrir o mesmo cadastro na interface HML. |
-| SECRETARIA | Membros em 1440px | PASS | 1028 | Overflow horizontal 0px no diretório autenticado. Evidência: `reports/evidence/hml-membros-1440.png`. |
-| SECRETARIA | Membros em 360px | PASS | 857 | Overflow horizontal 0px no diretório autenticado. Evidência: `reports/evidence/hml-membros-360.png`. |
-| SECRETARIA | Membros em 768px | PASS | 1040 | Overflow horizontal 0px no diretório autenticado. Evidência: `reports/evidence/hml-membros-768.png`. |
-| SECRETARIA | Secretaria em 1440px | PASS | 470 | Overflow horizontal 0px no módulo Secretaria. |
-| SECRETARIA | Secretaria em 360px | PASS | 540 | Overflow horizontal 0px no módulo Secretaria. |
-| SECRETARIA | Secretaria em 768px | PASS | 573 | Overflow horizontal 0px no módulo Secretaria. |
-| PASTOR | API /persons/search | PASS | — | Acesso permitido (HTTP 200). |
-| PASTOR | API /credentials/me | PASS | — | Acesso recusado com HTTP 403. |
-| PASTOR | API /memberships | PASS | — | Acesso recusado com HTTP 403. |
-| PASTOR | API /ministries | PASS | — | Acesso permitido (HTTP 200). |
-| PASTOR | API /pastoral-cases | PASS | — | Acesso permitido (HTTP 200). |
-| PASTOR | API /cms/site-layout | PASS | — | Acesso permitido (HTTP 200). |
-| PASTOR | API /ledger/accounts | PASS | — | Acesso recusado com HTTP 403. |
-| PASTOR | Pastor não edita ficha de secretaria | PASS | — | HTTP 403, como o contrato atual determina. |
-| PASTOR | Login frio | PASS | 985 | Saiu do gate e abriu superfície operacional em /app/. |
-| PASTOR | Login quente | PASS | 535 | A sessão já armazenada abriu o painel sem novo envio de senha. |
-| PASTOR | Módulos visíveis na operação | PASS | — | A navegação mostra só as áreas do papel. Evidência: `reports/evidence/hml-operacao-pastor.png`. |
-| TESOURARIA | API /persons/search | PASS | — | Acesso recusado com HTTP 403. |
-| TESOURARIA | API /credentials/me | PASS | — | Acesso recusado com HTTP 403. |
-| TESOURARIA | API /memberships | PASS | — | Acesso recusado com HTTP 403. |
-| TESOURARIA | API /ministries | PASS | — | Acesso recusado com HTTP 403. |
-| TESOURARIA | API /pastoral-cases | PASS | — | Acesso recusado com HTTP 403. |
-| TESOURARIA | API /cms/site-layout | PASS | — | Acesso recusado com HTTP 403. |
-| TESOURARIA | API /ledger/accounts | PASS | — | Acesso permitido (HTTP 200). |
+| PUBLICACAO | Sessão ausente | PASS | — | GET /auth/me sem sessão respondeu 401. |
+| PUBLICACAO | Agenda pública sem cobrança | PASS | — | A agenda pública não oferece Pix nem cobrança. Evidência: `reports/evidence/g-eventos-1440.png`. |
+| PUBLICACAO | Foco visível no campo de senha | PASS | — | O campo focado tem contorno ou sombra. Evidência: `reports/evidence/g-foco-teclado.png`. |
+| PUBLICACAO | Portal oficial sem módulo financeiro | PASS | — | A home oficial mostra a superfície pública e não a tesouraria. Evidência: `reports/evidence/g-pages-home.png`. |
+| PUBLICACAO | Formulário oficial habilitado | BLOCKED | — | O botão de entrar do link oficial está habilitado. O workflow da main publica esse site com a API HML. Nenhuma credencial foi enviada daqui. Evidência: `reports/evidence/g-pages-login.png`. |
+| PUBLICACAO | Tab alcança e-mail e senha | PASS | — | Tab chegou aos dois campos sem uso do mouse. Evidência: `reports/evidence/g-foco-teclado.png`. |
+| PLATAFORMA | API HML remota | BLOCKED | — | Não há HML_PUBLIC_API_URL nem segredo de homologação neste agente. A matriz acima é da API sintética local. O link oficial não recebe esta suíte autenticada. |
+| PLATAFORMA | Jornadas autenticadas no link oficial | BLOCKED | — | GET /health da API HML pública respondeu 200 e /meta anuncia o contrato 0.7.2-f2. Não enviei credencial e não tratei esse anúncio como prova de ficha, vínculo, agenda ou editor. A matriz autenticada é da API sintética local. |
+| SECRETARIA | Login e /auth/me de SECRETARIA | PASS | 45 | POST /auth/login e GET /auth/me confirmaram SECRETARIA na organização e na congregação ativas. |
+| SECRETARIA | Contraste de texto no módulo | PASS | — | Menor razão medida: 9.85:1. O mínimo de texto comum é 4.5:1. |
+| SECRETARIA | Criar, reler e arquivar evento sintético | PASS | — | O evento fictício foi gravado, relido e arquivado. Não houve publicação nem cobrança. |
+| SECRETARIA | Evento sem cobrança | PASS | — | A criação do evento sintético não devolveu Pix, checkout nem URL de pagamento. |
+| SECRETARIA | Eventos sintéticos persistidos | PASS | — | GET /events devolveu o encontro sintético de jovens já gravado no seed. |
+| SECRETARIA | Buscar e abrir ficha na interface | PASS | — | A busca isolou Bruno e a ficha separou campos graváveis dos campos só de consulta. Evidência: `reports/evidence/g-ficha-1440.png`. |
+| SECRETARIA | Editar campo permitido e persistir | PASS | — | A família sintética foi alterada, salva e confirmada pela reabertura da API. O valor original foi restaurado em seguida. Evidência: `reports/evidence/g-ficha-1440.png`. |
+| SECRETARIA | Reabrir a mesma ficha | PASS | — | Reabrir devolveu o valor gravado, sem substituí-lo por um rascunho local. |
+| SECRETARIA | Vínculo de ministério em 360px | FAIL | — | Overflow horizontal de 78px. Evidência: `reports/evidence/g-ministerios-360.png`. |
+| SECRETARIA | Secretaria em 1440px | PASS | — | Sem overflow horizontal (0px). Evidência: `reports/evidence/g-secretaria-1440.png`. |
+| SECRETARIA | Secretaria em 360px | PASS | — | Sem overflow horizontal (0px). Evidência: `reports/evidence/g-secretaria-360.png`. |
+| SECRETARIA | Secretaria em 768px | PASS | — | Sem overflow horizontal (0px). Evidência: `reports/evidence/g-secretaria-768.png`. |
+| SECRETARIA | Menu por papel | FAIL | — | Menu genérico. Fora do papel: Tesouraria. |
+| SECRETARIA | Saldo ministerial sem contrato financeiro | PASS | — | HTTP 501 e balance nulo. Nenhum valor de centro de custo foi calculado. |
+| SECRETARIA | Tela de vínculo não finge persistência | PASS | — | A tela mostra o bloqueio do vínculo formal e não registra integrante. Evidência: `reports/evidence/g-ministerios-1440.png`. |
+| SECRETARIA | Secretaria sem ledger | PASS | — | HTTP 403, como o contrato atual determina. |
+| SECRETARIA | Ctrl K abre a busca e Esc fecha | PASS | — | O atalho de teclado abriu e fechou a busca de módulos. |
+| SECRETARIA | Zoom 200% na Secretaria | PASS | — | Zoom 200% sem overflow horizontal (0px). Evidência: `reports/evidence/g-zoom-200-secretaria.png`. |
+| PASTOR | Login e /auth/me de PASTOR | PASS | 38 | POST /auth/login e GET /auth/me confirmaram PASTOR na organização e na congregação ativas. |
+| PASTOR | Pastor não edita ficha | PASS | — | HTTP 403, como o contrato atual determina. |
+| TESOURARIA | Login e /auth/me de TESOURARIA | PASS | 39 | POST /auth/login e GET /auth/me confirmaram TESOURARIA na organização e na congregação ativas. |
+| TESOURARIA | Posição sintética sem Pix | PASS | — | A posição exibida veio do ledger sintético. A ilustração está separada e Pix, banco e maquininha seguem bloqueados. Evidência: `reports/evidence/g-tesouraria-1440.png`. |
+| TESOURARIA | Menu por papel | FAIL | — | Menu genérico. Fora do papel: Membros e famílias, Secretaria, Carteirinhas, Ministérios e operação, Vínculo de ministério, Escalas, Meu Espaço, Mídia e conteúdo, Gestão do site. |
+| TESOURARIA | Tesouraria não lista eventos internos | PASS | — | HTTP 403, como o contrato atual determina. |
 | TESOURARIA | Tesouraria não busca pessoas | PASS | — | HTTP 403, como o contrato atual determina. |
-| TESOURARIA | Login frio | PASS | 1169 | Saiu do gate e abriu superfície operacional em /app/. |
-| TESOURARIA | Login quente | PASS | 453 | A sessão já armazenada abriu o painel sem novo envio de senha. |
-| TESOURARIA | Módulos visíveis na operação | PASS | — | A navegação mostra só as áreas do papel. Evidência: `reports/evidence/hml-operacao-tesouraria.png`. |
-| LIDER | API /persons/search | PASS | — | Acesso recusado com HTTP 403. |
-| LIDER | API /credentials/me | PASS | — | Acesso recusado com HTTP 403. |
-| LIDER | API /memberships | PASS | — | Acesso recusado com HTTP 403. |
-| LIDER | API /ministries | PASS | — | Acesso permitido (HTTP 200). |
-| LIDER | API /pastoral-cases | PASS | — | Acesso recusado com HTTP 403. |
-| LIDER | API /cms/site-layout | PASS | — | Acesso recusado com HTTP 403. |
-| LIDER | API /ledger/accounts | PASS | — | Acesso recusado com HTTP 403. |
-| LIDER | Líder não abre ficha geral | PASS | — | HTTP 403, como o contrato atual determina. |
-| LIDER | Login frio | PASS | 1027 | Saiu do gate e abriu superfície operacional em /app/operacao/. |
-| LIDER | Login quente | PASS | 479 | A sessão já armazenada abriu o painel sem novo envio de senha. |
-| LIDER | Módulos visíveis na operação | PASS | — | A navegação mostra só as áreas do papel. |
-| MEMBRO | API /persons/search | PASS | — | Acesso recusado com HTTP 403. |
-| MEMBRO | API /credentials/me | PASS | — | Papel com rota própria respondeu HTTP 200. |
-| MEMBRO | API /memberships | PASS | — | Acesso recusado com HTTP 403. |
-| MEMBRO | API /ministries | PASS | — | Acesso recusado com HTTP 403. |
-| MEMBRO | API /pastoral-cases | PASS | — | Acesso recusado com HTTP 403. |
-| MEMBRO | API /cms/site-layout | PASS | — | Acesso recusado com HTTP 403. |
-| MEMBRO | API /ledger/accounts | PASS | — | Acesso recusado com HTTP 403. |
-| MEMBRO | Membro não abre ficha de outra pessoa | PASS | — | HTTP 403, como o contrato atual determina. |
+| LIDER | Login e /auth/me de LIDER | PASS | 40 | POST /auth/login e GET /auth/me confirmaram LIDER_MINISTERIO na organização e na congregação ativas. |
+| LIDER | Líder não cria evento em outro ministério | PASS | — | O líder não criou evento no ministério de homens. |
+| LIDER | Líder só vê evento do ministério autorizado | PASS | — | A lista do líder contém só o ministério de jovens. |
+| LIDER | API não inventa integrantes | PASS | — | HTTP 501 MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED e members nulo. A API não grava integrante formal. O schema é do integrador H. A resposta não inventa a lista. |
+| LIDER | Vínculo formal do ministério autorizado | BLOCKED | — | HTTP 501 MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED e members nulo. A API não grava integrante formal. O schema é do integrador H. A resposta não inventa a lista. |
+| LIDER | Líder não lê outro ministério | PASS | — | HTTP 403, como o contrato atual determina. |
+| MEMBRO | Meu Espaço não finge agenda | PASS | — | Meu Espaço declara que não há consulta da agenda pessoal e não monta lista de outras pessoas. Evidência: `reports/evidence/g-meu-espaco-1440.png`. |
+| MEMBRO | Agenda própria persistida | BLOCKED | — | Não existe agenda própria persistida para este perfil (listagem HTTP 403). Confirmar pelo identificador não substitui a lista. Evidência: `reports/evidence/g-meu-espaco-1440.png`. |
+| MEMBRO | Login e /auth/me de MEMBRO | PASS | 37 | POST /auth/login e GET /auth/me confirmaram MEMBRO na organização e na congregação ativas. |
+| MEMBRO | Membro não edita o site | PASS | — | O membro não grava o rascunho editorial. |
+| MEMBRO | Membro não cria evento | PASS | — | O membro não criou evento. |
+| MEMBRO | Membro não vê saldo inventado | PASS | — | A conta não leu o ledger. As métricas dizem Sem consulta, a ilustração está rotulada e não há Pix. Evidência: `reports/evidence/g-tesouraria-membro.png`. |
+| MEMBRO | Troca para congregação sem grant | PASS | — | POST /auth/switch-church para a congregação destino sem grant respondeu 403. |
+| MEMBRO | Congregação inexistente | PASS | — | Congregação inexistente também foi recusada. |
+| MEMBRO | Sessão permanece na congregação original | PASS | — | Depois da troca recusada, /auth/me continua fora da congregação destino. |
+| MEMBRO | Menu por papel | FAIL | — | Menu genérico. Fora do papel: Membros e famílias, Secretaria, Ministérios e operação, Vínculo de ministério, Escalas, Tesouraria, Mídia e conteúdo, Gestão do site. Evidência: `reports/evidence/g-nav-membro.png`. |
+| MEMBRO | Busca de pessoas sem sessão | PASS | — | HTTP 401, como o contrato atual determina. |
+| MEMBRO | Membro não abre ficha alheia | PASS | — | HTTP 403, como o contrato atual determina. |
+| MEMBRO | Membro não lista eventos internos | PASS | — | HTTP 403, como o contrato atual determina. |
 | MEMBRO | Membro abre a própria ficha | PASS | — | HTTP 200, como o contrato atual determina. |
-| MEMBRO | Login frio | PASS | 1033 | Saiu do gate e abriu superfície operacional em /app/. |
-| MEMBRO | Login quente | PASS | 486 | A sessão já armazenada abriu o painel sem novo envio de senha. |
-| MEMBRO | Módulos visíveis na operação | PASS | — | A navegação mostra só as áreas do papel. |
-| EDITOR | Login da persona Editor | BLOCKED | — | O catálogo tem o papel EDITOR_SITE, porém não há usuário sintético no seed (login HTTP 401). Dependência da frente de RBAC/identidade. Nenhuma senha ou token foi registrado. |
-| EDITOR | Controles de permissão | BLOCKED | — | Sem usuário sintético EDITOR_SITE no seed. A checagem de editor fica bloqueada na frente de identidade. |
-| ADMIN | API /persons/search | PASS | — | Acesso permitido (HTTP 200). |
-| ADMIN | API /credentials/me | PASS | — | Papel com rota própria respondeu HTTP 200. |
-| ADMIN | API /memberships | PASS | — | Acesso permitido (HTTP 200). |
-| ADMIN | API /ministries | PASS | — | Acesso permitido (HTTP 200). |
-| ADMIN | API /pastoral-cases | PASS | — | Acesso recusado com HTTP 403. |
-| ADMIN | API /cms/site-layout | PASS | — | Acesso permitido (HTTP 200). |
-| ADMIN | API /ledger/accounts | PASS | — | Acesso recusado com HTTP 403. |
-| ADMIN | Admin técnico sem acesso financeiro | PASS | — | HTTP 403, como o contrato atual determina. |
-| ADMIN | Login frio | PASS | 983 | Saiu do gate e abriu superfície operacional em /app/. |
-| ADMIN | Login quente | PASS | 554 | A sessão já armazenada abriu o painel sem novo envio de senha. |
-| ADMIN | Módulos visíveis na operação | PASS | — | A navegação mostra só as áreas do papel. Evidência: `reports/evidence/hml-operacao-admin.png`. |
-| ADMIN | Admin técnico sem acesso pastoral | PASS | — | HTTP 403, como o contrato atual determina. |
+| MEMBRO | Membro não lê vínculo formal | PASS | — | HTTP 403, como o contrato atual determina. |
+| EDITOR | Login e /auth/me de EDITOR | PASS | 36 | POST /auth/login e GET /auth/me confirmaram EDITOR_SITE na organização e na congregação ativas. |
+| EDITOR | Login e /auth/me de PUBLICADOR | BLOCKED | 8 | O catálogo tem PUBLICADOR_SITE, mas o seed sintético não cria a conta (login HTTP 401). Sem usuário, /auth/me não foi exercido. Nenhum segredo foi registrado. |
+| EDITOR | Editor não publica | PASS | — | O editor não publica o site institucional. |
+| EDITOR | Conta sintética de publicador | BLOCKED | — | O catálogo tem PUBLICADOR_SITE, mas o seed sintético não cria a conta (login HTTP 401). Sem usuário, /auth/me não foi exercido. Nenhum segredo foi registrado. |
+| EDITOR | Rascunho editorial persistido e restaurado | PASS | — | O rascunho do editor foi gravado, relido e restaurado. A publicação institucional não foi chamada. |
+| EDITOR | Editor não busca pessoas | PASS | — | HTTP 403, como o contrato atual determina. |
+| ADMIN | Login e /auth/me de ADMIN | PASS | 56 | POST /auth/login e GET /auth/me confirmaram PLATFORM_ADMIN na organização e na congregação ativas. |
+| ADMIN | Admin técnico sem ledger | PASS | — | HTTP 403, como o contrato atual determina. |
+| ADMIN | Admin técnico sem pastoral | PASS | — | HTTP 403, como o contrato atual determina. |

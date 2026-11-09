@@ -106,3 +106,30 @@ export async function apiJson<T>(
   if (!response.ok()) return { status: response.status(), body: null };
   return { status: response.status(), body: (await response.json()) as T };
 }
+
+export async function apiCall(
+  request: APIRequestContext,
+  token: string | null,
+  method: "GET" | "POST" | "PATCH",
+  path: string,
+  data?: unknown,
+): Promise<{ status: number; body: unknown }> {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const url = `${apiBase()}${path}`;
+  const options = { headers, failOnStatusCode: false, data };
+  const response =
+    method === "GET"
+      ? await request.get(url, options)
+      : method === "POST"
+        ? await request.post(url, options)
+        : await request.patch(url, options);
+  const status = response.status();
+  const text = await response.text();
+  if (!text) return { status, body: null };
+  try {
+    return { status, body: JSON.parse(text) as unknown };
+  } catch {
+    return { status, body: null };
+  }
+}
