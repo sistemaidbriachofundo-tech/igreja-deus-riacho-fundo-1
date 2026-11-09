@@ -8,6 +8,7 @@ import {
 } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
+import { apiGet, clearToken, loadStoredToken, readValidatedSession, type AuthUser } from "../lib/api";
 import s from "./app-shell.module.css";
 
 export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "site" | "operacao" | "tesouraria" | "ministerios" | "escalas" | "meu-espaco" | "demo";
@@ -63,6 +64,22 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
   { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home. A prévia /w1-estudio não publica o site" },
 ];
 
+const PERSONA_LABELS: Record<string, string> = {
+  PLATFORM_ADMIN: "Admin de homologação",
+  SECRETARIA: "Secretaria de homologação",
+  PASTOR: "Pastor de homologação",
+  TESOURARIA: "Tesouraria de homologação",
+  LIDER_MINISTERIO: "Líder de homologação",
+  MEMBRO: "Membro de homologação",
+  EDITOR_SITE: "Editor do site",
+  PUBLICADOR_SITE: "Publicador do site",
+};
+
+function labelForPersona(user: AuthUser): string {
+  const role = user.grants[0]?.roleCode;
+  return (role && PERSONA_LABELS[role]) || "Perfil de homologação";
+}
+
 const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao","membros","secretaria","operacao"];
 const NAV_HREFS = NAV.map(item => item.href);
 
@@ -80,6 +97,7 @@ function AppNavLink({
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
   const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "operacao" ? { code: "06 / GESTÃO INTEGRADA", title: "Toda a igreja, uma plataforma.", detail: "Módulos do DAS sob autenticação." } : active === "ministerios" ? { code: "08 / MINISTÉRIOS", title: "Vínculo formal indisponível.", detail: "A API ainda não persiste integrantes." } : active === "escalas" ? { code: "09 / ESCALAS", title: "Atmosfera e Louvor.", detail: "Contrato de roster. Sem lista pessoal." } : active === "meu-espaco" ? { code: "10 / MEU ESPAÇO", title: "Sua escala, pelo identificador.", detail: "A consulta da agenda pessoal não existe." } : active === "tesouraria" ? { code: "07 / TESOURARIA", title: "Caixa sintético.", detail: "Sem banco, Pix ou saldo real." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [activePersona, setActivePersona] = useState("Perfil de homologação");
   const [term, setTerm] = useState("");
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +107,24 @@ export function AppShell({ active, meta, children, editorial = false }: { active
   useEffect(() => {
     finishClientNavigation(window.location.pathname);
     publishPerfProbe();
+    const token = loadStoredToken();
+    if (!token) return;
+    const cached = readValidatedSession(token);
+    if (cached) {
+      setActivePersona(labelForPersona(cached));
+      return;
+    }
+    let mounted = true;
+    void apiGet<AuthUser>("/auth/me", token)
+      .then(user => { if (mounted) setActivePersona(labelForPersona(user)); })
+      .catch(() => { /* Sessão e permissão são verificadas pelo gate. */ });
+    return () => { mounted = false; };
   }, []);
+
+  function switchPersona() {
+    clearToken();
+    window.location.assign(withBasePath("/login/"));
+  }
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -147,7 +182,10 @@ export function AppShell({ active, meta, children, editorial = false }: { active
             <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></AppNavLink>
             <span className={s.toolbarDivider}/>
             <span className={s.account} aria-label="Identificação visual da área de demonstração">ID</span>
-            <span className={s.accountInfo}><strong>ID Riacho 1</strong><small>{editorial ? "Estúdio editorial" : "Ambiente de teste"}</small></span>
+            <span className={s.accountInfo}><strong>{activePersona}</strong><small>Ambiente de homologação</small></span>
+            <button type="button" className={s.switchPersona} onClick={switchPersona} title="Encerrar sessão e entrar com outro perfil" aria-label="Sair e trocar perfil de homologação">
+              <UIIcon name="refresh" size={16}/><span>Trocar perfil</span>
+            </button>
           </div>
         </header>
         {active !== "visao" && <div className={s.workspaceRibbon}>

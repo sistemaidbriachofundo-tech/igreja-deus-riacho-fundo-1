@@ -286,3 +286,26 @@
 @media(max-width:380px){
  .mobileNav>button.mobileItem,.mobileNav>button.mobileActive{font-size:9px}
 }
+
+/* Identificação de persona e troca de sessão somente na UI autenticada. */
+.switchPersona{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:40px;min-width:40px;padding:0 12px;
+  border:1px solid #ccdbd0;border-radius:12px;
+  background:#f6faf5;color:#1e5043;cursor:pointer;
+  font:700 11px Inter,sans-serif;white-space:nowrap;
+  transition:background .15s ease,border-color .15s ease;
+}
+.switchPersona:hover{background:#e6f0e8;border-color:#88b59a}
+.switchPersona:focus-visible{outline:3px solid #ac7c28;outline-offset:2px}
+@media(max-width:1220px){
+  .switchPersona{padding:0;width:40px}
+  .switchPersona span{display:none}
+}
+@media(max-width:660px){
+  .toolbar{grid-template-columns:minmax(0,1fr) 40px 76px}
+  .toolbarRight{gap:5px;min-width:76px}
+  .toolbarAlerts{display:none}
+  .account{width:32px;height:32px}
+  .switchPersona{width:39px;min-height:39px}
+}
