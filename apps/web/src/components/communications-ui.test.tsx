@@ -31,7 +31,7 @@ describe("Navegação mobile — sem sete itens espremidos",()=>{
     expect((mobile.match(/<a\s/g)||[]).length).toBe(4);
     expect(mobile).toContain("Mais módulos e páginas");
     expect(mobile).toContain('aria-haspopup="dialog"');
-    expect(mobile).toContain("Operação");
+    expect(mobile).toContain("Ministérios");
     expect(mobile).not.toContain("Carteira");
   });
 });
