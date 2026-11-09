@@ -58,7 +58,6 @@ export function RiachinhoPublicChat() {
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [status, setStatus] = useState<ViviStatusResponse | null>(null);
   const [offline, setOffline] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -125,7 +124,7 @@ export function RiachinhoPublicChat() {
 
   const realProvider = riachinhoProviderReady(status) && !offline;
   const hasPublishedKnowledge = (status as OptionalKnowledgeStatus | null)?.knowledge?.mode === "structured-cms";
-  const canSend = realProvider && consent && !sending && !loadingStatus && !!question.trim();
+  const canSend = realProvider && !sending && !loadingStatus && !!question.trim();
 
   async function submit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -136,7 +135,8 @@ export function RiachinhoPublicChat() {
     try {
       if (!sessionRef.current) sessionRef.current =
         "visitor-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
-      const request = prepareRiachinhoPublicRequest(messages, text, sessionRef.current, consent);
+      // O clique em "Enviar pergunta", após a informação visível abaixo, é a ação afirmativa.
+      const request = prepareRiachinhoPublicRequest(messages, text, sessionRef.current, true);
       const base = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
       if (!base) throw new Error("A conexão com o Riachinho não está configurada.");
       const answer: OptionalKnowledgeAnswer = await requestRiachinhoPublicAnswer(base, request);
@@ -168,7 +168,6 @@ export function RiachinhoPublicChat() {
     serial.current = 0;
     setMessages([]);
     setQuestion("");
-    setConsent(false);
     setError("");
     inputRef.current?.focus();
   }
@@ -263,10 +262,6 @@ export function RiachinhoPublicChat() {
           </nav>
 
           <form className={s.form} onSubmit={(event) => void submit(event)}>
-            <label className={s.consent}>
-              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-              <span>Autorizo enviar minha pergunta a um provedor de IA. Não incluirei dados pessoais, documentos ou informações pastorais.</span>
-            </label>
             <label className={s.promptLabel} htmlFor={panelId + "-question"}>Sua pergunta</label>
             <textarea id={panelId + "-question"} ref={inputRef} value={question} rows={2}
               maxLength={1800} disabled={sending} onKeyDown={onKeyDown}
@@ -276,6 +271,7 @@ export function RiachinhoPublicChat() {
               <span>{question.length}/1800</span>
               <button type="submit" disabled={!canSend}>{sending ? "Consultando…" : "Enviar pergunta"}</button>
             </div>
+            <p className={s.sendNotice}>Ao enviar, sua pergunta será processada por IA. Não compartilhe dados pessoais ou informações confidenciais.</p>
           </form>
           <details className={s.privacy}>
             <summary>Privacidade e uso responsável</summary>
