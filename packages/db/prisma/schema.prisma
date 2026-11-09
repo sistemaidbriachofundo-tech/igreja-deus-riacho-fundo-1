@@ -113,6 +113,7 @@ model Organization {
   pastoralRetentionPolicies PastoralRetentionPolicy[]
   churchAssets ChurchAsset[]
   pushDeviceTokens PushDeviceToken[]
+  ministryMemberships MinistryMembership[]
   @@map("organizations")
 }
 
@@ -169,6 +170,7 @@ model Church {
   churchAssets ChurchAsset[]
   pushDeviceTokens PushDeviceToken[]
   @@unique([organizationId, slug])
+  ministryMemberships MinistryMembership[]
   @@map("churches")
 }
 
@@ -243,6 +245,7 @@ model Person {
   @@index([organizationId, displayName])
   @@index([organizationId, email])
   @@index([legalGuardianPersonId])
+  ministryMemberships MinistryMembership[]
   @@map("persons")
 }
 
@@ -742,8 +745,39 @@ model Ministry {
   @@unique([churchId, slug])
   @@index([organizationId, churchId])
   @@index([churchId, publishStatus, visibility])
+  ministryMemberships MinistryMembership[]
   @@map("ministries")
 }
+
+ 
+/// Vínculo formal de integrantes; não confundir com manifestação de interesse.
+model MinistryMembership {
+  id                  String    @id @default(cuid())
+  organizationId      String    @map("organization_id")
+  churchId            String    @map("church_id")
+  ministryId          String    @map("ministry_id")
+  personId            String    @map("person_id")
+  role                String
+  status              String    @default("ATIVO")
+  source              String    @default("DIRETO")
+  volunteerInterestId String?   @map("volunteer_interest_id")
+  startedAt           DateTime  @default(now()) @map("started_at")
+  endedAt             DateTime? @map("ended_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  ministry     Ministry           @relation(fields: [ministryId], references: [id])
+  person       Person             @relation(fields: [personId], references: [id])
+  interest     VolunteerInterest? @relation(fields: [volunteerInterestId], references: [id])
+
+  @@unique([ministryId, personId])
+  @@index([organizationId, churchId, ministryId])
+  @@index([personId])
+  @@map("ministry_memberships")
+}
+
 
 /// Eventos do portal + fatia inscrição RF-020/021 (modalidades/lotes/check-in/pagamento mock).
 /// RF-022 hospedagem/alimentação/transporte permanece fora desta fatia.
@@ -1187,6 +1221,7 @@ model VolunteerInterest {
   @@index([organizationId, churchId])
   @@index([ministryId, stage, status])
   @@index([email])
+  ministryMemberships MinistryMembership[]
   @@map("volunteer_interests")
 }
 
