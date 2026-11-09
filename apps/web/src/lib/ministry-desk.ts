@@ -94,6 +94,14 @@ export type ConversionResult = {
   member: FormalMember | null;
 };
 
+export type MembershipChange = {
+  applied: boolean;
+  status: number;
+  code: string;
+  message: string;
+  member: FormalMember | null;
+};
+
 type FetchLike = (
   input: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string },
@@ -318,6 +326,41 @@ export function interpretConversion(status: number, body: unknown): ConversionRe
   return { created: false, status, code, message, member: null };
 }
 
+/** 200/201 só contam quando o corpo passa no contrato formal e não vem bloqueado. */
+export function interpretMembershipChange(status: number, body: unknown): MembershipChange {
+  const record = asRecord(body);
+  const wrapped = record?.createdMembership ?? record?.member;
+  const accepted =
+    status === 200 || status === 201
+      ? acceptFormalMembers({
+          blocked: record?.blocked === true,
+          members: wrapped ? [wrapped] : [],
+        })
+      : null;
+  const member = accepted?.[0] ?? null;
+  if (member && record?.blocked !== true) {
+    const auditId = textOf(record?.auditId);
+    const message = readMessage(body, "O cadastro formal registrou a alteração.");
+    return {
+      applied: true,
+      status,
+      code: readCode(body, "MINISTRY_MEMBERSHIP_CREATED"),
+      message: auditId ? `${message} Auditoria ${auditId}.` : message,
+      member,
+    };
+  }
+  return {
+    applied: false,
+    status,
+    code: readCode(
+      body,
+      status === 403 ? "MINISTRY_SCOPE_FORBIDDEN" : "MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED",
+    ),
+    message: readMessage(body, "Nenhuma alteração foi gravada no vínculo formal."),
+    member: null,
+  };
+}
+
 async function requestJson(
   fetchImpl: FetchLike,
   url: string,
@@ -434,4 +477,42 @@ export async function requestInterestConversion(options: {
     { volunteerInterestId: options.volunteerInterestId },
   );
   return interpretConversion(response.status, response.body);
+}
+
+export async function requestFormalAdmission(options: {
+  token: string;
+  baseUrl: string;
+  ministryId: string;
+  personId: string;
+  role: FormalRole;
+  fetchImpl?: FetchLike;
+}): Promise<MembershipChange> {
+  const fetchImpl = options.fetchImpl ?? (fetch as unknown as FetchLike);
+  const base = options.baseUrl.replace(/\/$/, "");
+  const response = await requestJson(
+    fetchImpl,
+    `${base}/ministry-scope/${encodeURIComponent(options.ministryId)}/formal-memberships`,
+    options.token,
+    "POST",
+    { personId: options.personId, role: options.role },
+  );
+  return interpretMembershipChange(response.status, response.body);
+}
+
+export async function requestFormalEnd(options: {
+  token: string;
+  baseUrl: string;
+  ministryId: string;
+  membershipId: string;
+  fetchImpl?: FetchLike;
+}): Promise<MembershipChange> {
+  const fetchImpl = options.fetchImpl ?? (fetch as unknown as FetchLike);
+  const base = options.baseUrl.replace(/\/$/, "");
+  const response = await requestJson(
+    fetchImpl,
+    `${base}/ministry-scope/${encodeURIComponent(options.ministryId)}/formal-memberships/${encodeURIComponent(options.membershipId)}/end`,
+    options.token,
+    "POST",
+  );
+  return interpretMembershipChange(response.status, response.body);
 }

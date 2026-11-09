@@ -1,9 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { canManageSpecificMinistry } from "@idbrf/shared";
 import type { AuthUser } from "../../auth/types/auth-user";
@@ -14,52 +17,124 @@ import {
   MINISTRY_AGENDA_MODEL_BLOCKED,
   MINISTRY_FINANCE_CONTRACT_BLOCKED,
   MINISTRY_INTEREST_CONVERSION_BLOCKED,
+  MINISTRY_INTEREST_NOT_IN_SCOPE,
+  MINISTRY_INTEREST_WITHOUT_PERSON,
+  MINISTRY_MEMBERSHIP_ALREADY_ACTIVE,
+  MINISTRY_MEMBERSHIP_ALREADY_ENDED,
+  MINISTRY_MEMBERSHIP_NOT_IN_SCOPE,
+  MINISTRY_MEMBERSHIP_PERSIST_REJECTED,
+  MINISTRY_MEMBERSHIP_READY,
   MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED,
   MINISTRY_REQUEST_MODEL_BLOCKED,
   MINISTRY_SCOPE_FORBIDDEN,
+  PERSON_NOT_IN_MINISTRY_SCOPE,
 } from "./ministry-membership.contract";
+import { isFormalRole, type MembershipScope } from "./ministry-membership.model";
+import type { MinistryMembershipRepository } from "./ministry-membership.repository";
+import {
+  assertRepositoryCompatible,
+  PrismaMinistryMembershipRepository,
+} from "./prisma-ministry-membership.repository";
+import { MinistryTeamService, type TeamWrite } from "./ministry-team.service";
 
 /**
- * Porta de escopo do vínculo formal.
- * Não lê volunteer_interests, não escreve pessoa e não consulta o ledger.
- * Sem tabela MinistryMembership, o escopo autorizado termina em 501.
+ * Porta HTTP do vínculo formal.
+ * Confere org/igreja/ministério antes de qualquer leitura.
+ * Sem a tabela ministry_memberships, o escopo autorizado termina em 501.
  */
 @Injectable()
 export class MinistryMembershipGateService {
+  private readonly team: MinistryTeamService;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
-  ) {}
-
-  async readMemberships(actor: AuthUser, ministryId: string) {
-    await this.assertScope(actor, ministryId);
-    this.blocked(MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED, {
-      dependency: "schema.prisma",
-      issue: 97,
-      members: null,
-      message:
-        "O cadastro formal de integrante ainda não tem tabela. Interesse de voluntariado não ocupa este lugar.",
-    });
+    repository?: MinistryMembershipRepository,
+  ) {
+    const store =
+      repository ??
+      new PrismaMinistryMembershipRepository(assertRepositoryCompatible(prisma));
+    this.team = new MinistryTeamService(store);
   }
 
-  async convertInterest(
-    actor: AuthUser,
-    ministryId: string,
-    volunteerInterestId: string,
-  ) {
-    await this.assertScope(actor, ministryId);
+  async readMemberships(actor: AuthUser, ministryId: string) {
+    const scope = await this.scope(actor, ministryId);
+    const result = await this.team.read(scope);
+    if (result.outcome === "schema_blocked") {
+      this.blocked(MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED, {
+        dependency: "schema.prisma",
+        issue: 97,
+        members: null,
+        message:
+          "O cadastro formal de integrante ainda não tem tabela. Interesse de voluntariado não ocupa este lugar.",
+      });
+    }
+    return {
+      blocked: false,
+      code: MINISTRY_MEMBERSHIP_READY,
+      members: result.members,
+    };
+  }
+
+  async admit(actor: AuthUser, ministryId: string, personId: string, role: string) {
+    const scope = await this.scope(actor, ministryId);
+    if (!personId?.trim() || !isFormalRole(role)) {
+      throw new BadRequestException("personId e role formal são obrigatórios");
+    }
+    const result = await this.team.admit(scope, actor.userId, personId, role);
+    const body = this.written(result, MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED, {
+      createdMembership: null,
+      message:
+        "Incluir integrante ainda não persiste. A tabela ministry_memberships não existe.",
+    });
+    if (!("createdMembership" in body)) {
+      throw new ConflictException({
+        code: MINISTRY_MEMBERSHIP_PERSIST_REJECTED,
+        message: "O vínculo não foi gravado neste escopo.",
+      });
+    }
+    return body;
+  }
+
+  async convertInterest(actor: AuthUser, ministryId: string, volunteerInterestId: string) {
+    const scope = await this.scope(actor, ministryId);
     const interestId = volunteerInterestId?.trim();
     if (!interestId) {
       throw new BadRequestException("volunteerInterestId é obrigatório");
     }
-    this.blocked(MINISTRY_INTEREST_CONVERSION_BLOCKED, {
-      dependency: "schema.prisma",
-      issue: 97,
+    const result = await this.team.convert(scope, actor.userId, interestId);
+    const body = this.written(result, MINISTRY_INTEREST_CONVERSION_BLOCKED, {
       volunteerInterestId: interestId,
       createdMembership: null,
       message:
         "Converter interesse em integrante é uma ação separada e ainda não persiste. A etapa do voluntariado não cria vínculo.",
     });
+    if (!("createdMembership" in body)) {
+      throw new ConflictException({
+        code: MINISTRY_MEMBERSHIP_PERSIST_REJECTED,
+        message: "O vínculo não foi gravado neste escopo.",
+      });
+    }
+    return body;
+  }
+
+  async endMembership(actor: AuthUser, ministryId: string, membershipId: string) {
+    const scope = await this.scope(actor, ministryId);
+    if (!membershipId?.trim()) {
+      throw new BadRequestException("membershipId é obrigatório");
+    }
+    const result = await this.team.end(scope, actor.userId, membershipId);
+    const body = this.written(result, MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED, {
+      member: null,
+      message: "Encerrar vínculo ainda não persiste. A tabela ministry_memberships não existe.",
+    });
+    if (!("member" in body)) {
+      throw new ConflictException({
+        code: MINISTRY_MEMBERSHIP_PERSIST_REJECTED,
+        message: "O vínculo não foi gravado neste escopo.",
+      });
+    }
+    return body;
   }
 
   async readAgenda(actor: AuthUser, ministryId: string) {
@@ -80,8 +155,7 @@ export class MinistryMembershipGateService {
       dependency: "schema.prisma",
       issue: 97,
       requests: null,
-      message:
-        "Solicitações do ministério ainda não têm modelo. Nenhuma fila foi inventada.",
+      message: "Solicitações do ministério ainda não têm modelo. Nenhuma fila foi inventada.",
     });
   }
 
@@ -94,6 +168,15 @@ export class MinistryMembershipGateService {
       message:
         "O saldo do centro de custo ministerial depende do contrato financeiro. Nenhum valor foi calculado.",
     });
+  }
+
+  private async scope(actor: AuthUser, ministryId: string): Promise<MembershipScope> {
+    const ministry = await this.assertScope(actor, ministryId);
+    return {
+      organizationId: ministry.organizationId,
+      churchId: ministry.churchId,
+      ministryId: ministry.id,
+    };
   }
 
   private async assertScope(actor: AuthUser, ministryId: string) {
@@ -119,6 +202,82 @@ export class MinistryMembershipGateService {
       });
     }
     return ministry;
+  }
+
+  private written(
+    result: TeamWrite,
+    blockedCode: string,
+    blockedBody: Record<string, unknown>,
+  ) {
+    if (result.outcome === "schema_blocked") {
+      this.blocked(blockedCode, {
+        dependency: "schema.prisma",
+        issue: 97,
+        ...blockedBody,
+      });
+    }
+    if (result.outcome === "created" || result.outcome === "reactivated") {
+      return {
+        blocked: false,
+        code: result.outcome === "created" ? "MINISTRY_MEMBERSHIP_CREATED" : "MINISTRY_MEMBERSHIP_REACTIVATED",
+        createdMembership: result.member,
+        auditId: result.auditId,
+      };
+    }
+    if (result.outcome === "ended") {
+      return {
+        blocked: false,
+        code: "MINISTRY_MEMBERSHIP_ENDED",
+        member: result.member,
+        auditId: result.auditId,
+      };
+    }
+    if (result.outcome === "conflict") {
+      throw new ConflictException({
+        code: MINISTRY_MEMBERSHIP_ALREADY_ACTIVE,
+        message: "Esta pessoa já possui vínculo aberto neste ministério.",
+      });
+    }
+    if (result.outcome === "already_ended") {
+      throw new ConflictException({
+        code: MINISTRY_MEMBERSHIP_ALREADY_ENDED,
+        message: "Este vínculo já está encerrado.",
+      });
+    }
+    if (result.outcome === "not_found") {
+      throw new NotFoundException({
+        code: MINISTRY_MEMBERSHIP_NOT_IN_SCOPE,
+        message: "Vínculo não encontrado neste ministério.",
+      });
+    }
+    if (result.outcome === "person_not_in_scope") {
+      throw new NotFoundException({
+        code: PERSON_NOT_IN_MINISTRY_SCOPE,
+        message: "Pessoa não encontrada neste escopo.",
+      });
+    }
+    if (result.outcome === "interest_not_found" || result.outcome === "interest_other_ministry") {
+      throw new NotFoundException({
+        code: MINISTRY_INTEREST_NOT_IN_SCOPE,
+        createdMembership: null,
+        message: "Interesse não encontrado neste ministério.",
+      });
+    }
+    if (result.outcome === "interest_without_person") {
+      throw new UnprocessableEntityException({
+        code: MINISTRY_INTEREST_WITHOUT_PERSON,
+        createdMembership: null,
+        message:
+          "O interesse não está ligado a uma pessoa deste escopo. Nenhum integrante foi criado.",
+      });
+    }
+    if (result.outcome === "invalid_role") {
+      throw new BadRequestException("personId e role formal são obrigatórios");
+    }
+    throw new ConflictException({
+      code: MINISTRY_MEMBERSHIP_PERSIST_REJECTED,
+      message: "O vínculo não foi gravado neste escopo.",
+    });
   }
 
   private blocked(code: string, body: Record<string, unknown>): never {

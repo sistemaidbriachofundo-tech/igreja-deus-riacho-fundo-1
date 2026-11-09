@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function MinisteriosFormaisPage() {
-  return <AppShell active="ministerios" meta="Vínculo de ministério · indisponível para gravação"><MinistryDeskPage /></AppShell>;
+  return <AppShell active="ministerios" meta="Vínculo de ministério · a API confirma se a gravação está disponível"><MinistryDeskPage /></AppShell>;
 }
