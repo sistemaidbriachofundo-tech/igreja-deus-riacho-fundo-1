@@ -1,0 +1,254 @@
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-bronze);
+}
+
+.top h1 {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-title);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: -0.03em;
+}
+
+.lead {
+  margin: 0.4rem 0 0;
+  max-width: 42rem;
+  color: var(--color-ink-muted);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.nav a,
+.ghost,
+.primary,
+.danger {
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.nav a,
+.ghost {
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  padding: 0.55rem 0.8rem;
+  text-decoration: none;
+}
+
+.nav a[aria-current="page"] {
+  background: var(--color-marrom);
+  color: var(--color-on-dark);
+  border-color: var(--color-marrom);
+}
+
+.nav a:focus-visible,
+.ghost:focus-visible,
+.primary:focus-visible,
+.danger:focus-visible,
+.field:focus-visible {
+  outline: 3px solid var(--color-dourado);
+  outline-offset: 2px;
+}
+
+.primary,
+.danger {
+  border: 0;
+  color: var(--color-on-dark);
+  background: var(--color-marrom);
+  padding: 0.65rem 0.9rem;
+}
+
+.danger {
+  background: var(--color-terracota);
+}
+
+.ghost {
+  background: transparent;
+}
+
+.primary:disabled,
+.danger:disabled,
+.ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.card,
+.roster,
+.blocked,
+.notice,
+.conflict {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+}
+
+.card,
+.roster,
+.blocked {
+  padding: 1rem 1.1rem;
+}
+
+.notice,
+.conflict,
+.blocked {
+  padding: 0.85rem 1rem;
+}
+
+.notice {
+  background: color-mix(in srgb, var(--color-dourado) 18%, white);
+}
+
+.conflict,
+.blocked {
+  background: color-mix(in srgb, var(--color-terracota) 10%, white);
+}
+
+.blocked h2,
+.card h2,
+.roster h3 {
+  font-family: var(--font-title);
+  margin: 0 0 0.35rem;
+}
+
+.blocked ul,
+.meta {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--color-ink-muted);
+}
+
+.schedule {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.rosterHeader,
+.slotHeader,
+.assignment,
+.formRow,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slot {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.badge {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-creme) 70%, var(--color-dourado));
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.person {
+  font-variant-numeric: tabular-nums;
+}
+
+.form {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.form .check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-creme);
+  color: var(--color-ink);
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.check input {
+  accent-color: var(--color-marrom);
+  width: 1rem;
+  height: 1rem;
+}
+
+.actions {
+  justify-content: flex-start;
+}
+
+.footnote {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.85rem;
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding-inline: 1.5rem;
+  }
+
+  .formGrid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr auto;
+    gap: 0.8rem;
+    align-items: end;
+  }
+}
+
+@media (min-width: 1440px) {
+  .page {
+    max-width: 76rem;
+  }
+}
