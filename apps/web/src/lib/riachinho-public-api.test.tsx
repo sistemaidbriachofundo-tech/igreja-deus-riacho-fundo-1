@@ -77,7 +77,7 @@ describe("Riachinho — visitor chat", () => {
       process.env.NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED = "true";
       process.env.NEXT_PUBLIC_API_URL = "https://id-riacho1-api-hml.vercel.app";
       const html = renderToStaticMarkup(<RiachinhoPublicChat/>);
-      expect(html).toContain("Pergunte ao Riachinho");
+      expect(html).toContain("Conversar com o Riachinho");
       expect(html).toContain("aria-expanded");
       expect(html).not.toContain("GEMINI_API_KEY");
       expect(html).not.toContain("Bearer ");
