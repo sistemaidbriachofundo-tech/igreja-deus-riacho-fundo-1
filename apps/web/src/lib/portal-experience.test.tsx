@@ -17,11 +17,11 @@ describe("portal v3+ — camadas de experiência", () => {
     const html = renderToStaticMarkup(<PortalCinematicHero />);
     expect(html).toContain("Sua jornada com Deus");
     expect(html).toContain("pode começar aqui.");
-    expect(html).toContain("Quero visitar");
+    expect(html).toContain("Quem somos");
+    expect(html).not.toContain("Quero visitar");
     expect(html).toContain("Ver agenda");
-    expect(html).toContain('aria-label="Explorar os cinco ministérios"');
-    expect(html.match(/aria-label="Conhecer ministério /g)).toHaveLength(5);
-    expect(html).toContain("ACOLHER &amp; SERVIR");
+    expect(html).not.toContain('aria-label="Explorar os cinco ministérios"');
+    expect(html).not.toContain('href="/ministerios');
     expect(html).not.toContain("Culto de Celebração");
   });
 
@@ -41,22 +41,28 @@ describe("portal v3+ — camadas de experiência", () => {
     const desktop = renderToStaticMarkup(<PortalDesktopNavigation />);
     expect(html).toContain("Planejar visita");
     expect(html).toContain('href="/visita"');
-    expect(desktop).toContain('aria-label="Navegação principal"');
+    expect(desktop).toContain('aria-label="Navegação do site público"');
     expect(desktop).toContain("Quem somos");
-    expect(desktop).toContain("Atmosfera");
+    expect(desktop).toContain("Início");
+    expect(desktop).toContain("Agenda");
+    expect(desktop).not.toContain("Ministérios");
+    expect(desktop).not.toContain("Novidades");
   });
 
-  it("mostra Login antes de Participe conosco no cabeçalho e oferece acesso no celular", () => {
+  it("mostra apenas Login no cabeçalho, sem chamadas comerciais e sem ministérios públicos", () => {
     const header = renderToStaticMarkup(<PortalHeader />);
     const mobile = renderToStaticMarkup(<MobilePortalMenu links={[]} />);
     const footer = renderToStaticMarkup(<PortalFooter />);
     const loginPos = header.indexOf(">Login</a>");
     const ctaPos = header.indexOf("Participe conosco");
     expect(loginPos).toBeGreaterThan(-1);
-    expect(ctaPos).toBeGreaterThan(loginPos);
+    expect(ctaPos).toBe(-1);
+    expect(header).not.toContain("/ministerios");
+    expect(header).not.toContain("Primeira visita");
     expect(header).toContain('href="/login');
     expect(header).toContain("abrir tela de e-mail e senha");
-    expect(mobile).toContain("Login · Entrar com e-mail e senha");
+    expect(mobile).toContain("Login");
+    expect(mobile).not.toContain("Ministérios");
     expect(footer).toContain(">Login</a>");
   });
 
@@ -68,10 +74,13 @@ describe("portal v3+ — camadas de experiência", () => {
   });
 
   it("preserva a navegação mobile acessível e permite fechamento ao navegar", () => {
-    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/visita/", label: "Primeira Visita" }]} />);
-    expect(html).toContain('aria-label="Menu mobile"');
-    expect(html).toContain("Primeira Visita");
-    expect(html).toContain("Abrir menu de navegação");
+    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/", label: "Início" },{ href: "/a-igreja/", label: "Quem somos" },{ href: "/eventos/", label: "Agenda" }]} />);
+    expect(html).toContain('aria-label="Navegação do site público no celular"');
+    expect(html).toContain("Quem somos");
+    expect(html).toContain("Agenda");
+    expect(html).toContain("Login");
+    expect(html).not.toContain("Primeira visita");
+    expect(html).toContain("Abrir menu");
   });
 
   it("navega entre seções públicas por âncoras reais", () => {
