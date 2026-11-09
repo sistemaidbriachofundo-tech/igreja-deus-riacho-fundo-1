@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsString, MinLength } from "class-validator";
+import { IsIn, IsString, MinLength } from "class-validator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { Roles } from "../../auth/decorators/roles.decorator";
 import type { AuthUser } from "../../auth/types/auth-user";
@@ -10,6 +10,16 @@ class ConvertInterestBody {
   @IsString()
   @MinLength(1)
   volunteerInterestId!: string;
+}
+
+class AdmitMemberBody {
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsString()
+  @IsIn(["LIDER", "COORDENADOR", "INTEGRANTE", "APOIO"])
+  role!: string;
 }
 
 const SCOPE_ROLES = [
@@ -32,13 +42,33 @@ export class MinistryScopeController {
     return this.gate.readMemberships(user, ministryId);
   }
 
+  @Post(":ministryId/formal-memberships")
+  @HttpCode(201)
+  admit(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Body() body: AdmitMemberBody,
+  ) {
+    return this.gate.admit(user, ministryId, body.personId, body.role);
+  }
+
   @Post(":ministryId/formal-memberships/from-interest")
+  @HttpCode(201)
   convert(
     @CurrentUser() user: AuthUser,
     @Param("ministryId") ministryId: string,
     @Body() body: ConvertInterestBody,
   ) {
     return this.gate.convertInterest(user, ministryId, body.volunteerInterestId);
+  }
+
+  @Post(":ministryId/formal-memberships/:membershipId/end")
+  end(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("membershipId") membershipId: string,
+  ) {
+    return this.gate.endMembership(user, ministryId, membershipId);
   }
 
   @Get(":ministryId/agenda")
