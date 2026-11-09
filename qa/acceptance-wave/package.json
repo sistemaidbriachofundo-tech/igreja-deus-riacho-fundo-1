@@ -1,0 +1,14 @@
+{
+  "name": "@idbrf/qa-acceptance-wave",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smoke de aceitação da onda 0 sobre a árvore temporária. Não altera código de produto.",
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test src/report.test.mjs src/merge-tree.test.mjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
