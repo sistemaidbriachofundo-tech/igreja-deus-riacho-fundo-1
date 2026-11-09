@@ -18,12 +18,15 @@ const appShell = read("components/AppShell.tsx");
 describe("portal público da igreja", () => {
   it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
     expect(home).toContain("<PortalCinematicHero");
+    expect(home).toContain("<PublishedAgenda");
+    expect(home).not.toContain("<MinisterioEmFoco");
+    expect(home).not.toContain("<FirstVisitFeature");
     expect(home).not.toContain("<PortalJourney />");
     expect(read("lib/site-layout.ts")).toContain("Sua jornada com Deus");
     expect(read("components/PortalCinematicHero.tsx")).toContain("site.hero.title");
     expect(read("components/PortalCinematicHero.tsx")).toContain("Quero visitar");
-    expect(home).toContain("<MinisterioEmFoco");
-    expect(shell).toContain("Quero conhecer a igreja");
+    expect(home).toContain("Uma comunidade de fé");
+    expect(shell).toContain("Gestão interna de equipes");
     expect(home).not.toContain("Abrir sistema");
     expect(home).not.toContain('href="/app/membros/"');
     expect(shell).toContain('>Login</Link>');
@@ -55,7 +58,7 @@ describe("portal público da igreja", () => {
     expect(agenda).toContain("<PublishedAgenda");
     expect(agenda).not.toContain("events={events}");
     expect(agenda).not.toContain("Eventos demonstrativos");
-    expect(home).toContain("<FirstVisitFeature");
+    expect(home).toContain('href="/a-igreja/"');
     expect(home).not.toContain("events.slice");
     expect(home).not.toContain("Próximos encontros");
     expect(ministryPage).toContain('"/visita/?ministerio=" + ministry.slug');
