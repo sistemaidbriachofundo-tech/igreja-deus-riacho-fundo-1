@@ -23,10 +23,11 @@ Na raiz do repositório, com Node 22 (`.nvmrc` e a CI):
 
 ```bash
 npm ci
+npm run build -w @idbrf/shared
 npm run test -w @idbrf/web
 ```
 
-O script do workspace é `vitest run --passWithNoTests`.
+O script do workspace é `vitest run --passWithNoTests`. O build de `@idbrf/shared` é necessário porque o pacote expõe `./dist` e `src/lib/brand.test.ts` importa `@idbrf/shared`. Sem esse build, o Vitest não resolve o entry do pacote. A CI faz o mesmo build antes de `npm run test`.
 
 O job `test` em `.github/workflows/ci.yml` executa `npm run test` na raiz. Esse comando inclui `@idbrf/web` e os outros workspaces, depois do build de `@idbrf/shared` e `@idbrf/db` e de `prisma migrate deploy` em Postgres. Para repetir só o frontend, o comando do workspace acima basta e não exige banco.
 
