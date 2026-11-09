@@ -93,3 +93,45 @@
 @media(max-width:440px){.headerControls{gap:7px}.headerLogin{font-size:10px;padding:8px 3px}}
 @media(max-width:350px){.masthead .brand>span{display:none}.masthead .brand{min-width:0}.mastheadInner{gap:8px}}
 @media(prefers-reduced-motion:reduce){.headerLogin{transition:none}}
+
+/* Nova navegação pública: quatro opções, sem mega-menu nem botão de visita. */
+.masthead{height:84px}
+.masthead[data-scrolled="true"]{height:70px}
+.mastheadInner{gap:clamp(18px,2.5vw,38px)}
+.desktopNav{gap:clamp(22px,2.7vw,44px)}
+.desktopNav>a{font-size:13px;font-weight:720;letter-spacing:.015em}
+.headerControls{gap:12px}
+.headerLogin{border:1px solid #dfbd84;border-radius:100px;padding:11px 22px;min-height:46px;background:#e8bc7a14;color:#f4dfbb!important;font-weight:800}
+.headerLogin:hover{background:#e8bc7a26!important;color:#fff!important}
+@media(max-width:880px){
+  .desktopNav{display:none}
+  .mobileMenu{display:block}
+  .mastheadInner{justify-content:space-between}
+  .headerControls{margin-left:auto}
+  .masthead{height:74px}
+  .masthead[data-scrolled="true"]{height:68px}
+  .mobileMenuPanel{position:fixed;inset:74px 0 auto auto;max-height:calc(100dvh - 74px);width:min(400px,100vw);padding:29px 25px max(35px,env(safe-area-inset-bottom));background:linear-gradient(170deg,#09262b,#102f33);border-left:1px solid #d8b67d54;border-bottom:1px solid #d8b67d54;border-radius:0 0 0 22px;box-shadow:0 30px 70px #04171db0}
+  .masthead[data-scrolled="true"] .mobileMenuPanel{top:68px;max-height:calc(100dvh - 68px)}
+  .mobileMenuPanel>a{min-height:66px;font-size:24px;letter-spacing:-.03em;padding:16px 2px}
+  .mobileMenuPanel .mobileCategory{margin:0 0 9px;color:#d5bd93;font-size:10px;letter-spacing:.13em}
+  .mobileMenuPanel>a.mobileStaff{font-size:22px;letter-spacing:-.03em;margin-top:12px;padding:15px 2px;border-bottom:0;color:#f0c989}
+  .mobileNote{margin-top:10px;font-size:12px}
+  .mobileMenu>summary{width:44px;height:44px;min-width:44px;min-height:44px;border-radius:14px;padding:9px}
+}
+@media(max-width:600px){
+  .mastheadInner{padding:0 16px;gap:10px}
+  .brand{min-width:0;gap:9px}
+  .brand img{width:40px;height:40px}
+  .brand strong{font-size:10px;letter-spacing:.1em}
+  .brand small{font-size:7px;letter-spacing:.12em;margin-top:3px}
+  .headerLogin{min-height:40px;padding:9px 14px;font-size:12px}
+  .mobileMenuPanel{padding-inline:22px}
+}
+@media(max-width:370px){
+  .mastheadInner{padding:0 12px}
+  .brand img{width:37px;height:37px}
+  .brand strong{font-size:9px}
+  .brand small{font-size:6px}
+  .headerLogin{font-size:11px;padding:9px 11px}
+  .headerControls{gap:7px}
+}
