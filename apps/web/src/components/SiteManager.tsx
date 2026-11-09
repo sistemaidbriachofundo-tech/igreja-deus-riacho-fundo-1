@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
-import { apiLogin, clearToken, getApiBaseUrl, loadStoredToken, storeToken } from "../lib/api";
+import { ApiRequestError, apiLogin, clearToken, getApiBaseUrl, isInvalidSession, loadStoredToken, storeToken } from "../lib/api";
 import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
 import { defaultSiteLayout, parseSiteLayout, sectionNames, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
 import { withBasePath } from "../lib/paths";
@@ -28,7 +28,7 @@ async function siteRequest<T>(token:string,path:string,method:"GET"|"PATCH"|"POS
     body:body===undefined?undefined:JSON.stringify(body),
   });
   if(!r.ok){
-    if(r.status===401)throw new Error("Sessão expirada. Entre novamente.");
+    if(r.status===401)throw new ApiRequestError("Sessão expirada. Entre novamente.", 401, "unauthorized");
     if(r.status===403)throw new Error("Seu perfil não tem autorização para gerenciar o site.");
     if(r.status===409)throw new Error("Outra pessoa alterou esta página. Atualize antes de salvar.");
     throw new Error("Não foi possível concluir a operação ("+r.status+").");
@@ -68,7 +68,12 @@ export function SiteManager() {
     if(!saved){setChecking(false);return;}
     let cancelled=false;
     void refresh(saved).then(()=>{if(!cancelled)setToken(saved);})
-      .catch(err=>{if(!cancelled){setError(err instanceof Error?err.message:"Falha no acesso.");clearToken();}})
+      .catch(err=>{
+        if(cancelled)return;
+        setError(err instanceof Error?err.message:"Falha no acesso.");
+        if(isInvalidSession(err))clearToken();
+        else setToken(saved);
+      })
       .finally(()=>{if(!cancelled)setChecking(false);});
     return()=>{cancelled=true;};
   },[refresh]);

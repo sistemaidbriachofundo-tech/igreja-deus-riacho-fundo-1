@@ -79,6 +79,7 @@ describe("AuditService", () => {
     );
     const result = await service.listRecent(secretaria, 10);
     expect(result.logs).toHaveLength(1);
+    expect(result.logs[0]?.metadata).toEqual({ ok: true });
     expect(result.scope).toBe("church");
     expect(result.churchId).toBe("church-rf1");
     expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
@@ -136,5 +137,146 @@ describe("AuditService", () => {
     await expect(service.listRecent(member)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+
+  const tesouraria: AuthUser = {
+    userId: "u-tes",
+    personId: "p-tes",
+    email: "tesouraria.sintetica@example.test",
+    organizationId: "org1",
+    churchId: "church-rf1",
+    grants: [
+      {
+        roleCode: "TESOURARIA",
+        organizationId: "org1",
+        churchId: "church-rf1",
+      },
+    ],
+  };
+
+  const sensitiveRow = {
+    ...sampleRow,
+    action: "ledger.entry.create",
+    resourceType: "ledger_entry",
+    resourceId: "entry-sintetico",
+    metadata: {
+      amountCents: 15000,
+      fundId: "fund-sintetico",
+      costCenterId: "cc-sintetico",
+      competenceYear: 2026,
+      competenceMonth: 11,
+      pixKey: "pix.sintetico@example.test",
+      description: "Dizimo sintetico da familia Exemplo",
+      childName: "Menor Sintetico",
+      birthDate: "2014-03-03",
+      prayerRequest: "Pedido sintetico de oracao pela familia Exemplo",
+      apiKey: "sk_test_sintetico_nao_usar",
+      password: "senha-sintetica",
+    },
+  };
+
+  const leakedFragments = [
+    "pix.sintetico@example.test",
+    "Dizimo sintetico da familia Exemplo",
+    "Menor Sintetico",
+    "2014-03-03",
+    "Pedido sintetico de oracao pela familia Exemplo",
+    "sk_test_sintetico_nao_usar",
+    "senha-sintetica",
+    "15000",
+  ];
+
+  it("redacts private metadata for the technical auditor without widening access", async () => {
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([sensitiveRow]),
+      },
+    };
+    const service = new AuditService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const debug = jest.spyOn(console, "debug").mockImplementation(() => {});
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    const info = jest.spyOn(console, "info").mockImplementation(() => {});
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = await service.listRecent(platformAdmin, 20);
+      const asSecretaria = await service.listRecent(secretaria, 20);
+      expect(asSecretaria.logs[0]?.metadata).toEqual(
+        result.logs[0]?.metadata,
+      );
+      expect(result.scope).toBe("church");
+      expect(result.logs[0]).toMatchObject({
+        action: "ledger.entry.create",
+        resourceType: "ledger_entry",
+        resourceId: "entry-sintetico",
+        actorUserId: "u-sec",
+        metadata: {
+          amountCents: "[redacted]",
+          fundId: "fund-sintetico",
+          costCenterId: "cc-sintetico",
+          competenceYear: 2026,
+          competenceMonth: 11,
+          pixKey: "[redacted]",
+          description: "[redacted]",
+          childName: "[redacted]",
+          birthDate: "[redacted]",
+          prayerRequest: "[redacted]",
+          apiKey: "[redacted]",
+          password: "[redacted]",
+        },
+      });
+      const serialized = JSON.stringify(result);
+      for (const fragment of leakedFragments) {
+        expect(serialized).not.toContain(fragment);
+      }
+      for (const spy of [debug, log, info, warn, error]) {
+        expect(spy).not.toHaveBeenCalled();
+      }
+    } finally {
+      debug.mockRestore();
+      log.mockRestore();
+      info.mockRestore();
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it("forbids tesouraria and does not query audit rows", async () => {
+    const findMany = jest.fn();
+    const service = new AuditService(
+      { auditLog: { findMany } } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.listRecent(tesouraria)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(
+      service.listRecent(tesouraria, 50, { scope: "organization" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it("applies the same redaction on organization scope", async () => {
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([sensitiveRow]),
+      },
+    };
+    const service = new AuditService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.listRecent(platformAdmin, 20, {
+      scope: "organization",
+    });
+    expect(result.scope).toBe("organization");
+    const serialized = JSON.stringify(result.logs[0]?.metadata);
+    for (const fragment of leakedFragments) {
+      expect(serialized).not.toContain(fragment);
+    }
+    expect(serialized).toContain("fund-sintetico");
   });
 });

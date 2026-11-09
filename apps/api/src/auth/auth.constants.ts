@@ -22,4 +22,8 @@ export const SCOPE_KEY = "scope";
 export interface RequiredScopeMeta {
   organizationIdParam?: string;
   churchIdParam?: string;
+  ministryIdParam?: string;
 }
+
+/** Metadados opcionais da matriz A3. Sem eles, o guard classifica o path. */
+export const ACCESS_POLICY_KEY = "accessPolicy";

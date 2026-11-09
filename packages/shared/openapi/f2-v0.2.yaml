@@ -613,7 +613,9 @@ components:
           {DRAFT,AWAITING_ORIGIN,AWAITING_DESTINATION}
           (church: fromChurchId OU toChurchId)
         - pastoralOpen = count PastoralCase status ∈ {OPEN,IN_PROGRESS}
-          (contagem operacional de casos — **não** score espiritual)
+          somente para quem tem célula pastoral. Fora isso o campo é omitido
+          (não vai zero no lugar) e `redacted` lista `pastoralOpen`.
+          Contagem operacional — **não** score espiritual.
         - ministriesTotal = count Ministry publishStatus ≠ ARCHIVED
         - ministriesPublished = count Ministry publishStatus=PUBLISHED
         - eventsPublished = count PortalEvent status=PUBLISHED
@@ -636,7 +638,6 @@ components:
             - visitorsActive
             - admissionsOpen
             - transfersOpen
-            - pastoralOpen
             - ministriesTotal
             - ministriesPublished
             - eventsPublished
@@ -658,6 +659,10 @@ components:
             rostersDraft: { type: integer, minimum: 0 }
             rostersPublished: { type: integer, minimum: 0 }
             rosterAssignmentsPending: { type: integer, minimum: 0 }
+        redacted:
+          type: array
+          items: { type: string, enum: [pastoralOpen] }
+          description: Campos omitidos por permissão. Não é status operacional.
 
     IndicatorsMembership:
       type: object

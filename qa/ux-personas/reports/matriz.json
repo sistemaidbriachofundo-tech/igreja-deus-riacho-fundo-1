@@ -1,0 +1,432 @@
+{
+  "generatedAt": "2026-11-09T18:28:05.020Z",
+  "base": "http://127.0.0.1:3000",
+  "foundation": "ref lido; componentes ausentes na main",
+  "designSystemHttp": 404,
+  "cases": [
+    {
+      "id": "UX-01",
+      "area": "Portal público",
+      "surface": "Início",
+      "profile": "visitante",
+      "route": "/",
+      "status": "FAIL",
+      "severity": "P1",
+      "reason": "Zoom 200% sobre uma janela de 360 px (largura CSS 180) corta “encontros.”. A página fica 39 px mais larga (scrollWidth 219). Em /eventos/ o excedente é 25 px. Em 320 px CSS não há rolagem horizontal.",
+      "recommendation": "Escurecer #67797E e #697B7E até contraste 4,5 e quebrar o título “encontros.” em 180 px CSS.",
+      "findings": [
+        {
+          "severity": "P1",
+          "viewport": "zoom-200",
+          "message": "Zoom 200% sobre uma janela de 360 px (largura CSS 180) corta “encontros.”. A página fica 39 px mais larga (scrollWidth 219). Em /eventos/ o excedente é 25 px. Em 320 px CSS não há rolagem horizontal.",
+          "recommendation": "Quebrar o título da agenda e separar os valores “Comunhão” e “Serviço”, que se encostam nessa largura."
+        },
+        {
+          "severity": "P1",
+          "viewport": "360",
+          "message": "Contraste 3.98 (#67797E sobre #EDF1EA, 13 px) em “Somente eventos aprovados para divulgação. Datas e locais são apresent”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P1",
+          "viewport": "360",
+          "message": "Contraste 3.72 (#697B7E sobre #E9ECE6, 14 px) em “Os próximos encontros aparecem aqui quando forem confirmados e publica”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P1",
+          "viewport": "768",
+          "message": "Contraste 3.98 (#67797E sobre #EDF1EA, 16 px) em “Somente eventos aprovados para divulgação. Datas e locais são apresent”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 3.74 (#9B7544 sobre #F5F2E9, 11 px) em “01 / QUEM SOMOS”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 1.87 (#FFF9E7 sobre #CFB58D, 10 px) em “FÉ · COMUNHÃO · FAMÍLIA”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 1.48 (#E3DFD0 sobre #CFB58D, 9 px) em “IMAGEM ILUSTRATIVA”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 3.46 (#A07B49 sobre #F5F2E9, 10 px) em “01”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 2.91 (#AF8553 sobre #EDF1EA, 10 px) em “AGENDA PÚBLICA”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 2.79 (#B48850 sobre #EDF1EA, 39 px) em “encontros.”. Limiar 3.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1440",
+          "message": "Contraste 2.79 (#B48850 sobre #EDF1EA, 63 px) em “encontros.”. Limiar 3.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1920",
+          "message": "Contraste 2.79 (#B48850 sobre #EDF1EA, 65 px) em “encontros.”. Limiar 3.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        }
+      ],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-01-360.jpg",
+        "qa/ux-personas/evidence/ux-01-390.jpg",
+        "qa/ux-personas/evidence/ux-01-768.jpg",
+        "qa/ux-personas/evidence/ux-01-1440.jpg",
+        "qa/ux-personas/evidence/ux-01-1920.jpg",
+        "qa/ux-personas/evidence/ux-01-foco.jpg",
+        "qa/ux-personas/evidence/ux-01-zoom-200.jpg",
+        "qa/ux-personas/evidence/ux-01-menu-360.jpg"
+      ],
+      "http": 200,
+      "sample": "Pular para o conteúdo IGREJA DE DEUS RIACHO FUNDO I Início Quem somos Agenda Login ↑ IGREJA DE DEUS • RIACHO FUNDO I Sua jornada com Deus pode começar aqui. Um lugar de acolhimento, fé e propósito para você e sua família. Venha nos conhecer e caminhe com uma comunidade que cresce e serve junta. Quem somos Ver agenda UMA IGREJA PARA DEUS, PELAS FAMÍLIAS Descubra nossa história 01 / QUEM SOMOS Uma comunidade de fé. Uma família em construção. Somos a Igreja de Deus no Riacho Fundo I. Uma comunidade"
+    },
+    {
+      "id": "UX-02",
+      "area": "Portal público",
+      "surface": "Quem somos",
+      "profile": "visitante",
+      "route": "/a-igreja/",
+      "status": "PASS",
+      "severity": "P2",
+      "reason": "",
+      "recommendation": "Os P2 não bloqueiam o fluxo. A correção fica com a frente dona da tela.",
+      "findings": [
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 1.70 (#E8C180 sobre #FFFFFF, 11 px) em “01 / NOSSA ESSÊNCIA”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 1.54 (#E8C180 sobre #F5F4EF, 11 px) em “02 / O QUE NOS MOVE”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 3.34 (#A47F4A sobre #F5F4EF, 11 px) em “01”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        }
+      ],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-02-360.jpg",
+        "qa/ux-personas/evidence/ux-02-1440.jpg"
+      ],
+      "http": 200,
+      "sample": "Pular para o conteúdo IGREJA DE DEUS RIACHO FUNDO I Início Quem somos Agenda Login ↑ INÍCIO / A IGREJA NOSSA COMUNIDADE Mais que uma igreja. Uma família. Um lugar para adorar a Deus, construir amizades e caminhar em fé, com espaço para cada história. VER AGENDA ↗ IMAGEM ILUSTRATIVA 01 / NOSSA ESSÊNCIA Gente de verdade. Fé vivida. A igreja é feita de pessoas e de histórias. Queremos receber quem chega com amor e cuidado, fortalecer famílias e construir conexões que vão além dos encontros. Esta é "
+    },
+    {
+      "id": "UX-03",
+      "area": "Portal público",
+      "surface": "Agenda e estado vazio",
+      "profile": "visitante",
+      "route": "/eventos/",
+      "status": "FAIL",
+      "severity": "P1",
+      "reason": "Zoom 200% sobre uma janela de 360 px (largura CSS 180) corta “encontros.”. A página fica 39 px mais larga (scrollWidth 219). Em /eventos/ o excedente é 25 px. Em 320 px CSS não há rolagem horizontal.",
+      "recommendation": "Escurecer #67797E e #697B7E até contraste 4,5 e quebrar o título “encontros.” em 180 px CSS.",
+      "findings": [
+        {
+          "severity": "P1",
+          "viewport": "zoom-200",
+          "message": "Zoom 200% sobre uma janela de 360 px (largura CSS 180) corta “encontros.”. A página fica 39 px mais larga (scrollWidth 219). Em /eventos/ o excedente é 25 px. Em 320 px CSS não há rolagem horizontal.",
+          "recommendation": "Quebrar o título da agenda e separar os valores “Comunhão” e “Serviço”, que se encostam nessa largura."
+        },
+        {
+          "severity": "P1",
+          "viewport": "360",
+          "message": "Contraste 4.24 (#67797E sobre #F7F7F3, 13 px) em “Somente eventos aprovados para divulgação. Datas e locais são apresent”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P1",
+          "viewport": "360",
+          "message": "Contraste 3.72 (#697B7E sobre #E9ECE6, 14 px) em “Os próximos encontros aparecem aqui quando forem confirmados e publica”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P1",
+          "viewport": "768",
+          "message": "Contraste 4.24 (#67797E sobre #F7F7F3, 16 px) em “Somente eventos aprovados para divulgação. Datas e locais são apresent”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 3.10 (#AF8553 sobre #F7F7F3, 10 px) em “AGENDA PÚBLICA”. Limiar 4.5.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Contraste 2.97 (#B48850 sobre #F7F7F3, 39 px) em “encontros.”. Limiar 3.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1440",
+          "message": "Contraste 2.97 (#B48850 sobre #F7F7F3, 63 px) em “encontros.”. Limiar 3.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1920",
+          "message": "Contraste 2.97 (#B48850 sobre #F7F7F3, 65 px) em “encontros.”. Limiar 3.",
+          "recommendation": "Trocar a cor do texto por marrom ou creme da paleta, nunca ouro sobre fundo claro."
+        }
+      ],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-03-360.jpg",
+        "qa/ux-personas/evidence/ux-03-1440.jpg",
+        "qa/ux-personas/evidence/ux-01-zoom-200.jpg"
+      ],
+      "http": 200,
+      "sample": "Pular para o conteúdo IGREJA DE DEUS RIACHO FUNDO I Início Quem somos Agenda Login ↑ INÍCIO / AGENDA ENCONTROS E COMUNHÃO Há momentos que nos aproximam. Encontros da comunidade em um só lugar, divulgados depois da confirmação pela igreja. VER PRÓXIMOS ENCONTROS ↓ IMAGEM ILUSTRATIVA AGENDA PÚBLICA Próximos encontros. Somente eventos aprovados para divulgação. Datas e locais são apresentados no fuso de Brasília. ✳ Programação em atualização Os próximos encontros aparecem aqui quando forem confirma",
+      "emptyState": "observado"
+    },
+    {
+      "id": "UX-04",
+      "area": "Login",
+      "surface": "Formulário na publicação (acesso desligado)",
+      "profile": "não autenticado",
+      "route": "/login/",
+      "status": "PASS",
+      "severity": "P2",
+      "reason": "",
+      "recommendation": "Os P2 não bloqueiam o fluxo. A correção fica com a frente dona da tela.",
+      "findings": [
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Formulário na publicação (acesso desligado) a 360 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "390",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Formulário na publicação (acesso desligado) a 390 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "768",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Formulário na publicação (acesso desligado) a 768 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1440",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Formulário na publicação (acesso desligado) a 1440 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1920",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Formulário na publicação (acesso desligado) a 1920 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        }
+      ],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-04-360.jpg",
+        "qa/ux-personas/evidence/ux-04-390.jpg",
+        "qa/ux-personas/evidence/ux-04-768.jpg",
+        "qa/ux-personas/evidence/ux-04-1440.jpg",
+        "qa/ux-personas/evidence/ux-04-1920.jpg",
+        "qa/ux-personas/evidence/ux-04-foco.jpg",
+        "qa/ux-personas/evidence/ux-04-zoom-200.jpg"
+      ],
+      "http": 200,
+      "sample": "← Voltar ao site da igreja IGREJA DE DEUS RIACHO FUNDO I ID RIACHO 1 · PLATAFORMA DE GESTÃO Uma igreja. Um propósito. Uma gestão que cuida. O cuidado com as pessoas também está nos detalhes de como servimos, organizamos e protegemos suas histórias. IGREJA DE DEUS · FÉ, COMUNHÃO E SERVIÇO ÁREA RESTRITA 01 / ACESSO BEM-VINDO AO ID RIACHO 1 Entre na sua conta. Use seu e-mail e sua senha para acessar o ambiente administrativo. E-mail Senha Mostrar O acesso autenticado ainda não está habilitado nesta"
+    },
+    {
+      "id": "UX-05",
+      "area": "Login",
+      "surface": "Gate de /app e /app/secretaria sem sessão",
+      "profile": "não autenticado",
+      "route": "/app/secretaria/",
+      "status": "PASS",
+      "severity": "P2",
+      "reason": "",
+      "recommendation": "Os P2 não bloqueiam o fluxo. A correção fica com a frente dona da tela.",
+      "findings": [
+        {
+          "severity": "P2",
+          "viewport": "360",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Gate de /app e /app/secretaria sem sessão a 360 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "390",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Gate de /app e /app/secretaria sem sessão a 390 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "768",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Gate de /app e /app/secretaria sem sessão a 768 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1440",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Gate de /app e /app/secretaria sem sessão a 1440 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        },
+        {
+          "severity": "P2",
+          "viewport": "1920",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Gate de /app e /app/secretaria sem sessão a 1920 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        }
+      ],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-05-360.jpg",
+        "qa/ux-personas/evidence/ux-05-1440.jpg"
+      ],
+      "http": 200,
+      "sample": "← Voltar ao site da igreja IGREJA DE DEUS RIACHO FUNDO I ID RIACHO 1 · PLATAFORMA DE GESTÃO Uma igreja. Um propósito. Uma gestão que cuida. O cuidado com as pessoas também está nos detalhes de como servimos, organizamos e protegemos suas histórias. IGREJA DE DEUS · FÉ, COMUNHÃO E SERVIÇO ÁREA RESTRITA 01 / ACESSO BEM-VINDO AO ID RIACHO 1 Entre na sua conta. Use seu e-mail e sua senha para acessar o ambiente administrativo. E-mail Senha Mostrar O acesso autenticado ainda não está habilitado nesta"
+    },
+    {
+      "id": "UX-06",
+      "area": "Login",
+      "surface": "Erro com credencial sintética recusada",
+      "profile": "não autenticado",
+      "route": "/login/",
+      "status": "PASS",
+      "severity": "P2",
+      "reason": "",
+      "recommendation": "Os P2 não bloqueiam o fluxo. A correção fica com a frente dona da tela.",
+      "findings": [
+        {
+          "severity": "P2",
+          "viewport": "390",
+          "message": "Controle \"Mostrar senha\" mede 60×32 px em Erro com credencial sintética recusada a 390 px.",
+          "recommendation": "A fundação #102 pede alvo de 44 px. Este controle fica abaixo disso."
+        }
+      ],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-06-erro-390.jpg",
+        "qa/ux-personas/evidence/ux-06-erro-1440.jpg",
+        "qa/ux-personas/evidence/ux-06-gate-secretaria.jpg"
+      ]
+    },
+    {
+      "id": "UX-07",
+      "area": "HML Secretaria",
+      "surface": "Workspace autenticado de fichas",
+      "profile": "SECRETARIA",
+      "route": "/app/secretaria/",
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "A rota integrada existe, mas o workspace só aparece depois de /auth/me. Esta auditoria não abre sessão, não sobe banco e não usa credencial. O PR #106 (ficha) não está na main.",
+      "recommendation": "A rota integrada existe, mas o workspace só aparece depois de /auth/me. Esta auditoria não abre sessão, não sobe banco e não usa credencial. O PR #106 (ficha) não está na main.",
+      "findings": [],
+      "evidence": []
+    },
+    {
+      "id": "UX-08",
+      "area": "Pastor",
+      "surface": "Dashboard pastoral",
+      "profile": "PASTOR",
+      "route": null,
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "Não há página de dashboard do pastor. Cuidado pastoral está em DasOperations, atrás da sessão, e o próprio painel HML marca essa integração como pendente.",
+      "recommendation": "Não há página de dashboard do pastor. Cuidado pastoral está em DasOperations, atrás da sessão, e o próprio painel HML marca essa integração como pendente.",
+      "findings": [],
+      "evidence": []
+    },
+    {
+      "id": "UX-09",
+      "area": "Admin",
+      "surface": "Dashboard de plataforma",
+      "profile": "PLATFORM_ADMIN",
+      "route": null,
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "Não há rota /app/admin nem painel exclusivo do administrador. O gate de /app é a única superfície integrada sem sessão.",
+      "recommendation": "Não há rota /app/admin nem painel exclusivo do administrador. O gate de /app é a única superfície integrada sem sessão.",
+      "findings": [],
+      "evidence": []
+    },
+    {
+      "id": "UX-10",
+      "area": "Tesouraria",
+      "surface": "Dashboard financeiro",
+      "profile": "TESOURARIA",
+      "route": null,
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "Não há rota de tesouraria. FinanceBoard só entra em /app/operacao depois da sessão. O PR #108 não está integrado e não foi aberto nesta auditoria.",
+      "recommendation": "Não há rota de tesouraria. FinanceBoard só entra em /app/operacao depois da sessão. O PR #108 não está integrado e não foi aberto nesta auditoria.",
+      "findings": [],
+      "evidence": []
+    },
+    {
+      "id": "UX-11",
+      "area": "Líder",
+      "surface": "Dashboard do líder de ministério",
+      "profile": "LIDER_MINISTERIO",
+      "route": null,
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "Não há dashboard do líder. O desvio pós-login para /app/operacao está no código, mas a tela autenticada não foi exercitada.",
+      "recommendation": "Não há dashboard do líder. O desvio pós-login para /app/operacao está no código, mas a tela autenticada não foi exercitada.",
+      "findings": [],
+      "evidence": []
+    },
+    {
+      "id": "UX-12",
+      "area": "Membro",
+      "surface": "Dashboard do membro",
+      "profile": "MEMBRO",
+      "route": null,
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "Não há portal do membro. /app/demo troca de perfil com dados sintéticos locais, porém o layout /app esconde a página atrás do login.",
+      "recommendation": "Não há portal do membro. /app/demo troca de perfil com dados sintéticos locais, porém o layout /app esconde a página atrás do login.",
+      "findings": [],
+      "evidence": []
+    },
+    {
+      "id": "UX-13",
+      "area": "Fundação #102",
+      "surface": "Vitrine /design-system",
+      "profile": "fundação",
+      "route": "/design-system/",
+      "status": "BLOCKED",
+      "severity": null,
+      "reason": "O PR #102 está em rascunho e não faz parte da main. A vitrine e os componentes ui/ não foram copiados para esta branch.",
+      "recommendation": "O PR #102 está em rascunho e não faz parte da main. A vitrine e os componentes ui/ não foram copiados para esta branch.",
+      "findings": [],
+      "evidence": [
+        "qa/ux-personas/evidence/ux-13-ausente-1440.jpg"
+      ]
+    }
+  ],
+  "hmlBase": "http://127.0.0.1:3010"
+}

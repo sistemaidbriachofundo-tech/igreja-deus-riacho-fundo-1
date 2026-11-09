@@ -1,3 +1,4 @@
+import { evaluateAccess } from "./access-policy";
 import { ROLE_CODES, hasAccess, type AuthGrant } from "./rbac";
 import type { ChurchId, OrganizationId } from "./ids";
 import type { MembershipScopeTarget } from "./membership-scope";
@@ -46,18 +47,12 @@ export function canReadAudit(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return (
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    }) ||
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.PLATFORM_ADMIN],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    })
-  );
+  return evaluateAccess(grants, {
+    resource: "audit",
+    action: "read",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  }).allow;
 }
 
 /** Orgs distintas presentes nos grants (null = plataforma → omitido). */

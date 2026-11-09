@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
-import { ROLE_CODES } from "@idbrf/shared";
+import { ROLE_CODES, type PatchPersonRequest } from "@idbrf/shared";
 import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
@@ -17,7 +19,19 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PersonsService } from "./persons.service";
 
-class PatchPersonBody {
+export class PatchPersonBody implements PatchPersonRequest {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  displayName?: string;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsEmail()
+  @MaxLength(254)
+  email?: string | null;
+
   @IsOptional()
   @IsBoolean()
   isMinor?: boolean;
@@ -25,12 +39,28 @@ class PatchPersonBody {
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @IsString()
+  @MinLength(1)
   legalGuardianPersonId?: string | null;
 
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @IsString()
+  @MinLength(1)
   householdId?: string | null;
+
+  @IsOptional()
+  @IsISO8601()
+  expectedUpdatedAt?: string;
+
+  /** Recusado no service: inativação não tem fluxo regulado. */
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  /** Recusado no service: tipo só muda na aprovação pastoral. */
+  @IsOptional()
+  @IsString()
+  kind?: string;
 }
 
 class PersonCandidatesBody {

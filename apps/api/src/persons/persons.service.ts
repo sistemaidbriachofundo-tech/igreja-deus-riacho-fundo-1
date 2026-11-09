@@ -13,8 +13,17 @@ import {
   type PersonPhotoStubDto,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import {
+  collectNameDedupeAlerts,
+  normalizeDisplayName,
+  normalizePersonEmail,
+  parseExpectedUpdatedAt,
+  rejectPersonPatchPolicy,
+  type CadastralPersonPatch,
+} from "./cadastral-patch";
 
 @Injectable()
 export class PersonsService {
@@ -206,6 +215,7 @@ export class PersonsService {
         isMinor: true,
         legalGuardianPersonId: true,
         photoStorageKey: true,
+        updatedAt: true,
       },
     });
     if (!person) {
@@ -214,6 +224,7 @@ export class PersonsService {
     return {
       ...this.toSummary(person),
       legalGuardianPersonId: person.legalGuardianPersonId,
+      ...this.updatedAtField(person.updatedAt),
     };
   }
 
@@ -237,6 +248,7 @@ export class PersonsService {
         householdId: true,
         legalGuardianPersonId: true,
         photoStorageKey: true,
+        updatedAt: true,
         legalGuardian: {
           select: { id: true, displayName: true, email: true },
         },
@@ -257,6 +269,7 @@ export class PersonsService {
             status: true,
             joinedAt: true,
             notes: true,
+            updatedAt: true,
           },
           orderBy: { joinedAt: "desc" },
         },
@@ -293,6 +306,7 @@ export class PersonsService {
         ...this.toSummary(person),
         email: isStaff || actor.personId === person.id ? person.email : null,
         legalGuardianPersonId: person.legalGuardianPersonId,
+        ...this.updatedAtField(person.updatedAt),
       },
       legalGuardian: person.legalGuardian
         ? {
@@ -314,6 +328,7 @@ export class PersonsService {
         status: m.status,
         joinedAt: m.joinedAt.toISOString(),
         notes: isStaff ? m.notes : null,
+        ...this.updatedAtField(m.updatedAt),
       })),
       admissionHistory: person.admissions.map((a) => ({
         id: a.id,
@@ -332,15 +347,7 @@ export class PersonsService {
     };
   }
 
-  async patch(
-    actor: AuthUser,
-    personId: string,
-    input: {
-      isMinor?: boolean;
-      legalGuardianPersonId?: string | null;
-      householdId?: string | null;
-    },
-  ) {
+  async patch(actor: AuthUser, personId: string, input: CadastralPersonPatch) {
     const pilot = await this.pilot.getPilotChurch();
     if (
       !canManageMemberships(actor.grants, {
@@ -350,108 +357,358 @@ export class PersonsService {
     ) {
       throw new ForbiddenException("Sem permissão de secretaria nesta congregação");
     }
+    rejectPersonPatchPolicy(input);
 
-    const person = await this.prisma.person.findFirst({
-      where: { id: personId, organizationId: pilot.organizationId },
-    });
-    if (!person) {
-      throw new NotFoundException("Pessoa não encontrada neste escopo");
-    }
-
-    const data: {
-      isMinor?: boolean;
-      legalGuardianPersonId?: string | null;
-      householdId?: string | null;
-    } = {};
-
-    if (input.isMinor !== undefined) {
-      data.isMinor = input.isMinor;
-    }
-
-    if (input.legalGuardianPersonId !== undefined) {
-      if (input.legalGuardianPersonId === personId) {
-        throw new BadRequestException("Responsável legal não pode ser a própria pessoa");
+    return this.prisma.$transaction(async (tx) => {
+      const person = await tx.person.findFirst({
+        where: { id: personId, organizationId: pilot.organizationId },
+      });
+      if (!person) {
+        throw new NotFoundException("Pessoa não encontrada neste escopo");
       }
-      if (input.legalGuardianPersonId) {
-        const guardian = await this.prisma.person.findFirst({
-          where: {
-            id: input.legalGuardianPersonId,
-            organizationId: pilot.organizationId,
-            isMinor: false,
-          },
-        });
-        if (!guardian) {
-          throw new BadRequestException(
-            "Responsável legal deve ser pessoa adulta existente no piloto",
+
+      if (input.expectedUpdatedAt !== undefined) {
+        const expected = parseExpectedUpdatedAt(input.expectedUpdatedAt);
+        if (
+          !(person.updatedAt instanceof Date) ||
+          person.updatedAt.getTime() !== expected.getTime()
+        ) {
+          throw new BusinessException(
+            "A ficha foi alterada por outra gravação. Reabra antes de salvar.",
+            "PERSON_VERSION_CONFLICT",
+            409,
           );
         }
       }
-      data.legalGuardianPersonId = input.legalGuardianPersonId;
-    }
 
-    if (input.householdId !== undefined) {
-      if (input.householdId) {
-        const hh = await this.prisma.household.findFirst({
-          where: {
-            id: input.householdId,
-            organizationId: pilot.organizationId,
-            churchId: pilot.churchId,
-          },
-        });
-        if (!hh) {
-          throw new NotFoundException("Família não encontrada no piloto");
+      const data: {
+        displayName?: string;
+        email?: string | null;
+        isMinor?: boolean;
+        legalGuardianPersonId?: string | null;
+        householdId?: string | null;
+      } = {};
+
+      if (input.displayName !== undefined) {
+        const displayName = normalizeDisplayName(input.displayName);
+        if (displayName !== person.displayName) {
+          data.displayName = displayName;
         }
       }
-      data.householdId = input.householdId;
-    }
 
-    const nextIsMinor = data.isMinor ?? person.isMinor;
-    const nextGuardian =
-      data.legalGuardianPersonId !== undefined
-        ? data.legalGuardianPersonId
-        : person.legalGuardianPersonId;
-    if (nextIsMinor && !nextGuardian) {
-      throw new BadRequestException(
-        "Menor de idade exige responsável legal (legalGuardianPersonId)",
+      if (input.email !== undefined) {
+        const email = normalizePersonEmail(input.email);
+        if (email !== person.email) {
+          data.email = email;
+        }
+      }
+
+      if (input.isMinor !== undefined && input.isMinor !== person.isMinor) {
+        data.isMinor = input.isMinor;
+      }
+
+      if (input.legalGuardianPersonId !== undefined) {
+        const guardianId = input.legalGuardianPersonId;
+        if (guardianId !== null && guardianId.trim() === "") {
+          throw new BusinessException(
+            "Responsável legal inválido.",
+            "PERSON_GUARDIAN_INVALID",
+            400,
+          );
+        }
+        if (guardianId === personId) {
+          throw new BadRequestException(
+            "Responsável legal não pode ser a própria pessoa",
+          );
+        }
+        if (guardianId) {
+          const guardian = await tx.person.findFirst({
+            where: {
+              id: guardianId,
+              organizationId: pilot.organizationId,
+              isMinor: false,
+            },
+            select: { id: true, legalGuardianPersonId: true },
+          });
+          if (!guardian) {
+            throw new BadRequestException(
+              "Responsável legal deve ser pessoa adulta existente no piloto",
+            );
+          }
+          await this.assertGuardianChain(
+            tx,
+            pilot.organizationId,
+            personId,
+            guardian,
+          );
+        }
+        if (guardianId !== person.legalGuardianPersonId) {
+          data.legalGuardianPersonId = guardianId;
+        }
+      }
+
+      if (input.householdId !== undefined) {
+        if (input.householdId !== null && input.householdId.trim() === "") {
+          throw new BusinessException(
+            "Família inválida.",
+            "PERSON_HOUSEHOLD_INVALID",
+            400,
+          );
+        }
+        if (input.householdId) {
+          const hh = await tx.household.findFirst({
+            where: {
+              id: input.householdId,
+              organizationId: pilot.organizationId,
+              churchId: pilot.churchId,
+            },
+          });
+          if (!hh) {
+            throw new NotFoundException("Família não encontrada no piloto");
+          }
+        }
+        if (input.householdId !== person.householdId) {
+          data.householdId = input.householdId;
+        }
+      }
+
+      const nextIsMinor = data.isMinor ?? person.isMinor;
+      const nextGuardian =
+        data.legalGuardianPersonId !== undefined
+          ? data.legalGuardianPersonId
+          : person.legalGuardianPersonId;
+      if (nextIsMinor && !nextGuardian) {
+        throw new BadRequestException(
+          "Menor de idade exige responsável legal (legalGuardianPersonId)",
+        );
+      }
+
+      if (data.isMinor === true) {
+        const dependents = await tx.person.count({
+          where: {
+            legalGuardianPersonId: personId,
+            organizationId: pilot.organizationId,
+          },
+        });
+        if (dependents > 0) {
+          throw new BusinessException(
+            "Pessoa responsável por outras não pode ser marcada como menor.",
+            "PERSON_HAS_DEPENDENTS",
+            400,
+          );
+        }
+      }
+
+      const fields = Object.keys(data);
+      if (fields.length === 0) {
+        return this.toPatchResult(person, []);
+      }
+
+      if (
+        !(person.updatedAt instanceof Date) ||
+        Number.isNaN(person.updatedAt.getTime())
+      ) {
+        throw new BusinessException(
+          "Concorrência otimista indisponível: a pessoa não tem updatedAt.",
+          "PERSON_VERSION_UNSUPPORTED",
+          409,
+        );
+      }
+
+      const dedupeAlerts = await this.assertPersonDedupe(
+        tx,
+        pilot.organizationId,
+        personId,
+        data.displayName,
+        data.email,
       );
+
+      const written = await tx.person.updateMany({
+        where: {
+          id: personId,
+          organizationId: pilot.organizationId,
+          updatedAt: person.updatedAt,
+        },
+        data,
+      });
+      if (written.count !== 1) {
+        throw new BusinessException(
+          "A ficha foi alterada por outra gravação. Reabra antes de salvar.",
+          "PERSON_VERSION_CONFLICT",
+          409,
+        );
+      }
+
+      const updated = await tx.person.findFirst({
+        where: { id: personId, organizationId: pilot.organizationId },
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+          status: true,
+          householdId: true,
+          kind: true,
+          isMinor: true,
+          legalGuardianPersonId: true,
+          photoStorageKey: true,
+          updatedAt: true,
+        },
+      });
+      if (!updated) {
+        throw new NotFoundException("Pessoa não encontrada neste escopo");
+      }
+
+      const before: { [key: string]: string | boolean | null } = {};
+      const after: { [key: string]: string | boolean | null } = {};
+      for (const field of fields) {
+        before[field] = jsonSnapshot(person[field as keyof typeof person]);
+        after[field] = jsonSnapshot(updated[field as keyof typeof updated]);
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "person.patch",
+          resourceType: "person",
+          resourceId: personId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            fields,
+            before,
+            after,
+            isMinor: updated.isMinor,
+            hasGuardian: Boolean(updated.legalGuardianPersonId),
+            dedupeAlertPersonIds: dedupeAlerts.map((alert) => alert.personId),
+          },
+        },
+      });
+
+      return this.toPatchResult(updated, dedupeAlerts);
+    });
+  }
+
+  private async assertGuardianChain(
+    tx: {
+      person: {
+        findFirst: (args: {
+          where: { id: string; organizationId: string };
+          select: { legalGuardianPersonId: true };
+        }) => Promise<{ legalGuardianPersonId: string | null } | null>;
+      };
+    },
+    organizationId: string,
+    personId: string,
+    guardian: { id: string; legalGuardianPersonId: string | null },
+  ) {
+    let cursor: string | null = guardian.legalGuardianPersonId;
+    const seen = new Set<string>([personId, guardian.id]);
+    for (let depth = 0; depth < 8 && cursor; depth += 1) {
+      if (cursor === personId) {
+        throw new BusinessException(
+          "Responsável legal não pode formar ciclo com esta pessoa.",
+          "PERSON_GUARDIAN_CYCLE",
+          400,
+        );
+      }
+      if (seen.has(cursor)) return;
+      seen.add(cursor);
+      const next = await tx.person.findFirst({
+        where: { id: cursor, organizationId },
+        select: { legalGuardianPersonId: true },
+      });
+      cursor = next?.legalGuardianPersonId ?? null;
+    }
+  }
+
+  private async assertPersonDedupe(
+    tx: {
+      person: {
+        findMany: (args: {
+          where: {
+            organizationId: string;
+            id: { not: string };
+            OR: Array<Record<string, unknown>>;
+          };
+          select: { id: true; displayName: true; email: true };
+          take: number;
+        }) => Promise<
+          Array<{ id: string; displayName: string; email: string | null }>
+        >;
+      };
+    },
+    organizationId: string,
+    personId: string,
+    displayName: string | undefined,
+    email: string | null | undefined,
+  ) {
+    const or: Array<Record<string, unknown>> = [];
+    if (displayName) {
+      or.push({ displayName: { equals: displayName, mode: "insensitive" } });
+    }
+    if (typeof email === "string") {
+      or.push({ email: { equals: email, mode: "insensitive" } });
+    }
+    if (or.length === 0) return [];
+
+    const rows = await tx.person.findMany({
+      where: {
+        organizationId,
+        id: { not: personId },
+        OR: or,
+      },
+      select: { id: true, displayName: true, email: true },
+      take: 20,
+    });
+
+    if (typeof email === "string") {
+      const clash = rows.find(
+        (row) => row.email?.trim().toLowerCase() === email,
+      );
+      if (clash) {
+        throw new BusinessException(
+          "Já existe outra pessoa nesta organização com este e-mail.",
+          "PERSON_EMAIL_DUPLICATE",
+          409,
+        );
+      }
     }
 
-    const updated = await this.prisma.person.update({
-      where: { id: personId },
-      data,
-      select: {
-        id: true,
-        displayName: true,
-        email: true,
-        status: true,
-        householdId: true,
-        kind: true,
-        isMinor: true,
-        legalGuardianPersonId: true,
-        photoStorageKey: true,
-      },
-    });
+    if (!displayName) return [];
+    return collectNameDedupeAlerts(displayName, rows);
+  }
 
-    await this.prisma.auditLog.create({
-      data: {
-        actorUserId: actor.userId,
-        action: "person.patch",
-        resourceType: "person",
-        resourceId: personId,
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        metadata: {
-          fields: Object.keys(data),
-          isMinor: updated.isMinor,
-          hasGuardian: Boolean(updated.legalGuardianPersonId),
-        },
-      },
-    });
-
+  private toPatchResult(
+    person: {
+      id: string;
+      displayName: string;
+      email: string | null;
+      status: string;
+      householdId: string | null;
+      kind: string;
+      isMinor: boolean;
+      legalGuardianPersonId: string | null;
+      photoStorageKey?: string | null;
+      updatedAt?: Date;
+    },
+    dedupeAlerts: Array<{
+      personId: string;
+      matchReasons: ["normalizedDisplayName"];
+    }>,
+  ) {
     return {
-      ...this.toSummary(updated),
-      legalGuardianPersonId: updated.legalGuardianPersonId,
+      ...this.toSummary(person),
+      legalGuardianPersonId: person.legalGuardianPersonId,
+      ...this.updatedAtField(person.updatedAt),
+      dedupeAlerts,
     };
+  }
+
+  private updatedAtField(value: Date | null | undefined) {
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+      return {};
+    }
+    return { updatedAt: value.toISOString() };
   }
 
   private toSummary(person: {
@@ -498,4 +755,10 @@ export class PersonsService {
     }
     throw new ForbiddenException("Sem permissão para consultar esta pessoa");
   }
+}
+
+function jsonSnapshot(value: unknown): string | boolean | null {
+  if (typeof value === "string" || typeof value === "boolean") return value;
+  if (value == null) return null;
+  return String(value);
 }

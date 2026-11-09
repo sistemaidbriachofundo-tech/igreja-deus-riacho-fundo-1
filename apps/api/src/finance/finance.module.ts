@@ -9,5 +9,6 @@ import { FinanceService } from "./finance.service";
   imports: [AuthModule, PilotModule, StorageModule],
   controllers: [FinanceController],
   providers: [FinanceService],
+  exports: [FinanceService],
 })
 export class FinanceModule {}

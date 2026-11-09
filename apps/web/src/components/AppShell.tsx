@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react";
+import {
+  beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
+  pushAppRoute, shouldInterceptAppNavigation,
+} from "../lib/app-navigation";
+import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import s from "./app-shell.module.css";
 
-export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "site" | "operacao" | "demo";
+export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "site" | "operacao" | "tesouraria" | "ministerios" | "escalas" | "meu-espaco" | "demo";
 
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
@@ -50,20 +55,41 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
   { key: "secretaria", href: "/app/secretaria/", label: "Secretaria", short: "Secretaria", icon: "layers", hint: "Admissão, processos e documentos" },
   { key: "carteirinha", href: "/app/membros/carteirinha/", label: "Carteirinhas", short: "Carteira", icon: "badge", hint: "Emitir e gerenciar credenciais" },
   { key: "operacao", href: "/app/operacao/", label: "Ministérios e operação", short: "Ministérios", icon: "activity", hint: "Gestão autenticada de ministérios, equipes, escalas e recursos autorizados" },
+  { key: "ministerios", href: "/app/ministerios/", label: "Vínculo de ministério", short: "Vínculo", icon: "family", hint: "Indisponível: a API não persiste o vínculo formal e responde 501" },
+  { key: "escalas", href: "/app/servir/louvor/", label: "Escalas", short: "Escalas", icon: "calendar", hint: "Atmosfera e Louvor no contrato de roster. Ensaio formal ainda não existe" },
+  { key: "meu-espaco", href: "/app/servir/meu-espaco/", label: "Meu Espaço", short: "Eu", icon: "badge", hint: "Não lista a agenda pessoal. Confirma só a própria atribuição pelo identificador" },
+  { key: "tesouraria", href: "/app/tesouraria/", label: "Tesouraria", short: "Caixa", icon: "shield", hint: "Posição sintética se o ledger responder. Sem banco, Pix ou saldo real" },
   { key: "editorial", href: "/app/editorial/", label: "Mídia e conteúdo", short: "Conteúdo", icon: "book", hint: "Estúdio editorial, notícias, eventos e ministérios" },
-  { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home" },
+  { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home. A prévia /w1-estudio não publica o site" },
 ];
 
 const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao","membros","secretaria","operacao"];
+const NAV_HREFS = NAV.map(item => item.href);
+
+function AppNavLink({
+  href, className, children, ...rest
+}: { href: string; className?: string; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">) {
+  return <a {...rest} href={withBasePath(href)} className={className} data-nav="client" onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+    if (!shouldInterceptAppNavigation(href, event) || !hasAppRouter()) return;
+    event.preventDefault();
+    beginClientNavigation(href);
+    pushAppRoute(href);
+  }}>{children}</a>;
+}
 
 export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
-  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "operacao" ? { code: "06 / GESTÃO INTEGRADA", title: "Toda a igreja, uma plataforma.", detail: "Módulos do DAS sob autenticação." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
+  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "operacao" ? { code: "06 / GESTÃO INTEGRADA", title: "Toda a igreja, uma plataforma.", detail: "Módulos do DAS sob autenticação." } : active === "ministerios" ? { code: "08 / MINISTÉRIOS", title: "Vínculo formal indisponível.", detail: "A API ainda não persiste integrantes." } : active === "escalas" ? { code: "09 / ESCALAS", title: "Atmosfera e Louvor.", detail: "Contrato de roster. Sem lista pessoal." } : active === "meu-espaco" ? { code: "10 / MEU ESPAÇO", title: "Sua escala, pelo identificador.", detail: "A consulta da agenda pessoal não existe." } : active === "tesouraria" ? { code: "07 / TESOURARIA", title: "Caixa sintético.", detail: "Sem banco, Pix ou saldo real." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [term, setTerm] = useState("");
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const filtered = NAV.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const RouterBridge = useAppRouterBridge();
 
+  useEffect(() => {
+    finishClientNavigation(window.location.pathname);
+    publishPerfProbe();
+  }, []);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -79,23 +105,24 @@ export function AppShell({ active, meta, children, editorial = false }: { active
 
   return (
     <div className={s.frame}>
+      {RouterBridge ? <RouterBridge prefetch={NAV_HREFS} /> : null}
       <aside className={s.rail} aria-label="Navegação principal">
-        <a href={withBasePath("/app/")} className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
+        <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
-        </a>
+        </AppNavLink>
 
         <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : "Demonstração com dados sintéticos"}</small></span></div>
         <span className={s.groupTitle}>PAINEL DE CONTROLE</span>
         <nav className={s.menu} aria-label="Módulos">
-          {NAV.map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
+          {NAV.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
             <UIIcon name={item.icon} size={19}/><span>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
-          </a>)}
+          </AppNavLink>)}
         </nav>
         <div className={s.railDivider}/>
         <span className={s.groupTitle}>CANAIS E COMUNIDADE</span>
         <a className={s.menuItem} href={withBasePath("/eventos/")}><UIIcon name="calendar" size={19}/><span>Agenda pública</span><UIIcon name="arrow" size={15}/></a>
-        <a className={s.menuItem} href={withBasePath("/app/operacao/")}><UIIcon name="family" size={19}/><span>Gestão de ministérios</span><UIIcon name="arrow" size={15}/></a>
+        <AppNavLink className={s.menuItem} href="/app/operacao/"><UIIcon name="family" size={19}/><span>Gestão de ministérios</span><UIIcon name="arrow" size={15}/></AppNavLink>
         <a className={s.menuItem} href={withBasePath("/")}><UIIcon name="home" size={19}/><span>Portal da igreja</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/status/")}><UIIcon name="activity" size={19}/><span>Evolução do sistema</span></a>
         <a className={s.menuItem} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer"><UIIcon name="activity" size={19}/><span>Canal da igreja</span><UIIcon name="arrow" size={15}/></a>
@@ -117,7 +144,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
             <UIIcon name="search" size={18}/><span>Buscar módulos e páginas...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
-            <a className={s.toolbarAlerts} href={withBasePath("/app/#avisos")} aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></a>
+            <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></AppNavLink>
             <span className={s.toolbarDivider}/>
             <span className={s.account} aria-label="Identificação visual da área de demonstração">ID</span>
             <span className={s.accountInfo}><strong>ID Riacho 1</strong><small>{editorial ? "Estúdio editorial" : "Ambiente de teste"}</small></span>
@@ -134,9 +161,9 @@ export function AppShell({ active, meta, children, editorial = false }: { active
       </div>
 
       <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {NAV.filter(item=>MOBILE_PRIMARY.includes(item.key)).map(item => <a key={item.key} href={withBasePath(item.href)} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
+        {NAV.filter(item=>MOBILE_PRIMARY.includes(item.key)).map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
           <UIIcon name={item.icon} size={20}/><span>{item.short}</span>
-        </a>)}
+        </AppNavLink>)}
         <button type="button" className={active&&!MOBILE_PRIMARY.includes(active)?s.mobileActive:s.mobileItem}
           aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
           onClick={()=>setPaletteOpen(true)}>
@@ -149,7 +176,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
           <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulos e páginas..." autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
           <span className={s.commandTitle}>NAVEGAÇÃO</span>
           <div className={s.commandList}>
-            {filtered.map(item => <a key={item.key} href={withBasePath(item.href)}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></a>)}
+            {filtered.map(item => <AppNavLink key={item.key} href={item.href}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {filtered.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
           <div className={s.commandFooter}><kbd>Esc</kbd> para fechar <span>·</span> <kbd>Ctrl K</kbd> para abrir</div>

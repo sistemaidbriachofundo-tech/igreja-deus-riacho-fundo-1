@@ -290,10 +290,20 @@ export interface HealthResponse {
   timestamp: string;
 }
 
+/**
+ * PATCH de pessoa. Todos os campos são opcionais.
+ * `status` e `kind`, se enviados, são recusados: a API não grava
+ * e não devolve uma situação inventada.
+ */
 export interface PatchPersonRequest {
+  displayName?: string;
+  email?: string | null;
   isMinor?: boolean;
   legalGuardianPersonId?: string | null;
   householdId?: string | null;
+  expectedUpdatedAt?: string;
+  status?: string;
+  kind?: string;
 }
 
 export interface PersonDossierResponse {
@@ -465,7 +475,8 @@ export interface IndicatorsSummaryDto {
     visitorsActive: number;
     admissionsOpen: number;
     transfersOpen: number;
-    pastoralOpen: number;
+    /** Ausente quando o leitor não tem célula pastoral. Zero não substitui a omissão. */
+    pastoralOpen?: number;
     ministriesTotal: number;
     ministriesPublished: number;
     eventsPublished: number;
@@ -474,6 +485,8 @@ export interface IndicatorsSummaryDto {
     rostersPublished: number;
     rosterAssignmentsPending: number;
   };
+  /** Campos omitidos de propósito. Não é um status operacional falso. */
+  redacted: Array<"pastoralOpen">;
 }
 
 export interface IndicatorsMembershipDto {

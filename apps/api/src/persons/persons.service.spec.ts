@@ -47,12 +47,21 @@ describe("PersonsService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn().mockResolvedValue(0),
         ...((prismaOverrides.person as object) ?? {}),
       },
       household: { findFirst: jest.fn() },
       auditLog: { create: jest.fn() },
       ...prismaOverrides,
     };
+    if (!("$transaction" in prisma)) {
+      (
+        prisma as unknown as {
+          $transaction: (fn: (tx: typeof prisma) => unknown) => unknown;
+        }
+      ).$transaction = async (fn) => fn(prisma);
+    }
     const service = new PersonsService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
@@ -246,49 +255,90 @@ describe("PersonsService", () => {
   });
 
   it("patch requires guardian for minor", async () => {
+    const updatedAt = new Date("2026-11-01T00:00:00.000Z");
     const { service, prisma } = build({
       person: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue({
           id: "kid",
+          displayName: "Kid",
+          email: null,
+          status: "ACTIVE",
+          householdId: null,
+          kind: "VISITOR",
           isMinor: false,
           legalGuardianPersonId: null,
+          photoStorageKey: null,
           organizationId: "org1",
+          updatedAt,
         }),
-        update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        count: jest.fn().mockResolvedValue(0),
       },
     });
     await expect(
       service.patch(secretaria, "kid", { isMinor: true }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.person.updateMany).not.toHaveBeenCalled();
 
+    prisma.person.findFirst.mockReset();
     prisma.person.findFirst
       .mockResolvedValueOnce({
         id: "kid",
+        displayName: "Kid",
+        email: null,
+        status: "ACTIVE",
+        householdId: null,
+        kind: "VISITOR",
         isMinor: false,
         legalGuardianPersonId: null,
+        photoStorageKey: null,
         organizationId: "org1",
+        updatedAt,
       })
       .mockResolvedValueOnce({
         id: "adult",
         isMinor: false,
+        legalGuardianPersonId: null,
+      })
+      .mockResolvedValueOnce({
+        id: "kid",
+        displayName: "Kid",
+        email: null,
+        status: "ACTIVE",
+        householdId: null,
+        kind: "VISITOR",
+        isMinor: true,
+        legalGuardianPersonId: "adult",
+        photoStorageKey: null,
+        updatedAt: new Date("2026-11-01T00:00:01.000Z"),
       });
-    prisma.person.update.mockResolvedValue({
-      id: "kid",
-      displayName: "Kid",
-      email: null,
-      status: "ACTIVE",
-      householdId: null,
-      kind: "VISITOR",
-      isMinor: true,
-      legalGuardianPersonId: "adult",
-      photoStorageKey: null,
-    });
     await expect(
       service.patch(secretaria, "kid", {
         isMinor: true,
         legalGuardianPersonId: "adult",
       }),
-    ).resolves.toMatchObject({ isMinor: true });
+    ).resolves.toMatchObject({ isMinor: true, legalGuardianPersonId: "adult" });
+    expect(prisma.person.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "kid",
+          organizationId: "org1",
+          updatedAt,
+        }),
+        data: { isMinor: true, legalGuardianPersonId: "adult" },
+      }),
+    );
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "person.patch",
+          metadata: expect.objectContaining({
+            before: { isMinor: false, legalGuardianPersonId: null },
+            after: { isMinor: true, legalGuardianPersonId: "adult" },
+          }),
+        }),
+      }),
+    );
   });
 });

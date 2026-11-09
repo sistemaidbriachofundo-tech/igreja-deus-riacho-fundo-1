@@ -1,7 +1,9 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import {
   canAccessChurch,
+  canAccessPastoralCare,
   isPlatformAdminInOrg,
+  type IndicatorsSummaryDto,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
@@ -32,13 +34,13 @@ export class IndicatorsService {
           "Indicadores org-wide exigem PLATFORM_ADMIN",
         );
       }
-      return this.buildSummary(organizationId, null);
+      return this.buildSummary(actor, organizationId, null);
     }
 
     const churchId =
       options?.churchId ?? actor.churchId ?? pilot.churchId;
     this.assertChurchAccess(actor, organizationId, churchId);
-    return this.buildSummary(organizationId, churchId);
+    return this.buildSummary(actor, organizationId, churchId);
   }
 
   async membership(actor: AuthUser, churchIdQuery?: string) {
@@ -69,11 +71,17 @@ export class IndicatorsService {
   }
 
   private async buildSummary(
+    actor: AuthUser,
     organizationId: string,
     churchId: string | null,
-  ) {
+  ): Promise<IndicatorsSummaryDto> {
     const churchFilter = churchId ? { churchId } : {};
     const now = new Date();
+    const includePastoralOpen = this.canReadPastoralOpen(
+      actor,
+      organizationId,
+      churchId,
+    );
 
     const visitorWhere = {
       organizationId,
@@ -139,13 +147,15 @@ export class IndicatorsService {
             : {}),
         },
       }),
-      this.prisma.pastoralCase.count({
-        where: {
-          organizationId,
-          ...churchFilter,
-          status: { in: ["OPEN", "IN_PROGRESS"] },
-        },
-      }),
+      includePastoralOpen
+        ? this.prisma.pastoralCase.count({
+            where: {
+              organizationId,
+              ...churchFilter,
+              status: { in: ["OPEN", "IN_PROGRESS"] },
+            },
+          })
+        : Promise.resolve(undefined),
       this.prisma.ministry.count({
         where: {
           organizationId,
@@ -215,7 +225,7 @@ export class IndicatorsService {
         visitorsActive,
         admissionsOpen,
         transfersOpen,
-        pastoralOpen,
+        ...(pastoralOpen === undefined ? {} : { pastoralOpen }),
         ministriesTotal,
         ministriesPublished,
         eventsPublished,
@@ -224,7 +234,25 @@ export class IndicatorsService {
         rostersPublished,
         rosterAssignmentsPending,
       },
+      redacted: pastoralOpen === undefined ? ["pastoralOpen"] : [],
     };
+  }
+
+  /**
+   * Contagem de casos abertos segue o contrato já integrado de cuidado
+   * pastoral: só PASTOR na congregação. PLATFORM_ADMIN, secretaria, líder,
+   * tesouraria, editor, membro e visitante não leem. Escopo de organização
+   * não tem célula pastoral — o agregado org-wide fica de fora.
+   */
+  private canReadPastoralOpen(
+    actor: AuthUser,
+    organizationId: string,
+    churchId: string | null,
+  ): boolean {
+    if (!churchId) {
+      return false;
+    }
+    return canAccessPastoralCare(actor.grants, { organizationId, churchId });
   }
 
   private assertChurchAccess(

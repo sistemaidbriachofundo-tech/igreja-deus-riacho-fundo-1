@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
-import { apiGet, apiLogin, apiPost, clearToken, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
+import { SecretaryDossier } from "./SecretaryDossier";
+import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
 
@@ -58,6 +59,7 @@ export function HmlPhaseOne({view}:{view:View}){
   const [admissions,setAdmissions]=useState<Admission[]>([]);
   const [households,setHouseholds]=useState<Household[]>([]);
   const [query,setQuery]=useState("");
+  const [fichaId,setFichaId]=useState<string|null>(null);
   const [newName,setNewName]=useState("");
   const [newEmail,setNewEmail]=useState("");
   const [modality,setModality]=useState("BATISMO");
@@ -67,14 +69,20 @@ export function HmlPhaseOne({view}:{view:View}){
     setUser(me);
     const secretaria=hasRole(me,"SECRETARIA")||hasRole(me,"PLATFORM_ADMIN");
     const staff=secretaria||hasRole(me,"PASTOR");
-    const [people,processes,families]=await Promise.all([
-      secretaria?apiGet<{memberships:Membership[]}>("/memberships",activeToken):Promise.resolve({memberships:[]}),
-      staff?apiGet<{admissions:Admission[]}>("/admissions",activeToken):Promise.resolve({admissions:[]}),
-      secretaria?apiGet<{households:Household[]}>("/households",activeToken):Promise.resolve({households:[]}),
+    const settled=await Promise.allSettled([
+      secretaria?apiGet<{memberships:Membership[]}>("/memberships",activeToken):Promise.resolve({memberships:[] as Membership[]}),
+      staff?apiGet<{admissions:Admission[]}>("/admissions",activeToken):Promise.resolve({admissions:[] as Admission[]}),
+      secretaria?apiGet<{households:Household[]}>("/households",activeToken):Promise.resolve({households:[] as Household[]}),
     ]);
-    setMemberships(people.memberships);
-    setAdmissions(processes.admissions);
-    setHouseholds(families.households);
+    const invalid=settled.find((item)=>item.status==="rejected"&&isInvalidSession(item.reason));
+    if(invalid&&invalid.status==="rejected")throw invalid.reason;
+    const [people,processes,families]=settled;
+    if(people.status==="fulfilled")setMemberships(people.value.memberships);
+    if(processes.status==="fulfilled")setAdmissions(processes.value.admissions);
+    if(families.status==="fulfilled")setHouseholds(families.value.households);
+    if(settled.some((item)=>item.status==="rejected")){
+      setError("Parte da lista não carregou. A sessão continua ativa.");
+    }
   },[]);
 
   useEffect(()=>{
@@ -83,7 +91,11 @@ export function HmlPhaseOne({view}:{view:View}){
     let cancelled=false;
     void refresh(stored).then(()=>{
       if(!cancelled)setToken(stored);
-    }).catch(()=>{
+    }).catch((err)=>{
+      if(!isInvalidSession(err)){
+        if(!cancelled){setToken(stored);setError(displayError(err));}
+        return;
+      }
       clearToken();
       if(!cancelled){setToken(null);setUser(null);}
     }).finally(()=>{if(!cancelled)setChecking(false);});
@@ -105,7 +117,7 @@ export function HmlPhaseOne({view}:{view:View}){
   });
 
   function logout(){
-    clearToken();setToken(null);setUser(null);setMemberships([]);setAdmissions([]);setHouseholds([]);
+    clearToken();setToken(null);setUser(null);setMemberships([]);setAdmissions([]);setHouseholds([]);setFichaId(null);
     setPassword("");setError("");setNotice("");
     window.location.assign(withBasePath("/login/"));
   }
@@ -117,7 +129,10 @@ export function HmlPhaseOne({view}:{view:View}){
       await refresh(signed.accessToken);
       storeToken(signed.accessToken);setToken(signed.accessToken);setPassword("");
       setNotice("Acesso autorizado ao banco fictício de homologação.");
-    }catch(err){setError(displayError(err));clearToken();setToken(null);}
+    }catch(err){
+      setError(displayError(err));
+      if(isInvalidSession(err)){clearToken();setToken(null);}
+    }
     finally{setBusy(false);setChecking(false);}
   }
   async function run(action:()=>Promise<unknown>,message:string){
@@ -171,7 +186,7 @@ export function HmlPhaseOne({view}:{view:View}){
     </AppShell>;
   }
   return <AppShell active={view==="overview"?"visao":view==="members"?"membros":view==="secretary"?"secretaria":"carteirinha"} meta={names[view]}>
-    <div className={s.page}>
+    <div className={s.page} data-ficha-open={fichaId?"true":undefined}>
       <div className={s.topline}><span className={s.environment}>HML · DADOS 100% FICTÍCIOS</span>
         {user&&<div className={s.topUser}><span>{user.email}</span><button type="button" onClick={logout}>Sair</button></div>}
       </div>
@@ -203,7 +218,7 @@ export function HmlPhaseOne({view}:{view:View}){
           </div>
           {view==="overview"&&<div className={s.overviewGrid}>
             <section className={s.panel}><h2>Fluxos conectados</h2><p>Cadastro, famílias, admissão e carteirinhas compartilham a mesma base persistente, com controle de acesso pelo backend.</p>
-              <nav className={s.links}><a href="./membros/">Pessoas e famílias</a><a href="./secretaria/">Admissões</a><a href="./membros/carteirinha/">Carteirinhas</a><a href="./editorial/">Conteúdo editorial</a></nav>
+              <nav className={s.links}><a href={withBasePath("/app/membros/")}>Pessoas e famílias</a><a href={withBasePath("/app/secretaria/")}>Admissões</a><a href={withBasePath("/app/membros/carteirinha/")}>Carteirinhas</a><a href={withBasePath("/app/tesouraria/")}>Tesouraria sintética</a><a href={withBasePath("/app/ministerios/")}>Vínculo de ministério</a><a href={withBasePath("/app/servir/louvor/")}>Escalas</a><a href={withBasePath("/app/servir/meu-espaco/")}>Meu Espaço</a></nav>
             </section>
             <section className={s.panel}><h2>Aprovações em aberto</h2>
               {pending.slice(0,6).map(a=><div className={s.listRow} key={a.id}><strong>{membershipByPerson.get(a.personId)?.person.displayName??"Pessoa fictícia"}</strong><span>{label(a.status)}</span></div>)}
@@ -213,21 +228,21 @@ export function HmlPhaseOne({view}:{view:View}){
           {view==="overview"&&<section className={s.panel} aria-labelledby="modules-status-heading">
             <h2 id="modules-status-heading">Visão integrada da plataforma</h2>
             <p>Este quadro diferencia o que já pode ser exercitado com registros fictícios daquilo que ainda exige integração e testes. Não exibe métricas nem aprovações inventadas.</p>
-            <div className={s.listRow}><strong>Pessoas, famílias, admissões e carteirinhas</strong><span>Fluxos HML para testar</span></div>
-            <div className={s.listRow}><strong>Conteúdo institucional e ministérios</strong><span>CMS disponível; publicação requer aprovação</span></div>
-            <div className={s.listRow}><strong>Cuidado pastoral, discipulado e células</strong><span>Integração operacional pendente</span></div>
-            <div className={s.listRow}><strong>Equipes, voluntários e escalas</strong><span>Integração operacional pendente</span></div>
-            <div className={s.listRow}><strong>Financeiro, conciliação e prestação de contas</strong><span>Integração operacional pendente</span></div>
-            <div className={s.listRow}><strong>Eventos, inscrições, pagamentos e check-in</strong><span>Jornada completa pendente</span></div>
-            <div className={s.listRow}><strong>EBD, cursos, materiais e comunicação</strong><span>Jornada completa pendente</span></div>
-            <div className={s.listRow}><strong>Indicadores, governança e aplicativo do membro</strong><span>Homologação pendente</span></div>
+            <div className={s.listRow}><strong>Pessoas, famílias, admissões e carteirinhas</strong><span>Disponível na HML sintética</span></div>
+            <div className={s.listRow}><strong>Prévia do estúdio em /w1-estudio</strong><span>Não grava o site público</span></div>
+            <div className={s.listRow}><strong>Vínculo formal de ministério</strong><span>Indisponível — a API responde 501 e nada é persistido</span></div>
+            <div className={s.listRow}><strong>Escalas de Atmosfera e Louvor</strong><span>Disponível no contrato de roster já publicado</span></div>
+            <div className={s.listRow}><strong>Meu Espaço</strong><span>Não lista a agenda pessoal; só confirma pelo identificador</span></div>
+            <div className={s.listRow}><strong>Tesouraria</strong><span>Posição e rascunho sintéticos se o ledger responder; sem banco, Pix ou saldo real</span></div>
+            <div className={s.listRow}><strong>Cuidado pastoral</strong><span>Contagem só para quem tem permissão pastoral</span></div>
+            <div className={s.listRow}><strong>Eventos, inscrições e pagamentos</strong><span>Jornada completa indisponível</span></div>
             <p>Os dados e fluxos indicados como HML são de demonstração e <strong>não substituem a autorização institucional para operar com dados reais.</strong></p>
           </section>}
           {view==="members"&&<div className={s.grid}>
             <section className={s.panel}><div className={s.panelHeading}><h2>Diretório de membros</h2><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros"/></div>
               {!secretary?<p>Seu perfil não possui permissão para listar todas as pessoas. A API bloqueia a consulta por escopo.</p>:
-                <div className={s.tableWrap}><table><thead><tr><th>Nome fictício</th><th>Situação</th><th>E-mail de teste</th><th>Carteirinha</th></tr></thead><tbody>
-                  {filtered.map(m=><tr key={rowKey(m)}><td><strong>{m.person.displayName}</strong></td><td>{label(m.status)}</td><td>{m.person.email??"—"}</td><td>{m.activeCredentialId?"Ativa":"Não emitida"}</td></tr>)}
+                <div className={s.tableWrap}><table><thead><tr><th>Nome fictício</th><th>Situação</th><th>E-mail de teste</th><th>Carteirinha</th><th>Ficha</th></tr></thead><tbody>
+                  {filtered.map(m=><tr key={rowKey(m)}><td><strong>{m.person.displayName}</strong></td><td>{label(m.status)}</td><td>{m.person.email??"—"}</td><td>{m.activeCredentialId?"Ativa":"Não emitida"}</td><td><button type="button" className={s.openFicha} onClick={()=>setFichaId(m.person.id)} aria-label={"Abrir ficha de "+m.person.displayName}>Abrir ficha</button></td></tr>)}
                 </tbody></table>{filtered.length===0&&<p>Sem registros encontrados.</p>}</div>}
             </section>
             <section className={s.panel}><h2>Núcleos familiares</h2><strong className={s.bigNumber}>{households.length}</strong><p>Famílias fictícias vinculadas à congregação. As relações são consultadas pelo endpoint autenticado.</p>
@@ -243,9 +258,12 @@ export function HmlPhaseOne({view}:{view:View}){
                   return <article key={a.id} className={s.admission}>
                     <div><strong>{membershipByPerson.get(a.personId)?.person.displayName??"Pessoa de teste · "+a.personId.slice(0,8)}</strong>
                       <small>{label(a.status)} · {a.modality??"Modalidade pendente"}</small></div>
-                    <button type="button" disabled={busy||done||!canAct} onClick={()=>nextAdmission(a)}>
-                      {done?"Concluído":!canAct?"Ação reservada":"Concluir "+(a.currentStep==="pastor"?"decisão pastoral":a.currentStep==="secretaria"?"secretaria":"documentação")}
-                    </button>
+                    <div className={s.admissionActions}>
+                      <button type="button" className={s.openFicha} onClick={()=>setFichaId(a.personId)} aria-label={"Abrir ficha de "+(membershipByPerson.get(a.personId)?.person.displayName??"pessoa de teste")}>Abrir ficha</button>
+                      <button type="button" disabled={busy||done||!canAct} onClick={()=>nextAdmission(a)}>
+                        {done?"Concluído":!canAct?"Ação reservada":"Concluir "+(a.currentStep==="pastor"?"decisão pastoral":a.currentStep==="secretaria"?"secretaria":"documentação")}
+                      </button>
+                    </div>
                   </article>;
                 })}{filteredAdmissions.length===0&&<p>Não há protocolos neste filtro.</p>}</div>}
             </section>
@@ -269,6 +287,7 @@ export function HmlPhaseOne({view}:{view:View}){
                   {m.activeCredentialId?"Revogar credencial":"Emitir credencial"}
                 </button></article>)}</div>}
           </section>}
+          {fichaId&&token&&<SecretaryDossier token={token} personId={fichaId} households={households} canEdit={secretary} onClose={()=>setFichaId(null)} onSessionExpired={logout}/>}
           <p className={s.footerNote}>HML Fase 1 · Dados sintéticos, ações auditadas e persistência no banco isolado. Não inserir informações de membros reais.</p>
         </div>}
     </div>

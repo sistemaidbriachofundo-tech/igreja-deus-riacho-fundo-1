@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests && node --test scripts/synthetic-auth-policy.test.mjs",
+    "stub:auth": "node scripts/synthetic-auth-stub.mjs",
     "postbuild": "node scripts/verify-export.mjs"
   },
   "dependencies": {

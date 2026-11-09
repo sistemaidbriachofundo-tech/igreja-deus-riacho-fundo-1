@@ -19,6 +19,7 @@ import { CoursesModule } from "./courses/courses.module";
 import { DiscipleshipModule } from "./discipleship/discipleship.module";
 import { EventsModule } from "./events/events.module";
 import { FinanceModule } from "./finance/finance.module";
+import { TreasuryModule } from "./treasury/treasury.module";
 import { GroupsModule } from "./groups/groups.module";
 import { HealthController } from "./health.controller";
 import { HealthService } from "./health.service";
@@ -61,6 +62,7 @@ import { ViviModule } from "./vivi/vivi.module";
     MinistriesModule,
     EventsModule,
     FinanceModule,
+    TreasuryModule,
     ChannelsModule,
     IndicatorsModule,
     AssetsModule,

@@ -23,6 +23,35 @@ export {
 } from "./rbac";
 
 export {
+  ACCESS_POLICY_VERSION,
+  ACCESS_POLICY_MODE_ENV,
+  ACCESS_RESOURCES,
+  ACCESS_ACTIONS,
+  ACCESS_MATRIX,
+  IMPLICIT_GRANT_FINDINGS,
+  resolveAccessPolicyMode,
+  currentAccessPolicyMode,
+  accessRulesForMode,
+  formatAccessMatrix,
+  evaluateAccess,
+  type AccessResource,
+  type AccessAction,
+  type AccessScopeKind,
+  type AccessPolicyMode,
+  type AccessDenialCode,
+  type AccessRule,
+  type AccessRequest,
+  type AccessDecision,
+  type ImplicitGrantFinding,
+} from "./access-policy";
+
+export {
+  normalizeAccessPath,
+  classifyAccessRoute,
+  type ClassifiedAccess,
+} from "./access-routes";
+
+export {
   PILOT_ORG_SLUG,
   PILOT_CHURCH_SLUG,
   PILOT_CHURCH_NAME,
@@ -170,6 +199,7 @@ export {
   type AdmissionDocumentMetaDto,
   type AdmissionDocumentsListResponse,
   type MetaResponse,
+  type IndicatorsSummaryDto,
   type AuditLogEntryDto,
   type AuditLogsResponse,
   type ViviChatMessageDto,

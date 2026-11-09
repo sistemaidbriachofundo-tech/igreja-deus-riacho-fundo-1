@@ -1,0 +1,195 @@
+.panel {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.header h1 {
+  margin: 0.35rem 0;
+  font-family: var(--font-title);
+  font-size: clamp(1.45rem, 2vw, 1.85rem);
+  letter-spacing: -0.03em;
+}
+
+.kicker {
+  color: var(--color-bronze);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.lede,
+.note,
+.banner {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.banner {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-dourado) 18%, white);
+  border: 1px solid color-mix(in srgb, var(--color-bronze) 35%, white);
+  color: var(--color-marrom);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.metric,
+.card,
+.illustration {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.metric {
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.metric span,
+.illustration span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-bronze);
+}
+
+.metric strong {
+  font-family: var(--font-title);
+  font-size: 1.15rem;
+}
+
+.metric small {
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.illustration,
+.card {
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.illustration dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.illustration div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.illustration dt {
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+.illustration dd {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.tabs button,
+.card button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabs button {
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-marrom);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  min-height: 2.4rem;
+}
+
+.tabs button[aria-selected="true"] {
+  background: var(--color-marrom);
+  color: var(--color-on-dark);
+  border-color: var(--color-marrom);
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.form input,
+.form select {
+  font: inherit;
+  font-weight: 450;
+  padding: 0.7rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-creme);
+  color: var(--color-ink);
+  width: 100%;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.card button[type="submit"] {
+  justify-self: start;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-marrom);
+  color: var(--color-on-dark);
+  padding: 0.75rem 1rem;
+  min-height: 2.75rem;
+}
+
+.card button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.status {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .metrics,
+  .illustration dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .metrics,
+  .illustration dl,
+  .form {
+    grid-template-columns: 1fr;
+  }
+}

@@ -6,6 +6,7 @@ import {
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { redactAuditMetadata } from "./audit-metadata.redactor";
 
 type AuditRow = {
   id: string;
@@ -114,7 +115,7 @@ export class AuditService {
       resourceType: row.resourceType,
       resourceId: row.resourceId,
       actorUserId: row.actorUserId,
-      metadata: row.metadata,
+      metadata: redactAuditMetadata(row.action, row.metadata),
       createdAt: row.createdAt.toISOString(),
     };
   }
