@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-11-09T18:27:51.634Z",
+  "rows": [
+    {
+      "id": "publicacao/gate/app/",
+      "persona": "PUBLICACAO",
+      "journey": "Rota /app/ sem sessão",
+      "status": "PASS",
+      "detail": "A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões.",
+      "evidence": "reports/evidence/public-app-login-gate-1440.png"
+    },
+    {
+      "id": "publicacao/gate/app/membros/",
+      "persona": "PUBLICACAO",
+      "journey": "Rota /app/membros/ sem sessão",
+      "status": "PASS",
+      "detail": "A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões.",
+      "evidence": "reports/evidence/public-appmembros-login-gate-1440.png"
+    },
+    {
+      "id": "publicacao/gate/app/secretaria/",
+      "persona": "PUBLICACAO",
+      "journey": "Rota /app/secretaria/ sem sessão",
+      "status": "PASS",
+      "detail": "A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões.",
+      "evidence": "reports/evidence/public-appsecretaria-login-gate-1440.png"
+    },
+    {
+      "id": "publicacao/login-desabilitado",
+      "persona": "PUBLICACAO",
+      "journey": "Login frio na publicação",
+      "status": "PASS",
+      "detail": "O botão de entrar permanece desabilitado e a página avisa que nenhuma credencial será enviada.",
+      "evidence": "reports/evidence/public-login-1440.png",
+      "durationMs": 420
+    },
+    {
+      "id": "publicacao/viewport-1440",
+      "persona": "PUBLICACAO",
+      "journey": "Layout 1440px do gate em /app/secretaria/",
+      "status": "PASS",
+      "detail": "Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo.",
+      "evidence": "reports/evidence/public-secretaria-gate-1440.png",
+      "durationMs": 1035
+    },
+    {
+      "id": "publicacao/viewport-360",
+      "persona": "PUBLICACAO",
+      "journey": "Layout 360px do gate em /app/secretaria/",
+      "status": "PASS",
+      "detail": "Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo.",
+      "evidence": "reports/evidence/public-secretaria-gate-360.png",
+      "durationMs": 910
+    },
+    {
+      "id": "publicacao/viewport-768",
+      "persona": "PUBLICACAO",
+      "journey": "Layout 768px do gate em /app/secretaria/",
+      "status": "PASS",
+      "detail": "Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo.",
+      "evidence": "reports/evidence/public-secretaria-gate-768.png",
+      "durationMs": 982
+    }
+  ]
+}
