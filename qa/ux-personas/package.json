@@ -1,0 +1,14 @@
+{
+  "name": "@idbrf/qa-ux-personas",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Auditoria visual e de acessibilidade independente. Não altera o frontend.",
+  "scripts": {
+    "test": "node --test src/contrast.test.mjs src/inventory.test.mjs src/classify.test.mjs src/report.test.mjs",
+    "audit": "node src/audit.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "24.23.0"
+  }
+}
