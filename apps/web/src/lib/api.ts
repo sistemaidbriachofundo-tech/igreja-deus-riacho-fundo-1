@@ -51,6 +51,11 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** Só 401 de sessão inválida encerra o token. Timeout, 403 e falha de lista não entram. */
+export function isInvalidSession(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 401;
+}
+
 /** Alinhado ao timeout das leituras públicas. Não é um 401. */
 export const API_TIMEOUT_MS = 8_000;
 /** Evita repetir /auth/me a cada troca de página. O servidor continua autorizando os dados. */

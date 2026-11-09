@@ -3,6 +3,7 @@ import {
   canAccessChurch,
   canAccessPastoralCare,
   isPlatformAdminInOrg,
+  type IndicatorsSummaryDto,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
@@ -73,7 +74,7 @@ export class IndicatorsService {
     actor: AuthUser,
     organizationId: string,
     churchId: string | null,
-  ) {
+  ): Promise<IndicatorsSummaryDto> {
     const churchFilter = churchId ? { churchId } : {};
     const now = new Date();
     const includePastoralOpen = this.canReadPastoralOpen(

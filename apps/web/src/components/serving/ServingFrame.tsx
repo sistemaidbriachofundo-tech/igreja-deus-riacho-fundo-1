@@ -24,7 +24,7 @@ export function ServingFrame({
   children: ReactNode;
 }) {
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.top}>
         <div>
           <p className={styles.eyebrow}>Escalas · homologação sintética</p>
@@ -65,6 +65,6 @@ export function ServingFrame({
           ))}
         </ul>
       </section>
-    </main>
+    </div>
   );
 }

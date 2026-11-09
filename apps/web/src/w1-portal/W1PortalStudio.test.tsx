@@ -13,8 +13,8 @@ describe("estúdio W1 renderizado", () => {
     expect(html).not.toContain("/ministerios");
     expect(html).not.toContain("Ministérios");
     expect(html).toContain("BLOCKED");
-    expect(html).toContain("PR #102");
-    expect(html).toContain("PR #101");
+    expect(html).toContain("não grava o site");
+    expect(html).toContain("papéis de editor e publicador desta tela são locais");
     expect(html).toContain("não ativa o site público");
     expect(html).toContain('data-official-site="inativo"');
     expect(html).toContain("Igreja de Deus no Riacho Fundo I");

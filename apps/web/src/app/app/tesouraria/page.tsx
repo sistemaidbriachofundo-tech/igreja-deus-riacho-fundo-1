@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TesourariaPage() {
   return (
-    <AppShell active="operacao" meta="Tesouraria · HML sintética">
+    <AppShell active="tesouraria" meta="Tesouraria · HML sintética">
       <TreasuryPanel />
     </AppShell>
   );

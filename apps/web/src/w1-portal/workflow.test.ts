@@ -36,7 +36,8 @@ describe("prévia W1 do portal", () => {
     expect(page + studio).not.toContain("LoginScreen");
     expect(page + studio).not.toContain("HmlPhaseOne");
     expect(page + studio).not.toContain("schema.prisma");
-    expect(DEPENDENCY_REPORT.filter((item) => item.state === "BLOCKED")).toHaveLength(3);
+    expect(DEPENDENCY_REPORT.filter((item) => item.state === "BLOCKED")).toHaveLength(2);
+    expect(DEPENDENCY_REPORT.some((item) => item.state === "ISOLATED")).toBe(true);
   });
 
   it("percorre editor, revisão, aprovação, prévia, publicação simulada e rollback", () => {

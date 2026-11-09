@@ -15,7 +15,7 @@ export const ACCOUNTS: readonly PersonaAccount[] = [
   { persona: "LIDER", email: "lider.jovens.demo@example.test", seeded: true },
   { persona: "MEMBRO", email: "bruno.demo@example.test", seeded: true },
   { persona: "ADMIN", email: "platform.demo@example.test", seeded: true },
-  { persona: "EDITOR", email: "editor.demo@example.test", seeded: false },
+  { persona: "EDITOR", email: "editor.demo@example.test", seeded: true },
 ];
 
 export function demoPassword(): string {

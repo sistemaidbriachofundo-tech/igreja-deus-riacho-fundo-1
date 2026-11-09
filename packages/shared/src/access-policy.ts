@@ -225,15 +225,15 @@ export const IMPLICIT_GRANT_FINDINGS: readonly ImplicitGrantFinding[] = [
   },
   {
     id: "indicators-pastoral-count",
-    status: "BLOCKED",
+    status: "CLOSED",
     summary:
-      "GET /indicators/summary não declara papéis e inclui a contagem pastoralOpen para quem tem grant na congregação, inclusive PLATFORM_ADMIN. Separar esse agregado é alteração do service de indicadores.",
+      "GET /indicators/summary omite pastoralOpen para quem não tem célula pastoral, inclusive PLATFORM_ADMIN. O campo é opcional no DTO e zero não substitui a omissão.",
   },
   {
     id: "audit-metadata-echo",
-    status: "BLOCKED",
+    status: "CLOSED",
     summary:
-      "PLATFORM_ADMIN mantém audit.read técnico para não perder a trilha operacional. O metadata do log pode citar ação pastoral ou financeira. Redigir o payload é alteração do service de auditoria.",
+      "A leitura de audit_logs redige metadata que cita cuidado pastoral ou lançamento financeiro para o leitor sem essa célula. A trilha da ação permanece.",
   },
   {
     id: "platform-admin-persons-explicit",

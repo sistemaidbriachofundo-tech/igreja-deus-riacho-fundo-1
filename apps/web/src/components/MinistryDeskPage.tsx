@@ -74,7 +74,7 @@ export function MinistryDeskPage() {
   }
 
   return (
-    <main>
+    <div>
       {!token ? (
         <section className={styles.desk}>
           <h1>Integrantes do ministério</h1>
@@ -121,6 +121,6 @@ export function MinistryDeskPage() {
           </button>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }

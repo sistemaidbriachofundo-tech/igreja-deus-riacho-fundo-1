@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
-  apiGet, apiLogin, clearToken, isForbidden, isUnauthorized, loadStoredToken,
+  apiGet, apiLogin, clearToken, isInvalidSession, loadStoredToken,
   loginFailureMessage, readValidatedSession, rememberValidatedSession, storeToken, type LoginResult,
 } from "../lib/api";
 import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
@@ -45,8 +45,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
         if (!cancelled) openAuthenticatedArea(authenticatedLanding(user));
       })
       .catch((problem: unknown) => {
-        // Timeout e rede mantêm o token. 401/403 não entram no painel.
-        if (isUnauthorized(problem) || isForbidden(problem)) clearToken();
+        if (isInvalidSession(problem)) clearToken();
         else if (!cancelled) setError(loginFailureMessage(problem));
       })
       .finally(() => {
@@ -69,8 +68,10 @@ export function LoginScreen({ onAuthenticated }: Props) {
       if (onAuthenticated) onAuthenticated();
       else openAuthenticatedArea(authenticatedLanding(login.user));
     } catch (problem) {
-      clearToken();
-      setPassword("");
+      if (isInvalidSession(problem)) {
+        clearToken();
+        setPassword("");
+      }
       setError(loginFailureMessage(problem));
     } finally {
       setBusy(false);

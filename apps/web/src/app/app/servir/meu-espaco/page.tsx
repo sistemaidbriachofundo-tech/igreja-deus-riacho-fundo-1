@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppShell } from "../../../../components/AppShell";
 import { ServingWorkspace } from "../../../../components/serving/ServingWorkspace";
 
 export const metadata: Metadata = {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function MeuEspacoPage() {
-  return <ServingWorkspace surface="membro" />;
+  return <AppShell active="meu-espaco" meta="Meu Espaço · sem lista de escalas"><ServingWorkspace surface="membro" /></AppShell>;
 }

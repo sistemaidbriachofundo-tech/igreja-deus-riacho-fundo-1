@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
-import { ROLE_CODES } from "@idbrf/shared";
+import { ROLE_CODES, type PatchPersonRequest } from "@idbrf/shared";
 import {
   IsBoolean,
   IsEmail,
@@ -19,7 +19,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PersonsService } from "./persons.service";
 
-export class PatchPersonBody {
+export class PatchPersonBody implements PatchPersonRequest {
   @IsOptional()
   @IsString()
   @MinLength(2)

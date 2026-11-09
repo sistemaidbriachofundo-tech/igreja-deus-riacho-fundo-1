@@ -327,6 +327,51 @@ async function main() {
     organizationId: org.id,
   });
 
+  const editorRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "EDITOR_SITE" },
+  });
+  const editorPerson = await prisma.person.upsert({
+    where: { id: "demoPersonEditor01" },
+    update: {
+      displayName: "Elisa Demo Editora",
+      email: "editor.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+    create: {
+      id: "demoPersonEditor01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Elisa Demo Editora",
+      email: "editor.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+  const editorUser = await prisma.user.upsert({
+    where: { email: "editor.demo@example.test" },
+    update: {
+      personId: editorPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      personId: editorPerson.id,
+      email: "editor.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+  await upsertChurchGrant({
+    prisma,
+    userId: editorUser.id,
+    roleId: editorRole.id,
+    organizationId: org.id,
+    churchId: church.id,
+  });
+
   const anaMembership = await prisma.churchMembership.upsert({
     where: {
       personId_churchId: {
@@ -1260,6 +1305,7 @@ async function main() {
       tesouraUser.email,
       tesoura2User.email,
       tesoura3User.email,
+      editorUser.email,
       platformUser.email,
     ],
     memberships: [anaMembership.id, brunoMembership.id],

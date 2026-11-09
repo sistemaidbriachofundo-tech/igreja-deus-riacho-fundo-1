@@ -47,7 +47,7 @@ function password(): string {
 async function loginApi(
   request: APIRequestContext,
   email: string,
-): Promise<{ status: number; token?: string; personId?: string }> {
+): Promise<{ status: number; token?: string; personId?: string; roles?: string[] }> {
   const response = await request.post(`${API}/auth/login`, {
     data: { email, password: password() },
     failOnStatusCode: false,
@@ -56,9 +56,14 @@ async function loginApi(
   if (status !== 200 && status !== 201) return { status };
   const body = (await response.json()) as {
     accessToken?: string;
-    user?: { personId?: string };
+    user?: { personId?: string; grants?: Array<{ roleCode?: string }> };
   };
-  return { status, token: body.accessToken, personId: body.user?.personId };
+  return {
+    status,
+    token: body.accessToken,
+    personId: body.user?.personId,
+    roles: (body.user?.grants ?? []).map((grant) => grant.roleCode).filter((role): role is string => Boolean(role)),
+  };
 }
 
 async function api(
@@ -518,17 +523,17 @@ test("401 e 403 das personas no código integrado", async ({ request }) => {
   }
 
   const editor = await loginApi(request, "editor.demo@example.test");
+  const editorReady = (editor.status === 200 || editor.status === 201) && editor.roles?.includes("EDITOR_SITE") === true && !editor.roles?.includes("TESOURARIA") && !editor.roles?.includes("PASTOR");
   keep({
     id: "editor-conta",
     persona: "EDITOR",
     journey: "Conta sintética EDITOR_SITE",
-    status: "BLOCKED",
+    status: editorReady ? "PASS" : "FAIL",
     http: editor.status,
-    detail:
-      editor.status === 401
-        ? "O catálogo tem EDITOR_SITE e o seed não cria editor.demo@example.test (HTTP 401). Dependência de identidade, fora desta frente."
-        : `Login do editor respondeu HTTP ${editor.status}. Continua fora do seed combinado.`,
-    owner: "PR #101 / seed",
+    detail: editorReady
+      ? "editor.demo@example.test entra com EDITOR_SITE no seed sintético, sem pastoral e sem ledger."
+      : `Login do editor respondeu HTTP ${editor.status} com papéis ${(editor.roles ?? []).join(", ") || "nenhum"}. A conta precisa existir só com EDITOR_SITE.`,
+    owner: "seed HML",
   });
 
   const admin = await loginApi(request, "platform.demo@example.test");

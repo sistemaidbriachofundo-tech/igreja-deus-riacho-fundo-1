@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  apiGet, apiLogin, apiPost, apiPatch, clearApiTimings, clearToken, forgetValidatedSession,
-  getApiBaseUrl, loadStoredToken, loginFailureMessage, percentile, readValidatedSession,
+  apiGet, apiLogin, apiPost, apiPatch, ApiRequestError, clearApiTimings, clearToken, forgetValidatedSession,
+  getApiBaseUrl, isInvalidSession, loadStoredToken, loginFailureMessage, percentile, readValidatedSession,
   rememberValidatedSession, SESSION_FRESH_MS, SESSION_UNAUTHORIZED_EVENT, storeToken,
   summarizeApiTimings,
 } from "./api";
@@ -271,6 +271,14 @@ describe("API A1: sessão, timeout e medição", () => {
     expect(sessionStorage.getItem("idbrf_demo_token")).toBeNull();
     expect(readValidatedSession("fake-jwt", Date.now(), true)).toBeNull();
     expect(events).toEqual([SESSION_UNAUTHORIZED_EVENT]);
+  });
+
+  it("só trata 401 como sessão inválida", () => {
+    expect(isInvalidSession(new ApiRequestError("expirada", 401, "unauthorized"))).toBe(true);
+    expect(isInvalidSession(new ApiRequestError("negado", 403, "forbidden"))).toBe(false);
+    expect(isInvalidSession(new ApiRequestError("tempo", null, "timeout"))).toBe(false);
+    expect(isInvalidSession(new ApiRequestError("rede", null, "network"))).toBe(false);
+    expect(isInvalidSession(new Error("401"))).toBe(false);
   });
 
   it("mede p50 e p95 sem contar leitura em cache", () => {

@@ -157,8 +157,8 @@ export function TreasuryPanel() {
       </header>
 
       <p className={styles.banner} role="status">
-        Banco, Pix e maquininha estão bloqueados. A matriz do PR #101 ainda não está integrada:
-        esta tela usa o papel TESOURARIA da main. A chave única no banco também está bloqueada para o integrador.
+        Banco, Pix e maquininha estão bloqueados. Os números acima só aparecem se o ledger da API responder.
+        Sem essa consulta a tela mostra “Sem consulta” e não inventa saldo. A gravação é rascunho sintético, sujeita às regras já existentes do ledger.
       </p>
 
       <div className={styles.metrics}>

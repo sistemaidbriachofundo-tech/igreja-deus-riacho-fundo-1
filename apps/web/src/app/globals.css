@@ -21,6 +21,16 @@
   --font-title: "Montserrat", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
 
+  --ds-gold: var(--color-dourado);
+  --ds-brown: var(--color-marrom);
+  --ds-cream: var(--color-creme);
+  --ds-bronze: var(--color-bronze);
+  --ds-terracotta: var(--color-terracota);
+  --ds-ink: #4a2612;
+  --ds-muted: #6e4a36;
+  --ds-support: #243e42;
+  --ds-line: #9a7355;
+
   --sidebar-width: 15.5rem;
   --header-height: 4rem;
   --site-header-height: 4.25rem;

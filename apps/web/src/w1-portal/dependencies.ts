@@ -1,11 +1,11 @@
 export const DEPENDENCY_REPORT = [
   {
-    state: "BLOCKED",
-    text: "Design System PR #102 não está integrado à main. Esta prévia usa estilos próprios e não altera os componentes do design system.",
+    state: "ISOLATED",
+    text: "Os tokens do design system já entram na interface pública. Esta prévia continua isolada, com estilos próprios, e não grava o site.",
   },
   {
     state: "BLOCKED",
-    text: "RBAC PR #101 não está integrado à main. Os papéis de editor e publicador são simulados só nesta tela, sem guard de servidor.",
+    text: "Os papéis de editor e publicador desta tela são locais. A matriz do servidor não é consultada aqui e nenhum rascunho é gravado.",
   },
   {
     state: "BLOCKED",

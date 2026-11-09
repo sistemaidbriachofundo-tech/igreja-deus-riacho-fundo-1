@@ -178,7 +178,8 @@ test("interface de secretaria busca, mas não abre nem edita a ficha", async ({ 
   let edited = false;
   if (canOpen) {
     await ((await personLink.count()) > 0 ? personLink.first() : opener.first()).click();
-    edited = (await page.locator("textarea, form input:not([type='search'])").count()) > 0;
+    const field = page.locator("[role='dialog'] form input, [role='dialog'] form select, [role='dialog'] textarea");
+    edited = await field.first().waitFor({ state: "visible", timeout: 8_000 }).then(() => true, () => false);
   }
   keep(row(
     "SECRETARIA/editar-ui",
@@ -186,14 +187,16 @@ test("interface de secretaria busca, mas não abre nem edita a ficha", async ({ 
     "Editar ficha na interface",
     edited ? "PASS" : "FAIL",
     edited
-      ? "A ficha aberta expõe campos editáveis."
+      ? "A ficha aberta expõe campos editáveis depois do carregamento da API."
       : "Não há formulário de edição persistida. O PATCH de pessoa existe na API e não nesta tela.",
   ), bucket);
   let reopened = false;
   if (edited) {
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Fechar ficha" }).click();
+    await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 4_000 }).catch(() => undefined);
     await search.fill("Bruno");
-    reopened = (await page.getByText("Bruno Demo Membro").count()) > 0;
+    await page.getByRole("button", { name: /abrir ficha de bruno/i }).first().click();
+    reopened = await page.getByRole("dialog").waitFor({ state: "visible", timeout: 8_000 }).then(() => true, () => false);
   }
   keep(row(
     "SECRETARIA/reabrir-ui",
@@ -201,7 +204,7 @@ test("interface de secretaria busca, mas não abre nem edita a ficha", async ({ 
     "Reabrir ficha na interface",
     reopened ? "PASS" : "FAIL",
     reopened
-      ? "A mesma pessoa sintética voltou a aparecer depois de fechar a ficha."
+      ? "A mesma pessoa sintética voltou a abrir depois de fechar a ficha."
       : "Sem ficha aberta, não há como fechar e reabrir o mesmo cadastro na interface HML.",
   ), bucket);
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppShell } from "../../../components/AppShell";
 import { MinistryDeskPage } from "../../../components/MinistryDeskPage";
 
 export const metadata: Metadata = {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function MinisteriosFormaisPage() {
-  return <MinistryDeskPage />;
+  return <AppShell active="ministerios" meta="Vínculo de ministério · indisponível para gravação"><MinistryDeskPage /></AppShell>;
 }

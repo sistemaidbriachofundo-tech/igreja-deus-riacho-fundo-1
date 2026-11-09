@@ -199,6 +199,7 @@ export {
   type AdmissionDocumentMetaDto,
   type AdmissionDocumentsListResponse,
   type MetaResponse,
+  type IndicatorsSummaryDto,
   type AuditLogEntryDto,
   type AuditLogsResponse,
   type ViviChatMessageDto,

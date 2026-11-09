@@ -26,7 +26,7 @@ describe("TreasuryPanel", () => {
     expect(html).toContain(`R$\u00a050,00`);
     expect(html).toContain(`R$\u00a0180,00`);
     expect(html).toContain("Banco, Pix e maquininha estão bloqueados");
-    expect(html).toContain("PR #101");
+    expect(html).toContain("não inventa saldo");
     expect(html).not.toContain("saldo da igreja é");
     expect(html).toContain("Sem consulta");
   });
