@@ -4,10 +4,10 @@ import { ServingWorkspace } from "../../../../components/serving/ServingWorkspac
 
 export const metadata: Metadata = {
   title: "Meu Espaço — escala",
-  description: "Confirmação da própria escala e atalho da carteirinha, sem listas de outras pessoas.",
+  description: "Agenda da própria pessoa, com confirmação e recusa gravadas na API, sem listas de outras pessoas.",
   robots: { index: false, follow: false },
 };
 
 export default function MeuEspacoPage() {
-  return <AppShell active="meu-espaco" meta="Meu Espaço · sem lista de escalas"><ServingWorkspace surface="membro" /></AppShell>;
+  return <AppShell active="meu-espaco" meta="Meu Espaço · agenda da sua pessoa"><ServingWorkspace surface="membro" /></AppShell>;
 }

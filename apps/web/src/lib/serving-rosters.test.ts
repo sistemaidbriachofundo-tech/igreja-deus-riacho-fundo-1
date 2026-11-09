@@ -4,8 +4,11 @@ import {
   blocksForRoster,
   canConfirmAssignment,
   canSubstituteAssignment,
+  churchDayKey,
   endpointsForSurface,
+  findSameDayBlocks,
   findSimultaneousBlocks,
+  parseMyAgenda,
   interpretRosterProbe,
   otherRosterTitles,
   parseMinistryList,
@@ -54,10 +57,14 @@ function assignment(
 }
 
 describe("escalas — contrato e permissão", () => {
-  it("Meu Espaço não pede a lista da congregação", () => {
-    expect(endpointsForSurface("membro")).toEqual(["/auth/me"]);
-    expect(endpointsForSurface("louvor")).toContain("/rosters");
-    expect(endpointsForSurface("atmosfera")).toContain("/ministries");
+  it("Meu Espaço pede a agenda do token e as frentes pedem um ministério", () => {
+    expect(endpointsForSurface("membro")).toEqual(["/auth/me", "/rosters/me"]);
+    expect(endpointsForSurface("louvor")).toEqual([
+      "/auth/me",
+      "/ministries",
+      "/rosters/by-ministry",
+    ]);
+    expect(endpointsForSurface("atmosfera")).not.toContain("/rosters");
   });
 
   it("membro confirma a própria atribuição e não substitui nem confirma a de outra pessoa", () => {
@@ -79,9 +86,9 @@ describe("escalas — contrato e permissão", () => {
   it("sinaliza as dependências que ainda não estão na main", () => {
     expect(BLOCKED_INTEGRATIONS.map((item) => item.issue)).toEqual([
       "#97",
-      "#101",
-      "#98",
-      "#98",
+      "#133",
+      "#133",
+      "#128",
       "#93",
     ]);
   });
@@ -240,5 +247,56 @@ describe("escalas — bloqueio de pessoa no mesmo horário", () => {
     ]);
     expect(before).toHaveLength(1);
     expect(after).toHaveLength(0);
+  });
+
+  it("trata dois horários do mesmo dia em São Paulo como conflito e o dia seguinte como livre", () => {
+    expect(churchDayKey(AT)).toBe(churchDayKey(LATER));
+    const sameDay = findSameDayBlocks([
+      roster({
+        id: "r1",
+        title: "Louvor",
+        serviceAt: AT,
+        slots: [slot("s1", [assignment("a1", "p-ana", "CONFIRMED")])],
+      }),
+      roster({
+        id: "r2",
+        ministryId: "min-atmosfera",
+        title: "Atmosfera",
+        serviceAt: LATER,
+        slots: [slot("s2", [assignment("a2", "p-ana", "PENDING")])],
+      }),
+    ]);
+    expect(findSimultaneousBlocks([
+      roster({ id: "r1", title: "Louvor", serviceAt: AT, slots: [slot("s1", [assignment("a1", "p-ana")])]}),
+      roster({ id: "r2", title: "Atmosfera", serviceAt: LATER, slots: [slot("s2", [assignment("a2", "p-ana", "PENDING")])]}),
+    ])).toHaveLength(0);
+    expect(sameDay).toHaveLength(1);
+    expect(sameDay[0]?.internal).toBe(false);
+
+    const nextDay = new Date(Date.parse(AT) + 24 * 60 * 60 * 1000).toISOString();
+    expect(findSameDayBlocks([
+      roster({ id: "r1", title: "Louvor", serviceAt: AT, slots: [slot("s1", [assignment("a1", "p-ana")])]}),
+      roster({ id: "r3", title: "Dia seguinte", serviceAt: nextDay, slots: [slot("s3", [assignment("a3", "p-ana", "PENDING")])]}),
+    ])).toHaveLength(0);
+  });
+
+  it("recusa agenda que não declara a pessoa do token", () => {
+    expect(parseMyAgenda({
+      personId: "per-membro",
+      source: "jwt",
+      assignments: [{
+        id: "a1",
+        status: "PENDING",
+        participation: "assignee",
+        roleLabel: "Voz",
+        title: "Louvor domingo",
+        serviceAt: AT,
+        rosterStatus: "PUBLISHED",
+        ministryName: "Louvor",
+        ministrySlug: "louvor",
+        sameDayConflict: false,
+      }],
+    }).assignments[0]?.title).toBe("Louvor domingo");
+    expect(() => parseMyAgenda({ personId: "per-outra", assignments: [] })).toThrow(/token/);
   });
 });

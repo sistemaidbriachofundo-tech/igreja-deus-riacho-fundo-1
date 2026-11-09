@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import { withBasePath } from "../../lib/paths";
+import { formatChurchDate } from "../../lib/das-operations";
+import type { PersonalAssignment } from "../../lib/serving-rosters";
 import styles from "./serving.module.css";
 
 type Probe = "forbidden" | "allowed" | "unavailable" | null;
@@ -9,6 +10,7 @@ type Probe = "forbidden" | "allowed" | "unavailable" | null;
 export function MemberSpace({
   email,
   personId,
+  assignments,
   busy,
   notice,
   probe,
@@ -18,6 +20,7 @@ export function MemberSpace({
 }: {
   email: string;
   personId: string;
+  assignments: readonly PersonalAssignment[];
   busy: boolean;
   notice: string;
   probe: Probe;
@@ -25,21 +28,10 @@ export function MemberSpace({
   onDecline: (assignmentId: string) => void;
   onProbe: () => void;
 }) {
-  const [assignmentId, setAssignmentId] = useState("");
-  const ready = assignmentId.trim().length > 0;
-
-  function submit(event: FormEvent<HTMLFormElement>, action: "confirm" | "decline") {
-    event.preventDefault();
-    const id = assignmentId.trim();
-    if (!id) return;
-    if (action === "confirm") onConfirm(id);
-    else onDecline(id);
-  }
-
   return (
     <div data-surface="membro">
       {notice && (
-        <p className={styles.notice} role="status">
+        <p className={styles.notice} role="status" data-persist="roster">
           {notice}
         </p>
       )}
@@ -49,44 +41,75 @@ export function MemberSpace({
           Conta <strong>{email}</strong>
         </p>
         <p className={styles.footnote}>
-          Identificador da sua pessoa na homologação: {personId || "não informado pela API"}.
+          A agenda abaixo usa a pessoa do token: {personId || "não informado pela API"}.
         </p>
         <p>
           <a href={withBasePath("/app/membros/carteirinha/")}>Abrir a carteirinha já publicada</a>
         </p>
       </section>
-      <section className={styles.card}>
-        <h2>Sua escala</h2>
-        <p>
-          A API atual autoriza o membro a confirmar ou recusar a própria atribuição pelo identificador.
-          Não há consulta da agenda pessoal, então esta tela não monta uma lista.
+      <section className={styles.card} aria-label="Agenda pessoal">
+        <h2>Sua agenda</h2>
+        <p className={styles.footnote}>
+          Só entram as posições em que esta pessoa é titular ou par. Confirmar e recusar gravam na API e não enviam mensagem.
         </p>
-        <form className={styles.form} onSubmit={(event) => submit(event, "confirm")}>
-          <label className={styles.form}>
-            Identificador da sua atribuição
-            <input
-              className={styles.field}
-              value={assignmentId}
-              onChange={(event) => setAssignmentId(event.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              required
-            />
-          </label>
-          <div className={styles.actions}>
-            <button type="submit" className={styles.primary} disabled={busy || !ready}>
-              Confirmar minha escala
-            </button>
-            <button
-              type="button"
-              className={styles.danger}
-              disabled={busy || !ready}
-              onClick={() => onDecline(assignmentId.trim())}
-            >
-              Recusar minha escala
-            </button>
+        {assignments.length === 0 ? (
+          <p role="status" data-agenda="empty">
+            Nenhuma escala da sua pessoa foi encontrada.
+          </p>
+        ) : (
+          <div className={styles.agenda}>
+            {assignments.map((item) => {
+              const open = item.status === "PENDING" && item.rosterStatus !== "CLOSED";
+              return (
+                <article key={item.id} className={styles.roster} data-assignment={item.id}>
+                  <div className={styles.rosterHeader}>
+                    <div>
+                      <h3>{item.title}</h3>
+                      <p className={styles.footnote}>
+                        {item.ministryName ?? "Sem ministério"}
+                        {item.ministrySlug ? ` · ${item.ministrySlug}` : ""} · {item.roleLabel}
+                      </p>
+                      <p className={styles.footnote}>{formatChurchDate(item.serviceAt)}</p>
+                    </div>
+                    <span className={styles.badge} data-status={item.status}>
+                      {item.status}
+                    </span>
+                  </div>
+                  <p className={styles.footnote}>
+                    {item.participation === "partner"
+                      ? "Você está como par nesta função."
+                      : "Você está designado nesta função."}
+                  </p>
+                  {item.sameDayConflict && (
+                    <p className={styles.conflict} role="status">
+                      Há outra posição ativa sua neste dia. A API recusa uma nova designação com ROSTER_SAME_DAY.
+                    </p>
+                  )}
+                  {open && (
+                    <div className={styles.actions}>
+                      <button
+                        type="button"
+                        className={styles.primary}
+                        disabled={busy}
+                        onClick={() => onConfirm(item.id)}
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.danger}
+                        disabled={busy}
+                        onClick={() => onDecline(item.id)}
+                      >
+                        Recusar
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
-        </form>
+        )}
       </section>
       <section className={styles.card}>
         <h2>Permissão de listagem</h2>
@@ -103,7 +126,7 @@ export function MemberSpace({
         )}
         {probe === "allowed" && (
           <p className={styles.notice} role="status" data-probe="allowed">
-            Esta conta pode listar escalas na API. A lista fica em Atmosfera e Louvor. Meu Espaço não a mostra.
+            Esta conta pode listar escalas na API legada. Meu Espaço continua mostrando só a agenda do token.
           </p>
         )}
         {probe === "unavailable" && (
