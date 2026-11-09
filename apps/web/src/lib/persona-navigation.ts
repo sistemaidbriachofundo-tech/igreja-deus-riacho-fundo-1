@@ -71,7 +71,7 @@ const ADMISSIONS = ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] as const satisfies
 const CREDENTIALS = ["MEMBRO", "SECRETARIA", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
 const MINISTRY_LEAD = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
 const SITE_EDITORS = ["EDITOR_SITE", "PUBLICADOR_SITE", "SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
-const CMS_CONTENT = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
+const CMS_CONTENT = ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
 const OWN_ASSIGNMENT = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "MEMBRO"] as const satisfies readonly BuiltinRole[];
 const OPERATION = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "TESOURARIA"] as const satisfies readonly BuiltinRole[];
 
