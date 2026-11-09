@@ -163,17 +163,19 @@ describe("PrismaMinistryMembershipRepository", () => {
     await expect(repository.probe()).resolves.toBe("schema_blocked");
   });
 
-  it("o SQL proposto ao integrador permanece fora de schema e migrations", () => {
-    const contract = readFileSync(
-      join(__dirname, "../../../../../docs/contratos/a6-vinculo-formal-ministerio.md"),
-      "utf8",
-    );
-    expect(contract).toContain("ministry_memberships");
-    expect(contract).toContain("BLOCKED");
+  it("o vínculo formal possui schema e migration aditiva versionados", () => {
     const schema = readFileSync(
       join(__dirname, "../../../../../packages/db/prisma/schema.prisma"),
       "utf8",
     );
-    expect(schema).not.toContain("model MinistryMembership");
+    const migration = readFileSync(
+      join(__dirname, "../../../../../packages/db/prisma/migrations/20261109230000_eklesia_ministry_memberships/migration.sql"),
+      "utf8",
+    );
+    expect(schema).toContain("model MinistryMembership");
+    expect(schema).toContain("@@unique([ministryId, personId])");
+    expect(migration).toContain('CREATE TABLE "ministry_memberships"');
+    expect(migration).toContain("ministry_memberships_ministry_id_person_id_key");
+    expect(migration).not.toMatch(/\bDROP TABLE\b/i);
   });
 });
