@@ -15,6 +15,7 @@ const shell = read("components/PublicPortal.tsx");
 const riachinho = read("components/RiachinhoPublicChat.tsx");
 const css = read("components/public-portal.module.css");
 const appShell = read("components/AppShell.tsx");
+const personaNav = read("lib/persona-navigation.ts");
 
 describe("portal público da igreja", () => {
   it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
@@ -34,9 +35,9 @@ describe("portal público da igreja", () => {
     expect(shell).toContain('className={d.headerLogin}');
     expect(shell).toContain("abrir tela de e-mail e senha");
     expect(shell).toContain("/login/");
-    expect(appShell).toContain("Membros e famílias");
+    expect(personaNav).toContain("Membros e famílias");
     expect(appShell).toContain("Estúdio editorial");
-    expect(appShell).toContain("Gestão do site");
+    expect(personaNav).toContain("Gestão do site");
   });
 
   it("oferece cinco ministérios com caminhos públicos estáticos", () => {
