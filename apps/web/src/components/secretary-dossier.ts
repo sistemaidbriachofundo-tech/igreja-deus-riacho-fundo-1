@@ -1,23 +1,26 @@
 /**
- * Ficha da Secretaria contra o contrato atual de pessoa.
- * PATCH /persons/:id grava só isMinor, legalGuardianPersonId e householdId.
- * Nome, e-mail, situação, tipo e observações são consulta — nunca simulados.
+ * Ficha 360 da Secretaria contra o contrato já publicado.
+ * PATCH /persons/:id grava displayName, email, isMinor, legalGuardianPersonId,
+ * householdId e expectedUpdatedAt.
+ * PATCH /memberships/:id grava a observação do vínculo mais recente.
+ * Situação, tipo, telefone e endereço continuam recusados pela API.
+ * Casos pastorais não são pedidos por esta ficha.
  */
 
 export const PATCHABLE_PERSON_FIELDS = [
+  "displayName",
+  "email",
   "isMinor",
   "legalGuardianPersonId",
   "householdId",
+  "expectedUpdatedAt",
 ] as const;
 
 export type PatchablePersonField = (typeof PATCHABLE_PERSON_FIELDS)[number];
 
-export const UNSUPPORTED_PERSON_FIELDS = [
-  { key: "displayName", label: "Nome" },
-  { key: "email", label: "E-mail" },
+export const REGULATED_PERSON_FIELDS = [
   { key: "status", label: "Situação da pessoa" },
   { key: "kind", label: "Tipo de cadastro" },
-  { key: "notes", label: "Observações do vínculo" },
 ] as const;
 
 export type PersonPhoto = { status: string; hasStorageKey: boolean };
@@ -31,7 +34,9 @@ export type PersonRecord = {
   kind: string;
   isMinor: boolean;
   legalGuardianPersonId: string | null;
+  updatedAt?: string;
   photo?: PersonPhoto;
+  dedupeAlerts?: Array<{ personId: string }>;
 };
 
 export type DossierMembership = {
@@ -39,6 +44,7 @@ export type DossierMembership = {
   status: string;
   joinedAt: string;
   notes: string | null;
+  updatedAt?: string;
 };
 
 export type DossierAdmission = {
@@ -56,6 +62,21 @@ export type DossierAdmission = {
   updatedAt: string;
 };
 
+export type AdmissionDocumentMeta = {
+  id: string;
+  admissionId?: string;
+  displayName: string;
+  contentType: string;
+  byteSize: number;
+  createdAt: string;
+};
+
+export type AdmissionDocumentList = {
+  admissionId: string;
+  documents: AdmissionDocumentMeta[];
+  failure: DossierFailure | null;
+};
+
 export type PersonDossier = {
   person: PersonRecord;
   legalGuardian: { id: string; displayName: string; email: string | null } | null;
@@ -70,15 +91,32 @@ export type PersonDossier = {
 };
 
 export type EditablePersonFields = {
+  displayName: string;
+  email: string;
   isMinor: boolean;
   legalGuardianPersonId: string;
   householdId: string;
+  notes: string;
 };
 
 export type PersonPatchBody = {
+  displayName?: string;
+  email?: string | null;
   isMinor?: boolean;
   legalGuardianPersonId?: string | null;
   householdId?: string | null;
+  expectedUpdatedAt?: string;
+};
+
+export type MembershipNotesBody = {
+  notes: string | null;
+  expectedUpdatedAt?: string;
+};
+
+export type DossierVersions = {
+  personUpdatedAt: string | null;
+  membershipId: string | null;
+  membershipUpdatedAt: string | null;
 };
 
 export type DossierFailureKind =
@@ -118,26 +156,55 @@ const STATUS_LABELS: Record<string, string> = {
   MEMBER: "Membro",
 };
 
+const SYNTHETIC_EMAIL = /^[^\s@]+@example\.test$/;
+
 export function dossierLabel(value: string | null | undefined): string {
   if (!value) return "—";
   return STATUS_LABELS[value] ?? value.replaceAll("_", " ");
 }
 
+export function collapseName(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+export function primaryMembership(dossier: PersonDossier | null | undefined): DossierMembership | null {
+  return dossier?.memberships[0] ?? null;
+}
+
 export function toEditable(
-  person: Pick<PersonRecord, "isMinor" | "legalGuardianPersonId" | "householdId">,
+  person: Pick<PersonRecord, "displayName" | "email" | "isMinor" | "legalGuardianPersonId" | "householdId">,
+  notes: string | null | undefined,
 ): EditablePersonFields {
   return {
+    displayName: person.displayName,
+    email: person.email ?? "",
     isMinor: person.isMinor,
     legalGuardianPersonId: person.legalGuardianPersonId ?? "",
     householdId: person.householdId ?? "",
+    notes: notes ?? "",
+  };
+}
+
+export function versionsFrom(person: PersonRecord, dossier: PersonDossier): DossierVersions {
+  const membership = primaryMembership(dossier);
+  return {
+    personUpdatedAt: person.updatedAt ?? null,
+    membershipId: membership?.id ?? null,
+    membershipUpdatedAt: membership?.updatedAt ?? null,
   };
 }
 
 export function buildPersonPatch(
   current: EditablePersonFields,
   baseline: EditablePersonFields,
+  personUpdatedAt: string | null,
 ): PersonPatchBody | null {
   const body: PersonPatchBody = {};
+  const name = collapseName(current.displayName);
+  if (name !== collapseName(baseline.displayName)) body.displayName = name;
+  const email = current.email.trim().toLowerCase();
+  const previousEmail = baseline.email.trim().toLowerCase();
+  if (email !== previousEmail) body.email = email.length > 0 ? email : null;
   if (current.isMinor !== baseline.isMinor) body.isMinor = current.isMinor;
   if (current.legalGuardianPersonId !== baseline.legalGuardianPersonId) {
     const value = current.legalGuardianPersonId.trim();
@@ -147,10 +214,26 @@ export function buildPersonPatch(
     const value = current.householdId.trim();
     body.householdId = value.length > 0 ? value : null;
   }
-  return Object.keys(body).length > 0 ? body : null;
+  if (Object.keys(body).length === 0) return null;
+  if (personUpdatedAt) body.expectedUpdatedAt = personUpdatedAt;
+  return body;
 }
 
-/** Recusa qualquer chave fora do contrato, mesmo que o chamador a tenha inserido. */
+export function buildMembershipNotesPatch(
+  current: EditablePersonFields,
+  baseline: EditablePersonFields,
+  versions: DossierVersions,
+): { membershipId: string; body: MembershipNotesBody } | null {
+  const notes = current.notes.trim();
+  const previous = baseline.notes.trim();
+  if (notes === previous) return null;
+  if (!versions.membershipId) return null;
+  const body: MembershipNotesBody = { notes: notes.length > 0 ? notes : null };
+  if (versions.membershipUpdatedAt) body.expectedUpdatedAt = versions.membershipUpdatedAt;
+  return { membershipId: versions.membershipId, body };
+}
+
+/** Recusa situação, tipo, telefone, endereço e qualquer chave fora do contrato. */
 export function assertSupportedPatch(body: PersonPatchBody): PersonPatchBody {
   const allowed = new Set<string>(PATCHABLE_PERSON_FIELDS);
   const extra = Object.keys(body).filter((key) => !allowed.has(key));
@@ -158,6 +241,28 @@ export function assertSupportedPatch(body: PersonPatchBody): PersonPatchBody {
     throw new Error("Campo fora do contrato de PATCH: " + extra.join(", "));
   }
   return body;
+}
+
+export function localFieldError(
+  current: EditablePersonFields,
+  baseline: EditablePersonFields,
+): string | null {
+  const nameChanged = collapseName(current.displayName) !== collapseName(baseline.displayName);
+  if (nameChanged) {
+    const name = collapseName(current.displayName);
+    if (name.length < 2 || name.length > 160) {
+      return "O nome precisa ter entre 2 e 160 caracteres.";
+    }
+  }
+  const email = current.email.trim().toLowerCase();
+  const emailChanged = email !== baseline.email.trim().toLowerCase();
+  if (emailChanged && email.length > 0 && !SYNTHETIC_EMAIL.test(email)) {
+    return "Na homologação o e-mail de contato precisa terminar em @example.test.";
+  }
+  if (current.notes.trim().length > 4000) {
+    return "A observação do vínculo excede 4000 caracteres.";
+  }
+  return null;
 }
 
 export function readHttpStatus(raw: string): number | null {
@@ -217,17 +322,20 @@ export function classifyDossierError(error: unknown): DossierFailure {
     };
   }
   if (status === 409) {
+    const specific = detail && detail !== raw ? detail : "";
     return {
       kind: "conflict",
       status,
-      message: "A API recusou a gravação por conflito (409). A ficha não foi alterada e o formulário foi mantido.",
+      message: specific
+        ? specific + " (409). O formulário foi mantido."
+        : "A API recusou a gravação por conflito (409). A ficha não foi alterada e o formulário foi mantido.",
     };
   }
   if (status === 400) {
     return {
       kind: "validation",
       status,
-      message: detail || "A API recusou os campos enviados. Revise responsável legal e família.",
+      message: detail || "A API recusou os campos enviados. Revise nome, e-mail, responsável legal e família.",
     };
   }
   if (status === null && /sess[aã]o expirou|jwt expired|token expired/i.test(raw)) {
@@ -291,39 +399,116 @@ export async function loadPersonDossier(
   }
 }
 
+function isDocumentMeta(value: unknown): value is AdmissionDocumentMeta {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<AdmissionDocumentMeta>;
+  return typeof row.id === "string"
+    && typeof row.displayName === "string"
+    && typeof row.contentType === "string"
+    && typeof row.byteSize === "number";
+}
+
+/** Lista metadados já gravados em GET /admissions/:id/documents. Não baixa o arquivo. */
+export async function loadAdmissionDocuments(
+  client: DossierClient,
+  token: string,
+  admissionIds: readonly string[],
+): Promise<AdmissionDocumentList[]> {
+  return Promise.all(admissionIds.map(async (admissionId) => {
+    try {
+      const payload = await client.get<{ documents?: unknown }>(
+        "/admissions/" + encodeURIComponent(admissionId) + "/documents",
+        token,
+      );
+      const documents = Array.isArray(payload?.documents)
+        ? payload.documents.filter(isDocumentMeta)
+        : [];
+      return { admissionId, documents, failure: null };
+    } catch (error) {
+      return { admissionId, documents: [], failure: classifyDossierError(error) };
+    }
+  }));
+}
+
 export async function savePersonDossier(
   client: DossierClient,
   token: string,
   personId: string,
   current: EditablePersonFields,
   baseline: EditablePersonFields,
+  versions: DossierVersions,
 ): Promise<
-  | { ok: true; person: PersonRecord }
+  | { ok: true; person: PersonRecord | null }
   | { ok: false; unchanged: true }
-  | { ok: false; failure: DossierFailure }
+  | { ok: false; failure: DossierFailure; partialPerson?: PersonRecord }
 > {
-  const patch = buildPersonPatch(current, baseline);
-  if (!patch) return { ok: false, unchanged: true };
-  try {
-    const person = await client.patch<PersonRecord>(
-      "/persons/" + encodeURIComponent(personId),
-      token,
-      assertSupportedPatch(patch),
-    );
-    if (!isPersonRecord(person)) {
-      return {
-        ok: false,
-        failure: {
-          kind: "unknown",
-          status: null,
-          message: "A API não confirmou a ficha gravada. O formulário foi mantido.",
-        },
-      };
-    }
-    return { ok: true, person };
-  } catch (error) {
-    return { ok: false, failure: classifyDossierError(error) };
+  const invalid = localFieldError(current, baseline);
+  if (invalid) {
+    return { ok: false, failure: { kind: "validation", status: null, message: invalid } };
   }
+  const notesChanged = current.notes.trim() !== baseline.notes.trim();
+  if (notesChanged && !versions.membershipId) {
+    return {
+      ok: false,
+      failure: {
+        kind: "validation",
+        status: null,
+        message: "Não há vínculo nesta congregação para gravar a observação.",
+      },
+    };
+  }
+  const personPatch = buildPersonPatch(current, baseline, versions.personUpdatedAt);
+  const notesPatch = buildMembershipNotesPatch(current, baseline, versions);
+  if (!personPatch && !notesPatch) return { ok: false, unchanged: true };
+
+  let savedPerson: PersonRecord | null = null;
+  if (personPatch) {
+    try {
+      const person = await client.patch<PersonRecord>(
+        "/persons/" + encodeURIComponent(personId),
+        token,
+        assertSupportedPatch(personPatch),
+      );
+      if (!isPersonRecord(person)) {
+        return {
+          ok: false,
+          failure: {
+            kind: "unknown",
+            status: null,
+            message: "A API não confirmou a ficha gravada. O formulário foi mantido.",
+          },
+        };
+      }
+      savedPerson = person;
+    } catch (error) {
+      return { ok: false, failure: classifyDossierError(error) };
+    }
+  }
+
+  if (notesPatch) {
+    try {
+      await client.patch(
+        "/memberships/" + encodeURIComponent(notesPatch.membershipId),
+        token,
+        notesPatch.body,
+      );
+    } catch (error) {
+      const failure = classifyDossierError(error);
+      if (savedPerson) {
+        return {
+          ok: false,
+          partialPerson: savedPerson,
+          failure: {
+            ...failure,
+            message: "Os dados da pessoa foram gravados. A observação do vínculo não foi gravada. " + failure.message,
+          },
+        };
+      }
+      return { ok: false, failure };
+    }
+  }
+
+  return { ok: true, person: savedPerson };
 }
 
 export type FichaPhase = "loading" | "ready" | "saving" | "reopening";
@@ -334,6 +519,7 @@ export type FichaState = {
   dossier: PersonDossier | null;
   form: EditablePersonFields | null;
   baseline: EditablePersonFields | null;
+  versions: DossierVersions;
   loadError: DossierFailure | null;
   saveError: DossierFailure | null;
   refreshError: DossierFailure | null;
@@ -342,12 +528,19 @@ export type FichaState = {
   saveMs: number | null;
 };
 
+const emptyVersions: DossierVersions = {
+  personUpdatedAt: null,
+  membershipId: null,
+  membershipUpdatedAt: null,
+};
+
 export const initialFichaState: FichaState = {
   phase: "loading",
   person: null,
   dossier: null,
   form: null,
   baseline: null,
+  versions: emptyVersions,
   loadError: null,
   saveError: null,
   refreshError: null,
@@ -363,7 +556,8 @@ export type FichaEvent =
   | { type: "saving" }
   | { type: "save-unchanged" }
   | { type: "save-fail"; failure: DossierFailure }
-  | { type: "save-ok"; person: PersonRecord }
+  | { type: "save-partial"; person: PersonRecord; failure: DossierFailure }
+  | { type: "save-ok"; person: PersonRecord | null }
   | { type: "reopening" }
   | { type: "reopen-ok"; data: LoadedDossier; elapsedMs: number; context: "after-save" | "manual" }
   | { type: "reopen-fail"; failure: DossierFailure; elapsedMs: number; context: "after-save" | "manual" };
@@ -375,22 +569,28 @@ function refreshFailure(failure: DossierFailure, context: "after-save" | "manual
   return { ...failure, message: prefix + failure.message };
 }
 
+function applyLoaded(data: LoadedDossier, elapsedMs: number, notice: string, saveMs: number | null): FichaState {
+  const notes = primaryMembership(data.dossier)?.notes ?? "";
+  return {
+    phase: "ready",
+    person: data.person,
+    dossier: data.dossier,
+    form: toEditable(data.person, notes),
+    baseline: toEditable(data.person, notes),
+    versions: versionsFrom(data.person, data.dossier),
+    loadError: null,
+    saveError: null,
+    refreshError: null,
+    notice,
+    loadMs: elapsedMs,
+    saveMs,
+  };
+}
+
 export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
   switch (event.type) {
     case "load-ok":
-      return {
-        ...state,
-        phase: "ready",
-        person: event.data.person,
-        dossier: event.data.dossier,
-        form: toEditable(event.data.person),
-        baseline: toEditable(event.data.person),
-        loadError: null,
-        saveError: null,
-        refreshError: null,
-        notice: "",
-        loadMs: event.elapsedMs,
-      };
+      return applyLoaded(event.data, event.elapsedMs, "", null);
     case "load-fail":
       return {
         ...state,
@@ -399,6 +599,7 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         dossier: null,
         form: null,
         baseline: null,
+        versions: emptyVersions,
         loadError: event.failure,
         saveError: null,
         refreshError: null,
@@ -424,34 +625,59 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         refreshError: null,
         notice: "",
       };
+    case "save-partial": {
+      const notes = state.form?.notes ?? "";
+      const baselineNotes = state.baseline?.notes ?? "";
+      return {
+        ...state,
+        phase: "ready",
+        person: { ...(state.person ?? event.person), ...event.person },
+        form: { ...toEditable(event.person, notes), notes },
+        baseline: { ...toEditable(event.person, baselineNotes), notes: baselineNotes },
+        versions: {
+          ...state.versions,
+          personUpdatedAt: event.person.updatedAt ?? state.versions.personUpdatedAt,
+        },
+        saveError: event.failure,
+        refreshError: null,
+        notice: "",
+      };
+    }
     case "save-ok":
+      if (!event.person) {
+        return { ...state, phase: "reopening", saveError: null, refreshError: null, notice: "" };
+      }
       return {
         ...state,
         phase: "reopening",
         person: { ...(state.person ?? event.person), ...event.person },
-        form: toEditable(event.person),
-        baseline: toEditable(event.person),
+        form: toEditable(event.person, state.form?.notes ?? ""),
+        baseline: toEditable(event.person, state.baseline?.notes ?? ""),
+        versions: {
+          ...state.versions,
+          personUpdatedAt: event.person.updatedAt ?? state.versions.personUpdatedAt,
+        },
         saveError: null,
         refreshError: null,
         notice: "",
       };
     case "reopening":
       return { ...state, phase: "reopening", refreshError: null, notice: "" };
-    case "reopen-ok":
-      return {
-        ...state,
-        phase: "ready",
-        person: event.data.person,
-        dossier: event.data.dossier,
-        form: toEditable(event.data.person),
-        baseline: toEditable(event.data.person),
-        saveError: null,
-        refreshError: null,
-        notice: event.context === "after-save"
-          ? "Ficha salva e reaberta com os dados devolvidos pela API."
-          : "Ficha reaberta com os dados atuais da API.",
-        saveMs: event.context === "after-save" ? event.elapsedMs : state.saveMs,
-      };
+    case "reopen-ok": {
+      const dedupe = event.context === "after-save" && (state.person?.dedupeAlerts?.length ?? 0) > 0
+        ? " A API registrou homônimo e não bloqueou a gravação."
+        : "";
+      const notice = (event.context === "after-save"
+        ? "Ficha salva e reaberta com os dados devolvidos pela API."
+        : "Ficha reaberta com os dados atuais da API.") + dedupe;
+      const next = applyLoaded(
+        event.data,
+        state.loadMs ?? event.elapsedMs,
+        notice,
+        event.context === "after-save" ? event.elapsedMs : state.saveMs,
+      );
+      return next;
+    }
     case "reopen-fail":
       return {
         ...state,
