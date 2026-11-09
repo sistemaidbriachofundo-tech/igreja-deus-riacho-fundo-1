@@ -8,6 +8,7 @@ import { FinanceBoard } from "./FinanceBoard";
 import { EventsBoard } from "./EventsBoard";
 import { EventRegistrations } from "./EventRegistrations";
 import { VolunteerPipeline } from "./VolunteerPipeline";
+import { MinistryWorkspace } from "./MinistryWorkspace";
 import { EducationBoard } from "./EducationBoard";
 import { AssetsBoard } from "./AssetsBoard";
 import { CommunicationsBoard } from "./CommunicationsBoard";
@@ -269,7 +270,7 @@ export function DasOperations() {
         {data.kind==="error"&&<div role="alert" className={styles.formError}>{data.message}</div>}
         {data.kind==="ready"&&<>
           {data.summary?<IndicatorPanel data={data.summary}/>:<>
-            {chosen.id==="ministerios"&&<Rows key={chosen.id} module={chosen.id} rows={data.rows}/>}
+            {chosen.id==="ministerios"&&<MinistryWorkspace ministries={data.rows} token={session.token}/>} 
             {chosen.id==="escalas"&&<RosterBoard rows={data.rows} token={session.token} personId={session.user.personId} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="pastoral"&&roles.includes("PASTOR")&&<PastoralBoard rows={data.rows} token={session.token} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
             {chosen.id==="discipulado"&&<DiscipleshipBoard rows={data.rows} token={session.token} roles={roles} refresh={()=>setReload(n=>n+1)}/>}
