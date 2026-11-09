@@ -12,6 +12,7 @@ const visit = read("app/visita/page.tsx");
 const about = read("app/a-igreja/page.tsx");
 const contact = read("app/contato/page.tsx");
 const shell = read("components/PublicPortal.tsx");
+const riachinho = read("components/RiachinhoPublicChat.tsx");
 const css = read("components/public-portal.module.css");
 const appShell = read("components/AppShell.tsx");
 
@@ -92,5 +93,19 @@ describe("portal público da igreja", () => {
     expect(shell).toContain('href="/visita/"');
     expect(visit).toContain("<VisitPlanner");
     expect(about).toContain('id="conteudo"');
+  });
+});
+
+
+describe("Riachinho — envio simplificado", () => {
+  it("não exige marcar uma checkbox para enviar a pergunta", () => {
+    expect(riachinho).not.toContain('type="checkbox"');
+    expect(riachinho).not.toContain("Autorizo enviar minha pergunta");
+    expect(riachinho).not.toContain("setConsent(");
+    expect(riachinho).toContain("Ao enviar, sua pergunta será processada por IA.");
+  });
+  it("preserva o sinal de processamento enviado à API após clicar em enviar", () => {
+    expect(riachinho).toContain("prepareRiachinhoPublicRequest(messages, text, sessionRef.current, true)");
+    expect(riachinho).toContain("disabled={!canSend}");
   });
 });
