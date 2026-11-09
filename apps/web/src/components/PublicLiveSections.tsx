@@ -35,7 +35,7 @@ function VisitFallback({ compact = false }: { compact?: boolean }) {
     <strong>Programação em atualização</strong>
     <p>Os próximos encontros aparecem aqui quando forem confirmados e publicados pela igreja. Para informações atuais, consulte os canais da comunidade.</p>
     <div className={s.fallbackLinks}>
-      <Link href="/visita/">Planeje sua visita <span aria-hidden="true">↗</span></Link>
+      <Link href="/a-igreja/">Conheça nossa igreja <span aria-hidden="true">↗</span></Link>
       <a href={instagramUrl} rel="noopener noreferrer" target="_blank">Acompanhe os avisos <span aria-hidden="true">↗</span></a>
     </div>
   </div>;
