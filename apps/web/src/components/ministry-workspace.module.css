@@ -1,0 +1,33 @@
+.workspace{margin:20px 0 26px;padding:clamp(19px,3vw,31px);border:1px solid #d4e4dd;border-radius:23px;background:linear-gradient(135deg,#fcfffb,#f4f8f3);color:#193f36;box-shadow:0 10px 32px #23432d0b}
+.intro>span,.financePanel>span{display:block;margin-bottom:10px;font:800 10px Inter,Arial,sans-serif;letter-spacing:.11em;color:#a17c45}
+.intro h2{font:790 clamp(26px,3.2vw,38px)/1.1 Montserrat,Inter,sans-serif;letter-spacing:-.055em;margin:0 0 9px}
+.intro p{margin:0;max-width:720px;color:#58736a;font:470 13px/1.6 Inter,Arial,sans-serif}
+.selector{display:flex;flex-direction:column;gap:9px;max-width:430px;margin-top:25px;color:#375f50;font:740 12px Inter,Arial,sans-serif}
+.selector select{width:100%;min-height:48px;background:#fff;border:1px solid #bad3c2;border-radius:11px;padding:10px 13px;color:#173d35;font:620 13px Inter,Arial,sans-serif}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 25px}
+.cards article{background:#fff;border:1px solid #d7e4d9;border-radius:16px;display:flex;flex-direction:column;gap:7px;min-width:0;padding:18px}
+.cards article>span{font:740 11px/1.35 Inter,Arial,sans-serif;color:#678175}
+.cards strong{font:800 clamp(19px,2.1vw,30px)/1.25 Montserrat,Inter,sans-serif;color:#18483b;overflow-wrap:anywhere}
+.cards small{font:500 11px/1.4 Inter,Arial,sans-serif;color:#87998e}
+.columns{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr);align-items:start;gap:15px}
+.listPanel,.financePanel{border:1px solid #d9e5dc;border-radius:18px;background:#fff;padding:23px;min-width:0}
+.panelHeading h3,.financePanel h3{font:780 18px/1.28 Montserrat,Inter,sans-serif;letter-spacing:-.03em;margin:0 0 7px;color:#1a3e37}
+.panelHeading p,.financePanel p{color:#657e70;font:480 12px/1.65 Inter,Arial,sans-serif;margin:0 0 16px}
+.people{display:grid}
+.person{display:flex;align-items:center;gap:13px;padding:15px 0;border-top:1px solid #edf1eb;min-width:0}
+.personAvatar{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#e6f2e9;color:#225749;font:770 15px Montserrat,Inter,sans-serif;flex:none}
+.person>div{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.person strong{font:730 13px Inter,Arial,sans-serif;color:#254c42;overflow-wrap:anywhere}
+.person small{font:500 11px Inter,Arial,sans-serif;color:#789283}
+.state{font:710 10px Inter,Arial,sans-serif;border:1px solid #cde0d0;border-radius:100px;padding:6px 8px;color:#26634c;background:#f2f8f1;white-space:nowrap}
+.empty{font:570 13px/1.6 Inter,Arial,sans-serif;color:#587267;padding:16px;border-radius:12px;background:#f4f8f5}
+.financePanel{background:linear-gradient(155deg,#193f38,#174d42);border-color:#1c5449;color:#fff}
+.financePanel>span{color:#e7c994}
+.financePanel h3{color:#fff;font-size:22px}
+.financePanel p{color:#d0e3d9}
+.unavailable{padding:17px;border:1px solid #d4b77d65;border-radius:13px;background:#fff1c711;display:grid;gap:7px}
+.unavailable strong{font:750 16px Montserrat,Inter,sans-serif;color:#f7ddaa}
+.unavailable small{font:490 12px/1.55 Inter,Arial,sans-serif;color:#dce7dd}
+.financePanel p.financeNote{font-size:11px;margin:17px 0 0;color:#c1dcd2}
+@media(max-width:940px){.columns{grid-template-columns:1fr}.cards strong{font-size:23px}}
+@media(max-width:650px){.workspace{padding:16px;border-radius:15px;margin:15px 0}.cards{grid-template-columns:1fr;gap:9px}.cards article{padding:15px}.cards article>strong{font-size:24px}.listPanel,.financePanel{padding:17px}.person{flex-wrap:wrap}.state{margin-left:51px}.intro p{font-size:12px}}
