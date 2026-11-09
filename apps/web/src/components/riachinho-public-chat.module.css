@@ -35,8 +35,6 @@
 .portalLinks a{border:1px solid #d0dfd2;border-radius:100px;background:#fff;color:#255246;text-decoration:none;padding:7px 12px;font:700 11px Inter,Arial,sans-serif}
 .portalLinks a:hover{background:#ecf6ef;border-color:#86ac90}
 .form{flex:none;display:flex;flex-direction:column;gap:9px;padding:15px 18px 17px;border-top:1px solid #e5eae4;background:#fffefa}
-.consent{display:flex;gap:10px;align-items:flex-start;color:#567063;font:500 11px/1.55 Inter,Arial,sans-serif;cursor:pointer}
-.consent input{margin-top:3px;accent-color:#205e49;flex:none;width:15px;height:15px;cursor:pointer}
 .promptLabel{font:740 11px Inter,Arial,sans-serif;color:#245b4b}
 .form textarea{box-sizing:border-box;display:block;width:100%;min-height:56px;max-height:110px;resize:vertical;padding:12px 13px;background:#fff;color:#234137;border:1px solid #c4d7ca;border-radius:12px;font:500 14px/1.45 Inter,Arial,sans-serif}
 .form textarea:focus{border-color:#4f8d75}
@@ -74,3 +72,5 @@
 @media(max-width:370px){.panel{height:min(93dvh,760px)}.headerCopy h2{font-size:18px}.quick button{font-size:11px;padding:8px 10px}.status{font-size:11px}.panel{border-radius:16px 16px 0 0}}
 @media(max-height:550px){.panel{height:calc(100dvh - 6px);max-height:100dvh}.quick{display:none}.log{min-height:25px}.privacy{max-height:50px}}
 @media(prefers-reduced-motion:reduce){.launcher{transition:none}}
+
+.sendNotice{margin:0;color:#647a6d;font:500 10px/1.5 Inter,Arial,sans-serif;overflow-wrap:anywhere}
