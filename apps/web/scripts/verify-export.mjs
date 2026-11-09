@@ -76,6 +76,28 @@ for (const page of findHtml(outDir)) {
     if (headingCount !== 1) failures.push(`${relative(outDir, page)} has ${headingCount} H1 headings (expected 1)`);
   }
 }
+const releasePath = join(outDir, "release.json");
+if (!existsSync(releasePath)) {
+  failures.push("Missing release.json");
+} else {
+  try {
+    const release = JSON.parse(readFileSync(releasePath, "utf8"));
+    if (release.phase !== "EM_EXECUCAO") {
+      failures.push("release.json não pode declarar a fase concluída");
+    }
+    const official = process.env.GITHUB_EVENT_NAME === "push" && process.env.GITHUB_REF === "refs/heads/main";
+    if (official) {
+      if (release.channel !== "github-pages") failures.push("channel do Pages oficial incorreto");
+      if (release.sourceSha !== process.env.GITHUB_SHA) {
+        failures.push("sourceSha do Pages não é o SHA do workflow");
+      }
+    } else if (release.sourceSha !== null) {
+      failures.push("Build fora do push da main não pode carimbar sourceSha oficial");
+    }
+  } catch {
+    failures.push("release.json inválido");
+  }
+}
 if (failures.length) {
   console.error(`Static export QA failed (${failures.length} issues):\n` + failures.slice(0, 40).join("\n"));
   process.exit(1);

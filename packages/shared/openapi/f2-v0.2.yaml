@@ -186,6 +186,10 @@ components:
             type: string
             enum: [implemented, proposed]
         hmlPublicUrl: { type: string, nullable: true }
+        sourceSha:
+          type: string
+          nullable: true
+          description: Commit implantado (SOURCE_SHA ou VERCEL_GIT_COMMIT_SHA). Null não identifica release.
         notes:
           type: array
           items: { type: string }

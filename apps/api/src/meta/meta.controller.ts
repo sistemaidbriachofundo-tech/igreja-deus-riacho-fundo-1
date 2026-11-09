@@ -5,6 +5,7 @@ import {
   API_ENDPOINT_STATUS,
   APP_NAME,
   APP_SLUG,
+  readSourceSha,
 } from "@idbrf/shared";
 import { Public } from "../auth/decorators/public.decorator";
 
@@ -22,6 +23,7 @@ export class MetaController {
       pilot: true,
       endpoints: API_ENDPOINT_STATUS,
       hmlPublicUrl: process.env.HML_PUBLIC_API_URL?.trim() || null,
+      sourceSha: readSourceSha(),
       notes: [
         "Dados fictícios em DEV/HML",
         "HML_PUBLIC_API_URL só após autorização de publicação",
@@ -32,6 +34,7 @@ export class MetaController {
         "0.7.4-rf014: RF-014 disponibilidade/impedimentos + exceções de casal; RF-015 alertas confirm/decline/substitute via outbox mock + resend idempotente (sem WABA live)",
         "0.7.4-rf022: hospedagem/alimentação/transporte por evento + autorização formal de responsável (menor); check-in bloqueia PENDING guardian; rf022LodgingPending=false",
         "0.7.4-rf025: RF-025 device tokens + FCM mock/noop no outbox; POST/GET /channels/device-tokens; PUSH fanout; sem FCM/WABA live",
+        "sourceSha identifica o commit implantado; null não é release da API HML",
       ],
     };
   }

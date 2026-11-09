@@ -1,0 +1,191 @@
+{
+  "observedAt": "2026-11-09T21:01:55.978Z",
+  "phase": "EM_EXECUCAO",
+  "releaseComplete": false,
+  "expectedSourceSha": "ca00a4fd2c5d1f87cca815c3822a35cb9a92c3c2",
+  "mainSha": "ca00a4fd2c5d1f87cca815c3822a35cb9a92c3c2",
+  "expectedContractVersion": "0.7.4-rf025",
+  "apiContractVersion": "0.7.2-f2",
+  "apiSourceSha": null,
+  "checks": [
+    {
+      "id": "pages-home",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "Home oficial respondeu 200, com o nome da igreja e sem título do seed demonstrativo."
+    },
+    {
+      "id": "pages-nav",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "HTML público contém Início, Quem somos, Agenda e Login."
+    },
+    {
+      "id": "pages-sha",
+      "front": "H",
+      "status": "BLOCKED",
+      "evidence": "O Pages oficial ainda não publica release.json com o SHA. O link no ar não prova este commit."
+    },
+    {
+      "id": "api-health",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "https://id-riacho1-api-hml.vercel.app/health respondeu 200."
+    },
+    {
+      "id": "api-contract",
+      "front": "H",
+      "status": "FAIL",
+      "evidence": "A API HML anuncia 0.7.2-f2 e este commit está em 0.7.4-rf025. Push no GitHub não implantou a API."
+    },
+    {
+      "id": "api-sha",
+      "front": "H",
+      "status": "BLOCKED",
+      "evidence": "A API HML não informa sourceSha. O processo em execução é anterior a este campo, ou foi iniciado sem SOURCE_SHA e sem VERCEL_GIT_COMMIT_SHA."
+    },
+    {
+      "id": "api-anon",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "11 rotas privadas recusaram a sessão ausente com 401."
+    },
+    {
+      "id": "api-route-coverage",
+      "front": "H",
+      "status": "BLOCKED",
+      "evidence": "Rotas deste commit ainda ausentes na API implantada: GET /ministry-scope/min-homens/formal-memberships HTTP 404."
+    },
+    {
+      "id": "api-public",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "Leituras públicas responderam 200 sem campo de segredo."
+    },
+    {
+      "id": "api-login-empty",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "Login sem credencial foi recusado com HTTP 400."
+    },
+    {
+      "id": "api-cors",
+      "front": "H",
+      "status": "PASS",
+      "evidence": "O CORS autoriza a origem do GitHub Pages e não reflete origem arbitrária."
+    },
+    {
+      "id": "api-deploy",
+      "front": "H",
+      "status": "BLOCKED",
+      "evidence": "VERCEL_TOKEN ausente. Não há permissão para implantar id-riacho1-api-hml nem para migrar o Neon idriacho1_hml. Nenhuma base de produção foi alterada."
+    },
+    {
+      "id": "schema-ministry",
+      "front": "B",
+      "status": "BLOCKED",
+      "evidence": "schema.prisma não tem MinistryMembership. O vínculo formal segue sem tabela; a frente B ainda não pactuou a migration. Nenhuma tabela foi inventada aqui."
+    },
+    {
+      "id": "own-roster",
+      "front": "C",
+      "status": "BLOCKED",
+      "evidence": "Não há rota GET da escala da própria sessão. Meu Espaço continua sem a lista pessoal. A frente C é quem entrega esse contrato."
+    },
+    {
+      "id": "front-A",
+      "front": "A",
+      "status": "BLOCKED",
+      "evidence": "PR #135 draft aberto. Ainda não entra na main."
+    },
+    {
+      "id": "front-B",
+      "front": "B",
+      "status": "BLOCKED",
+      "evidence": "Issue #127 (Ministérios, integrantes e liderança) sem PR desta fase. O módulo não foi reimplementado aqui."
+    },
+    {
+      "id": "front-C",
+      "front": "C",
+      "status": "BLOCKED",
+      "evidence": "PR #137 draft aberto. Ainda não entra na main."
+    },
+    {
+      "id": "front-D",
+      "front": "D",
+      "status": "BLOCKED",
+      "evidence": "Issue #129 (Navegação por persona) sem PR desta fase. O módulo não foi reimplementado aqui."
+    },
+    {
+      "id": "front-E",
+      "front": "E",
+      "status": "BLOCKED",
+      "evidence": "Issue #130 (Eventos, presença e relatórios) sem PR desta fase. O módulo não foi reimplementado aqui."
+    },
+    {
+      "id": "front-F",
+      "front": "F",
+      "status": "BLOCKED",
+      "evidence": "Issue #131 (CMS institucional) sem PR desta fase. O módulo não foi reimplementado aqui."
+    },
+    {
+      "id": "front-G",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "PR #136 draft aberto. Ainda não entra na main."
+    },
+    {
+      "id": "persona-admin",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-pastor",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-secretaria",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-tesouraria",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-lider",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-membro",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-editor",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    },
+    {
+      "id": "persona-publicador",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "Sem segredo de persona neste ambiente. A sessão sintética não foi aberta e nenhuma senha do repositório foi usada."
+    }
+  ],
+  "viewportCaptures": [
+    "qa/eklesia-h/evidence/pages-home-360.png",
+    "qa/eklesia-h/evidence/pages-home-768.png",
+    "qa/eklesia-h/evidence/pages-home-1440.png"
+  ]
+}

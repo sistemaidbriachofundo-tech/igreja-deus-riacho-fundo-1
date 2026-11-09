@@ -1,6 +1,8 @@
 import { MetaController } from "./meta.controller";
 import { API_CONTRACT_VERSION } from "@idbrf/shared";
 
+const SHA = "ca00a4fd2c5d1f87cca815c3822a35cb9a92c3c2";
+
 describe("MetaController", () => {
   it("exposes contract version for FE", () => {
     const meta = new MetaController().getMeta();
@@ -60,5 +62,35 @@ describe("MetaController", () => {
       meta.endpoints["POST /roster-couple-exceptions/simulate"],
     ).toBe("implemented");
     expect(meta.endpoints["POST /channels/outbox/resend"]).toBe("implemented");
+    expect(meta.notes.some((note) => note.includes("sourceSha"))).toBe(true);
+    const previousSource = process.env.SOURCE_SHA;
+    const previousVercel = process.env.VERCEL_GIT_COMMIT_SHA;
+    delete process.env.SOURCE_SHA;
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+    expect(new MetaController().getMeta().sourceSha).toBeNull();
+    if (previousSource === undefined) delete process.env.SOURCE_SHA;
+    else process.env.SOURCE_SHA = previousSource;
+    if (previousVercel === undefined) delete process.env.VERCEL_GIT_COMMIT_SHA;
+    else process.env.VERCEL_GIT_COMMIT_SHA = previousVercel;
+  });
+
+  it("publica só um SHA completo vindo do deploy", () => {
+    const previousSource = process.env.SOURCE_SHA;
+    const previousVercel = process.env.VERCEL_GIT_COMMIT_SHA;
+    const previousGithub = process.env.GITHUB_SHA;
+    process.env.SOURCE_SHA = SHA;
+    process.env.GITHUB_SHA = "b".repeat(40);
+    expect(new MetaController().getMeta().sourceSha).toBe(SHA);
+    delete process.env.SOURCE_SHA;
+    process.env.VERCEL_GIT_COMMIT_SHA = "c".repeat(40);
+    expect(new MetaController().getMeta().sourceSha).toBe("c".repeat(40));
+    process.env.VERCEL_GIT_COMMIT_SHA = "curto";
+    expect(new MetaController().getMeta().sourceSha).toBeNull();
+    if (previousSource === undefined) delete process.env.SOURCE_SHA;
+    else process.env.SOURCE_SHA = previousSource;
+    if (previousVercel === undefined) delete process.env.VERCEL_GIT_COMMIT_SHA;
+    else process.env.VERCEL_GIT_COMMIT_SHA = previousVercel;
+    if (previousGithub === undefined) delete process.env.GITHUB_SHA;
+    else process.env.GITHUB_SHA = previousGithub;
   });
 });
