@@ -33,19 +33,19 @@ export const BLOCKED_INTEGRATIONS = [
     text: "Vínculo formal de pessoa ao ministério, equipes e ensaios ainda não estão integrados. A tela só mostra a escala cujo ministryId a API já gravou.",
   },
   {
-    id: "rbac-matrix",
-    issue: "#101",
-    text: "A matriz RBAC do PR #101 não está na main. A autorização usada aqui é a que os controllers de roster já aplicam.",
+    id: "legacy-roster-list",
+    issue: "#133",
+    text: "GET /rosters da API de ministérios ainda lista a congregação para qualquer liderança. Atmosfera e Louvor usam GET /rosters/by-ministry. O corte do endpoint legado fica com o integrador.",
   },
   {
-    id: "member-list",
-    issue: "#98",
-    text: "Não há consulta das atribuições do próprio membro. Meu Espaço não lista escalas de outras pessoas.",
+    id: "legacy-assign",
+    issue: "#133",
+    text: "POST /slots/:id/assignments ainda impede só o mesmo horário exato. A designação desta tela usa POST /rosters/slots/:slotId/assign e recusa outra posição ativa no mesmo dia.",
   },
   {
     id: "messages",
-    issue: "#98",
-    text: "Esta tela não envia WhatsApp, e-mail ou push e não oferece reenvio de alerta.",
+    issue: "#128",
+    text: "Confirmar, recusar, designar e substituir por esta tela não envia WhatsApp, e-mail ou push. A substituição fica pendente até a pessoa aceitar em Meu Espaço. Publicar ainda pode gravar outbox mock no endpoint legado.",
   },
   {
     id: "design-system",
@@ -53,6 +53,8 @@ export const BLOCKED_INTEGRATIONS = [
     text: "O Design System do PR #102 não está na main. O visual usa os tokens já publicados.",
   },
 ] as const;
+
+export const CHURCH_TIME_ZONE = "America/Sao_Paulo";
 
 const ASSIGNMENT_STATUSES = ["PENDING", "CONFIRMED", "DECLINED", "SUBSTITUTED"] as const;
 const ROSTER_STATUSES = ["DRAFT", "PUBLISHED", "CLOSED"] as const;
@@ -154,10 +156,19 @@ export function canSubstituteAssignment(roles: readonly string[]): boolean {
   return isRosterLead(roles);
 }
 
-/** Meu Espaço nunca pede a lista da congregação ao abrir. */
+/** Meu Espaço pede só a agenda do token. As frentes pedem um ministério, não a lista da congregação. */
 export function endpointsForSurface(surface: ServingSurfaceId | "membro"): readonly string[] {
-  if (surface === "membro") return ["/auth/me"];
-  return ["/auth/me", "/ministries", "/rosters"];
+  if (surface === "membro") return ["/auth/me", "/rosters/me"];
+  return ["/auth/me", "/ministries", "/rosters/by-ministry"];
+}
+
+export function churchDayKey(serviceAt: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: CHURCH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(serviceAt));
 }
 
 export function interpretRosterProbe(status: number): "forbidden" | "allowed" | "unavailable" {
@@ -342,6 +353,127 @@ export function findSimultaneousBlocks(
     });
   }
   return blocks;
+}
+
+/** Mesma pessoa em duas posições ativas no mesmo dia civil da congregação. */
+export function findSameDayBlocks(rosters: readonly RosterView[]): SimultaneousBlock[] {
+  type Hit = {
+    rosterId: string;
+    title: string;
+    assignmentId: string;
+    personId: string;
+    serviceAt: string;
+    day: string;
+  };
+  const hits: Hit[] = [];
+  for (const roster of rosters) {
+    const day = churchDayKey(roster.serviceAt);
+    for (const slot of roster.slots) {
+      for (const assignment of slot.assignments) {
+        if (assignment.status !== "PENDING" && assignment.status !== "CONFIRMED") {
+          continue;
+        }
+        const people = [assignment.personId, assignment.partnerPersonId].filter(
+          (id): id is string => Boolean(id),
+        );
+        for (const personId of people) {
+          hits.push({
+            rosterId: roster.id,
+            title: roster.title,
+            assignmentId: assignment.id,
+            personId,
+            serviceAt: roster.serviceAt,
+            day,
+          });
+        }
+      }
+    }
+  }
+  const groups = new Map<string, Hit[]>();
+  for (const hit of hits) {
+    const key = `${hit.day}\0${hit.personId}`;
+    const list = groups.get(key) ?? [];
+    list.push(hit);
+    groups.set(key, list);
+  }
+  const blocks: SimultaneousBlock[] = [];
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const grouped: RosterRef[] = [];
+    for (const hit of list) {
+      if (!grouped.some((roster) => roster.id === hit.rosterId)) {
+        grouped.push({ id: hit.rosterId, title: hit.title });
+      }
+    }
+    blocks.push({
+      serviceAt: list[0].serviceAt,
+      personId: list[0].personId,
+      rosters: grouped,
+      assignmentIds: [...new Set(list.map((hit) => hit.assignmentId))],
+      internal: grouped.length === 1,
+    });
+  }
+  return blocks;
+}
+
+export type PersonalAssignment = {
+  id: string;
+  status: AssignmentStatus;
+  participation: "assignee" | "partner";
+  roleLabel: string;
+  title: string;
+  serviceAt: string;
+  rosterStatus: RosterStatus;
+  ministryName: string | null;
+  ministrySlug: string | null;
+  sameDayConflict: boolean;
+};
+
+export function parseMyAgenda(payload: unknown): {
+  personId: string;
+  assignments: PersonalAssignment[];
+} {
+  const body = asRecord(payload);
+  if (!body) throw new Error("Formato inesperado: a agenda pessoal não veio da API.");
+  if (body.source !== "jwt") {
+    throw new Error("Formato inesperado: a agenda pessoal não está presa ao token.");
+  }
+  const rows = body.assignments;
+  if (!Array.isArray(rows)) {
+    throw new Error("Formato inesperado: a agenda pessoal não devolveu atribuições.");
+  }
+  return {
+    personId: requiredString(body.personId, "pessoa da sessão"),
+    assignments: rows.map(parsePersonalAssignment),
+  };
+}
+
+function parsePersonalAssignment(value: unknown): PersonalAssignment {
+  const row = asRecord(value);
+  if (!row) throw new Error("Formato inesperado: item da agenda inválido.");
+  const participation = row.participation;
+  if (participation !== "assignee" && participation !== "partner") {
+    throw new Error("Formato inesperado: participação da agenda inválida.");
+  }
+  if (typeof row.sameDayConflict !== "boolean") {
+    throw new Error("Formato inesperado: conflito do dia ausente na agenda.");
+  }
+  const serviceAt = requiredString(row.serviceAt, "horário da agenda");
+  if (!Number.isFinite(Date.parse(serviceAt))) {
+    throw new Error("Formato inesperado: horário da agenda inválido.");
+  }
+  return {
+    id: requiredString(row.id, "atribuição"),
+    status: oneOf(row.status, ASSIGNMENT_STATUSES, "estado da atribuição"),
+    participation,
+    roleLabel: requiredString(row.roleLabel, "função"),
+    title: requiredString(row.title, "título da escala"),
+    serviceAt,
+    rosterStatus: oneOf(row.rosterStatus, ROSTER_STATUSES, "estado da escala"),
+    ministryName: optionalString(row.ministryName),
+    ministrySlug: optionalString(row.ministrySlug),
+    sameDayConflict: row.sameDayConflict,
+  };
 }
 
 export function blocksForRoster(

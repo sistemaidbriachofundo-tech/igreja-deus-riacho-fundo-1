@@ -159,8 +159,8 @@ export function MinistryRosterDesk({
                           {showConflict && (
                             <p className={styles.conflict} role="status">
                               {block?.internal
-                                ? "Esta pessoa ocupa mais de uma função ativa neste horário. A publicação recusa com ROSTER_INTERNAL_CONFLICT e uma nova designação recusa com ROSTER_SERVICE_CONFLICT."
-                                : `Esta pessoa já está em escala ativa no mesmo horário${others.length ? `: ${others.join(", ")}` : ""}. A API recusa com ROSTER_SERVICE_CONFLICT.`}
+                                ? "Esta pessoa ocupa mais de uma função ativa neste dia. A designação recusa com ROSTER_SAME_DAY."
+                                : `Esta pessoa já está em outra posição ativa neste dia${others.length ? `: ${others.join(", ")}` : ""}. A designação recusa com ROSTER_SAME_DAY.`}
                             </p>
                           )}
                           {assignment.status === "PENDING" && canAnswer && (
@@ -198,7 +198,7 @@ export function MinistryRosterDesk({
                                   }
                                 />
                                 <button type="submit" className={styles.ghost} disabled={busy}>
-                                  Substituir
+                                  Pedir substituição
                                 </button>
                               </form>
                             )}
@@ -344,7 +344,7 @@ export function MinistryRosterDesk({
         <form className={`${styles.card} ${styles.form}`} onSubmit={createRoster}>
           <h2>Nova escala neste ministério</h2>
           <p className={styles.footnote}>
-            O horário é gravado em serviceAt e o ministryId enviado é o deste slug. Publicar pode enfileirar alerta no outbox mock da API; esta tela não envia mensagem real.
+            O horário é gravado em serviceAt e o ministryId enviado é o deste slug. A nova posição e a troca não enviam mensagem. Publicar ainda usa o endpoint legado, que pode gravar outbox mock.
           </p>
           <div className={styles.formGrid}>
             <label>
