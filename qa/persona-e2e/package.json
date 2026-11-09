@@ -1,0 +1,17 @@
+{
+  "name": "@idbrf/qa-persona-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QA E2E independente por persona. Não altera código de produção.",
+  "type": "module",
+  "scripts": {
+    "test:unit": "tsx --test src/matrix.test.ts",
+    "test:e2e": "playwright test",
+    "report": "tsx src/write-report.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3"
+  }
+}
