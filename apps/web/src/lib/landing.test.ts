@@ -24,7 +24,7 @@ describe("portal público da igreja", () => {
     expect(home).not.toContain("<PortalJourney />");
     expect(read("lib/site-layout.ts")).toContain("Sua jornada com Deus");
     expect(read("components/PortalCinematicHero.tsx")).toContain("site.hero.title");
-    expect(read("components/PortalCinematicHero.tsx")).toContain("Quero visitar");
+    expect(read("components/PortalCinematicHero.tsx")).toContain("Quem somos");
     expect(home).toContain("Uma comunidade de fé");
     expect(shell).toContain("Gestão interna de equipes");
     expect(home).not.toContain("Abrir sistema");
