@@ -24,6 +24,10 @@ Resultados possíveis: **PASS**, **FAIL** e **BLOCKED**. Falha de produto perman
 
 A senha local do seed é a já documentada no README da raiz. A suíte lê `QA_DEMO_PASSWORD` e não grava senha, JWT nem `sessionStorage` nos relatórios.
 
+## Fase G
+
+`tests/hml/phase-g.spec.ts` cobre as oito personas em `POST /auth/login` e `GET /auth/me`, 401/403, isolamento de congregação e ministério, ficha, vínculo formal, agenda, eventos, rascunho do editor, finanças, 360/768/1440, zoom 200%, teclado e o gate do link oficial. A conta de publicador ausente no seed fica BLOCKED. HTTP 501 de vínculo formal não vira PASS. A proposta de CI está em `qa/integration-wave/PROPOSTA-CI.md` e não altera o workflow.
+
 ## Como executar
 
 Suba Postgres, migração, seed, API (`:3001`) e dois Next:

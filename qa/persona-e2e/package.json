@@ -5,7 +5,7 @@
   "description": "QA E2E independente por persona. Não altera código de produção.",
   "type": "module",
   "scripts": {
-    "test:unit": "tsx --test src/matrix.test.ts",
+    "test:unit": "tsx --test src/matrix.test.ts src/phase-g.test.ts",
     "test:e2e": "playwright test",
     "report": "tsx src/write-report.ts"
   },

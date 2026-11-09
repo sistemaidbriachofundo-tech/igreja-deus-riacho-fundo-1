@@ -1,679 +1,470 @@
 {
-  "generatedAt": "2026-11-09T16:39:27.210Z",
+  "generatedAt": "2026-11-09T20:56:12.140Z",
   "rows": [
     {
-      "id": "publicacao/gate/app/",
+      "id": "G/auth-anon",
       "persona": "PUBLICACAO",
-      "journey": "Rota /app/ sem sessão",
+      "journey": "Sessão ausente",
       "status": "PASS",
-      "detail": "A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões.",
-      "evidence": "reports/evidence/public-app-login-gate-1440.png"
+      "detail": "GET /auth/me sem sessão respondeu 401."
     },
     {
-      "id": "publicacao/gate/app/membros/",
+      "id": "G/eventos-publicos",
       "persona": "PUBLICACAO",
-      "journey": "Rota /app/membros/ sem sessão",
+      "journey": "Agenda pública sem cobrança",
       "status": "PASS",
-      "detail": "A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões.",
-      "evidence": "reports/evidence/public-appmembros-login-gate-1440.png"
+      "detail": "A agenda pública não oferece Pix nem cobrança.",
+      "evidence": "reports/evidence/g-eventos-1440.png"
     },
     {
-      "id": "publicacao/gate/app/secretaria/",
+      "id": "G/foco-visivel",
       "persona": "PUBLICACAO",
-      "journey": "Rota /app/secretaria/ sem sessão",
+      "journey": "Foco visível no campo de senha",
       "status": "PASS",
-      "detail": "A rota renderiza a tela de login. Esta evidência não aprova Secretaria, membros nem permissões.",
-      "evidence": "reports/evidence/public-appsecretaria-login-gate-1440.png"
+      "detail": "O campo focado tem contorno ou sombra.",
+      "evidence": "reports/evidence/g-foco-teclado.png"
     },
     {
-      "id": "publicacao/login-desabilitado",
+      "id": "G/pages-home",
       "persona": "PUBLICACAO",
-      "journey": "Login frio na publicação",
+      "journey": "Portal oficial sem módulo financeiro",
       "status": "PASS",
-      "detail": "O botão de entrar permanece desabilitado e a página avisa que nenhuma credencial será enviada.",
-      "evidence": "reports/evidence/public-login-1440.png",
-      "durationMs": 516
+      "detail": "A home oficial mostra a superfície pública e não a tesouraria.",
+      "evidence": "reports/evidence/g-pages-home.png"
     },
     {
-      "id": "publicacao/viewport-1440",
+      "id": "G/pages-login",
       "persona": "PUBLICACAO",
-      "journey": "Layout 1440px do gate em /app/secretaria/",
-      "status": "PASS",
-      "detail": "Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo.",
-      "evidence": "reports/evidence/public-secretaria-gate-1440.png",
-      "durationMs": 1368
+      "journey": "Formulário oficial habilitado",
+      "status": "BLOCKED",
+      "detail": "O botão de entrar do link oficial está habilitado. O workflow da main publica esse site com a API HML. Nenhuma credencial foi enviada daqui.",
+      "evidence": "reports/evidence/g-pages-login.png"
     },
     {
-      "id": "publicacao/viewport-360",
+      "id": "G/teclado-login",
       "persona": "PUBLICACAO",
-      "journey": "Layout 360px do gate em /app/secretaria/",
+      "journey": "Tab alcança e-mail e senha",
       "status": "PASS",
-      "detail": "Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo.",
-      "evidence": "reports/evidence/public-secretaria-gate-360.png",
-      "durationMs": 1129
+      "detail": "Tab chegou aos dois campos sem uso do mouse.",
+      "evidence": "reports/evidence/g-foco-teclado.png"
     },
     {
-      "id": "publicacao/viewport-768",
-      "persona": "PUBLICACAO",
-      "journey": "Layout 768px do gate em /app/secretaria/",
-      "status": "PASS",
-      "detail": "Gate de login sem overflow horizontal (0px). Medição da tela de acesso, não do módulo.",
-      "evidence": "reports/evidence/public-secretaria-gate-768.png",
-      "durationMs": 1250
+      "id": "G/auth-hml-remota",
+      "persona": "PLATAFORMA",
+      "journey": "API HML remota",
+      "status": "BLOCKED",
+      "detail": "Não há HML_PUBLIC_API_URL nem segredo de homologação neste agente. A matriz acima é da API sintética local. O link oficial não recebe esta suíte autenticada."
     },
     {
-      "id": "SECRETARIA/abrir-api",
+      "id": "G/pages-hml",
+      "persona": "PLATAFORMA",
+      "journey": "Jornadas autenticadas no link oficial",
+      "status": "BLOCKED",
+      "detail": "GET /health da API HML pública respondeu 200 e /meta anuncia o contrato 0.7.2-f2. Não enviei credencial e não tratei esse anúncio como prova de ficha, vínculo, agenda ou editor. A matriz autenticada é da API sintética local."
+    },
+    {
+      "id": "G/auth-secretaria",
       "persona": "SECRETARIA",
-      "journey": "Abrir ficha",
+      "journey": "Login e /auth/me de SECRETARIA",
       "status": "PASS",
-      "detail": "GET da ficha sintética respondeu 200."
+      "detail": "POST /auth/login e GET /auth/me confirmaram SECRETARIA na organização e na congregação ativas.",
+      "durationMs": 45
     },
     {
-      "id": "SECRETARIA/abrir-ui",
+      "id": "G/contraste",
       "persona": "SECRETARIA",
-      "journey": "Abrir ficha na interface",
+      "journey": "Contraste de texto no módulo",
+      "status": "PASS",
+      "detail": "Menor razão medida: 9.85:1. O mínimo de texto comum é 4.5:1."
+    },
+    {
+      "id": "G/evento-persistencia",
+      "persona": "SECRETARIA",
+      "journey": "Criar, reler e arquivar evento sintético",
+      "status": "PASS",
+      "detail": "O evento fictício foi gravado, relido e arquivado. Não houve publicação nem cobrança."
+    },
+    {
+      "id": "G/evento-sem-pix",
+      "persona": "SECRETARIA",
+      "journey": "Evento sem cobrança",
+      "status": "PASS",
+      "detail": "A criação do evento sintético não devolveu Pix, checkout nem URL de pagamento."
+    },
+    {
+      "id": "G/eventos-secretaria",
+      "persona": "SECRETARIA",
+      "journey": "Eventos sintéticos persistidos",
+      "status": "PASS",
+      "detail": "GET /events devolveu o encontro sintético de jovens já gravado no seed."
+    },
+    {
+      "id": "G/ficha-abrir",
+      "persona": "SECRETARIA",
+      "journey": "Buscar e abrir ficha na interface",
+      "status": "PASS",
+      "detail": "A busca isolou Bruno e a ficha separou campos graváveis dos campos só de consulta.",
+      "evidence": "reports/evidence/g-ficha-1440.png"
+    },
+    {
+      "id": "G/ficha-editar",
+      "persona": "SECRETARIA",
+      "journey": "Editar campo permitido e persistir",
+      "status": "PASS",
+      "detail": "A família sintética foi alterada, salva e confirmada pela reabertura da API. O valor original foi restaurado em seguida.",
+      "evidence": "reports/evidence/g-ficha-1440.png"
+    },
+    {
+      "id": "G/ficha-reabrir",
+      "persona": "SECRETARIA",
+      "journey": "Reabrir a mesma ficha",
+      "status": "PASS",
+      "detail": "Reabrir devolveu o valor gravado, sem substituí-lo por um rascunho local."
+    },
+    {
+      "id": "G/layout-ministerios-360",
+      "persona": "SECRETARIA",
+      "journey": "Vínculo de ministério em 360px",
       "status": "FAIL",
-      "detail": "A lista HML não oferece controle para abrir a ficha. A tela de membros não aprova a jornada de prontuário.",
-      "evidence": "reports/evidence/hml-membros-busca.png"
+      "detail": "Overflow horizontal de 78px.",
+      "evidence": "reports/evidence/g-ministerios-360.png"
     },
     {
-      "id": "SECRETARIA/api-busca-pessoas",
-      "persona": "SECRETARIA",
-      "journey": "API /persons/search",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "SECRETARIA/api-carteirinha",
-      "persona": "SECRETARIA",
-      "journey": "API /credentials/me",
-      "status": "PASS",
-      "detail": "Papel com rota própria respondeu HTTP 200."
-    },
-    {
-      "id": "SECRETARIA/api-membros",
-      "persona": "SECRETARIA",
-      "journey": "API /memberships",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "SECRETARIA/api-ministerios",
-      "persona": "SECRETARIA",
-      "journey": "API /ministries",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "SECRETARIA/api-pastoral",
-      "persona": "SECRETARIA",
-      "journey": "API /pastoral-cases",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "SECRETARIA/api-site",
-      "persona": "SECRETARIA",
-      "journey": "API /cms/site-layout",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "SECRETARIA/api-tesouraria",
-      "persona": "SECRETARIA",
-      "journey": "API /ledger/accounts",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "SECRETARIA/buscar-api",
-      "persona": "SECRETARIA",
-      "journey": "Buscar pessoa",
-      "status": "PASS",
-      "detail": "A busca devolveu a pessoa sintética Bruno do seed."
-    },
-    {
-      "id": "SECRETARIA/buscar-ui",
-      "persona": "SECRETARIA",
-      "journey": "Buscar pessoa na interface",
-      "status": "PASS",
-      "detail": "O diretório HML filtrou a pessoa sintética Bruno e escondeu as demais linhas.",
-      "evidence": "reports/evidence/hml-membros-busca.png"
-    },
-    {
-      "id": "SECRETARIA/editar-api",
-      "persona": "SECRETARIA",
-      "journey": "Editar ficha",
-      "status": "PASS",
-      "detail": "PATCH idempotente do núcleo familiar sintético foi aceito e auditado pela API."
-    },
-    {
-      "id": "SECRETARIA/editar-ui",
-      "persona": "SECRETARIA",
-      "journey": "Editar ficha na interface",
-      "status": "FAIL",
-      "detail": "Não há formulário de edição persistida. O PATCH de pessoa existe na API e não nesta tela."
-    },
-    {
-      "id": "SECRETARIA/login-frio",
-      "persona": "SECRETARIA",
-      "journey": "Login frio",
-      "status": "PASS",
-      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
-      "durationMs": 1067,
-      "evidence": "reports/evidence/hml-painel-apos-login-frio.png"
-    },
-    {
-      "id": "SECRETARIA/login-quente",
-      "persona": "SECRETARIA",
-      "journey": "Login quente",
-      "status": "PASS",
-      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
-      "durationMs": 543
-    },
-    {
-      "id": "SECRETARIA/modulo",
-      "persona": "SECRETARIA",
-      "journey": "Módulo Secretaria distinto do login",
-      "status": "PASS",
-      "detail": "Módulo operacional visível (Protocolos de admissão, Admissões e secretaria, Abrir protocolo fictício, Gestão do site). Esta evidência não é a tela de login.",
-      "evidence": "reports/evidence/hml-secretaria-operacional.png"
-    },
-    {
-      "id": "SECRETARIA/modulos-ui",
-      "persona": "SECRETARIA",
-      "journey": "Módulos visíveis na operação",
-      "status": "PASS",
-      "detail": "A navegação mostra só as áreas do papel."
-    },
-    {
-      "id": "SECRETARIA/reabrir-api",
-      "persona": "SECRETARIA",
-      "journey": "Reabrir ficha",
-      "status": "PASS",
-      "detail": "A reabertura devolveu a mesma ficha sintética persistida."
-    },
-    {
-      "id": "SECRETARIA/reabrir-ui",
-      "persona": "SECRETARIA",
-      "journey": "Reabrir ficha na interface",
-      "status": "FAIL",
-      "detail": "Sem ficha aberta, não há como fechar e reabrir o mesmo cadastro na interface HML."
-    },
-    {
-      "id": "SECRETARIA/viewport-membros-1440",
-      "persona": "SECRETARIA",
-      "journey": "Membros em 1440px",
-      "status": "PASS",
-      "detail": "Overflow horizontal 0px no diretório autenticado.",
-      "evidence": "reports/evidence/hml-membros-1440.png",
-      "durationMs": 1028
-    },
-    {
-      "id": "SECRETARIA/viewport-membros-360",
-      "persona": "SECRETARIA",
-      "journey": "Membros em 360px",
-      "status": "PASS",
-      "detail": "Overflow horizontal 0px no diretório autenticado.",
-      "evidence": "reports/evidence/hml-membros-360.png",
-      "durationMs": 857
-    },
-    {
-      "id": "SECRETARIA/viewport-membros-768",
-      "persona": "SECRETARIA",
-      "journey": "Membros em 768px",
-      "status": "PASS",
-      "detail": "Overflow horizontal 0px no diretório autenticado.",
-      "evidence": "reports/evidence/hml-membros-768.png",
-      "durationMs": 1040
-    },
-    {
-      "id": "SECRETARIA/viewport-secretaria-1440",
+      "id": "G/layout-secretaria-1440",
       "persona": "SECRETARIA",
       "journey": "Secretaria em 1440px",
       "status": "PASS",
-      "detail": "Overflow horizontal 0px no módulo Secretaria.",
-      "durationMs": 470
+      "detail": "Sem overflow horizontal (0px).",
+      "evidence": "reports/evidence/g-secretaria-1440.png"
     },
     {
-      "id": "SECRETARIA/viewport-secretaria-360",
+      "id": "G/layout-secretaria-360",
       "persona": "SECRETARIA",
       "journey": "Secretaria em 360px",
       "status": "PASS",
-      "detail": "Overflow horizontal 0px no módulo Secretaria.",
-      "durationMs": 540
+      "detail": "Sem overflow horizontal (0px).",
+      "evidence": "reports/evidence/g-secretaria-360.png"
     },
     {
-      "id": "SECRETARIA/viewport-secretaria-768",
+      "id": "G/layout-secretaria-768",
       "persona": "SECRETARIA",
       "journey": "Secretaria em 768px",
       "status": "PASS",
-      "detail": "Overflow horizontal 0px no módulo Secretaria.",
-      "durationMs": 573
+      "detail": "Sem overflow horizontal (0px).",
+      "evidence": "reports/evidence/g-secretaria-768.png"
     },
     {
-      "id": "PASTOR/api-busca-pessoas",
-      "persona": "PASTOR",
-      "journey": "API /persons/search",
+      "id": "G/menu-secretaria",
+      "persona": "SECRETARIA",
+      "journey": "Menu por papel",
+      "status": "FAIL",
+      "detail": "Menu genérico. Fora do papel: Tesouraria."
+    },
+    {
+      "id": "G/ministerios-saldo",
+      "persona": "SECRETARIA",
+      "journey": "Saldo ministerial sem contrato financeiro",
       "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
+      "detail": "HTTP 501 e balance nulo. Nenhum valor de centro de custo foi calculado."
     },
     {
-      "id": "PASTOR/api-carteirinha",
-      "persona": "PASTOR",
-      "journey": "API /credentials/me",
+      "id": "G/ministerios-ui",
+      "persona": "SECRETARIA",
+      "journey": "Tela de vínculo não finge persistência",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "A tela mostra o bloqueio do vínculo formal e não registra integrante.",
+      "evidence": "reports/evidence/g-ministerios-1440.png"
     },
     {
-      "id": "PASTOR/api-membros",
-      "persona": "PASTOR",
-      "journey": "API /memberships",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "PASTOR/api-ministerios",
-      "persona": "PASTOR",
-      "journey": "API /ministries",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "PASTOR/api-pastoral",
-      "persona": "PASTOR",
-      "journey": "API /pastoral-cases",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "PASTOR/api-site",
-      "persona": "PASTOR",
-      "journey": "API /cms/site-layout",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "PASTOR/api-tesouraria",
-      "persona": "PASTOR",
-      "journey": "API /ledger/accounts",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "PASTOR/editar-negado",
-      "persona": "PASTOR",
-      "journey": "Pastor não edita ficha de secretaria",
+      "id": "G/rbac-secretaria-ledger",
+      "persona": "SECRETARIA",
+      "journey": "Secretaria sem ledger",
       "status": "PASS",
       "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "PASTOR/login-frio",
+      "id": "G/teclado-atalho",
+      "persona": "SECRETARIA",
+      "journey": "Ctrl K abre a busca e Esc fecha",
+      "status": "PASS",
+      "detail": "O atalho de teclado abriu e fechou a busca de módulos."
+    },
+    {
+      "id": "G/zoom-200",
+      "persona": "SECRETARIA",
+      "journey": "Zoom 200% na Secretaria",
+      "status": "PASS",
+      "detail": "Zoom 200% sem overflow horizontal (0px).",
+      "evidence": "reports/evidence/g-zoom-200-secretaria.png"
+    },
+    {
+      "id": "G/auth-pastor",
       "persona": "PASTOR",
-      "journey": "Login frio",
+      "journey": "Login e /auth/me de PASTOR",
       "status": "PASS",
-      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
-      "durationMs": 985
+      "detail": "POST /auth/login e GET /auth/me confirmaram PASTOR na organização e na congregação ativas.",
+      "durationMs": 38
     },
     {
-      "id": "PASTOR/login-quente",
+      "id": "G/rbac-pastor-patch",
       "persona": "PASTOR",
-      "journey": "Login quente",
+      "journey": "Pastor não edita ficha",
       "status": "PASS",
-      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
-      "durationMs": 535
+      "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "PASTOR/modulos-ui",
-      "persona": "PASTOR",
-      "journey": "Módulos visíveis na operação",
-      "status": "PASS",
-      "detail": "A navegação mostra só as áreas do papel.",
-      "evidence": "reports/evidence/hml-operacao-pastor.png"
-    },
-    {
-      "id": "TESOURARIA/api-busca-pessoas",
+      "id": "G/auth-tesouraria",
       "persona": "TESOURARIA",
-      "journey": "API /persons/search",
+      "journey": "Login e /auth/me de TESOURARIA",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "POST /auth/login e GET /auth/me confirmaram TESOURARIA na organização e na congregação ativas.",
+      "durationMs": 39
     },
     {
-      "id": "TESOURARIA/api-carteirinha",
+      "id": "G/financeiro-tesouraria",
       "persona": "TESOURARIA",
-      "journey": "API /credentials/me",
+      "journey": "Posição sintética sem Pix",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "A posição exibida veio do ledger sintético. A ilustração está separada e Pix, banco e maquininha seguem bloqueados.",
+      "evidence": "reports/evidence/g-tesouraria-1440.png"
     },
     {
-      "id": "TESOURARIA/api-membros",
+      "id": "G/menu-tesouraria",
       "persona": "TESOURARIA",
-      "journey": "API /memberships",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "journey": "Menu por papel",
+      "status": "FAIL",
+      "detail": "Menu genérico. Fora do papel: Membros e famílias, Secretaria, Carteirinhas, Ministérios e operação, Vínculo de ministério, Escalas, Meu Espaço, Mídia e conteúdo, Gestão do site."
     },
     {
-      "id": "TESOURARIA/api-ministerios",
+      "id": "G/rbac-tesouraria-eventos",
       "persona": "TESOURARIA",
-      "journey": "API /ministries",
+      "journey": "Tesouraria não lista eventos internos",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "TESOURARIA/api-pastoral",
-      "persona": "TESOURARIA",
-      "journey": "API /pastoral-cases",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "TESOURARIA/api-site",
-      "persona": "TESOURARIA",
-      "journey": "API /cms/site-layout",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "TESOURARIA/api-tesouraria",
-      "persona": "TESOURARIA",
-      "journey": "API /ledger/accounts",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "TESOURARIA/busca-negada",
+      "id": "G/rbac-tesouraria-pessoas",
       "persona": "TESOURARIA",
       "journey": "Tesouraria não busca pessoas",
       "status": "PASS",
       "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "TESOURARIA/login-frio",
-      "persona": "TESOURARIA",
-      "journey": "Login frio",
-      "status": "PASS",
-      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
-      "durationMs": 1169
-    },
-    {
-      "id": "TESOURARIA/login-quente",
-      "persona": "TESOURARIA",
-      "journey": "Login quente",
-      "status": "PASS",
-      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
-      "durationMs": 453
-    },
-    {
-      "id": "TESOURARIA/modulos-ui",
-      "persona": "TESOURARIA",
-      "journey": "Módulos visíveis na operação",
-      "status": "PASS",
-      "detail": "A navegação mostra só as áreas do papel.",
-      "evidence": "reports/evidence/hml-operacao-tesouraria.png"
-    },
-    {
-      "id": "LIDER/api-busca-pessoas",
+      "id": "G/auth-lider",
       "persona": "LIDER",
-      "journey": "API /persons/search",
+      "journey": "Login e /auth/me de LIDER",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "POST /auth/login e GET /auth/me confirmaram LIDER_MINISTERIO na organização e na congregação ativas.",
+      "durationMs": 40
     },
     {
-      "id": "LIDER/api-carteirinha",
+      "id": "G/evento-lider-negado",
       "persona": "LIDER",
-      "journey": "API /credentials/me",
+      "journey": "Líder não cria evento em outro ministério",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "O líder não criou evento no ministério de homens."
     },
     {
-      "id": "LIDER/api-membros",
+      "id": "G/eventos-lider",
       "persona": "LIDER",
-      "journey": "API /memberships",
+      "journey": "Líder só vê evento do ministério autorizado",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "A lista do líder contém só o ministério de jovens."
     },
     {
-      "id": "LIDER/api-ministerios",
+      "id": "G/ministerios-honestidade-api",
       "persona": "LIDER",
-      "journey": "API /ministries",
+      "journey": "API não inventa integrantes",
       "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
+      "detail": "HTTP 501 MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED e members nulo. A API não grava integrante formal. O schema é do integrador H. A resposta não inventa a lista."
     },
     {
-      "id": "LIDER/api-pastoral",
+      "id": "G/ministerios-persistencia",
       "persona": "LIDER",
-      "journey": "API /pastoral-cases",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "journey": "Vínculo formal do ministério autorizado",
+      "status": "BLOCKED",
+      "detail": "HTTP 501 MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED e members nulo. A API não grava integrante formal. O schema é do integrador H. A resposta não inventa a lista."
     },
     {
-      "id": "LIDER/api-site",
+      "id": "G/rbac-lider-homens",
       "persona": "LIDER",
-      "journey": "API /cms/site-layout",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "LIDER/api-tesouraria",
-      "persona": "LIDER",
-      "journey": "API /ledger/accounts",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "LIDER/ficha-negada",
-      "persona": "LIDER",
-      "journey": "Líder não abre ficha geral",
+      "journey": "Líder não lê outro ministério",
       "status": "PASS",
       "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "LIDER/login-frio",
-      "persona": "LIDER",
-      "journey": "Login frio",
-      "status": "PASS",
-      "detail": "Saiu do gate e abriu superfície operacional em /app/operacao/.",
-      "durationMs": 1027
-    },
-    {
-      "id": "LIDER/login-quente",
-      "persona": "LIDER",
-      "journey": "Login quente",
-      "status": "PASS",
-      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
-      "durationMs": 479
-    },
-    {
-      "id": "LIDER/modulos-ui",
-      "persona": "LIDER",
-      "journey": "Módulos visíveis na operação",
-      "status": "PASS",
-      "detail": "A navegação mostra só as áreas do papel."
-    },
-    {
-      "id": "MEMBRO/api-busca-pessoas",
+      "id": "G/agenda-honestidade",
       "persona": "MEMBRO",
-      "journey": "API /persons/search",
+      "journey": "Meu Espaço não finge agenda",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "Meu Espaço declara que não há consulta da agenda pessoal e não monta lista de outras pessoas.",
+      "evidence": "reports/evidence/g-meu-espaco-1440.png"
     },
     {
-      "id": "MEMBRO/api-carteirinha",
+      "id": "G/agenda-persistencia",
       "persona": "MEMBRO",
-      "journey": "API /credentials/me",
-      "status": "PASS",
-      "detail": "Papel com rota própria respondeu HTTP 200."
+      "journey": "Agenda própria persistida",
+      "status": "BLOCKED",
+      "detail": "Não existe agenda própria persistida para este perfil (listagem HTTP 403). Confirmar pelo identificador não substitui a lista.",
+      "evidence": "reports/evidence/g-meu-espaco-1440.png"
     },
     {
-      "id": "MEMBRO/api-membros",
+      "id": "G/auth-membro",
       "persona": "MEMBRO",
-      "journey": "API /memberships",
+      "journey": "Login e /auth/me de MEMBRO",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "POST /auth/login e GET /auth/me confirmaram MEMBRO na organização e na congregação ativas.",
+      "durationMs": 37
     },
     {
-      "id": "MEMBRO/api-ministerios",
+      "id": "G/cms-membro-negado",
       "persona": "MEMBRO",
-      "journey": "API /ministries",
+      "journey": "Membro não edita o site",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "O membro não grava o rascunho editorial."
     },
     {
-      "id": "MEMBRO/api-pastoral",
+      "id": "G/evento-membro-negado",
       "persona": "MEMBRO",
-      "journey": "API /pastoral-cases",
+      "journey": "Membro não cria evento",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "O membro não criou evento."
     },
     {
-      "id": "MEMBRO/api-site",
+      "id": "G/financeiro-membro",
       "persona": "MEMBRO",
-      "journey": "API /cms/site-layout",
+      "journey": "Membro não vê saldo inventado",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "A conta não leu o ledger. As métricas dizem Sem consulta, a ilustração está rotulada e não há Pix.",
+      "evidence": "reports/evidence/g-tesouraria-membro.png"
     },
     {
-      "id": "MEMBRO/api-tesouraria",
+      "id": "G/isolamento-igreja",
       "persona": "MEMBRO",
-      "journey": "API /ledger/accounts",
+      "journey": "Troca para congregação sem grant",
       "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
+      "detail": "POST /auth/switch-church para a congregação destino sem grant respondeu 403."
     },
     {
-      "id": "MEMBRO/ficha-alheia",
+      "id": "G/isolamento-igreja-ausente",
       "persona": "MEMBRO",
-      "journey": "Membro não abre ficha de outra pessoa",
+      "journey": "Congregação inexistente",
+      "status": "PASS",
+      "detail": "Congregação inexistente também foi recusada."
+    },
+    {
+      "id": "G/isolamento-sessao",
+      "persona": "MEMBRO",
+      "journey": "Sessão permanece na congregação original",
+      "status": "PASS",
+      "detail": "Depois da troca recusada, /auth/me continua fora da congregação destino."
+    },
+    {
+      "id": "G/menu-membro",
+      "persona": "MEMBRO",
+      "journey": "Menu por papel",
+      "status": "FAIL",
+      "detail": "Menu genérico. Fora do papel: Membros e famílias, Secretaria, Ministérios e operação, Vínculo de ministério, Escalas, Tesouraria, Mídia e conteúdo, Gestão do site.",
+      "evidence": "reports/evidence/g-nav-membro.png"
+    },
+    {
+      "id": "G/rbac-anon-pessoas",
+      "persona": "MEMBRO",
+      "journey": "Busca de pessoas sem sessão",
+      "status": "PASS",
+      "detail": "HTTP 401, como o contrato atual determina."
+    },
+    {
+      "id": "G/rbac-membro-alheia",
+      "persona": "MEMBRO",
+      "journey": "Membro não abre ficha alheia",
       "status": "PASS",
       "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "MEMBRO/ficha-propria",
+      "id": "G/rbac-membro-eventos",
+      "persona": "MEMBRO",
+      "journey": "Membro não lista eventos internos",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "G/rbac-membro-propria",
       "persona": "MEMBRO",
       "journey": "Membro abre a própria ficha",
       "status": "PASS",
       "detail": "HTTP 200, como o contrato atual determina."
     },
     {
-      "id": "MEMBRO/login-frio",
+      "id": "G/rbac-membro-vinculo",
       "persona": "MEMBRO",
-      "journey": "Login frio",
-      "status": "PASS",
-      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
-      "durationMs": 1033
-    },
-    {
-      "id": "MEMBRO/login-quente",
-      "persona": "MEMBRO",
-      "journey": "Login quente",
-      "status": "PASS",
-      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
-      "durationMs": 486
-    },
-    {
-      "id": "MEMBRO/modulos-ui",
-      "persona": "MEMBRO",
-      "journey": "Módulos visíveis na operação",
-      "status": "PASS",
-      "detail": "A navegação mostra só as áreas do papel."
-    },
-    {
-      "id": "EDITOR/conta-sintetica",
-      "persona": "EDITOR",
-      "journey": "Login da persona Editor",
-      "status": "BLOCKED",
-      "detail": "O catálogo tem o papel EDITOR_SITE, porém não há usuário sintético no seed (login HTTP 401). Dependência da frente de RBAC/identidade. Nenhuma senha ou token foi registrado."
-    },
-    {
-      "id": "EDITOR/permissoes",
-      "persona": "EDITOR",
-      "journey": "Controles de permissão",
-      "status": "BLOCKED",
-      "detail": "Sem usuário sintético EDITOR_SITE no seed. A checagem de editor fica bloqueada na frente de identidade."
-    },
-    {
-      "id": "ADMIN/api-busca-pessoas",
-      "persona": "ADMIN",
-      "journey": "API /persons/search",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "ADMIN/api-carteirinha",
-      "persona": "ADMIN",
-      "journey": "API /credentials/me",
-      "status": "PASS",
-      "detail": "Papel com rota própria respondeu HTTP 200."
-    },
-    {
-      "id": "ADMIN/api-membros",
-      "persona": "ADMIN",
-      "journey": "API /memberships",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "ADMIN/api-ministerios",
-      "persona": "ADMIN",
-      "journey": "API /ministries",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "ADMIN/api-pastoral",
-      "persona": "ADMIN",
-      "journey": "API /pastoral-cases",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "ADMIN/api-site",
-      "persona": "ADMIN",
-      "journey": "API /cms/site-layout",
-      "status": "PASS",
-      "detail": "Acesso permitido (HTTP 200)."
-    },
-    {
-      "id": "ADMIN/api-tesouraria",
-      "persona": "ADMIN",
-      "journey": "API /ledger/accounts",
-      "status": "PASS",
-      "detail": "Acesso recusado com HTTP 403."
-    },
-    {
-      "id": "ADMIN/financeiro-negado",
-      "persona": "ADMIN",
-      "journey": "Admin técnico sem acesso financeiro",
+      "journey": "Membro não lê vínculo formal",
       "status": "PASS",
       "detail": "HTTP 403, como o contrato atual determina."
     },
     {
-      "id": "ADMIN/login-frio",
-      "persona": "ADMIN",
-      "journey": "Login frio",
+      "id": "G/auth-editor",
+      "persona": "EDITOR",
+      "journey": "Login e /auth/me de EDITOR",
       "status": "PASS",
-      "detail": "Saiu do gate e abriu superfície operacional em /app/.",
-      "durationMs": 983
+      "detail": "POST /auth/login e GET /auth/me confirmaram EDITOR_SITE na organização e na congregação ativas.",
+      "durationMs": 36
     },
     {
-      "id": "ADMIN/login-quente",
-      "persona": "ADMIN",
-      "journey": "Login quente",
-      "status": "PASS",
-      "detail": "A sessão já armazenada abriu o painel sem novo envio de senha.",
-      "durationMs": 554
+      "id": "G/auth-publicador",
+      "persona": "EDITOR",
+      "journey": "Login e /auth/me de PUBLICADOR",
+      "status": "BLOCKED",
+      "detail": "O catálogo tem PUBLICADOR_SITE, mas o seed sintético não cria a conta (login HTTP 401). Sem usuário, /auth/me não foi exercido. Nenhum segredo foi registrado.",
+      "durationMs": 8
     },
     {
-      "id": "ADMIN/modulos-ui",
-      "persona": "ADMIN",
-      "journey": "Módulos visíveis na operação",
+      "id": "G/cms-editor-nao-publica",
+      "persona": "EDITOR",
+      "journey": "Editor não publica",
       "status": "PASS",
-      "detail": "A navegação mostra só as áreas do papel.",
-      "evidence": "reports/evidence/hml-operacao-admin.png"
+      "detail": "O editor não publica o site institucional."
     },
     {
-      "id": "ADMIN/pastoral-negado",
+      "id": "G/cms-publicador",
+      "persona": "EDITOR",
+      "journey": "Conta sintética de publicador",
+      "status": "BLOCKED",
+      "detail": "O catálogo tem PUBLICADOR_SITE, mas o seed sintético não cria a conta (login HTTP 401). Sem usuário, /auth/me não foi exercido. Nenhum segredo foi registrado."
+    },
+    {
+      "id": "G/cms-rascunho",
+      "persona": "EDITOR",
+      "journey": "Rascunho editorial persistido e restaurado",
+      "status": "PASS",
+      "detail": "O rascunho do editor foi gravado, relido e restaurado. A publicação institucional não foi chamada."
+    },
+    {
+      "id": "G/rbac-editor-pessoas",
+      "persona": "EDITOR",
+      "journey": "Editor não busca pessoas",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "G/auth-admin",
       "persona": "ADMIN",
-      "journey": "Admin técnico sem acesso pastoral",
+      "journey": "Login e /auth/me de ADMIN",
+      "status": "PASS",
+      "detail": "POST /auth/login e GET /auth/me confirmaram PLATFORM_ADMIN na organização e na congregação ativas.",
+      "durationMs": 56
+    },
+    {
+      "id": "G/rbac-admin-ledger",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem ledger",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato atual determina."
+    },
+    {
+      "id": "G/rbac-admin-pastoral",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem pastoral",
       "status": "PASS",
       "detail": "HTTP 403, como o contrato atual determina."
     }
