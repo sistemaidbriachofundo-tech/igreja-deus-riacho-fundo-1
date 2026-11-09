@@ -229,3 +229,24 @@ export function createHealthStatus(
     timestamp: new Date().toISOString(),
   };
 }
+
+export { readSourceSha } from "./release/source-sha";
+export {
+  HML_API_ORIGIN,
+  PAGES_ORIGIN,
+  HML_VERCEL_PROJECT,
+  HML_DATABASE,
+  HML_PERSONAS,
+  pagesReleaseDocument,
+  evaluateEklesiaRelease,
+  type ReleaseStatus,
+  type PersonaId,
+  type FrontId,
+  type ReleaseCheck,
+  type AnonymousProbe,
+  type FrontReport,
+  type PersonaReport,
+  type EklesiaObservation,
+  type EklesiaVerdict,
+  type PagesReleaseDocument,
+} from "./release/eklesia-gate";
