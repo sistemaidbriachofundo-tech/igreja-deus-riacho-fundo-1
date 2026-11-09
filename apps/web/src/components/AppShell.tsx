@@ -49,7 +49,7 @@ const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: G
   { key: "membros", href: "/app/membros/", label: "Membros e famílias", short: "Pessoas", icon: "people", hint: "Pessoas, famílias e cadastros" },
   { key: "secretaria", href: "/app/secretaria/", label: "Secretaria", short: "Secretaria", icon: "layers", hint: "Admissão, processos e documentos" },
   { key: "carteirinha", href: "/app/membros/carteirinha/", label: "Carteirinhas", short: "Carteira", icon: "badge", hint: "Emitir e gerenciar credenciais" },
-  { key: "operacao", href: "/app/operacao/", label: "Operação integrada", short: "Operação", icon: "activity", hint: "Pastoral, grupos, ministérios, escalas, tesouraria, eventos e indicadores" },
+  { key: "operacao", href: "/app/operacao/", label: "Ministérios e operação", short: "Ministérios", icon: "activity", hint: "Gestão autenticada de ministérios, equipes, escalas e recursos autorizados" },
   { key: "editorial", href: "/app/editorial/", label: "Mídia e conteúdo", short: "Conteúdo", icon: "book", hint: "Estúdio editorial, notícias, eventos e ministérios" },
   { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home" },
 ];
@@ -95,7 +95,7 @@ export function AppShell({ active, meta, children, editorial = false }: { active
         <div className={s.railDivider}/>
         <span className={s.groupTitle}>CANAIS E COMUNIDADE</span>
         <a className={s.menuItem} href={withBasePath("/eventos/")}><UIIcon name="calendar" size={19}/><span>Agenda pública</span><UIIcon name="arrow" size={15}/></a>
-        <a className={s.menuItem} href={withBasePath("/ministerios/")}><UIIcon name="family" size={19}/><span>Ministérios</span><UIIcon name="arrow" size={15}/></a>
+        <a className={s.menuItem} href={withBasePath("/app/operacao/")}><UIIcon name="family" size={19}/><span>Gestão de ministérios</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/")}><UIIcon name="home" size={19}/><span>Portal da igreja</span><UIIcon name="arrow" size={15}/></a>
         <a className={s.menuItem} href={withBasePath("/status/")}><UIIcon name="activity" size={19}/><span>Evolução do sistema</span></a>
         <a className={s.menuItem} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer"><UIIcon name="activity" size={19}/><span>Canal da igreja</span><UIIcon name="arrow" size={15}/></a>
