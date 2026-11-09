@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "node --import tsx --test src/index.test.ts src/person-id.test.ts src/rbac.test.ts src/credential-token.test.ts src/membership-scope.test.ts src/api-contracts/api-contracts.test.ts src/admission-rules.test.ts src/finance/ledger-rules.test.ts src/finance/ofx-parser.test.ts src/church-access.test.ts src/person-dedupe.test.ts",
+    "test": "node --import tsx --test src/index.test.ts src/person-id.test.ts src/rbac.test.ts src/credential-token.test.ts src/membership-scope.test.ts src/api-contracts/api-contracts.test.ts src/admission-rules.test.ts src/finance/ledger-rules.test.ts src/finance/ofx-parser.test.ts src/church-access.test.ts src/person-dedupe.test.ts src/access-policy.test.ts src/access-routes.test.ts",
     "test:coverage": "c8 --reporter=lcov --reporter=text-summary --reports-dir=coverage --include='src/**/*.ts' --exclude='src/**/*.test.ts' npm run test"
   },
   "devDependencies": {

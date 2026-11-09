@@ -1,4 +1,5 @@
-import { ROLE_CODES, hasAccess, type AuthGrant } from "./rbac";
+import { evaluateAccess } from "./access-policy";
+import type { AuthGrant } from "./rbac";
 import type { ChurchId, OrganizationId } from "./ids";
 
 export interface MembershipScopeTarget {
@@ -14,18 +15,12 @@ export function canManageMemberships(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return (
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.SECRETARIA],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    }) ||
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.PLATFORM_ADMIN],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    })
-  );
+  return evaluateAccess(grants, {
+    resource: "persons",
+    action: "write",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  }).allow;
 }
 
 /** Membro só vê a própria carteirinha (titularidade por person_id). */
@@ -44,34 +39,33 @@ export function canManageAdmissions(
   return canManageMemberships(grants, target);
 }
 
-/** Aprovação pastoral na etapa pastor. */
+/**
+ * Aprovação pastoral na etapa pastor.
+ * Modo estrito: só PASTOR. PLATFORM_ADMIN volta com ACCESS_POLICY_MODE=legacy.
+ */
 export function canApprovePastoralAdmission(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return (
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.PASTOR],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    }) ||
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.PLATFORM_ADMIN],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    })
-  );
+  return evaluateAccess(grants, {
+    resource: "pastoral",
+    action: "approve",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  }).allow;
 }
 
-/** Busca de pessoas (dedupe assistida) — secretaria/pastor/admin. */
+/** Busca de pessoas (dedupe assistida) — secretaria, pastor ou admin no escopo. */
 export function canSearchPersons(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return (
-    canManageMemberships(grants, target) ||
-    canApprovePastoralAdmission(grants, target)
-  );
+  return evaluateAccess(grants, {
+    resource: "persons",
+    action: "search",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  }).allow;
 }
 
 /**
@@ -104,11 +98,12 @@ export function canAccessPastoralCare(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return hasAccess(grants, {
-    roleCodes: [ROLE_CODES.PASTOR],
+  return evaluateAccess(grants, {
+    resource: "pastoral",
+    action: "read",
     organizationId: target.organizationId,
     churchId: target.churchId,
-  });
+  }).allow;
 }
 
 /** Ministérios / escalas / células — líder, secretaria, pastor ou admin (church-wide). */
@@ -116,15 +111,12 @@ export function canLeadMinistry(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return (
-    canManageMemberships(grants, target) ||
-    canApprovePastoralAdmission(grants, target) ||
-    hasAccess(grants, {
-      roleCodes: [ROLE_CODES.LIDER_MINISTERIO],
-      organizationId: target.organizationId,
-      churchId: target.churchId,
-    })
-  );
+  return evaluateAccess(grants, {
+    resource: "ministries",
+    action: "read",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  }).allow;
 }
 
 export interface MinistryScopeTarget extends MembershipScopeTarget {
@@ -145,39 +137,15 @@ export function canManageSpecificMinistry(
   actorPersonId: string | null | undefined,
   target: MinistryScopeTarget,
 ): boolean {
-  if (
-    canManageMemberships(grants, target) ||
-    canApprovePastoralAdmission(grants, target)
-  ) {
-    return true;
-  }
-
-  const isLiderInChurch = grants.some(
-    (g) =>
-      g.roleCode === ROLE_CODES.LIDER_MINISTERIO &&
-      (!g.organizationId || g.organizationId === target.organizationId) &&
-      (!g.churchId || g.churchId === target.churchId),
-  );
-  if (!isLiderInChurch) {
-    return false;
-  }
-
-  const grantCoversMinistry = grants.some(
-    (g) =>
-      g.roleCode === ROLE_CODES.LIDER_MINISTERIO &&
-      (!g.organizationId || g.organizationId === target.organizationId) &&
-      (!g.churchId || g.churchId === target.churchId) &&
-      g.ministryId === target.ministryId,
-  );
-  if (grantCoversMinistry) {
-    return true;
-  }
-
-  return Boolean(
-    target.leaderPersonId &&
-      actorPersonId &&
-      actorPersonId === target.leaderPersonId,
-  );
+  return evaluateAccess(grants, {
+    resource: "ministries",
+    action: "write",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+    ministryId: target.ministryId,
+    actorPersonId,
+    leaderPersonId: target.leaderPersonId,
+  }).allow;
 }
 
 /** Criar ministérios / publicar church-wide — não líder de um só ministry. */
@@ -185,10 +153,12 @@ export function canAdministerMinistries(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return (
-    canManageMemberships(grants, target) ||
-    canApprovePastoralAdmission(grants, target)
-  );
+  return evaluateAccess(grants, {
+    resource: "ministries",
+    action: "administer",
+    organizationId: target.organizationId,
+    churchId: target.churchId,
+  }).allow;
 }
 
 /** PDF da carteirinha: secretaria/admin no escopo, ou titular (person_id). */
@@ -212,18 +182,11 @@ export function canManageOidcConfig(
   grants: AuthGrant[],
   target: { organizationId: OrganizationId },
 ): boolean {
-  return grants.some((grant) => {
-    if (grant.roleCode !== ROLE_CODES.PLATFORM_ADMIN) {
-      return false;
-    }
-    if (
-      grant.organizationId &&
-      grant.organizationId !== target.organizationId
-    ) {
-      return false;
-    }
-    return true;
-  });
+  return evaluateAccess(grants, {
+    resource: "admin",
+    action: "administer",
+    organizationId: target.organizationId,
+  }).allow;
 }
 
 /**
@@ -234,9 +197,10 @@ export function canAccessFinance(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return hasAccess(grants, {
-    roleCodes: [ROLE_CODES.TESOURARIA],
+  return evaluateAccess(grants, {
+    resource: "ledger",
+    action: "read",
     organizationId: target.organizationId,
     churchId: target.churchId,
-  });
+  }).allow;
 }

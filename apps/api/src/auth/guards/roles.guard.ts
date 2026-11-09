@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { RoleCode } from "@idbrf/shared";
@@ -10,8 +11,9 @@ import { ROLES_KEY } from "../auth.constants";
 import type { AuthUser } from "../types/auth-user";
 
 /**
- * Stub RBAC: exige que o usuário autenticado tenha ao menos um dos papéis.
- * Sem @Roles() na rota → libera (só JWT importa).
+ * Exige que o usuário autenticado tenha ao menos um dos papéis.
+ * Sem @Roles() na rota, a rota segue (JWT e a matriz A3 decidem).
+ * Sem usuário: 401. Papel ausente: 403.
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -29,7 +31,7 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ user?: AuthUser }>();
     const user = request.user;
     if (!user) {
-      throw new ForbiddenException("Usuário não autenticado");
+      throw new UnauthorizedException("Autenticação necessária");
     }
 
     const codes = new Set(user.grants.map((g) => g.roleCode));

@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ROLE_CODES } from "@idbrf/shared";
 import { RolesGuard } from "./roles.guard";
@@ -51,5 +51,13 @@ describe("RolesGuard", () => {
     expect(() => guard.canActivate(mockContext(user))).toThrow(
       ForbiddenException,
     );
+  });
+
+  it("returns 401 when the route requires a role and there is no user", () => {
+    const reflector = {
+      getAllAndOverride: () => [ROLE_CODES.SECRETARIA],
+    } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
+    expect(() => guard.canActivate(mockContext())).toThrow(UnauthorizedException);
   });
 });
