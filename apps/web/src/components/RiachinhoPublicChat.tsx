@@ -31,18 +31,16 @@ type Message = {
   sources?: RiachinhoPublicKnowledgeSource[];
 };
 
-const WELCOME = "Olá! Sou o Riachinho. Posso ajudar você a conhecer o portal da igreja, seus ministérios e a planejar uma visita. Horários e endereços devem ser confirmados nos canais oficiais.";
+const WELCOME = "Olá! Sou o Riachinho. Posso ajudar você a conhecer a Igreja de Deus no Riacho Fundo I e consultar informações públicas sobre nossa agenda. Para horários e detalhes, confira sempre os canais oficiais.";
 const OPTIONS = [
-  "Quais ministérios posso conhecer?",
-  "Como posso planejar minha primeira visita?",
-  "Como participar do voluntariado Atmosfera?",
+  "Onde posso conhecer mais sobre a igreja?",
+  "Quais eventos estão na agenda oficial?",
+  "Como encontro informações sobre a comunidade?",
 ] as const;
 
 const PORTAL_LINKS = [
-  { href: "/visita/", label: "Primeira visita" },
-  { href: "/ministerios/", label: "Ministérios" },
+  { href: "/a-igreja/", label: "Quem somos" },
   { href: "/eventos/", label: "Agenda oficial" },
-  { href: "/contato/", label: "Fale com a igreja" },
 ] as const;
 
 /** Optional visitor assistant; only rendered when explicitly enabled for the HML build. */
@@ -188,10 +186,10 @@ export function RiachinhoPublicChat() {
       {open && (
         <section id={panelId} className={s.panel} role="dialog" aria-modal="false" aria-labelledby={chatId}>
           <header className={s.header}>
-            <span className={s.avatar} aria-hidden="true">✦</span>
+            <span className={s.avatar} aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2h7A3.5 3.5 0 0 1 19 5.5v8A3.5 3.5 0 0 1 15.5 17H11l-5 4v-4.8A3.5 3.5 0 0 1 5 13.5z"/><path d="M9 9h6M9 12h4"/></svg></span>
             <div className={s.headerCopy}>
               <h2 id={chatId}>Riachinho</h2>
-              <p>Assistente virtual · Igreja de Deus</p>
+              <p>Informações públicas da igreja</p>
             </div>
             <button type="button" className={s.close} onClick={() => setOpen(false)} aria-label="Fechar conversa com o Riachinho">×</button>
           </header>
@@ -232,7 +230,7 @@ export function RiachinhoPublicChat() {
                         const section = riachinhoKnowledgeSection(source.kind);
                         return <li key={source.kind + ":" + source.slug}>
                           <span>{source.title}</span>
-                          {section && <a href={withBasePath(section.href)}>{section.label}</a>}
+                          {section && ["/", "/a-igreja/", "/eventos/"].includes(section.href) && <a href={withBasePath(section.href)}>{section.label}</a>}
                         </li>;
                       })}
                     </ul>
@@ -287,9 +285,10 @@ export function RiachinhoPublicChat() {
         </section>
       )}
       <button ref={launcherRef} type="button" className={s.launcher} aria-expanded={open} aria-controls={open ? panelId : undefined}
+        title={open ? "Fechar conversa" : "Conversar com o Riachinho"} aria-label={open ? "Fechar conversa com o Riachinho" : "Conversar com o Riachinho"}
         onClick={() => setOpen((current) => !current)}>
-        <span className={s.launchIcon} aria-hidden="true">✦</span>
-        <span>{open ? "Fechar Riachinho" : "Pergunte ao Riachinho"}</span>
+        <span className={s.launchIcon} aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2h7A3.5 3.5 0 0 1 19 5.5v8A3.5 3.5 0 0 1 15.5 17H11l-5 4v-4.8A3.5 3.5 0 0 1 5 13.5z"/><path d="M9 9h6M9 12h4"/></svg></span>
+        <span className={s.launchLabel}>{open ? "Fechar" : "Riachinho"}</span>
       </button>
     </div>
   );
