@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react";
 import {
   beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
@@ -8,10 +8,16 @@ import {
 } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
-import { apiGet, clearToken, loadStoredToken, readValidatedSession, type AuthUser } from "../lib/api";
+import {
+  apiGet, clearToken, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, type AuthUser,
+} from "../lib/api";
+import {
+  accountInitials, areaAllowed, areasForPreview, areasForRoles, landingForRoles, personaLabel,
+  railForRoles, type AppNavKey, type PersonaArea, type RailLink,
+} from "../lib/persona-navigation";
 import s from "./app-shell.module.css";
 
-export type AppNavKey = "visao" | "membros" | "secretaria" | "carteirinha" | "editorial" | "site" | "operacao" | "tesouraria" | "ministerios" | "escalas" | "meu-espaco" | "demo";
+export type { AppNavKey };
 
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
@@ -50,40 +56,34 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">{paths[name]}</svg>;
 }
 
-const NAV: { key: AppNavKey; href: string; label: string; short: string; icon: GlyphName; hint: string }[] = [
-  { key: "visao", href: "/app/", label: "Painel", short: "Painel", icon: "home", hint: "Visão geral, indicadores e atividades" },
-  { key: "membros", href: "/app/membros/", label: "Membros e famílias", short: "Pessoas", icon: "people", hint: "Pessoas, famílias e cadastros" },
-  { key: "secretaria", href: "/app/secretaria/", label: "Secretaria", short: "Secretaria", icon: "layers", hint: "Admissão, processos e documentos" },
-  { key: "carteirinha", href: "/app/membros/carteirinha/", label: "Carteirinhas", short: "Carteira", icon: "badge", hint: "Emitir e gerenciar credenciais" },
-  { key: "operacao", href: "/app/operacao/", label: "Ministérios e operação", short: "Ministérios", icon: "activity", hint: "Gestão autenticada de ministérios, equipes, escalas e recursos autorizados" },
-  { key: "ministerios", href: "/app/ministerios/", label: "Vínculo de ministério", short: "Vínculo", icon: "family", hint: "Indisponível: a API não persiste o vínculo formal e responde 501" },
-  { key: "escalas", href: "/app/servir/louvor/", label: "Escalas", short: "Escalas", icon: "calendar", hint: "Atmosfera e Louvor no contrato de roster. Ensaio formal ainda não existe" },
-  { key: "meu-espaco", href: "/app/servir/meu-espaco/", label: "Meu Espaço", short: "Eu", icon: "badge", hint: "Não lista a agenda pessoal. Confirma só a própria atribuição pelo identificador" },
-  { key: "tesouraria", href: "/app/tesouraria/", label: "Tesouraria", short: "Caixa", icon: "shield", hint: "Posição sintética se o ledger responder. Sem banco, Pix ou saldo real" },
-  { key: "editorial", href: "/app/editorial/", label: "Mídia e conteúdo", short: "Conteúdo", icon: "book", hint: "Estúdio editorial, notícias, eventos e ministérios" },
-  { key: "site", href: "/app/site/", label: "Gestão do site", short: "Site", icon: "settings", hint: "Fotos, textos, cores, seções e histórico da Home. A prévia /w1-estudio não publica o site" },
-];
+const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "membros", "secretaria", "operacao"];
 
-const PERSONA_LABELS: Record<string, string> = {
-  PLATFORM_ADMIN: "Admin de homologação",
-  SECRETARIA: "Secretaria de homologação",
-  PASTOR: "Pastor de homologação",
-  TESOURARIA: "Tesouraria de homologação",
-  LIDER_MINISTERIO: "Líder de homologação",
-  MEMBRO: "Membro de homologação",
-  EDITOR_SITE: "Editor do site",
-  PUBLICADOR_SITE: "Publicador do site",
+export type PersonaAccessState = {
+  kind: "preview" | "pending" | "anonymous" | "held" | "ready";
+  roles: string[];
+  email: string;
+  label: string;
 };
 
-function labelForPersona(user: AuthUser): string {
-  const role = user.grants[0]?.roleCode;
-  return (role && PERSONA_LABELS[role]) || "Perfil de homologação";
+const PersonaAccessContext = createContext<PersonaAccessState>({
+  kind: "pending", roles: [], email: "", label: "",
+});
+
+export function usePersonaAccess(): PersonaAccessState {
+  return useContext(PersonaAccessContext);
 }
 
-const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao","membros","secretaria","operacao"];
-const NAV_HREFS = NAV.map(item => item.href);
+type LoadedAccess =
+  | { kind: "anonymous" }
+  | { kind: "held" }
+  | { kind: "ready"; user: AuthUser };
 
-function AppNavLink({
+function mobileItems(menu: readonly PersonaArea[], preview: boolean): PersonaArea[] {
+  if (preview) return menu.filter(item => MOBILE_PRIMARY.includes(item.key));
+  return menu.slice(0, 4);
+}
+
+export function AppNavLink({
   href, className, children, ...rest
 }: { href: string; className?: string; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">) {
   return <a {...rest} href={withBasePath(href)} className={className} data-nav="client" onClick={(event: MouseEvent<HTMLAnchorElement>) => {
@@ -94,73 +94,141 @@ function AppNavLink({
   }}>{children}</a>;
 }
 
-export function AppShell({ active, meta, children, editorial = false }: { active?: AppNavKey | null; meta: string; children: ReactNode; editorial?: boolean }) {
-  const context = active === "membros" ? { code: "01 / PESSOAS", title: "Conexões que importam.", detail: "Gestão de pessoas e famílias." } : active === "secretaria" ? { code: "02 / JORNADAS", title: "Cuidar de cada etapa.", detail: "Secretaria e processos." } : active === "carteirinha" ? { code: "03 / IDENTIDADE", title: "Pertencimento com cuidado.", detail: "Credenciais e registros." } : active === "operacao" ? { code: "06 / GESTÃO INTEGRADA", title: "Toda a igreja, uma plataforma.", detail: "Módulos do DAS sob autenticação." } : active === "ministerios" ? { code: "08 / MINISTÉRIOS", title: "Vínculo formal indisponível.", detail: "A API ainda não persiste integrantes." } : active === "escalas" ? { code: "09 / ESCALAS", title: "Atmosfera e Louvor.", detail: "Contrato de roster. Sem lista pessoal." } : active === "meu-espaco" ? { code: "10 / MEU ESPAÇO", title: "Sua escala, pelo identificador.", detail: "A consulta da agenda pessoal não existe." } : active === "tesouraria" ? { code: "07 / TESOURARIA", title: "Caixa sintético.", detail: "Sem banco, Pix ou saldo real." } : active === "site" ? { code: "05 / PERSONALIZAÇÃO", title: "Sua igreja, seu site.", detail: "Edição visual, prévia e publicação segura." } : active === "editorial" ? { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." } : { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
+function RailAnchor({ link }: { link: RailLink }) {
+  if (link.external) {
+    return <a className={s.menuItem} href={link.href} target="_blank" rel="noopener noreferrer"><UIIcon name={link.icon} size={19}/><span>{link.label}</span><UIIcon name="arrow" size={15}/></a>;
+  }
+  if (link.href.startsWith("/app")) {
+    return <AppNavLink className={s.menuItem} href={link.href}><UIIcon name={link.icon} size={19}/><span>{link.label}</span><UIIcon name="arrow" size={15}/></AppNavLink>;
+  }
+  return <a className={s.menuItem} href={withBasePath(link.href)}><UIIcon name={link.icon} size={19}/><span>{link.label}</span>{link.href !== "/status/" && <UIIcon name="arrow" size={15}/>}</a>;
+}
+
+export function AppShell({
+  active, meta, children, editorial = false, viewer,
+}: {
+  active?: AppNavKey | null;
+  meta: string;
+  children: ReactNode;
+  editorial?: boolean;
+  /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
+  viewer?: AuthUser;
+}) {
+  const personaMode = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const preview = !personaMode && !viewer;
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [activePersona, setActivePersona] = useState("Perfil de homologação");
+  const [loaded, setLoaded] = useState<LoadedAccess | null>(viewer ? { kind: "ready", user: viewer } : null);
   const [term, setTerm] = useState("");
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const filtered = NAV.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const deniedRef = useRef<HTMLHeadingElement>(null);
   const RouterBridge = useAppRouterBridge();
 
   useEffect(() => {
     finishClientNavigation(window.location.pathname);
     publishPerfProbe();
+  }, []);
+
+  useEffect(() => {
+    if (preview || viewer) return;
+    let mounted = true;
     const token = loadStoredToken();
-    if (!token) return;
-    const cached = readValidatedSession(token);
-    if (cached) {
-      setActivePersona(labelForPersona(cached));
+    if (!token) {
+      setLoaded({ kind: "anonymous" });
       return;
     }
-    let mounted = true;
+    const cached = readValidatedSession(token);
+    if (cached) {
+      setLoaded({ kind: "ready", user: cached });
+      return;
+    }
     void apiGet<AuthUser>("/auth/me", token)
-      .then(user => { if (mounted) setActivePersona(labelForPersona(user)); })
-      .catch(() => { /* Sessão e permissão são verificadas pelo gate. */ });
+      .then(user => { if (mounted) setLoaded({ kind: "ready", user }); })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        setLoaded(isUnauthorized(error) || isForbidden(error) ? { kind: "anonymous" } : { kind: "held" });
+      });
     return () => { mounted = false; };
-  }, []);
+  }, [preview, viewer]);
+
+  const readyUser = viewer ?? (loaded?.kind === "ready" ? loaded.user : null);
+  const roles = readyUser ? readyUser.grants.map(grant => grant.roleCode) : [];
+  const accessKind: PersonaAccessState["kind"] = preview
+    ? "preview"
+    : readyUser
+      ? "ready"
+      : loaded?.kind === "anonymous"
+        ? "anonymous"
+        : loaded?.kind === "held"
+          ? "held"
+          : "pending";
+  const menu = preview ? areasForPreview() : accessKind === "ready" ? areasForRoles(roles) : [];
+  const rails = railForRoles(roles, preview);
+  const allowed = areaAllowed(roles, active, preview);
+  const showModule = preview || (accessKind === "ready" && allowed);
+  const denied = accessKind === "ready" && !allowed;
+  const area = menu.find(item => item.key === active) ?? areasForPreview().find(item => item.key === active);
+  const context = area?.ribbon ?? { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
+  const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const phone = mobileItems(menu, preview);
+  const phoneHasActive = active != null && phone.some(item => item.key === active);
+  const shownMeta = showModule ? meta : "Área administrativa";
+  const accountEmail = readyUser?.email ?? "";
+  const accountLabel = preview
+    ? "Ambiente de homologação"
+    : accessKind === "ready"
+      ? personaLabel(roles)
+      : accessKind === "pending"
+        ? "Confirmando perfil"
+        : "Sessão não confirmada";
+  const accountName = preview ? "Perfil de homologação" : accessKind === "ready" ? accountEmail : accountLabel;
+  const initials = accessKind === "ready" && accountEmail ? accountInitials(accountEmail) : "ID";
+  const accessState: PersonaAccessState = {
+    kind: accessKind,
+    roles,
+    email: accountEmail,
+    label: accessKind === "ready" ? personaLabel(roles) : accountLabel,
+  };
 
   function switchPersona() {
     clearToken();
     window.location.assign(withBasePath("/login/"));
   }
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
         setPaletteOpen(open => !open);
       }
-      if (e.key === "Escape") setPaletteOpen(false);
+      if (event.key === "Escape") setPaletteOpen(false);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
+  useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
 
   return (
-    <div className={s.frame}>
-      {RouterBridge ? <RouterBridge prefetch={NAV_HREFS} /> : null}
+    <PersonaAccessContext.Provider value={accessState}>
+    <div className={s.frame} data-nav-state={accessKind}>
+      {RouterBridge ? <RouterBridge prefetch={menu.map(item => item.href)} /> : null}
       <aside className={s.rail} aria-label="Navegação principal">
         <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
         </AppNavLink>
 
-        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : "Demonstração com dados sintéticos"}</small></span></div>
+        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : preview ? "Demonstração com dados sintéticos" : "Módulos do perfil autenticado"}</small></span></div>
         <span className={s.groupTitle}>PAINEL DE CONTROLE</span>
-        <nav className={s.menu} aria-label="Módulos">
-          {NAV.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
+        <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
+          {menu.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
             <UIIcon name={item.icon} size={19}/><span>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
           </AppNavLink>)}
+          {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de listar módulos.</p>}
         </nav>
         <div className={s.railDivider}/>
         <span className={s.groupTitle}>CANAIS E COMUNIDADE</span>
-        <a className={s.menuItem} href={withBasePath("/eventos/")}><UIIcon name="calendar" size={19}/><span>Agenda pública</span><UIIcon name="arrow" size={15}/></a>
-        <AppNavLink className={s.menuItem} href="/app/operacao/"><UIIcon name="family" size={19}/><span>Gestão de ministérios</span><UIIcon name="arrow" size={15}/></AppNavLink>
-        <a className={s.menuItem} href={withBasePath("/")}><UIIcon name="home" size={19}/><span>Portal da igreja</span><UIIcon name="arrow" size={15}/></a>
-        <a className={s.menuItem} href={withBasePath("/status/")}><UIIcon name="activity" size={19}/><span>Evolução do sistema</span></a>
-        <a className={s.menuItem} href="https://www.youtube.com/@IDBRiachoFundo1" target="_blank" rel="noopener noreferrer"><UIIcon name="activity" size={19}/><span>Canal da igreja</span><UIIcon name="arrow" size={15}/></a>
+        {rails.map(link => <RailAnchor key={link.href} link={link} />)}
 
         <div className={s.railBottom}>
           <div className={s.verseMark}><UIIcon name="layers" size={27}/></div>
@@ -173,38 +241,51 @@ export function AppShell({ active, meta, children, editorial = false }: { active
         <header className={s.toolbar}>
           <div className={s.toolbarIdentity}>
             <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
-            <div><strong>{meta}</strong><span className={s.toolbarEyebrow}>Gestão da Igreja de Deus · Riacho Fundo I</span></div>
+            <div>
+              <strong>{shownMeta}</strong>
+              <span className={s.toolbarEyebrow}>Gestão da Igreja de Deus · Riacho Fundo I</span>
+              {accessKind === "ready" && <span className={s.personaLine}>{accountEmail} · {accessState.label}</span>}
+            </div>
           </div>
-          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K">
+          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K" disabled={menu.length === 0}>
             <UIIcon name="search" size={18}/><span>Buscar módulos e páginas...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
-            <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></AppNavLink>
+            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></AppNavLink>}
             <span className={s.toolbarDivider}/>
-            <span className={s.account} aria-label="Identificação visual da área de demonstração">ID</span>
-            <span className={s.accountInfo}><strong>{activePersona}</strong><small>Ambiente de homologação</small></span>
-            <button type="button" className={s.switchPersona} onClick={switchPersona} title="Encerrar sessão e entrar com outro perfil" aria-label="Sair e trocar perfil de homologação">
-              <UIIcon name="refresh" size={16}/><span>Trocar perfil</span>
+            <span className={s.account} aria-hidden="true">{initials}</span>
+            <span className={s.accountInfo} aria-label={`${accountName}, ${accountLabel}`}><strong>{accountName}</strong><small>{accountLabel}</small></span>
+            <button type="button" className={s.switchPersona} onClick={switchPersona} title="Trocar perfil de homologação" aria-label="Sair e trocar perfil de homologação">
+              <UIIcon name="refresh" size={16}/><span>Sair</span>
             </button>
           </div>
         </header>
-        {active !== "visao" && <div className={s.workspaceRibbon}>
+        {showModule && active !== "visao" && active != null && <div className={s.workspaceRibbon}>
           {/* Ilustração vetorial original; não representa fotografias de pessoas. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={withBasePath("/images/church-os-art.svg")} alt="" className={s.ribbonArt} aria-hidden="true" />
           <div className={s.ribbonCopy}><span>{context.code}</span><strong>{context.title}</strong><small>{context.detail}</small></div>
           <span className={s.ribbonSeal}><UIIcon name="spark" size={23}/></span>
         </div>}
-        <main className={s.content}>{children}</main>
+        <main className={s.content}>
+          {showModule && children}
+          {accessKind === "pending" && <p className={s.holdNote} role="status">Confirmando seu perfil. Os módulos restritos ficam ocultos até a sessão responder.</p>}
+          {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
+            <h1 tabIndex={-1} ref={deniedRef}>Este perfil não abre esta área</h1>
+            <p>O menu mostra só o que o servidor autoriza para {accessState.label}. O módulo não foi carregado. Uma consulta direta à API, sem este papel, recebe 403.</p>
+            <AppNavLink href={landingForRoles(roles)}>Voltar ao início do perfil</AppNavLink>
+          </section>}
+          {(accessKind === "anonymous" || accessKind === "held") && <p className={s.holdNote} role="alert">Não confirmamos seu perfil. Nada restrito foi exibido.</p>}
+        </main>
       </div>
 
       <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {NAV.filter(item=>MOBILE_PRIMARY.includes(item.key)).map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
+        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
           <UIIcon name={item.icon} size={20}/><span>{item.short}</span>
         </AppNavLink>)}
-        <button type="button" className={active&&!MOBILE_PRIMARY.includes(active)?s.mobileActive:s.mobileItem}
+        <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
           aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
-          onClick={()=>setPaletteOpen(true)}>
+          onClick={() => setPaletteOpen(true)}>
           <UIIcon name="more" size={20}/><span>Mais</span>
         </button>
       </nav>
@@ -221,5 +302,6 @@ export function AppShell({ active, meta, children, editorial = false }: { active
         </section>
       </div>}
     </div>
+    </PersonaAccessContext.Provider>
   );
 }
