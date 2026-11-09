@@ -40,7 +40,7 @@ const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
   SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
   PASTOR: ["visao", "membros", "secretaria", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
   TESOURARIA: ["visao", "operacao", "tesouraria"],
-  LIDER_MINISTERIO: ["visao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial"],
+  LIDER_MINISTERIO: ["visao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco"],
   MEMBRO: ["visao", "carteirinha", "meu-espaco"],
   EDITOR_SITE: ["visao", "site"],
   PUBLICADOR_SITE: ["visao", "site"],
