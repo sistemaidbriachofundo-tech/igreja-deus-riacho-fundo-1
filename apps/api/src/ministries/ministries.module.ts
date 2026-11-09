@@ -11,6 +11,8 @@ import {
   VolunteerAvailabilityController,
   VolunteerImpedimentsController,
 } from "./ministries.controller";
+import { MinistryMembershipGateService } from "./membership/ministry-membership-gate.service";
+import { MinistryScopeController } from "./membership/ministry-scope.controller";
 import { MinistriesService } from "./ministries.service";
 
 @Module({
@@ -23,7 +25,8 @@ import { MinistriesService } from "./ministries.service";
     VolunteerAvailabilityController,
     VolunteerImpedimentsController,
     RosterCoupleExceptionsController,
+    MinistryScopeController,
   ],
-  providers: [MinistriesService],
+  providers: [MinistriesService, MinistryMembershipGateService],
 })
 export class MinistriesModule {}
