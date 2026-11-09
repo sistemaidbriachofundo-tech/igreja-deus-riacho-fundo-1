@@ -1733,7 +1733,6 @@ describe("MinistriesService", () => {
               ministryId: "m1",
               title: "Culto",
               serviceAt,
-              ministryId: "m1",
             },
           },
         }),
