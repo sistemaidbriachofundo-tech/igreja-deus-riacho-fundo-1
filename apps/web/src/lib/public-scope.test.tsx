@@ -7,6 +7,7 @@ import { PortalHeader } from "../components/PublicPortal";
 import { MobilePortalMenu } from "../components/MobilePortalMenu";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { MinistryWorkspace } from "../components/MinistryWorkspace";
+import { authenticatedLanding } from "./auth-destination";
 
 const source = (path: string) => readFileSync(join(__dirname,"..",path),"utf8");
 
@@ -56,5 +57,13 @@ describe("separação entre site institucional e operação autenticada",()=>{
     expect(chat).not.toContain('href: "/visita/"');
     expect(css).toContain("max-width:640px");
     expect(css).toContain("font-size:16px");
+  });
+  it("direciona o líder de ministério à operação, sem conceder permissões financeiras",()=>{
+    const person={userId:"user1",personId:"person1",email:"test@example.test"};
+    const leader={...person,grants:[{roleCode:"LIDER_MINISTERIO",ministryId:"homens"}]};
+    const treasurer={...person,grants:[{roleCode:"TESOURARIA"}]};
+    expect(authenticatedLanding(leader)).toBe("/app/operacao/");
+    expect(authenticatedLanding(treasurer)).toBe("/app/");
+    expect(authenticatedLanding({...person,grants:[{roleCode:"LIDER_MINISTERIO"},{roleCode:"SECRETARIA"}]})).toBe("/app/");
   });
 });
