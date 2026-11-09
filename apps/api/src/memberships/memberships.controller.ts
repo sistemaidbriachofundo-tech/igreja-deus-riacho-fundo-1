@@ -1,6 +1,14 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsEmail, IsOptional, IsString, MinLength } from "class-validator";
+import {
+  IsEmail,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -31,6 +39,23 @@ class RegisterMembershipBody implements RegisterMembershipInput {
   personId?: string;
 }
 
+export class PatchMembershipBody {
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(4000)
+  notes?: string | null;
+
+  @IsOptional()
+  @IsISO8601()
+  expectedUpdatedAt?: string;
+
+  /** Recusado no service: situação segue admissão, transferência ou fluxo ainda inexistente. */
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
 /**
  * Secretaria — listagem e cadastro de membresia no piloto Riacho Fundo I.
  * Escopo validado no service (grants SECRETARIA × church piloto).
@@ -52,5 +77,15 @@ export class MembershipsController {
     @Body() body: RegisterMembershipBody,
   ) {
     return this.memberships.register(user, body);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Patch(":membershipId")
+  patch(
+    @CurrentUser() user: AuthUser,
+    @Param("membershipId") membershipId: string,
+    @Body() body: PatchMembershipBody,
+  ) {
+    return this.memberships.patch(user, membershipId, body);
   }
 }

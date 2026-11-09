@@ -7,8 +7,15 @@ import {
 } from "@nestjs/common";
 import { canManageMemberships } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import {
+  normalizeMembershipNotes,
+  parseExpectedUpdatedAt,
+  rejectMembershipRegulatedPatch,
+  type MembershipNotesPatch,
+} from "./membership-patch";
 
 export interface RegisterMembershipInput {
   displayName: string;
@@ -180,6 +187,139 @@ export class MembershipsService {
       person: membership.person,
       churchId: membership.churchId,
       organizationId: membership.organizationId,
+    };
+  }
+
+  /**
+   * Observação do vínculo no piloto. Situação e data de saída permanecem
+   * nos fluxos de admissão e transferência.
+   */
+  async patch(actor: AuthUser, membershipId: string, input: MembershipNotesPatch) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertCanManage(actor, pilot.organizationId, pilot.churchId);
+    rejectMembershipRegulatedPatch(input);
+    if (typeof input.notes === "string") {
+      normalizeMembershipNotes(input.notes);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.churchMembership.findFirst({
+        where: {
+          id: membershipId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        },
+      });
+      if (!row) {
+        throw new NotFoundException("Vínculo não encontrado neste escopo");
+      }
+
+      if (input.expectedUpdatedAt !== undefined) {
+        const expected = parseExpectedUpdatedAt(input.expectedUpdatedAt);
+        if (
+          !(row.updatedAt instanceof Date) ||
+          row.updatedAt.getTime() !== expected.getTime()
+        ) {
+          throw new BusinessException(
+            "O vínculo foi alterado por outra gravação. Reabra antes de salvar.",
+            "MEMBERSHIP_VERSION_CONFLICT",
+            409,
+          );
+        }
+      }
+
+      if (input.notes === undefined) {
+        return this.toMembershipPatch(row);
+      }
+
+      const notes = normalizeMembershipNotes(input.notes);
+      if (notes === row.notes) {
+        return this.toMembershipPatch(row);
+      }
+
+      if (
+        !(row.updatedAt instanceof Date) ||
+        Number.isNaN(row.updatedAt.getTime())
+      ) {
+        throw new BusinessException(
+          "Concorrência otimista indisponível: o vínculo não tem updatedAt.",
+          "MEMBERSHIP_VERSION_UNSUPPORTED",
+          409,
+        );
+      }
+
+      const written = await tx.churchMembership.updateMany({
+        where: {
+          id: membershipId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          updatedAt: row.updatedAt,
+        },
+        data: { notes },
+      });
+      if (written.count !== 1) {
+        throw new BusinessException(
+          "O vínculo foi alterado por outra gravação. Reabra antes de salvar.",
+          "MEMBERSHIP_VERSION_CONFLICT",
+          409,
+        );
+      }
+
+      const updated = await tx.churchMembership.findFirst({
+        where: {
+          id: membershipId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        },
+      });
+      if (!updated) {
+        throw new NotFoundException("Vínculo não encontrado neste escopo");
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "membership.notes.patch",
+          resourceType: "church_membership",
+          resourceId: membershipId,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: {
+            fields: ["notes"],
+            before: { notes: row.notes },
+            after: { notes: updated.notes },
+            status: updated.status,
+          },
+        },
+      });
+
+      return this.toMembershipPatch(updated);
+    });
+  }
+
+  private toMembershipPatch(row: {
+    id: string;
+    personId: string;
+    churchId: string;
+    organizationId: string;
+    status: string;
+    joinedAt: Date;
+    leftAt?: Date | null;
+    notes: string | null;
+    updatedAt?: Date | null;
+  }) {
+    return {
+      id: row.id,
+      personId: row.personId,
+      churchId: row.churchId,
+      organizationId: row.organizationId,
+      status: row.status,
+      joinedAt: row.joinedAt.toISOString(),
+      leftAt: row.leftAt instanceof Date ? row.leftAt.toISOString() : null,
+      notes: row.notes,
+      ...(row.updatedAt instanceof Date
+        ? { updatedAt: row.updatedAt.toISOString() }
+        : {}),
     };
   }
 
