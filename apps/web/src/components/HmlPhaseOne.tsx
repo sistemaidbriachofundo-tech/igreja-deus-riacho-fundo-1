@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
+import { SecretaryDossier } from "./SecretaryDossier";
 import { apiGet, apiLogin, apiPost, clearToken, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
@@ -58,6 +59,7 @@ export function HmlPhaseOne({view}:{view:View}){
   const [admissions,setAdmissions]=useState<Admission[]>([]);
   const [households,setHouseholds]=useState<Household[]>([]);
   const [query,setQuery]=useState("");
+  const [fichaId,setFichaId]=useState<string|null>(null);
   const [newName,setNewName]=useState("");
   const [newEmail,setNewEmail]=useState("");
   const [modality,setModality]=useState("BATISMO");
@@ -105,7 +107,7 @@ export function HmlPhaseOne({view}:{view:View}){
   });
 
   function logout(){
-    clearToken();setToken(null);setUser(null);setMemberships([]);setAdmissions([]);setHouseholds([]);
+    clearToken();setToken(null);setUser(null);setMemberships([]);setAdmissions([]);setHouseholds([]);setFichaId(null);
     setPassword("");setError("");setNotice("");
     window.location.assign(withBasePath("/login/"));
   }
@@ -226,8 +228,8 @@ export function HmlPhaseOne({view}:{view:View}){
           {view==="members"&&<div className={s.grid}>
             <section className={s.panel}><div className={s.panelHeading}><h2>Diretório de membros</h2><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros"/></div>
               {!secretary?<p>Seu perfil não possui permissão para listar todas as pessoas. A API bloqueia a consulta por escopo.</p>:
-                <div className={s.tableWrap}><table><thead><tr><th>Nome fictício</th><th>Situação</th><th>E-mail de teste</th><th>Carteirinha</th></tr></thead><tbody>
-                  {filtered.map(m=><tr key={rowKey(m)}><td><strong>{m.person.displayName}</strong></td><td>{label(m.status)}</td><td>{m.person.email??"—"}</td><td>{m.activeCredentialId?"Ativa":"Não emitida"}</td></tr>)}
+                <div className={s.tableWrap}><table><thead><tr><th>Nome fictício</th><th>Situação</th><th>E-mail de teste</th><th>Carteirinha</th><th>Ficha</th></tr></thead><tbody>
+                  {filtered.map(m=><tr key={rowKey(m)}><td><strong>{m.person.displayName}</strong></td><td>{label(m.status)}</td><td>{m.person.email??"—"}</td><td>{m.activeCredentialId?"Ativa":"Não emitida"}</td><td><button type="button" className={s.openFicha} onClick={()=>setFichaId(m.person.id)} aria-label={"Abrir ficha de "+m.person.displayName}>Abrir ficha</button></td></tr>)}
                 </tbody></table>{filtered.length===0&&<p>Sem registros encontrados.</p>}</div>}
             </section>
             <section className={s.panel}><h2>Núcleos familiares</h2><strong className={s.bigNumber}>{households.length}</strong><p>Famílias fictícias vinculadas à congregação. As relações são consultadas pelo endpoint autenticado.</p>
@@ -243,9 +245,12 @@ export function HmlPhaseOne({view}:{view:View}){
                   return <article key={a.id} className={s.admission}>
                     <div><strong>{membershipByPerson.get(a.personId)?.person.displayName??"Pessoa de teste · "+a.personId.slice(0,8)}</strong>
                       <small>{label(a.status)} · {a.modality??"Modalidade pendente"}</small></div>
-                    <button type="button" disabled={busy||done||!canAct} onClick={()=>nextAdmission(a)}>
-                      {done?"Concluído":!canAct?"Ação reservada":"Concluir "+(a.currentStep==="pastor"?"decisão pastoral":a.currentStep==="secretaria"?"secretaria":"documentação")}
-                    </button>
+                    <div className={s.admissionActions}>
+                      <button type="button" className={s.openFicha} onClick={()=>setFichaId(a.personId)} aria-label={"Abrir ficha de "+(membershipByPerson.get(a.personId)?.person.displayName??"pessoa de teste")}>Abrir ficha</button>
+                      <button type="button" disabled={busy||done||!canAct} onClick={()=>nextAdmission(a)}>
+                        {done?"Concluído":!canAct?"Ação reservada":"Concluir "+(a.currentStep==="pastor"?"decisão pastoral":a.currentStep==="secretaria"?"secretaria":"documentação")}
+                      </button>
+                    </div>
                   </article>;
                 })}{filteredAdmissions.length===0&&<p>Não há protocolos neste filtro.</p>}</div>}
             </section>
@@ -269,6 +274,7 @@ export function HmlPhaseOne({view}:{view:View}){
                   {m.activeCredentialId?"Revogar credencial":"Emitir credencial"}
                 </button></article>)}</div>}
           </section>}
+          {fichaId&&token&&<SecretaryDossier token={token} personId={fichaId} households={households} canEdit={secretary} onClose={()=>setFichaId(null)} onSessionExpired={logout}/>}
           <p className={s.footerNote}>HML Fase 1 · Dados sintéticos, ações auditadas e persistência no banco isolado. Não inserir informações de membros reais.</p>
         </div>}
     </div>
