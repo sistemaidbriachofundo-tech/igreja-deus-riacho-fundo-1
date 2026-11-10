@@ -19,11 +19,12 @@ describe("F2: descoberta e separação entre demonstração e produção", () =>
     expect(mobileMenu).toContain("Login");
     expect(overview).toContain("<ChurchDashboard />");
   });
-  it("deixa claro que os perfis ilustrativos não autenticam", () => {
-    expect(demo).toContain("Dados 100% fictícios");
-    expect(demo).toContain("a seleção de perfis não é login");
+  it("não guarda cadastro local no endereço antigo", () => {
+    expect(demo).toContain("Esta página não guarda cadastros");
+    expect(demo).not.toContain("localStorage");
+    expect(demo).not.toContain("Dados 100% fictícios");
   });
-  it("não faz chamadas diretas à API real a partir do modo de demonstração", () => {
+  it("não faz chamadas diretas à API a partir do endereço antigo", () => {
     expect(demo).not.toContain("apiLogin(");
     expect(demo).not.toContain("apiPost(");
     expect(demo).not.toContain("apiGet(");

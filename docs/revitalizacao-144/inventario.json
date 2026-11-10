@@ -1,0 +1,247 @@
+{
+  "epic": 144,
+  "integratorIssue": 154,
+  "localStorageFallbackCount": 1,
+  "userFacing501Count": 2,
+  "danglingImports": [],
+  "storage": [
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 176,
+      "api": "localStorage",
+      "excerpt": "it(\"salva, lê e apaga token no sessionStorage, não no localStorage\", () => {",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 177,
+      "api": "sessionStorage",
+      "excerpt": "const sessionStorage = fakeStorage();",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 178,
+      "api": "sessionStorage",
+      "excerpt": "vi.stubGlobal(\"window\", { sessionStorage });",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 232,
+      "api": "sessionStorage",
+      "excerpt": "const sessionStorage = fakeStorage();",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 233,
+      "api": "sessionStorage",
+      "excerpt": "sessionStorage.setItem(\"idbrf_demo_token\", \"fake-jwt\");",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 236,
+      "api": "sessionStorage",
+      "excerpt": "sessionStorage,",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 248,
+      "api": "sessionStorage",
+      "excerpt": "expect(sessionStorage.getItem(\"idbrf_demo_token\")).toBe(\"fake-jwt\");",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 255,
+      "api": "sessionStorage",
+      "excerpt": "const sessionStorage = fakeStorage();",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 256,
+      "api": "sessionStorage",
+      "excerpt": "sessionStorage.setItem(\"idbrf_demo_token\", \"fake-jwt\");",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 259,
+      "api": "sessionStorage",
+      "excerpt": "sessionStorage,",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 265,
+      "api": "sessionStorage",
+      "excerpt": "expect(sessionStorage.getItem(\"idbrf_demo_token\")).toBe(\"fake-jwt\");",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.test.ts",
+      "line": 271,
+      "api": "sessionStorage",
+      "excerpt": "expect(sessionStorage.getItem(\"idbrf_demo_token\")).toBeNull();",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.ts",
+      "line": 335,
+      "api": "sessionStorage",
+      "excerpt": "return window.sessionStorage.getItem(TOKEN_KEY);",
+      "classification": "SESSAO_AUTENTICACAO",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.ts",
+      "line": 339,
+      "api": "sessionStorage",
+      "excerpt": "window.sessionStorage.setItem(TOKEN_KEY, token);",
+      "classification": "SESSAO_AUTENTICACAO",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/api.ts",
+      "line": 345,
+      "api": "sessionStorage",
+      "excerpt": "window.sessionStorage.removeItem(TOKEN_KEY);",
+      "classification": "SESSAO_AUTENTICACAO",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/demo.test.ts",
+      "line": 24,
+      "api": "localStorage",
+      "excerpt": "expect(demo).not.toContain(\"localStorage\");",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/editorial-studio.test.ts",
+      "line": 24,
+      "api": "localStorage",
+      "excerpt": "expect(studio).not.toContain(\"localStorage\");",
+      "classification": "TESTE",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/use-church-records.ts",
+      "line": 13,
+      "api": "localStorage",
+      "excerpt": "const raw = window.localStorage.getItem(SYNTHETIC_STORE_KEY);",
+      "classification": "FALLBACK_ATIVO",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/use-church-records.ts",
+      "line": 25,
+      "api": "localStorage",
+      "excerpt": "window.localStorage.setItem(SYNTHETIC_STORE_KEY, JSON.stringify(members));",
+      "classification": "FALLBACK_ATIVO",
+      "owners": []
+    },
+    {
+      "file": "apps/web/src/lib/volunteer-interest.test.ts",
+      "line": 16,
+      "api": "localStorage",
+      "excerpt": "expect(src).not.toContain(\"localStorage\");",
+      "classification": "TESTE",
+      "owners": []
+    }
+  ],
+  "mentions501": [
+    {
+      "file": "apps/web/src/components/HmlPhaseOne.tsx",
+      "line": 235,
+      "excerpt": "<div className={s.listRow}><strong>Vínculo formal de ministério</strong><span>Indisponível — a API responde 501 e nada é persistido</span></div>",
+      "owners": [
+        "B"
+      ]
+    },
+    {
+      "file": "apps/web/src/lib/persona-navigation.ts",
+      "line": 140,
+      "excerpt": "hint: \"Quem lidera ou secretaria pode abrir. A gravação do vínculo formal ainda responde 501\",",
+      "owners": [
+        "A"
+      ]
+    },
+    {
+      "file": "apps/web/src/lib/persona-navigation.ts",
+      "line": 141,
+      "excerpt": "ribbon: { code: \"08 / MINISTÉRIOS\", title: \"Vínculo ainda não grava.\", detail: \"A API responde 501. Nada é persistido por esta tela.\" },",
+      "owners": [
+        "A"
+      ]
+    },
+    {
+      "file": "apps/web/src/lib/persona-navigation.ts",
+      "line": 143,
+      "excerpt": "limitation: \"O vínculo formal ainda não grava: a API responde 501.\",",
+      "owners": [
+        "A"
+      ]
+    }
+  ],
+  "removed": [
+    {
+      "path": "apps/web/src/components/ChurchWorkspace.tsx",
+      "reason": "Nenhum import no produto, nos testes ou nas rotas.",
+      "rollback": "Restaurar o arquivo e church-workspace.module.css a partir do baseline 3c7375c."
+    },
+    {
+      "path": "apps/web/src/components/church-workspace.module.css",
+      "reason": "CSS exclusivo de ChurchWorkspace.",
+      "rollback": "Restaurar junto com ChurchWorkspace.tsx."
+    },
+    {
+      "path": "apps/web/src/app/app/workspace.module.css",
+      "reason": "Nenhum import de workspace.module.css fora de MinistryWorkspace e ChurchWorkspace, que usam outros arquivos.",
+      "rollback": "Restaurar o CSS a partir do baseline 3c7375c."
+    },
+    {
+      "path": "apps/web/src/components/DemoLogin.tsx",
+      "reason": "Só era importado por teste. Nenhuma página montava o componente.",
+      "rollback": "Restaurar DemoLogin.tsx e o teste de renderização."
+    },
+    {
+      "path": "apps/web/src/app/app/demo/page.tsx",
+      "reason": "A rota deixou de gravar pessoas em localStorage. O endereço continua e explica que não há cadastro local.",
+      "rollback": "Restaurar page.tsx e demo.module.css a partir do baseline 3c7375c."
+    }
+  ],
+  "kept": [
+    {
+      "path": "apps/web/src/lib/use-church-records.ts",
+      "classification": "FALLBACK_ATIVO",
+      "reason": "Ainda importado por ChurchDashboard, MemberDirectory, ChurchSecretary e ChurchCredentials. Apagar agora quebra as frentes B e C."
+    },
+    {
+      "path": "apps/web/src/lib/api.ts",
+      "classification": "SESSAO_AUTENTICACAO",
+      "reason": "sessionStorage guarda o token da sessão. Não é cadastro paralelo."
+    },
+    {
+      "path": "packages/db/prisma/migrations",
+      "classification": "PRESERVADO",
+      "reason": "Migrations, auditoria e guards não entram na limpeza."
+    }
+  ]
+}
