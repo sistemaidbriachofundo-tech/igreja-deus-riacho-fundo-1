@@ -78,6 +78,15 @@ export function visibleSchedule(desk: DeskReady): string | null {
   return desk.agenda.scheduleText || fromProfile;
 }
 
+/** A URL canônica usa ministry; links antigos com ministerio continuam válidos. */
+export function parseMinistryRoute(search: string): { ministryId?: string; tab: MinistryTabId; escalaId?: string } {
+  const params = new URLSearchParams(search);
+  const ministryId = params.get("ministry")?.trim() || params.get("ministerio")?.trim() || undefined;
+  const tab = params.get("aba");
+  const escalaId = params.get("escala")?.trim() || undefined;
+  return { ministryId, tab: isMinistryTab(tab) ? tab : "visao", escalaId };
+}
+
 export function ministryHref(ministryId: string, tab: MinistryTabId = "visao", escalaId?: string): string {
   const params = new URLSearchParams();
   params.set("ministry", ministryId);
