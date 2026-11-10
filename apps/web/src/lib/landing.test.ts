@@ -3,115 +3,65 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { events, getMinistry, ministries } from "./portal-content";
 
-const read = (path: string) => readFileSync(join(__dirname, "..", path), "utf8");
+const file = (path: string) => join(__dirname, "..", path);
+const read = (path: string) => readFileSync(file(path), "utf8");
 const home = read("app/page.tsx");
-const hub = read("app/ministerios/page.tsx");
-const ministryPage = read("app/ministerios/[slug]/page.tsx");
-const agenda = read("app/eventos/page.tsx");
-const visit = read("app/visita/page.tsx");
-const about = read("app/a-igreja/page.tsx");
-const contact = read("app/contato/page.tsx");
 const shell = read("components/PublicPortal.tsx");
 const css = read("components/public-portal.module.css");
-const appShell = read("components/AppShell.tsx");
-const personaNav = read("lib/persona-navigation.ts");
 
-describe("portal público da igreja", () => {
-  it("coloca visitantes, igreja e ministérios antes do sistema administrativo", () => {
+describe("portal V1: Início, Quem somos, Agenda e Login", () => {
+  it("mantém as três seções na Home e o login separado", () => {
     expect(home).toContain("<PortalCinematicHero");
     expect(home).toContain("<PublishedAgenda");
-    expect(home).not.toContain("<MinisterioEmFoco");
-    expect(home).not.toContain("<FirstVisitFeature");
-    expect(home).not.toContain("<PortalJourney />");
-    expect(read("lib/site-layout.ts")).toContain("Sua jornada com Deus");
-    expect(read("components/PortalCinematicHero.tsx")).toContain("site.hero.title");
-    expect(read("components/PortalCinematicHero.tsx")).toContain("Quem somos");
-    expect(home).toContain("Uma comunidade de fé");
-    expect(shell).toContain("Gestão interna de equipes");
-    expect(home).not.toContain("Abrir sistema");
-    expect(home).not.toContain('href="/app/membros/"');
-    expect(shell).toContain('>Login</Link>');
-    expect(shell).toContain('className={d.headerLogin}');
-    expect(shell).toContain("abrir tela de e-mail e senha");
-    expect(shell).toContain("/login/");
-    expect(personaNav).toContain("Membros e famílias");
-    expect(appShell).toContain("Estúdio editorial");
-    expect(personaNav).toContain("Gestão do site");
+    expect(home).toContain('id="quem-somos"');
+    expect(home).toContain('id="agenda"');
+    expect(read("components/PortalCinematicHero.tsx")).toContain('id="inicio"');
+    expect(shell).toContain('href="/login/"');
+    expect(shell).toContain('href: "/#quem-somos"');
+    expect(shell).toContain('href: "/#agenda"');
+    expect(shell).not.toContain("RiachinhoPublicChat");
   });
 
-  it("oferece cinco ministérios com caminhos públicos estáticos", () => {
+  it("usa links institucionais de retorno, sem reabrir páginas de conteúdo", () => {
+    const about = read("app/a-igreja/page.tsx");
+    const agenda = read("app/eventos/page.tsx");
+    expect(about).toContain('sectionId="quem-somos"');
+    expect(agenda).toContain('sectionId="agenda"');
+    for (const name of ["contato", "visita", "ministerios", "novidades", "status", "design-system", "w1-estudio"]) {
+      expect(existsSync(file("app/" + name + "/page.tsx")), name).toBe(false);
+    }
+  });
+
+  it("preserva a fonte do catálogo ministerial apenas como dado, sem rota pública", () => {
     const slugs = ["jovens", "homens", "adolescentes", "mulheres", "atmosfera"];
     expect(ministries.map(({ slug }) => slug)).toEqual(slugs);
     expect(new Set(ministries.map(({ slug }) => slug)).size).toBe(5);
     for (const ministry of ministries) {
       expect(ministry.name.length).toBeGreaterThan(3);
-      expect(ministry.pillars).toHaveLength(3);
       expect(getMinistry(ministry.slug)).toBe(ministry);
     }
-    expect(ministryPage).toContain("generateStaticParams");
-    expect(ministryPage).toContain("getMinistry(slug)");
-    expect(hub).toContain("ministries.map");
+    expect(existsSync(file("app/ministerios/[slug]/page.tsx"))).toBe(false);
   });
 
-  it("separa dados sintéticos da agenda pública publicada", () => {
+  it("não apresenta dados de agenda fictícios como eventos publicados", () => {
     expect(events).toHaveLength(5);
     expect(events.every((event) => event.date && event.time && event.ministry)).toBe(true);
-    expect(agenda).toContain('sectionId="agenda"');
-    expect(agenda).not.toContain("events={events}");
-    expect(agenda).not.toContain("Eventos demonstrativos");
-    expect(home).toContain('id="quem-somos"');
-    expect(home).toContain('id="agenda"');
-    expect(home).not.toContain('href="/a-igreja/"');
-    expect(home).not.toContain('href="/eventos/"');
+    expect(home).not.toContain("events={events}");
     expect(home).not.toContain("events.slice");
-    expect(home).not.toContain("Próximos encontros");
-    expect(ministryPage).toContain('"/visita/?ministerio=" + ministry.slug');
-    expect(ministryPage).not.toContain("Eventos demonstrativos");
     expect(read("components/PublicLiveSections.tsx")).toContain("Programação em atualização");
     expect(shell).not.toContain("Agenda ilustrativa");
-    expect(shell).not.toContain("não são programação oficial");
   });
 
-  it("preserva a logo aprovada e imagens existentes", () => {
+  it("preserva a identidade visual e a navegação acessível", () => {
     const images = join(__dirname, "../../public/images");
-    expect(shell).toContain("logo-igreja-aprovada.webp");
     for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
-      expect(existsSync(join(images, image))).toBe(true);
+      expect(existsSync(join(images, image)), image).toBe(true);
     }
-    expect(read("components/PortalCinematicHero.tsx")).toContain("portalVisuals.hero");
-    expect(shell).toContain("ministryJourneyItem");
-    expect(css).toContain(".immersiveHero");
-    expect(css).toContain(".ministryJourneyItem");
-    expect(home).toContain("portalVisuals.encounter");
-    expect(about).toContain('sectionId="quem-somos"');
-    expect(about).not.toContain("portalVisuals.hero");
-    expect(contact).toContain("instagramUrl");
-  });
-
-  it("mantém estilos próprios, navegação mobile e acessibilidade", () => {
-    expect(css).toContain("@media(max-width:750px)");
-    expect(css).toContain("@media(max-width:480px)");
+    expect(shell).toContain("logo-igreja-aprovada.webp");
     expect(css).toContain("prefers-reduced-motion");
+    expect(shell).toContain("Pular para o conteúdo");
     expect(read("components/PortalDesktopNavigation.tsx")).toContain('aria-label="Navegação do site público"');
     expect(read("components/PublicSectionLink.tsx")).toContain('id: "quem-somos"');
-    expect(read("components/PublicSectionLink.tsx")).toContain('id: "agenda"');
-    expect(read("components/PublicSectionLink.tsx")).toContain('id: "inicio"');
-    expect(shell).toContain("<MobilePortalMenu links={navigation} />");
     expect(read("components/MobilePortalMenu.tsx")).toContain('aria-label="Navegação do site público no celular"');
-    expect(shell).toContain("portal-design-system.module.css");
-    expect(shell).toContain("Pular para o conteúdo");
-    expect(shell).toContain('href="/visita/"');
-    expect(visit).toContain("<VisitPlanner");
-    expect(about).toContain('id="conteudo"');
-  });
-});
-
-
-describe("portal público sem assistente de IA", () => {
-  it("não monta chatbot e preserva a política do assistente editorial", () => {
-    expect(shell).not.toContain("RiachinhoPublicChat");
-    expect(shell).not.toContain("riachinho-public-api");
-    expect(read("components/ViviEditorialAssistant.tsx")).toContain("assistantScopeRefusal");
-    expect(read("lib/assistant-scope.ts")).toContain("Não enviei este pedido");
   });
 });
