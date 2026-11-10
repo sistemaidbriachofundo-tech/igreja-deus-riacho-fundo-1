@@ -261,9 +261,9 @@ export function AppShell({
     "--shell-target": dsGrid.touchTarget,
   } as CSSProperties;
 
-  function switchPersona() {
+  function signOut() {
     clearToken();
-    window.location.assign(withBasePath("/login/"));
+    window.location.assign(withBasePath("/"));
   }
   function afterNavigate() {
     setPaletteOpen(false);
@@ -519,7 +519,7 @@ export function AppShell({
       {logoutOpen && <div ref={logoutRef} id="confirmar-saida" className={s.logoutConfirm} style={{ top: logoutAnchor.top, left: logoutAnchor.left }} role="group" aria-label="Confirmar saída">
         <p>Encerrar esta sessão?</p>
         <button type="button" ref={logoutCancelRef} onClick={() => setLogoutOpen(false)}>Continuar</button>
-        <button type="button" onClick={switchPersona}>Sair agora</button>
+        <button type="button" onClick={signOut}>Sair agora</button>
       </div>}
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>

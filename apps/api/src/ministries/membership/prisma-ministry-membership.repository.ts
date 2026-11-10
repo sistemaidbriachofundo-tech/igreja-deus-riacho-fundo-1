@@ -13,7 +13,7 @@ import type {
   MinistryMembershipRepository,
 } from "./ministry-membership.repository";
 
-const PROBE_SQL = "SELECT to_regclass('public.ministry_memberships') AS regclass";
+const PROBE_SQL = "SELECT to_regclass('public.ministry_memberships')::text AS regclass";
 
 const MEMBER_COLUMNS = `
   m.id,
@@ -149,9 +149,8 @@ export class PrismaMinistryMembershipRepository implements MinistryMembershipRep
   }
 
   async save(row: StoredMembership) {
-    const query = this.prisma.$queryRawUnsafe;
-    if (typeof query !== "function") return null;
-    const written = await query(
+    if (typeof this.prisma.$queryRawUnsafe !== "function") return null;
+    const written = await this.prisma.$queryRawUnsafe(
       MEMBERSHIP_UPSERT_SQL,
       row.id,
       row.organizationId,
@@ -236,9 +235,8 @@ export class PrismaMinistryMembershipRepository implements MinistryMembershipRep
   }
 
   private async query(sql: string, values: unknown[]): Promise<StoredMembership[]> {
-    const query = this.prisma.$queryRawUnsafe;
-    if (typeof query !== "function") return [];
-    const rows = await query(sql, ...values);
+    if (typeof this.prisma.$queryRawUnsafe !== "function") return [];
+    const rows = await this.prisma.$queryRawUnsafe(sql, ...values);
     if (!Array.isArray(rows)) return [];
     return rows.flatMap((row) => {
       const parsed = parseRow(row);

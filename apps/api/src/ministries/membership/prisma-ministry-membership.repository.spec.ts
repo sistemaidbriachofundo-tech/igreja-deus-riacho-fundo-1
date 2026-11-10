@@ -46,7 +46,7 @@ describe("PrismaMinistryMembershipRepository", () => {
     await expect(repository.probe()).resolves.toBe("schema_blocked");
     expect(query).toHaveBeenCalledTimes(1);
     expect(query.mock.calls[0]?.[0]).toBe(
-      "SELECT to_regclass('public.ministry_memberships') AS regclass",
+      "SELECT to_regclass('public.ministry_memberships')::text AS regclass",
     );
   });
 
