@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Avatar geométrico">
+  <rect width="160" height="160" rx="24" fill="#F7EDE0"/>
+  <circle cx="80" cy="78" r="48" fill="#4A2612"/>
+  <circle cx="80" cy="78" r="44" fill="none" stroke="#B8742D" stroke-width="3"/>
+  <rect x="28" y="28" width="18" height="4" fill="#B8742D"/>
+  <rect x="35" y="21" width="4" height="18" fill="#B8742D"/>
+  <text x="80" y="90" text-anchor="middle" font-family="Montserrat, Inter, sans-serif" font-size="36" font-weight="700" fill="#F7EDE0">HC</text>
+</svg>
