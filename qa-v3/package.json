@@ -1,0 +1,14 @@
+{
+  "name": "@idbrf/qa-v3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QA independente da frente I (issue #153). Não altera produto, schema nem CI.",
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test src/verdict.test.mjs src/catalog.test.mjs",
+    "test:live": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
