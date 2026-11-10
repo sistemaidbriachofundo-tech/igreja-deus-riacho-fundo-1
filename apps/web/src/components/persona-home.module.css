@@ -21,8 +21,8 @@
 }
 .intro h1 {
   margin: 4px 0 6px;
-  font: 750 clamp(1.6rem, 2.6vw, 2.15rem)/1.15 var(--font-title, Montserrat, sans-serif);
-  letter-spacing: -0.04em;
+  font: 750 clamp(1.35rem, 2vw, 1.75rem)/1.2 var(--font-title, Montserrat, sans-serif);
+  letter-spacing: -0.03em;
 }
 .lede {
   margin: 0;
@@ -74,9 +74,15 @@
 }
 
 .actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+.board[data-layout="membro"] {
+  max-width: 40rem;
+}
+.board[data-layout="membro"] .columns {
+  grid-template-columns: 1fr;
 }
 .actions a:hover, .refresh:hover, .panelHead a:hover, .inlineLink:hover {
   border-color: color-mix(in srgb, var(--color-dourado, #d4af37) 70%, var(--color-marrom, #4a2612));
@@ -242,7 +248,7 @@
 @media (max-width: 768px) {
   .intro, .columns { display: flex; flex-direction: column; }
   .introAside { justify-content: flex-start; }
-  .metrics { grid-template-columns: 1fr 1fr; }
+  .metrics, .actions { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 390px) {
   .metrics, .week { gap: 6px; }

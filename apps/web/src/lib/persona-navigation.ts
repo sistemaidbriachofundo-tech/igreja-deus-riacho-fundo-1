@@ -52,6 +52,13 @@ export type PersonaProbe = {
   marker: string;
 };
 
+/**
+ * Onde o item aparece.
+ * `retired` continua autorizado na rota direta, mas sai do menu.
+ * `member` fica só na visão do membro, nunca no menu administrativo.
+ */
+export type NavSurface = "admin" | "member" | "retired";
+
 export type PersonaArea = {
   key: Exclude<AppNavKey, "demo">;
   href: string;
@@ -63,6 +70,7 @@ export type PersonaArea = {
   /** Papéis para os quais a leitura principal não é um 403 previsível. */
   roles: readonly BuiltinRole[];
   probe: PersonaProbe | null;
+  surface: NavSurface;
   limitation?: string;
 };
 
@@ -82,10 +90,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Início",
     short: "Início",
     icon: "home",
-    hint: "O que este perfil acompanha, sem indicadores inventados",
-    ribbon: { code: "IGREJA DE DEUS / CHURCH OS", title: "O seu lugar na gestão.", detail: "Cada perfil vê o que o servidor autoriza." },
+    hint: "O que este perfil acompanha hoje",
+    ribbon: { code: "Início", title: "O seu lugar na gestão.", detail: "Cada perfil vê o que o servidor autoriza." },
     roles: BUILTIN_ROLES,
     probe: null,
+    surface: "admin",
   },
   {
     key: "membros",
@@ -93,10 +102,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Membros e famílias",
     short: "Pessoas",
     icon: "people",
-    hint: "Consulta de pessoas e famílias no escopo autorizado",
-    ribbon: { code: "01 / PESSOAS", title: "Pessoas da comunidade.", detail: "A lista só abre para quem a API deixa consultar." },
+    hint: "Pessoas e famílias",
+    ribbon: { code: "Pessoas", title: "Pessoas da comunidade.", detail: "A lista só abre para quem a API deixa consultar." },
     roles: STAFF_PEOPLE,
     probe: { method: "GET", path: "/persons/search", source: "apps/api/src/persons/persons.controller.ts", marker: '@Get("search")' },
+    surface: "admin",
   },
   {
     key: "secretaria",
@@ -104,10 +114,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Secretaria",
     short: "Secretaria",
     icon: "layers",
-    hint: "Admissão e etapas que a secretaria ou o pastor acompanham",
-    ribbon: { code: "02 / JORNADAS", title: "Etapas com cuidado.", detail: "Protocolos visíveis só para o papel que a API aceita." },
+    hint: "Admissões em andamento",
+    ribbon: { code: "Secretaria", title: "Etapas com cuidado.", detail: "Protocolos visíveis só para o papel que a API aceita." },
     roles: ADMISSIONS,
     probe: { method: "GET", path: "/admissions", source: "apps/api/src/admissions/admissions.controller.ts", marker: "return this.admissions.list" },
+    surface: "admin",
   },
   {
     key: "carteirinha",
@@ -115,10 +126,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Carteirinhas",
     short: "Carteira",
     icon: "badge",
-    hint: "A própria credencial, ou a emissão quando o papel é de secretaria",
-    ribbon: { code: "03 / IDENTIDADE", title: "Credencial da pessoa.", detail: "Membro consulta a própria. Emissão fica com a secretaria." },
+    hint: "Credenciais da congregação",
+    ribbon: { code: "Carteirinhas", title: "Credencial da pessoa.", detail: "Membro consulta a própria. Emissão fica com a secretaria." },
     roles: CREDENTIALS,
     probe: { method: "GET", path: "/credentials/me", source: "apps/api/src/credentials/credentials.controller.ts", marker: '@Get("me")' },
+    surface: "admin",
   },
   {
     key: "operacao",
@@ -126,49 +138,52 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Ministérios e operação",
     short: "Ministérios",
     icon: "activity",
-    hint: "Módulos do DAS que este papel pode consultar",
-    ribbon: { code: "06 / OPERAÇÃO", title: "Módulos do seu papel.", detail: "O painel esconde o módulo cuja API seria 403." },
+    hint: "Atalhos antigos de operação",
+    ribbon: { code: "Operação", title: "Operação.", detail: "Fora do menu administrativo." },
     roles: OPERATION,
     probe: null,
+    surface: "retired",
   },
   {
     key: "ministerios",
     href: "/app/ministerios/",
-    label: "Vínculo de ministério",
-    short: "Vínculo",
+    label: "Todos os ministérios",
+    short: "Ministérios",
     icon: "family",
-    hint: "Equipe e vínculo dos ministérios autorizados para este perfil",
-    ribbon: { code: "08 / MINISTÉRIOS", title: "Equipe do ministério.", detail: "A lista mostra só o que este perfil pode abrir." },
+    hint: "Equipes autorizadas para este perfil",
+    ribbon: { code: "Ministérios", title: "Equipe do ministério.", detail: "A lista mostra só o que este perfil pode abrir." },
     roles: MINISTRY_LEAD,
-    limitation: "O vínculo formal ainda não grava: a API responde 501.",
     probe: {
       method: "GET",
       path: "/ministry-scope/:id/formal-memberships",
       source: "apps/api/src/ministries/membership/ministry-scope.controller.ts",
       marker: 'formal-memberships',
     },
+    surface: "admin",
   },
   {
     key: "escalas",
     href: "/app/servir/louvor/",
-    label: "Escalas de Louvor",
+    label: "Louvor",
     short: "Louvor",
     icon: "calendar",
-    hint: "Lista de escalas no contrato de roster, para liderança e secretaria",
-    ribbon: { code: "09 / ESCALAS", title: "Louvor em escala.", detail: "A lista de roster não abre para o membro." },
+    hint: "Escala de louvor",
+    ribbon: { code: "Louvor", title: "Louvor em escala.", detail: "A lista abre para a liderança autorizada." },
     roles: MINISTRY_LEAD,
     probe: { method: "GET", path: "/rosters", source: "apps/api/src/ministries/ministries.controller.ts", marker: "return this.ministries.listRosters" },
+    surface: "admin",
   },
   {
     key: "atmosfera",
     href: "/app/servir/atmosfera/",
-    label: "Escalas de Atmosfera",
+    label: "Atmosfera",
     short: "Atmosfera",
     icon: "calendar",
-    hint: "Escala de Atmosfera no mesmo contrato de roster",
-    ribbon: { code: "09 / ESCALAS", title: "Atmosfera em escala.", detail: "Mesma autorização da lista de roster." },
+    hint: "Escala de atmosfera",
+    ribbon: { code: "Atmosfera", title: "Atmosfera em escala.", detail: "Mesma autorização da lista de escalas." },
     roles: MINISTRY_LEAD,
     probe: { method: "GET", path: "/rosters", source: "apps/api/src/ministries/ministries.controller.ts", marker: "return this.ministries.listRosters" },
+    surface: "admin",
   },
   {
     key: "meu-espaco",
@@ -176,16 +191,16 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Meu Espaço",
     short: "Eu",
     icon: "badge",
-    hint: "Confirma a própria atribuição pelo identificador. Não lista escalas de outras pessoas",
-    ribbon: { code: "10 / MEU ESPAÇO", title: "A sua escala.", detail: "Sem lista de outras pessoas." },
+    hint: "Sua escala",
+    ribbon: { code: "Minha escala", title: "A sua escala.", detail: "Sem lista de outras pessoas." },
     roles: OWN_ASSIGNMENT,
-    limitation: "Não há lista da agenda pessoal. A confirmação usa o identificador da própria atribuição.",
     probe: {
       method: "POST",
       path: "/rosters/:assignmentId/confirm",
       source: "apps/api/src/ministries/ministries.controller.ts",
       marker: '":assignmentId/confirm"',
     },
+    surface: "member",
   },
   {
     key: "tesouraria",
@@ -193,11 +208,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Tesouraria",
     short: "Caixa",
     icon: "shield",
-    hint: "Posição sintética do caixa. Sem banco, Pix ou saldo real",
-    ribbon: { code: "07 / TESOURARIA", title: "Caixa sintético.", detail: "Somente o papel Tesouraria. Sem banco ou Pix." },
+    hint: "Contas e lançamentos",
+    ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Somente o papel Tesouraria." },
     roles: ["TESOURARIA"],
-    limitation: "Banco, Pix e maquininha permanecem fora. Nenhum saldo real é exibido.",
     probe: { method: "GET", path: "/ledger/accounts", source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("accounts")' },
+    surface: "admin",
   },
   {
     key: "editorial",
@@ -205,10 +220,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Mídia e conteúdo",
     short: "Conteúdo",
     icon: "book",
-    hint: "Conteúdos editoriais que secretaria, pastor ou liderança podem consultar",
-    ribbon: { code: "04 / COMUNICAÇÃO", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." },
+    hint: "Conteúdos da igreja",
+    ribbon: { code: "Conteúdo", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." },
     roles: CMS_CONTENT,
     probe: { method: "GET", path: "/cms/contents", source: "apps/api/src/cms/cms.controller.ts", marker: "return this.cms.list" },
+    surface: "admin",
   },
   {
     key: "site",
@@ -216,10 +232,11 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Gestão do site",
     short: "Site",
     icon: "settings",
-    hint: "Rascunho e publicação do site para editor, publicador, secretaria ou pastor",
-    ribbon: { code: "05 / SITE", title: "O site da igreja.", detail: "A publicação continua decidida pela API." },
+    hint: "Páginas do site",
+    ribbon: { code: "Site", title: "O site da igreja.", detail: "A publicação continua decidida pela API." },
     roles: SITE_EDITORS,
     probe: { method: "GET", path: "/cms/site-layout", source: "apps/api/src/cms/site-layout.controller.ts", marker: "return this.site.editor" },
+    surface: "admin",
   },
 ];
 
@@ -248,7 +265,6 @@ const COMMUNICATION = ["PASTOR", "SECRETARIA", "PLATFORM_ADMIN"] as const satisf
 export const RAIL_LINKS: readonly RailLink[] = [
   { href: "/eventos/", label: "Agenda pública", icon: "calendar", roles: "any" },
   { href: "/", label: "Portal da igreja", icon: "home", roles: "any" },
-  { href: "/status/", label: "Evolução do sistema", icon: "activity", roles: ["PLATFORM_ADMIN"] },
   { href: "https://www.youtube.com/@IDBRiachoFundo1", label: "Canal da igreja", icon: "activity", external: true, roles: COMMUNICATION },
 ];
 
@@ -351,10 +367,40 @@ export function ministrySubmenu(
 
 export type AppDestination = "/app/" | "/app/operacao/" | "/app/site/" | "/app/servir/meu-espaco/";
 
+const ADMIN_SHELL_ROLES = [
+  "PLATFORM_ADMIN",
+  "SECRETARIA",
+  "PASTOR",
+  "TESOURARIA",
+  "LIDER_MINISTERIO",
+  "EDITOR_SITE",
+  "PUBLICADOR_SITE",
+] as const satisfies readonly BuiltinRole[];
+
+const MEMBER_SHELL_KEYS = ["visao", "carteirinha", "meu-espaco"] as const;
+
+/** Membro sem papel administrativo usa outra navegação. A rota de escala continua existindo. */
+export function isMemberOnly(roles: readonly string[]): boolean {
+  return roles.includes("MEMBRO") && !roles.some(role => (ADMIN_SHELL_ROLES as readonly string[]).includes(role));
+}
+
+/**
+ * Menu visível. Não inclui a operação genérica nem Meu Espaço na administração.
+ * A autorização da rota direta continua em `areaAllowed`.
+ */
+export function shellAreasForRoles(roles: readonly string[], preview = false): PersonaArea[] {
+  if (preview) return PERSONA_AREAS.filter(area => area.surface === "admin");
+  const allowed = areasForRoles(roles);
+  if (isMemberOnly(roles)) {
+    return allowed.filter(area => (MEMBER_SHELL_KEYS as readonly string[]).includes(area.key));
+  }
+  return allowed.filter(area => area.surface === "admin");
+}
+
 export function landingForRoles(roles: readonly string[]): AppDestination {
   const has = (role: string) => roles.includes(role);
   if (has("LIDER_MINISTERIO") && !has("SECRETARIA") && !has("PASTOR") && !has("TESOURARIA")) {
-    return "/app/operacao/";
+    return "/app/";
   }
   const broad = has("SECRETARIA") || has("PASTOR") || has("PLATFORM_ADMIN") || has("TESOURARIA") || has("LIDER_MINISTERIO");
   if ((has("EDITOR_SITE") || has("PUBLICADOR_SITE")) && !broad && !has("MEMBRO")) {
