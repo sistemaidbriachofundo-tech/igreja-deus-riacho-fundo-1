@@ -5,7 +5,7 @@ import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
 import { PersonPicker } from "./PersonPicker";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
-import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
+import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
@@ -171,6 +171,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState("");
+  const [familyFilter, setFamilyFilter] = useState("");
+  const [showAllFamilies, setShowAllFamilies] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [admissionPerson, setAdmissionPerson] = useState("");
@@ -223,7 +225,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     if (processes.status === "fulfilled") setAdmissions(processes.value.admissions);
     if (families.status === "fulfilled") setHouseholds(families.value.households);
     if (settled.some(item => item.status === "rejected")) {
-      setError("Parte da lista não carregou. Você continua conectado.");
+      setNotice("Algumas informações não carregaram. As listas disponíveis continuam acessíveis. Use Atualizar para tentar novamente.");
     }
   }, [view]);
 
@@ -262,9 +264,12 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const active = memberships.filter(membership => membership.status === "ACTIVE");
   const q = query.trim().toLocaleLowerCase("pt-BR");
   const filtered = memberships.filter(membership =>
+    (!familyFilter || membership.person.householdId === familyFilter) &&
     (!membershipStatus || membership.status === membershipStatus) &&
     [membership.person.displayName, membership.person.email ?? "", label(membership.status)].join(" ").toLocaleLowerCase("pt-BR").includes(q)
   );
+  const selectedFamily = households.find(household => household.id === familyFilter);
+  const visibleFamilies = showAllFamilies ? households : households.slice(0, 8);
   const filteredAdmissions = (showHistory ? admissions : pending).filter(admission => {
     const member = membershipByPerson.get(admission.personId);
     return [member?.person.displayName ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
@@ -284,6 +289,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     setToken(null);
     setUser(null);
     setMemberships([]);
+    setFamilyFilter("");
     setAdmissions([]);
     setHouseholds([]);
     setFichaId(null);
@@ -306,7 +312,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       setPassword("");
       setNotice("Acesso autorizado.");
     } catch (err) {
-      setError(displayError(err));
+      setError(loginFailureMessage(err));
       if (isInvalidSession(err)) {
         clearToken();
         setToken(null);
@@ -422,13 +428,14 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
         {!token || !user ? (
           checking ? <section className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></section> : <section className={s.loginPanel} aria-labelledby="login-hml">
-            <span className={s.kicker}>Ambiente de homologação</span>
+            <span className={s.kicker}>Acesso à gestão</span>
             <h1 id="login-hml">Entre no ID Riacho 1</h1>
-            <p>Use a conta autorizada deste ambiente. O site público continua separado.</p>
+            <p>Use seu e-mail e senha para acessar as informações da igreja.</p>
+            {error && <p role="alert" className={s.error}>{error}</p>}
             <form onSubmit={login} className={s.form}>
               <label>E-mail<input type="email" required autoComplete="username" value={loginEmail} onChange={event => setLoginEmail(event.target.value)} placeholder="nome@example.test" /></label>
               <label>Senha<input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-              <button type="submit" disabled={busy}>{busy ? "Entrando…" : "Entrar na homologação"}</button>
+              <button type="submit" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
             </form>
           </section>
         ) : (
@@ -479,20 +486,27 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
               <div className={s.grid}>
                 <section className={s.panel}>
                   <div className={s.panelHeading}>
-                    <div className={s.panelHeadingCopy}><h2>Diretório de membros</h2><span role="status">{filtered.length} {filtered.length === 1 ? "registro encontrado" : "registros encontrados"}</span></div>
-                    <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros" />
+                    <div className={s.panelHeadingCopy}><h2>Diretório de membros</h2><span role="status">{filtered.length} {filtered.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}{selectedFamily ? ` · ${selectedFamily.label}` : ""}</span></div>
+                    <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Filtrar pessoas nesta lista" aria-label="Filtrar pessoas nesta lista" />
                   </div>
                   {staff && (
-                    <div className={s.personLookup}>
-                      <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Localizar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} placeholder="Buscar em todos os cadastros" />
-                      <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
-                    </div>
+                    <details className={s.personLookup}>
+                      <summary>Não encontrou na lista? Buscar em todos os cadastros</summary>
+                      <div className={s.personLookupContent}>
+                        <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Procurar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} placeholder="Digite o nome da pessoa" />
+                        <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
+                      </div>
+                    </details>
                   )}
                   {secretary && <div className={s.viewFilter} role="group" aria-label="Situação dos membros">
                     {[["", "Todos"], ["ACTIVE", "Ativos"], ["INACTIVE", "Inativos"], ["PENDING_ADMISSION", "Em admissão"]].map(([status, title]) =>
                       <button key={status} type="button" aria-pressed={membershipStatus === status}
                         onClick={() => { setMembershipStatus(status); setListPage(0); }}>{title}</button>
                     )}
+                  </div>}
+                  {secretary && (familyFilter || query || membershipStatus) && <div className={s.activeFilters}>
+                    <span>{selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
+                    <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); updateQuery(""); }}>Limpar filtros</button>
                   </div>}
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : checking ? null : (
                     <div className={s.tableWrap}>
@@ -520,11 +534,18 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                   )}
                 </section>
                 <section className={s.panel}>
-                  <h2>Núcleos familiares</h2>
-                  {secretary ? <strong className={s.bigNumber}>{households.length}</strong> : null}
-                  <p>{secretary ? "Famílias vinculadas à congregação." : "A lista de famílias fica com a secretaria."}</p>
-                  <div className={s.slimList}>{households.slice(0, 8).map(household => <span key={household.id}>{household.label}</span>)}</div>
-                  {secretary && !checking && !error && households.length === 0 && <p className={s.empty}>Nenhuma família registrada.</p>}
+                  <div className={s.familyHeader}><h2>Famílias</h2><span>{secretary ? households.length : "—"}</span></div>
+                  <p>{secretary ? "Selecione uma família para consultar as pessoas vinculadas." : "A consulta de famílias fica com a secretaria."}</p>
+                  {secretary && households.length > 0 && <div className={s.familyList} role="group" aria-label="Filtrar pessoas por família">
+                    {visibleFamilies.map(household => {
+                      const memberCount = memberships.filter(row => row.person.householdId === household.id).length;
+                      return <button type="button" key={household.id} aria-pressed={familyFilter === household.id} onClick={() => { setFamilyFilter(prev => prev === household.id ? "" : household.id); setMembershipStatus(""); updateQuery(""); }}>
+                        <span>{household.label}</span><small>{memberCount} {memberCount === 1 ? "pessoa" : "pessoas"}</small>
+                      </button>;
+                    })}
+                  </div>}
+                  {secretary && households.length > 8 && <button type="button" className={s.showFamilies} aria-expanded={showAllFamilies} onClick={() => setShowAllFamilies(value => !value)}>{showAllFamilies ? "Mostrar menos" : `Ver todas as ${households.length} famílias`}</button>}
+                  {secretary && !checking && households.length === 0 && <p className={s.empty}>Nenhuma família registrada.</p>}
                 </section>
               </div>
             )}
