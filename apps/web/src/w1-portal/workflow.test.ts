@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applyAltSuggestion, gateRiachinhoPrompt } from "./riachinho-gate";
@@ -30,12 +30,13 @@ function journey(): Studio {
 describe("prévia W1 do portal", () => {
   it("mantém a navegação pública em quatro destinos, sem ministérios", () => {
     expect(publicNavListsMinistries()).toBe(false);
-    const page = readFileSync(join(__dirname, "../app/w1-estudio/page.tsx"), "utf8");
+    const publicStudio = join(__dirname, "../app/w1-estudio/page.tsx");
+    expect(existsSync(publicStudio)).toBe(false);
     const studio = studioFiles.map((file) => readFileSync(join(__dirname, file), "utf8")).join("\n");
-    expect(page + studio).not.toContain("AppShell");
-    expect(page + studio).not.toContain("LoginScreen");
-    expect(page + studio).not.toContain("HmlPhaseOne");
-    expect(page + studio).not.toContain("schema.prisma");
+    expect(studio).not.toContain("AppShell");
+    expect(studio).not.toContain("LoginScreen");
+    expect(studio).not.toContain("HmlPhaseOne");
+    expect(studio).not.toContain("schema.prisma");
     expect(DEPENDENCY_REPORT.filter((item) => item.state === "BLOCKED")).toHaveLength(2);
     expect(DEPENDENCY_REPORT.some((item) => item.state === "ISOLATED")).toBe(true);
   });
