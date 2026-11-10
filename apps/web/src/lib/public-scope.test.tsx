@@ -62,11 +62,11 @@ describe("separação entre site institucional e operação autenticada",()=>{
     expect(home).not.toContain("Riachinho");
     expect(source("components/ViviEditorialAssistant.tsx")).toContain("assistantScopeRefusal");
   });
-  it("direciona o líder de ministério à operação, sem conceder permissões financeiras",()=>{
+  it("leva o líder à mesa autorizada, sem voltar à rota de operação descontinuada",()=>{
     const person={userId:"user1",personId:"person1",email:"test@example.test"};
     const leader={...person,grants:[{roleCode:"LIDER_MINISTERIO",ministryId:"homens"}]};
     const treasurer={...person,grants:[{roleCode:"TESOURARIA"}]};
-    expect(authenticatedLanding(leader)).toBe("/app/operacao/");
+    expect(authenticatedLanding(leader)).toBe("/app/");
     expect(authenticatedLanding(treasurer)).toBe("/app/");
     expect(authenticatedLanding({...person,grants:[{roleCode:"LIDER_MINISTERIO"},{roleCode:"SECRETARIA"}]})).toBe("/app/");
   });
