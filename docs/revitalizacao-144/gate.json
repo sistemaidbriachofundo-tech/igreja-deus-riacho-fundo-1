@@ -1,0 +1,156 @@
+{
+  "observedAt": "2026-11-10T01:53:17.600Z",
+  "phase": "EM_EXECUCAO",
+  "releaseComplete": false,
+  "offline": false,
+  "expectedSourceSha": "3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3",
+  "pagesSourceSha": "3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3",
+  "apiSourceSha": "3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3",
+  "checks": [
+    {
+      "id": "same-sha",
+      "front": "J",
+      "status": "PASS",
+      "evidence": "Pages e API HML estão no SHA 3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3."
+    },
+    {
+      "id": "api-contract",
+      "front": "J",
+      "status": "PASS",
+      "evidence": "A API HML anuncia o contrato 0.7.4-rf025."
+    },
+    {
+      "id": "ministry-table",
+      "front": "J",
+      "status": "BLOCKED",
+      "evidence": "A tabela ministry_memberships não foi consultada no Neon idriacho1_hml. O 501 de vínculo formal continua possível até essa prova."
+    },
+    {
+      "id": "user-501",
+      "front": "J",
+      "status": "FAIL",
+      "evidence": "2 ocorrência(s) de 501 em tela usual. A frente dona do arquivo precisa ocultar ou substituir a ação."
+    },
+    {
+      "id": "local-fallback",
+      "front": "J",
+      "status": "FAIL",
+      "evidence": "1 fallback(s) de localStorage ainda alimentam tela. Não apagar enquanto a frente dona importar."
+    },
+    {
+      "id": "seed-preserve",
+      "front": "E",
+      "status": "BLOCKED",
+      "evidence": "A massa sintética da frente E ainda não foi aplicada. O integrador não grava no Neon sem o script revisado, dry-run e backup."
+    },
+    {
+      "id": "front-A",
+      "front": "A",
+      "status": "BLOCKED",
+      "evidence": "A frente A (#145) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-B",
+      "front": "B",
+      "status": "BLOCKED",
+      "evidence": "A frente B (#146) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-C",
+      "front": "C",
+      "status": "BLOCKED",
+      "evidence": "A frente C (#147) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-D",
+      "front": "D",
+      "status": "BLOCKED",
+      "evidence": "A frente D (#148) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-E",
+      "front": "E",
+      "status": "BLOCKED",
+      "evidence": "A frente E (#149) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-F",
+      "front": "F",
+      "status": "BLOCKED",
+      "evidence": "A frente F (#150) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-G",
+      "front": "G",
+      "status": "BLOCKED",
+      "evidence": "A frente G (#151) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-H",
+      "front": "H",
+      "status": "BLOCKED",
+      "evidence": "A frente H (#152) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "front-I",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I (#153) ainda não tem PR desta rodada disponível para o integrador."
+    },
+    {
+      "id": "persona-admin",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-pastor",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-secretaria",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-tesouraria",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-lider",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-membro",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-editor",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "persona-publicador",
+      "front": "I",
+      "status": "BLOCKED",
+      "evidence": "A frente I ainda não entregou a matriz autenticada das oito personas."
+    },
+    {
+      "id": "deploy",
+      "front": "J",
+      "status": "BLOCKED",
+      "evidence": "Merge em main e deploy de Pages/API HML seguem fechados. O gate não publica sozinho."
+    }
+  ],
+  "note": "EM_EXECUCAO não é homologação. Merge e deploy permanecem fechados."
+}
