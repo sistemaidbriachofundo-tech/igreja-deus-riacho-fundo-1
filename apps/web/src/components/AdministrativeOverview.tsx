@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AppNavLink, UIIcon } from "./AppShell";
 import { ministryContextHref } from "../lib/persona-navigation";
 import type { IndicatorCounts, NamedRow, StatusBar } from "./PersonaHome";
@@ -73,6 +73,7 @@ function Congregation({
   rows: StatusBar[] | null;
   loading: boolean;
 }) {
+  const [highlight, setHighlight] = useState<string | null>(null);
   if (!rows)
     return (
       <p className={s.empty}>
@@ -84,21 +85,49 @@ function Congregation({
     value: rows.find((row) => row.status === item.status)?.count ?? 0,
   }));
   const total = parts.reduce((sum, item) => sum + item.value, 0);
-  let end = 0;
-  const stops = parts.map((item) => {
-    const start = end;
-    end += total > 0 ? (item.value / total) * 100 : 0;
-    return `${item.color} ${start}% ${end}%`;
+  let offset = 0;
+  const arcs = parts.map((item) => {
+    const fraction = total > 0 ? (item.value / total) * 100 : 0;
+    const arc = { ...item, fraction, offset };
+    offset += fraction;
+    return arc;
   });
-  const ringStyle = {
-    background: total > 0 ? `conic-gradient(${stops.join(",")})` : "#e8eeeb",
-  } as CSSProperties;
+  const selected = parts.find((item) => item.status === highlight);
   return (
     <div className={s.congregation}>
-      <div className={s.ring} style={ringStyle} aria-hidden="true">
+      <div className={s.ring} aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <circle
+            cx="100"
+            cy="100"
+            r="84"
+            fill="none"
+            stroke="#edf2ef"
+            strokeWidth="14"
+          />
+          {arcs
+            .filter((item) => item.value > 0)
+            .map((item) => (
+              <circle
+                key={item.status}
+                cx="100"
+                cy="100"
+                r="84"
+                fill="none"
+                stroke={item.color}
+                strokeWidth={highlight === item.status ? "18" : "14"}
+                pathLength="100"
+                strokeDasharray={`${Math.max(0, item.fraction - (arcs.filter((arc) => arc.value > 0).length > 1 ? 1.2 : 0))} 100`}
+                strokeDashoffset={-item.offset}
+                transform="rotate(-90 100 100)"
+                opacity={highlight && highlight !== item.status ? 0.3 : 1}
+              />
+            ))}
+        </svg>
         <div>
-          <strong>{countLabel(total)}</strong>
-          <span>pessoas</span>
+          <small>{selected ? selected.label : "TOTAL DE PESSOAS"}</small>
+          <strong>{countLabel(selected?.value ?? total)}</strong>
+          <span>{selected ? "na congregação" : "em nossa comunidade"}</span>
         </div>
       </div>
       <ul className={s.memberLegend} aria-label="Distribuição dos vínculos">
@@ -106,7 +135,13 @@ function Congregation({
           .filter((item) => item.status !== "TRANSFERRED" || item.value > 0)
           .map((item) => (
             <li key={item.status}>
-              <AppNavLink href={`/app/membros/?situacao=${item.status}`}>
+              <AppNavLink
+                href={`/app/membros/?situacao=${item.status}`}
+                onMouseEnter={() => setHighlight(item.status)}
+                onMouseLeave={() => setHighlight(null)}
+                onFocus={() => setHighlight(item.status)}
+                onBlur={() => setHighlight(null)}
+              >
                 <i style={{ background: item.color }} aria-hidden="true" />
                 <span>{item.label}</span>
                 <strong>{countLabel(item.value)}</strong>
@@ -123,7 +158,8 @@ function Congregation({
           ))}
       </ul>
       <p className={s.totalNote}>
-        Todos os vínculos da congregação <strong>{countLabel(total)}</strong>
+        Pessoas e histórias que fazem parte da igreja.{" "}
+        <UIIcon name="people" size={16} />
       </p>
     </div>
   );
@@ -364,10 +400,10 @@ export function AdministrativeOverview({
     >
       <header className={s.heading}>
         <div>
-          <p className={s.eyebrow}>IGREJA DE DEUS · RIACHO FUNDO I</p>
+          <p className={s.eyebrow}>VISÃO GERAL · RIACHO FUNDO I</p>
           <h1>Painel administrativo</h1>
           <p className={s.lede}>
-            Pessoas, equipes e a vida da igreja. Tudo começa por aqui.
+            Pessoas, equipes e os próximos passos da igreja.
           </p>
         </div>
         <div className={s.headingActions}>
@@ -382,8 +418,15 @@ export function AdministrativeOverview({
               }).format(new Date())}
             </time>
           </span>
+          <AppNavLink className={s.primaryAction} href="/app/secretaria/">
+            <UIIcon name="layers" size={17} />
+            <span>Abrir secretaria</span>
+            <UIIcon name="arrow" size={16} />
+          </AppNavLink>
           <button
             type="button"
+            aria-label="Atualizar painel"
+            title="Atualizar painel"
             className={s.refresh}
             disabled={loading}
             onClick={onRefresh}
@@ -419,15 +462,61 @@ export function AdministrativeOverview({
               <UIIcon name="chevron" size={15} />
             </span>
             <strong className={s.metricValue}>{countLabel(card.value)}</strong>
-            <span className={s.metricHint}>{card.hint}</span>
+            <span className={s.metricBottom}>
+              <span className={s.metricHint}>{card.hint}</span>
+              <UIIcon name="arrow" size={15} />
+            </span>
+          </AppNavLink>
+        ))}
+      </section>
+      <section
+        className={s.priorities}
+        id="avisos"
+        aria-label="Prioridades de trabalho"
+      >
+        {[
+          {
+            title: "Admissões em aberto",
+            hint: "Conferir protocolos",
+            value: counts?.admissionsOpen,
+            href: "/app/secretaria/",
+            icon: "layers" as const,
+          },
+          {
+            title: "Convites de escala",
+            hint: "Aguardando confirmação",
+            value: counts?.rosterAssignmentsPending,
+            href: "/app/ministerios/",
+            icon: "clock" as const,
+          },
+          {
+            title: "Escalas em preparação",
+            hint: "Revisar e publicar",
+            value: counts?.rostersDraft,
+            href: "/app/ministerios/",
+            icon: "calendar" as const,
+          },
+        ].map((item) => (
+          <AppNavLink key={item.title} href={item.href}>
+            <span className={s.priorityIcon}>
+              <UIIcon name={item.icon} size={19} />
+            </span>
+            <span className={s.priorityText}>
+              <strong>{item.title}</strong>
+              <small>{item.hint}</small>
+            </span>
+            <strong className={s.priorityValue}>
+              {countLabel(item.value)}
+            </strong>
+            <UIIcon name="chevron" size={16} />
           </AppNavLink>
         ))}
       </section>
       <div className={s.layout}>
         <div className={s.main}>
           <Section
-            title="Pessoas da nossa igreja"
-            eyebrow="VISÃO DA CONGREGAÇÃO"
+            title="Nossa comunidade"
+            eyebrow="CADA PESSOA IMPORTA"
             action={
               <AppNavLink className={s.textLink} href="/app/membros/">
                 Ver cadastros <UIIcon name="arrow" size={15} />
@@ -437,76 +526,72 @@ export function AdministrativeOverview({
             <Congregation rows={distribution} loading={loading} />
           </Section>
           <Section
-            id="avisos"
-            title="O que precisa de atenção"
-            eyebrow="ROTINAS DA IGREJA"
-            action={<span className={s.openBadge}>Em acompanhamento</span>}
+            title="Caminho da admissão"
+            eyebrow="ACOLHER E ACOMPANHAR"
+            action={
+              <AppNavLink className={s.textLink} href="/app/secretaria/">
+                Abrir secretaria <UIIcon name="arrow" size={15} />
+              </AppNavLink>
+            }
           >
-            <div className={s.attentionList}>
-              <AppNavLink href="/app/secretaria/">
-                <span className={s.attentionIcon}>
-                  <UIIcon name="layers" size={20} />
-                </span>
-                <span>
-                  <strong>Protocolos de admissão</strong>
-                  <small>Pessoas aguardando as próximas etapas</small>
-                </span>
-                <strong className={s.attentionCount}>
-                  {countLabel(counts?.admissionsOpen)}
-                </strong>
-                <UIIcon name="chevron" size={16} />
-              </AppNavLink>
-              <AppNavLink href="/app/ministerios/">
-                <span className={s.attentionIcon}>
-                  <UIIcon name="clock" size={20} />
-                </span>
-                <span>
-                  <strong>Convites de escala</strong>
-                  <small>Aguardando confirmação dos voluntários</small>
-                </span>
-                <strong className={s.attentionCount}>
-                  {countLabel(counts?.rosterAssignmentsPending)}
-                </strong>
-                <UIIcon name="chevron" size={16} />
-              </AppNavLink>
-              <AppNavLink href="/app/ministerios/">
-                <span className={s.attentionIcon}>
-                  <UIIcon name="calendar" size={20} />
-                </span>
-                <span>
-                  <strong>Escalas em preparação</strong>
-                  <small>Rascunhos para revisar e publicar</small>
-                </span>
-                <strong className={s.attentionCount}>
-                  {countLabel(counts?.rostersDraft)}
-                </strong>
-                <UIIcon name="chevron" size={16} />
-              </AppNavLink>
-            </div>
-            {admissions !== null && pendingAdmissions.length > 0 && (
-              <div className={s.admissionFlow} aria-label="Etapas de admissão">
-                {stages.map((stage) => (
-                  <span key={stage}>
-                    {stage}
-                    <strong>
-                      {
-                        pendingAdmissions.filter((row) => row.detail === stage)
-                          .length
-                      }
-                    </strong>
+            {admissions === null ? (
+              <p className={s.empty}>
+                {loading
+                  ? "Carregando os protocolos…"
+                  : "Etapas indisponíveis."}
+              </p>
+            ) : pendingAdmissions.length === 0 ? (
+              <p className={s.empty}>Nenhum protocolo em andamento.</p>
+            ) : (
+              <>
+                <p className={s.flowSummary}>
+                  <strong>{countLabel(pendingAdmissions.length)}</strong>
+                  <span>
+                    protocolos em andamento
+                    <br />
+                    <small>Distribuição por etapa</small>
                   </span>
-                ))}
-              </div>
+                </p>
+                <div
+                  className={s.admissionFlow}
+                  aria-label="Etapas de admissão"
+                >
+                  {stages.map((stage, index) => {
+                    const count = pendingAdmissions.filter(
+                      (row) => row.detail === stage,
+                    ).length;
+                    return (
+                      <div className={s.stage} key={stage}>
+                        <span className={s.stageLabel}>
+                          <i aria-hidden="true">
+                            {String(index + 1).padStart(2, "0")}
+                          </i>
+                          {stage}
+                          <strong>{countLabel(count)}</strong>
+                        </span>
+                        <span className={s.stageTrack}>
+                          <span
+                            style={{
+                              width: `${(count / pendingAdmissions.length) * 100}%`,
+                            }}
+                          />
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </Section>
         </div>
-        <aside className={s.side} aria-label="Agenda e ministérios">
+        <aside className={s.side} aria-label="Agenda da igreja">
           <Calendar events={events} loading={loading} />
         </aside>
       </div>
       <Section
         className={s.ministriesSection}
-        title="Ministérios"
+        title="A vida acontece em equipe"
+        eyebrow="MINISTÉRIOS DA IGREJA"
         action={
           <AppNavLink className={s.textLink} href="/app/ministerios/">
             Ver todos <UIIcon name="arrow" size={15} />
@@ -519,14 +604,23 @@ export function AdministrativeOverview({
           </p>
         ) : (
           <ul className={s.ministryList}>
-            {ministries.slice(0, 6).map((row) => (
+            {ministries.slice(0, 6).map((row, index) => (
               <li key={row.id}>
-                <AppNavLink href={ministryContextHref({ id: row.id })}>
-                  <span className={s.ministryIcon}>
-                    <UIIcon name="family" size={17} />
+                <AppNavLink
+                  href={ministryContextHref({ id: row.id })}
+                  data-tone={index % 4}
+                >
+                  <span className={s.ministryIcon} aria-hidden="true">
+                    {row.title
+                      .replace(/^Ministério de /i, "")
+                      .slice(0, 2)
+                      .toLocaleUpperCase("pt-BR")}
                   </span>
-                  <strong>{row.title}</strong>
-                  <UIIcon name="chevron" size={15} />
+                  <span className={s.ministryText}>
+                    <strong>{row.title}</strong>
+                    <small>Equipe, escalas e caixa</small>
+                  </span>
+                  <UIIcon name="arrow" size={17} />
                 </AppNavLink>
               </li>
             ))}
