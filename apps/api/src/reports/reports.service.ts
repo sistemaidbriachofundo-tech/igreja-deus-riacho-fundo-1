@@ -21,20 +21,23 @@ import {
   renderCountsPdf,
   renderParticipationPdf,
 } from "./report-files";
+import { attributeMinistryCost } from "./ministry-cost";
 import {
   assertMembershipAccess,
   assertMinisterialAccess,
+  assertMinistryCostAccess,
   assertParticipationAccess,
   eventVisibleToScope,
+  ministryCostScope,
   ministryScopeIds,
 } from "./report-scope";
 
-const FORMAL_MEMBERSHIP_BLOCKED = {
-  blocked: true as const,
-  code: "MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED",
+const FORMAL_MEMBERSHIP_COUNTED = {
+  blocked: false as const,
+  code: "MINISTRY_MEMBERSHIP_COUNTED",
   members: null,
   message:
-    "O vínculo formal de integrante não tem tabela. Interesses de voluntariado não são integrantes e nenhum total foi inventado.",
+    "Contagem de vínculos formais em aberto. Nomes não saem neste relatório. Menores entram apenas como quantidade omitida. Interesse de voluntariado não é integrante.",
 };
 
 export interface ReportQuery {
@@ -134,12 +137,21 @@ export class ReportsService {
     };
   }
 
-  async membership(actor: AuthUser) {
+  async membership(actor: AuthUser, query: { from?: string; to?: string } = {}) {
     const pilot = await this.pilot.getPilotChurch();
     assertMembershipAccess(actor, pilot);
+    const period = this.normalizePeriod(query);
+    const joinedAt =
+      period.from || period.to
+        ? {
+            ...(period.from ? { gte: period.from } : {}),
+            ...(period.to ? { lte: period.to } : {}),
+          }
+        : undefined;
     const where = {
       organizationId: pilot.organizationId,
       churchId: pilot.churchId,
+      ...(joinedAt ? { joinedAt } : {}),
     };
     const [grouped, adults, minorsOmitted, adultVisitorsActive] =
       await Promise.all([
@@ -185,7 +197,11 @@ export class ReportsService {
       adultVisitorsActive,
       personsListed: false as const,
       countsMatch: totalMemberships === adultMemberships + minorsOmitted,
-      note: "Contagens de church_memberships. Nomes, e-mails e registros de menores não saem neste relatório.",
+      filters: {
+        from: period.from?.toISOString() ?? null,
+        to: period.to?.toISOString() ?? null,
+      },
+      note: "Contagens de church_memberships no período informado. Nomes, e-mails e registros de menores não saem neste relatório.",
     };
     await this.audit(actor, pilot, "report.membership.read", {
       byStatus,
@@ -199,8 +215,9 @@ export class ReportsService {
   async membershipFile(
     actor: AuthUser,
     format: "csv" | "pdf",
+    query: { from?: string; to?: string } = {},
   ): Promise<ReportFile> {
-    const report = await this.membership(actor);
+    const report = await this.membership(actor, query);
     const lines = [
       ...Object.entries(report.byStatus).map(([status, value]) => ({
         label: `membresia_${status}`,
@@ -216,6 +233,8 @@ export class ReportsService {
         value: String(report.adultVisitorsActive),
       },
       { label: "contagens_conferem", value: report.countsMatch ? "sim" : "nao" },
+      { label: "periodo_de", value: report.filters.from ?? "" },
+      { label: "periodo_ate", value: report.filters.to ?? "" },
     ];
     return this.finishCountFile(
       actor,
@@ -229,16 +248,21 @@ export class ReportsService {
     );
   }
 
-  async ministries(actor: AuthUser, ministryId?: string) {
+  async ministries(
+    actor: AuthUser,
+    ministryId?: string,
+    query: { from?: string; to?: string } = {},
+  ) {
     const pilot = await this.pilot.getPilotChurch();
     assertMinisterialAccess(actor, pilot);
     const requested = ministryId?.trim() || undefined;
+    const period = this.normalizePeriod(query);
     const scope = ministryScopeIds(actor, pilot);
     if (requested && scope && !scope.includes(requested)) {
       throw new ForbiddenException("Sem permissão neste ministério");
     }
     if (scope && scope.length === 0) {
-      return this.finishMinistries(actor, pilot, [], [], [], null);
+      return this.finishMinistries(actor, pilot, [], [], [], null, [], [], period);
     }
 
     const idFilter = requested ? requested : scope ? { in: scope } : undefined;
@@ -252,40 +276,70 @@ export class ReportsService {
       orderBy: { name: "asc" },
     });
     const ids = ministries.map((row) => row.id);
+    const startsAt =
+      period.from || period.to
+        ? {
+            ...(period.from ? { gte: period.from } : {}),
+            ...(period.to ? { lte: period.to } : {}),
+          }
+        : undefined;
     const eventWhere = {
       organizationId: pilot.organizationId,
       churchId: pilot.churchId,
       ministryId: { in: ids.length > 0 ? ids : ["__none__"] },
+      ...(startsAt ? { startsAt } : {}),
     };
-    const [events, interests, unassignedEvents] = await Promise.all([
-      ids.length === 0
-        ? Promise.resolve([])
-        : this.prisma.portalEvent.groupBy({
-            by: ["ministryId", "status"],
-            where: eventWhere,
-            _count: { _all: true },
-          }),
-      ids.length === 0
-        ? Promise.resolve([])
-        : this.prisma.volunteerInterest.groupBy({
-            by: ["ministryId", "status"],
-            where: {
-              organizationId: pilot.organizationId,
-              churchId: pilot.churchId,
-              ministryId: { in: ids },
-            },
-            _count: { _all: true },
-          }),
-      scope === null
-        ? this.prisma.portalEvent.count({
-            where: {
-              organizationId: pilot.organizationId,
-              churchId: pilot.churchId,
-              ministryId: null,
-            },
-          })
-        : Promise.resolve(null),
-    ]);
+    const openMembership = {
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      ministryId: { in: ids },
+      endedAt: null,
+    };
+    const [events, interests, unassignedEvents, formalAdults, formalMinors] =
+      await Promise.all([
+        ids.length === 0
+          ? Promise.resolve([])
+          : this.prisma.portalEvent.groupBy({
+              by: ["ministryId", "status"],
+              where: eventWhere,
+              _count: { _all: true },
+            }),
+        ids.length === 0
+          ? Promise.resolve([])
+          : this.prisma.volunteerInterest.groupBy({
+              by: ["ministryId", "status"],
+              where: {
+                organizationId: pilot.organizationId,
+                churchId: pilot.churchId,
+                ministryId: { in: ids },
+              },
+              _count: { _all: true },
+            }),
+        scope === null
+          ? this.prisma.portalEvent.count({
+              where: {
+                organizationId: pilot.organizationId,
+                churchId: pilot.churchId,
+                ministryId: null,
+                ...(startsAt ? { startsAt } : {}),
+              },
+            })
+          : Promise.resolve(null),
+        ids.length === 0
+          ? Promise.resolve([])
+          : this.prisma.ministryMembership.groupBy({
+              by: ["ministryId", "status"],
+              where: { ...openMembership, person: { isMinor: false } },
+              _count: { _all: true },
+            }),
+        ids.length === 0
+          ? Promise.resolve([])
+          : this.prisma.ministryMembership.groupBy({
+              by: ["ministryId"],
+              where: { ...openMembership, person: { isMinor: true } },
+              _count: { _all: true },
+            }),
+      ]);
 
     return this.finishMinistries(
       actor,
@@ -294,6 +348,9 @@ export class ReportsService {
       events,
       interests,
       unassignedEvents,
+      formalAdults,
+      formalMinors,
+      period,
     );
   }
 
@@ -301,8 +358,9 @@ export class ReportsService {
     actor: AuthUser,
     ministryId: string | undefined,
     format: "csv" | "pdf",
+    query: { from?: string; to?: string } = {},
   ): Promise<ReportFile> {
-    const report = await this.ministries(actor, ministryId);
+    const report = await this.ministries(actor, ministryId, query);
     const lines = report.ministries.flatMap((row) => [
       {
         label: `${row.slug}_publicacao`,
@@ -316,7 +374,14 @@ export class ReportsService {
         label: `${row.slug}_interesses_${status}`,
         value: String(value),
       })),
-      { label: `${row.slug}_integrantes_formais`, value: "BLOCKED" },
+      ...Object.entries(row.formalMembers.adultsByStatus).map(([status, value]) => ({
+        label: `${row.slug}_adultos_${status}`,
+        value: String(value),
+      })),
+      {
+        label: `${row.slug}_menores_omitidos`,
+        value: String(row.formalMembers.minorsOmitted),
+      },
     ]);
     if (report.unassignedEvents !== null) {
       lines.push({
@@ -324,10 +389,14 @@ export class ReportsService {
         value: String(report.unassignedEvents),
       });
     }
-    lines.push({
-      label: "vinculo_formal",
-      value: report.formalMembership.code,
-    });
+    lines.push(
+      { label: "periodo_de", value: report.filters.from ?? "" },
+      { label: "periodo_ate", value: report.filters.to ?? "" },
+      {
+        label: "vinculo_formal",
+        value: report.formalMembership.code,
+      },
+    );
     return this.finishCountFile(
       actor,
       "report.ministries",
@@ -338,6 +407,193 @@ export class ReportsService {
       "ministerios",
       { formalMembership: report.formalMembership.code },
     );
+  }
+
+  async ministryCost(
+    actor: AuthUser,
+    query: { ministryId?: string; from?: string; to?: string } = {},
+  ) {
+    const pilot = await this.pilot.getPilotChurch();
+    assertMinistryCostAccess(actor, pilot);
+    const period = this.normalizePeriod(query);
+    const requested = query.ministryId?.trim() || undefined;
+    const scope = ministryCostScope(actor, pilot);
+    if (requested && scope && !scope.includes(requested)) {
+      throw new ForbiddenException("Sem permissão neste ministério");
+    }
+    const filters = {
+      ministryId: requested ?? null,
+      from: period.from?.toISOString() ?? null,
+      to: period.to?.toISOString() ?? null,
+    };
+    if (scope && scope.length === 0) {
+      const empty = {
+        stub: false as const,
+        source: "ledger_entries" as const,
+        attribution: "cost_center.code = ministry.slug" as const,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        generatedAt: new Date().toISOString(),
+        scope: "ministry" as const,
+        filters,
+        rows: [],
+        series: [],
+        seriesMatch: true,
+        note: "Nenhum ministryId autorizado. Nenhum custo foi calculado.",
+      };
+      await this.audit(actor, pilot, "report.ministry_cost.read", {
+        scope: empty.scope,
+        rows: 0,
+      });
+      return empty;
+    }
+
+    const idFilter = requested ? requested : scope ? { in: scope } : undefined;
+    const entryDate =
+      period.from || period.to
+        ? {
+            ...(period.from ? { gte: period.from } : {}),
+            ...(period.to ? { lte: period.to } : {}),
+          }
+        : undefined;
+    const [ministries, costCenters, entries] = await Promise.all([
+      this.prisma.ministry.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          ...(idFilter !== undefined ? { id: idFilter } : {}),
+        },
+        select: { id: true, name: true, slug: true },
+        orderBy: { name: "asc" },
+      }),
+      this.prisma.costCenter.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          active: true,
+        },
+        select: { id: true, code: true },
+      }),
+      this.prisma.ledgerEntry.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          status: "APPROVED",
+          ...(entryDate ? { entryDate } : {}),
+        },
+        select: {
+          status: true,
+          costCenterId: true,
+          entryDate: true,
+          lines: {
+            select: {
+              side: true,
+              amountCents: true,
+              account: { select: { type: true, code: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    let attributed;
+    try {
+      attributed = attributeMinistryCost({
+        ministries,
+        costCenters,
+        entries: entries.map((entry) => ({
+          status: entry.status,
+          costCenterId: entry.costCenterId,
+          entryDate: entry.entryDate,
+          lines: entry.lines.map((line) => ({
+            side: line.side === "CREDIT" ? "CREDIT" as const : "DEBIT" as const,
+            amountCents: line.amountCents,
+            accountType: line.account.type,
+            accountCode: line.account.code,
+          })),
+        })),
+        from: period.from,
+        to: period.to,
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error && error.message === "MINISTRY_COST_LINE_INVALID"
+          ? "Lançamento de despesa inconsistente. O custo não foi calculado."
+          : "Não foi possível calcular o custo ministerial.",
+      );
+    }
+
+    const report = {
+      stub: false as const,
+      source: "ledger_entries" as const,
+      attribution: "cost_center.code = ministry.slug" as const,
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      generatedAt: new Date().toISOString(),
+      scope: scope === null ? ("church" as const) : ("ministry" as const),
+      filters,
+      rows: attributed.rows,
+      series: attributed.series,
+      seriesMatch: attributed.seriesMatch,
+      note: "Custo só aparece quando o código do centro de custo é o identificador do ministério. Sem vínculo o valor fica ausente, não zero.",
+    };
+    await this.audit(actor, pilot, "report.ministry_cost.read", {
+      scope: report.scope,
+      filters,
+      seriesMatch: report.seriesMatch,
+      rows: report.rows.map((row) => ({
+        ministryId: row.ministryId,
+        attributed: row.attributed,
+        expenseCents: row.expenseCents,
+      })),
+    });
+    return report;
+  }
+
+  async ministryCostFile(
+    actor: AuthUser,
+    query: { ministryId?: string; from?: string; to?: string },
+    format: "csv" | "pdf",
+  ): Promise<ReportFile> {
+    const report = await this.ministryCost(actor, query);
+    const lines = report.rows.flatMap((row) => [
+      { label: `${row.slug}_vinculado`, value: row.attributed ? "sim" : "nao" },
+      {
+        label: `${row.slug}_despesa_centavos`,
+        value: row.expenseCents === null ? "sem_consulta" : String(row.expenseCents),
+      },
+      {
+        label: `${row.slug}_lancamentos_aprovados`,
+        value: row.approvedEntries === null ? "sem_consulta" : String(row.approvedEntries),
+      },
+    ]);
+    lines.push(
+      { label: "periodo_de", value: report.filters.from ?? "" },
+      { label: "periodo_ate", value: report.filters.to ?? "" },
+      { label: "serie_confere", value: report.seriesMatch ? "sim" : "nao" },
+    );
+    return this.finishCountFile(
+      actor,
+      "report.ministry_cost",
+      format,
+      "Custo por ministério",
+      report.note,
+      lines,
+      "custo-ministerial",
+      { seriesMatch: report.seriesMatch, rows: report.rows.length },
+    );
+  }
+
+  private normalizePeriod(query: { from?: string; to?: string }): {
+    from?: Date;
+    to?: Date;
+  } {
+    const from = query.from?.trim() ? parseDate(query.from, "from") : undefined;
+    const to = query.to?.trim() ? parseDate(query.to, "to") : undefined;
+    if (from && to && from.getTime() > to.getTime()) {
+      throw new BadRequestException("from não pode ser posterior a to");
+    }
+    return { from, to };
   }
 
   private normalizeQuery(query: ReportQuery): {
@@ -357,12 +613,8 @@ export class ReportsService {
       }
       status = statusText as RegistrationStatus;
     }
-    const from = query.from?.trim() ? parseDate(query.from, "from") : undefined;
-    const to = query.to?.trim() ? parseDate(query.to, "to") : undefined;
-    if (from && to && from.getTime() > to.getTime()) {
-      throw new BadRequestException("from não pode ser posterior a to");
-    }
-    return { eventId, status, ministryId, from, to };
+    const period = this.normalizePeriod(query);
+    return { eventId, status, ministryId, from: period.from, to: period.to };
   }
 
   private async assertEventScope(
@@ -469,15 +721,28 @@ export class ReportsService {
       _count: { _all: number };
     }>,
     unassignedEvents: number | null,
+    formalAdults: Array<{
+      ministryId: string;
+      status: string;
+      _count: { _all: number };
+    }>,
+    formalMinors: Array<{ ministryId: string; _count: { _all: number } }>,
+    period: { from?: Date; to?: Date },
   ) {
+    const eventTotalsByStatus = groupedCount(events);
     const report = {
       stub: false as const,
       source: "ministries" as const,
       organizationId: pilot.organizationId,
       churchId: pilot.churchId,
       generatedAt: new Date().toISOString(),
-      formalMembership: FORMAL_MEMBERSHIP_BLOCKED,
+      formalMembership: FORMAL_MEMBERSHIP_COUNTED,
       unassignedEvents,
+      eventTotalsByStatus,
+      filters: {
+        from: period.from?.toISOString() ?? null,
+        to: period.to?.toISOString() ?? null,
+      },
       ministries: ministries.map((ministry) => ({
         id: ministry.id,
         name: ministry.name,
@@ -489,7 +754,14 @@ export class ReportsService {
         volunteerInterestsByStatus: groupedCount(
           interests.filter((row) => row.ministryId === ministry.id),
         ),
-        formalMembers: null,
+        formalMembers: {
+          adultsByStatus: groupedCount(
+            formalAdults.filter((row) => row.ministryId === ministry.id),
+          ),
+          minorsOmitted:
+            formalMinors.find((row) => row.ministryId === ministry.id)?._count
+              ._all ?? 0,
+        },
       })),
     };
     await this.audit(actor, pilot, "report.ministries.read", {

@@ -940,8 +940,14 @@ describe("controller wiring (delegates to services)", () => {
       from: "2026-11-01",
       to: "2026-11-30",
     });
-    expect(reports.membership).toHaveBeenCalledWith(user);
-    expect(reports.ministries).toHaveBeenCalledWith(user, "m1");
+    expect(reports.membership).toHaveBeenCalledWith(user, {
+      from: undefined,
+      to: undefined,
+    });
+    expect(reports.ministries).toHaveBeenCalledWith(user, "m1", {
+      from: undefined,
+      to: undefined,
+    });
   });
 
   it("ViviController", async () => {
