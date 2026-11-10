@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      # Alias isolado da PREVIEW da API Eklesia. Não é a API principal da igreja.
-      API_ORIGIN: https://id-riacho1-api-hml-git-1dea8e-gustavomarqueslopes-cmds-projects.vercel.app
+      # Deploy STAGED do projeto exclusivamente HML no commit f554879; alias principal permanece no rollback até aprovação.
+      API_ORIGIN: https://id-riacho1-api-onysnaz73-gustavomarqueslopes-cmds-projects.vercel.app
     steps:
       - name: Probe Nest bootstrap, meta and authorization (no credentials)
         shell: bash
@@ -45,16 +45,20 @@ jobs:
                 redirect:"manual",signal:AbortSignal.timeout(15000),
                 headers:{accept:"application/json"}
               });
-              const body=(await response.text()).slice(0,350);
+              const body=await response.text();
               const contentType=response.headers.get("content-type")||"";
               const ok=response.status===item.expected && contentType.includes("json");
+              let serverOk=true;
+              if(ok && item.kind==="private"){
+                try{serverOk=JSON.parse(body).statusCode===401;}catch{serverOk=false;}
+              }
               let metaOk=true;
               if(item.kind==="meta"&&ok){
                 const json=JSON.parse(body);
                 metaOk=typeof json.contractVersion==="string"&&json.contractVersion.startsWith("0.7.")&&typeof json.sourceSha==="string"&&/^[0-9a-f]{40}$/.test(json.sourceSha);
               }
-              if(!ok||!metaOk) failures++;
-              console.log(JSON.stringify({path:item.path,http:response.status,contentType,pass:ok&&metaOk,metaKnown:item.kind==="meta"?metaOk:undefined}));
+              if(!ok||!metaOk||!serverOk) failures++;
+              console.log(JSON.stringify({path:item.path,http:response.status,contentType,pass:ok&&metaOk&&serverOk,serverKnown:serverOk,metaKnown:item.kind==="meta"?metaOk:undefined}));
             }catch(err){
               failures++;
               console.log(JSON.stringify({path:item.path,pass:false,networkError:err?.name||"error"}));
