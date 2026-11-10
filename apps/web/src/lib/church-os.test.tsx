@@ -40,7 +40,8 @@ describe("Church OS: renderização real de páginas", () => {
     const html=renderToStaticMarkup(<ChurchCredentials />);
     expect(html).toContain("Carteirinhas");
     expect(html).toContain("Verificando sessão");
-    expect(html).toContain("Homologação");
+    expect(html).toContain("Verificando sessão");
+    expect(html).not.toContain("DOCUMENTO OFICIAL");
     expect(html).not.toContain("localStorage");
     expect(html).not.toContain("setMemberCard");
   });
