@@ -4,12 +4,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
 import type { ViviChatRequest, ViviChatResponse, ViviStatusResponse } from "@idbrf/shared";
 import type { SiteLayout } from "../lib/site-layout";
-import { parseRiachinhoAnswer } from "../lib/riachinho-public-api";
+import { parseRiachinhoAnswer, parseRiachinhoStatus } from "../lib/riachinho-public-api";
 import {
   parseRiachinhoSuggestion,
   type RiachinhoParsedSuggestion,
   type RiachinhoSuggestionTarget,
 } from "../lib/riachinho-suggestion";
+import { assistantScopeRefusal } from "./RiachinhoPublicChat";
+import { withBasePath } from "../lib/paths";
 import s from "./vivi-editorial-assistant.module.css";
 
 type Status = ViviStatusResponse;
@@ -26,7 +28,7 @@ type ChatItem = {
 };
 
 const GREETING =
-  "Olá! Eu sou o Riachinho, assistente editorial da Igreja de Deus no Riacho Fundo I. Posso ajudar com redação pública, comunicação institucional, títulos e textos alternativos. A publicação continua com a sua equipe.";
+  "Olá! Eu sou o Riachinho, assistente editorial da Igreja de Deus no Riacho Fundo I. Posso ajudar com redação pública, comunicação institucional, títulos e textos alternativos. Não leio dados de membros nem publico no site. A decisão continua com a sua equipe.";
 
 const QUICK: { id: Intent; label: string; target: RiachinhoSuggestionTarget }[] = [
   { id: "revisar", label: "Revisar capa", target: "hero" },
@@ -122,7 +124,10 @@ export function ViviEditorialAssistant({
   onApplySuggestion?: (suggestion: RiachinhoParsedSuggestion) => void;
 }) {
   const listId = useId();
+  const unavailableId = useId();
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const consentRef = useRef<HTMLInputElement | null>(null);
+  const draftRef = useRef<HTMLTextAreaElement | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState(false);
   const [intent, setIntent] = useState<Intent>("revisar");
@@ -142,10 +147,13 @@ export function ViviEditorialAssistant({
       credentials: "omit",
       mode: "cors",
       cache: "no-store",
+      headers: { Accept: "application/json" },
     })
       .then(async (res) => {
         if (!res.ok) throw new Error("Riachinho indisponível");
-        return res.json() as Promise<Status>;
+        const parsed = parseRiachinhoStatus(await res.json());
+        if (!parsed) throw new Error("Riachinho indisponível");
+        return parsed;
       })
       .then((result) => {
         if (!ctrl.signal.aborted) {
@@ -156,7 +164,8 @@ export function ViviEditorialAssistant({
       .catch(() => {
         if (!ctrl.signal.aborted) {
           setStatusError(true);
-          setError("Não foi possível consultar o Riachinho. Você pode continuar editando o site offline.");
+          setStatus(null);
+          setError("Não foi possível consultar o Riachinho. Você pode continuar editando o site.");
         }
       });
     return () => ctrl.abort();
@@ -175,6 +184,7 @@ export function ViviEditorialAssistant({
   );
   const apiOk = Boolean(status) && !statusError;
   const canSend = apiOk && realAi && consent && !busy;
+  const phase = statusError || (status && !realAi) ? "indisponivel" : status ? "disponivel" : "consultando";
 
   async function ask(nextIntent: Intent, freeText?: string) {
     if (!canSend) return;
@@ -185,7 +195,7 @@ export function ViviEditorialAssistant({
             text: [
               "Você auxilia um editor autorizado do portal da Igreja de Deus Riacho Fundo I.",
               "Responda em português, com tom acolhedor e não infantil.",
-              "Escopo: redação pública, comunicação institucional, títulos e alt text. Sem vision de imagens. Sem inventar fatos.",
+              "Escopo: redação pública, comunicação institucional, títulos e alt text. Sem análise de imagens. Sem inventar fatos.",
               "Pedido: " + (freeText ?? "").trim(),
             ].join("\n"),
           }
@@ -195,6 +205,15 @@ export function ViviEditorialAssistant({
       nextIntent === "livre"
         ? (freeText ?? "").trim()
         : QUICK.find((q) => q.id === nextIntent)?.label ?? "Pedido editorial";
+
+    const blocked = assistantScopeRefusal(
+      nextIntent === "livre" ? userVisible : built.text,
+      "editorial",
+    );
+    if (blocked) {
+      setError(blocked);
+      return;
+    }
 
     const content = built.text.slice(0, 1950);
     const userId = `u-${Date.now()}`;
@@ -228,9 +247,8 @@ export function ViviEditorialAssistant({
       }
       const answer = parseRiachinhoAnswer(await res.json().catch(() => null));
       if (!answer || answer.provider === "mock")
-        throw new Error("O Riachinho não retornou uma resposta real válida. Seu texto foi preservado.");
+        throw new Error("O Riachinho não retornou uma resposta autorizada. Seu texto foi preservado.");
       if (nextIntent === "livre" && freeText?.trim()) {
-        // Clear only the request that succeeded; preserve any newer text typed while waiting.
         setDraft((current) => current.trim() === freeText.trim() ? "" : current);
       }
       setMessages((prev) => [
@@ -244,12 +262,22 @@ export function ViviEditorialAssistant({
         },
       ]);
     } catch (err) {
-      // A failed prompt stays editable and is not duplicated in conversation history.
       setMessages((prev) => prev.filter((item) => item.id !== userId));
       setError(err instanceof Error ? err.message : "Assistente indisponível.");
     } finally {
       setBusy(false);
     }
+  }
+
+  function requestQuick(next: Intent) {
+    setIntent(next);
+    if (!realAi || statusError) return;
+    if (!consent) {
+      setError("Autorize o processamento do texto público para enviar este pedido.");
+      consentRef.current?.focus();
+      return;
+    }
+    void ask(next);
   }
 
   async function copy(item: ChatItem) {
@@ -262,23 +290,23 @@ export function ViviEditorialAssistant({
   }
 
   function apply(item: ChatItem) {
-    // Do not apply synthetic mock output as if it were a validated AI suggestion.
     if (!onApplySuggestion || item.answer?.refused || item.answer?.provider === "mock") return;
     const preferred =
       item.intent === "galeria" ? "gallery" : item.intent === "alt" ? "alts" : "hero";
     const parsed = parseRiachinhoSuggestion(item.content, preferred);
     if (!parsed) {
-      setError("Não encontrei campos Título/Destaque/Descrição/Alt na resposta. Copie o texto e cole nos campos.");
+      setError("Não encontrei campos Título, Destaque, Descrição ou Alt na resposta. Copie o texto e cole nos campos.");
       return;
     }
     onApplySuggestion(parsed);
   }
 
   return (
-    <div className={s.panel}>
+    <div className={s.panel} data-vivi-state={phase}>
       <div className={s.intro}>
         <span className={s.icon} aria-hidden="true">
-          ✦
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={46} height={46} />
         </span>
         <div>
           <h2>Riachinho — Assistente editorial</h2>
@@ -290,28 +318,25 @@ export function ViviEditorialAssistant({
       </div>
 
       <div className={s.status} aria-live="polite">
-        <span className={statusError ? s.offline : realAi ? s.live : s.mock}>
-          {statusError ? "Offline / API indisponível" : realAi ? "IA disponível" : "Modo de simulação"}
+        <span className={statusError || (status && !realAi) ? s.offline : realAi ? s.live : s.mock}>
+          {statusError
+            ? "Assistente indisponível"
+            : !status
+              ? "Consultando disponibilidade"
+              : realAi
+                ? "Disponível para redação"
+                : "Assistente indisponível"}
         </span>
         <span>
-          {status
-            ? status.provider === "manus"
-              ? "Manus"
-              : status.provider === "gemini"
-                ? "Gemini"
-                : "Provedor real não configurado"
-            : statusError
-              ? "Sem conexão com /vivi/status"
-              : "Consultando o backend…"}
+          {realAi
+            ? "As sugestões precisam da sua revisão antes de salvar."
+            : "Nenhuma sugestão automática será inventada."}
         </span>
       </div>
 
-      {!statusError && status && !realAi && (
-        <p className={s.warning}>
-          O Riachinho está conectado à API, mas ainda utiliza um provedor simulado neste ambiente.
-          Para sugestões reais, um administrador deve configurar <code>GEMINI_API_KEY</code> ou{" "}
-          <code>MANUS_API_KEY</code> + <code>MANUS_FORGE_URL</code> no servidor (Vercel HML). Não
-          coloque chaves no navegador. Respostas simuladas não podem ser aplicadas aos campos do site.
+      {(statusError || (status && !realAi)) && (
+        <p className={s.warning} id={unavailableId}>
+          O assistente editorial não está disponível neste ambiente. Nenhuma sugestão automática será inventada. Continue a redação nos campos do site.
         </p>
       )}
 
@@ -319,20 +344,18 @@ export function ViviEditorialAssistant({
         <li>Redação pública</li>
         <li>Comunicação da igreja</li>
         <li>Títulos e destaques</li>
-        <li>Textos alt (sem vision)</li>
+        <li>Textos alternativos</li>
       </ul>
+      <p className={s.scopeNote}>Não analisa imagens; trabalha só com o texto que você já escreveu.</p>
 
-      <div className={s.quick} role="group" aria-label="Ações rápidas">
+      <div className={s.quick} role="group" aria-label="Ações rápidas" aria-describedby={!realAi ? unavailableId : undefined}>
         {QUICK.map((item) => (
           <button
             key={item.id}
             type="button"
             aria-pressed={intent === item.id}
-            disabled={!canSend}
-            onClick={() => {
-              setIntent(item.id);
-              void ask(item.id);
-            }}
+            disabled={!realAi || busy}
+            onClick={() => requestQuick(item.id)}
           >
             {item.label}
           </button>
@@ -340,40 +363,46 @@ export function ViviEditorialAssistant({
       </div>
 
       <div className={s.chat} ref={chatRef} id={listId} role="log" aria-live="polite" aria-relevant="additions">
-        {messages.map((item) => (
-          <div
-            key={item.id}
-            className={item.role === "user" ? s.bubbleUser : s.bubbleAssistant}
-          >
-            {item.role === "assistant" && item.answer && (
-              <div className={s.bubbleMeta}>
-                <strong>{item.answer.refused ? "Solicitação não permitida" : "Sugestão do Riachinho"}</strong>
-                <span>
-                  {item.answer.provider} · {item.answer.model}
-                </span>
-              </div>
-            )}
-            {item.content}
-            {item.role === "assistant" && item.id !== "greeting" && !item.answer?.refused && (
-              <div className={s.bubbleActions}>
-                <button type="button" onClick={() => void copy(item)}>
-                  {copiedId === item.id ? "Copiado ✓" : "Copiar"}
-                </button>
-                <button type="button" disabled={!onApplySuggestion || item.answer?.provider === "mock"} title={item.answer?.provider === "mock" ? "Respostas simuladas não podem alterar o rascunho" : undefined} onClick={() => apply(item)}>
-                  Usar sugestão
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-        {busy && <div className={s.bubbleAssistant}>Riachinho está pensando…</div>}
+        {messages.map((item) => {
+          const canApply = Boolean(
+            onApplySuggestion && item.answer && !item.answer.refused && item.answer.provider !== "mock",
+          );
+          return (
+            <div
+              key={item.id}
+              className={item.role === "user" ? s.bubbleUser : s.bubbleAssistant}
+            >
+              {item.role === "assistant" && item.answer && (
+                <div className={s.bubbleMeta}>
+                  <strong>{item.answer.refused ? "Solicitação não permitida" : "Sugestão do Riachinho"}</strong>
+                </div>
+              )}
+              {item.content}
+              {item.role === "assistant" && item.id !== "greeting" && !item.answer?.refused && (
+                <div className={s.bubbleActions}>
+                  <button type="button" onClick={() => void copy(item)}>
+                    {copiedId === item.id ? "Copiado" : "Copiar"}
+                  </button>
+                  {canApply && (
+                    <button type="button" onClick={() => apply(item)}>
+                      Usar sugestão
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {busy && <div className={s.bubbleAssistant}>Riachinho está preparando a sugestão…</div>}
       </div>
 
       <div className={s.composer}>
         <label className={s.consent}>
           <input
+            ref={consentRef}
             type="checkbox"
             checked={consent}
+            disabled={!realAi || busy}
             onChange={(e) => setConsent(e.target.checked)}
           />
           <span>
@@ -382,13 +411,15 @@ export function ViviEditorialAssistant({
           </span>
         </label>
         <textarea
+          ref={draftRef}
           aria-label="Pergunta ou sugestão editorial para o Riachinho"
           value={draft}
           maxLength={1800}
-          placeholder="Pergunte ao Riachinho ou peça um ajuste específico…"
+          disabled={!realAi || busy}
+          placeholder={realAi ? "Pergunte ao Riachinho ou peça um ajuste específico…" : "O assistente editorial não está disponível neste ambiente"}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && draft.trim()) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && draft.trim() && canSend) {
               e.preventDefault();
               const text = draft.trim();
               setIntent("livre");
@@ -403,6 +434,12 @@ export function ViviEditorialAssistant({
             disabled={!canSend || !draft.trim()}
             onClick={() => {
               const text = draft.trim();
+              if (!realAi) return;
+              if (!consent) {
+                setError("Autorize o processamento do texto público para enviar este pedido.");
+                consentRef.current?.focus();
+                return;
+              }
               setIntent("livre");
               void ask("livre", text);
             }}

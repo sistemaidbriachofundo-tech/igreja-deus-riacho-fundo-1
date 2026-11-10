@@ -54,8 +54,12 @@ describe("Gestão do Site — editor visual",()=>{
     const html=renderToStaticMarkup(<ViviEditorialAssistant token="demo-token" layout={defaultSiteLayout}/>);
     expect(html).toContain("Riachinho");
     expect(html).toContain("Olá! Eu sou o Riachinho");
-    expect(html).toContain("Modo de simulação");
-    expect(html).toContain("sem vision");
+    expect(html).toContain("Consultando disponibilidade");
+    expect(html).not.toContain("Modo de simulação");
+    expect(html).not.toContain("IA disponível");
+    expect(html).toContain("Não analisa imagens");
+    expect(html).not.toContain("GEMINI_API_KEY");
+    expect(html).not.toContain("MANUS_API_KEY");
   });
   it("shares one approved configuration with all Home sections", () => {
     const html = renderToStaticMarkup(
