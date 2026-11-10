@@ -1322,7 +1322,9 @@ export class MinistriesService {
       rosterTitle?: string | null;
     },
   ): Promise<void> {
-    if (!this.channels || process.env.NEXT_PUBLIC_HML_ENABLED === "true" ||
+    // Opt-in explícito para impedir qualquer disparo externo involuntário na HML.
+    if (!this.channels || process.env.EKLESIA_ENABLE_ROSTER_NOTIFICATIONS !== "true" ||
+        process.env.NEXT_PUBLIC_HML_ENABLED === "true" ||
         process.env.EKLESIA_DISABLE_ROSTER_NOTIFICATIONS === "true") return;
     try {
       await this.channels.enqueueRosterAlert({
