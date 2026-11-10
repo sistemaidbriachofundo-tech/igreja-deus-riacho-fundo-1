@@ -1,8 +1,10 @@
-import { HmlPhaseOne } from "../../../../components/HmlPhaseOne";
 import { ChurchCredentials } from "../../../../components/ChurchCredentials";
 
+/**
+ * A rota abre a mesa visual (frente, verso, PDF e QR).
+ * HmlPhaseOne não é alterado. Para recolocá-la no shell da HML, importe
+ * CredentialDesk de components/credentials dentro de view=cards.
+ */
 export default function CarteirinhaPage() {
-  return process.env.NEXT_PUBLIC_HML_ENABLED === "true"
-    ? <HmlPhaseOne view="cards" />
-    : <ChurchCredentials />;
+  return <ChurchCredentials />;
 }

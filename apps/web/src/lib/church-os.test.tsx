@@ -37,12 +37,13 @@ describe("Church OS: renderização real de páginas", () => {
     expect(html).toContain("Secretaria");
     expect(html).toContain("Perfil da simulação");
   });
-  it("renderiza credencial identificada como sintética, sem validar QR", () => {
+  it("renderiza a área de carteirinhas pedindo sessão antes de abrir o cartão", () => {
     const html=renderToStaticMarkup(<ChurchCredentials />);
-    expect(html).toContain("Uma identidade que");
-    expect(html).toContain("AMBIENTE DE TESTE");
-    expect(html).toContain("Revogar carteirinha");
-    expect(html).toContain("QR de verificação");
+    expect(html).toContain("Carteirinhas");
+    expect(html).toContain("Verificando sessão");
+    expect(html).toContain("Homologação");
+    expect(html).not.toContain("localStorage");
+    expect(html).not.toContain("setMemberCard");
   });
   it("fornece comando de busca global, rotas e logomarca correta", () => {
     const html=renderToStaticMarkup(<AppShell active="visao" meta="Visão geral">Conteúdo</AppShell>);

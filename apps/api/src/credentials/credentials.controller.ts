@@ -79,6 +79,29 @@ export class CredentialsController {
     return this.credentials.getPdfMeta(user, credentialId);
   }
 
+  /**
+   * Abre a carteirinha da mesma membresia (ativa ou, se não houver, a revogada).
+   * Declarado antes de `:credentialId` para o segmento fixo não cair no id.
+   */
+  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("by-membership/:membershipId")
+  byMembership(
+    @CurrentUser() user: AuthUser,
+    @Param("membershipId") membershipId: string,
+  ) {
+    return this.credentials.getByMembership(user, membershipId);
+  }
+
+  /** Abre uma carteirinha pelo id. Secretaria no escopo ou o próprio titular. */
+  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Get(":credentialId")
+  getOne(
+    @CurrentUser() user: AuthUser,
+    @Param("credentialId") credentialId: string,
+  ) {
+    return this.credentials.getById(user, credentialId);
+  }
+
   /** Download autenticado do PDF privado. */
   @Roles(
     ROLE_CODES.MEMBRO,

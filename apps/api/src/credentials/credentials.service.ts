@@ -9,8 +9,10 @@ import {
   canAccessCredentialPdf,
   canManageMemberships,
   canViewOwnCredential,
+  containsSensitiveCredentialPayload,
   generateOpaqueCredentialToken,
 } from "@idbrf/shared";
+import QRCode from "qrcode";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
@@ -211,7 +213,10 @@ export class CredentialsService {
     );
   }
 
-  /** Membro autenticado: própria carteirinha ativa (se houver). */
+  /**
+   * Membro autenticado: a própria carteirinha mais recente.
+   * Ativa tem prioridade; se só houver revogada, ela volta para o QR inválido aparecer.
+   */
   async getOwn(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
 
@@ -220,12 +225,11 @@ export class CredentialsService {
         personId: actor.personId,
         churchId: pilot.churchId,
         organizationId: pilot.organizationId,
-        status: "ACTIVE",
       },
       include: {
         person: { select: { displayName: true } },
       },
-      orderBy: { issuedAt: "desc" },
+      orderBy: [{ status: "asc" }, { issuedAt: "desc" }],
     });
 
     if (!credential) {
@@ -236,14 +240,71 @@ export class CredentialsService {
       throw new ForbiddenException("Carteirinha de outra pessoa");
     }
 
+    const card = this.toPublicCard(
+      credential,
+      credential.person.displayName,
+      pilot.churchName,
+    );
     return {
-      card: this.toPublicCard(
-        credential,
-        credential.person.displayName,
-        pilot.churchName,
-      ),
+      card: await this.withPresentation(card, pilot),
       church: { name: pilot.churchName, slug: pilot.churchSlug },
     };
+  }
+
+  /** Secretaria ou titular: abre uma carteirinha pelo id persistido. */
+  async getById(actor: AuthUser, credentialId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+    const card = this.toPublicCard(
+      credential,
+      credential.person.displayName,
+      pilot.churchName,
+    );
+    return this.withPresentation(card, pilot);
+  }
+
+  /**
+   * Secretaria ou titular: última carteirinha da mesma membresia.
+   * 404 quando a matrícula não tem credencial — a UI não inventa cartão.
+   */
+  async getByMembership(actor: AuthUser, membershipId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const membership = await this.prisma.churchMembership.findFirst({
+      where: {
+        id: membershipId,
+        churchId: pilot.churchId,
+        organizationId: pilot.organizationId,
+      },
+      select: {
+        id: true,
+        personId: true,
+      },
+    });
+    if (!membership) {
+      throw new NotFoundException("Membresia não encontrada no piloto");
+    }
+    this.assertCanRead(actor, membership.personId, pilot);
+
+    const credential = await this.prisma.memberCredential.findFirst({
+      where: {
+        membershipId: membership.id,
+        churchId: pilot.churchId,
+        organizationId: pilot.organizationId,
+      },
+      include: {
+        person: { select: { displayName: true } },
+      },
+      orderBy: [{ status: "asc" }, { issuedAt: "desc" }],
+    });
+    if (!credential) {
+      throw new NotFoundException("Carteirinha não encontrada no piloto");
+    }
+    const card = this.toPublicCard(
+      credential,
+      credential.person.displayName,
+      pilot.churchName,
+    );
+    return this.withPresentation(card, pilot);
   }
 
   /**
@@ -361,13 +422,17 @@ export class CredentialsService {
     if (!credential) {
       throw new NotFoundException("Carteirinha não encontrada");
     }
+    const displayName = containsSensitiveCredentialPayload(credential.person.displayName)
+      ? "Membro"
+      : credential.person.displayName;
     return {
       status: credential.status,
-      displayName: credential.person.displayName,
+      /** Só ACTIVE confirma o QR. Revogação torna o mesmo token inválido. */
+      valid: credential.status === "ACTIVE",
+      displayName,
       churchName: credential.church.name,
       issuedAt: credential.issuedAt.toISOString(),
       revokedAt: credential.revokedAt?.toISOString() ?? null,
-      // Nunca ecoar o token em lookups públicos além da confirmação de existência
     };
   }
 
@@ -474,6 +539,76 @@ export class CredentialsService {
     }
     assertOpaqueCredentialPayload(credential.opaqueToken);
     return credential;
+  }
+
+  private assertCanRead(
+    actor: AuthUser,
+    personId: string,
+    pilot: { organizationId: string; churchId: string },
+  ): void {
+    if (
+      !canAccessCredentialPdf(actor.grants, actor.personId, personId, {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      })
+    ) {
+      throw new ForbiddenException("Sem permissão para esta carteirinha");
+    }
+  }
+
+  /** Ministério formal ativo, se existir. Ausência não inventa nome. */
+  private async optionalMinistryName(
+    personId: string,
+    pilot: { organizationId: string; churchId: string },
+  ): Promise<string | null> {
+    const table = this.prisma.ministryMembership as
+      | {
+          findFirst?: (args: unknown) => Promise<{
+            ministry?: { name?: string | null } | null;
+          } | null>;
+        }
+      | undefined;
+    if (!table?.findFirst) return null;
+    const row = await table.findFirst({
+      where: {
+        personId,
+        churchId: pilot.churchId,
+        organizationId: pilot.organizationId,
+        status: "ATIVO",
+        endedAt: null,
+      },
+      include: { ministry: { select: { name: true } } },
+      orderBy: { startedAt: "desc" },
+    });
+    const name = row?.ministry?.name?.trim() ?? "";
+    if (!name || containsSensitiveCredentialPayload(name)) return null;
+    return name;
+  }
+
+  /** SVG do QR. O desenho carrega só o token opaco, nunca o nome. */
+  private async qrMarkup(opaqueToken: string): Promise<string> {
+    assertOpaqueCredentialPayload(opaqueToken);
+    const svg = await QRCode.toString(opaqueToken, {
+      type: "svg",
+      margin: 0,
+      errorCorrectionLevel: "M",
+      width: 180,
+    });
+    if (!svg.includes("<svg") || /<script|onload=|javascript:/i.test(svg)) {
+      throw new Error("QR da carteirinha inválido");
+    }
+    return svg;
+  }
+
+  private async withPresentation<T extends { qrPayload: string; personId: string }>(
+    card: T,
+    pilot: { organizationId: string; churchId: string },
+  ) {
+    const [ministryName, qrSvg] = await Promise.all([
+      this.optionalMinistryName(card.personId, pilot),
+      this.qrMarkup(card.qrPayload),
+    ]);
+    return { ...card, ministryName, qrSvg };
   }
 
   private assertCanManage(
