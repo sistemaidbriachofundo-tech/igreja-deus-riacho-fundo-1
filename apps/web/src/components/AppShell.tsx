@@ -438,7 +438,7 @@ export function AppShell({
         </button>
         <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
-          <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
+          <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
         </AppNavLink>
 
         <div className={s.railContext}><span className={s.railOnline} /><span><strong>{memberShell ? "Sua área" : editorial ? "Estúdio editorial" : "Administração"}</strong><small>Igreja de Deus · Riacho Fundo I</small></span></div>

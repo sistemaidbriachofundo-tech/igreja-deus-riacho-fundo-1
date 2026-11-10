@@ -298,7 +298,7 @@ describe("shell colapsável para os oito papéis", () => {
     expect(shellCss).toContain("data-rail=\"collapsed\"");
     expect(shellCss).toContain("data-drawer=\"open\"");
     expect(shellCss).toContain("--shell-target");
-    expect(shellCss).toContain("@media(max-width:970px)");
+    expect(shellCss).toMatch(/@media\s*\(max-width:\s*970px\)/);
     expect(shellCss).toContain("prefers-reduced-motion");
   });
 

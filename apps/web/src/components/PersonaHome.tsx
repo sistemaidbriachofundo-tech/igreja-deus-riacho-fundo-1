@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
+import { AdministrativeOverview } from "./AdministrativeOverview";
 import { ApiRequestError, apiGet, isForbidden, isUnauthorized, loadStoredToken } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import { areasForRoles, isMemberOnly, ministryContextHref, type AppNavKey } from "../lib/persona-navigation";
@@ -529,30 +530,6 @@ function Metric({ label, value, href, hint, icon, loading }: { label: string; va
   return <AppNavLink className={s.metric} href={href}>{body}</AppNavLink>;
 }
 
-function MembershipComposition({ rows }: { rows: StatusBar[] }) {
-  const order = ["ACTIVE", "INACTIVE", "PENDING_ADMISSION", "TRANSFERRED"];
-  const segments = order.map(status => ({ status, count: rows.find(row => row.status === status)?.count ?? 0 }));
-  const total = segments.reduce((sum, row) => sum + row.count, 0);
-  return (
-    <div className={s.composition}>
-      <div className={s.compositionTotal}>
-        <strong>{total.toLocaleString("pt-BR")}</strong>
-        <span>vínculos cadastrados</span>
-      </div>
-      {total > 0 && <div className={s.compositionBar} aria-hidden="true">
-        {segments.filter(row => row.count > 0).map(row => (
-          <span key={row.status} data-status={row.status} style={{ flexGrow: row.count }} />
-        ))}
-      </div>}
-      <ul className={s.compositionLegend}>
-        {segments.filter(row => row.status !== "TRANSFERRED" || row.count > 0).map(row => (
-          <li key={row.status}><i data-status={row.status} aria-hidden="true" />{labelOf(row.status)}<strong>{row.count.toLocaleString("pt-BR")}</strong></li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function RowList({ rows, hrefFor, empty }: {
   rows: NamedRow[];
   hrefFor: (row: NamedRow) => string;
@@ -692,7 +669,6 @@ export function PersonaBoard() {
 
   const deskKey = deskKeyFor(access.roles);
   const desk = DESK[deskKey];
-  const adminHome = deskKey === "PLATFORM_ADMIN";
   const memberView = isMemberOnly(access.roles);
   const areas = areasForRoles(access.roles);
   const tasks = PRIMARY_TASKS[deskKey].flatMap(key => {
@@ -704,12 +680,18 @@ export function PersonaBoard() {
   const treasury = hasRole(access.roles, "TESOURARIA");
   const loading = mesa.phase === "idle" || mesa.phase === "loading";
   const counts = mesa.counts;
+  if (deskKey === "PLATFORM_ADMIN") {
+    return <AdministrativeOverview counts={counts} distribution={mesa.bars}
+      admissions={mesa.admissions} ministries={mesa.ministries} events={mesa.events}
+      loading={loading} partial={mesa.partial} signedOut={mesa.phase === "signed-out"}
+      onRefresh={() => setReload(value => value + 1)} />;
+  }
   const summaryReady = counts !== null;
   const admissions = (mesa.admissions ?? []).filter(row => !["Aprovado", "Recusado", "Cancelado"].includes(row.detail));
   const agenda = mesa.events ?? (showPublicAgenda ? publicRows : null);
   const agendaRows = agenda ? upcoming(agenda) : [];
   const marks = new Set(agendaRows.flatMap(row => row.when ? [spDayKey(new Date(row.when))] : []));
-  const showChart = staff && !adminHome && (mesa.bars !== null || loading);
+  const showChart = staff && (mesa.bars !== null || loading);
   const pendingAssignments = (mesa.assignments ?? []).filter(row => row.detail.includes("A confirmar"));
 
   const metrics: Array<Parameters<typeof Metric>[0]> = [];
@@ -719,7 +701,7 @@ export function PersonaBoard() {
         { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
         { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
       );
-      if (!adminHome && summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
+      if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
         metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, hint: "Acompanhamentos abertos" });
       }
     }
@@ -739,33 +721,18 @@ export function PersonaBoard() {
       { label: "Lançamentos", value: mesa.entries ? mesa.entries.length : loading ? null : null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
     );
   }
-  const membershipCount = (status: string) =>
-    mesa.bars === null ? null : mesa.bars.find(row => row.status === status)?.count ?? 0;
-  if (adminHome) {
-    metrics.splice(0, metrics.length,
-      { label: "Membros ativos", value: counts?.membershipsActive ?? membershipCount("ACTIVE"), href: "/app/membros/?situacao=ACTIVE", hint: "Vínculos ativos na congregação", icon: "people" },
-      { label: "Membros inativos", value: membershipCount("INACTIVE"), href: "/app/membros/?situacao=INACTIVE", hint: "Histórico de vínculos", icon: "family" },
-      { label: "Em admissão", value: counts?.membershipsPending ?? membershipCount("PENDING_ADMISSION"), href: "/app/secretaria/", hint: "Pessoas no processo de admissão", icon: "layers" },
-      { label: "Escalas publicadas", value: counts?.rostersPublished ?? null, href: "/app/ministerios/", hint: "Equipes e compromissos", icon: "calendar" },
-    );
-  }
-  const visibleMetrics = adminHome ? metrics : metrics.filter(item => item.value !== null || loading);
+  const visibleMetrics = metrics.filter(item => item.value !== null || loading);
 
   return (
-    <div className={s.board} data-persona-home={access.roles.join(",")} data-desk={deskKey} data-layout={memberView ? "membro" : "admin"} data-admin-home={adminHome || undefined}>
+    <div className={s.board} data-persona-home={access.roles.join(",")} data-desk={deskKey} data-layout={memberView ? "membro" : "admin"}>
       {showPublicAgenda ? <PublicAgendaSource onRows={onPublicRows} /> : null}
       <header className={s.intro}>
         <div>
-          <p className={s.greeting}>{adminHome ? "Igreja de Deus · Riacho Fundo I" : greeting()}</p>
+          <p className={s.greeting}>{greeting()}</p>
           <h1>{desk.title}</h1>
-          {adminHome && <p className={s.heroDate}>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeZone: "America/Sao_Paulo" }).format(new Date())}</p>}
           <p className={s.lede}>{desk.lede}</p>
         </div>
         <div className={s.introAside}>
-          {adminHome && <div className={s.heroFacts}>
-            <span><strong>{counts?.ministriesTotal ?? "—"}</strong> Ministérios</span>
-            <span><strong>{counts?.eventsPublishedUpcoming ?? "—"}</strong> Próximos eventos</span>
-          </div>}
           <button type="button" className={s.refresh} onClick={() => setReload(value => value + 1)} disabled={mesa.phase === "loading"}>
             <UIIcon name="refresh" size={16} /> Atualizar
           </button>
@@ -775,13 +742,11 @@ export function PersonaBoard() {
       {mesa.partial && <p className={s.note} role="status">Algumas informações não carregaram. Use Atualizar para tentar novamente.</p>}
       {mesa.phase === "signed-out" && <p className={s.note} role="status">Entre novamente para ver os registros da sua conta.</p>}
 
-      {!adminHome && (
-        <nav className={s.actions} aria-label="Ações rápidas">
+      <nav className={s.actions} aria-label="Ações rápidas">
           {tasks.map(task => (
             <AppNavLink key={task.key} href={task.href}>{TASK_LABEL[task.key]}</AppNavLink>
           ))}
-        </nav>
-      )}
+      </nav>
 
       {visibleMetrics.length > 0 && (
         <section className={s.metrics} aria-label="Indicadores" aria-busy={loading}>
@@ -789,32 +754,10 @@ export function PersonaBoard() {
         </section>
       )}
 
-      {adminHome && (
-        <div className={s.overviewGrid}>
-          <Panel title="Panorama da congregação" action={<AppNavLink href="/app/membros/">Ver membros</AppNavLink>}>
-            {mesa.bars === null ? (
-              <p className={s.empty}>{loading ? "Carregando vínculos…" : "Distribuição indisponível."}</p>
-            ) : <MembershipComposition rows={mesa.bars} />}
-          </Panel>
-          <section className={s.shortcuts} aria-labelledby="acessos-titulo">
-            <h2 id="acessos-titulo">Atalhos de trabalho</h2>
-            <nav className={s.shortcutList} aria-label="Atalhos de trabalho">
-              {tasks.map(task => (
-                <AppNavLink key={task.key} href={task.href}>
-                  <span className={s.shortcutIcon}><UIIcon name={task.icon} size={19} /></span>
-                  <strong>{TASK_LABEL[task.key]}</strong>
-                  <UIIcon name="chevron" size={16} />
-                </AppNavLink>
-              ))}
-            </nav>
-          </section>
-        </div>
-      )}
-
       <div className={s.columns}>
         <Panel
           id="avisos"
-          title={adminHome ? "Admissões em andamento" : "Pendências"}
+          title="Pendências"
           action={staff ? <AppNavLink href="/app/secretaria/">Ver admissões</AppNavLink> : undefined}
         >
           {staff && mesa.admissions === null && <p className={s.empty}>{loading ? "Carregando admissões…" : "Admissões indisponíveis no momento."}</p>}
@@ -890,15 +833,6 @@ export function PersonaBoard() {
                 empty="Nenhum ministério disponível para este perfil."
               />
             )}
-          </Panel>
-        )}
-
-        {adminHome && (
-          <Panel title="Acompanhamento de escalas" action={<AppNavLink href="/app/ministerios/">Ver equipes</AppNavLink>}>
-            <dl className={s.rosterSummary}>
-              <div><dt><UIIcon name="clock" size={18} /> Convites aguardando resposta</dt><dd>{counts?.rosterAssignmentsPending ?? "—"}</dd></div>
-              <div><dt><UIIcon name="layers" size={18} /> Escalas em preparação</dt><dd>{counts?.rostersDraft ?? "—"}</dd></div>
-            </dl>
           </Panel>
         )}
 
