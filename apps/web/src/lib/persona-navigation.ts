@@ -99,14 +99,14 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
   {
     key: "membros",
     href: "/app/membros/",
-    label: "Membros e famílias",
+    label: "Pessoas da secretaria",
     short: "Pessoas",
     icon: "people",
     hint: "Pessoas e famílias",
     ribbon: { code: "Pessoas", title: "Pessoas da comunidade.", detail: "A lista só abre para quem a API deixa consultar." },
     roles: STAFF_PEOPLE,
     probe: { method: "GET", path: "/persons/search", source: "apps/api/src/persons/persons.controller.ts", marker: '@Get("search")' },
-    surface: "admin",
+    surface: "retired",
   },
   {
     key: "secretaria",
