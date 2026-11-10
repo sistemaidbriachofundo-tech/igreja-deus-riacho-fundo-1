@@ -6,6 +6,7 @@ type FieldProps = {
   hint?: string;
   error?: string;
   id?: string;
+  suffix?: ReactNode;
 };
 
 function Field({
@@ -43,26 +44,35 @@ function Field({
   );
 }
 
-type InputProps = FieldProps & InputHTMLAttributes<HTMLInputElement>;
+type InputProps = FieldProps & Omit<InputHTMLAttributes<HTMLInputElement>, "id">;
 
-export function Input({ label, hint, error, id, required, className, ...rest }: InputProps) {
+export function Input({ label, hint, error, id, required, className, suffix, ...rest }: InputProps) {
   return (
     <Field label={label} hint={hint} error={error} id={id} required={required}>
-      {({ fieldId, describedBy }) => (
-        <input
-          id={fieldId}
-          className={[styles.control, className].filter(Boolean).join(" ")}
-          required={required}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy}
-          {...rest}
-        />
-      )}
+      {({ fieldId, describedBy }) => {
+        const control = (
+          <input
+            id={fieldId}
+            className={[styles.control, className].filter(Boolean).join(" ")}
+            required={required}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            {...rest}
+          />
+        );
+        if (!suffix) return control;
+        return (
+          <div className={styles.controlRow}>
+            {control}
+            {suffix}
+          </div>
+        );
+      }}
     </Field>
   );
 }
 
-type SelectProps = FieldProps &
+type SelectProps = Omit<FieldProps, "suffix"> &
   SelectHTMLAttributes<HTMLSelectElement> & {
     options: readonly { value: string; label: string }[];
   };

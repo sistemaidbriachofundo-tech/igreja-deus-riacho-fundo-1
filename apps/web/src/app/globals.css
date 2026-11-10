@@ -1345,3 +1345,116 @@ code {
   box-shadow:none;
 }
 @media(max-width:900px){.brand-mark.brand-mark--original{width:42px;height:42px}}
+
+/* Frente H (#152) — tokens do painel e correções de contraste, foco e alvo.
+   Não redesenha o portal. Escurece texto que ficava abaixo de 4,5,
+   troca o anel de foco dourado sobre fundo claro e garante 44 px
+   nas classes globais. Módulos de outras frentes não são editados. */
+:root {
+  --ds-surface: var(--color-creme);
+  --ds-surface-raised: #fff9f3;
+  --ds-surface-inverse: var(--color-marrom);
+  --ds-edge: #9a7355;
+  --ds-text: #4a2612;
+  --ds-text-muted: #6e4a36;
+  --ds-text-on-inverse: #f7ede0;
+  --ds-bronze-text: #7a4a16;
+  --ds-focus-ring: #4a2612;
+  --ds-focus-on-inverse: #f7ede0;
+  --ds-radius-sm: 0.5rem;
+  --ds-radius-md: 0.75rem;
+  --ds-radius-lg: 1rem;
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.5rem;
+  --ds-space-6: 2rem;
+  --ds-space-7: 3rem;
+  --ds-space-8: 4rem;
+  --ds-font-title: var(--font-title);
+  --ds-font-body: var(--font-body);
+  --ds-target: 2.75rem;
+  --color-ink-muted: #6e4a36;
+  --color-bronze-text: #7a4a16;
+  --color-on-accent: #4a2612;
+}
+
+.section-kicker,
+.section-note a,
+.eyebrow,
+.page-foot a,
+.member-card-church,
+.pages-caveat a {
+  color: var(--color-bronze-text);
+}
+
+.side-caption {
+  color: #e7d3c0;
+}
+
+.topbar-meta {
+  color: #5c4030;
+}
+
+.sidebar-foot > span {
+  color: #e7d3c0;
+}
+
+.btn,
+.nav-item,
+.site-nav a,
+.skip-link,
+.mobile-bottom-link,
+.topbar-profile {
+  min-height: var(--ds-target);
+}
+
+.topbar-profile {
+  width: var(--ds-target);
+  min-width: var(--ds-target);
+  height: var(--ds-target);
+}
+
+.mobile-bottom-link {
+  color: #5c4030;
+}
+
+.mobile-bottom-link span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.site-header,
+.hero-title,
+.hero-lede,
+.hero-brand-name,
+.site-brand-name {
+  min-width: 0;
+}
+
+.hero-title,
+.hero-lede,
+.hero-brand-name,
+.site-brand-name,
+h1,
+h2,
+h3 {
+  overflow-wrap: break-word;
+}
+
+.btn-primary:focus-visible,
+.mobile-bottom-link:focus-visible,
+.skip-link:focus,
+.btn:focus-visible,
+.site-nav a:focus-visible {
+  outline: 3px solid var(--ds-focus-ring);
+  outline-offset: 3px;
+}
+
+.nav-item:focus-visible {
+  outline: 3px solid var(--ds-focus-on-inverse);
+  outline-offset: 3px;
+}
+

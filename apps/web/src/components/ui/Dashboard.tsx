@@ -58,11 +58,20 @@ export function StatusBadge({ tone, children }: { tone: BadgeTone; children: Rea
   return <span className={[styles.badge, badgeClass[tone]].join(" ")}>{children}</span>;
 }
 
-export function EmptyState({ title, message }: { title: string; message: string }) {
+export function EmptyState({
+  title,
+  message,
+  action,
+}: {
+  title: string;
+  message: string;
+  action?: ReactNode;
+}) {
   return (
     <div className={styles.empty}>
       <strong>{title}</strong>
       <p>{message}</p>
+      {action ? <div className={styles.pageActions}>{action}</div> : null}
     </div>
   );
 }
