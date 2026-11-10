@@ -78,7 +78,9 @@ function displayError(error: unknown): string {
   if (!(error instanceof Error)) return "Não foi possível concluir. Confira os dados e tente novamente.";
   if (/\(401\)|401|expired|expirad|JWT/.test(error.message)) return "Sua sessão expirou. Entre novamente.";
   if (/\(403\)|403|permissão|permiss/.test(error.message)) return "Seu perfil não pode executar esta operação.";
-  if (/\(409\)|409/.test(error.message)) return "Existe um conflito de cadastro ou de etapa. Atualize a lista antes de continuar.";
+  if (/CREDENTIAL_NOT_ELIGIBLE|credentialEligible=false|admissão pastoral não aprovada/i.test(error.message)) return "A admissão ainda precisa de aprovação pastoral antes da emissão da carteirinha.";
+  if (/Já existe carteirinha ativa/i.test(error.message)) return "Esta pessoa já possui uma carteirinha ativa. Abra a credencial existente antes de solicitar outra.";
+  if (/\(409\)|409/.test(error.message)) return "O registro entrou em conflito com uma alteração existente. Atualize os dados e confira a etapa atual.";
   return "Não foi possível concluir. Atualize a lista e tente novamente.";
 }
 
@@ -256,23 +258,30 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     }
   }
 
-  async function run(action: () => Promise<unknown>, message: string) {
-    if (!token) return;
+  async function run(action: () => Promise<unknown>, message: string): Promise<boolean> {
+    if (!token) return false;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await action();
-      await refresh(token);
-      setNotice(message);
+      try {
+        await refresh(token);
+        setNotice(message);
+      } catch {
+        // A gravação já foi concluída: não anunciar falha de gravação por erro na releitura.
+        setNotice(message + " Não foi possível atualizar a lista agora; recarregue a página para conferir.");
+      }
+      return true;
     } catch (err) {
       setError(displayError(err));
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  function createAdmission(event: FormEvent<HTMLFormElement>) {
+  async function createAdmission(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !secretary) return;
     const name = newName.trim();
@@ -281,12 +290,14 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       setError("Use um nome e um e-mail terminado em @example.test. Este ambiente não recebe cadastro real.");
       return;
     }
-    void run(
+    const completed = await run(
       () => apiPost("/admissions", token, { displayName: name, email, modality }),
       "Protocolo aberto.",
     );
-    setNewName("");
-    setNewEmail("");
+    if (completed) {
+      setNewName("");
+      setNewEmail("");
+    }
   }
 
   function nextAdmission(admission: Admission) {
