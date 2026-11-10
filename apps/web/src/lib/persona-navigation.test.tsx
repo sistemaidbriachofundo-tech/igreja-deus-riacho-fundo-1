@@ -8,7 +8,8 @@ import type { AuthUser } from "./api";
 import { canViewDasModule, DAS_MODULES } from "./das-operations";
 import {
   BUILTIN_ROLES, PERSONA_AREAS, accountInitials, areaAllowed, areasForRoles,
-  expectedAccessStatus, landingForRoles, personaLabel,
+  canListMinistries, expectedAccessStatus, landingForRoles, ministryContextHref,
+  ministrySubmenu, parseMinistryNav, personaLabel, railForRoles,
 } from "./persona-navigation";
 
 const repoRoot = join(__dirname, "../../../..");
@@ -206,5 +207,132 @@ describe("shell sem flash de módulo restrito", () => {
       );
       expect(blocked).not.toContain("LISTA-DE-PESSOAS");
     }
+  });
+});
+
+const MINISTRY_ROLES = ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"] as const;
+const WITHOUT_MINISTRY_LIST = ["TESOURARIA", "MEMBRO", "EDITOR_SITE", "PUBLICADOR_SITE"] as const;
+
+describe("grupo Ministérios e ferramentas", () => {
+  it("lista ministérios só com o que a API devolveu, sem saldo nem nome inventado", () => {
+    expect(parseMinistryNav({
+      ministries: [
+        { id: "m-homens", name: "Homens", slug: "homens", balance: "999,00", costCenter: "cc-1" },
+        { id: "m-louvor", name: "Louvor", slug: "louvor" },
+        { id: "", name: "Sem id", slug: "vazio" },
+        { id: "m-louvor", name: "Louvor repetido", slug: "louvor" },
+      ],
+    })).toEqual([
+      { id: "m-homens", name: "Homens", slug: "homens" },
+      { id: "m-louvor", name: "Louvor", slug: "louvor" },
+    ]);
+    expect(parseMinistryNav(null)).toEqual([]);
+    expect(parseMinistryNav({ ministries: "não" })).toEqual([]);
+    expect(JSON.stringify(parseMinistryNav({ ministries: [{ id: "1", name: "Jovens", slug: "jovens", note: "501" }] }))).not.toContain("501");
+  });
+
+  it("abre Louvor e Atmosfera na superfície que já existe e os demais no vínculo autorizado", () => {
+    expect(ministryContextHref({ id: "m-louvor", slug: "Louvor" })).toBe("/app/servir/louvor/");
+    expect(ministryContextHref({ id: "m-demo", slug: "louvor-demo" })).toBe("/app/servir/louvor/");
+    expect(ministryContextHref({ id: "m-atm", slug: "atmosfera" })).toBe("/app/servir/atmosfera/");
+    expect(ministryContextHref({ id: "m homens", slug: "homens" })).toBe("/app/ministerios/?ministerio=m%20homens");
+  });
+
+  it("não duplica o destino quando a API já trouxe o mesmo ministério", () => {
+    const areas = areasForRoles(["LIDER_MINISTERIO"]);
+    const entries = ministrySubmenu(areas, [
+      { id: "m-homens", name: "Homens", slug: "homens" },
+      { id: "m-louvor", name: "Louvor", slug: "louvor" },
+      { id: "m-jovens", name: "Jovens", slug: "jovens" },
+    ]);
+    expect(entries.map(entry => entry.label)).toEqual([
+      "Homens", "Louvor", "Jovens", "Vínculo de ministério", "Escalas de Atmosfera",
+    ]);
+    expect(entries.filter(entry => entry.href === "/app/servir/louvor/")).toHaveLength(1);
+  });
+
+  it.each(BUILTIN_ROLES)("decide o grupo de ministérios e o canal conforme o papel %s", role => {
+    const allowed = (MINISTRY_ROLES as readonly string[]).includes(role);
+    expect(canListMinistries([role])).toBe(allowed);
+    const tools = railForRoles([role]).map(link => link.label);
+    expect(tools).toContain("Agenda pública");
+    expect(tools).not.toContain("Gestão de ministérios");
+    if (role === "PASTOR" || role === "SECRETARIA" || role === "PLATFORM_ADMIN") {
+      expect(tools).toContain("Canal da igreja");
+    } else {
+      expect(tools).not.toContain("Canal da igreja");
+    }
+    if (role === "PLATFORM_ADMIN") expect(tools).toContain("Evolução do sistema");
+    else expect(tools).not.toContain("Evolução do sistema");
+  });
+
+  it("mantém o canal na pré-visualização e esconde da tesouraria e do membro", () => {
+    expect(railForRoles([], true).map(link => link.label)).toContain("Canal da igreja");
+    expect(WITHOUT_MINISTRY_LIST.every(role => canListMinistries([role]) === false)).toBe(true);
+  });
+});
+
+describe("shell colapsável para os oito papéis", () => {
+  const shellSource = readFileSync(join(repoRoot, "apps/web/src/components/AppShell.tsx"), "utf8");
+  const shellCss = readFileSync(join(repoRoot, "apps/web/src/components/app-shell.module.css"), "utf8");
+
+  it("recolhe com hambúrguer, gaveta e saída discreta, sem canal no menu principal", () => {
+    expect(shellSource).toContain('aria-expanded={menuExpanded}');
+    expect(shellSource).toContain('aria-controls="app-navigation-rail"');
+    expect(shellSource).toContain('aria-label="Fechar o menu lateral"');
+    expect(shellSource).toContain("Encerrar esta sessão?");
+    expect(shellSource).toContain("data-nav-group=\"ministerios\"");
+    expect(shellSource).not.toContain("CANAIS E COMUNIDADE");
+    expect(shellSource).not.toContain("501");
+    expect(shellSource).not.toContain("cost-center");
+    expect(shellCss).toContain("data-rail=\"collapsed\"");
+    expect(shellCss).toContain("data-drawer=\"open\"");
+    expect(shellCss).toContain("--shell-target");
+    expect(shellCss).toContain("@media(max-width:970px)");
+    expect(shellCss).toContain("prefers-reduced-motion");
+  });
+
+  it.each(BUILTIN_ROLES)("monta o menu de %s sem código de depuração nem centro de custo", role => {
+    process.env.NEXT_PUBLIC_HML_ENABLED = "true";
+    const html = renderToStaticMarkup(
+      <AppShell active="visao" meta="Início" viewer={account(role, `${role.toLowerCase()}@example.test`)}>
+        <p>PAINEL-{role}</p>
+      </AppShell>,
+    );
+    expect(html).toContain(`PAINEL-${role}`);
+    expect(html).toContain(`${role.toLowerCase()}@example.test`);
+    expect(html).toContain("Sair");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('data-drawer="closed"');
+    expect(html).toContain("Ferramentas");
+    expect(html).not.toContain("CANAIS E COMUNIDADE");
+    expect(html).not.toContain("501");
+    expect(html).not.toContain("centro de custo");
+    expect(html).not.toContain("Encerrar esta sessão?");
+    const seesMinistry = (MINISTRY_ROLES as readonly string[]).includes(role);
+    if (seesMinistry) {
+      expect(html).toContain('data-nav-group="ministerios"');
+      expect(html).toContain("Vínculo de ministério");
+    } else {
+      expect(html).not.toContain('data-nav-group="ministerios"');
+      expect(html).not.toContain("/app/ministerios/");
+    }
+    if (role !== "TESOURARIA" && role !== "PLATFORM_ADMIN" && role !== "SECRETARIA") {
+      expect(hrefs(html)).not.toContain("/app/tesouraria/");
+    }
+  });
+
+  it("não escreve status técnico no vínculo quando o grupo está na página do ministério", () => {
+    process.env.NEXT_PUBLIC_HML_ENABLED = "true";
+    const html = renderToStaticMarkup(
+      <AppShell active="ministerios" meta="Ministérios" viewer={account("LIDER_MINISTERIO")}>
+        <p>EQUIPE</p>
+      </AppShell>,
+    );
+    expect(html).toContain("EQUIPE");
+    expect(html).toContain("Equipe do ministério.");
+    expect(html).not.toContain("501");
+    expect(html).not.toContain("schema");
+    expect(html).not.toContain("endpoint");
   });
 });

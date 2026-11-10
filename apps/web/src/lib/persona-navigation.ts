@@ -137,8 +137,8 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     label: "Vínculo de ministério",
     short: "Vínculo",
     icon: "family",
-    hint: "Quem lidera ou secretaria pode abrir. A gravação do vínculo formal ainda responde 501",
-    ribbon: { code: "08 / MINISTÉRIOS", title: "Vínculo ainda não grava.", detail: "A API responde 501. Nada é persistido por esta tela." },
+    hint: "Equipe e vínculo dos ministérios autorizados para este perfil",
+    ribbon: { code: "08 / MINISTÉRIOS", title: "Equipe do ministério.", detail: "A lista mostra só o que este perfil pode abrir." },
     roles: MINISTRY_LEAD,
     limitation: "O vínculo formal ainda não grava: a API responde 501.",
     probe: {
@@ -242,13 +242,112 @@ export type RailLink = {
   roles: readonly BuiltinRole[] | "any";
 };
 
+const COMMUNICATION = ["PASTOR", "SECRETARIA", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
+
+/** Ferramentas fora do menu principal. O canal só aparece para quem já pode abrir comunicação. */
 export const RAIL_LINKS: readonly RailLink[] = [
   { href: "/eventos/", label: "Agenda pública", icon: "calendar", roles: "any" },
-  { href: "/app/operacao/", label: "Gestão de ministérios", icon: "family", roles: OPERATION },
   { href: "/", label: "Portal da igreja", icon: "home", roles: "any" },
   { href: "/status/", label: "Evolução do sistema", icon: "activity", roles: ["PLATFORM_ADMIN"] },
-  { href: "https://www.youtube.com/@IDBRiachoFundo1", label: "Canal da igreja", icon: "activity", external: true, roles: "any" },
+  { href: "https://www.youtube.com/@IDBRiachoFundo1", label: "Canal da igreja", icon: "activity", external: true, roles: COMMUNICATION },
 ];
+
+/** Itens que o grupo Ministérios reúne. A operação continua sendo outro módulo. */
+export const MINISTRY_GROUP_KEYS = ["ministerios", "escalas", "atmosfera"] as const;
+
+export type MinistryGroupKey = (typeof MINISTRY_GROUP_KEYS)[number];
+
+export type MinistryNavItem = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+const MINISTRY_LIST_ROLES = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
+
+export const SHELL_RAIL_STORAGE_KEY = "idriacho1.shell.rail";
+export const SHELL_MINISTRY_STORAGE_KEY = "idriacho1.shell.ministries";
+
+export function readRailPreference(value: string | null): "expanded" | "collapsed" {
+  return value === "collapsed" ? "collapsed" : "expanded";
+}
+
+export function readGroupPreference(value: string | null, childActive: boolean): boolean {
+  if (value === "open") return true;
+  if (value === "closed") return false;
+  return childActive;
+}
+
+/** A listagem GET /ministries não inclui tesouraria, membro nem edição do site. */
+export function canListMinistries(roles: readonly string[], preview = false): boolean {
+  if (preview) return true;
+  return roles.some(role => (MINISTRY_LIST_ROLES as readonly string[]).includes(role));
+}
+
+export function isMinistryGroupKey(key: string): key is MinistryGroupKey {
+  return (MINISTRY_GROUP_KEYS as readonly string[]).includes(key);
+}
+
+/**
+ * Contexto do ministério. Louvor e Atmosfera já têm superfície própria.
+ * Os demais apontam para o vínculo com o id devolvido pela API, sem nome fixo no código.
+ */
+export function ministryContextHref(item: Pick<MinistryNavItem, "id" | "slug">): string {
+  const slug = item.slug.trim().toLowerCase();
+  if (slug === "louvor" || slug === "louvor-demo") return "/app/servir/louvor/";
+  if (slug === "atmosfera") return "/app/servir/atmosfera/";
+  return `/app/ministerios/?ministerio=${encodeURIComponent(item.id)}`;
+}
+
+/** Aceita só id, nome e slug. Saldo, centro de custo e campos extras não entram no menu. */
+export function parseMinistryNav(payload: unknown): MinistryNavItem[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  const rows = (payload as { ministries?: unknown }).ministries;
+  if (!Array.isArray(rows)) return [];
+  const items: MinistryNavItem[] = [];
+  const seen = new Set<string>();
+  for (const item of rows) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { id?: unknown; name?: unknown; slug?: unknown };
+    const id = typeof row.id === "string" ? row.id.trim() : "";
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    const slug = typeof row.slug === "string" ? row.slug.trim() : "";
+    if (!id || !name || !slug || seen.has(id)) continue;
+    seen.add(id);
+    items.push({ id, name, slug });
+  }
+  return items;
+}
+
+export type MinistrySubmenuEntry = {
+  key: string;
+  href: string;
+  label: string;
+  icon: NavIcon;
+};
+
+/**
+ * Com a lista da API, o submenu usa esses nomes.
+ * O atalho estático some quando o mesmo destino já veio no retorno, para não duplicar Louvor ou Atmosfera.
+ * Sem lista, permanecem só os atalhos que o papel já podia abrir.
+ */
+export function ministrySubmenu(
+  areas: readonly PersonaArea[],
+  loaded: readonly MinistryNavItem[] | null,
+): MinistrySubmenuEntry[] {
+  const apiItems = loaded ?? [];
+  const apiHrefs = new Set(apiItems.map(item => ministryContextHref(item)));
+  const dynamic = apiItems.map(item => ({
+    key: `ministry:${item.id}`,
+    href: ministryContextHref(item),
+    label: item.name,
+    icon: "family" as const,
+  }));
+  const stable = areas
+    .filter(area => isMinistryGroupKey(area.key) && !apiHrefs.has(area.href))
+    .map(area => ({ key: area.key, href: area.href, label: area.label, icon: area.icon }));
+  return [...dynamic, ...stable];
+}
 
 export type AppDestination = "/app/" | "/app/operacao/" | "/app/site/" | "/app/servir/meu-espaco/";
 
