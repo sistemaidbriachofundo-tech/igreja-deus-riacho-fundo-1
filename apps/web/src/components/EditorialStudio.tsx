@@ -7,10 +7,11 @@ import { SiteMediaLibrary } from "./SiteMediaLibrary";
 import { apiLogin, clearToken, loadStoredToken, storeToken } from "../lib/api";
 import { publicApiBase } from "../lib/portal-live-data";
 import { validSiteImage } from "../lib/site-layout";
+import { advanceOptions as transitions, contentKindLabels, mayPublishRecord, publishLabel, type EditorialStatus } from "./editorial-access";
 import s from "./editorial-studio.module.css";
 
 type Kind = "NEWS"|"BANNER"|"HOME_BLOCK"|"PAGE"|"MINISTRY_CONTENT";
-type Status = "RASCUNHO"|"REVISAO"|"APROVADO"|"PUBLICADO"|"ARQUIVADO";
+type Status = EditorialStatus;
 type Content = { id:string;kind:Kind;status:Status;title:string;slug:string;summary:string|null;body:string|null;ministryId:string|null;imageUrl:string|null };
 type Revision = { id:string;fromStatus:Status;toStatus:Status;note:string|null;createdAt:string };
 type ReaderView = { title:string;summary:string|null;body:string|null } | { missing:true };
@@ -20,10 +21,6 @@ type Tab = "conteudos"|"eventos"|"ministerios"|"voluntarios";
 type InterestStage = "INTERESSE"|"AVALIACAO"|"APROVACAO"|"EQUIPE"|"DISPONIBILIDADE"|"ESCALA";
 type VolunteerInterest = {id:string;displayName:string;email:string;message:string|null;ministryId:string;stage:InterestStage;status:"OPEN"|"CLOSED"|"REJECTED";createdAt:string};
 const nextInterestStage:Partial<Record<InterestStage, InterestStage>>={INTERESSE:"AVALIACAO",AVALIACAO:"APROVACAO"};
-const transitions:Record<Status,Status[]> = {
-  RASCUNHO:["REVISAO","ARQUIVADO"],REVISAO:["RASCUNHO","APROVADO","ARQUIVADO"],
-  APROVADO:["REVISAO","PUBLICADO","ARQUIVADO"],PUBLICADO:["REVISAO","ARQUIVADO"],ARQUIVADO:["RASCUNHO"],
-};
 const labels:Record<Status,string> = {RASCUNHO:"Rascunho",REVISAO:"Em revisão",APROVADO:"Aprovado",PUBLICADO:"Publicado",ARQUIVADO:"Arquivado"};
 const blankContent={kind:"NEWS" as Kind,title:"",slug:"",summary:"",body:"",ministryId:"",imageUrl:""};
 const blankEvent={name:"",slug:"",startsAt:"",description:"",locationText:"",ministryId:"",featuredOnHome:false};
@@ -42,14 +39,14 @@ function localDateTime(value:string) {
 }
 async function request<T>(token:string,path:string,method:"GET"|"POST"|"PATCH"="GET",payload?:unknown):Promise<T> {
   const base=publicApiBase(process.env.NEXT_PUBLIC_API_URL);
-  if(!base)throw new Error("API autenticada não configurada.");
+  if(!base)throw new Error("O estúdio ainda não está conectado a este ambiente.");
   if(!/^\/(?:cms\/contents|events|ministries|volunteer-interests)(?:\/[a-zA-Z0-9-]+)*$/.test(path))throw new Error("Rota não permitida.");
   const response=await fetch(base+path,{
     method,mode:"cors",credentials:"omit",cache:"no-store",
     headers:{Authorization:"Bearer "+token,Accept:"application/json",...(payload===undefined?{}:{"Content-Type":"application/json"})},
     body:payload===undefined?undefined:JSON.stringify(payload),
   });
-  if(!response.ok)throw new Error(response.status===401?"Sessão expirada. Entre novamente.":response.status===403?"Seu perfil não tem permissão.":"Falha da API ("+response.status+").");
+  if(!response.ok)throw new Error(response.status===401?"Sessão expirada. Entre novamente.":response.status===403?"Seu perfil não tem permissão.":"Não foi possível concluir ("+response.status+").");
   return await response.json() as T;
 }
 export function EditorialStudio() {
@@ -62,22 +59,32 @@ export function EditorialStudio() {
   const [contentId,setContentId]=useState<string|null>(null),[eventId,setEventId]=useState<string|null>(null),[ministryId,setMinistryId]=useState<string|null>(null);
   const [canPublish,setCanPublish]=useState(false),[revisions,setRevisions]=useState<Revision[]>([]),[reader,setReader]=useState<ReaderView|null>(null);
   const [content,setContent]=useState(blankContent),[eventData,setEventData]=useState(blankEvent),[ministryData,setMinistryData]=useState(blankMinistry);
+  const [sectionNote,setSectionNote]=useState("");
 
   useEffect(()=>{setToken(loadStoredToken());setChecking(false);},[]);
   const reload=useCallback(async(t:string)=>{
-    const [a,b,c,d]=await Promise.all([
+    const [contentsResult,eventsResult,ministriesResult,interestsResult]=await Promise.allSettled([
       request<{contents:Content[];permissions?:{canPublish?:boolean}}>(t,"/cms/contents"),
       request<{events:PortalEvent[]}>(t,"/events"),
       request<{ministries:Ministry[]}>(t,"/ministries"),
       request<{interests:VolunteerInterest[]}>(t,"/volunteer-interests"),
     ]);
-    setContents(a.contents??[]);setCanPublish(a.permissions?.canPublish===true);setEvents(b.events??[]);setMinistries(c.ministries??[]);
-    setInterests(d.interests??[]);
+    if(contentsResult.status==="rejected") throw contentsResult.reason;
+    const notes:string[]=[];
+    setContents(contentsResult.value.contents??[]);
+    setCanPublish(contentsResult.value.permissions?.canPublish===true);
+    if(eventsResult.status==="fulfilled") setEvents(eventsResult.value.events??[]);
+    else { setEvents([]); notes.push("A agenda não está disponível para este perfil."); }
+    if(ministriesResult.status==="fulfilled") setMinistries(ministriesResult.value.ministries??[]);
+    else { setMinistries([]); notes.push("Os ministérios não estão disponíveis para este perfil."); }
+    if(interestsResult.status==="fulfilled") setInterests(interestsResult.value.interests??[]);
+    else { setInterests([]); notes.push("O voluntariado não está disponível para este perfil."); }
+    setSectionNote(notes.join(" "));
   },[]);
   useEffect(()=>{
     if(!token||!configured)return;
     let cancelled=false;
-    void reload(token).catch((err:unknown)=>{if(!cancelled)setError(err instanceof Error?err.message:"API indisponível.");});
+    void reload(token).catch((err:unknown)=>{if(!cancelled)setError(err instanceof Error?err.message:"O estúdio não respondeu.");});
     return()=>{cancelled=true;};
   },[token,configured,reload]);
 
@@ -85,7 +92,7 @@ export function EditorialStudio() {
     e.preventDefault();if(!configured)return;
     setBusy(true);setError("");
     try {const result=await apiLogin(email.trim(),password);storeToken(result.accessToken);setToken(result.accessToken);setPassword("");}
-    catch{setError("Falha ao autenticar. Verifique suas credenciais e a API.");}
+    catch{setError("Não foi possível entrar. Confira e-mail e senha.");}
     finally{setBusy(false);}
   }
   async function perform(work:()=>Promise<unknown>,success:string){
@@ -161,11 +168,11 @@ export function EditorialStudio() {
   return <AppShell active="editorial" editorial meta="Estúdio do portal">
     <div className={s.page}>
       <header className={s.hero}>
-        <div><span className={s.kicker}>CHURCH OS / CONTEÚDO OFICIAL</span><h1>Uma igreja viva.<br/><em>Conteúdo com propósito.</em></h1>
-          <p>Gerencie as informações públicas com autenticação, aprovação editorial e permissões do Church OS.</p></div>
+        <div><span className={s.kicker}>CONTEÚDO DO SITE</span><h1>Uma igreja viva.<br/><em>Conteúdo com propósito.</em></h1>
+          <p>Prepare notícias, agenda e páginas. O rascunho fica interno até um publicador autorizar.</p></div>
         <Link href="/novidades/" className={s.heroLink}>Ver novidades <span aria-hidden="true">↗</span></Link>
       </header>
-      {!configured&&<section className={s.warning} role="status"><strong>Backend editorial ainda não conectado</strong><p>Esta interface depende de uma API NestJS homologada por HTTPS, definida em NEXT_PUBLIC_API_URL. Ela não simula publicações nem cria conteúdo local.</p></section>}
+      {!configured&&<section className={s.warning} role="status"><strong>Estúdio ainda não conectado</strong><p>Nada é publicado por esta tela enquanto o ambiente de homologação não estiver ligado. Nenhum conteúdo é inventado aqui.</p></section>}
       {configured&&checking&&<p role="status">Verificando sessão…</p>}
       {configured&&!checking&&!token&&<section className={s.loginWrap}>
         <div><span className={s.kicker}>ACESSO RESTRITO</span><h2>Entre no estúdio</h2><p>Use sua conta com permissão para editar o conteúdo da igreja. Nada fica publicado sem aprovação.</p></div>
@@ -174,7 +181,7 @@ export function EditorialStudio() {
           <button type="submit" className={s.primary} disabled={busy}>Entrar com segurança ↗</button></form>
       </section>}
       {configured&&token&&<div className={s.workspace}>
-        <div className={s.bar}><span>Dados reais da API autenticada • nenhuma alteração fictícia</span>
+        <div className={s.bar}><span>Homologação • o leitor só vê o que foi publicado</span>
           <div><button type="button" disabled={busy} onClick={()=>void perform(()=>reload(token),"Informações atualizadas.")}>Atualizar ↻</button>
           <button type="button" onClick={()=>{clearToken();setToken(null);setContents([]);setEvents([]);setMinistries([]);setInterests([]);}}>Sair</button></div></div>
         <div className={s.metrics}>
@@ -187,32 +194,33 @@ export function EditorialStudio() {
           {([{key:"conteudos",label:"Notícias e páginas"},{key:"eventos",label:"Agenda"},{key:"ministerios",label:"Ministérios"},{key:"voluntarios",label:"Voluntariado"}] as const).map(item=>
             <button type="button" key={item.key} aria-pressed={tab===item.key} className={tab===item.key?s.tabActive:s.tab} onClick={()=>{setTab(item.key);setError("");setInfo("");}}>{item.label}</button>)}
         </div>
+        {sectionNote&&<p className={s.warning} role="status">{sectionNote}</p>}
         {tab==="conteudos"&&<div className={s.editor}>
           <div className={s.list}><div className={s.listTitle}><strong>Publicações</strong><button type="button" onClick={()=>{setContentId(null);setContent(blankContent);}}>+ Novo</button></div>
             {contents.length===0&&<p>Nenhum conteúdo encontrado.</p>}
             {contents.map(item=><button type="button" key={item.id} className={item.id===contentId?s.selected:s.item} onClick={()=>chooseContent(item)}>
-              <small>{item.kind} • {item.status}</small><strong>{item.title}</strong><span>/{item.slug}</span></button>)}
+              <small>{contentKindLabels[item.kind]} • {labels[item.status]}</small><strong>{item.title}</strong><span>/{item.slug}</span></button>)}
           </div>
           <div className={s.editorBody}><div className={s.editorHead}><span className={s.kicker}>REDAÇÃO E GOVERNANÇA</span><h2>{currentContent?"Editar conteúdo":"Novo conteúdo"}</h2></div>
             <form className={s.form} onSubmit={saveContent}>
               <div className={s.pair}><label>Tipo<select disabled={Boolean(currentContent)} value={content.kind} onChange={e=>setContent({...content,kind:e.target.value as Kind})}>
-                {(["NEWS","BANNER","HOME_BLOCK","PAGE","MINISTRY_CONTENT"] as Kind[]).map(k=><option key={k} value={k}>{k}</option>)}</select></label>
+                {(["NEWS","BANNER","HOME_BLOCK","PAGE","MINISTRY_CONTENT"] as Kind[]).map(k=><option key={k} value={k}>{contentKindLabels[k]}</option>)}</select></label>
                 <label>Identificador<input disabled={Boolean(currentContent)} value={content.slug} placeholder="Gerado pelo título" onChange={e=>setContent({...content,slug:e.target.value})}/></label></div>
               <label>Título<input required value={content.title} onChange={e=>setContent({...content,title:e.target.value})}/></label>
               <label>Resumo<textarea rows={3} value={content.summary} onChange={e=>setContent({...content,summary:e.target.value})}/></label>
               <label>Texto da publicação <small>Texto puro, sem execução de HTML</small><textarea rows={7} value={content.body} onChange={e=>setContent({...content,body:e.target.value})}/></label>
               <div className={s.mediaPick}><span>Imagem da biblioteca</span>
-                {content.imageUrl?<p>Selecionada no armazenamento: {content.imageUrl}</p>:<p>Nenhuma foto selecionada. O envio valida o arquivo e não usa um endereço colado.</p>}
+                {content.imageUrl?<p>Selecionada no armazenamento: {content.imageUrl}</p>:<p>Nenhuma foto selecionada. O envio só acontece quando o armazenamento deste ambiente está ligado. Sem isso, nenhuma foto é inventada.</p>}
                 {content.imageUrl&&<button type="button" onClick={()=>setContent({...content,imageUrl:""})}>Remover imagem</button>}
                 <SiteMediaLibrary token={token} onChoose={url=>setContent({...content,imageUrl:url})}/>
               </div>
               {content.kind==="MINISTRY_CONTENT"&&<label>Ministério<select required disabled={Boolean(currentContent)} value={content.ministryId} onChange={e=>setContent({...content,ministryId:e.target.value})}><option value="">Selecione</option>{ministries.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}
               <button type="submit" className={s.primary} disabled={busy}>{currentContent?"Salvar alterações":"Criar rascunho"}</button>
             </form>
-            {currentContent&&<div className={s.approval}><strong>Fluxo editorial: {currentContent.status}</strong><p>O backend valida cada transição e registra o histórico. O editor prepara. O publicador revisa e publica.</p>
+            {currentContent&&<div className={s.approval}><strong>Fluxo editorial: {labels[currentContent.status]}</strong><p>O editor prepara. O publicador revisa e publica. O leitor não vê o rascunho.</p>
               {!canPublish&&<p>Seu perfil não publica. Aprovar e colocar no ar fica com o publicador.</p>}
-              <div>{transitions[currentContent.status].filter(status=>canPublish||(status!=="APROVADO"&&status!=="PUBLICADO"&&currentContent.status!=="PUBLICADO")).map(status=><button type="button" key={status} disabled={busy}
-                onClick={()=>void perform(()=>request(token,"/cms/contents/"+currentContent.id+"/advance","POST",{toStatus:status}),"Status atualizado: "+status)}>{labels[status]} ↗</button>)}</div>
+              <div>{transitions(currentContent.status, canPublish).map(status=><button type="button" key={status} disabled={busy}
+                onClick={()=>void perform(()=>request(token,"/cms/contents/"+currentContent.id+"/advance","POST",{toStatus:status}),"Situação atualizada: "+labels[status])}>{labels[status]}</button>)}</div>
               <button type="button" disabled={busy} onClick={()=>void viewAsReader()}>Ver como leitor</button>
               {reader&&("missing" in reader
                 ? <p className={s.reader} data-reader="missing">O leitor não encontra esta publicação. O rascunho permanece interno.</p>
@@ -225,7 +233,7 @@ export function EditorialStudio() {
           <div className={s.list}><div className={s.listTitle}><strong>Eventos</strong><button type="button" onClick={()=>{setEventId(null);setEventData(blankEvent);}}>+ Novo</button></div>
             {events.length===0&&<p>Nenhum evento cadastrado.</p>}
             {events.map(item=><button type="button" key={item.id} className={item.id===eventId?s.selected:s.item} onClick={()=>chooseEvent(item)}>
-              <small>{item.status}</small><strong>{item.name}</strong><span>{new Date(item.startsAt).toLocaleDateString("pt-BR")}</span></button>)}
+              <small>{publishLabel(item.status)}</small><strong>{item.name}</strong><span>{new Date(item.startsAt).toLocaleDateString("pt-BR")}</span></button>)}
           </div>
           <div className={s.editorBody}><div className={s.editorHead}><span className={s.kicker}>AGENDA CONFIRMADA</span><h2>{currentEvent?"Editar evento":"Novo evento"}</h2></div>
             <form className={s.form} onSubmit={saveEvent}>
@@ -238,9 +246,11 @@ export function EditorialStudio() {
               <label className={s.checkbox}><input type="checkbox" checked={eventData.featuredOnHome} onChange={e=>setEventData({...eventData,featuredOnHome:e.target.checked})}/>Destacar na Home quando publicado</label>
               <button type="submit" className={s.primary} disabled={busy}>{currentEvent?"Salvar evento":"Criar rascunho de evento"}</button>
             </form>
-            {currentEvent&&<div className={s.approval}><strong>Situação: {currentEvent.status}</strong><p>Datas e locais precisam estar confirmados antes de publicar.</p><div>
-              {currentEvent.status!=="PUBLISHED"&&<button disabled={busy} type="button" onClick={()=>void perform(()=>request(token,"/events/"+currentEvent.id+"/publish","POST"),"Evento publicado.")}>Publicar ↗</button>}
-              {currentEvent.status==="PUBLISHED"&&<button disabled={busy} type="button" onClick={()=>void perform(()=>request(token,"/events/"+currentEvent.id+"/cancel","POST"),"Evento cancelado.")}>Cancelar evento</button>}
+            {currentEvent&&<div className={s.approval}><strong>Situação: {publishLabel(currentEvent.status)}</strong><p>A agenda pública mostra somente o que estiver publicado.</p>
+              {!canPublish&&<p>Seu perfil não publica. O rascunho permanece interno até um publicador autorizar.</p>}
+              <div>
+              {mayPublishRecord(canPublish, currentEvent.status)&&<button disabled={busy} type="button" onClick={()=>void perform(()=>request(token,"/events/"+currentEvent.id+"/publish","POST"),"Evento publicado.")}>Publicar</button>}
+              {canPublish&&currentEvent.status==="PUBLISHED"&&<button disabled={busy} type="button" onClick={()=>void perform(()=>request(token,"/events/"+currentEvent.id+"/cancel","POST"),"Evento cancelado.")}>Cancelar evento</button>}
             </div></div>}
           </div>
         </div>}
@@ -248,7 +258,7 @@ export function EditorialStudio() {
           <div className={s.list}><div className={s.listTitle}><strong>Ministérios</strong></div>
             {ministries.length===0&&<p>Nenhum ministério disponível.</p>}
             {ministries.map(item=><button type="button" key={item.id} className={item.id===ministryId?s.selected:s.item} onClick={()=>chooseMinistry(item)}>
-              <small>{item.publishStatus} • {item.visibility}</small><strong>{item.name}</strong><span>/{item.slug}</span></button>)}
+              <small>{publishLabel(item.publishStatus)}</small><strong>{item.name}</strong><span>/{item.slug}</span></button>)}
           </div>
           <div className={s.editorBody}>{!currentMinistry?<p>Selecione um ministério para editar informações públicas.</p>:<>
             <div className={s.editorHead}><span className={s.kicker}>PERFIL MINISTERIAL</span><h2>{currentMinistry.name}</h2></div>
@@ -261,8 +271,9 @@ export function EditorialStudio() {
               <label>Galeria autorizada <small>Uma URL HTTPS por linha, com autorização de uso e imagem dos participantes</small><textarea rows={4} value={ministryData.galleryText} onChange={e=>setMinistryData({...ministryData,galleryText:e.target.value})}/></label>
               <button type="submit" className={s.primary} disabled={busy}>Salvar perfil</button>
             </form>
-            <div className={s.approval}><strong>Publicação: {currentMinistry.publishStatus}</strong><p>As informações são públicas somente quando autorizadas e publicadas.</p>
-              {currentMinistry.publishStatus!=="PUBLISHED"&&<div><button type="button" disabled={busy} onClick={()=>void perform(()=>request(token,"/ministries/"+currentMinistry.id+"/publish","POST"),"Ministério publicado.")}>Publicar ministério ↗</button></div>}
+            <div className={s.approval}><strong>Publicação: {publishLabel(currentMinistry.publishStatus)}</strong><p>O leitor vê o ministério somente depois da publicação.</p>
+              {!canPublish&&<p>Seu perfil não publica. O rascunho permanece interno até um publicador autorizar.</p>}
+              {mayPublishRecord(canPublish, currentMinistry.publishStatus)&&<div><button type="button" disabled={busy} onClick={()=>void perform(()=>request(token,"/ministries/"+currentMinistry.id+"/publish","POST"),"Ministério publicado.")}>Publicar ministério</button></div>}
             </div>
           </>}</div>
         </div>}
@@ -288,7 +299,7 @@ export function EditorialStudio() {
               </div>
               <div className={s.approval}>
                 <strong>Etapa: {currentInterest.stage} • Situação: {currentInterest.status}</strong>
-                <p>O acompanhamento utiliza a API protegida. Avançar para equipe e escala exige associação a pessoa e escala no Church OS, não realizada nesta interface.</p>
+                <p>O acompanhamento fica restrito a quem tem autorização. Equipe e escala só avançam quando houver vínculo formal.</p>
                 {currentInterest.status==="OPEN"&&<div>
                   {nextInterestStage[currentInterest.stage]&&<button type="button" disabled={busy} onClick={()=>void perform(
                     ()=>request(token!,"/volunteer-interests/"+currentInterest.id,"PATCH",{stage:nextInterestStage[currentInterest.stage]}),

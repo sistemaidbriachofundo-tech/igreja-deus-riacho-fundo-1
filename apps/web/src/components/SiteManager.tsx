@@ -40,7 +40,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
 
 export function SiteReaderPreview({published,device}:{published:SiteLayout|null;device:"desktop"|"mobile"}){
   if(!published){
-    return <p className={s.readerEmpty} data-reader="empty">O leitor não vê o rascunho. A Home institucional de produção permanece no fallback estático até o gate de publicação ser aprovado pelo integrador.</p>;
+    return <p className={s.readerEmpty} data-reader="empty">O leitor não vê o rascunho. A página pública só muda depois do gate de publicação.</p>;
   }
   return <div data-reader="published"><SiteLayoutCanvas layout={published} device={device}/></div>;
 }
@@ -214,10 +214,10 @@ export function SiteManager() {
       <header className={s.hero}>
         <div><span className={s.eyebrow}>ID RIACHO 1 / CENTRAL DE GESTÃO</span>
           <h1>Seu site, nas mãos <em>da sua equipe.</em></h1>
-          <p>Atualize o conteúdo visualmente, teste o resultado e publique com segurança. Sem precisar editar código ou acessar o GitHub.</p></div>
+          <p>Atualize textos e fotos, confira a prévia e publique somente com autorização.</p></div>
         <span className={s.statusPill}><UIIcon name="shield" size={16}/> Acesso por perfil</span>
       </header>
-      {!configured&&<div className={s.message}>A API editorial ainda não está configurada nesta instalação. A versão pública não aceita alterações por navegador.</div>}
+      {!configured&&<div className={s.message}>O ambiente de edição ainda não está conectado. A página pública permanece como está.</div>}
       {error&&<div className={s.error} role="alert">{error}</div>}
       {notice&&<div className={s.notice} role="status">{notice}</div>}
       {checking&&<div role="status" className={s.message}>Verificando acesso…</div>}
@@ -305,7 +305,7 @@ export function SiteManager() {
               ? <SiteReaderPreview published={published} device={previewDevice}/>
               : <SiteLayoutCanvas layout={layout} device={previewDevice}/>}
             <p className={s.previewNote}>{previewMode==="leitor"
-              ? "Esta vista usa só a versão publicada. Rascunho, histórico e autores ficam de fora. A Home de produção não muda sem o gate do integrador."
+              ? "Esta vista usa só a versão publicada. Rascunho e histórico ficam de fora. A página pública não muda sem o gate de publicação."
               : "O rascunho fica nesta tela. Salvar não publica e o leitor continua na versão anterior."}</p>
           </section>
         </div>

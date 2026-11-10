@@ -47,8 +47,13 @@ describe("telas de eventos e relatórios", () => {
     expect(html).toContain("Publicação bloqueada");
     expect(html).toContain("Registro de menor omitido");
     expect(html).toContain("Menores omitidos");
+    expect(html).toContain("Calendário");
+    expect(html).toContain("Lista");
+    expect(html).toContain("Encontro");
     expect(html).not.toContain("TESTE Menor");
+    expect(html).not.toContain("ana@example.test");
     expect(html).not.toContain("Registrar presença");
+    expect(html).not.toMatch(/\bAPI\b|\bendpoint\b|\bdemo\b|501/);
     expect(html).toContain("disabled");
   });
 
