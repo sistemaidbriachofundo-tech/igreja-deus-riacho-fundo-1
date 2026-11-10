@@ -136,7 +136,7 @@ function Congregation({
           .map((item) => (
             <li key={item.status}>
               <AppNavLink
-                href={`/app/membros/?situacao=${item.status}`}
+                href={`/app/secretaria/?aba=pessoas&situacao=${item.status}`}
                 onMouseEnter={() => setHighlight(item.status)}
                 onMouseLeave={() => setHighlight(null)}
                 onFocus={() => setHighlight(item.status)}
@@ -354,7 +354,7 @@ export function AdministrativeOverview({
       value: counts?.membershipsActive ?? valueFor("ACTIVE"),
       hint: "Pessoas com vínculo ativo",
       icon: "people" as const,
-      href: "/app/membros/?situacao=ACTIVE",
+      href: "/app/secretaria/?aba=pessoas&situacao=ACTIVE",
       color: "green",
     },
     {
@@ -362,7 +362,7 @@ export function AdministrativeOverview({
       value: valueFor("INACTIVE"),
       hint: "Histórico de membresia",
       icon: "family" as const,
-      href: "/app/membros/?situacao=INACTIVE",
+      href: "/app/secretaria/?aba=pessoas&situacao=INACTIVE",
       color: "slate",
     },
     {
@@ -518,7 +518,7 @@ export function AdministrativeOverview({
             title="Nossa comunidade"
             eyebrow="CADA PESSOA IMPORTA"
             action={
-              <AppNavLink className={s.textLink} href="/app/membros/">
+              <AppNavLink className={s.textLink} href="/app/secretaria/?aba=pessoas">
                 Ver cadastros <UIIcon name="arrow" size={15} />
               </AppNavLink>
             }
