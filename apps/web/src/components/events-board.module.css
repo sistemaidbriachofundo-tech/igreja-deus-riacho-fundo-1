@@ -1,0 +1,22 @@
+.board{display:grid;gap:18px;min-width:0;color:#3e2b1f}
+.intro{display:grid;gap:6px}
+.intro span{color:#966a36;font-size:.78rem;font-weight:800;letter-spacing:.08em}
+.intro h2{margin:0;font-family:Montserrat,Inter,sans-serif;font-size:1.45rem;letter-spacing:-.03em;color:#432719}
+.intro p{margin:0;color:#6d5644;line-height:1.55;max-width:68ch}
+.notice{margin:0;border-radius:12px;padding:12px 14px;background:#fbf2dd;border:1px solid #dfcea8;color:#754f21}
+.stack{display:grid;gap:12px}
+.item{border:1px solid #eee1d2;border-radius:16px;padding:16px;background:#fffdfa;display:grid;gap:12px}
+.itemHead{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.itemHead strong{display:block;color:#432719}
+.itemHead small{color:#8a715c}
+.item button,.form button{font:inherit;font-weight:750;min-height:44px;border-radius:10px;padding:10px 14px;cursor:pointer;background:#4a2612;color:#fff5de;border:1px solid #4a2612}
+.item button.quiet{background:#fff9ef;color:#715131;border-color:#d6c2a4}
+.form{display:grid;gap:12px}
+.form h3{margin:0;font-size:1rem;color:#432719}
+.form label{display:flex;flex-direction:column;gap:6px;font-weight:700;color:#644832}
+.form input,.form textarea{font:inherit;font-weight:450;color:#3e2b1f;border:1px solid #ddcbb6;border-radius:10px;background:#fff;padding:12px;min-height:44px;width:100%}
+.form textarea{min-height:96px;resize:vertical}
+.locked{color:#8a715c}
+.empty{margin:0;color:#6d5644}
+.board :focus-visible{outline:2px solid #ad7a3d;outline-offset:3px}
+@media(max-width:760px){.itemHead{align-items:stretch}}

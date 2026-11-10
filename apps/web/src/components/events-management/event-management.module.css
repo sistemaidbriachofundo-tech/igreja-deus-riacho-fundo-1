@@ -26,11 +26,31 @@
 .counts strong{display:block;font-size:1.35rem;color:#432719}
 .counts span{color:#6d5644;font-size:.85rem}
 .wide{grid-column:1/-1}
+.agenda{display:grid;gap:14px;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.toolbar label{display:flex;flex-direction:column;gap:6px;font-size:.92rem;font-weight:700;color:#644832;min-width:min(100%,220px);flex:1}
+.toolbar input,.toolbar select{font:inherit;font-weight:450;color:#3e2b1f;border:1px solid #ddcbb6;border-radius:10px;background:#fffefa;padding:12px;min-height:44px;width:100%}
+.monthNav,.viewToggle{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.monthNav strong{min-width:12ch;color:#432719}
+.toolbar button,.viewToggle button,.monthNav button{font:inherit;font-weight:750;min-height:44px;padding:10px 14px;border-radius:10px;cursor:pointer}
+.checkline{display:flex;align-items:center;gap:8px;font-weight:700;color:#644832}
+.checkline input{width:20px;height:20px}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;min-width:0}
+.weekday{font-size:.75rem;font-weight:800;color:#8a715c;text-align:center;padding:4px 0}
+.day,.dayOutside{min-height:92px;border:1px solid #eee1d2;border-radius:12px;padding:6px;background:#fff;display:flex;flex-direction:column;gap:4px;min-width:0}
+.dayOutside{background:#fbf7f2;color:#a89484}
+.day>span,.dayOutside>span{font-size:.78rem;font-weight:750}
+.panel .chip,.panel .chipOn,.chip,.chipOn{display:grid;gap:2px;width:100%;min-height:44px;border-radius:8px;border:1px solid #e4d3bf;background:#fff8ee;color:#4a2612;text-align:left;padding:6px;cursor:pointer;min-width:0}
+.panel .chipOn,.chipOn{background:#4a2612;color:#fff5de;border-color:#4a2612}
+.chip span,.chipOn span,.chip small,.chipOn small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip small,.chipOn small{font-size:.68rem;font-weight:650}
 .page :focus-visible{outline:2px solid #ad7a3d;outline-offset:3px}
 @media(max-width:760px){
   .page{padding:16px 14px 36px}
   .grid,.counts{grid-template-columns:1fr}
   .header{align-items:stretch}
+  .day,.dayOutside{min-height:72px;padding:4px}
+  .chip small,.chipOn small{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 }
 @media(min-width:1440px){.page{max-width:1240px}}
 @media(prefers-reduced-motion:reduce){.page *{scroll-behavior:auto}}

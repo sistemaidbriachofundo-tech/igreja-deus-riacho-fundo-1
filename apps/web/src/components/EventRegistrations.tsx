@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../lib/api";
 import { dasError, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
-import { canCheckInRegistration, formatMockPrice, toRegistrationPayload, validateRegistration } from "../lib/event-registrations";
+import { canCheckInRegistration, toRegistrationPayload, validateRegistration } from "../lib/event-registrations";
+import { eventStatusLabel } from "./events-management/calendar";
 import s from "./event-registrations.module.css";
 
 type Pane="modalities"|"lots"|"registrations"|"checkin";
@@ -22,8 +23,35 @@ const panes:{id:Pane;label:string}[]=[
   {id:"modalities",label:"Modalidades"},
   {id:"lots",label:"Lotes e valores"},
   {id:"registrations",label:"Inscrições"},
-  {id:"checkin",label:"Check-in"},
+  {id:"checkin",label:"Presença"},
 ];
+
+export function registrationTitle(row:{isMinor?:unknown;displayName?:unknown}):string {
+  if(row.isMinor===true) return "Registro de menor omitido";
+  return nameOf(row.displayName,"Inscrição");
+}
+
+export function paymentLabel(status:unknown):string {
+  const value=keyOf(status);
+  if(value==="CONFIRMED_MOCK"||value==="CONFIRMED") return "Confirmado na homologação";
+  if(value==="PENDING"||value==="PENDING_PAYMENT") return "Pendente";
+  if(value==="CANCELLED"||value==="REFUNDED") return "Encerrado";
+  return value?"Registrado":"Não informado";
+}
+
+function lotStatusLabel(status:unknown):string {
+  const value=keyOf(status);
+  if(value==="DRAFT") return "Rascunho";
+  if(value==="OPEN") return "Aberto";
+  if(value==="CLOSED") return "Encerrado";
+  return value?"Registrado":"Não informado";
+}
+
+function priceLabel(cents:unknown):string {
+  if(typeof cents!=="number"||!Number.isSafeInteger(cents)||cents<0) return "Valor não informado";
+  if(cents===0) return "Sem cobrança";
+  return (cents/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
 
 export function EventRegistrations({events,token}:{events:DasRecord[];token:string}) {
   const [eventId,setEventId]=useState("");
@@ -86,10 +114,10 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       const wrapper=response!==null&&typeof response==="object"&&!Array.isArray(response)?response as Record<string,unknown>:null;
       const registration=wrapper?.registration&&typeof wrapper.registration==="object"
         ? wrapper.registration as Record<string,unknown>:wrapper;
-      if(path.endsWith("/registrations")&&typeof registration?.checkInCode==="string"){
+      if(path.endsWith("/registrations")&&typeof registration?.checkInCode==="string"&&registration.isMinor!==true){
         setIssuedCode(registration.checkInCode);
       }
-      setMessage("Operação concluída na base sintética de homologação. Dados atualizados.");
+      setMessage("Registro atualizado neste ambiente de homologação.");
       setReload(v=>v+1);
       return true;
     } catch(err){setMessage(dasError(err));return false;}
@@ -133,39 +161,39 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
   function checkIn(row:DasRecord){
     const id=keyOf(row.id),provided=(checkInCodes[id]??"").trim(),actual=keyOf(row.checkInCode);
     if(!id||!canCheckInRegistration(row))return;
-    if(!actual||!provided||provided!==actual){setMessage("O código digitado não corresponde à inscrição. Confira o comprovante de teste.");return;}
-    if(!window.confirm("Confirmar presença desta inscrição fictícia?"))return;
+    if(!actual||!provided||provided!==actual){setMessage("O código digitado não corresponde à inscrição.");return;}
+    if(!window.confirm("Confirmar a presença desta inscrição?"))return;
     void perform("/registrations/"+codeOf(id)+"/check-in",{checkInCode:provided},
       ()=>setCheckInCodes(prev=>({...prev,[id]:""})));
   }
   function cancel(row:DasRecord){
     const id=keyOf(row.id);
     if(!id||row.status==="CANCELLED"||row.status==="CHECKED_IN")return;
-    if(!window.confirm("Cancelar a inscrição fictícia? Esta operação será auditada na HML."))return;
+    if(!window.confirm("Cancelar esta inscrição? A ação fica registrada na homologação."))return;
     void perform("/registrations/"+codeOf(id)+"/cancel");
   }
 
   return <section className={s.workspace} aria-labelledby="registration-workspace-heading">
     <div className={s.heading}>
-      <div><small>RF-020 A RF-022 • EVENTOS E INSCRIÇÕES</small>
+      <div><small>HOMOLOGAÇÃO</small>
         <h2 id="registration-workspace-heading">Operação do evento</h2>
-        <p>Modalidades, vagas, lotes, inscrições e confirmação de presença em um único fluxo. Apenas dados fictícios.</p>
-      </div><span className={s.mock}>Pagamentos: MOCK · sem transação real</span>
+        <p>Modalidades, vagas, inscrições e presença no mesmo fluxo. Use somente rótulos fictícios. Menores não aparecem pelo nome.</p>
+      </div><span className={s.note}>Sem cobrança real</span>
     </div>
     <label className={s.eventSelect}>Escolha o evento
       <select value={eventId} onChange={e=>{setEventId(e.target.value);setMessage("");setIssuedCode("");setPane("modalities");}}>
-        <option value="">Selecione um evento existente na HML</option>
+        <option value="">Selecione um evento</option>
         {events.filter(e=>keyOf(e.id)).map(x=><option key={keyOf(x.id)} value={keyOf(x.id)}>
           {nameOf(x.name)} · {nameOf(x.status,"DRAFT")}
         </option>)}
       </select>
     </label>
     {!eventId?<div className={s.empty}><strong>Escolha um evento para começar</strong>
-      <p>Primeiro crie um evento de teste no módulo Eventos, se necessário.</p></div>:
+      <p>A lista mostra os eventos já gravados neste ambiente.</p></div>:
     data.kind==="loading"?<div className={s.empty} role="status">Carregando cadastros e inscrições autorizadas…</div>:
     data.kind==="error"?<div role="alert" className={s.error}>
-      <strong>Não foi possível conectar esta jornada à API.</strong>
-      <p>{data.message} O contrato do Cursor pode ainda não estar publicado na HML. Nenhuma informação foi inventada.</p>
+      <strong>Não foi possível carregar este evento.</strong>
+      <p>{data.message} Nenhuma informação foi completada nesta tela.</p>
       <button type="button" onClick={()=>setReload(n=>n+1)}>Tentar novamente</button>
     </div>:data.kind==="ready"&&<>
       <div className={s.summary} aria-label="Resumo da operação de testes">
@@ -182,8 +210,8 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       </nav>
       {message&&<p className={s.notice} role="status">{message}</p>}
       {issuedCode&&<div className={s.receipt} role="status">
-        <strong>Comprovante da inscrição de teste</strong>
-        <p>Guarde o código de check-in para validar a presença no fluxo de homologação.</p>
+        <strong>Comprovante da inscrição</strong>
+        <p>Guarde o código para confirmar a presença. Ele não é exibido quando a inscrição é de menor.</p>
         <code>{issuedCode}</code>
       </div>}
       {pane==="modalities"&&<div className={s.columns}>
@@ -197,9 +225,9 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
           </article>)}
         </div>
         <form className={s.form} onSubmit={createModality}>
-          <h3>Nova modalidade fictícia</h3>
-          <label>Nome<input required value={modalityName} maxLength={100} onChange={e=>setModalityName(e.target.value)} placeholder="Inscrição familiar — teste"/></label>
-          <label>Código<input required value={modalityCode} maxLength={80} onChange={e=>setModalityCode(e.target.value.toLowerCase())} placeholder="familia-teste" pattern="[a-z0-9][a-z0-9-]{2,79}"/></label>
+          <h3>Nova modalidade</h3>
+          <label>Nome<input required value={modalityName} maxLength={100} onChange={e=>setModalityName(e.target.value)} placeholder="Inscrição familiar"/></label>
+          <label>Código<input required value={modalityCode} maxLength={80} onChange={e=>setModalityCode(e.target.value.toLowerCase())} placeholder="familia" pattern="[a-z0-9][a-z0-9-]{2,79}"/></label>
           <label>Formato<select value={modalityKind} onChange={e=>setModalityKind(e.target.value as keyof typeof partyDefaults)}>
             <option value="INDIVIDUAL">Individual (1)</option>
             <option value="COUPLE">Casal (2)</option>
@@ -207,7 +235,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
             <option value="CUSTOM">Personalizado (1–20)</option>
           </select></label>
           <label>Capacidade (opcional)<input type="number" min={1} step={1} value={modalityCapacity} onChange={e=>setModalityCapacity(e.target.value)}/></label>
-          <button type="submit" disabled={busy}>Criar modalidade na HML</button>
+          <button type="submit" disabled={busy}>Criar modalidade</button>
         </form>
       </div>}
       {pane==="lots"&&<div className={s.columns}>
@@ -215,37 +243,37 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
           {data.lots.length===0&&<p>Nenhum lote nesta base.</p>}
           {data.lots.map((lot,i)=><article key={keyOf(lot.id)||i} className={s.item}>
             <strong>{nameOf(lot.name)}</strong>
-            <small>{formatMockPrice(lot.priceCents)} · {nameOf(lot.status)}</small>
+            <small>{priceLabel(lot.priceCents)} · {lotStatusLabel(lot.status)}</small>
             <span>{quantity(lot.remaining)===null?"Sem limite de vagas":"Restantes: "+lot.remaining}</span>
           </article>)}
         </div>
         <form className={s.form} onSubmit={createLot}>
-          <h3>Criar lote de simulação</h3>
-          <label>Nome do lote<input required value={lotName} maxLength={100} onChange={e=>setLotName(e.target.value)} placeholder="Lote 1 — teste"/></label>
-          <label>Código<input required value={lotCode} maxLength={80} onChange={e=>setLotCode(e.target.value.toLowerCase())} placeholder="lote-1-teste" pattern="[a-z0-9][a-z0-9-]{2,79}"/></label>
+          <h3>Novo lote</h3>
+          <label>Nome do lote<input required value={lotName} maxLength={100} onChange={e=>setLotName(e.target.value)} placeholder="Lote 1"/></label>
+          <label>Código<input required value={lotCode} maxLength={80} onChange={e=>setLotCode(e.target.value.toLowerCase())} placeholder="lote-1" pattern="[a-z0-9][a-z0-9-]{2,79}"/></label>
           <label>Modalidade<select value={lotModality} onChange={e=>setLotModality(e.target.value)}>
             <option value="">Qualquer modalidade</option>
             {data.modalities.map(m=><option key={keyOf(m.id)} value={keyOf(m.id)}>{nameOf(m.name)}</option>)}
           </select></label>
           <label>Capacidade (opcional)<input type="number" min={1} step={1} value={lotCapacity} onChange={e=>setLotCapacity(e.target.value)}/></label>
-          <label>Preço simulado em R$<input type="text" inputMode="decimal" required value={lotPrice} maxLength={18} onChange={e=>setLotPrice(e.target.value)} placeholder="0,00"/></label>
-          <p className={s.hint}>Criado sempre como rascunho, sem gateway de pagamento e sem cobrança.</p>
-          <button type="submit" disabled={busy}>Criar lote DRAFT</button>
+          <label>Valor em R$<input type="text" inputMode="decimal" required value={lotPrice} maxLength={18} onChange={e=>setLotPrice(e.target.value)} placeholder="0,00"/></label>
+          <p className={s.hint}>O lote nasce como rascunho e não gera cobrança.</p>
+          <button type="submit" disabled={busy}>Criar lote</button>
         </form>
       </div>}
       {pane==="registrations"&&<div className={s.columns}>
         <div className={s.records}><h3>Inscrições da HML</h3>
           {data.registrations.length===0&&<p>Não há inscrições registradas.</p>}
           {data.registrations.map((reg,i)=><article key={keyOf(reg.id)||i} className={s.item}>
-            <strong>{nameOf(reg.displayName,"Inscrição de teste")}</strong>
-            <small>{quantity(reg.partySize)??1} pessoa(s) · {nameOf(reg.status)}</small>
-            <span>Pagamento: {nameOf(reg.paymentStatus,"não informado")}</span>
+            <strong>{registrationTitle(reg)}</strong>
+            <small>{quantity(reg.partySize)??1} pessoa(s) · {eventStatusLabel(keyOf(reg.status))}</small>
+            <span>Pagamento: {paymentLabel(reg.paymentStatus)}</span>
           </article>)}
         </div>
         <form className={s.form} onSubmit={createRegistration}>
-          <h3>Nova inscrição sintética</h3>
-          <label>Identificador fictício<input required maxLength={120} value={registrationName}
-            onChange={e=>setRegistrationName(e.target.value)} placeholder="TESTE PARTICIPANTE 01"/></label>
+          <h3>Nova inscrição</h3>
+          <label>Rótulo fictício<input required maxLength={120} value={registrationName}
+            onChange={e=>setRegistrationName(e.target.value)} placeholder="TESTE Participante"/></label>
           <label>Modalidade<select required value={registrationModality} onChange={e=>{
             const selected=data.modalities.find(m=>m.id===e.target.value);
             setRegistrationModality(e.target.value);setRegistrationLot("");
@@ -257,45 +285,46 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
           <label>Lote (opcional)<select value={registrationLot} onChange={e=>setRegistrationLot(e.target.value)}>
             <option value="">Sem lote</option>
             {compatibleLots.filter(l=>l.status!=="CLOSED").map(l=><option key={keyOf(l.id)} value={keyOf(l.id)}>
-              {nameOf(l.name)} · {formatMockPrice(l.priceCents)}
+              {nameOf(l.name)} · {priceLabel(l.priceCents)}
             </option>)}
           </select></label>
           <label>Pessoas na inscrição<input type="number" min={quantity(modality?.minPartySize)??1}
             max={quantity(modality?.maxPartySize)??20} step={1} value={partySize}
             onChange={e=>setPartySize(Number(e.target.value))}/></label>
           <label className={s.checkbox}><input type="checkbox" checked={minor} onChange={e=>{setMinor(e.target.checked);setGuardian("");}}/>
-            <span>Esta inscrição de teste representa um menor</span></label>
+            <span>Esta inscrição representa um menor</span></label>
           {minor&&<label>Responsável fictício<input required value={guardian} maxLength={120}
-            onChange={e=>setGuardian(e.target.value)} placeholder="TESTE RESPONSÁVEL 01"/></label>}
-          <p className={s.hint}>Dados reais, documentos, e-mails e telefones são proibidos na HML. Valores pagos não são confirmados por esta tela.</p>
-          <button type="submit" disabled={busy||!registrationModality}>Registrar inscrição de teste</button>
+            onChange={e=>setGuardian(e.target.value)} placeholder="TESTE Responsável"/></label>}
+          <p className={s.hint}>Não use nome real, documento, e-mail ou telefone. O nome de menor não volta para esta lista. Esta tela não confirma pagamento.</p>
+          <button type="submit" disabled={busy||!registrationModality}>Registrar inscrição</button>
         </form>
       </div>}
       {pane==="checkin"&&<div className={s.checkin}>
         <div className={s.checkinHead}>
           <h3>Confirmação de presença</h3>
-          <p>{stats.pending} inscrições aguardando confirmação de pagamento simulado. A confirmação de pagamento é feita somente por webhook assinado no backend, não por esta tela.</p>
+          <p>{stats.pending} inscrições ainda aguardam confirmação. O pagamento não é confirmado nesta tela. Repetir o mesmo código não duplica a presença.</p>
         </div>
         {data.registrations.length===0&&<p className={s.hint}>Nenhuma inscrição disponível para check-in.</p>}
         {data.registrations.map((reg,i)=>{
           const id=keyOf(reg.id),eligible=canCheckInRegistration(reg),finished=reg.status==="CHECKED_IN",cancelled=reg.status==="CANCELLED";
           return <article className={s.checkinRow} key={id||i}>
-            <div><strong>{nameOf(reg.displayName,"Inscrição")}</strong>
-              <small>{nameOf(reg.status)} · pagamento {nameOf(reg.paymentStatus)} · {quantity(reg.partySize)??1} pessoa(s)</small></div>
+            <div><strong>{registrationTitle(reg)}</strong>
+              <small>{eventStatusLabel(keyOf(reg.status))} · pagamento {paymentLabel(reg.paymentStatus)} · {quantity(reg.partySize)??1} pessoa(s)</small></div>
             {finished?<span className={s.completed}>Presença confirmada</span>:
             cancelled?<span className={s.neutral}>Inscrição cancelada</span>:
+            reg.isMinor===true?<span className={s.pending}>Registro de menor omitido</span>:
             eligible?<div className={s.checkinAction}>
               <label>Código do comprovante<input type="text" autoComplete="off" value={checkInCodes[id]??""}
                 onChange={e=>setCheckInCodes(prev=>({...prev,[id]:e.target.value}))} placeholder="Digite o código do participante"/></label>
               <button type="button" disabled={busy||!keyOf(checkInCodes[id])} onClick={()=>checkIn(reg)}>Confirmar</button>
-            </div>:<span className={s.pending}>{reg.isMinor===true&&reg.guardianAuthStatus!=="AUTHORIZED"?"Autorização do responsável pendente":"Aguardando pagamento simulado"}</span>}
+            </div>:<span className={s.pending}>{reg.isMinor===true&&reg.guardianAuthStatus!=="AUTHORIZED"?"Autorização do responsável pendente":"Confirmação pendente"}</span>}
             {!finished&&!cancelled&&<button type="button" className={s.cancel} disabled={busy||!id}
-              onClick={()=>cancel(reg)}>Cancelar inscrição de teste</button>}
+              onClick={()=>cancel(reg)}>Cancelar inscrição</button>}
           </article>;
         })}
       </div>}
       <button className={s.refresh} type="button" onClick={()=>setReload(n=>n+1)} disabled={busy}>Atualizar dados do evento</button>
     </>}
-    {selected&&<p className={s.footnote}>Evento selecionado: {nameOf(selected.name)}. As operações estão limitadas à base de homologação e à autorização fornecida pelo backend.</p>}
+    {selected&&<p className={s.footnote}>Evento selecionado: {nameOf(selected.name)}. As ações respeitam a autorização deste ambiente de homologação.</p>}
   </section>;
 }
