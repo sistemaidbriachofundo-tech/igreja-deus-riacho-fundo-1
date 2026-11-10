@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
-import { SecretaryDossier } from "./SecretaryDossier";
+import { PersonPicker } from "./PersonPicker";
+import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
@@ -60,6 +61,7 @@ export function HmlPhaseOne({view}:{view:View}){
   const [households,setHouseholds]=useState<Household[]>([]);
   const [query,setQuery]=useState("");
   const [fichaId,setFichaId]=useState<string|null>(null);
+  const [searchedPerson,setSearchedPerson]=useState("");
   const [newName,setNewName]=useState("");
   const [newEmail,setNewEmail]=useState("");
   const [modality,setModality]=useState("BATISMO");
@@ -267,7 +269,13 @@ export function HmlPhaseOne({view}:{view:View}){
                   </article>;
                 })}{filteredAdmissions.length===0&&<p>Não há protocolos neste filtro.</p>}</div>}
             </section>
-            <section className={s.panel}><h2>Abrir protocolo fictício</h2><p>A abertura cria pessoa, vínculo e admissão na mesma transação da API. Utilize nomes inventados e domínio <code>example.test</code>.</p>
+            <section className={s.panel}><h2>Buscar pessoa e abrir ficha</h2>
+              <p>A busca usa o endpoint de pessoas. A ficha lê o prontuário gravado na API.</p>
+              {staff && token ? <>
+                <PersonPicker token={token} roles={user.grants.map(grant=>grant.roleCode)} label="Pessoa fictícia" value={searchedPerson} onChange={setSearchedPerson} placeholder="Buscar pelo nome sintético"/>
+                <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={()=>setFichaId(searchedPerson)}>Abrir ficha da busca</button>
+              </> : <p>A busca de pessoas exige Secretaria, pastor ou administração da congregação.</p>}
+              <h2 className={s.follow}>Abrir protocolo fictício</h2><p>A abertura cria pessoa, vínculo e admissão na mesma transação da API. Utilize nomes inventados e domínio <code>example.test</code>.</p>
               {secretary?<form className={s.form} onSubmit={createAdmission}>
                 <label>Nome fictício<input value={newName} onChange={e=>setNewName(e.target.value)} required minLength={3} placeholder="Pessoa Demonstração"/></label>
                 <label>E-mail de teste<input value={newEmail} onChange={e=>setNewEmail(e.target.value)} required type="email" placeholder="pessoa.nova@example.test"/></label>
@@ -287,7 +295,7 @@ export function HmlPhaseOne({view}:{view:View}){
                   {m.activeCredentialId?"Revogar credencial":"Emitir credencial"}
                 </button></article>)}</div>}
           </section>}
-          {fichaId&&token&&<SecretaryDossier token={token} personId={fichaId} households={households} canEdit={secretary} onClose={()=>setFichaId(null)} onSessionExpired={logout}/>}
+          {fichaId&&token&&<SecretaryDossier token={token} personId={fichaId} households={households} canEdit={secretary} canReadDocuments={staff} credential={credentialFromMemberships(secretary,memberships,fichaId)} onClose={()=>setFichaId(null)} onSessionExpired={logout}/>}
           <p className={s.footerNote}>HML Fase 1 · Dados sintéticos, ações auditadas e persistência no banco isolado. Não inserir informações de membros reais.</p>
         </div>}
     </div>

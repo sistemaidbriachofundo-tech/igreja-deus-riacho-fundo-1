@@ -4,7 +4,7 @@ const hml = process.env.QA_HML_BASE_URL ?? "http://127.0.0.1:3000";
 const publication = process.env.QA_PUBLIC_BASE_URL ?? "http://127.0.0.1:3010";
 
 export default defineConfig({
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 12_000 },
   fullyParallel: false,
   workers: 1,

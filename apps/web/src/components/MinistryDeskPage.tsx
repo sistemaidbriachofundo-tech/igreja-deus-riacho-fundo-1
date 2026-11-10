@@ -4,9 +4,13 @@ import { useEffect, useState } from "react";
 import { getApiBaseUrl, loadStoredToken } from "../lib/api";
 import {
   loadMinistryDesk,
+  requestFormalAdmission,
+  requestFormalEnd,
   requestInterestConversion,
   type ConversionResult,
   type DeskResult,
+  type FormalRole,
+  type MembershipChange,
 } from "../lib/ministry-desk";
 import { MinistryMembershipCatalog } from "./MinistryMembershipCatalog";
 import styles from "./ministry-membership-catalog.module.css";
@@ -16,7 +20,9 @@ export function MinistryDeskPage() {
   const [ministryId, setMinistryId] = useState<string | undefined>(undefined);
   const [desk, setDesk] = useState<DeskResult | null>(null);
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
+  const [change, setChange] = useState<MembershipChange | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -60,6 +66,7 @@ export function MinistryDeskPage() {
         volunteerInterestId: interestId,
       });
       setConversion(result);
+      if (result.created) setReloadKey((value) => value + 1);
     } catch {
       setConversion({
         created: false,
@@ -70,6 +77,59 @@ export function MinistryDeskPage() {
       });
     } finally {
       setConvertingId(null);
+    }
+  }
+
+  async function admit(personId: string, role: FormalRole) {
+    if (!token || !desk || desk.kind !== "ready" || pending) return;
+    setPending(true);
+    setChange(null);
+    try {
+      const result = await requestFormalAdmission({
+        token,
+        baseUrl: getApiBaseUrl(),
+        ministryId: desk.ministry.id,
+        personId,
+        role,
+      });
+      setChange(result);
+      if (result.applied) setReloadKey((value) => value + 1);
+    } catch {
+      setChange({
+        applied: false,
+        status: 0,
+        code: "MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED",
+        message: "A inclusão não foi concluída. Nenhum integrante foi criado.",
+        member: null,
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function end(membershipId: string) {
+    if (!token || !desk || desk.kind !== "ready" || pending) return;
+    setPending(true);
+    setChange(null);
+    try {
+      const result = await requestFormalEnd({
+        token,
+        baseUrl: getApiBaseUrl(),
+        ministryId: desk.ministry.id,
+        membershipId,
+      });
+      setChange(result);
+      if (result.applied) setReloadKey((value) => value + 1);
+    } catch {
+      setChange({
+        applied: false,
+        status: 0,
+        code: "MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED",
+        message: "O encerramento não foi concluído. O vínculo não foi alterado.",
+        member: null,
+      });
+    } finally {
+      setPending(false);
     }
   }
 
@@ -92,11 +152,16 @@ export function MinistryDeskPage() {
           desk={desk}
           conversion={conversion}
           convertingId={convertingId}
+          change={change}
+          pending={pending}
           onSelect={(id) => {
             setConversion(null);
+            setChange(null);
             setMinistryId(id);
           }}
           onConvert={(id) => void convert(id)}
+          onAdmit={(personId, role) => void admit(personId, role)}
+          onEnd={(membershipId) => void end(membershipId)}
         />
       ) : null}
       {desk && desk.kind !== "ready" ? (

@@ -1,6 +1,13 @@
 "use client";
 
-import type { ConversionResult, DeskReady, InterestRow } from "../lib/ministry-desk";
+import { useState } from "react";
+import type {
+  ConversionResult,
+  DeskReady,
+  FormalRole,
+  InterestRow,
+  MembershipChange,
+} from "../lib/ministry-desk";
 import styles from "./ministry-membership-catalog.module.css";
 
 const roleLabel: Record<string, string> = {
@@ -23,8 +30,12 @@ type Props = {
   desk: DeskReady;
   conversion: ConversionResult | null;
   convertingId: string | null;
+  change: MembershipChange | null;
+  pending: boolean;
   onSelect: (ministryId: string) => void;
   onConvert: (interestId: string) => void;
+  onAdmit: (personId: string, role: FormalRole) => void;
+  onEnd: (membershipId: string) => void;
 };
 
 function initial(name: string) {
@@ -44,8 +55,12 @@ export function MinistryMembershipCatalog({
   desk,
   conversion,
   convertingId,
+  change,
+  pending,
   onSelect,
   onConvert,
+  onAdmit,
+  onEnd,
 }: Props) {
   const memberCount =
     desk.membership.kind === "ready" ? String(desk.membership.members.length) : "BLOCKED";
@@ -99,24 +114,49 @@ export function MinistryMembershipCatalog({
           <h2 id="formal-members-title">Equipe formal</h2>
           <p>Somente pessoas com vínculo gravado no ministério. Esta coluna não copia interessados.</p>
           {desk.membership.kind === "ready" ? (
-            desk.membership.members.length ? (
-              <div className={styles.people}>
-                {desk.membership.members.map((member) => (
-                  <div className={styles.row} key={member.id}>
-                    <span className={styles.mark} aria-hidden="true">{initial(member.displayName)}</span>
-                    <div>
-                      <strong>{member.displayName}</strong>
-                      <small>{roleLabel[member.role] ?? member.role} · {member.status}</small>
+            <>
+              {desk.membership.members.length ? (
+                <div className={styles.people}>
+                  {desk.membership.members.map((member) => (
+                    <div className={styles.row} key={member.id}>
+                      <span className={styles.mark} aria-hidden="true">{initial(member.displayName)}</span>
+                      <div>
+                        <strong>{member.displayName}</strong>
+                        <small>{roleLabel[member.role] ?? member.role} · {member.status}</small>
+                      </div>
+                      {member.status === "ENCERRADO" ? (
+                        <span className={styles.tag}>Encerrado</span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => onEnd(member.id)}
+                        >
+                          {pending ? "Registrando…" : "Encerrar vínculo"}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className={styles.schedule}>{desk.membership.message}</p>
-            )
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.schedule}>{desk.membership.message}</p>
+              )}
+              <AdmitForm pending={pending} onAdmit={onAdmit} />
+            </>
           ) : (
-            <Blocked code={desk.membership.code} message={desk.membership.message} />
+            <>
+              <Blocked code={desk.membership.code} message={desk.membership.message} />
+              <p className={styles.schedule}>
+                Inclusão e remoção permanecem indisponíveis enquanto o cadastro formal estiver bloqueado.
+              </p>
+            </>
           )}
+          {change ? (
+            <div className={change.applied ? styles.schedule : styles.blocked} role="status">
+              <strong>{change.applied ? "Alteração registrada" : `BLOCKED · ${change.code}`}</strong>
+              <p>{change.message}</p>
+            </div>
+          ) : null}
         </section>
 
         <section className={styles.panel} data-region="volunteer-interests" aria-labelledby="interests-title">
@@ -176,6 +216,53 @@ export function MinistryMembershipCatalog({
         </section>
       </div>
     </div>
+  );
+}
+
+function AdmitForm({
+  pending,
+  onAdmit,
+}: {
+  pending: boolean;
+  onAdmit: (personId: string, role: FormalRole) => void;
+}) {
+  const [personId, setPersonId] = useState("");
+  const [role, setRole] = useState<FormalRole>("INTEGRANTE");
+  return (
+    <form
+      className={styles.admit}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!personId.trim() || pending) return;
+        onAdmit(personId.trim(), role);
+      }}
+    >
+      <label>
+        Identificador da pessoa neste escopo
+        <input
+          name="personId"
+          value={personId}
+          autoComplete="off"
+          onChange={(event) => setPersonId(event.target.value)}
+        />
+      </label>
+      <label>
+        Função na equipe
+        <select
+          name="role"
+          value={role}
+          onChange={(event) => setRole(event.target.value as FormalRole)}
+        >
+          <option value="LIDER">Liderança</option>
+          <option value="COORDENADOR">Coordenação</option>
+          <option value="INTEGRANTE">Integrante</option>
+          <option value="APOIO">Apoio</option>
+        </select>
+      </label>
+      <button type="submit" disabled={pending || personId.trim().length === 0}>
+        {pending ? "Registrando…" : "Incluir no vínculo formal"}
+      </button>
+    </form>
   );
 }
 

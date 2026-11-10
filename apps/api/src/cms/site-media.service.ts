@@ -1,9 +1,11 @@
 import {
-  BadRequestException, ForbiddenException, Injectable, ServiceUnavailableException,
+  BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException,
 } from "@nestjs/common";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import { put, list } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,6 +16,8 @@ const EDIT_ROLES = [
   ROLE_CODES.EDITOR_SITE, ROLE_CODES.PUBLICADOR_SITE, ROLE_CODES.SECRETARIA,
   ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN,
 ];
+const FILE_NAME = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-z0-9-]{1,45}\.(?:jpg|png|webp|avif)$/;
+const CHURCH_ID = /^[A-Za-z0-9_-]{1,80}$/;
 export type SiteMediaAsset = {
   url:string; name:string; pathname:string; size:number; uploadedAt:string;
 };
@@ -44,6 +48,12 @@ export class SiteMediaService {
     const v=process.env.BLOB_READ_WRITE_TOKEN?.trim();
     return v||null;
   }
+  /** Disco local só quando o ambiente pede. Não substitui o Blob da HML. */
+  private localRoot():string|null {
+    if (process.env.SITE_MEDIA_STORAGE?.trim()!=="local") return null;
+    const root=process.env.SITE_MEDIA_LOCAL_ROOT?.trim();
+    return root||null;
+  }
   private title(pathname:string):string {
     const file=pathname.split("/").pop()??"Imagem";
     return file.replace(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/i,"").replace(/\.[^.]+$/,"").replace(/[-_]+/g," ").slice(0,85)||"Imagem";
@@ -52,16 +62,50 @@ export class SiteMediaService {
     return {url:row.url,pathname:row.pathname,name:this.title(row.pathname),
       size:row.size,uploadedAt:new Date(row.uploadedAt).toISOString()};
   }
+  private safeLocalPath(churchId:string,name:string):string|null {
+    const root=this.localRoot();
+    if (!root || !CHURCH_ID.test(churchId) || !FILE_NAME.test(name)) return null;
+    const base=path.resolve(root);
+    const full=path.resolve(base,churchId,name);
+    if (full!==path.join(base,churchId,name)) return null;
+    return full;
+  }
   async list(actor:AuthUser) {
     const pilot=await this.scope(actor),token=this.token();
-    if (!token) return {configured:false,assets:[] as SiteMediaAsset[],message:"Armazenamento de imagens não configurado neste ambiente"};
-    const prefix=`church/${pilot.churchId}/site/`;
-    const result=await list({prefix,limit:100,token});
+    if (token) {
+      const prefix=`church/${pilot.churchId}/site/`;
+      const result=await list({prefix,limit:100,token});
+      return {
+        configured:true,
+        storage:"blob" as const,
+        assets:result.blobs.map(row=>this.mediaResult(row)),
+        hasMore:result.hasMore,
+        message:result.hasMore?"Exibindo as 100 fotos mais recentes; paginação será incluída na evolução da biblioteca.":null,
+      };
+    }
+    const root=this.localRoot();
+    if (!root) return {configured:false,storage:"none" as const,assets:[] as SiteMediaAsset[],message:"Armazenamento de imagens não configurado neste ambiente"};
+    const dir=path.resolve(root,pilot.churchId);
+    const names=await readdir(dir).catch(()=>[] as string[]);
+    const assets:SiteMediaAsset[]=[];
+    for (const name of names) {
+      const full=this.safeLocalPath(pilot.churchId,name);
+      if (!full) continue;
+      const info=await stat(full);
+      if (!info.isFile()) continue;
+      assets.push(this.mediaResult({
+        url:`/cms/site-media/files/${pilot.churchId}/${name}`,
+        pathname:`church/${pilot.churchId}/site/${name}`,
+        size:info.size,
+        uploadedAt:info.mtime,
+      }));
+    }
+    assets.sort((a,b)=>b.uploadedAt.localeCompare(a.uploadedAt));
     return {
       configured:true,
-      assets:result.blobs.map(row=>this.mediaResult(row)),
-      hasMore:result.hasMore,
-      message:result.hasMore?"Exibindo as 100 fotos mais recentes; paginação será incluída na evolução da biblioteca.":null,
+      storage:"local" as const,
+      assets,
+      message:"Biblioteca local deste ambiente. O Blob da HML continua com o integrador.",
     };
   }
   async upload(actor:AuthUser,file:Express.Multer.File|undefined) {
@@ -71,21 +115,47 @@ export class SiteMediaService {
       throw new BadRequestException("Foto deve ter até 3 MB");
     const actual=fileSignature(file.buffer);
     if (!actual || file.mimetype!==actual) throw new BadRequestException("Formato inválido. Envie JPG, PNG, WebP ou AVIF legítimo.");
-    const token=this.token();
-    if (!token) throw new ServiceUnavailableException("O armazenamento de mídia não está habilitado neste ambiente");
     const clean=file.originalname.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
       .replace(/\.[^.]+$/,"").toLowerCase().replace(/[^a-z0-9-]/g,"-")
       .replace(/-+/g,"-").replace(/^-|-$/g,"").slice(0,45)||"foto";
-    const pathname=`church/${pilot.churchId}/site/${randomUUID()}-${clean}.${extensions[actual]}`;
-    const blob=await put(pathname,file.buffer,{
-      access:"public",addRandomSuffix:false,contentType:actual,token,
-    });
-    // Não registra nomes de pessoas ou conteúdo da imagem na auditoria.
+    const filename=`${randomUUID()}-${clean}.${extensions[actual]}`;
+    const token=this.token();
+    if (token) {
+      const pathname=`church/${pilot.churchId}/site/${filename}`;
+      const blob=await put(pathname,file.buffer,{
+        access:"public",addRandomSuffix:false,contentType:actual,token,
+      });
+      await this.audit(actor,pilot,pathname,actual,file.size);
+      return {asset:this.mediaResult({...blob,size:file.size,uploadedAt:new Date()}),configured:true,storage:"blob" as const};
+    }
+    const full=this.safeLocalPath(pilot.churchId,filename);
+    if (!full) throw new ServiceUnavailableException("O armazenamento de mídia não está habilitado neste ambiente");
+    await mkdir(path.dirname(full),{recursive:true});
+    await writeFile(full,file.buffer,{flag:"wx"});
+    const pathname=`church/${pilot.churchId}/site/${filename}`;
+    await this.audit(actor,pilot,pathname,actual,file.size);
+    return {
+      asset:this.mediaResult({
+        url:`/cms/site-media/files/${pilot.churchId}/${filename}`,
+        pathname,size:file.size,uploadedAt:new Date(),
+      }),
+      configured:true,
+      storage:"local" as const,
+    };
+  }
+  async readPublic(churchId:string,name:string):Promise<{bytes:Buffer;mime:string}> {
+    const full=this.safeLocalPath(churchId,name);
+    if (!full) throw new NotFoundException("Imagem não encontrada");
+    const bytes=await readFile(full).catch(()=>{throw new NotFoundException("Imagem não encontrada");});
+    const mime=fileSignature(bytes);
+    if (!mime) throw new NotFoundException("Imagem não encontrada");
+    return {bytes,mime};
+  }
+  private async audit(actor:AuthUser,pilot:{organizationId:string;churchId:string},pathname:string,mimeType:string,byteSize:number) {
     await this.prisma.auditLog.create({data:{
       actorUserId:actor.userId,action:"site.media.upload",resourceType:"site_media",
       resourceId:pathname,organizationId:pilot.organizationId,churchId:pilot.churchId,
-      metadata:{mimeType:actual,byteSize:file.size},
+      metadata:{mimeType,byteSize},
     }});
-    return {asset:this.mediaResult({...blob,size:file.size,uploadedAt:new Date()}),configured:true};
   }
 }

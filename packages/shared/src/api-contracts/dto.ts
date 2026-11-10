@@ -358,6 +358,8 @@ export interface MetaResponse {
   pilot: boolean;
   endpoints: Record<string, "implemented" | "proposed">;
   hmlPublicUrl: string | null;
+  /** Commit implantado. Null até SOURCE_SHA ou VERCEL_GIT_COMMIT_SHA existirem no processo. */
+  sourceSha: string | null;
   notes: string[];
 }
 

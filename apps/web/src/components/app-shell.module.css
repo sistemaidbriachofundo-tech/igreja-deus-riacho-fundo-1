@@ -298,6 +298,7 @@
 }
 .switchPersona:hover{background:#e6f0e8;border-color:#88b59a}
 .switchPersona:focus-visible{outline:3px solid #ac7c28;outline-offset:2px}
+.switchPersona{min-height:44px;min-width:44px}
 @media(max-width:1220px){
   .switchPersona{padding:0;width:40px}
   .switchPersona span{display:none}
@@ -308,4 +309,22 @@
   .toolbarAlerts{display:none}
   .account{width:32px;height:32px}
   .switchPersona{width:39px;min-height:39px}
+}
+
+/* Perfil confirmado: nome e papel continuam legíveis no celular e com zoom. */
+.personaLine{display:none;margin-top:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12px/1.3 Inter,sans-serif;color:#1e5043}
+.accountInfo strong,.accountInfo small{overflow:hidden;text-overflow:ellipsis;max-width:16rem}
+.menuWait,.holdNote{margin:0;font-size:1rem;line-height:1.45;color:#243e3b}
+.menuWait{padding:8px 14px;color:#d7c4a4;font-size:.85rem}
+.denied{display:flex;flex-direction:column;gap:12px;max-width:62ch;padding:8px 0 24px}
+.denied h1{margin:0;font:750 clamp(1.6rem,3vw,2.2rem)/1.2 Montserrat,Inter,sans-serif;letter-spacing:-.04em;color:#102f2d}
+.denied p{margin:0;font-size:1rem;line-height:1.5;color:#243e3b}
+.denied a{align-self:flex-start;min-height:44px;display:inline-flex;align-items:center;padding:0 16px;border-radius:12px;background:#102f2d;color:#fffdf8;text-decoration:none;font-weight:700}
+.denied a:focus-visible,.switchPersona:focus-visible,.commandButton:focus-visible{outline:3px solid #d7a13a;outline-offset:3px}
+@media(max-width:1220px){
+  .personaLine{display:block}
+}
+@media(max-width:640px){
+  .personaLine{font-size:11px}
+  .denied h1{font-size:1.45rem}
 }

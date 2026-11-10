@@ -20,6 +20,7 @@ import {
 } from "../channels/channels.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { churchDayBounds } from "../rosters/church-day";
 
 export type LeadershipPublicEntry = {
   displayName: string;
@@ -242,7 +243,8 @@ export class MinistriesService {
       const ministry = await this.requireMinistry(input.ministryId, pilot);
       this.assertManageMinistry(actor, ministry);
     } else {
-      this.assertLead(actor, pilot.organizationId, pilot.churchId);
+      // Escala sem ministério pertence à gestão da igreja, nunca a um líder isolado.
+      this.assertAdminister(actor, pilot.organizationId, pilot.churchId);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -273,11 +275,33 @@ export class MinistriesService {
   async listRosters(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
-
+    const isAdmin = canAdministerMinistries(actor.grants, {
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    });
+    const scopedIds = isAdmin
+      ? []
+      : actor.grants
+          .filter(grant => grant.roleCode === ROLE_CODES.LIDER_MINISTERIO &&
+            grant.organizationId === pilot.organizationId &&
+            grant.churchId === pilot.churchId && Boolean(grant.ministryId))
+          .map(grant => grant.ministryId as string);
+    if (!isAdmin && actor.personId && scopedIds.length === 0) {
+      const led = await this.prisma.ministry.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          leaderPersonId: actor.personId,
+        },
+        select: { id: true },
+      });
+      scopedIds.push(...led.map(item => item.id));
+    }
     const rows = await this.prisma.roster.findMany({
       where: {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
+        ...(!isAdmin ? { ministryId: { in: scopedIds } } : {}),
       },
       orderBy: { serviceAt: "desc" },
       include: {
@@ -304,6 +328,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const roster = await this.requireRoster(rosterId, pilot);
+    await this.assertRosterScope(actor, roster, pilot);
 
     if (roster.status !== "DRAFT") {
       throw new ConflictException({
@@ -418,6 +443,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const roster = await this.requireRoster(rosterId, pilot);
+    await this.assertRosterScope(actor, roster, pilot);
 
     if (roster.status !== "PUBLISHED") {
       throw new ConflictException({
@@ -458,6 +484,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const roster = await this.requireRoster(rosterId, pilot);
+    await this.assertRosterScope(actor, roster, pilot);
     this.assertRosterDraft(roster);
 
     const roleLabel = input.roleLabel?.trim();
@@ -515,6 +542,7 @@ export class MinistriesService {
       throw new NotFoundException("Slot de escala não encontrado");
     }
     // PUBLISHED ainda aceita designações; CLOSED trava.
+    await this.assertRosterScope(actor, slot.roster, pilot);
     this.assertRosterNotClosed(slot.roster);
 
     if (!input.personId?.trim()) {
@@ -601,7 +629,13 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
     this.assertRosterNotClosed(loaded.roster);
-    this.assertCanRespondOwnOrLead(actor, loaded.assignment.personId, pilot);
+    const isOwn = actor.personId === loaded.assignment.personId &&
+      hasAccess(actor.grants, {
+        roleCodes: [ROLE_CODES.MEMBRO],
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      });
+    if (!isOwn) await this.assertRosterScope(actor, loaded.roster, pilot);
 
     if (status === "CONFIRMED") {
       await this.assertNoServiceConflict(
@@ -661,6 +695,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
+    await this.assertRosterScope(actor, loaded.roster, pilot);
     this.assertRosterNotClosed(loaded.roster);
 
     if (!input.personId?.trim()) {
@@ -1287,7 +1322,10 @@ export class MinistriesService {
       rosterTitle?: string | null;
     },
   ): Promise<void> {
-    if (!this.channels) return;
+    // Opt-in explícito para impedir qualquer disparo externo involuntário na HML.
+    if (!this.channels || process.env.EKLESIA_ENABLE_ROSTER_NOTIFICATIONS !== "true" ||
+        process.env.NEXT_PUBLIC_HML_ENABLED === "true" ||
+        process.env.EKLESIA_DISABLE_ROSTER_NOTIFICATIONS === "true") return;
     try {
       await this.channels.enqueueRosterAlert({
         actor,
@@ -1491,31 +1529,34 @@ export class MinistriesService {
     return ministry;
   }
 
-  private assertCanRespondOwnOrLead(
+  private async assertRosterScope(
     actor: AuthUser,
-    assignmentPersonId: string,
+    roster: { ministryId?: string | null },
     pilot: { organizationId: string; churchId: string },
-  ): void {
-    if (
-      canLeadMinistry(actor.grants, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      })
-    ) {
-      return;
+  ): Promise<void> {
+    if (canAdministerMinistries(actor.grants, {
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    })) return;
+    if (!roster.ministryId) {
+      throw new ForbiddenException("Somente administração altera escala sem ministério");
     }
-    const isOwn =
-      actor.personId === assignmentPersonId &&
-      hasAccess(actor.grants, {
-        roleCodes: [ROLE_CODES.MEMBRO],
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      });
-    if (!isOwn) {
-      throw new ForbiddenException(
-        "Sem permissão para responder esta escala",
-      );
+    // Rejeitar membros e grants de outra igreja antes de consultar o ministério.
+    if (!canLeadMinistry(actor.grants, {
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    })) {
+      throw new ForbiddenException("Sem acesso à escala deste ministério");
     }
+    const exactGrant = actor.grants.some(grant =>
+      grant.roleCode === ROLE_CODES.LIDER_MINISTERIO &&
+      grant.organizationId === pilot.organizationId &&
+      grant.churchId === pilot.churchId &&
+      grant.ministryId === roster.ministryId
+    );
+    if (exactGrant) return;
+    const ministry = await this.requireMinistry(roster.ministryId, pilot);
+    this.assertManageMinistry(actor, ministry);
   }
 
   private assertRosterDraft(roster: { status?: string }): void {
@@ -1546,6 +1587,7 @@ export class MinistriesService {
   ): Promise<void> {
     if (!personIds.length) return;
 
+    const { start, end } = churchDayBounds(serviceAt);
     const conflicts = await this.prisma.rosterAssignment.findMany({
       where: {
         status: { in: ["PENDING", "CONFIRMED"] },
@@ -1559,7 +1601,7 @@ export class MinistriesService {
         slot: {
           roster: {
             churchId,
-            serviceAt,
+            serviceAt: { gte: start, lt: end },
             ...(excludeRosterId ? { id: { not: excludeRosterId } } : {}),
           },
         },
@@ -1572,7 +1614,7 @@ export class MinistriesService {
       throw new ConflictException({
         code: "ROSTER_SERVICE_CONFLICT",
         message:
-          "Pessoa já possui escala PENDING/CONFIRMED no mesmo serviceAt desta congregação",
+          "Pessoa já possui escala no mesmo dia nesta congregação",
       });
     }
   }

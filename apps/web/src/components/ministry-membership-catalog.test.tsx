@@ -60,8 +60,12 @@ describe("MinistryMembershipCatalog", () => {
         desk={desk}
         conversion={null}
         convertingId={null}
+        change={null}
+        pending={false}
         onSelect={() => undefined}
         onConvert={() => undefined}
+        onAdmit={() => undefined}
+        onEnd={() => undefined}
       />,
     );
     const members = region(html, "formal-members");
@@ -75,6 +79,61 @@ describe("MinistryMembershipCatalog", () => {
     expect(html).toContain("MINISTRY_FINANCE_CONTRACT_BLOCKED");
     expect(html).not.toContain("R$");
     expect(html).not.toContain("@");
+    expect(html).toContain("Inclusão e remoção permanecem indisponíveis");
+    expect(html).not.toContain("Incluir no vínculo formal");
+  });
+
+  it("lista integrante devolvido pela API e mantém o interesse na outra coluna", () => {
+    const html = renderToStaticMarkup(
+      <MinistryMembershipCatalog
+        desk={{
+          ...desk,
+          ministries: [
+            { id: "min-jovens", name: "Jovens" },
+            { id: "min-homens", name: "Homens" },
+          ],
+          ministry: { id: "min-jovens", name: "Jovens" },
+          membership: {
+            kind: "ready",
+            members: [
+              {
+                id: "mmb-jovem",
+                personId: "per-jovem",
+                displayName: "Jovem Sintético",
+                role: "INTEGRANTE",
+                status: "ATIVO",
+              },
+            ],
+            message: "Integrantes devolvidos pelo cadastro formal.",
+          },
+          interests: [
+            {
+              id: "int-sint-02",
+              displayName: "Interessado Sintético",
+              stage: "EQUIPE",
+              status: "OPEN",
+              formalMember: false,
+            },
+          ],
+        }}
+        conversion={null}
+        convertingId={null}
+        change={null}
+        pending={false}
+        onSelect={() => undefined}
+        onConvert={() => undefined}
+        onAdmit={() => undefined}
+        onEnd={() => undefined}
+      />,
+    );
+    const members = region(html, "formal-members");
+    const interests = region(html, "volunteer-interests");
+    expect(members).toContain("Jovem Sintético");
+    expect(members).toContain("Encerrar vínculo");
+    expect(members).toContain("Incluir no vínculo formal");
+    expect(members).not.toContain("Interessado Sintético");
+    expect(interests).toContain("Interessado Sintético");
+    expect(interests).not.toContain("Jovem Sintético");
   });
 
   it("a página nova não entra no shell de login nem no ledger", () => {

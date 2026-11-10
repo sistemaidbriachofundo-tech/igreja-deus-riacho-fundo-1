@@ -4,7 +4,8 @@ import { defaultSiteLayout, parseSiteLayout, parsePublicSiteLayout, siteSections
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
 import { PortalHomeSections } from "../components/PortalHomeSections";
-import { SiteManager } from "../components/SiteManager";
+import { SiteManager, SiteReaderPreview } from "../components/SiteManager";
+import { readFileSync } from "node:fs";
 import { SiteMediaLibrary } from "../components/SiteMediaLibrary";
 import { ViviEditorialAssistant } from "../components/ViviEditorialAssistant";
 import { PublishedSiteLayoutProvider } from "./use-published-site-layout";
@@ -16,6 +17,8 @@ describe("Gestão do Site — editor visual",()=>{
     expect(parseSiteLayout({...defaultSiteLayout,hidden:["convite"]})).toBeNull();
     expect(parseSiteLayout({...defaultSiteLayout,sections:[...siteSections].reverse()})).not.toBeNull();
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"javascript:alert(1)"}})).toBeNull();
+    expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"https://exemplo.test/foto.jpg"}})).toBeNull();
+    expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"https://store.public.blob.vercel-storage.com/church/c1/site/foto.jpg"}})?.hero.imageUrl).toContain("blob.vercel-storage.com");
   });
   it("rejects unauthenticated or malformed public data",()=>{
     expect(parsePublicSiteLayout({layout:null})).toEqual({layout:null});
@@ -73,4 +76,22 @@ describe("Gestão do Site — editor visual",()=>{
     expect(html).toContain("Seu site, nas mãos");
     expect(html).toContain("Gestão do site");
   });
+  it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
+    const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"RASCUNHO SECRETO 5a13"}};
+    const empty=renderToStaticMarkup(<SiteReaderPreview published={null} device="mobile"/>);
+    expect(empty).toContain("O leitor não vê o rascunho");
+    expect(empty).not.toContain(secret.hero.title);
+    expect(empty).toContain("gate");
+    const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"Versão publicada 5a13"}};
+    const live=renderToStaticMarkup(<SiteReaderPreview published={published} device="desktop"/>);
+    expect(live).toContain("Versão publicada 5a13");
+    expect(live).not.toContain("actorUserId");
+    expect(live).toContain('data-reader="published"');
+    const hook=readFileSync(joinSource("use-published-site-layout.ts"),"utf8");
+    expect(hook).toContain('NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED !== "true"');
+  });
 });
+
+function joinSource(name:string){
+  return `${__dirname}/${name}`;
+}

@@ -47,6 +47,9 @@
 .ghost,
 .primary,
 .danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   font: inherit;
   font-size: 0.92rem;
@@ -60,6 +63,7 @@
   background: var(--color-surface);
   color: var(--color-ink);
   padding: 0.55rem 0.8rem;
+  min-height: 2.75rem;
   text-decoration: none;
 }
 
@@ -84,6 +88,7 @@
   color: var(--color-on-dark);
   background: var(--color-marrom);
   padding: 0.65rem 0.9rem;
+  min-height: 2.75rem;
 }
 
 .danger {
@@ -147,9 +152,14 @@
   color: var(--color-ink-muted);
 }
 
-.schedule {
+.schedule,
+.agenda {
   display: grid;
   gap: 0.9rem;
+}
+
+.agenda .roster {
+  padding: 0.9rem 1rem;
 }
 
 .rosterHeader,
@@ -232,6 +242,23 @@
   margin: 0;
   color: var(--color-ink-muted);
   font-size: 0.85rem;
+}
+
+@media (max-width: 767px) {
+  .rosterHeader,
+  .assignment,
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary,
+  .danger,
+  .ghost,
+  .nav a {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 @media (min-width: 768px) {

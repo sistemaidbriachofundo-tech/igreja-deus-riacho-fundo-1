@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { findSimultaneousBlocks, type RosterView } from "../../lib/serving-rosters";
+import { findSimultaneousBlocks, type PersonalAssignment, type RosterView } from "../../lib/serving-rosters";
 import { MemberSpace } from "./MemberSpace";
 import { MinistryRosterDesk } from "./MinistryRosterDesk";
 import { ServingWorkspace } from "./ServingWorkspace";
@@ -134,10 +134,10 @@ describe("telas de escala — o que a pessoa vê", () => {
     );
     expect(html).toContain("p-ana");
     expect(html).toContain("Escala da recepção");
-    expect(html).toContain("ROSTER_SERVICE_CONFLICT");
+    expect(html).toContain("ROSTER_SAME_DAY");
     expect(html).toContain("data-blocked=\"rehearsal\"");
     expect(html).not.toContain("pessoa-alheia");
-    expect(html).toContain("Substituir");
+    expect(html).toContain("Pedir substituição");
   });
 
   it("escala fechada não oferece função, designação nem publicação", () => {
@@ -172,7 +172,7 @@ describe("telas de escala — o que a pessoa vê", () => {
     expect(html).not.toContain("Designar");
     expect(html).not.toContain("Nova função neste horário");
     expect(html).not.toContain("Publicar escala");
-    expect(html).not.toContain("Substituir");
+    expect(html).not.toContain("Pedir substituição");
   });
 
   it("rascunho com função pode ser publicado e o membro não vê troca", () => {
@@ -233,29 +233,46 @@ describe("telas de escala — o que a pessoa vê", () => {
       />,
     );
     expect(member).toContain("Confirmar");
-    expect(member).not.toContain("Substituir");
+    expect(member).not.toContain("Pedir substituição");
     expect(member).not.toContain("Registrar escala");
   });
 
-  it("Meu Espaço confirma pelo identificador e não lista outra pessoa", () => {
+  it("Meu Espaço lista só a agenda recebida e não outra pessoa", () => {
+    const mine: PersonalAssignment = {
+      id: "a-minha",
+      status: "PENDING",
+      participation: "assignee",
+      roleLabel: "Voz",
+      title: "Louvor domingo",
+      serviceAt: "2026-11-15T21:00:00.000Z",
+      rosterStatus: "PUBLISHED",
+      ministryName: "Louvor",
+      ministrySlug: "louvor",
+      sameDayConflict: true,
+    };
     const html = renderToStaticMarkup(
       <MemberSpace
         email="membro.demo@example.test"
         personId="p-membro"
+        assignments={[mine]}
         busy={false}
-        notice=""
+        notice="Confirmação gravada. O estado exibido veio da API e nenhuma mensagem foi enviada."
         probe="forbidden"
         onConfirm={noop}
         onDecline={noop}
         onProbe={noop}
       />,
     );
-    expect(html).toContain("Confirmar minha escala");
+    expect(html).toContain("Louvor domingo");
+    expect(html).toContain("data-status=\"PENDING\"");
+    expect(html).toContain("Confirmar");
+    expect(html).toContain("data-persist=\"roster\"");
+    expect(html).toContain("ROSTER_SAME_DAY");
     expect(html).toContain("data-probe=\"forbidden\"");
     expect(html).toContain("p-membro");
     expect(html).toContain("carteirinha");
     expect(html).not.toContain("pessoa-alheia");
-    expect(html).not.toContain("Louvor domingo");
+    expect(html).not.toContain("Pedir substituição");
   });
 
   it("sem homologação a página não consulta escala", () => {
@@ -263,7 +280,7 @@ describe("telas de escala — o que a pessoa vê", () => {
     expect(html).toContain("Homologação desabilitada");
     expect(html).toContain("Integração bloqueada");
     expect(html).toContain("#97");
-    expect(html).toContain("#101");
+    expect(html).toContain("#133");
     expect(html).not.toContain("pessoa-alheia");
   });
 });

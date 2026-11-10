@@ -3,9 +3,11 @@ import {
   MINISTRY_FINANCE_CONTRACT_APPROVED,
   acceptFormalMembers,
   interpretConversion,
+  interpretMembershipChange,
   loadMinistryDesk,
   presentFinance,
   readInterests,
+  requestFormalAdmission,
   requestInterestConversion,
 } from "./ministry-desk";
 
@@ -215,6 +217,69 @@ describe("catálogo formal de ministério", () => {
     });
     expect(result.created).toBe(false);
     expect(result.member).toBeNull();
+  });
+
+  it("grava inclusão só com 201 formal e recusa 501 com objeto solto", async () => {
+    const calls: Array<{ url: string; body?: string }> = [];
+    const fetchImpl = async (url: string, init?: { method?: string; body?: string }) => {
+      calls.push({ url, body: init?.body });
+      if (url.endsWith("/formal-memberships") && init?.method === "POST") {
+        return json(501, {
+          blocked: true,
+          code: "MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED",
+          createdMembership: {
+            id: "mmb-falso",
+            personId: "per-sint-01",
+            displayName: "Pessoa Sintética",
+            role: "INTEGRANTE",
+            status: "ATIVO",
+          },
+        });
+      }
+      return json(404, { message: url });
+    };
+    const blocked = await requestFormalAdmission({
+      token,
+      baseUrl: base,
+      ministryId: "min-jovens",
+      personId: "per-sint-01",
+      role: "INTEGRANTE",
+      fetchImpl,
+    });
+    expect(blocked.applied).toBe(false);
+    expect(blocked.member).toBeNull();
+    expect(calls[0]?.url).toContain("/min-jovens/formal-memberships");
+    expect(calls[0]?.body).toContain("\"role\":\"INTEGRANTE\"");
+
+    const ready = interpretMembershipChange(201, {
+      blocked: false,
+      code: "MINISTRY_MEMBERSHIP_CREATED",
+      auditId: "aud-sint-01",
+      createdMembership: {
+        id: "mmb-sint-01",
+        personId: "per-sint-01",
+        displayName: "Pessoa Sintética",
+        role: "INTEGRANTE",
+        status: "ATIVO",
+        email: "nao-usar@example.test",
+      },
+    });
+    expect(ready.applied).toBe(true);
+    expect(ready.member).toEqual({
+      id: "mmb-sint-01",
+      personId: "per-sint-01",
+      displayName: "Pessoa Sintética",
+      role: "INTEGRANTE",
+      status: "ATIVO",
+    });
+    expect(ready.message).toContain("aud-sint-01");
+    expect(JSON.stringify(ready.member)).not.toContain("@");
+    expect(
+      interpretMembershipChange(403, {
+        code: "MINISTRY_SCOPE_FORBIDDEN",
+        message: "Líder só visualiza dados do ministério autorizado.",
+      }).applied,
+    ).toBe(false);
   });
 
   it("descarta saldo numérico mesmo em resposta 200", () => {

@@ -109,6 +109,8 @@ jobs:
       - run: npm run build -w @idbrf/db
       - run: npm run build -w @idbrf/api
       # next/font/google can flake on Fonts API fetch in CI — retry a few times.
+      - name: Manifesto de release do Pages
+        run: node scripts/hml/write-pages-release.mjs
       - name: Build web
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ env.NEXT_PUBLIC_BASE_PATH }}
@@ -410,6 +412,25 @@ jobs:
           fi
           echo "GitHub Pages responde e não exibe títulos do seed de teste no HTML."
 
+      - name: Conferir o SHA publicado sem declarar a fase concluída
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://sistemaidbriachofundo-tech.github.io/igreja-deus-riacho-fundo-1/release.json"
+          curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 8 "$URL" -o /tmp/idbrf-release.json
+          python3 - <<'PY'
+          import json, os
+          doc = json.load(open("/tmp/idbrf-release.json"))
+          sha = os.environ["GITHUB_SHA"]
+          if doc.get("sourceSha") != sha:
+              raise SystemExit(f"sourceSha {doc.get('sourceSha')} != {sha}")
+          if doc.get("phase") != "EM_EXECUCAO":
+              raise SystemExit("o manifesto não pode declarar a fase concluída")
+          if doc.get("channel") != "github-pages":
+              raise SystemExit("channel inesperado")
+          print("Pages confirma o SHA deste workflow. A fase Eklesia continua EM_EXECUCAO.")
+          PY
+
       - name: Conferir API e política CORS do domínio oficial
         shell: bash
         run: |
@@ -424,3 +445,25 @@ jobs:
             -H "Access-Control-Request-Headers: content-type"
           grep -Fqi "access-control-allow-origin: $ORIGIN" /tmp/idbrf-cors.txt
           echo "API online e CORS autoriza o domínio oficial; POST Gemini exige teste de usuário/consentimento."
+
+  eklesia-matrix:
+    name: Matriz Eklesia (não conclui a fase)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # O gate confere refs/remotes/origin/main; checkout raso de PR não fornece essa ref.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Sondar Pages e API HML sem credencial
+        run: node scripts/hml/eklesia-release-gate.mjs --screenshots off
+      - name: Publicar a matriz
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eklesia-release-matrix
+          path: qa/eklesia-h/matriz.*
+          if-no-files-found: error
+          retention-days: 14

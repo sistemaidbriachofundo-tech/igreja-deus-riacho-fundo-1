@@ -22,7 +22,9 @@
     "homolog:backup": "bash scripts/pg-backup-restore-smoke.sh",
     "test:pg": "RUN_PG_INTEGRATION=1 npm run test -w @idbrf/db -- --test-name-pattern=postgres",
     "homolog:readiness": "node scripts/backend-readiness-smoke.mjs",
-    "homolog:fase1": "node scripts/hml/fase1-e2e.mjs"
+    "homolog:fase1": "node scripts/hml/fase1-e2e.mjs",
+    "homolog:eklesia": "node scripts/hml/eklesia-release-gate.mjs",
+    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs"
   },
   "engines": {
     "node": ">=20"

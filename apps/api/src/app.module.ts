@@ -29,11 +29,13 @@ import { LettersModule } from "./letters/letters.module";
 import { MembershipsModule } from "./memberships/memberships.module";
 import { MetaController } from "./meta/meta.controller";
 import { MinistriesModule } from "./ministries/ministries.module";
+import { PersonalRostersModule } from "./rosters/personal-rosters.module";
 import { PastoralModule } from "./pastoral/pastoral.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublicPortalModule } from "./public-portal/public-portal.module";
+import { ReportsModule } from "./reports/reports.module";
 import { StorageModule } from "./storage/storage.module";
 import { TransfersModule } from "./transfers/transfers.module";
 import { VolunteersModule } from "./volunteers/volunteers.module";
@@ -60,11 +62,13 @@ import { ViviModule } from "./vivi/vivi.module";
     CoursesModule,
     GroupsModule,
     MinistriesModule,
+    PersonalRostersModule,
     EventsModule,
     FinanceModule,
     TreasuryModule,
     ChannelsModule,
     IndicatorsModule,
+    ReportsModule,
     AssetsModule,
     CmsModule,
     VolunteersModule,

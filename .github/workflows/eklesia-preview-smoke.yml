@@ -1,0 +1,75 @@
+name: Eklesia HML Preview Runtime Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/eklesia-preview-smoke.yml"
+      - "apps/api/**"
+      - "packages/shared/**"
+      - "packages/db/**"
+      - "scripts/hml/**"
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-smoke:
+    if: github.head_ref == 'integracao/eklesia-hml-20261109'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      # API do projeto exclusivamente HML, promovida após smoke staged; NUNCA API real da igreja.
+      API_ORIGIN: https://id-riacho1-api-hml.vercel.app
+    steps:
+      - name: Probe Nest bootstrap, meta and authorization (no credentials)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const origin = process.env.API_ORIGIN;
+          const paths = [
+            {path:"/health",expected:200,kind:"health"},
+            {path:"/meta",expected:200,kind:"meta"},
+            {path:"/auth/me",expected:401,kind:"private"},
+            {path:"/persons/search?q=sintetico",expected:401,kind:"private"},
+            {path:"/ministry-scope/min-homens/formal-memberships",expected:401,kind:"private"},
+            {path:"/rosters/me",expected:401,kind:"private"},
+            {path:"/reports/participation",expected:401,kind:"private"},
+            {path:"/cms/contents",expected:401,kind:"private"},
+            {path:"/ledger/entries",expected:401,kind:"private"},
+            {path:"/public/home",expected:200,kind:"public"},
+            {path:"/public/events",expected:200,kind:"public"},
+            {path:"/public/ministries",expected:200,kind:"public"},
+          ];
+          let failures=0;
+          async function probe(item) {
+            try {
+              const response=await fetch(origin+item.path,{
+                redirect:"manual",signal:AbortSignal.timeout(15000),
+                headers:{accept:"application/json"}
+              });
+              const body=await response.text();
+              const contentType=response.headers.get("content-type")||"";
+              const ok=response.status===item.expected && contentType.includes("json");
+              let serverOk=true;
+              if(ok && item.kind==="private"){
+                try{serverOk=JSON.parse(body).statusCode===401;}catch{serverOk=false;}
+              }
+              let metaOk=true;
+              if(item.kind==="meta"&&ok){
+                const json=JSON.parse(body);
+                metaOk=typeof json.contractVersion==="string"&&json.contractVersion.startsWith("0.7.")&&typeof json.sourceSha==="string"&&/^[0-9a-f]{40}$/.test(json.sourceSha);
+              }
+              if(!ok||!metaOk||!serverOk) failures++;
+              console.log(JSON.stringify({path:item.path,http:response.status,contentType,pass:ok&&metaOk&&serverOk,serverKnown:serverOk,metaKnown:item.kind==="meta"?metaOk:undefined}));
+            }catch(err){
+              failures++;
+              console.log(JSON.stringify({path:item.path,pass:false,networkError:err?.name||"error"}));
+            }
+          }
+          for(const item of paths) await probe(item);
+          if(failures){console.error("HML live API smoke FAIL: "+failures+" of "+paths.length);process.exit(1);}
+          console.log("Preview runtime smoke PASS: "+paths.length+" endpoint checks (anonymous only).");
+          console.log("NOTE: This does NOT validate 8 personas, DB mutations, J01-J09, or authorize release.");
+          NODE

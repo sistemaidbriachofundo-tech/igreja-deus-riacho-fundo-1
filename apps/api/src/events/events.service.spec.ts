@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
-import { EventsService } from "./events.service";
+import { EventsService, eventPublicationBlockReason } from "./events.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
 describe("EventsService", () => {
@@ -329,5 +329,34 @@ describe("EventsService", () => {
     await expect(
       service.patch(secretaria, "e1", { status: "NOPE" as never }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("blocks publish when the draft looks like personal contact data", async () => {
+    const unsafe = {
+      ...eventRow,
+      description: "contato ana.demo@example.test ou 61 99999-0000",
+    };
+    const prisma = {
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(unsafe) },
+      $transaction: jest.fn(),
+    };
+    const service = new EventsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.publish(secretaria, "e1")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(
+      eventPublicationBlockReason({
+        name: "Encontro",
+        description: "Data 2026-11-15 no salão",
+        locationText: "Salão",
+      }),
+    ).toBeNull();
+    expect(
+      eventPublicationBlockReason({ description: "CPF 123.456.789-00" }),
+    ).toMatch(/Publicação bloqueada/);
   });
 });

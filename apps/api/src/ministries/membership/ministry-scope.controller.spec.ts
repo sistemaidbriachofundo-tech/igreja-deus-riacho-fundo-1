@@ -12,7 +12,9 @@ describe("MinistryScopeController", () => {
   it("encaminha o escopo sem montar integrante", async () => {
     const gate = {
       readMemberships: jest.fn().mockRejectedValue(new Error("501")),
+      admit: jest.fn().mockRejectedValue(new Error("501")),
       convertInterest: jest.fn().mockRejectedValue(new Error("501")),
+      endMembership: jest.fn().mockRejectedValue(new Error("501")),
       readAgenda: jest.fn().mockRejectedValue(new Error("501")),
       readRequests: jest.fn().mockRejectedValue(new Error("501")),
       readCostCenterBalance: jest.fn().mockRejectedValue(new Error("501")),
@@ -23,10 +25,19 @@ describe("MinistryScopeController", () => {
       "501",
     );
     await expect(
+      controller.admit(user, "min-homens", {
+        personId: "per-sint-01",
+        role: "INTEGRANTE",
+      }),
+    ).rejects.toThrow("501");
+    await expect(
       controller.convert(user, "min-mulheres", {
         volunteerInterestId: "int-sint-01",
       }),
     ).rejects.toThrow("501");
+    await expect(controller.end(user, "min-homens", "mmb-sint-01")).rejects.toThrow(
+      "501",
+    );
     await expect(controller.agenda(user, "min-homens")).rejects.toThrow("501");
     await expect(controller.requests(user, "min-homens")).rejects.toThrow(
       "501",
@@ -34,6 +45,13 @@ describe("MinistryScopeController", () => {
     await expect(controller.balance(user, "min-homens")).rejects.toThrow("501");
 
     expect(gate.readMemberships).toHaveBeenCalledWith(user, "min-homens");
+    expect(gate.admit).toHaveBeenCalledWith(
+      user,
+      "min-homens",
+      "per-sint-01",
+      "INTEGRANTE",
+    );
+    expect(gate.endMembership).toHaveBeenCalledWith(user, "min-homens", "mmb-sint-01");
     expect(gate.convertInterest).toHaveBeenCalledWith(
       user,
       "min-mulheres",

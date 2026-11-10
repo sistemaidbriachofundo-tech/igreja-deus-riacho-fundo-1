@@ -33,6 +33,7 @@ import {
 } from "./events/events.controller";
 import { FinanceController } from "./finance/finance.controller";
 import { IndicatorsController } from "./indicators/indicators.controller";
+import { ReportsController } from "./reports/reports.controller";
 import { PastoralController } from "./pastoral/pastoral.controller";
 import { PersonsController } from "./persons/persons.controller";
 import { PublicPortalController } from "./public-portal/public-portal.controller";
@@ -918,6 +919,29 @@ describe("controller wiring (delegates to services)", () => {
       scope: undefined,
     });
     expect(indicators.membership).toHaveBeenCalledWith(user, "ch1");
+  });
+
+  it("ReportsController", async () => {
+    const reports = {
+      participation: jest.fn().mockResolvedValue({ counts: { registrations: 0 } }),
+      membership: jest.fn().mockResolvedValue({ byStatus: {} }),
+      ministries: jest.fn().mockResolvedValue({
+        formalMembership: { blocked: true, members: null },
+      }),
+    };
+    const c = new ReportsController(reports as never);
+    await c.participation(user, "e1", "CHECKED_IN", "m1", "2026-11-01", "2026-11-30");
+    await c.membership(user);
+    await c.ministries(user, "m1");
+    expect(reports.participation).toHaveBeenCalledWith(user, {
+      eventId: "e1",
+      status: "CHECKED_IN",
+      ministryId: "m1",
+      from: "2026-11-01",
+      to: "2026-11-30",
+    });
+    expect(reports.membership).toHaveBeenCalledWith(user);
+    expect(reports.ministries).toHaveBeenCalledWith(user, "m1");
   });
 
   it("ViviController", async () => {

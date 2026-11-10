@@ -50,12 +50,61 @@ Também faltam modelos de agenda estruturada e de solicitação do ministério.
 Enquanto a tabela não existir, as rotas abaixo conferem o escopo e respondem **501** com `blocked: true` e coleção `null`.
 Não gravam pessoa, não avançam interesse e não inventam integrante.
 
-| Método | Rota | Código quando autorizado | Corpo |
+**BLOCKED nesta entrega (frente B / #127, base `ca00a4fd`).** O adaptador consulta `to_regclass('public.ministry_memberships')`. Com resultado nulo — o estado do schema atual — a API permanece 501. A migration e o model Prisma ficam com o integrador #133. Este contrato não altera `schema.prisma`, `packages/db/prisma/migrations` nem `packages/shared`.
+
+SQL proposto, ainda não aplicado:
+
+```sql
+CREATE TABLE ministry_memberships (
+  id text PRIMARY KEY,
+  organization_id text NOT NULL,
+  church_id text NOT NULL,
+  ministry_id text NOT NULL,
+  person_id text NOT NULL,
+  role text NOT NULL,
+  status text NOT NULL,
+  source text NOT NULL,
+  volunteer_interest_id text,
+  started_at timestamptz NOT NULL,
+  ended_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ministry_memberships_ministry_fkey
+    FOREIGN KEY (ministry_id) REFERENCES ministries (id),
+  CONSTRAINT ministry_memberships_person_fkey
+    FOREIGN KEY (person_id) REFERENCES persons (id),
+  CONSTRAINT ministry_memberships_role_chk
+    CHECK (role IN ('LIDER', 'COORDENADOR', 'INTEGRANTE', 'APOIO')),
+  CONSTRAINT ministry_memberships_status_chk
+    CHECK (status IN ('ATIVO', 'CONVIDADO', 'PAUSADO', 'ENCERRADO')),
+  CONSTRAINT ministry_memberships_source_chk
+    CHECK (source IN ('DIRETO', 'CONVERSAO_INTERESSE'))
+);
+CREATE UNIQUE INDEX ministry_memberships_ministry_person_key
+  ON ministry_memberships (ministry_id, person_id);
+CREATE INDEX ministry_memberships_person_idx ON ministry_memberships (person_id);
+CREATE INDEX ministry_memberships_scope_idx
+  ON ministry_memberships (organization_id, church_id, ministry_id);
+```
+
+O `id` do ministério já é único. A aplicação ainda exige `organization_id`, `church_id` e `ministry_id` juntos em toda leitura e escrita, para o líder não atravessar congregação nem ministério.
+
+Quando `to_regclass` devolver a tabela, o 501 do vínculo formal sai de cena:
+
+| Método | Rota | Sem tabela | Com tabela e escopo autorizado |
 |---|---|---|---|
-| GET | `/ministry-scope/:ministryId/formal-memberships` | `MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED` | `members: null` |
-| POST | `/ministry-scope/:ministryId/formal-memberships/from-interest` | `MINISTRY_INTEREST_CONVERSION_BLOCKED` | `createdMembership: null` |
-| GET | `/ministry-scope/:ministryId/agenda` | `MINISTRY_AGENDA_MODEL_BLOCKED` | `items: null`, mais `scheduleText` do perfil |
-| GET | `/ministry-scope/:ministryId/requests` | `MINISTRY_REQUEST_MODEL_BLOCKED` | `requests: null` |
+| GET | `/ministry-scope/:ministryId/formal-memberships` | 501 `members: null` | 200 `blocked: false`, `members` |
+| POST | `/ministry-scope/:ministryId/formal-memberships` | 501 `createdMembership: null` | 201 integrante `{ personId, role }` |
+| POST | `/ministry-scope/:ministryId/formal-memberships/from-interest` | 501 `createdMembership: null` | 201 só se o interesse é daquele ministério e tem `personId` |
+| POST | `/ministry-scope/:ministryId/formal-memberships/:membershipId/end` | 501 `member: null` | 200 `status: ENCERRADO` |
+| GET | `/ministry-scope/:ministryId/agenda` | 501 `items: null` + `scheduleText` | continua 501: não há modelo de agenda |
+| GET | `/ministry-scope/:ministryId/requests` | 501 `requests: null` | continua 501: não há modelo de solicitação |
+
+Papel `LIDER` no vínculo é função da equipe. Não cria `Grant` e não torna a pessoa líder de acesso.
+A mesma pessoa pode estar em mais de um ministério. Dois vínculos abertos no mesmo ministério respondem 409.
+Encerrar por um `ministryId` que não é o dono do vínculo responde 404 e não altera a linha.
+Conversão não muda `VolunteerInterest.stage`. Interesse sem `personId`, ou pessoa de outra organização/igreja, não cria pessoa nem integrante.
+Auditoria em `audit_logs`: `ministry_membership.admit`, `ministry_membership.convert_interest`, `ministry_membership.reactivate`, `ministry_membership.end`. Metadata só traz `ministryId`, `personId`, `role`, `status`, `previousStatus`, `source`, `volunteerInterestId`.
 
 Fora do ministério autorizado, qualquer uma delas responde **403** `MINISTRY_SCOPE_FORBIDDEN` antes do 501.
 Ministério inexistente na congregação piloto: **404**.
@@ -64,7 +113,7 @@ Papéis da rota: `SECRETARIA`, `PASTOR`, `LIDER_MINISTERIO`, `PLATFORM_ADMIN`.
 `MEMBRO` e `TESOURARIA` recebem 403 de papel. Tesouraria não herda a equipe do ministério.
 
 Conversão controlada: `POST` com `{ "volunteerInterestId": "..." }`.
-O integrador, ao persistir, precisa confirmar que o interesse é daquele `ministryId` e criar o vínculo numa transação explícita.
+A aplicação só grava se o interesse pertence àquele `ministryId` e já tem `personId` na mesma organização e igreja.
 Avançar a etapa do interesse continua sendo outro endpoint e não dispara esta conversão.
 
 Quando o 200 existir, o corpo aceito é:
@@ -85,6 +134,10 @@ Quando o 200 existir, o corpo aceito é:
 ```
 
 Payload com `stage` de voluntariado e sem `role` é recusado pela interface. Nenhum nome é promovido por semelhança.
+
+## Agenda e solicitações
+
+Continuam **BLOCKED**. O horário livre já gravado em `Ministry.scheduleText` pode ser exibido. Itens estruturados e filas de solicitação não são inventados. Escalas globais (`/rosters`) permanecem fora desta frente.
 
 ## BLOCKED — finanças #96
 

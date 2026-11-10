@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiGet, apiPost, loadStoredToken, type LoginResult } from "../../lib/api";
+import { ApiRequestError, apiGet, apiPost, loadStoredToken, type LoginResult } from "../../lib/api";
 import { churchLocalToISO, dasError } from "../../lib/das-operations";
 import { withBasePath } from "../../lib/paths";
 import { probeChurchRosterList } from "../../lib/serving-client";
 import {
-  endpointsForSurface,
-  findSimultaneousBlocks,
+  findSameDayBlocks,
   parseMinistryList,
+  parseMyAgenda,
   parseRosterList,
   pickSurfaceMinistry,
   rostersForMinistry,
+  type PersonalAssignment,
   SERVING_SURFACES,
   type MinistryView,
   type RosterView,
@@ -37,7 +38,7 @@ const COPY: Record<Surface, { title: string; lead: string }> = {
   },
   membro: {
     title: "Meu Espaço",
-    lead: "Sua sessão, o atalho da carteirinha e a confirmação da sua atribuição. Listas de outras pessoas não aparecem aqui.",
+    lead: "Sua agenda, filtrada pela pessoa do token. Confirmar e recusar gravam o estado e não enviam mensagem.",
   },
 };
 
@@ -51,6 +52,8 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [probe, setProbe] = useState<Probe>(null);
+  const [agenda, setAgenda] = useState<PersonalAssignment[]>([]);
+  const [scopeDenied, setScopeDenied] = useState(false);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -69,19 +72,56 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
       try {
         const me = await apiGet<LoginResult["user"]>("/auth/me", stored);
         if (cancelled) return;
-        if (!endpointsForSurface(surface).includes("/rosters")) {
+        setScopeDenied(false);
+        if (surface === "membro") {
+          const body = await apiGet<unknown>("/rosters/me", stored);
+          if (cancelled) return;
+          const parsed = parseMyAgenda(body);
+          if (parsed.personId !== me.personId) {
+            throw new Error("Formato inesperado: a agenda não é da pessoa autenticada.");
+          }
+          setAgenda(parsed.assignments);
+          setRosters([]);
           setToken(stored);
           setUser(me);
           setPhase("ready");
           return;
         }
-        const [ministryBody, rosterBody] = await Promise.all([
-          apiGet<unknown>("/ministries", stored),
-          apiGet<unknown>("/rosters", stored),
-        ]);
+        const ministryBody = await apiGet<unknown>("/ministries", stored);
         if (cancelled) return;
-        setMinistries(parseMinistryList(ministryBody));
-        setRosters(parseRosterList(rosterBody));
+        const parsedMinistries = parseMinistryList(ministryBody);
+        const selected = pickSurfaceMinistry(parsedMinistries, surface);
+        setMinistries(parsedMinistries);
+        if (!selected) {
+          setRosters([]);
+          setToken(stored);
+          setUser(me);
+          setPhase("ready");
+          return;
+        }
+        try {
+          const rosterBody = await apiGet<unknown>(
+            `/rosters/by-ministry/${encodeURIComponent(selected.id)}`,
+            stored,
+          );
+          if (cancelled) return;
+          const parsedRosters = parseRosterList(rosterBody);
+          if (parsedRosters.some((roster) => roster.ministryId !== selected.id)) {
+            throw new Error("Formato inesperado: a resposta trouxe escala de outro ministério.");
+          }
+          setRosters(parsedRosters);
+        } catch (error) {
+          if (error instanceof ApiRequestError && error.status === 403) {
+            if (cancelled) return;
+            setRosters([]);
+            setScopeDenied(true);
+            setToken(stored);
+            setUser(me);
+            setPhase("ready");
+            return;
+          }
+          throw error;
+        }
         setToken(stored);
         setUser(me);
         setPhase("ready");
@@ -105,7 +145,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
     surface === "membro" ? null : pickSurfaceMinistry(ministries, surface);
   const visibleRosters = ministry ? rostersForMinistry(rosters, ministry.id) : [];
   const blocks = useMemo(
-    () => findSimultaneousBlocks(rosters),
+    () => findSameDayBlocks(rosters),
     [rosters],
   );
 
@@ -155,19 +195,20 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
         <MemberSpace
           email={user.email}
           personId={user.personId}
+          assignments={agenda}
           busy={busy}
           notice={notice}
           probe={probe}
           onConfirm={(assignmentId) =>
             void run(
-              () => apiPost(`/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-              "Confirmação registrada na API.",
+              () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
+              "Confirmação gravada. O estado exibido veio da API e nenhuma mensagem foi enviada.",
             )
           }
           onDecline={(assignmentId) =>
             void run(
-              () => apiPost(`/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
-              "Recusa registrada na API.",
+              () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
+              "Recusa gravada. O estado exibido veio da API e nenhuma mensagem foi enviada.",
             )
           }
           onProbe={() => {
@@ -181,7 +222,13 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
           }}
         />
       )}
-      {phase === "ready" && user && surface !== "membro" && (
+      {phase === "ready" && user && surface !== "membro" && scopeDenied && (
+        <section className={styles.blocked} role="alert" data-scope="forbidden">
+          <h2>Sem permissão neste ministério</h2>
+          <p>A API recusou a escala deste grupo. Nenhuma escala de outro ministério foi carregada.</p>
+        </section>
+      )}
+      {phase === "ready" && user && surface !== "membro" && !scopeDenied && (
         <MinistryRosterDesk
           surface={surface}
           ministry={ministry}
@@ -222,32 +269,32 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
           onAssign={(slotId, personId, partnerPersonId) =>
             void run(
               () =>
-                apiPost(`/slots/${encodeURIComponent(slotId)}/assignments`, token, {
+                apiPost(`/rosters/slots/${encodeURIComponent(slotId)}/assign`, token, {
                   personId,
                   ...(partnerPersonId ? { partnerPersonId } : {}),
                 }),
-              "Designação registrada na API.",
+              "Designação gravada como pendente. Nenhuma mensagem foi enviada.",
             )
           }
           onConfirm={(assignmentId) =>
             void run(
-              () => apiPost(`/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-              "Confirmação registrada na API.",
+              () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
+              "Confirmação gravada. Nenhuma mensagem foi enviada.",
             )
           }
           onDecline={(assignmentId) =>
             void run(
-              () => apiPost(`/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
-              "Recusa registrada na API.",
+              () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
+              "Recusa gravada. Nenhuma mensagem foi enviada.",
             )
           }
           onSubstitute={(assignmentId, personId) =>
             void run(
               () =>
-                apiPost(`/assignments/${encodeURIComponent(assignmentId)}/substitute`, token, {
+                apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/substitute`, token, {
                   personId,
                 }),
-              "Substituição registrada na API. A atribuição anterior deixa de ocupar o horário.",
+              "Substituição gravada como pendente. A pessoa confirma em Meu Espaço. Nenhuma mensagem foi enviada.",
             )
           }
           onPublish={(rosterId) =>
@@ -277,5 +324,27 @@ function servingError(error: unknown): string {
   if (error instanceof Error && error.message.startsWith("Formato inesperado")) {
     return error.message;
   }
+  if (error instanceof ApiRequestError) {
+    const parsed = readApiBody(error.message);
+    if (parsed.code === "ROSTER_SAME_DAY") {
+      return "Esta pessoa já tem outra posição ativa neste dia. Nada foi gravado.";
+    }
+    if (parsed.code === "MINISTRY_SCOPE_FORBIDDEN" || error.status === 403) {
+      return "Seu perfil não tem autorização para esta escala.";
+    }
+    if (parsed.message) return parsed.message;
+  }
   return dasError(error);
+}
+
+function readApiBody(raw: string): { code?: string; message?: string } {
+  try {
+    const body = JSON.parse(raw) as { code?: unknown; message?: unknown };
+    return {
+      code: typeof body.code === "string" ? body.code : undefined,
+      message: typeof body.message === "string" ? body.message : undefined,
+    };
+  } catch {
+    return {};
+  }
 }

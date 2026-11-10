@@ -28,6 +28,32 @@ describe("CmsService", () => {
     ],
   };
 
+  const editor: AuthUser = {
+    userId: "u-editor",
+    personId: "p-editor",
+    email: "editor.demo@example.test",
+    grants: [
+      {
+        roleCode: "EDITOR_SITE",
+        organizationId: "org1",
+        churchId: "church-rf1",
+      },
+    ],
+  };
+
+  const publicador: AuthUser = {
+    userId: "u-pub",
+    personId: "p-pub",
+    email: "publicador.demo@example.test",
+    grants: [
+      {
+        roleCode: "PUBLICADOR_SITE",
+        organizationId: "org1",
+        churchId: "church-rf1",
+      },
+    ],
+  };
+
   const lider: AuthUser = {
     userId: "u-lider",
     personId: "p-lider",
@@ -126,7 +152,13 @@ describe("CmsService", () => {
       } as never,
     );
     await expect(
+      service.patch(editor, "c1", { status: "PUBLICADO" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
       service.patch(secretaria, "c1", { status: "PUBLICADO" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.patch(publicador, "c1", { status: "PUBLICADO" }),
     ).resolves.toMatchObject({ status: "PUBLICADO" });
 
     prisma.cmsContent.findFirst.mockResolvedValueOnce({
@@ -134,7 +166,7 @@ describe("CmsService", () => {
       status: "RASCUNHO",
     });
     await expect(
-      service.patch(secretaria, "c1", { status: "PUBLICADO" }),
+      service.patch(publicador, "c1", { status: "PUBLICADO" }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -167,7 +199,7 @@ describe("CmsService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
       { enqueueCmsPublishNotify: notify } as never,
     );
-    const result = await service.patch(secretaria, "c1", {
+    const result = await service.patch(publicador, "c1", {
       status: "PUBLICADO",
       notifyOnPublish: true,
       notifyChannels: ["EMAIL"],
@@ -205,7 +237,7 @@ describe("CmsService", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("LIDER can create MINISTRY_CONTENT for own ministry", async () => {
+  it("LIDER recebe 403 também em conteúdo de ministério", async () => {
     const row = { ...draft, kind: "MINISTRY_CONTENT", ministryId: "m-jovens" };
     const tx = {
       cmsContent: { create: jest.fn().mockResolvedValue(row) },
@@ -232,7 +264,8 @@ describe("CmsService", () => {
         title: "X",
         ministryId: "m-jovens",
       }),
-    ).resolves.toMatchObject({ ministryId: "m-jovens" });
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(tx.cmsContent.create).not.toHaveBeenCalled();
   });
 
   it("404 on missing content", async () => {
@@ -252,7 +285,7 @@ describe("CmsService", () => {
     );
   });
 
-  it("lists filtering for lider and rejects membro", async () => {
+  it("rejects lider and membro on the institutional list", async () => {
     const rows = [
       { ...draft, id: "c1", ministryId: "m-jovens" },
       { ...draft, id: "c2", ministryId: null, slug: "home" },
@@ -270,8 +303,9 @@ describe("CmsService", () => {
           .mockResolvedValue({ notified: 0, outbox: [] }),
       } as never,
     );
-    const list = await service.list(lider, "MINISTRY_CONTENT");
-    expect(list.contents.map((c) => c.id)).toEqual(["c1"]);
+    await expect(service.list(lider, "MINISTRY_CONTENT")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
 
     const membro: AuthUser = {
       userId: "u-m",
@@ -342,7 +376,7 @@ describe("CmsService", () => {
         title: " Novo ",
         summary: "s",
         body: "b",
-        imageUrl: "/i.jpg",
+        imageUrl: "/images/capa.jpg",
         sortOrder: 2,
         status: "REVISAO",
         note: "enviar",
