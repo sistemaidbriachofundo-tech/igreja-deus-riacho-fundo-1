@@ -196,3 +196,30 @@
   .row { align-items: stretch; flex-direction: column; }
   .row button { width: 100%; }
 }
+
+
+/* Tesouraria: mesma linguagem do painel sem alterar cálculo ou permissões. */
+.panel{
+  --color-marrom:#244f3c;--color-ink:#294b3e;--color-ink-muted:#6a8073;
+  --color-bronze:#8b7851;--color-line:#dce8df;--color-surface:#fff;
+  --color-creme:#f3f8f4;--color-on-dark:#fff;--color-dourado:#bba06b;
+  gap:20px;max-width:1420px;margin:0 auto;
+}
+.header{padding:clamp(22px,3vw,34px);border-radius:18px;border:1px solid #dce8df;background:linear-gradient(120deg,#eff7f1,#fcfdf9 76%,#f5eee2);}
+.header h1{font-size:clamp(1.9rem,3vw,2.35rem);font-weight:700;color:#24513d;letter-spacing:-.045em;}
+.card h2{font-size:1.06rem;font-weight:700;color:#294d3b;}
+.kicker{color:#648574;font-weight:700;}
+.metrics{gap:15px;}
+.metric{position:relative;overflow:hidden;padding:20px;min-height:120px;gap:10px;border-color:#dfeae1;border-radius:14px;box-shadow:0 3px 16px #1e44240a;}
+.metric::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:#3c8064;}
+.metric:nth-child(2)::before{background:#bba16d;}
+.metric:nth-child(3)::before{background:#8fac9f;}
+.metric:nth-child(4)::before{background:#6f938a;}
+.metric span{color:#668273;font-weight:650;font-size:.75rem;}
+.metric strong{color:#24513d;font-size:clamp(1.5rem,2.2vw,2rem);font-weight:700;}
+.card{border-color:#e0eae2;border-radius:15px;padding:clamp(18px,2vw,25px);box-shadow:0 5px 22px #1a42240d;}
+.panel :is(input,select,textarea){border-color:#d9e6dd;border-radius:10px;background:#fbfdfb;}
+.panel :is(input,select,textarea):focus-visible{outline:3px solid #bfa36d;outline-offset:2px;}
+.panel button{border-radius:9px;font-weight:650;}
+@media(max-width:760px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.header{padding:22px;}.toolbar{grid-template-columns:1fr;}}
+@media(max-width:460px){.metrics{grid-template-columns:1fr;}.card{padding:16px;}}
