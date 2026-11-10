@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
-import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react";
+import type { AnchorHTMLAttributes, CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
   pushAppRoute, shouldInterceptAppNavigation,
@@ -12,9 +12,13 @@ import {
   apiGet, clearToken, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, type AuthUser,
 } from "../lib/api";
 import {
-  accountInitials, areaAllowed, areasForPreview, areasForRoles, landingForRoles, personaLabel,
-  railForRoles, type AppNavKey, type PersonaArea, type RailLink,
+  SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
+  accountInitials, areaAllowed, areasForPreview, areasForRoles, canListMinistries,
+  isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
+  personaLabel, railForRoles, readGroupPreference, readRailPreference,
+  type AppNavKey, type MinistryNavItem, type PersonaArea, type RailLink,
 } from "../lib/persona-navigation";
+import { dsColor, dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
 
 export type { AppNavKey };
@@ -22,7 +26,7 @@ export type { AppNavKey };
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
   "activity" | "calendar" | "book" | "bell" | "filter" | "download" | "refresh" |
-  "family" | "more" | "mail" | "settings";
+  "family" | "more" | "mail" | "settings" | "menu" | "logout";
 
 export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
   const paths: Record<GlyphName, ReactNode> = {
@@ -52,6 +56,8 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
     more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
     mail: <><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></>,
     settings: <><circle cx="12" cy="12" r="3"/><path d="m10 2-.5 2-2 1-2-.8-2 3 1.5 1.5-.2 2.3-1.8 1 1 4 2.2.1 1.4 1.7-.4 2.1 3.8 1 1.1-1.8 2.2-.4 1.7 1.3 3-2-1.1-2 1-2 2.2-.3V9l-2-.4-1-2 1-2-3-2-1.8 1.4-2.2-.4L10 2Z"/></>,
+    menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
+    logout: <><path d="M10 7V5H4v14h6v-2"/><path d="M10 12h10m-3-3 3 3-3 3"/></>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">{paths[name]}</svg>;
 }
@@ -84,9 +90,15 @@ function mobileItems(menu: readonly PersonaArea[], preview: boolean): PersonaAre
 }
 
 export function AppNavLink({
-  href, className, children, ...rest
-}: { href: string; className?: string; children: ReactNode } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">) {
+  href, className, children, onNavigate, ...rest
+}: {
+  href: string;
+  className?: string;
+  children: ReactNode;
+  onNavigate?: () => void;
+} & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">) {
   return <a {...rest} href={withBasePath(href)} className={className} data-nav="client" onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+    onNavigate?.();
     if (!shouldInterceptAppNavigation(href, event) || !hasAppRouter()) return;
     event.preventDefault();
     beginClientNavigation(href);
@@ -94,14 +106,28 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
-function RailAnchor({ link }: { link: RailLink }) {
+function RailAnchor({ link, onNavigate, tip }: { link: RailLink; onNavigate?: () => void; tip?: string }) {
+  const label = <span className={s.menuLabel}>{link.label}</span>;
   if (link.external) {
-    return <a className={s.menuItem} href={link.href} target="_blank" rel="noopener noreferrer"><UIIcon name={link.icon} size={19}/><span>{link.label}</span><UIIcon name="arrow" size={15}/></a>;
+    return <a className={s.menuItem} href={link.href} target="_blank" rel="noopener noreferrer" title={tip} onClick={onNavigate}><UIIcon name={link.icon} size={19}/>{label}<UIIcon name="arrow" size={15}/></a>;
   }
   if (link.href.startsWith("/app")) {
-    return <AppNavLink className={s.menuItem} href={link.href}><UIIcon name={link.icon} size={19}/><span>{link.label}</span><UIIcon name="arrow" size={15}/></AppNavLink>;
+    return <AppNavLink className={s.menuItem} href={link.href} title={tip} onNavigate={onNavigate}><UIIcon name={link.icon} size={19}/>{label}<UIIcon name="arrow" size={15}/></AppNavLink>;
   }
-  return <a className={s.menuItem} href={withBasePath(link.href)}><UIIcon name={link.icon} size={19}/><span>{link.label}</span>{link.href !== "/status/" && <UIIcon name="arrow" size={15}/>}</a>;
+  return <a className={s.menuItem} href={withBasePath(link.href)} title={tip} onClick={onNavigate}><UIIcon name={link.icon} size={19}/>{label}{link.href !== "/status/" && <UIIcon name="arrow" size={15}/>}</a>;
+}
+
+function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
+  const root = current.closest("[data-rail-keys]");
+  if (!root) return;
+  const items = [...root.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")]
+    .filter(element => element.getClientRects().length > 0);
+  const index = items.indexOf(current);
+  if (index < 0) return;
+  const next = direction === "first" ? items[0]
+    : direction === "last" ? items[items.length - 1]
+      : items[index + direction];
+  next?.focus();
 }
 
 export function AppShell({
@@ -116,13 +142,33 @@ export function AppShell({
 }) {
   const personaMode = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
   const preview = !personaMode && !viewer;
+  const childActive = active === "ministerios" || active === "escalas" || active === "atmosfera";
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loaded, setLoaded] = useState<LoadedAccess | null>(viewer ? { kind: "ready", user: viewer } : null);
   const [term, setTerm] = useState("");
+  const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
+  const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [ministryOpen, setMinistryOpen] = useState(childActive);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
+  const [ministryNote, setMinistryNote] = useState("");
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [logoutAnchor, setLogoutAnchor] = useState({ top: 0, left: 0 });
   const searchId = useId();
+  const ministryListId = useId();
+  const toolsListId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const deniedRef = useRef<HTMLHeadingElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  const logoutRef = useRef<HTMLDivElement>(null);
+  const logoutCancelRef = useRef<HTMLButtonElement>(null);
+  const viewportRef = useRef(viewport);
+  const drawerRef = useRef(drawerOpen);
   const RouterBridge = useAppRouterBridge();
+  viewportRef.current = viewport;
+  drawerRef.current = drawerOpen;
 
   useEffect(() => {
     finishClientNavigation(window.location.pathname);
@@ -190,56 +236,257 @@ export function AppShell({
     label: accessKind === "ready" ? personaLabel(roles) : accountLabel,
   };
 
+  const roleKey = roles.join("|");
+  const showMinistries = canListMinistries(roles, preview);
+  const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
+  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "ministries" }> = [];
+  let ministryInserted = false;
+  for (const item of menu) {
+    if (isMinistryGroupKey(item.key)) {
+      if (!ministryInserted && showMinistries) {
+        menuBlocks.push({ kind: "ministries" });
+        ministryInserted = true;
+      }
+      continue;
+    }
+    menuBlocks.push({ kind: "link", item });
+  }
+  const commandMinistries = (ministries ?? []).filter(item => item.name.toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const railCollapsed = viewport === "desktop" && collapsed;
+  const menuExpanded = viewport === "mobile" ? drawerOpen : viewport === "desktop" ? !collapsed : false;
+  const menuButtonLabel = viewport === "mobile"
+    ? (drawerOpen ? "Fechar menu" : "Abrir menu")
+    : viewport === "desktop"
+      ? (collapsed ? "Expandir menu" : "Recolher menu")
+      : "Abrir menu";
+  const shellStyle = {
+    "--shell-gold": dsColor.gold,
+    "--shell-cream": dsColor.cream,
+    "--shell-ink": dsColor.ink,
+    "--shell-target": dsGrid.touchTarget,
+  } as CSSProperties;
+
   function switchPersona() {
     clearToken();
     window.location.assign(withBasePath("/login/"));
   }
+  function afterNavigate() {
+    setPaletteOpen(false);
+    setLogoutOpen(false);
+    if (viewportRef.current === "mobile" && drawerRef.current) {
+      setDrawerOpen(false);
+      menuButtonRef.current?.focus();
+    }
+  }
+  function toggleMenu() {
+    if (viewport === "desktop") {
+      setCollapsed(value => {
+        const next = !value;
+        if (next) {
+          setMinistryOpen(false);
+          setToolsOpen(false);
+        } else {
+          setMinistryOpen(readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), childActive));
+        }
+        window.localStorage.setItem(SHELL_RAIL_STORAGE_KEY, next ? "collapsed" : "expanded");
+        return next;
+      });
+      return;
+    }
+    setDrawerOpen(open => !open);
+  }
+  function toggleMinistries() {
+    setMinistryOpen(open => {
+      const next = !open;
+      if (next && railCollapsed) setToolsOpen(false);
+      window.localStorage.setItem(SHELL_MINISTRY_STORAGE_KEY, next ? "open" : "closed");
+      return next;
+    });
+  }
+  function toggleTools() {
+    setToolsOpen(open => {
+      const next = !open;
+      if (next && railCollapsed) setMinistryOpen(false);
+      return next;
+    });
+  }
+  function askLogout(event: MouseEvent<HTMLButtonElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = 220;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const top = Math.min(rect.bottom + 8, window.innerHeight - 128);
+    setLogoutAnchor({ top, left });
+    setLogoutOpen(true);
+  }
+  function onRailKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    const key = event.key;
+    if (key !== "ArrowDown" && key !== "ArrowUp" && key !== "Home" && key !== "End") return;
+    if (!(event.target instanceof HTMLElement)) return;
+    event.preventDefault();
+    focusRailItem(event.target, key === "ArrowDown" ? 1 : key === "ArrowUp" ? -1 : key === "Home" ? "first" : "last");
+  }
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 970px)");
+    const apply = () => setViewport(query.matches ? "mobile" : "desktop");
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+  useEffect(() => {
+    setCollapsed(readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY)) === "collapsed");
+    setMinistryOpen(current => current || readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), false));
+  }, []);
+  useEffect(() => {
+    if (!showMinistries || preview) {
+      setMinistries(null);
+      setMinistryNote("");
+      return;
+    }
+    const token = loadStoredToken();
+    if (!token) {
+      setMinistries(null);
+      setMinistryNote("");
+      return;
+    }
+    let cancelled = false;
+    setMinistryNote("Consultando ministérios autorizados.");
+    void apiGet<unknown>("/ministries", token)
+      .then(body => {
+        if (cancelled) return;
+        setMinistries(parseMinistryNav(body));
+        setMinistryNote("");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMinistries(null);
+        setMinistryNote("A lista de ministérios não pôde ser atualizada.");
+      });
+    return () => { cancelled = true; };
+  }, [preview, roleKey, showMinistries]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setPaletteOpen(open => !open);
       }
-      if (event.key === "Escape") setPaletteOpen(false);
+      if (event.key !== "Escape") return;
+      if (logoutOpen) {
+        setLogoutOpen(false);
+        return;
+      }
+      if (paletteOpen) {
+        setPaletteOpen(false);
+        return;
+      }
+      if (drawerOpen) {
+        setDrawerOpen(false);
+        menuButtonRef.current?.focus();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [logoutOpen, paletteOpen, drawerOpen]);
+  useEffect(() => {
+    if (!logoutOpen) return;
+    function onPointer(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (logoutRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-logout-trigger]")) return;
+      setLogoutOpen(false);
+    }
+    window.addEventListener("pointerdown", onPointer);
+    return () => window.removeEventListener("pointerdown", onPointer);
+  }, [logoutOpen]);
   useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
   useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
+  useEffect(() => { if (logoutOpen) logoutCancelRef.current?.focus(); }, [logoutOpen]);
+  useEffect(() => {
+    if (viewport === "mobile" && drawerOpen) drawerCloseRef.current?.focus();
+  }, [drawerOpen, viewport]);
+
+  function renderLogout() {
+    return (
+      <button type="button" className={s.logoutTrigger} data-logout-trigger="" aria-expanded={logoutOpen} aria-controls="confirmar-saida" title={railCollapsed ? "Sair" : undefined} onClick={askLogout}>
+        <UIIcon name="logout" size={16}/><span className={s.menuLabel}>Sair</span>
+      </button>
+    );
+  }
 
   return (
     <PersonaAccessContext.Provider value={accessState}>
-    <div className={s.frame} data-nav-state={accessKind}>
+    <div
+      className={s.frame}
+      style={shellStyle}
+      data-nav-state={accessKind}
+      data-rail={railCollapsed ? "collapsed" : "expanded"}
+      data-drawer={drawerOpen ? "open" : "closed"}
+    >
       {RouterBridge ? <RouterBridge prefetch={menu.map(item => item.href)} /> : null}
-      <aside className={s.rail} aria-label="Navegação principal">
-        <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo">
+      {viewport === "mobile" && drawerOpen && (
+        <button type="button" className={s.backdrop} aria-label="Fechar o menu lateral" onClick={() => { setDrawerOpen(false); menuButtonRef.current?.focus(); }} />
+      )}
+      <aside id="app-navigation-rail" className={s.rail} aria-label="Navegação principal" data-rail-keys="" onKeyDown={onRailKeyDown}>
+        <button type="button" ref={drawerCloseRef} className={s.drawerClose} hidden={viewport !== "mobile"} onClick={() => { setDrawerOpen(false); menuButtonRef.current?.focus(); }}>
+          <UIIcon name="close" size={18}/><span>Fechar</span>
+        </button>
+        <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
         </AppNavLink>
 
-        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : preview ? "Demonstração com dados sintéticos" : "Módulos do perfil autenticado"}</small></span></div>
+        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : preview ? "Demonstração com dados sintéticos" : personaMode ? "Homologação · módulos do perfil" : "Módulos do perfil autenticado"}</small></span></div>
         <span className={s.groupTitle}>PAINEL DE CONTROLE</span>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
-          {menu.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined}>
-            <UIIcon name={item.icon} size={19}/><span>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
-          </AppNavLink>)}
+          {menuBlocks.map(block => {
+            if (block.kind === "link") {
+              const item = block.item;
+              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? item.label : undefined} onNavigate={afterNavigate}>
+                <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
+              </AppNavLink>;
+            }
+            return <div key="ministerios" className={s.ministryBlock} data-open={ministryOpen ? "true" : "false"}>
+              <button type="button" className={s.ministryToggle} data-nav-group="ministerios" data-current={active != null && isMinistryGroupKey(active) ? "true" : "false"} aria-expanded={ministryOpen} aria-controls={ministryListId} title={railCollapsed ? "Ministérios" : undefined} onClick={toggleMinistries}>
+                <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
+              </button>
+              <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
+                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
+                  <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
+                </AppNavLink>)}
+                {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
+              </div>
+            </div>;
+          })}
           {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de listar módulos.</p>}
         </nav>
-        <div className={s.railDivider}/>
-        <span className={s.groupTitle}>CANAIS E COMUNIDADE</span>
-        {rails.map(link => <RailAnchor key={link.href} link={link} />)}
+        {rails.length > 0 && <>
+          <div className={s.railDivider}/>
+          <div className={s.tools}>
+            <button type="button" className={s.toolToggle} aria-expanded={toolsOpen} aria-controls={toolsListId} title={railCollapsed ? "Ferramentas" : undefined} onClick={toggleTools}>
+              <UIIcon name="settings" size={19}/><span className={s.menuLabel}>Ferramentas</span><UIIcon name="chevron" size={15}/>
+            </button>
+            <div id={toolsListId} className={s.toolList} hidden={!toolsOpen}>
+              {rails.map(link => <RailAnchor key={link.href} link={link} onNavigate={afterNavigate} tip={railCollapsed ? link.label : undefined} />)}
+            </div>
+          </div>
+        </>}
 
-        <div className={s.railBottom}>
-          <div className={s.verseMark}><UIIcon name="layers" size={27}/></div>
-          <p><strong>ID Riacho 1</strong><small>Gestão ministerial</small></p>
-          <span>IGREJA DE DEUS · RIACHO FUNDO I</span>
+        <div className={s.profileDock}>
+          <div className={s.profileRow}>
+            <span className={s.account} aria-hidden="true">{initials}</span>
+            <span className={s.profileCopy}><strong>{accountName}</strong><small>{accountLabel}</small></span>
+            {renderLogout()}
+          </div>
+          <p className={s.railSignature}><strong>ID Riacho 1</strong><small>Gestão ministerial</small></p>
         </div>
       </aside>
 
       <div className={s.mainColumn}>
         <header className={s.toolbar}>
           <div className={s.toolbarIdentity}>
+            <button type="button" ref={menuButtonRef} className={s.hamburger} aria-expanded={menuExpanded} aria-controls="app-navigation-rail" aria-label={menuButtonLabel} onClick={toggleMenu}>
+              <UIIcon name="menu" size={20}/>
+            </button>
             <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
             <div>
               <strong>{shownMeta}</strong>
@@ -247,7 +494,7 @@ export function AppShell({
               {accessKind === "ready" && <span className={s.personaLine}>{accountEmail} · {accessState.label}</span>}
             </div>
           </div>
-          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K" disabled={menu.length === 0}>
+          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K" aria-keyshortcuts="Control+K" disabled={menu.length === 0}>
             <UIIcon name="search" size={18}/><span>Buscar módulos e páginas...</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
@@ -255,9 +502,7 @@ export function AppShell({
             <span className={s.toolbarDivider}/>
             <span className={s.account} aria-hidden="true">{initials}</span>
             <span className={s.accountInfo} aria-label={`${accountName}, ${accountLabel}`}><strong>{accountName}</strong><small>{accountLabel}</small></span>
-            <button type="button" className={s.switchPersona} onClick={switchPersona} title="Trocar perfil de homologação" aria-label="Sair e trocar perfil de homologação">
-              <UIIcon name="refresh" size={16}/><span>Sair</span>
-            </button>
+            {renderLogout()}
           </div>
         </header>
         {showModule && active !== "visao" && active != null && <div className={s.workspaceRibbon}>
@@ -272,7 +517,7 @@ export function AppShell({
           {accessKind === "pending" && <p className={s.holdNote} role="status">Confirmando seu perfil. Os módulos restritos ficam ocultos até a sessão responder.</p>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
             <h1 tabIndex={-1} ref={deniedRef}>Este perfil não abre esta área</h1>
-            <p>O menu mostra só o que o servidor autoriza para {accessState.label}. O módulo não foi carregado. Uma consulta direta à API, sem este papel, recebe 403.</p>
+            <p>O menu mostra só o que o servidor autoriza para {accessState.label}. O módulo não foi carregado.</p>
             <AppNavLink href={landingForRoles(roles)}>Voltar ao início do perfil</AppNavLink>
           </section>}
           {(accessKind === "anonymous" || accessKind === "held") && <p className={s.holdNote} role="alert">Não confirmamos seu perfil. Nada restrito foi exibido.</p>}
@@ -280,7 +525,7 @@ export function AppShell({
       </div>
 
       <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined}>
+        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
@@ -290,13 +535,20 @@ export function AppShell({
         </button>
       </nav>
 
+      {logoutOpen && <div ref={logoutRef} id="confirmar-saida" className={s.logoutConfirm} style={{ top: logoutAnchor.top, left: logoutAnchor.left }} role="group" aria-label="Confirmar saída">
+        <p>Encerrar esta sessão?</p>
+        <button type="button" ref={logoutCancelRef} onClick={() => setLogoutOpen(false)}>Continuar</button>
+        <button type="button" onClick={switchPersona}>Sair agora</button>
+      </div>}
+
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
         <section className={s.commandModal} role="dialog" aria-modal="true" aria-labelledby={searchId}>
           <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulos e páginas..." autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
           <span className={s.commandTitle}>NAVEGAÇÃO</span>
           <div className={s.commandList}>
-            {filtered.map(item => <AppNavLink key={item.key} href={item.href}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {filtered.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
+            {filtered.map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong><small>Ministério autorizado</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
           <div className={s.commandFooter}><kbd>Esc</kbd> para fechar <span>·</span> <kbd>Ctrl K</kbd> para abrir</div>
         </section>

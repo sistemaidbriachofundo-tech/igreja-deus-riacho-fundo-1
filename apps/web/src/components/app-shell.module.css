@@ -328,3 +328,151 @@
   .personaLine{font-size:11px}
   .denied h1{font-size:1.45rem}
 }
+
+/* Sidebar premium: recolhe no desktop, vira gaveta no celular.
+   Ouro e alvo de toque vêm dos tokens da fundação (--shell-*). */
+.hamburger,.drawerClose,.ministryToggle,.toolToggle,.logoutTrigger,.logoutConfirm button,.subItem{
+  min-height:var(--shell-target,2.75rem)
+}
+.hamburger{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:var(--shell-target,2.75rem);height:var(--shell-target,2.75rem);
+  border:1px solid #d7e3da;border-radius:12px;background:#f7faf6;color:#123832;cursor:pointer
+}
+.hamburger:hover{background:#e7f0e6}
+.drawerClose{
+  display:none;align-items:center;gap:8px;align-self:flex-end;
+  margin:0 8px 8px;padding:0 12px;border:1px solid rgba(228,192,126,.35);
+  border-radius:12px;background:transparent;color:#f7f4ed;cursor:pointer
+}
+.backdrop{position:fixed;inset:0;z-index:44;border:0;background:rgba(8,28,32,.5);cursor:pointer}
+.ministryBlock{position:relative}
+.ministryToggle,.toolToggle{
+  width:100%;display:flex;align-items:center;gap:13px;
+  border:0;border-radius:11px;padding:9px 13px;cursor:pointer;
+  background:transparent;color:#e7f0e9;font:750 12px/1.3 Inter,Arial,sans-serif;text-align:left
+}
+.ministryToggle:hover,.toolToggle:hover{background:#edce8d1c;color:#fff6da}
+.ministryToggle[data-current="true"]{color:#f6e7c4}
+.rail{overflow:hidden}
+.menu{flex:1 1 auto;min-height:0;overflow-y:auto}
+.tools,.profileDock{flex-shrink:0}
+.toolList{max-height:12rem;overflow:auto}
+.ministryToggle svg:last-child,.toolToggle svg:last-child{margin-left:auto;transition:transform .15s ease}
+.ministryBlock[data-open="true"] .ministryToggle svg:last-child,
+.tools:has(.toolList:not([hidden])) .toolToggle svg:last-child{transform:rotate(90deg)}
+.subList,.toolList{display:flex;flex-direction:column;gap:2px;margin:2px 0 6px}
+.subList[hidden],.toolList[hidden]{display:none}
+.subItem{
+  display:flex;align-items:center;gap:10px;padding:8px 12px 8px 18px;
+  border-radius:10px;color:#d5e4dc;text-decoration:none;font:650 12px/1.3 Inter,Arial,sans-serif
+}
+.subItem:hover{background:#edce8d1c;color:#fff6da}
+.tools{display:flex;flex-direction:column}
+.profileDock{margin-top:auto;padding-top:12px}
+.profileRow{display:flex;align-items:center;gap:8px;min-width:0}
+.profileCopy{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.profileCopy strong,.profileCopy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profileCopy strong{font:700 11px Inter,sans-serif;color:#fff8e9}
+.profileCopy small{font:500 10px Inter,sans-serif;color:#d2dfd1}
+.railSignature{margin:8px 0 0;color:#d6bf8a;font-size:11px}
+.railSignature small{display:block;font-size:10px;letter-spacing:.04em}
+.logoutTrigger{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:0 10px;border:1px solid #d5e0d6;border-radius:999px;
+  background:#f4f7f2;color:#1c4036;cursor:pointer;font:700 11px Inter,sans-serif
+}
+.logoutTrigger:hover{background:#e5efe6}
+.profileDock .logoutTrigger{background:transparent;border-color:#e4cb8e55;color:#f6e7c4}
+.logoutConfirm{
+  position:fixed;z-index:80;width:min(14rem,calc(100vw - 16px));
+  padding:12px;border-radius:14px;background:var(--shell-cream,#f7ede0);color:var(--shell-ink,#4a2612);
+  border:1px solid #e4d3bf;box-shadow:0 12px 32px rgba(16,24,20,.18)
+}
+.logoutConfirm p{margin:0 0 8px;font-size:.9rem;line-height:1.35}
+.logoutConfirm button{
+  border:0;border-radius:10px;padding:0 10px;margin-right:6px;cursor:pointer;
+  background:#fff;color:var(--shell-ink,#4a2612);font:700 12px Inter,sans-serif
+}
+.logoutConfirm button:last-child{background:#123832;color:#f7f4ed}
+.frame[data-rail="collapsed"]{grid-template-columns:4.75rem minmax(0,1fr)}
+.frame[data-rail="collapsed"] .rail{overflow:visible;padding-left:8px;padding-right:8px}
+.frame[data-rail="collapsed"] .menu{overflow:visible}
+.frame[data-rail="collapsed"] .brandText,
+.frame[data-rail="collapsed"] .railContext span:last-child,
+.frame[data-rail="collapsed"] .groupTitle,
+.frame[data-rail="collapsed"] .profileCopy,
+.frame[data-rail="collapsed"] .railSignature{display:none}
+.frame[data-rail="collapsed"] .brand{padding-bottom:10px}
+.frame[data-rail="collapsed"] .brandEmblem{width:44px;height:44px}
+.frame[data-rail="collapsed"] .menuItem,
+.frame[data-rail="collapsed"] .menuActive,
+.frame[data-rail="collapsed"] .ministryToggle,
+.frame[data-rail="collapsed"] .toolToggle,
+.frame[data-rail="collapsed"] .profileRow{justify-content:center;gap:0;padding-left:8px;padding-right:8px}
+.frame[data-rail="collapsed"] .menuLabel{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0
+}
+.frame[data-rail="collapsed"] .menuItem,
+.frame[data-rail="collapsed"] .menuActive,
+.frame[data-rail="collapsed"] .ministryToggle,
+.frame[data-rail="collapsed"] .toolToggle,
+.frame[data-rail="collapsed"] .logoutTrigger{position:relative}
+.frame[data-rail="collapsed"] :is(.menuItem,.menuActive,.ministryToggle,.toolToggle):is(:hover,:focus-visible) .menuLabel{
+  clip:auto;width:auto;height:auto;overflow:visible;margin:0;padding:6px 10px;
+  left:calc(100% + 10px);top:50%;transform:translateY(-50%);
+  background:#102f2d;color:#fffdf8;border-radius:8px;z-index:70;
+  box-shadow:0 8px 20px rgba(0,0,0,.28)
+}
+.frame[data-rail="collapsed"] .ministryBlock[data-open="true"] .ministryToggle:is(:hover,:focus-visible) .menuLabel{
+  clip:rect(0 0 0 0);width:1px;height:1px;overflow:hidden;padding:0
+}
+.frame[data-rail="collapsed"] .ministryToggle svg:last-child,
+.frame[data-rail="collapsed"] .toolToggle svg:last-child,
+.frame[data-rail="collapsed"] .menuItem svg:last-child{display:none}
+.frame[data-rail="collapsed"] .subList,
+.frame[data-rail="collapsed"] .toolList{
+  position:absolute;left:calc(100% + 8px);top:0;z-index:68;min-width:14rem;max-height:70vh;overflow:auto;
+  margin:0;padding:8px;border-radius:12px;background:#0c3330;border:1px solid rgba(228,192,126,.4);
+  box-shadow:0 16px 40px rgba(0,0,0,.28)
+}
+.frame[data-rail="collapsed"] :is(.subList,.toolList) .menuLabel{
+  position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;padding:0;
+  background:transparent;color:inherit;box-shadow:none;transform:none
+}
+.tools{position:relative}
+.frame[data-rail="collapsed"] .railContext{justify-content:center;padding:8px}
+.frame,.mainColumn,.toolbar,.content{min-width:0;max-width:100%}
+.toolbar{overflow-x:clip}
+.frame :is(.hamburger,.drawerClose,.ministryToggle,.toolToggle,.logoutTrigger,.logoutConfirm button,.subItem):focus-visible{
+  outline:3px solid var(--shell-gold,#d4af37);outline-offset:3px
+}
+@media(max-width:1220px){
+  .toolbar .logoutTrigger .menuLabel{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .toolbar .logoutTrigger{width:var(--shell-target,2.75rem);padding:0}
+}
+@media(max-width:970px){
+  .rail{
+    display:flex;position:fixed;top:0;bottom:0;left:0;z-index:45;
+    width:min(19.5rem,calc(100vw - 2.75rem));height:100svh;max-height:100svh;
+    transform:translateX(-110%);transition:transform .2s ease;box-shadow:none
+  }
+  .frame[data-drawer="closed"] .rail{visibility:hidden;pointer-events:none}
+  .frame[data-drawer="open"] .rail{transform:translateX(0);visibility:visible;pointer-events:auto;box-shadow:12px 0 40px rgba(0,0,0,.35)}
+  .drawerClose{display:inline-flex}
+  .frame[data-rail="collapsed"]{grid-template-columns:minmax(0,1fr)}
+  .frame[data-rail="collapsed"] .brandText,
+  .frame[data-rail="collapsed"] .railContext span:last-child,
+  .frame[data-rail="collapsed"] .groupTitle,
+  .frame[data-rail="collapsed"] .profileCopy,
+  .frame[data-rail="collapsed"] .railSignature,
+  .frame[data-rail="collapsed"] .menuLabel{display:revert;position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto}
+  .frame[data-rail="collapsed"] .menuItem,
+  .frame[data-rail="collapsed"] .menuActive,
+  .frame[data-rail="collapsed"] .ministryToggle,
+  .frame[data-rail="collapsed"] .toolToggle{justify-content:flex-start;gap:13px}
+  .frame[data-rail="collapsed"] .subList{position:static;min-width:0;background:transparent;border:0;box-shadow:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .rail,.ministryToggle svg,.toolToggle svg{transition:none}
+}
