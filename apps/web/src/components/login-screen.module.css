@@ -31,7 +31,7 @@
 .passwordLabel{display:flex;justify-content:space-between;margin-top:22px}
 .passwordControl{position:relative;display:flex;align-items:center}
 .passwordControl input{padding-right:88px}
-.reveal{position:absolute;right:10px;padding:9px;border:0;border-radius:7px;background:transparent;color:#835b36;font:750 11px Inter,sans-serif;cursor:pointer}
+.reveal{position:absolute;right:10px;min-width:60px;min-height:44px;padding:10px 9px;border:0;border-radius:7px;background:transparent;color:#835b36;font:750 11px Inter,sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .reveal:hover{background:#f8eee0}
 .submit{margin-top:26px;background:#4a2612;color:#fff7e5;border:1px solid #4a2612;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:53px;border-radius:12px;padding:15px 18px;cursor:pointer;font:790 13px Inter,sans-serif;transition:transform .15s,background .15s}
 .submit:hover:not(:disabled){background:#65371c;transform:translateY(-1px)}
