@@ -20,10 +20,17 @@ const diagnoseScript = join(root, "scripts/hml/web-preview-diagnose.mjs");
 const SHA = WEB_HML_BASELINE_SHA;
 
 function run(command, args, env) {
+  // The CI runner defines DATABASE_URL for its PostgreSQL service.
+  // Isolate the test process so that each case exercises its own guard,
+  // without bypassing the real preview-build.sh safety checks.
+  const testEnv = { ...process.env };
+  for (const key of ["DATABASE_URL", "JWT_SECRET", "HML_DEMO_PASSWORD_HASH", "SEED_HML_MASS", "CONFIRM_HML_MIGRATE", "WEB_PREVIEW_DISABLE_SSO", "WEB_PREVIEW_APPLY_REMOTE", "VERCEL_ENV", "VERCEL_PROJECT_NAME", "VERCEL_GIT_COMMIT_REF"]) {
+    delete testEnv[key];
+  }
   try {
     const stdout = execFileSync(command, args, {
       cwd: root,
-      env: { ...process.env, ...env },
+      env: { ...testEnv, ...env },
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
