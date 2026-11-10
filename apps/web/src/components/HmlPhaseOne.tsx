@@ -90,6 +90,10 @@ function hasRole(user: AuthUser | null, role: Role) {
   return Boolean(user?.grants.some(grant => grant.roleCode === role));
 }
 
+function personInitials(name: string): string {
+  return name.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0).toLocaleUpperCase("pt-BR")).join("") || "ID";
+}
+
 function formatDate(value: string) {
   const date = new Date(value);
   return Number.isFinite(date.getTime())
@@ -175,6 +179,13 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [modality, setModality] = useState("BATISMO");
+
+  useEffect(() => {
+    if (view !== "secretary") return;
+    const action = new URLSearchParams(window.location.search).get("acao");
+    if (action === "cadastrar") setAdmissionForm("new");
+    else if (action === "admissao") setAdmissionForm("existing");
+  }, [view]);
 
   useEffect(() => {
     if (view !== "members") return;
@@ -433,6 +444,9 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                     {view === "cards" && "Emissão e situação das carteirinhas."}
                   </p>
                 </div>
+                <div className={s.headingActions}>
+                  {view === "members" && secretary && <AppNavLink className={s.primaryButton} href="/app/secretaria/?acao=cadastrar#cadastro">Cadastrar pessoa <UIIcon name="arrow" size={17} /></AppNavLink>}
+                  {view === "secretary" && secretary && <button type="button" className={s.primaryButton} onClick={() => { setAdmissionForm("existing"); document.getElementById("cadastro")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>Iniciar admissão <UIIcon name="arrow" size={17} /></button>}
                 <button type="button" className={s.secondaryButton} onClick={() => {
                   setError("");
                   setChecking(true);
@@ -440,6 +454,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 }} disabled={checking || busy}>
                   <UIIcon name="refresh" size={17} /> Atualizar
                 </button>
+                </div>
               </header>
             )}
             {notice && <div role="status" className={s.notice}>{notice}</div>}
@@ -464,7 +479,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
               <div className={s.grid}>
                 <section className={s.panel}>
                   <div className={s.panelHeading}>
-                    <h2>Diretório de membros</h2>
+                    <div className={s.panelHeadingCopy}><h2>Diretório de membros</h2><span role="status">{filtered.length} {filtered.length === 1 ? "registro encontrado" : "registros encontrados"}</span></div>
                     <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros" />
                   </div>
                   {staff && (
@@ -488,8 +503,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                         <tbody>
                           {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => (
                             <tr key={membership.person.id}>
-                              <td data-label="Nome"><strong>{membership.person.displayName}</strong></td>
-                              <td data-label="Situação">{label(membership.status)}</td>
+                              <td data-label="Nome"><div className={s.personIdentity}><span className={s.personInitials} aria-hidden="true">{personInitials(membership.person.displayName)}</span><strong>{membership.person.displayName}</strong></div></td>
+                              <td data-label="Situação"><span className={s.statusPill} data-status={membership.status}>{label(membership.status)}</span></td>
                               <td data-label="E-mail">{membership.person.email ?? "—"}</td>
                               <td data-label="Carteirinha">{membership.activeCredentialId ? "Ativa" : "Não emitida"}</td>
                               <td data-label="Ficha">
@@ -517,7 +532,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
               <div className={s.grid}>
                 <section className={s.panel}>
                   <div className={s.panelHeading}>
-                    <h2>Protocolos de admissão</h2>
+                    <div className={s.panelHeadingCopy}><h2>Protocolos de admissão</h2><span role="status">{filteredAdmissions.length} {filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}</span></div>
                     <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
                   <div className={s.viewFilter} role="group" aria-label="Filtrar protocolos">
@@ -539,7 +554,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                           <article key={admission.id} className={s.admission}>
                             <div>
                               <strong>{personName}</strong>
-                              <small>{label(admission.status)} · {label(admission.modality ?? "")}</small>
+                              <small><span className={s.statusPill} data-status={admission.status}>{label(admission.status)}</span> {label(admission.modality ?? "")}</small>
                             </div>
                             <div className={s.admissionActions}>
                               <AppNavLink className={s.openFicha} href={`/app/membros/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>
@@ -555,7 +570,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                     </div>
                   )}
                 </section>
-                <section className={s.panel}>
+                <section className={s.panel} id="cadastro">
                   <h2>Cadastro e admissão</h2>
                   {secretary ? (
                     <>
