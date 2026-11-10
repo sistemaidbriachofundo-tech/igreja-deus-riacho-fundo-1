@@ -53,34 +53,32 @@ function region(html: string, name: string) {
   return html.slice(start, next === -1 ? undefined : next);
 }
 
+const actions = {
+  conversion: null,
+  convertingId: null,
+  change: null,
+  pending: false,
+  onConvert: () => undefined,
+  onAdmit: () => undefined,
+  onEnd: () => undefined,
+};
+
 describe("MinistryMembershipCatalog", () => {
-  it("mostra o interesse fora da equipe formal e não exibe saldo", () => {
-    const html = renderToStaticMarkup(
-      <MinistryMembershipCatalog
-        desk={desk}
-        conversion={null}
-        convertingId={null}
-        change={null}
-        pending={false}
-        onSelect={() => undefined}
-        onConvert={() => undefined}
-        onAdmit={() => undefined}
-        onEnd={() => undefined}
-      />,
-    );
+  it("mostra o interesse fora da equipe formal e não oferece convite nem saldo", () => {
+    const html = renderToStaticMarkup(<MinistryMembershipCatalog desk={desk} {...actions} />);
     const members = region(html, "formal-members");
     const interests = region(html, "volunteer-interests");
-    expect(html).toContain("Homens");
-    expect(html).toContain("MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED");
     expect(members).not.toContain("Pessoa Sintética");
     expect(interests).toContain("Pessoa Sintética");
     expect(interests).toContain("não é integrante");
     expect(html).toContain("Sábado, 16h — encontro sintético");
-    expect(html).toContain("MINISTRY_FINANCE_CONTRACT_BLOCKED");
-    expect(html).not.toContain("R$");
-    expect(html).not.toContain("@");
     expect(html).toContain("Inclusão e remoção permanecem indisponíveis");
     expect(html).not.toContain("Incluir no vínculo formal");
+    expect(html).not.toContain("MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED");
+    expect(html).not.toContain("MINISTRY_FINANCE_CONTRACT_BLOCKED");
+    expect(html).not.toContain("501");
+    expect(html).not.toContain("R$");
+    expect(html).not.toContain("@");
   });
 
   it("lista integrante devolvido pela API e mantém o interesse na outra coluna", () => {
@@ -116,14 +114,7 @@ describe("MinistryMembershipCatalog", () => {
             },
           ],
         }}
-        conversion={null}
-        convertingId={null}
-        change={null}
-        pending={false}
-        onSelect={() => undefined}
-        onConvert={() => undefined}
-        onAdmit={() => undefined}
-        onEnd={() => undefined}
+        {...actions}
       />,
     );
     const members = region(html, "formal-members");
@@ -134,6 +125,22 @@ describe("MinistryMembershipCatalog", () => {
     expect(members).not.toContain("Interessado Sintético");
     expect(interests).toContain("Interessado Sintético");
     expect(interests).not.toContain("Jovem Sintético");
+  });
+
+  it("trata equipe vazia como convite, sem inventar integrante", () => {
+    const html = renderToStaticMarkup(
+      <MinistryMembershipCatalog
+        desk={{
+          ...desk,
+          membership: { kind: "ready", members: [], message: "O cadastro formal respondeu sem integrantes." },
+        }}
+        {...actions}
+      />,
+    );
+    expect(html).toContain("Nenhum integrante formal");
+    expect(html).toContain('name="personId"');
+    expect(html).toContain("Incluir no vínculo formal");
+    expect(region(html, "formal-members")).not.toContain("Pessoa Sintética");
   });
 
   it("a página nova não entra no shell de login nem no ledger", () => {
