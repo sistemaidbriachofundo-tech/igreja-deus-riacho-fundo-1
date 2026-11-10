@@ -16,7 +16,6 @@ import {
   activityStatusLabel,
   escalaStatusLabel,
   formatChurchWhen,
-  meuEspacoHref,
   ministryHref,
   ministryPanelTitle,
   servingShortcut,
@@ -214,7 +213,6 @@ function ReadyExperience({
               <div className={styles.shortcuts}>
                 <a href={withBasePath(ministryHref(desk.ministry.id, "integrantes"))}>Ver integrantes</a>
                 <a href={withBasePath(ministryHref(desk.ministry.id, "escalas"))}>Ver escalas</a>
-                <a href={withBasePath(meuEspacoHref())}>Meu Espaço</a>
                 {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
               </div>
             </section>
@@ -329,7 +327,6 @@ function EscalaList({
   return (
     <div className={styles.stack}>
       <div className={styles.shortcuts}>
-        <a href={withBasePath(meuEspacoHref())}>Meu Espaço</a>
         {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
       </div>
       {panel.items.length === 0 ? (
@@ -414,19 +411,14 @@ function ResourceList({
         <div className={styles.shortcuts}>
           <a href={withBasePath(ministryHref(ministryId, "integrantes"))}>Integrantes</a>
           <a href={withBasePath(ministryHref(ministryId, "escalas"))}>Escalas</a>
-          <a href={withBasePath(meuEspacoHref())}>Meu Espaço</a>
           {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
         </div>
       </section>
       <section className={styles.note} aria-labelledby="caixa-title">
         <h2 id="caixa-title">Caixa do ministério</h2>
         <p>
-          <strong>Saldo ainda não disponível.</strong> Não há leitura autorizada para este ministério e nenhum valor é mostrado.
+          Saldo ainda indisponível.
         </p>
-      </section>
-      <section className={styles.note}>
-        <h2>Pedidos internos</h2>
-        <p>Pedidos do ministério ainda não estão disponíveis.</p>
       </section>
     </div>
   );

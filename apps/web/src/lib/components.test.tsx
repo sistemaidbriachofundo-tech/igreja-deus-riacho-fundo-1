@@ -45,7 +45,7 @@ describe("navegação e renderização real de componentes", () => {
     );
     expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/membros/"');
     expect(html).toContain('data-nav="client"');
-    expect(html).toContain('href="/igreja-deus-riacho-fundo-1/eventos/"');
+    expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/#avisos"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
   });
 

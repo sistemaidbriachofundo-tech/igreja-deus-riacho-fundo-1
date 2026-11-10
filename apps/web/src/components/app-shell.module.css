@@ -538,3 +538,21 @@
 @media(prefers-reduced-motion:reduce){
   .frame .rail{transition:none}
 }
+
+.commandButton { border-radius: 11px; color: #405e56; }
+.toolbarAlerts {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  padding-inline: 10px;
+  border: 1px solid #dce3dd;
+  border-radius: 10px;
+  text-decoration: none;
+}
+.toolbarAlerts strong { font-size: 0.78rem; }
+@media (max-width: 780px) {
+  .toolbarAlerts { width: 44px; padding-inline: 0; }
+  .toolbarAlerts strong { display: none; }
+}

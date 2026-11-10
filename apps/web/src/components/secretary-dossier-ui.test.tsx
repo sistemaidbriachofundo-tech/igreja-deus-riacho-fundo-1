@@ -19,10 +19,9 @@ describe("ficha da secretaria no primeiro render", () => {
       />,
     );
     expect(html).toContain("Abrindo ficha…");
-    expect(html).toContain("p-ana");
+    expect(html).not.toContain("p-ana");
     expect(html).toContain('data-can-edit="true"');
-    expect(html).toContain("DADOS FICTÍCIOS");
-    expect(html).toContain("Casos pastorais não entram nesta ficha");
+    expect(html).toContain("Cadastro de pessoa");
     expect(html).not.toContain("token-ultrassecreto");
     expect(html).not.toContain("Salvar campos permitidos");
     expect(html).not.toContain("ana.demo@example.test");
@@ -84,7 +83,6 @@ describe("ficha 360 pronta para edição", () => {
     const html = renderToStaticMarkup(
       <Ficha360Dialog
         titleId="ficha-titulo"
-        personId="p-bruno"
         state={state}
         households={[{ id: "h-demo", label: "Família Demo" }]}
         canEdit

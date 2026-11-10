@@ -26,7 +26,7 @@ function board(role: string) {
 }
 
 const TITLES: Record<string, string> = {
-  PLATFORM_ADMIN: "Mesa da administração",
+  PLATFORM_ADMIN: "Painel administrativo",
   SECRETARIA: "Mesa da secretaria",
   PASTOR: "Mesa pastoral",
   TESOURARIA: "Mesa da tesouraria",
@@ -54,6 +54,12 @@ describe("mesa por persona", () => {
   });
 
   it("mede menos leituras na mesa e não transforma 401 ou 403 em zero", () => {
+    expect(dashboardPaths(["PLATFORM_ADMIN"])).toEqual([
+      "/indicators/summary",
+      "/admissions",
+      "/ministries",
+      "/events",
+    ]);
     expect(dashboardPaths(["SECRETARIA"])).toEqual([
       "/indicators/summary",
       "/indicators/membership",

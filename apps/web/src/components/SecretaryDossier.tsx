@@ -13,6 +13,7 @@ import {
   type AdmissionDocumentList,
   type DossierClient,
   type EditablePersonFields,
+  type PersonRecord,
 } from "./secretary-dossier";
 
 type HouseholdOption = { id: string; label: string };
@@ -25,6 +26,7 @@ type Props = {
   canReadDocuments: boolean;
   credential: CredentialView;
   onClose: () => void;
+  onPersonSaved?: (person: PersonRecord) => void;
   onSessionExpired: () => void;
 };
 
@@ -38,6 +40,7 @@ export function SecretaryDossier({
   canReadDocuments,
   credential,
   onClose,
+  onPersonSaved,
   onSessionExpired,
 }: Props) {
   const titleId = useId();
@@ -114,10 +117,14 @@ export function SecretaryDossier({
     );
     if (!saved.ok) {
       if ("unchanged" in saved) dispatch({ type: "save-unchanged" });
-      else if (saved.partialPerson) dispatch({ type: "save-partial", person: saved.partialPerson, failure: saved.failure });
+      else if (saved.partialPerson) {
+        onPersonSaved?.(saved.partialPerson);
+        dispatch({ type: "save-partial", person: saved.partialPerson, failure: saved.failure });
+      }
       else dispatch({ type: "save-fail", failure: saved.failure });
       return;
     }
+    if (saved.person) onPersonSaved?.(saved.person);
     dispatch({ type: "save-ok", person: saved.person });
     await reload("after-save", started);
   }
@@ -139,7 +146,6 @@ export function SecretaryDossier({
   const dialog = (
     <Ficha360Dialog
       titleId={titleId}
-      personId={personId}
       state={state}
       households={households}
       canEdit={canEdit}

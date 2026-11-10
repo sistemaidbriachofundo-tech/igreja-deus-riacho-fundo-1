@@ -123,14 +123,27 @@ export function CredentialDesk({
     setNotice("");
     try {
       const issued = await issueCredential(token, membershipId);
-      const detail = await openCredential(token, issued.id);
-      setCard(detail);
+      setCard(issued);
       setOpen(true);
       resetViewer();
       setNotice("Carteirinha emitida.");
       await onReload?.();
     } catch (error) {
-      setBanner(credentialFailure(error).message);
+      const failure = credentialFailure(error);
+      if (failure.status === 409 && /^Já existe/.test(failure.message)) {
+        try {
+          const existing = await openCredentialByMembership(token, membershipId);
+          setCard(existing);
+          setOpen(true);
+          resetViewer();
+          setNotice("Carteirinha ativa encontrada.");
+          await onReload?.();
+          return;
+        } catch {
+          // A lista pode ter mudado de novo depois do conflito.
+        }
+      }
+      setBanner(failure.message);
     } finally {
       setBusy(false);
     }
@@ -252,7 +265,7 @@ export function CredentialDesk({
       <div className={s.list}>
         {visible.map((row) => (
           <article key={row.membershipId} className={s.row}>
-            <button type="button" className={s.rowMain} onClick={() => void show(row)}>
+            <button type="button" className={s.rowMain} disabled={!row.activeCredentialId} onClick={() => void show(row)}>
               <span className={s.mini} aria-hidden="true">{avatarLabel(row.displayName)}</span>
               <span>
                 <strong>{row.displayName}</strong>
@@ -261,7 +274,7 @@ export function CredentialDesk({
               <span className={row.activeCredentialId ? s.badgeOn : s.badgeOff}>{rowStatus(row.activeCredentialId)}</span>
             </button>
             <div className={s.rowActions}>
-              <button type="button" onClick={() => void show(row)}>Visualizar</button>
+              {row.activeCredentialId && <button type="button" onClick={() => void show(row)}>Visualizar</button>}
               {canManage ? (
                 <button
                   type="button"

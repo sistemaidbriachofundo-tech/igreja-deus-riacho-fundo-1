@@ -16,8 +16,8 @@ import {
   SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
   accountInitials, areaAllowed, canListMinistries,
   isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
-  personaLabel, railForRoles, readGroupPreference, readRailPreference, shellAreasForRoles,
-  type AppNavKey, type MinistryNavItem, type PersonaArea, type RailLink,
+  personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
+  type AppNavKey, type MinistryNavItem, type PersonaArea,
 } from "../lib/persona-navigation";
 import { dsColor, dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
@@ -111,17 +111,6 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
-function RailAnchor({ link, onNavigate, tip }: { link: RailLink; onNavigate?: () => void; tip?: string }) {
-  const label = <span className={s.menuLabel}>{link.label}</span>;
-  if (link.external) {
-    return <a className={s.menuItem} href={link.href} target="_blank" rel="noopener noreferrer" title={tip} onClick={onNavigate}><UIIcon name={link.icon} size={19}/>{label}<UIIcon name="arrow" size={15}/></a>;
-  }
-  if (link.href.startsWith("/app")) {
-    return <AppNavLink className={s.menuItem} href={link.href} title={tip} onNavigate={onNavigate}><UIIcon name={link.icon} size={19}/>{label}<UIIcon name="arrow" size={15}/></AppNavLink>;
-  }
-  return <a className={s.menuItem} href={withBasePath(link.href)} title={tip} onClick={onNavigate}><UIIcon name={link.icon} size={19}/>{label}{link.href !== "/status/" && <UIIcon name="arrow" size={15}/>}</a>;
-}
-
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
   const root = current.closest("[data-rail-keys]");
   if (!root) return;
@@ -155,7 +144,6 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [ministryOpen, setMinistryOpen] = useState(childActive);
-  const [toolsOpen, setToolsOpen] = useState(false);
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -163,7 +151,6 @@ export function AppShell({
   const [railReady, setRailReady] = useState(false);
   const searchId = useId();
   const ministryListId = useId();
-  const toolsListId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const deniedRef = useRef<HTMLHeadingElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -220,7 +207,6 @@ export function AppShell({
     : accessKind === "ready"
       ? shellAreasForRoles(roles)
       : [];
-  const rails = railForRoles(roles, preview);
   const allowed = areaAllowed(roles, active, preview);
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
@@ -293,7 +279,6 @@ export function AppShell({
         const next = !value;
         if (next) {
           setMinistryOpen(false);
-          setToolsOpen(false);
         } else {
           setMinistryOpen(readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), childActive));
         }
@@ -307,15 +292,7 @@ export function AppShell({
   function toggleMinistries() {
     setMinistryOpen(open => {
       const next = !open;
-      if (next && railCollapsed) setToolsOpen(false);
       window.localStorage.setItem(SHELL_MINISTRY_STORAGE_KEY, next ? "open" : "closed");
-      return next;
-    });
-  }
-  function toggleTools() {
-    setToolsOpen(open => {
-      const next = !open;
-      if (next && railCollapsed) setMinistryOpen(false);
       return next;
     });
   }
@@ -488,18 +465,6 @@ export function AppShell({
           })}
           {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de mostrar o menu.</p>}
         </nav>
-        {rails.length > 0 && <>
-          <div className={s.railDivider}/>
-          <div className={s.tools}>
-            <button type="button" className={s.toolToggle} aria-expanded={toolsOpen} aria-controls={toolsListId} title={railCollapsed ? "Ferramentas" : undefined} onClick={toggleTools}>
-              <UIIcon name="settings" size={19}/><span className={s.menuLabel}>Ferramentas</span><UIIcon name="chevron" size={15}/>
-            </button>
-            <div id={toolsListId} className={s.toolList} hidden={!toolsOpen}>
-              {rails.map(link => <RailAnchor key={link.href} link={link} onNavigate={afterNavigate} tip={railCollapsed ? link.label : undefined} />)}
-            </div>
-          </div>
-        </>}
-
         <p className={s.railNote}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "ID Riacho 1"}</p>
       </aside>
 
@@ -517,10 +482,10 @@ export function AppShell({
             </div>
           </div>
           <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Buscar no painel — Ctrl K" aria-keyshortcuts="Control+K" disabled={menu.length === 0}>
-            <UIIcon name="search" size={18}/><span>Buscar no painel</span><kbd>Ctrl K</kbd>
+            <UIIcon name="search" size={18}/><span>Buscar módulo ou ministério</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
-            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos"><UIIcon name="bell" size={21}/></AppNavLink>}
+            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
             <span className={s.profileCluster}>
               <span className={s.account} aria-hidden="true">{initials}</span>
               <span className={s.accountInfo} aria-label={`${accountName}, ${accountLabel}`}><strong>{accountName}</strong><small>{accountLabel}</small></span>
@@ -558,8 +523,8 @@ export function AppShell({
       </div>}
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
-        <section className={s.commandModal} role="dialog" aria-modal="true" aria-labelledby={searchId}>
-          <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar no painel" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
+        <section className={s.commandModal} role="dialog" aria-modal="true" aria-label="Buscar no painel">
+          <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulo ou ministério" aria-label="Buscar módulo ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
           <span className={s.commandTitle}>NAVEGAÇÃO</span>
           <div className={s.commandList}>
             {filtered.map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}

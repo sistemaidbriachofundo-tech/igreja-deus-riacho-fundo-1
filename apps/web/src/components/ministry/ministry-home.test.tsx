@@ -117,7 +117,7 @@ describe("experiência de ministérios", () => {
     expect(html).toContain('role="tablist"');
     expect(html).toContain("João Carvalho");
     expect(html).toContain("Sábado, 16h — encontro sintético");
-    expect(html).toContain("/app/servir/meu-espaco/");
+    expect(html).not.toContain("/app/servir/meu-espaco/");
     expect(html).toContain("ministry=min-homens");
     expect(html).not.toContain("Caixa do ministério");
     expect(html).not.toContain(">501<");
@@ -153,12 +153,12 @@ describe("experiência de ministérios", () => {
   it("mostra atividade do próprio ministério e deixa o caixa fora das abas", () => {
     const atividades = render("atividades");
     expect(atividades).toContain("Café dos homens");
-    expect(atividades).not.toContain("Saldo ainda não disponível");
+    expect(atividades).not.toContain("Saldo ainda indisponível");
 
     const recursos = render("recursos");
-    expect(recursos).toContain("Saldo ainda não disponível");
+    expect(recursos).toContain("Saldo ainda indisponível");
     expect(recursos).not.toContain("R$");
-    expect(recursos).toContain("Pedidos do ministério ainda não estão disponíveis.");
+    expect(recursos).not.toContain("Pedidos internos");
   });
 
   it("responde 403 sem integrantes, escala ou saldo", () => {

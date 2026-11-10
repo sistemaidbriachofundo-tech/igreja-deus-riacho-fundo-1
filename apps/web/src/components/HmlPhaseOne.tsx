@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
-import { AppShell, UIIcon } from "./AppShell";
+import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
 import { PersonPicker } from "./PersonPicker";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, storeToken, type LoginResult } from "../lib/api";
+import { readPanel } from "../lib/panel-read";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
 
@@ -78,6 +79,7 @@ function displayError(error: unknown): string {
   if (!(error instanceof Error)) return "Não foi possível concluir. Confira os dados e tente novamente.";
   if (/\(401\)|401|expired|expirad|JWT/.test(error.message)) return "Sua sessão expirou. Entre novamente.";
   if (/\(403\)|403|permissão|permiss/.test(error.message)) return "Seu perfil não pode executar esta operação.";
+  if (/E-mail já cadastrado/.test(error.message)) return "Já existe uma pessoa com este e-mail. Use Iniciar admissão para localizá-la.";
   if (/CREDENTIAL_NOT_ELIGIBLE|credentialEligible=false|admissão pastoral não aprovada/i.test(error.message)) return "A admissão ainda precisa de aprovação pastoral antes da emissão da carteirinha.";
   if (/Já existe carteirinha ativa/i.test(error.message)) return "Esta pessoa já possui uma carteirinha ativa. Abra a credencial existente antes de solicitar outra.";
   if (/\(409\)|409/.test(error.message)) return "O registro entrou em conflito com uma alteração existente. Atualize os dados e confira a etapa atual.";
@@ -95,7 +97,19 @@ function formatDate(value: string) {
     : "—";
 }
 
-const rowKey = (membership: Membership) => membership.person.id;
+const PAGE_SIZE = 12;
+const CLOSED_ADMISSIONS = ["APPROVED", "REJECTED", "CANCELLED"];
+
+function ListPager({ total, page, onChange }: { total: number; page: number; onChange: (page: number) => void }) {
+  if (total <= PAGE_SIZE) return null;
+  return (
+    <nav className={s.pagination} aria-label="Páginas de resultados">
+      <button type="button" disabled={page === 0} onClick={() => onChange(page - 1)}>Anterior</button>
+      <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total}</span>
+      <button type="button" disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => onChange(page + 1)}>Próxima</button>
+    </nav>
+  );
+}
 
 export function CredentialCards({
   memberships,
@@ -151,21 +165,39 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [admissions, setAdmissions] = useState<Admission[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
   const [query, setQuery] = useState("");
+  const [listPage, setListPage] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
+  const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
+  const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [modality, setModality] = useState("BATISMO");
 
-  const refresh = useCallback(async (activeToken: string) => {
+  useEffect(() => {
+    if (view !== "members") return;
+    const openFromUrl = () => setFichaId(new URLSearchParams(window.location.search).get("pessoa"));
+    openFromUrl();
+    window.addEventListener("popstate", openFromUrl);
+    return () => window.removeEventListener("popstate", openFromUrl);
+  }, [view]);
+
+  const refresh = useCallback(async (activeToken: string, fresh = false) => {
     const me = await apiGet<AuthUser>("/auth/me", activeToken);
     setUser(me);
     const secretaria = hasRole(me, "SECRETARIA") || hasRole(me, "PLATFORM_ADMIN");
     const staff = secretaria || hasRole(me, "PASTOR");
     const settled = await Promise.allSettled([
-      secretaria ? apiGet<{ memberships: Membership[] }>("/memberships", activeToken) : Promise.resolve({ memberships: [] as Membership[] }),
-      staff ? apiGet<{ admissions: Admission[] }>("/admissions", activeToken) : Promise.resolve({ admissions: [] as Admission[] }),
-      secretaria ? apiGet<{ households: Household[] }>("/households", activeToken) : Promise.resolve({ households: [] as Household[] }),
+      secretaria && view !== "overview"
+        ? readPanel(activeToken, "/memberships", () => apiGet<{ memberships: Membership[] }>("/memberships", activeToken), { fresh })
+        : Promise.resolve({ memberships: [] as Membership[] }),
+      staff && view === "secretary"
+        ? readPanel(activeToken, "/admissions", () => apiGet<{ admissions: Admission[] }>("/admissions", activeToken), { fresh })
+        : Promise.resolve({ admissions: [] as Admission[] }),
+      secretaria && view === "members"
+        ? apiGet<{ households: Household[] }>("/households", activeToken)
+        : Promise.resolve({ households: [] as Household[] }),
     ]);
     const invalid = settled.find(item => item.status === "rejected" && isInvalidSession(item.reason));
     if (invalid && invalid.status === "rejected") throw invalid.reason;
@@ -176,7 +208,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     if (settled.some(item => item.status === "rejected")) {
       setError("Parte da lista não carregou. Você continua conectado.");
     }
-  }, []);
+  }, [view]);
 
   useEffect(() => {
     const stored = loadStoredToken();
@@ -185,9 +217,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       return;
     }
     let cancelled = false;
-    void refresh(stored).then(() => {
-      if (!cancelled) setToken(stored);
-    }).catch(err => {
+    setToken(stored);
+    void refresh(stored).catch(err => {
       if (!isInvalidSession(err)) {
         if (!cancelled) {
           setToken(stored);
@@ -210,15 +241,23 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const pastor = hasRole(user, "PASTOR");
   const staff = secretary || pastor;
   const membershipByPerson = useMemo(() => new Map(memberships.map(membership => [membership.person.id, membership])), [memberships]);
-  const pending = admissions.filter(admission => !["APPROVED", "REJECTED", "CANCELLED"].includes(admission.status));
+  const pending = admissions.filter(admission => !CLOSED_ADMISSIONS.includes(admission.status));
   const active = memberships.filter(membership => membership.status === "ACTIVE");
-  const credentials = memberships.filter(membership => Boolean(membership.activeCredentialId));
   const q = query.trim().toLocaleLowerCase("pt-BR");
   const filtered = memberships.filter(membership => [membership.person.displayName, membership.person.email ?? "", membership.status, membership.id].join(" ").toLocaleLowerCase("pt-BR").includes(q));
-  const filteredAdmissions = admissions.filter(admission => {
+  const filteredAdmissions = (showHistory ? admissions : pending).filter(admission => {
     const member = membershipByPerson.get(admission.personId);
     return [member?.person.displayName ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
   });
+
+  const resultCount = view === "secretary" ? filteredAdmissions.length : filtered.length;
+  const visiblePage = Math.min(listPage, Math.max(0, Math.ceil(resultCount / PAGE_SIZE) - 1));
+  const firstRow = visiblePage * PAGE_SIZE;
+
+  function updateQuery(value: string) {
+    setQuery(value);
+    setListPage(0);
+  }
 
   function logout() {
     clearToken();
@@ -266,7 +305,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     try {
       await action();
       try {
-        await refresh(token);
+        await refresh(token, true);
         setNotice(message);
       } catch {
         // A gravação já foi concluída: não anunciar falha de gravação por erro na releitura.
@@ -281,22 +320,35 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     }
   }
 
-  async function createAdmission(event: FormEvent<HTMLFormElement>) {
+  async function submitSecretariatForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !secretary) return;
+    if (!token || !secretary || busy || !admissionForm) return;
     const name = newName.trim();
     const email = newEmail.trim().toLowerCase();
-    if (name.length < 3 || !email.endsWith("@example.test")) {
-      setError("Use um nome e um e-mail terminado em @example.test. Este ambiente não recebe cadastro real.");
+    if (admissionForm === "existing" && !admissionPerson) {
+      setError("Selecione a pessoa que vai iniciar a admissão.");
       return;
     }
-    const completed = await run(
-      () => apiPost("/admissions", token, { displayName: name, email, modality }),
-      "Protocolo aberto.",
-    );
+    if (admissionForm === "new" && (name.length < 3 || !email.endsWith("@example.test"))) {
+      setError("Use um nome e um e-mail terminado em @example.test.");
+      return;
+    }
+    const completed = admissionForm === "existing"
+      ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.")
+      : await run(async () => {
+          const candidates = await apiPost<{ hits: Array<{ person: { email: string | null } }> }>(
+            "/persons/candidates", token, { displayName: name, email },
+          );
+          if (candidates.hits.some(hit => hit.person.email?.toLowerCase() === email)) {
+            throw new Error("E-mail já cadastrado.");
+          }
+          return apiPost("/memberships", token, { displayName: name, email });
+        }, "Pessoa cadastrada. Você já pode iniciar a admissão quando precisar.");
     if (completed) {
       setNewName("");
       setNewEmail("");
+      setAdmissionPerson("");
+      setAdmissionForm(null);
     }
   }
 
@@ -328,8 +380,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
 
   const names: Record<View, string> = {
     overview: "Início",
-    members: "Pessoas e famílias",
-    secretary: "Admissões e secretaria",
+    members: "Membros e famílias",
+    secretary: "Secretaria",
     cards: "Carteirinhas",
   };
   const activeNav = view === "overview" ? "visao" : view === "members" ? "membros" : view === "secretary" ? "secretaria" : "carteirinha";
@@ -348,11 +400,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   return (
     <AppShell active={activeNav} meta={names[view]}>
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
-        <div className={s.topline}>
-          <span className={s.environment}>Ambiente de homologação</span>
-        </div>
-        {checking ? <section className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></section> : !token || !user ? (
-          <section className={s.loginPanel} aria-labelledby="login-hml">
+        {!token || !user ? (
+          checking ? <section className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></section> : <section className={s.loginPanel} aria-labelledby="login-hml">
             <span className={s.kicker}>Ambiente de homologação</span>
             <h1 id="login-hml">Entre no ID Riacho 1</h1>
             <p>Use a conta autorizada deste ambiente. O site público continua separado.</p>
@@ -367,27 +416,38 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             {view !== "overview" && (
               <header className={s.heading}>
                 <div>
-                  <span className={s.kicker}>ID Riacho 1</span>
+                  <span className={s.kicker}>Gestão da congregação</span>
                   <h1>{names[view]}</h1>
                   <p>
-                    {view === "members" && "Pessoas e núcleos familiares no seu alcance."}
-                    {view === "secretary" && "Protocolos de admissão e fichas da secretaria."}
+                    {view === "members" && "Encontre pessoas, consulte as famílias e atualize a ficha de cada cadastro."}
+                    {view === "secretary" && "Abra protocolos e acompanhe cada etapa da admissão."}
                     {view === "cards" && "Emissão e situação das carteirinhas."}
                   </p>
                 </div>
-                <button type="button" className={s.secondaryButton} onClick={() => { if (token) void run(() => refresh(token), "Dados atualizados."); }} disabled={busy}>
+                <button type="button" className={s.secondaryButton} onClick={() => {
+                  setError("");
+                  setChecking(true);
+                  void refresh(token, true).catch(err => setError(displayError(err))).finally(() => setChecking(false));
+                }} disabled={checking || busy}>
                   <UIIcon name="refresh" size={17} /> Atualizar
                 </button>
               </header>
             )}
             {notice && <div role="status" className={s.notice}>{notice}</div>}
             {error && <div role="alert" className={s.error}>{error}</div>}
-            {view !== "overview" && (
+            {checking && <p className={s.empty} role="status">Carregando registros…</p>}
+            {!checking && !error && view === "members" && secretary && (
               <div className={s.stats}>
-                {secretary && <div><span>Pessoas com vínculo</span><strong>{memberships.length}</strong><small>Nesta congregação</small></div>}
-                {secretary && <div><span>Membros ativos</span><strong>{active.length}</strong><small>Vínculo ativo</small></div>}
-                {staff && <div><span>Admissões pendentes</span><strong>{pending.length}</strong><small>Etapas em aberto</small></div>}
-                {secretary && <div><span>Credenciais ativas</span><strong>{credentials.length}</strong><small>Carteirinhas emitidas</small></div>}
+                <div><span>Pessoas com vínculo</span><strong>{memberships.length}</strong><small>Nesta congregação</small></div>
+                <div><span>Membros ativos</span><strong>{active.length}</strong><small>Vínculos ativos</small></div>
+                <div><span>Famílias cadastradas</span><strong>{households.length}</strong><small>Núcleos familiares</small></div>
+              </div>
+            )}
+            {!checking && !error && view === "secretary" && staff && (
+              <div className={s.stats}>
+                <div><span>Em andamento</span><strong>{pending.length}</strong><small>Protocolos abertos</small></div>
+                <div><span>Em decisão pastoral</span><strong>{pending.filter(item => item.currentStep === "pastor").length}</strong><small>Aguardando parecer</small></div>
+                <div><span>Encerrados</span><strong>{admissions.length - pending.length}</strong><small>Histórico de protocolos</small></div>
               </div>
             )}
             {view === "overview" && <PersonaBoard />}
@@ -396,17 +456,23 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 <section className={s.panel}>
                   <div className={s.panelHeading}>
                     <h2>Diretório de membros</h2>
-                    <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros" />
+                    <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar nome ou situação" aria-label="Buscar membros" />
                   </div>
-                  {!secretary ? <p className={s.empty}>Seu perfil não lista todas as pessoas.</p> : (
+                  {staff && (
+                    <div className={s.personLookup}>
+                      <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Localizar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} placeholder="Buscar em todos os cadastros" />
+                      <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
+                    </div>
+                  )}
+                  {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : checking ? null : (
                     <div className={s.tableWrap}>
                       <table>
                         <thead>
                           <tr><th>Nome</th><th>Situação</th><th>E-mail</th><th>Carteirinha</th><th>Ficha</th></tr>
                         </thead>
                         <tbody>
-                          {filtered.map(membership => (
-                            <tr key={rowKey(membership)}>
+                          {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => (
+                            <tr key={membership.person.id}>
                               <td data-label="Nome"><strong>{membership.person.displayName}</strong></td>
                               <td data-label="Situação">{label(membership.status)}</td>
                               <td data-label="E-mail">{membership.person.email ?? "—"}</td>
@@ -418,7 +484,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                           ))}
                         </tbody>
                       </table>
-                      {filtered.length === 0 && <p className={s.empty}>Nenhuma pessoa encontrada.</p>}
+                      {filtered.length === 0 && !error && <p className={s.empty}>Nenhuma pessoa encontrada.</p>}
+                      <ListPager total={filtered.length} page={visiblePage} onChange={setListPage} />
                     </div>
                   )}
                 </section>
@@ -427,7 +494,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                   {secretary ? <strong className={s.bigNumber}>{households.length}</strong> : null}
                   <p>{secretary ? "Famílias vinculadas à congregação." : "A lista de famílias fica com a secretaria."}</p>
                   <div className={s.slimList}>{households.slice(0, 8).map(household => <span key={household.id}>{household.label}</span>)}</div>
-                  {secretary && households.length === 0 && <p className={s.empty}>Nenhuma família registrada.</p>}
+                  {secretary && !checking && !error && households.length === 0 && <p className={s.empty}>Nenhuma família registrada.</p>}
                 </section>
               </div>
             )}
@@ -436,13 +503,17 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 <section className={s.panel}>
                   <div className={s.panelHeading}>
                     <h2>Protocolos de admissão</h2>
-                    <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
+                    <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
-                  {!staff ? <p className={s.empty}>Seu perfil não consulta os processos.</p> : (
+                  <div className={s.viewFilter} role="group" aria-label="Filtrar protocolos">
+                    <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}>Em andamento</button>
+                    <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}>Todos</button>
+                  </div>
+                  {!staff ? <p className={s.empty}>Seu perfil não consulta os processos.</p> : checking ? null : (
                     <div className={s.admissions}>
-                      {filteredAdmissions.map(admission => {
+                      {filteredAdmissions.slice(firstRow, firstRow + PAGE_SIZE).map(admission => {
                         const canAct = admission.currentStep === "pastor" ? pastor : secretary;
-                        const done = ["APPROVED", "REJECTED", "CANCELLED"].includes(admission.status);
+                        const done = CLOSED_ADMISSIONS.includes(admission.status);
                         const personName = membershipByPerson.get(admission.personId)?.person.displayName ?? "Pessoa em admissão";
                         const stepLabel = admission.currentStep === "pastor"
                           ? "decisão pastoral"
@@ -456,7 +527,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                               <small>{label(admission.status)} · {label(admission.modality ?? "")}</small>
                             </div>
                             <div className={s.admissionActions}>
-                              <button type="button" className={s.openFicha} onClick={() => setFichaId(admission.personId)} aria-label={"Abrir ficha de " + personName}>Abrir ficha</button>
+                              <AppNavLink className={s.openFicha} href={`/app/membros/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>
                               <button type="button" disabled={busy || done || !canAct} onClick={() => nextAdmission(admission)}>
                                 {done ? "Concluído" : !canAct ? "Ação reservada" : "Concluir " + stepLabel}
                               </button>
@@ -464,34 +535,46 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                           </article>
                         );
                       })}
-                      {filteredAdmissions.length === 0 && <p className={s.empty}>Não há protocolos neste filtro.</p>}
+                      {filteredAdmissions.length === 0 && !error && <p className={s.empty}>Não há protocolos neste filtro.</p>}
+                      <ListPager total={filteredAdmissions.length} page={visiblePage} onChange={setListPage} />
                     </div>
                   )}
                 </section>
                 <section className={s.panel}>
-                  <h2>Buscar pessoa e abrir ficha</h2>
-                  {staff && token ? (
-                    <>
-                      <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa" value={searchedPerson} onChange={setSearchedPerson} placeholder="Buscar pelo nome" />
-                      <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => setFichaId(searchedPerson)}>Abrir ficha da busca</button>
-                    </>
-                  ) : <p className={s.empty}>A busca de pessoas fica com a secretaria, o pastor ou a administração.</p>}
-                  <h2 className={s.follow}>Abrir protocolo</h2>
-                  <p>O cadastro cria a pessoa, o vínculo e a admissão juntos. Use apenas nomes deste ambiente e o domínio example.test.</p>
+                  <h2>Cadastro e admissão</h2>
                   {secretary ? (
-                    <form className={s.form} onSubmit={createAdmission}>
-                      <label>Nome<input value={newName} onChange={event => setNewName(event.target.value)} required minLength={3} placeholder="Maria Oliveira" /></label>
-                      <label>E-mail<input value={newEmail} onChange={event => setNewEmail(event.target.value)} required type="email" placeholder="maria.oliveira@example.test" /></label>
-                      <label>Modalidade
-                        <select value={modality} onChange={event => setModality(event.target.value)}>
-                          <option value="BATISMO">Batismo</option>
-                          <option value="TRANSFERENCIA">Transferência</option>
-                          <option value="RECONCILIACAO">Reconciliação</option>
-                          <option value="OUTRO">Outro</option>
-                        </select>
-                      </label>
-                      <button type="submit" disabled={busy}>{busy ? "Salvando…" : "Cadastrar e iniciar admissão"}</button>
-                    </form>
+                    <>
+                      <p>Cadastre a pessoa ou abra um protocolo para um cadastro existente.</p>
+                      <div className={s.viewFilter} role="group" aria-label="Ações da secretaria">
+                        <button type="button" aria-pressed={admissionForm === "existing"} onClick={() => setAdmissionForm("existing")}>Iniciar admissão</button>
+                        <button type="button" aria-pressed={admissionForm === "new"} onClick={() => setAdmissionForm("new")}>Cadastrar pessoa</button>
+                      </div>
+                      {admissionForm && (
+                        <form className={s.form} onSubmit={submitSecretariatForm}>
+                          {admissionForm === "existing" ? (
+                            <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa para admissão" value={admissionPerson} onChange={setAdmissionPerson} placeholder="Buscar pelo nome" required />
+                          ) : (
+                            <>
+                              <label>Nome<input value={newName} onChange={event => setNewName(event.target.value)} required minLength={3} maxLength={160} placeholder="Maria Oliveira" /></label>
+                              <label>E-mail de homologação<input value={newEmail} onChange={event => setNewEmail(event.target.value)} required type="email" placeholder="maria.oliveira@example.test" /></label>
+                            </>
+                          )}
+                          {admissionForm === "existing" ? (
+                            <label>Modalidade
+                              <select value={modality} onChange={event => setModality(event.target.value)}>
+                                <option value="BATISMO">Batismo</option>
+                                <option value="TRANSFERENCIA">Transferência</option>
+                                <option value="RECONCILIACAO">Reconciliação</option>
+                                <option value="OUTRO">Outro</option>
+                              </select>
+                            </label>
+                          ) : <p>O cadastro cria um vínculo pendente. O protocolo pode ser aberto depois.</p>}
+                          <button type="submit" disabled={busy || (admissionForm === "existing" && !admissionPerson)}>
+                            {busy ? "Salvando…" : admissionForm === "existing" ? "Abrir protocolo" : "Salvar cadastro"}
+                          </button>
+                        </form>
+                      )}
+                    </>
                   ) : <p className={s.empty}>A abertura de protocolo fica com a secretaria.</p>}
                 </section>
               </div>
@@ -518,7 +601,17 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 canEdit={secretary}
                 canReadDocuments={staff}
                 credential={credentialFromMemberships(secretary, memberships, fichaId)}
-                onClose={() => setFichaId(null)}
+                onClose={() => {
+                  setFichaId(null);
+                  const url = new URL(window.location.href);
+                  if (url.searchParams.has("pessoa")) {
+                    url.searchParams.delete("pessoa");
+                    window.history.replaceState(null, "", url);
+                  }
+                }}
+                onPersonSaved={person => setMemberships(rows => rows.map(row =>
+                  row.person.id === person.id ? { ...row, person } : row
+                ))}
                 onSessionExpired={logout}
               />
             )}

@@ -304,14 +304,8 @@ export function isMinistryGroupKey(key: string): key is MinistryGroupKey {
   return (MINISTRY_GROUP_KEYS as readonly string[]).includes(key);
 }
 
-/**
- * Contexto do ministério. Louvor e Atmosfera já têm superfície própria.
- * Os demais apontam para o vínculo com o id devolvido pela API, sem nome fixo no código.
- */
-export function ministryContextHref(item: Pick<MinistryNavItem, "id" | "slug">): string {
-  const slug = item.slug.trim().toLowerCase();
-  if (slug === "louvor" || slug === "louvor-demo") return "/app/servir/louvor/";
-  if (slug === "atmosfera") return "/app/servir/atmosfera/";
+/** Abre o ministério pelo id retornado pela API, inclusive Louvor e Atmosfera. */
+export function ministryContextHref(item: Pick<MinistryNavItem, "id">): string {
   return `/app/ministerios/?ministry=${encodeURIComponent(item.id)}`;
 }
 
@@ -342,27 +336,21 @@ export type MinistrySubmenuEntry = {
   icon: NavIcon;
 };
 
-/**
- * Com a lista da API, o submenu usa esses nomes.
- * O atalho estático some quando o mesmo destino já veio no retorno, para não duplicar Louvor ou Atmosfera.
- * Sem lista, permanecem só os atalhos que o papel já podia abrir.
- */
+/** O catálogo e os ministérios autorizados compartilham a mesma área. */
 export function ministrySubmenu(
   areas: readonly PersonaArea[],
   loaded: readonly MinistryNavItem[] | null,
 ): MinistrySubmenuEntry[] {
-  const apiItems = loaded ?? [];
-  const apiHrefs = new Set(apiItems.map(item => ministryContextHref(item)));
-  const dynamic = apiItems.map(item => ({
+  const catalog = areas
+    .filter(area => area.key === "ministerios")
+    .map(area => ({ key: area.key, href: area.href, label: area.label, icon: area.icon }));
+  const dynamic = (loaded ?? []).map(item => ({
     key: `ministry:${item.id}`,
     href: ministryContextHref(item),
     label: item.name,
     icon: "family" as const,
   }));
-  const stable = areas
-    .filter(area => isMinistryGroupKey(area.key) && !apiHrefs.has(area.href))
-    .map(area => ({ key: area.key, href: area.href, label: area.label, icon: area.icon }));
-  return [...dynamic, ...stable];
+  return [...catalog, ...dynamic];
 }
 
 export type AppDestination = "/app/" | "/app/operacao/" | "/app/site/" | "/app/servir/meu-espaco/";

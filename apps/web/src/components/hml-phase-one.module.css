@@ -190,3 +190,54 @@
   .heading h1, .loginPanel h1 { font-size: 1.45rem; }
   .admission button, .openFicha { width: 100%; }
 }
+
+.page[data-hml-view="members"],
+.page[data-hml-view="secretary"] { --color-marrom: #173b36; }
+.page[data-hml-view="members"] .heading,
+.page[data-hml-view="secretary"] .heading {
+  align-items: center;
+  padding: clamp(16px, 3vw, 30px);
+  border: 1px solid #dce7df;
+  border-radius: 18px;
+  background: #edf4ed;
+}
+.page[data-hml-view="members"] .stats,
+.page[data-hml-view="secretary"] .stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.openFicha { text-decoration: none; }
+.personLookup {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px solid #dce7df;
+  border-radius: 12px;
+  background: #f6f9f5;
+}
+.personLookup > div { width: 100%; }
+.viewFilter, .pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-block: 12px;
+}
+.pagination { justify-content: space-between; font-size: 0.85rem; }
+.viewFilter button, .pagination button {
+  min-height: 44px;
+  padding: 6px 11px;
+  border: 1px solid #c9d9d1;
+  border-radius: 9px;
+  background: #fff;
+  color: #173b36;
+  cursor: pointer;
+  font-weight: 650;
+}
+.viewFilter button[aria-pressed="true"] { color: #fff; background: #214c43; border-color: #214c43; }
+
+@media (max-width: 540px) {
+  .page[data-hml-view="members"] .stats,
+  .page[data-hml-view="secretary"] .stats { grid-template-columns: 1fr; }
+}

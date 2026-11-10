@@ -25,7 +25,8 @@ describe("carteirinha — rótulos e QR seguro", () => {
     expect(credentialFailure(new ApiRequestError("x", 401, "unauthorized")).status).toBe(401);
     expect(credentialFailure(new ApiRequestError("x", 403, "forbidden")).message).toMatch(/perfil não pode/);
     expect(credentialFailure(new ApiRequestError("x", 404, "http")).status).toBe(404);
-    expect(credentialFailure(new ApiRequestError("x", 409, "http")).message).toMatch(/Já existe/);
+    expect(credentialFailure(new ApiRequestError("Já existe carteirinha ativa", 409, "http")).message).toMatch(/Já existe/);
+    expect(credentialFailure(new ApiRequestError("CREDENTIAL_NOT_ELIGIBLE", 409, "http")).message).toMatch(/aprovação pastoral/);
   });
 
   it("trata QR revogado como inválido", () => {

@@ -98,7 +98,13 @@ export function credentialFailure(error: unknown): { status: number | null; mess
       return { status: 404, message: "Não há carteirinha disponível para esta matrícula." };
     }
     if (error.status === 409) {
-      return { status: 409, message: "Já existe uma carteirinha ativa para esta matrícula." };
+      if (/CREDENTIAL_NOT_ELIGIBLE|credentialEligible=false/i.test(error.message)) {
+        return { status: 409, message: "A admissão precisa da aprovação pastoral antes da emissão." };
+      }
+      if (/já existe carteirinha ativa/i.test(error.message)) {
+        return { status: 409, message: "Já existe uma carteirinha ativa para esta matrícula." };
+      }
+      return { status: 409, message: "A carteirinha foi alterada. Atualize a lista antes de tentar novamente." };
     }
     const status = error.status ?? null;
     return {

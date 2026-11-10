@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MinistryExperience } from "./ministry/MinistryExperience";
 import { getApiBaseUrl, loadStoredToken } from "../lib/api";
 import {
@@ -18,10 +19,6 @@ import styles from "./ministry-membership-catalog.module.css";
 
 type Route = { ministryId?: string; tab: MinistryTabId; escalaId?: string };
 
-function readRoute(): Route {
-  return parseMinistryRoute(window.location.search);
-}
-
 function writeRoute(route: Route) {
   const url = route.ministryId
     ? withBasePath(ministryHref(route.ministryId, route.tab, route.escalaId))
@@ -31,8 +28,7 @@ function writeRoute(route: Route) {
 
 export function MinistryDeskPage() {
   const [token, setToken] = useState<string | null>(null);
-  const [routeReady, setRouteReady] = useState(false);
-  const [route, setRoute] = useState<Route>({ tab: "visao" });
+  const route = parseMinistryRoute(useSearchParams().toString());
   const [board, setBoard] = useState<MinistryBoardData | null>(null);
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [change, setChange] = useState<MembershipChange | null>(null);
@@ -42,15 +38,10 @@ export function MinistryDeskPage() {
 
   useEffect(() => {
     setToken(loadStoredToken());
-    setRoute(readRoute());
-    setRouteReady(true);
-    const onPop = () => setRoute(readRoute());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   useEffect(() => {
-    if (!token || !routeReady) return;
+    if (!token) return;
     let cancelled = false;
     setBoard(null);
     void loadMinistryBoard({
@@ -73,12 +64,11 @@ export function MinistryDeskPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, route.ministryId, routeReady, reloadKey]);
+  }, [token, route.ministryId, reloadKey]);
 
   function go(next: Route) {
     setConversion(null);
     setChange(null);
-    setRoute(next);
     writeRoute(next);
   }
 

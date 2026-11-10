@@ -18,7 +18,6 @@ export type CredentialView =
 
 type Props = {
   titleId: string;
-  personId: string;
   state: FichaState;
   households: HouseholdOption[];
   canEdit: boolean;
@@ -51,7 +50,6 @@ function failureBlock(failure: DossierFailure | null, slot: string, title: strin
 
 export function Ficha360Dialog({
   titleId,
-  personId,
   state,
   households,
   canEdit,
@@ -84,16 +82,16 @@ export function Ficha360Dialog({
       >
         <header className={s.header}>
           <div>
-            <span className={s.kicker}>FICHA 360 · SECRETARIA · DADOS FICTÍCIOS</span>
+            <span className={s.kicker}>Cadastro de pessoa</span>
             <h2 id={titleId}>{person?.displayName ?? "Ficha da pessoa"}</h2>
-            <p>Identificador {personId}. A gravação usa a API de homologação. Casos pastorais não entram nesta ficha.</p>
+            <p>Dados de contato, família e histórico na congregação.</p>
           </div>
           <button type="button" className={s.close} onClick={onClose} aria-label="Fechar ficha">Fechar</button>
         </header>
 
         {state.phase === "loading" && <p className={s.status} role="status">Abrindo ficha…</p>}
-        {state.phase === "saving" && <p className={s.status} role="status">Salvando na API…</p>}
-        {state.phase === "reopening" && <p className={s.status} role="status">Reabrindo ficha na API…</p>}
+        {state.phase === "saving" && <p className={s.status} role="status">Salvando ficha…</p>}
+        {state.phase === "reopening" && <p className={s.status} role="status">Atualizando ficha…</p>}
 
         {failureBlock(state.loadError, "load", "Falha ao abrir.")}
         {failureBlock(state.saveError, "save", "Falha ao salvar.")}
@@ -104,7 +102,7 @@ export function Ficha360Dialog({
           <>
             <form className={s.form} onSubmit={onSubmit}>
               <fieldset disabled={busy || !canEdit}>
-                <legend>Dados gerais que a API grava</legend>
+                <legend>Dados pessoais</legend>
                 <label>
                   Nome
                   <input
@@ -126,7 +124,7 @@ export function Ficha360Dialog({
                     onChange={(event) => onEdit({ ...form, email: event.target.value })}
                   />
                 </label>
-                <p className={s.hint}>E-mail de contato, não de login. Na homologação só é aceito o domínio example.test. Em branco, a API limpa o contato.</p>
+                <p className={s.hint}>Use um endereço @example.test. Deixe em branco para remover o contato.</p>
                 <label className={s.check}>
                   <input
                     data-field="isMinor"
@@ -197,10 +195,10 @@ export function Ficha360Dialog({
               {!canEdit && <p className={s.hint}>Seu perfil pode consultar a ficha. A gravação exige Secretaria.</p>}
             </form>
 
-            <section className={s.locked} aria-label="Campos que a API recusa neste fluxo">
-              <h3>Situação e tipo — a API recusa alteração direta</h3>
+            <section className={s.locked} aria-label="Situação do cadastro">
+              <h3>Situação do cadastro</h3>
               <p>
-                Situação e tipo seguem admissão e transferência. Telefone e endereço não existem neste cadastro e não são gravados aqui.
+                A situação muda conforme a admissão ou a transferência.
               </p>
               <div className={s.lockedGrid}>
                 {REGULATED_PERSON_FIELDS.map((field) => (
@@ -225,7 +223,7 @@ export function Ficha360Dialog({
                 </div>
                 <div>
                   <dt>Foto</dt>
-                  <dd>{person.photo?.hasStorageKey ? "Arquivo privado registrado. A imagem não é baixada nesta ficha." : "Nenhuma foto registrada."}</dd>
+                  <dd>{person.photo?.hasStorageKey ? "Foto registrada" : "Nenhuma foto registrada."}</dd>
                 </div>
                 <div>
                   <dt>Credencial</dt>
@@ -266,12 +264,6 @@ export function Ficha360Dialog({
           </>
         )}
 
-        {(state.loadMs !== null || state.saveMs !== null) && (
-          <p className={s.timing}>
-            {state.loadMs !== null && <span>Abertura da ficha: {Math.round(state.loadMs)} ms neste navegador. </span>}
-            {state.saveMs !== null && <span>Salvar e reabrir: {Math.round(state.saveMs)} ms neste navegador.</span>}
-          </p>
-        )}
       </section>
     </div>
   );

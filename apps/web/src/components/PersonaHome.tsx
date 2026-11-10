@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
 import { ApiRequestError, apiGet, isForbidden, isUnauthorized, loadStoredToken } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
-import { areasForRoles, isMemberOnly, type AppNavKey } from "../lib/persona-navigation";
+import { areasForRoles, isMemberOnly, ministryContextHref, type AppNavKey } from "../lib/persona-navigation";
 import {
   currentPublishedEvents,
   formatPortalDate,
@@ -36,8 +36,8 @@ const DESK_ORDER: readonly DeskKey[] = [
 
 const DESK: Record<DeskKey, { title: string; lede: string }> = {
   PLATFORM_ADMIN: {
-    title: "Mesa da administração",
-    lede: "Pessoas, admissões, ministérios e a agenda da congregação.",
+    title: "Painel administrativo",
+    lede: "Acompanhe a congregação e acesse as rotinas de trabalho da igreja.",
   },
   SECRETARIA: {
     title: "Mesa da secretaria",
@@ -83,7 +83,7 @@ const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
 };
 
 const PRIMARY_TASKS: Record<DeskKey, readonly AppNavKey[]> = {
-  PLATFORM_ADMIN: ["membros", "secretaria", "carteirinha", "editorial"],
+  PLATFORM_ADMIN: ["membros", "secretaria", "carteirinha", "ministerios"],
   SECRETARIA: ["membros", "secretaria", "carteirinha"],
   PASTOR: ["secretaria", "membros", "ministerios"],
   TESOURARIA: ["tesouraria"],
@@ -448,7 +448,8 @@ export function dashboardPaths(roles: readonly string[]): string[] {
   const editor = hasRole(roles, "EDITOR_SITE", "PUBLICADOR_SITE");
   const paths: string[] = [];
   if (staff || leader) paths.push("/indicators/summary");
-  if (staff) paths.push("/indicators/membership", "/admissions");
+  if (staff && !roles.includes("PLATFORM_ADMIN")) paths.push("/indicators/membership");
+  if (staff) paths.push("/admissions");
   if (staff || leader) paths.push("/ministries", "/events");
   if (isMemberOnly(roles)) paths.push("/rosters/me", "/credentials/me");
   if (treasury) paths.push("/ledger/accounts", "/ledger/entries");
@@ -514,10 +515,10 @@ function WeekStrip({ marks }: { marks: ReadonlySet<string> }) {
   );
 }
 
-function Metric({ label, value, href, hint }: { label: string; value: number | null; href?: string; hint: string }) {
+function Metric({ label, value, href, hint, icon }: { label: string; value: number | null; href?: string; hint: string; icon?: Parameters<typeof UIIcon>[0]["name"] }) {
   const body = (
     <>
-      <span>{label}</span>
+      <span className={s.metricLabel}>{label}{icon && <UIIcon name={icon} size={19} />}</span>
       {value === null ? <em className={s.skeleton} aria-hidden="true" /> : <strong>{value}</strong>}
       <small>{hint}</small>
     </>
@@ -667,6 +668,7 @@ export function PersonaBoard() {
 
   const deskKey = deskKeyFor(access.roles);
   const desk = DESK[deskKey];
+  const adminHome = deskKey === "PLATFORM_ADMIN";
   const memberView = isMemberOnly(access.roles);
   const areas = areasForRoles(access.roles);
   const tasks = PRIMARY_TASKS[deskKey].flatMap(key => {
@@ -683,24 +685,24 @@ export function PersonaBoard() {
   const agenda = mesa.events ?? (showPublicAgenda ? publicRows : null);
   const agendaRows = agenda ? upcoming(agenda) : [];
   const marks = new Set(agendaRows.flatMap(row => row.when ? [spDayKey(new Date(row.when))] : []));
-  const showChart = staff && (mesa.bars !== null || loading);
+  const showChart = staff && !adminHome && (mesa.bars !== null || loading);
   const pendingAssignments = (mesa.assignments ?? []).filter(row => row.detail.includes("A confirmar"));
 
-  const metrics: Array<{ label: string; value: number | null; href?: string; hint: string }> = [];
+  const metrics: Array<Parameters<typeof Metric>[0]> = [];
   if (staff || leader) {
     if (staff && (summaryReady || loading)) {
       metrics.push(
-        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos" },
-        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento" },
+        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
+        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
       );
-      if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
+      if (!adminHome && summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
         metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, hint: "Acompanhamentos abertos" });
       }
     }
     if (summaryReady || loading) {
       metrics.push(
-        { label: "Ministérios", value: summaryReady ? counts.ministriesTotal : null, href: "/app/ministerios/", hint: "Equipes da congregação" },
-        { label: "Próximos eventos", value: summaryReady ? counts.eventsPublishedUpcoming : null, href: "/eventos/", hint: "Agenda publicada" },
+        { label: "Ministérios", value: summaryReady ? counts.ministriesTotal : null, href: "/app/ministerios/", hint: "Equipes da congregação", icon: "family" },
+        { label: "Próximos eventos", value: summaryReady ? counts.eventsPublishedUpcoming : null, href: "/#agenda", hint: "Agenda publicada", icon: "calendar" },
       );
     }
     if (leader && !staff && (summaryReady || loading)) {
@@ -716,11 +718,11 @@ export function PersonaBoard() {
   const visibleMetrics = metrics.filter(item => item.value !== null || loading);
 
   return (
-    <div className={s.board} data-persona-home={access.roles.join(",")} data-desk={deskKey} data-layout={memberView ? "membro" : "admin"}>
+    <div className={s.board} data-persona-home={access.roles.join(",")} data-desk={deskKey} data-layout={memberView ? "membro" : "admin"} data-admin-home={adminHome || undefined}>
       {showPublicAgenda ? <PublicAgendaSource onRows={onPublicRows} /> : null}
       <header className={s.intro}>
         <div>
-          <p className={s.greeting}>{greeting()}</p>
+          <p className={s.greeting}>{adminHome ? "Igreja de Deus · Riacho Fundo I" : greeting()}</p>
           <h1>{desk.title}</h1>
           <p className={s.lede}>{desk.lede}</p>
         </div>
@@ -731,14 +733,16 @@ export function PersonaBoard() {
         </div>
       </header>
 
-      {mesa.partial && <p className={s.note} role="status">Parte da mesa não carregou. O restante continua disponível.</p>}
+      {mesa.partial && <p className={s.note} role="status">Algumas informações não carregaram. Use Atualizar para tentar novamente.</p>}
       {mesa.phase === "signed-out" && <p className={s.note} role="status">Entre novamente para ver os registros da sua conta.</p>}
 
-      <nav className={s.actions} aria-label="Ações rápidas">
-        {tasks.map(task => (
-          <AppNavLink key={task.key} href={task.href}>{TASK_LABEL[task.key]}</AppNavLink>
-        ))}
-      </nav>
+      {!adminHome && (
+        <nav className={s.actions} aria-label="Ações rápidas">
+          {tasks.map(task => (
+            <AppNavLink key={task.key} href={task.href}>{TASK_LABEL[task.key]}</AppNavLink>
+          ))}
+        </nav>
+      )}
 
       {visibleMetrics.length > 0 && (
         <section className={s.metrics} aria-label="Indicadores" aria-busy={loading}>
@@ -746,13 +750,28 @@ export function PersonaBoard() {
         </section>
       )}
 
+      {adminHome && (
+        <section className={s.shortcuts} aria-labelledby="acessos-titulo">
+          <h2 id="acessos-titulo">Acessos rápidos</h2>
+          <nav className={s.shortcutList} aria-label="Acessos rápidos">
+            {tasks.map(task => (
+              <AppNavLink key={task.key} href={task.href}>
+                <span className={s.shortcutIcon}><UIIcon name={task.icon} size={20} /></span>
+                <strong>{TASK_LABEL[task.key]}</strong>
+                <UIIcon name="chevron" size={16} />
+              </AppNavLink>
+            ))}
+          </nav>
+        </section>
+      )}
+
       <div className={s.columns}>
         <Panel
           id="avisos"
-          title="Pendências"
+          title={adminHome ? "Admissões em andamento" : "Pendências"}
           action={staff ? <AppNavLink href="/app/secretaria/">Ver admissões</AppNavLink> : undefined}
         >
-          {staff && mesa.admissions === null && loading ? <p className={s.empty}>Carregando pendências…</p> : null}
+          {staff && mesa.admissions === null && <p className={s.empty}>{loading ? "Carregando admissões…" : "Admissões indisponíveis no momento."}</p>}
           {staff && mesa.admissions !== null && (
             <RowList
               rows={admissions}
@@ -774,14 +793,14 @@ export function PersonaBoard() {
           )}
         </Panel>
 
-        <Panel title="Agenda" action={<AppNavLink href="/eventos/">Ver agenda</AppNavLink>}>
+        <Panel title="Agenda" action={<AppNavLink href="/#agenda">Ver agenda</AppNavLink>}>
           <WeekStrip marks={marks} />
-          {agenda === null ? <p className={s.empty}>Carregando a agenda…</p> : null}
+          {agenda === null && <p className={s.empty}>{loading || showPublicAgenda ? "Carregando a agenda…" : "Agenda indisponível no momento."}</p>}
           {agendaRows.length > 0 ? (
             <ul className={s.agenda}>
               {agendaRows.map(event => (
                 <li key={event.id}>
-                  <AppNavLink href="/eventos/">
+                  <AppNavLink href="/#agenda">
                     <span className={s.dateMark}>
                       <strong>{event.when ? formatPortalDate(event.when).day : "—"}</strong>
                       {event.when ? formatPortalDate(event.when).month : ""}
@@ -818,10 +837,10 @@ export function PersonaBoard() {
 
         {(staff || leader) && (
           <Panel title="Ministérios" action={<AppNavLink href="/app/ministerios/">Abrir</AppNavLink>}>
-            {mesa.ministries === null ? <p className={s.empty}>Carregando ministérios…</p> : (
+            {mesa.ministries === null ? <p className={s.empty}>{loading ? "Carregando ministérios…" : "Ministérios indisponíveis no momento."}</p> : (
               <RowList
                 rows={mesa.ministries ?? []}
-                hrefFor={row => row.when && /^[a-z0-9-]+$/.test(row.when) ? `/ministerios/${row.when}/` : "/app/ministerios/"}
+                hrefFor={row => row.when ? ministryContextHref({ id: row.id }) : "/app/ministerios/"}
                 empty="Nenhum ministério disponível para este perfil."
               />
             )}

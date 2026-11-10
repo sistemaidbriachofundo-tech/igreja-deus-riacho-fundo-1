@@ -140,15 +140,6 @@ export function ChurchCredentials() {
     }
   }
 
-  function logout() {
-    clearToken();
-    setToken(null);
-    setUser(null);
-    setMemberships([]);
-    setOwnCard(null);
-    setPhase("anonymous");
-  }
-
   const manager = user ? canManage(user) : Boolean(preview);
   const peopleCount = preview ? 1 : manager ? memberships.length : ownCard ? 1 : 0;
   const activeCount = preview
@@ -165,12 +156,6 @@ export function ChurchCredentials() {
             <p className={s.kicker}>Identidade</p>
             <h1>Carteirinhas</h1>
             <p>Abra a credencial para ver a frente, o verso e o QR.</p>
-          </div>
-          <div className={s.headerTools}>
-            <span className={s.environment}>Homologação</span>
-            {phase === "ready" && user ? (
-              <button type="button" className={s.textButton} onClick={logout}>Sair</button>
-            ) : null}
           </div>
         </header>
 

@@ -62,7 +62,7 @@ export function CredentialViewer({
         <header className={`${s.sheetHead} ${s.noPrint}`}>
           <div>
             <p className={s.kicker}>Carteirinha</p>
-            <h2 id={titleId}>{card?.displayName ?? "Abrindo carteirinha"}</h2>
+            <h2 id={titleId}>{card?.displayName ?? "Visualizar carteirinha"}</h2>
           </div>
           <button ref={closeRef} type="button" className={s.iconButton} onClick={onClose} aria-label="Fechar">
             <UIIcon name="close" size={18} />

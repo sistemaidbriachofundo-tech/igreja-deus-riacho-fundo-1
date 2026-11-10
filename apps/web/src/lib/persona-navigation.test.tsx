@@ -243,11 +243,10 @@ describe("grupo Ministérios e ferramentas", () => {
     expect(JSON.stringify(parseMinistryNav({ ministries: [{ id: "1", name: "Jovens", slug: "jovens", note: "501" }] }))).not.toContain("501");
   });
 
-  it("abre Louvor e Atmosfera na superfície que já existe e os demais no vínculo autorizado", () => {
-    expect(ministryContextHref({ id: "m-louvor", slug: "Louvor" })).toBe("/app/servir/louvor/");
-    expect(ministryContextHref({ id: "m-demo", slug: "louvor-demo" })).toBe("/app/servir/louvor/");
-    expect(ministryContextHref({ id: "m-atm", slug: "atmosfera" })).toBe("/app/servir/atmosfera/");
-    expect(ministryContextHref({ id: "m homens", slug: "homens" })).toBe("/app/ministerios/?ministry=m%20homens");
+  it("abre todos os ministérios pelo identificador autorizado", () => {
+    expect(ministryContextHref({ id: "m-louvor" })).toBe("/app/ministerios/?ministry=m-louvor");
+    expect(ministryContextHref({ id: "m-atm" })).toBe("/app/ministerios/?ministry=m-atm");
+    expect(ministryContextHref({ id: "m homens" })).toBe("/app/ministerios/?ministry=m%20homens");
   });
 
   it("não duplica o destino quando a API já trouxe o mesmo ministério", () => {
@@ -258,9 +257,9 @@ describe("grupo Ministérios e ferramentas", () => {
       { id: "m-jovens", name: "Jovens", slug: "jovens" },
     ]);
     expect(entries.map(entry => entry.label)).toEqual([
-      "Homens", "Louvor", "Jovens", "Todos os ministérios", "Atmosfera",
+      "Todos os ministérios", "Homens", "Louvor", "Jovens",
     ]);
-    expect(entries.filter(entry => entry.href === "/app/servir/louvor/")).toHaveLength(1);
+    expect(entries.filter(entry => entry.href === "/app/ministerios/?ministry=m-louvor")).toHaveLength(1);
   });
 
   it.each(BUILTIN_ROLES)("decide o grupo de ministérios e o canal conforme o papel %s", role => {
@@ -315,7 +314,7 @@ describe("shell colapsável para os oito papéis", () => {
     expect(html.match(/>Sair</g)).toHaveLength(1);
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('data-drawer="closed"');
-    expect(html).toContain("Ferramentas");
+    expect(html).not.toContain("Ferramentas");
     expect(html).not.toContain("CANAIS E COMUNIDADE");
     expect(html).not.toContain("501");
     expect(html).not.toContain("centro de custo");
