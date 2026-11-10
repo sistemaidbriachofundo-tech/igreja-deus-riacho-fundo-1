@@ -73,7 +73,14 @@ for (const page of findHtml(outDir)) {
   }
   if (requiredPages.includes(relative(outDir, page))) {
     const headingCount = [...html.matchAll(/<h1(?:\s|>)/gi)].length;
-    if (headingCount !== 1) failures.push(`${relative(outDir, page)} has ${headingCount} H1 headings (expected 1)`);
+    // Em HML, o AppShell protege /status antes de /auth/me; não existe H1
+    // no HTML anônimo. Exigir o marcador do gate, sem relaxar páginas públicas.
+    const protectedStatusGate = process.env.NEXT_PUBLIC_HML_ENABLED === "true" &&
+      relative(outDir, page) === "status/index.html" &&
+      headingCount === 0 &&
+      html.includes("Confirmando seu perfil") &&
+      html.includes('data-nav-state="pending"');
+    if (headingCount !== 1 && !protectedStatusGate) failures.push(`${relative(outDir, page)} has ${headingCount} H1 headings (expected 1)`);
   }
 }
 const releasePath = join(outDir, "release.json");
