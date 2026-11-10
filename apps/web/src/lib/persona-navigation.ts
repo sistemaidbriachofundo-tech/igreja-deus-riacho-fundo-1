@@ -312,7 +312,7 @@ export function ministryContextHref(item: Pick<MinistryNavItem, "id" | "slug">):
   const slug = item.slug.trim().toLowerCase();
   if (slug === "louvor" || slug === "louvor-demo") return "/app/servir/louvor/";
   if (slug === "atmosfera") return "/app/servir/atmosfera/";
-  return `/app/ministerios/?ministerio=${encodeURIComponent(item.id)}`;
+  return `/app/ministerios/?ministry=${encodeURIComponent(item.id)}`;
 }
 
 /** Aceita só id, nome e slug. Saldo, centro de custo e campos extras não entram no menu. */
