@@ -4,8 +4,10 @@ import {
   ForbiddenException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { canManageSpecificMinistry } from "@idbrf/shared";
@@ -49,7 +51,7 @@ export class MinistryMembershipGateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
-    repository?: MinistryMembershipRepository,
+    @Optional() @Inject("MINISTRY_MEMBERSHIP_REPOSITORY") repository?: MinistryMembershipRepository,
   ) {
     const store =
       repository ??
