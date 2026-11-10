@@ -1,7 +1,7 @@
 .board {
   width: 100%;
   min-width: 0;
-  color: #4a2612;
+  color: #224839;
 }
 
 .kicker {
@@ -11,7 +11,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #6e4a36;
+  color: #6a7c70;
 }
 
 .board h1 {
@@ -29,7 +29,7 @@
 .escala p,
 .leaders small {
   margin: 8px 0 0;
-  color: #6e4a36;
+  color: #6a7c70;
 }
 
 .grid {
@@ -50,15 +50,15 @@
   min-width: 0;
   padding: 10px;
   border-radius: 16px;
-  border: 1px solid #9a7355;
-  background: #fff9f3;
-  color: #4a2612;
+  border: 1px solid #d9e6dc;
+  background: #ffffff;
+  color: #224839;
   text-decoration: none;
 }
 
 .cardCurrent {
-  border-color: #4a2612;
-  box-shadow: inset 0 4px 0 #d4af37;
+  border-color: #224839;
+  box-shadow: inset 0 4px 0 #c3a36f;
 }
 
 .card strong,
@@ -72,7 +72,7 @@
 
 .card small,
 .cardCurrent small {
-  color: #6e4a36;
+  color: #6a7c70;
 }
 
 .cover,
@@ -93,8 +93,8 @@
   min-width: 0;
   padding: 16px;
   border-radius: 20px;
-  border: 1px solid #9a7355;
-  background: #fff9f3;
+  border: 1px solid #d9e6dc;
+  background: #ffffff;
 }
 
 .heading {
@@ -118,9 +118,9 @@
   justify-content: center;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid #9a7355;
-  background: #fff9f3;
-  color: #4a2612;
+  border: 1px solid #d9e6dc;
+  background: #ffffff;
+  color: #224839;
   font: 700 0.95rem/1.2 var(--font-body);
   text-decoration: none;
   cursor: pointer;
@@ -130,9 +130,9 @@
 .shortcuts a,
 .escala a,
 .secondary {
-  background: #4a2612;
-  border-color: #4a2612;
-  color: #f7ede0;
+  background: #224839;
+  border-color: #224839;
+  color: #f5f9f5;
 }
 
 .tab:focus-visible,
@@ -143,7 +143,7 @@
 .shortcuts a:focus-visible,
 .escala a:focus-visible,
 .tabPanel:focus-visible {
-  outline: 3px solid #4a2612;
+  outline: 3px solid #224839;
   outline-offset: 2px;
 }
 
@@ -168,13 +168,13 @@
   min-width: 0;
   padding: 16px;
   border-radius: 16px;
-  background: #f7ede0;
-  border: 1px solid #9a7355;
+  background: #f5f9f5;
+  border: 1px solid #d9e6dc;
 }
 
 .stats span {
   display: block;
-  color: #6e4a36;
+  color: #6a7c70;
   font-size: 0.78rem;
 }
 
@@ -248,19 +248,19 @@
   align-items: center;
   padding: 0 10px;
   border-radius: 999px;
-  background: #4a2612;
-  color: #f7ede0;
+  background: #224839;
+  color: #f5f9f5;
   font-size: 0.78rem;
   font-weight: 700;
 }
 
 .escalaCurrent {
-  box-shadow: inset 4px 0 0 #d4af37;
+  box-shadow: inset 4px 0 0 #c3a36f;
 }
 
 .alert {
   margin-top: 16px;
-  background: #f7ede0;
+  background: #f5f9f5;
 }
 
 .alert strong,
@@ -292,3 +292,44 @@
     width: 100%;
   }
 }
+
+
+/* Ministérios: mesma navegação, densidade e contraste da área administrativa. */
+.board{max-width:1420px;margin:0 auto;color:#254439;}
+.kicker{color:#668577;font-size:.7rem;letter-spacing:.125em;}
+.board h1{font-size:clamp(1.85rem,3vw,2.55rem);font-weight:700;color:#244b3a;line-height:1.16;}
+.grid{gap:14px;margin:20px 0 24px;}
+.card,.cardCurrent{position:relative;padding:12px 12px 16px;gap:11px;border:1px solid #dce8df;border-radius:16px;background:#fff;box-shadow:0 3px 14px #1538260b;transition:transform .16s,border-color .16s,box-shadow .16s;}
+.card:hover,.cardCurrent:hover{transform:translateY(-2px);border-color:#9ec7ae;box-shadow:0 10px 24px #1538261b;}
+.cardCurrent{border-color:#4a8b6b;box-shadow:0 0 0 2px #4a8b6b24,0 6px 20px #15382615;}
+.cardCurrent::before{content:"";position:absolute;left:12px;right:12px;top:0;height:3px;border-radius:0 0 4px 4px;background:#4b8966;}
+.card strong,.cardCurrent strong{font-weight:680;color:#274d3e;font-size:1.02rem;}
+.card small,.cardCurrent small{font-size:.77rem;color:#71877b;}
+.cover{aspect-ratio:16/7;object-fit:cover;}
+.hero{height:clamp(160px,18vw,235px);object-fit:cover;margin-bottom:24px;border-radius:14px;}
+.panel{border:1px solid #e0e9e1;background:#fff;box-shadow:0 7px 28px #1b402a10;padding:clamp(18px,2.4vw,30px);}
+.heading{padding:0 5px;margin-bottom:22px;}
+.heading p{max-width:74ch;line-height:1.6;}
+.tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:4px;padding:5px;background:#f1f6f2;border-radius:11px;scrollbar-width:thin;}
+.tab,.tabActive{flex-shrink:0;border:0;border-radius:8px;background:transparent;color:#61776b;font-size:.84rem;font-weight:650;min-height:44px;padding-inline:16px;}
+.tabActive{background:#fff;color:#255946;box-shadow:0 2px 10px #1c402319;}
+.tab:hover{background:#e3efe7;}
+.tabPanel{padding-top:8px;}
+.stats{gap:15px;margin-bottom:22px;}
+.stats li{position:relative;overflow:hidden;background:#fff;border:1px solid #dfeae2;border-radius:13px;padding:21px;box-shadow:0 3px 14px #153c2108;}
+.stats li::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:#3f7c63;}
+.stats li:nth-child(2)::before{background:#c0a16a;}
+.stats li:nth-child(3)::before{background:#82a39a;}
+.stats span{color:#6a8175;font-size:.76rem;font-weight:650;}
+.stats strong{color:#244c39;font-weight:700;font-size:clamp(1.6rem,2.3vw,2.1rem);}
+.split{gap:16px;}
+.split > section{border:1px solid #e0eae2;background:#fbfdfb;padding:clamp(18px,2vw,23px);border-radius:13px;}
+.shortcuts{gap:10px;}
+.shortcuts a,.escala a,.secondary{background:#285c49;color:white;border-color:#285c49;border-radius:9px;font-size:.85rem;font-weight:650;}
+.shortcuts a:hover,.escala a:hover,.secondary:hover{background:#1d4738;}
+.escala,.note{border-color:#deebe0;background:#f8fbf8;}
+.alert{border-color:#ecd7ca;background:#fff6ee;}
+.tab:focus-visible,.tabActive:focus-visible,.card:focus-visible,.cardCurrent:focus-visible{outline:3px solid #bba470;outline-offset:3px;}
+@media(max-width:768px){.panel{padding:18px;}.hero{height:155px;}.grid{grid-template-columns:repeat(2,minmax(0,1fr));}.tabs{gap:2px;}}
+@media(max-width:470px){.grid{grid-template-columns:1fr 1fr;gap:9px;}.card,.cardCurrent{padding:9px;}.cover{aspect-ratio:5/4;}.card strong,.cardCurrent strong{font-size:.82rem;}.tab,.tabActive{width:auto!important;padding-inline:12px;}.stats{grid-template-columns:1fr;}}
+@media(prefers-reduced-motion:reduce){.card,.cardCurrent{transition:none;transform:none!important;}}
