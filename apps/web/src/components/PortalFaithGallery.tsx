@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
+import { PortalSectionLink } from "./PublicSectionLink";
 import { withBasePath } from "../lib/paths";
 import s from "./portal-faith-gallery.module.css";
 
@@ -21,7 +22,7 @@ export function PortalFaithGallery() {
             <h2 id="faith-gallery-title">{site.gallery.title}<br/><em>{site.gallery.accent}</em></h2>
             <p>{site.gallery.description}</p>
           </div>
-          <Link href="/a-igreja/" className={s.more}>Conheça nossa história <span aria-hidden="true">↗</span></Link>
+          <PortalSectionLink sectionId="quem-somos" className={s.more}>Conheça nossa história <span aria-hidden="true">↗</span></PortalSectionLink>
         </div>
         <div className={s.moments}>
           {site.gallery.items.map((moment, index) => (

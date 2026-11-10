@@ -12,7 +12,6 @@ const visit = read("app/visita/page.tsx");
 const about = read("app/a-igreja/page.tsx");
 const contact = read("app/contato/page.tsx");
 const shell = read("components/PublicPortal.tsx");
-const riachinho = read("components/RiachinhoPublicChat.tsx");
 const css = read("components/public-portal.module.css");
 const appShell = read("components/AppShell.tsx");
 const personaNav = read("lib/persona-navigation.ts");
@@ -57,15 +56,20 @@ describe("portal público da igreja", () => {
   it("separa dados sintéticos da agenda pública publicada", () => {
     expect(events).toHaveLength(5);
     expect(events.every((event) => event.date && event.time && event.ministry)).toBe(true);
-    expect(agenda).toContain("<PublishedAgenda");
+    expect(agenda).toContain('sectionId="agenda"');
     expect(agenda).not.toContain("events={events}");
     expect(agenda).not.toContain("Eventos demonstrativos");
-    expect(home).toContain('href="/a-igreja/"');
+    expect(home).toContain('id="quem-somos"');
+    expect(home).toContain('id="agenda"');
+    expect(home).not.toContain('href="/a-igreja/"');
+    expect(home).not.toContain('href="/eventos/"');
     expect(home).not.toContain("events.slice");
     expect(home).not.toContain("Próximos encontros");
     expect(ministryPage).toContain('"/visita/?ministerio=" + ministry.slug');
     expect(ministryPage).not.toContain("Eventos demonstrativos");
-    expect(shell).toContain("não são programação oficial");
+    expect(read("components/PublicLiveSections.tsx")).toContain("Programação em atualização");
+    expect(shell).not.toContain("Agenda ilustrativa");
+    expect(shell).not.toContain("não são programação oficial");
   });
 
   it("preserva a logo aprovada e imagens existentes", () => {
@@ -78,7 +82,9 @@ describe("portal público da igreja", () => {
     expect(shell).toContain("ministryJourneyItem");
     expect(css).toContain(".immersiveHero");
     expect(css).toContain(".ministryJourneyItem");
-    expect(about).toContain("portalVisuals.hero");
+    expect(home).toContain("portalVisuals.encounter");
+    expect(about).toContain('sectionId="quem-somos"');
+    expect(about).not.toContain("portalVisuals.hero");
     expect(contact).toContain("instagramUrl");
   });
 
@@ -87,6 +93,9 @@ describe("portal público da igreja", () => {
     expect(css).toContain("@media(max-width:480px)");
     expect(css).toContain("prefers-reduced-motion");
     expect(read("components/PortalDesktopNavigation.tsx")).toContain('aria-label="Navegação do site público"');
+    expect(read("components/PublicSectionLink.tsx")).toContain('id: "quem-somos"');
+    expect(read("components/PublicSectionLink.tsx")).toContain('id: "agenda"');
+    expect(read("components/PublicSectionLink.tsx")).toContain('id: "inicio"');
     expect(shell).toContain("<MobilePortalMenu links={navigation} />");
     expect(read("components/MobilePortalMenu.tsx")).toContain('aria-label="Navegação do site público no celular"');
     expect(shell).toContain("portal-design-system.module.css");
@@ -98,15 +107,11 @@ describe("portal público da igreja", () => {
 });
 
 
-describe("Riachinho — envio simplificado", () => {
-  it("não exige marcar uma checkbox para enviar a pergunta", () => {
-    expect(riachinho).not.toContain('type="checkbox"');
-    expect(riachinho).not.toContain("Autorizo enviar minha pergunta");
-    expect(riachinho).not.toContain("setConsent(");
-    expect(riachinho).toContain("Ao enviar, sua pergunta será processada por IA.");
-  });
-  it("preserva o sinal de processamento enviado à API após clicar em enviar", () => {
-    expect(riachinho).toContain("prepareRiachinhoPublicRequest(messages, text, sessionRef.current, true)");
-    expect(riachinho).toContain("disabled={!canSend}");
+describe("portal público sem assistente de IA", () => {
+  it("não monta chatbot e preserva a política do assistente editorial", () => {
+    expect(shell).not.toContain("RiachinhoPublicChat");
+    expect(shell).not.toContain("riachinho-public-api");
+    expect(read("components/ViviEditorialAssistant.tsx")).toContain("assistantScopeRefusal");
+    expect(read("lib/assistant-scope.ts")).toContain("Não enviei este pedido");
   });
 });

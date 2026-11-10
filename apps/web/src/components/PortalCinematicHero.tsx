@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import { withBasePath } from "../lib/paths";
 import { portalVisuals } from "../lib/portal-visuals";
 import { PortalGlyph } from "./PortalGlyph";
+import { PortalSectionLink } from "./PublicSectionLink";
 import s from "./portal-cinematic-hero.module.css";
 
 /** A vitrine pública fala da igreja, não expõe módulos de gestão ministerial. */
@@ -27,25 +27,25 @@ export function PortalCinematicHero() {
           <span className={s.kickerLine} aria-hidden="true" />
           IGREJA DE DEUS <span aria-hidden="true">•</span> RIACHO FUNDO I
         </div>
-        <h1 id="hero-title" className={s.headline}>
+        <h1 id="hero-title" className={s.headline} tabIndex={-1}>
           <span>{site.hero.title}</span>
           <em>{site.hero.accent}</em>
         </h1>
         <p>{site.hero.description}</p>
         <div className={s.actions}>
-          <Link href="/a-igreja/" className={s.primaryAction}>
+          <PortalSectionLink sectionId="quem-somos" className={s.primaryAction}>
             <span>Quem somos</span><PortalGlyph name="arrow" className={s.actionArrow} width={19} height={19} />
-          </Link>
-          <Link href="/eventos/" className={s.secondaryAction}>
+          </PortalSectionLink>
+          <PortalSectionLink sectionId="agenda" className={s.secondaryAction}>
             <span>Ver agenda</span><PortalGlyph name="arrow" className={s.actionArrow} width={19} height={19}/>
-          </Link>
+          </PortalSectionLink>
         </div>
       </div>
       <div className={s.heroFooter}>
         <span>UMA IGREJA PARA DEUS, PELAS FAMÍLIAS</span>
-        <a href="#quem-somos" aria-label="Rolar para conhecer a igreja">
-          Descubra nossa história <PortalGlyph name="down" width={18} height={18}/>
-        </a>
+        <PortalSectionLink sectionId="quem-somos">
+          <span>Descubra nossa história</span> <PortalGlyph name="down" width={18} height={18}/>
+        </PortalSectionLink>
       </div>
     </section>
   );

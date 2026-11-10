@@ -25,6 +25,9 @@ describe("Acesso institucional antes do painel", () => {
     expect(html).toMatch(/autocomplete="username"/i);
     expect(html).toMatch(/autocomplete="current-password"/i);
     expect(html).toContain("Entrar no painel");
+    expect(html).not.toContain("Seu acesso é individual");
+    expect(html).not.toContain("autorização institucional");
+    expect(html).toContain("Não possui acesso?");
     expect(html).not.toContain('value="fake-token"');
   });
 

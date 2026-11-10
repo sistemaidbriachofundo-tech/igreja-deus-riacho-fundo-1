@@ -16,9 +16,14 @@ describe("separação entre site institucional e operação autenticada",()=>{
     const nav=renderToStaticMarkup(<PortalDesktopNavigation/>);
     const header=renderToStaticMarkup(<PortalHeader/>);
     const mobile=renderToStaticMarkup(<MobilePortalMenu links={[
-      {href:"/",label:"Início"},{href:"/a-igreja/",label:"Quem somos"},{href:"/eventos/",label:"Agenda"},
+      {href:"/#inicio",label:"Início"},{href:"/#quem-somos",label:"Quem somos"},{href:"/#agenda",label:"Agenda"},
     ]}/>);
     expect(nav).toContain("Início");
+    expect(nav).toContain('href="/#quem-somos"');
+    expect(nav).toContain('href="/#agenda"');
+    expect(header).toContain('href="/#inicio"');
+    expect(header).not.toContain('href="/a-igreja');
+    expect(header).not.toContain('href="/eventos');
     expect(nav).toContain("Quem somos");
     expect(nav).toContain("Agenda");
     expect(header).toContain("Login");
@@ -49,14 +54,13 @@ describe("separação entre site institucional e operação autenticada",()=>{
     expect(html).toContain("cadastro integral de participantes");
   });
 
-  it("mantém o Riachinho público com destinos institucionais e layout mobile",()=>{
-    const chat=source("components/RiachinhoPublicChat.tsx");
-    const css=source("components/riachinho-public-chat.module.css");
-    expect(chat).toContain("Riachinho");
-    expect(chat).not.toContain('href: "/ministerios/"');
-    expect(chat).not.toContain('href: "/visita/"');
-    expect(css).toContain("max-width:640px");
-    expect(css).toContain("font-size:16px");
+  it("não carrega chatbot nem assistente de IA no portal público",()=>{
+    const portal=source("components/PublicPortal.tsx");
+    const home=source("app/page.tsx");
+    expect(portal).not.toContain("RiachinhoPublicChat");
+    expect(portal).not.toContain("riachinho-public");
+    expect(home).not.toContain("Riachinho");
+    expect(source("components/ViviEditorialAssistant.tsx")).toContain("assistantScopeRefusal");
   });
   it("direciona o líder de ministério à operação, sem conceder permissões financeiras",()=>{
     const person={userId:"user1",personId:"person1",email:"test@example.test"};

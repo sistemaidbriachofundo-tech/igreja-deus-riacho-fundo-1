@@ -14,9 +14,11 @@
   background:var(--idb-surface);font-family:var(--idb-font-body);
   font-synthesis:none
 }
-.theme :is(a,button,summary):focus-visible{outline:3px solid #ffd791;outline-offset:4px}
+.theme :is(a,button,summary,#hero-title,#identity-title,#agenda-title):focus-visible{outline:3px solid #ffd791;outline-offset:4px}
+.theme :is(#hero-title,#identity-title,#agenda-title){scroll-margin-top:140px}
+.theme :is(#hero-title,#identity-title,#agenda-title):focus{outline:3px solid #e2c48a;outline-offset:6px}
 .masthead{position:fixed;top:0;left:0;right:0;z-index:95;height:96px;display:flex;align-items:center;color:#fffaf0;background:linear-gradient(180deg,rgba(5,20,23,.86),rgba(5,20,23,.34));border-bottom:1px solid rgba(239,204,148,.20);backdrop-filter:blur(9px) saturate(1.15);-webkit-backdrop-filter:blur(9px) saturate(1.15);transition:background .25s,height .25s,box-shadow .25s}
-.masthead[data-scrolled="true"]{height:76px;background:rgba(6,26,30,.95);box-shadow:0 15px 40px rgba(3,19,24,.27);border-color:rgba(248,211,149,.24);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.masthead[data-scrolled="true"]{height:76px;background:#061a1e;box-shadow:0 15px 40px rgba(3,19,24,.27);border-color:rgba(248,211,149,.24)}
 .mastheadInner{width:min(100%,var(--idb-content));margin:auto;padding:0 clamp(21px,5.5vw,88px);display:flex;align-items:center;gap:clamp(20px,3.3vw,58px);height:100%;min-width:0}
 .brand{display:flex;align-items:center;gap:14px;min-width:235px;flex:0 0 auto;color:#fff!important}
 .brand img{width:57px;height:57px;object-fit:contain;border-radius:50%;filter:drop-shadow(0 0 9px rgba(233,178,82,.16));flex:none}
@@ -62,11 +64,13 @@
 .mobileVisit{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:27px;padding:17px 20px;border-radius:100px;color:#162b2b!important;background:linear-gradient(110deg,#f8dfaa,#dfa75b);font-size:14px;font-weight:850}
 .mobileNote{color:#b7c7c4;font-size:11px;margin-top:25px;line-height:1.6}
 .footer{background:#081b21!important;color:#fff}
-.systemButton{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-height:54px;border-radius:var(--idb-rad-pill);padding:12px 23px;font:800 13px var(--idb-font-body);transition:transform .2s,box-shadow .2s}
-.systemButton:hover{transform:translateY(-3px)}
-.goldButton{background:linear-gradient(120deg,#fae1ac,#e8b76c);color:#152a30!important;box-shadow:0 10px 25px rgba(194,129,51,.18)}
-.glassButton{background:rgba(15,38,41,.28);border:1px solid rgba(251,229,195,.7);color:#fff!important;backdrop-filter:blur(8px)}
-.textButton{background:transparent;border-bottom:1px solid currentColor;border-radius:0;color:#172e35!important;padding-left:0;padding-right:0}
+.systemButton{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-height:48px;border-radius:4px;padding:12px 18px;font:750 13px/1.2 var(--idb-font-heading);letter-spacing:.04em;text-decoration:none;border:1px solid #c6a36a;transition:background .2s,color .2s,border-color .2s}
+.systemButton:hover{transform:none}
+.goldButton{background:#3f2a16;color:#f8f1e4!important;box-shadow:none}
+.goldButton:hover{background:#2c1d10;border-color:#e2c48a}
+.glassButton{background:transparent;border:1px solid rgba(226,196,138,.9);color:#f6edd9!important;backdrop-filter:none}
+.glassButton:hover{background:rgba(63,42,22,.45)}
+.textButton{background:transparent;border:0;border-bottom:1px solid #8d6840;border-radius:0;color:#3f2a16!important;padding-left:0;padding-right:0;min-height:44px}
 @media(max-width:1450px){.mastheadInner{gap:25px}.brand{min-width:212px}.brand img{width:49px;height:49px}.brand strong{font-size:13px}.brand small{font-size:8px}.desktopNav{gap:clamp(13px,1.75vw,25px)}.desktopNav>a,.navDropdown>summary{font-size:12px}}
 @media(max-width:1190px){.desktopNav{gap:14px}.desktopNav>a,.navDropdown>summary{font-size:11px}.brand{min-width:198px}.mastheadInner{padding:0 25px}.headerCta{font-size:11px;padding:9px 12px}}
 @media(max-width:1070px){.desktopNav{display:none}.mobileMenu{display:block}.mastheadInner{justify-content:space-between}.headerControls{margin-left:auto}}

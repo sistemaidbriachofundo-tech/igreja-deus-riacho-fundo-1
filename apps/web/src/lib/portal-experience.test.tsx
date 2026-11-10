@@ -74,8 +74,11 @@ describe("portal v3+ — camadas de experiência", () => {
   });
 
   it("preserva a navegação mobile acessível e permite fechamento ao navegar", () => {
-    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/", label: "Início" },{ href: "/a-igreja/", label: "Quem somos" },{ href: "/eventos/", label: "Agenda" }]} />);
+    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/#inicio", label: "Início" },{ href: "/#quem-somos", label: "Quem somos" },{ href: "/#agenda", label: "Agenda" }]} />);
     expect(html).toContain('aria-label="Navegação do site público no celular"');
+    expect(html).toContain('href="/#quem-somos"');
+    expect(html).toContain('href="/#agenda"');
+    expect(html).not.toContain('href="/a-igreja');
     expect(html).toContain("Quem somos");
     expect(html).toContain("Agenda");
     expect(html).toContain("Login");

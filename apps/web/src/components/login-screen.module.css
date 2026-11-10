@@ -41,13 +41,9 @@
 .error,.warning{border-radius:10px;padding:12px 14px;margin:14px 0 0;font:620 12px/1.5 Inter,sans-serif}
 .error{color:#8d3328;background:#fff0ea;border:1px solid #e7bfb6}
 .warning{color:#7b501e;background:#fcf1db;border:1px solid #e3c592}
-.protection{margin-top:34px;border-top:1px solid #eadfd2;padding-top:24px;display:flex;align-items:flex-start;gap:12px}
-.protectionIcon{display:grid;place-items:center;width:31px;height:31px;flex-shrink:0;background:#f3e8d5;border-radius:10px;color:#8e6127;font-size:20px}
-.protection strong{font:740 12px Inter,sans-serif;color:#503923}
-.protection p{font:450 11px/1.65 Inter,sans-serif;color:#857362;margin:7px 0 0}
 .bottom{margin:23px 0 0;color:#987f6a;font:460 11px/1.6 Inter,sans-serif}
 @media(max-width:890px){.page{padding:15px}.layout{grid-template-columns:1fr;min-height:0;border-radius:18px}.story{min-height:240px;gap:30px;padding:25px 32px}.brand img{width:48px;height:48px}.story h1{font-size:clamp(27px,5.2vw,40px);margin:12px 0}.story p,.footerMark{display:none}.panel{padding:42px 25px 50px}.sectionNumber{margin-bottom:25px}}
-@media(max-width:510px){.page{padding:11px}.back{margin-bottom:12px}.story{min-height:190px;padding:23px 24px}.story h1{font-size:27px;margin:15px 0 0}.storyContent .eyebrow{font-size:9px}.brand strong{font-size:12px}.brand span{font-size:8px}.panel{padding:32px 22px 36px}.heading{margin-bottom:26px}.heading h2{font-size:30px}.sectionNumber{font-size:9px;margin-bottom:22px}.protection{margin-top:25px}}
+@media(max-width:510px){.page{padding:11px}.back{margin-bottom:12px}.story{min-height:190px;padding:23px 24px}.story h1{font-size:27px;margin:15px 0 0}.storyContent .eyebrow{font-size:9px}.brand strong{font-size:12px}.brand span{font-size:8px}.panel{padding:32px 22px 36px}.heading{margin-bottom:26px}.heading h2{font-size:30px}.sectionNumber{font-size:9px;margin-bottom:22px}}
 @media(prefers-reduced-motion:reduce){.page *{transition:none!important}}
 
 .waiting{min-height:100dvh;background:radial-gradient(circle at 50% 10%,#f9f2e5,#eee6d9 65%);color:#53321e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center}

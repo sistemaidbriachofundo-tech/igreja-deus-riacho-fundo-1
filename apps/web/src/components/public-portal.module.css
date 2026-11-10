@@ -1,5 +1,6 @@
 /* Public experience only: Church OS admin styles stay untouched. */
 .portal{--paper:#f6f2eb;--white:#fffdf8;--dark:#251c18;--ink:#2e251f;--muted:#74685e;--gold:#cfaa61;--line:#e4dace;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif}
+.portal main:focus{outline:none}
 .portal *{box-sizing:border-box}
 .portal h1,.portal h2,.portal h3,.portal p{margin-top:0}
 .portal h1,.portal h2,.portal h3{font-family:Montserrat,Arial,sans-serif}

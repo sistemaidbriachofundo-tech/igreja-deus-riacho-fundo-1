@@ -129,12 +129,6 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 <span aria-hidden="true">→</span>
               </button>
             </form>
-            <div className={styles.protection}>
-              <span className={styles.protectionIcon} aria-hidden="true">✦</span>
-              <div><strong>Seu acesso é individual.</strong>
-                <p>A plataforma valida a sessão e as permissões antes de abrir o painel. O uso de dados reais depende de autorização institucional.</p>
-              </div>
-            </div>
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
           </div>
         </section>
