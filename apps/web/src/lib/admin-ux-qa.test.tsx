@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MemberDirectory } from "../components/MemberDirectory";
 import { ChurchCredentials } from "../components/ChurchCredentials";
+import { CredentialDesk } from "../components/credentials/CredentialDesk";
 
 describe("Área administrativa: estados acessíveis e dados de avaliação", () => {
   it("o diretório oferece restauração deliberada e filtros identificáveis", () => {
@@ -14,11 +15,27 @@ describe("Área administrativa: estados acessíveis e dados de avaliação", () 
     expect(html).not.toContain("PESSOAS &amp; RELACIONAMENTOS / 2026");
   });
 
-  it("a carteirinha sintética não apresenta ano fixo nem identidade oficial", () => {
+  it("a carteirinha identifica homologação e oferece filtro, sem documento oficial", () => {
     const html = renderToStaticMarkup(<ChurchCredentials />);
-    expect(html).toContain("MEMBRESIA / DEMONSTRAÇÃO");
-    expect(html).toContain("DOCUMENTO SEM VALIDADE");
-    expect(html).toContain('aria-label="Filtrar carteirinhas"');
-    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Homologação");
+    expect(html).not.toContain("DOCUMENTO OFICIAL");
+    expect(html).not.toContain("MEMBRESIA / DEMONSTRAÇÃO");
+    const desk = renderToStaticMarkup(
+      <CredentialDesk
+        token={null}
+        canManage
+        memberships={[{
+          membershipId: "membership-joao",
+          personId: "person-joao",
+          displayName: "João Silva",
+          membershipStatus: "ACTIVE",
+          activeCredentialId: null,
+        }]}
+        ownCard={null}
+      />,
+    );
+    expect(desk).toContain('aria-label="Filtrar carteirinhas"');
+    expect(desk).toContain('aria-pressed="true"');
+    expect(desk).toContain("Visualizar");
   });
 });

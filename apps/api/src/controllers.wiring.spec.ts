@@ -159,6 +159,8 @@ describe("controller wiring (delegates to services)", () => {
         bytes: Buffer.from("%PDF"),
       }),
       lookupByOpaqueToken: jest.fn(),
+      getById: jest.fn(),
+      getByMembership: jest.fn(),
     };
     const c = new CredentialsController(credentials as never);
     await c.me(user);
@@ -167,6 +169,8 @@ describe("controller wiring (delegates to services)", () => {
     await c.revoke(user, "c1");
     await c.generatePdf(user, "c1");
     await c.pdfMeta(user, "c1");
+    await c.getOne(user, "c1");
+    await c.byMembership(user, "m1");
     const res = {
       setHeader: jest.fn(),
       send: jest.fn(),
@@ -175,6 +179,8 @@ describe("controller wiring (delegates to services)", () => {
     await c.verify("token");
     expect(credentials.lookupByOpaqueToken).toHaveBeenCalledWith("token");
     expect(credentials.generatePdf).toHaveBeenCalledWith(user, "c1");
+    expect(credentials.getById).toHaveBeenCalledWith(user, "c1");
+    expect(credentials.getByMembership).toHaveBeenCalledWith(user, "m1");
     expect(res.send).toHaveBeenCalled();
   });
 

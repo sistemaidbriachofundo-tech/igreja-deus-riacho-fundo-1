@@ -538,4 +538,214 @@ describe("CredentialsService", () => {
       byteSize: 900,
     });
   });
+
+  function cardRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "c1",
+      status: "ACTIVE",
+      opaqueToken,
+      issuedAt: new Date("2026-11-04T12:00:00Z"),
+      revokedAt: null,
+      personId: "p-mem",
+      membershipId: "m1",
+      pdfStorageKey: null,
+      pdfContentType: null,
+      pdfByteSize: null,
+      pdfGeneratedAt: null,
+      person: { displayName: "Bruno Demo" },
+      ...overrides,
+    };
+  }
+
+  it("getById: titular e secretaria abrem; outro membro recebe 403; id ausente é 404", async () => {
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue(cardRow()),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const own = await service.getById(member, "c1");
+    expect(own.personId).toBe("p-mem");
+    expect(own.membershipId).toBe("m1");
+    expect(own.qrSvg).toContain("<svg");
+    expect(own.qrSvg).not.toContain("Bruno Demo");
+    expect(own.ministryName).toBeNull();
+    expect(JSON.stringify(own)).not.toMatch(/cpf|telefone|@/i);
+
+    const staff = await service.getById(secretaria, "c1");
+    expect(staff.id).toBe("c1");
+
+    prisma.memberCredential.findFirst.mockResolvedValue(
+      cardRow({ personId: "p-mem" }),
+    );
+    const stranger: AuthUser = {
+      ...member,
+      personId: "p-other",
+      userId: "u-other",
+    };
+    await expect(service.getById(stranger, "c1")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+
+    prisma.memberCredential.findFirst.mockResolvedValue(null);
+    await expect(service.getById(secretaria, "missing")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it("getByMembership devolve a credencial da mesma matrícula e 404/403 reais", async () => {
+    const prisma = {
+      churchMembership: {
+        findFirst: jest.fn().mockResolvedValue({ id: "m1", personId: "p-mem" }),
+      },
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue(cardRow()),
+      },
+      ministryMembership: {
+        findFirst: jest.fn().mockResolvedValue({
+          ministry: { name: "Homens" },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const card = await service.getByMembership(secretaria, "m1");
+    expect(card.ministryName).toBe("Homens");
+    expect(card.membershipId).toBe("m1");
+
+    const own = await service.getByMembership(member, "m1");
+    expect(own.personId).toBe("p-mem");
+
+    prisma.memberCredential.findFirst.mockResolvedValue(null);
+    await expect(service.getByMembership(secretaria, "m1")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    prisma.churchMembership.findFirst.mockResolvedValue(null);
+    await expect(service.getByMembership(secretaria, "nope")).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    prisma.churchMembership.findFirst.mockResolvedValue({
+      id: "m-other",
+      personId: "p-other",
+    });
+    await expect(service.getByMembership(member, "m-other")).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it("omite ministério quando o nome formal carrega dado sensível", async () => {
+    const prisma = {
+      memberCredential: { findFirst: jest.fn().mockResolvedValue(cardRow()) },
+      ministryMembership: {
+        findFirst: jest.fn().mockResolvedValue({
+          ministry: { name: "Grupo 11987654321" },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const card = await service.getById(member, "c1");
+    expect(card.ministryName).toBeNull();
+  });
+
+  it("getOwn devolve carteirinha revogada em vez de fingir que não existe", async () => {
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue(
+          cardRow({
+            status: "REVOKED",
+            revokedAt: new Date("2026-11-08T12:00:00Z"),
+          }),
+        ),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const own = await service.getOwn(member);
+    expect(own.card?.status).toBe("REVOKED");
+    expect(own.card?.qrSvg).toContain("<svg");
+  });
+
+  it("lookup de token revogado marca QR inválido e não devolve contato", async () => {
+    const prisma = {
+      memberCredential: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: "REVOKED",
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: new Date("2026-11-08T12:00:00Z"),
+          person: { displayName: "Bruno Demo" },
+          church: { name: pilot.churchName, slug: pilot.churchSlug },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const hit = await service.lookupByOpaqueToken(opaqueToken);
+    expect(hit.status).toBe("REVOKED");
+    expect(hit.valid).toBe(false);
+    expect(hit).not.toHaveProperty("email");
+    expect(hit).not.toHaveProperty("phone");
+    expect(hit).not.toHaveProperty("cpf");
+    expect(hit).not.toHaveProperty("opaqueToken");
+    expect(JSON.stringify(hit)).not.toMatch(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
+  });
+
+  it("redige o nome público quando ele próprio parece CPF ou telefone", async () => {
+    const prisma = {
+      memberCredential: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: "ACTIVE",
+          issuedAt: new Date("2026-11-04T12:00:00Z"),
+          revokedAt: null,
+          person: { displayName: "123.456.789-09" },
+          church: { name: pilot.churchName, slug: pilot.churchSlug },
+        }),
+      },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const hit = await service.lookupByOpaqueToken(opaqueToken);
+    expect(hit.displayName).toBe("Membro");
+    expect(hit.valid).toBe(true);
+  });
+
+  it("não grava PDF quando o nome contém telefone", async () => {
+    storage.put.mockClear();
+    const prisma = {
+      memberCredential: {
+        findFirst: jest.fn().mockResolvedValue(
+          cardRow({ person: { displayName: "11987654321" } }),
+        ),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    await expect(service.generatePdf(secretaria, "c1")).rejects.toThrow(/sensível|telefone|Campo/i);
+    expect(storage.put).not.toHaveBeenCalled();
+  });
 });
