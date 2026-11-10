@@ -7,14 +7,18 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(process.env.STATIC_EXPORT_DIR ?? join(projectRoot, "out"));
 const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1")).replace(/\/$/, "");
+// V1: public content stays on the homepage; institutional deep links may
+// redirect to sections. QA/engineering/demo routes are intentionally absent.
 const requiredPages = [
-  "index.html", "a-igreja/index.html", "contato/index.html", "eventos/index.html", "visita/index.html",
-  "ministerios/index.html",
-  ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
-  "novidades/index.html", "status/index.html", "login/index.html",
+  "index.html", "a-igreja/index.html", "eventos/index.html", "login/index.html",
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
-  "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/site/index.html", "app/demo/index.html",
-  "app/operacao/index.html",
+  "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/site/index.html",
+];
+const forbiddenPages = [
+  "contato/index.html", "visita/index.html", "ministerios/index.html",
+  ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
+  "novidades/index.html", "status/index.html", "app/demo/index.html",
+  "app/operacao/index.html", "design-system/index.html", "w1-estudio/index.html",
 ];
 const requiredGalleryAssets = ["louvor", "juventude", "oracao", "palavra"].map((name) => `images/galeria-${name}.webp`);
 const failures = [];
@@ -24,6 +28,9 @@ for (const asset of requiredGalleryAssets) {
 }
 for (const page of requiredPages) {
   if (!existsSync(join(outDir, page))) failures.push(`Missing expected page: ${page}`);
+}
+for (const page of forbiddenPages) {
+  if (existsSync(join(outDir, page))) failures.push(`Unexpected legacy/engineering page: ${page}`);
 }
 function* findHtml(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
