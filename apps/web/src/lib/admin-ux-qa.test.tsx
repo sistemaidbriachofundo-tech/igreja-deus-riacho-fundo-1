@@ -36,6 +36,8 @@ describe("Área administrativa: estados acessíveis e dados de avaliação", () 
     );
     expect(desk).toContain('aria-label="Filtrar carteirinhas"');
     expect(desk).toContain('aria-pressed="true"');
-    expect(desk).toContain("Visualizar");
+    expect(desk).toContain("Emitir");
+    expect(desk).toContain("Sem credencial ativa");
+    expect(desk).not.toContain("Visualizar");
   });
 });
