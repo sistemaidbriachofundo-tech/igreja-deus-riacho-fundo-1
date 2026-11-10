@@ -12,18 +12,14 @@ import {
   type MembershipChange,
 } from "../lib/ministry-desk";
 import { loadMinistryBoard, type MinistryBoardData } from "../lib/ministry-presentation";
-import { isMinistryTab, ministryHref, type MinistryTabId } from "../lib/ministry-view";
+import { ministryHref, parseMinistryRoute, type MinistryTabId } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
 import styles from "./ministry-membership-catalog.module.css";
 
 type Route = { ministryId?: string; tab: MinistryTabId; escalaId?: string };
 
 function readRoute(): Route {
-  const params = new URLSearchParams(window.location.search);
-  const tab = params.get("aba");
-  const ministryId = params.get("ministry")?.trim() || undefined;
-  const escalaId = params.get("escala")?.trim() || undefined;
-  return { ministryId, tab: isMinistryTab(tab) ? tab : "visao", escalaId };
+  return parseMinistryRoute(window.location.search);
 }
 
 function writeRoute(route: Route) {
