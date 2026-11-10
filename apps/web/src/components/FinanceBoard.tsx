@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { nextDualApprovalStage } from "@idbrf/shared";
 import { apiGet, apiPost } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import styles from "./finance-board.module.css";
@@ -9,6 +10,18 @@ type Props = { tab:string; rows:DasRecord[]; token:string; refresh:()=>void };
 const str=(x:unknown)=>typeof x==="string"?x.trim():"";
 const id=(x:unknown)=>typeof x==="string"&&x.trim()?x.trim():null;
 const cents=(x:unknown)=>typeof x==="number"&&Number.isInteger(x)&&Number.isFinite(x)?formatBRL(x):"Valor não informado";
+const statusLabel=(status:string)=>status==="DRAFT"?"Rascunho":status==="PENDING_APPROVAL"?"Aguardando duas pessoas":status==="APPROVED"?"Aprovado por duas pessoas":status==="REJECTED"?"Recusado":status==="REVERSED"?"Estornado":status==="OPEN"?"Aberta":status==="CLOSED"?"Fechada":status||"Estado não informado";
+
+export function financeApproval(actorUserId:string|null, entry:DasRecord):{text:string;canApprove:boolean}{
+  const status=str(entry.status);
+  if(status!=="PENDING_APPROVAL")return {text:statusLabel(status),canApprove:false};
+  const created=str(entry.createdByUserId);
+  const first=str(entry.firstApprovedByUserId);
+  if(!actorUserId)return {text:"Aguardando identificar quem aprova.",canApprove:false};
+  const stage=nextDualApprovalStage({actorUserId,createdByUserId:created,firstApprovedByUserId:first||null});
+  if(!stage.ok)return {text:first?"A primeira aprovação já é sua. Outra pessoa precisa concluir.":"Quem lançou não aprova a própria peça.",canApprove:false};
+  return {text:stage.stage==="FIRST"?"Você pode registrar a primeira aprovação.":"Você pode registrar a segunda aprovação.",canApprove:true};
+}
 
 export function FinanceBoard({tab,rows,token,refresh}:Props){
   const [accounts,setAccounts]=useState<DasRecord[]>([]);
@@ -24,6 +37,15 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [rejectionReasons,setRejectionReasons]=useState<Record<string,string>>({});
+  const [actorId,setActorId]=useState<string|null>(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    void apiGet<{userId?:string}>("/auth/me",token)
+      .then(me=>{if(!cancelled && typeof me.userId==="string")setActorId(me.userId);})
+      .catch(()=>{if(!cancelled)setActorId(null);});
+    return()=>{cancelled=true;};
+  },[token]);
 
   useEffect(()=>{
     if(tab!=="entries")return;
@@ -71,10 +93,10 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
   }
 
   return <section className={styles.board} aria-labelledby="finance-heading">
-    <header className={styles.header}>
-      <span>RF-016 A RF-019 · TESOURARIA</span>
-      <h2 id="finance-heading">Integridade contábil e rastreabilidade</h2>
-      <p>Todos os valores e históricos vêm da API de testes. Lançamentos usam partidas dobradas e aprovações são controladas no servidor.</p>
+      <header className={styles.header}>
+      <span>Tesouraria · homologação</span>
+      <h2 id="finance-heading">Lançamentos e conciliação</h2>
+      <p>Os valores vêm da API. Quem lança não aprova a própria peça, e a segunda aprovação é de outra pessoa. Nada aqui movimenta Pix ou banco.</p>
     </header>
     {message&&<p role="status" className={styles.notice}>{message}</p>}
     {tab==="accounts"&&<p className={styles.info}>As contas são mantidas na API. O cadastro de novas contas está disponível no formulário desta página. Nenhuma conta é criada automaticamente.</p>}
@@ -108,13 +130,14 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
         <h3>Fluxo de lançamentos</h3>
         {rows.length===0&&<p>Sem lançamentos na HML.</p>}
         {rows.map((entry,i)=>{
-          const entryId=id(entry.id),status=str(entry.status);
+          const entryId=id(entry.id),status=str(entry.status),approval=financeApproval(actorId,entry);
+          const amount=entry.amountCents??entry.totalCents;
           return <article className={styles.row} key={entryId||i}>
             <div><strong>{str(entry.description)||"Lançamento sem descrição"}</strong>
-              <small>Estado: {status||"não informado"} · Valor: {cents(entry.totalCents)}</small></div>
+              <small>{approval.text} · Valor: {cents(amount)}</small></div>
             <div className={styles.actions}>
               {entryId&&["DRAFT","REJECTED"].includes(status)&&<button disabled={busy} onClick={()=>transition("entries",entryId,"submit")}>Enviar para aprovação</button>}
-              {entryId&&status==="PENDING_APPROVAL"&&<button disabled={busy} onClick={()=>transition("entries",entryId,"approve")}>Registrar aprovação</button>}
+              {entryId&&approval.canApprove&&<button disabled={busy} onClick={()=>transition("entries",entryId,"approve")}>Registrar aprovação</button>}
               {entryId&&status==="PENDING_APPROVAL"&&<form className={styles.rejectForm}
                 onSubmit={e=>{e.preventDefault();const reason=(rejectionReasons[entryId]??"").trim();
                   if(reason.length<6){setMessage("Informe o motivo da rejeição com pelo menos seis caracteres.");return;}
@@ -148,7 +171,8 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
         {rows.map((item,i)=>{
           const key=id(item.id),status=str(item.status);
           return <article key={key||i} className={styles.row}>
-            <div><strong>{str(item.title)||"Conciliação"}</strong><small>{status||"Sem estado"}</small></div>
+            <div><strong>{str(item.title)||"Conciliação"}</strong><small>{status==="CLOSED"?"Período fechado":statusLabel(status)}</small>
+              <small>{str(item.periodStart)} a {str(item.periodEnd)}</small></div>
             <div className={styles.actions}>
               {key&&status==="OPEN"&&<button disabled={busy} onClick={()=>transition("reconciliations",key,"submit")}>Enviar para revisão</button>}
               {key&&status==="PENDING_APPROVAL"&&<button disabled={busy} onClick={()=>transition("reconciliations",key,"approve")}>Registrar aprovação</button>}
