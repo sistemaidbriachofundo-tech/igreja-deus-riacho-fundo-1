@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      # Deploy STAGED do projeto exclusivamente HML no commit f554879; alias principal permanece no rollback até aprovação.
-      API_ORIGIN: https://id-riacho1-api-onysnaz73-gustavomarqueslopes-cmds-projects.vercel.app
+      # API do projeto exclusivamente HML, promovida após smoke staged; NUNCA API real da igreja.
+      API_ORIGIN: https://id-riacho1-api-hml.vercel.app
     steps:
       - name: Probe Nest bootstrap, meta and authorization (no credentials)
         shell: bash
@@ -37,6 +37,10 @@ jobs:
             {path:"/rosters/me",expected:401,kind:"private"},
             {path:"/reports/participation",expected:401,kind:"private"},
             {path:"/cms/contents",expected:401,kind:"private"},
+            {path:"/ledger/entries",expected:401,kind:"private"},
+            {path:"/public/home",expected:200,kind:"public"},
+            {path:"/public/events",expected:200,kind:"public"},
+            {path:"/public/ministries",expected:200,kind:"public"},
           ];
           let failures=0;
           async function probe(item) {
@@ -65,7 +69,7 @@ jobs:
             }
           }
           for(const item of paths) await probe(item);
-          if(failures){console.error("Preview runtime smoke FAIL: "+failures+" of "+paths.length);process.exit(1);}
+          if(failures){console.error("HML live API smoke FAIL: "+failures+" of "+paths.length);process.exit(1);}
           console.log("Preview runtime smoke PASS: "+paths.length+" endpoint checks (anonymous only).");
           console.log("NOTE: This does NOT validate 8 personas, DB mutations, J01-J09, or authorize release.");
           NODE
