@@ -77,20 +77,20 @@ export function ChurchDashboard() {
   return <AppShell active="visao" meta="Área Administrativa">
     <div className={s.dashboard}>
       <section className={s.hero} aria-labelledby="id-riacho-dashboard-title">
-        <div className={s.heroPhoto} aria-hidden="true">
-          {/* Foto existente no acervo do projeto. Não afirma programação atual. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={withBasePath("/images/hero-oficial.jpg")} alt="" fetchPriority="high" />
-        </div>
         <div className={s.heroCopy}>
           <span className={s.heroKicker}>GESTÃO MINISTERIAL · RIACHO FUNDO I</span>
-          <h1 id="id-riacho-dashboard-title">Bem-vindo ao<br/><em>ID Riacho 1</em></h1>
+          <h1 id="id-riacho-dashboard-title">Bem-vindo ao <em>ID Riacho 1</em></h1>
           <p>Organização, pessoas e ministérios em um só lugar.</p>
           <a href={withBasePath("/app/membros/")} className={s.heroLink}>
             Conhecer o painel de pessoas <UIIcon name="arrow" size={18}/>
           </a>
         </div>
-        <span className={s.heroPhotoNote}>FOTO DO ACERVO · IMAGEM DE REFERÊNCIA</span>
+        <div className={s.heroPhoto}>
+          {/* FOTO DO ACERVO — imagem institucional já publicada. Não afirma a programação de hoje. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={withBasePath("/images/hero-oficial.jpg")} alt="" fetchPriority="high" />
+          <span className={s.heroPhotoNote}>FOTO DO ACERVO · IMAGEM DE REFERÊNCIA</span>
+        </div>
       </section>
 
       <div className={s.sectionIntro}>
