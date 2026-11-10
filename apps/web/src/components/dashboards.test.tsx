@@ -56,6 +56,7 @@ describe("mesa por persona", () => {
   it("mede menos leituras na mesa e não transforma 401 ou 403 em zero", () => {
     expect(dashboardPaths(["PLATFORM_ADMIN"])).toEqual([
       "/indicators/summary",
+      "/indicators/membership",
       "/admissions",
       "/ministries",
       "/events",

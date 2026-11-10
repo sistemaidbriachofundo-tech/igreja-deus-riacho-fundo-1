@@ -119,6 +119,7 @@ const secretaria = user({
 function setup(repository = new MemoryMinistryMembershipRepository()) {
   const ministries = [jovens, homens, mulheres];
   const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
     ministry: {
       findFirst: jest.fn(async ({ where }: { where: { id: string } }) => {
         return ministries.find((item) => item.id === where.id) ?? null;

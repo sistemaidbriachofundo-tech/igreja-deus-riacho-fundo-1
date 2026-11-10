@@ -1,10 +1,8 @@
 /**
  * Adaptador da frente de ministérios (#97).
  * Interesse de voluntariado nunca vira integrante.
- * Saldo permanece oculto até o contrato financeiro #96.
+ * Os dados de caixa dependem de autorização e do centro de custo do ministério.
  */
-
-export const MINISTRY_FINANCE_CONTRACT_APPROVED = false;
 
 export const FORMAL_ROLES = ["LIDER", "COORDENADOR", "INTEGRANTE", "APOIO"] as const;
 export const FORMAL_STATUSES = ["ATIVO", "CONVIDADO", "PAUSADO", "ENCERRADO"] as const;
@@ -69,7 +67,8 @@ export type RequestsPanel =
 
 export type FinancePanel =
   | (BlockedPanel & { balance: null; dependency: "issue-96" })
-  | (DeniedPanel & { balance: null });
+  | (DeniedPanel & { balance: null })
+  | { kind: "ready"; balanceCents: number; incomeCents: number; expenseCents: number };
 
 export type DeskReady = {
   kind: "ready";
@@ -309,28 +308,23 @@ export function presentRequests(status: number, body: unknown): RequestsPanel {
   };
 }
 
-/** Número de saldo, se vier, é descartado. O contrato #96 ainda não foi aceito. */
 export function presentFinance(status: number, body: unknown): FinancePanel {
+  const data = asRecord(body);
+  if (status === 200 && data?.currency === "BRL") {
+    const { balanceCents, incomeCents, expenseCents } = data;
+    if (typeof balanceCents === "number" && Number.isSafeInteger(balanceCents)
+      && typeof incomeCents === "number" && Number.isSafeInteger(incomeCents)
+      && typeof expenseCents === "number" && Number.isSafeInteger(expenseCents)) {
+      return { kind: "ready", balanceCents, incomeCents, expenseCents };
+    }
+  }
   if (status === 403) {
-    return {
-      kind: "denied",
-      status: 403,
-      code: readCode(body, "MINISTRY_SCOPE_FORBIDDEN"),
-      message: readMessage(body, SCOPE_DENIED),
-      balance: null,
-    };
+    return { kind: "denied", status, code: "MINISTRY_SCOPE_FORBIDDEN", message: SCOPE_DENIED, balance: null };
   }
   return {
-    kind: "blocked",
-    code: readCode(body, "MINISTRY_FINANCE_CONTRACT_BLOCKED"),
-    message: MINISTRY_FINANCE_CONTRACT_APPROVED
-      ? "Contrato financeiro reconhecido, sem leitura de saldo nesta tela."
-      : readMessage(
-          body,
-          "O saldo do ministério depende do contrato financeiro e permanece oculto.",
-        ),
-    balance: null,
-    dependency: "issue-96",
+    kind: "blocked", code: readCode(body, "MINISTRY_FINANCE_CONTRACT_BLOCKED"),
+    message: readMessage(body, "Saldo ainda indisponível."),
+    balance: null, dependency: "issue-96",
   };
 }
 

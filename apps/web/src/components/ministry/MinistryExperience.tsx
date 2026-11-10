@@ -7,6 +7,7 @@ import type {
   DeskReady,
   DeskResult,
   FormalRole,
+  FinancePanel,
   MembershipChange,
 } from "../../lib/ministry-desk";
 import type { ActivityPanel, EscalaPanel } from "../../lib/ministry-presentation";
@@ -185,6 +186,7 @@ function ReadyExperience({
                   <strong>{escalas.kind === "ready" ? String(escalas.items.length) : "—"}</strong>
                 </li>
               </ul>
+              {desk.finance.kind === "ready" && <MinistryCash finance={desk.finance} />}
               <div className={styles.split}>
                 <section>
                   <h2>Liderança</h2>
@@ -244,7 +246,7 @@ function ReadyExperience({
           {tab === "atividades" ? <ActivityList panel={activities} schedule={schedule} /> : null}
 
           {tab === "recursos" ? (
-            <ResourceList ministryId={desk.ministry.id} shortcut={shortcut} />
+            <ResourceList ministryId={desk.ministry.id} shortcut={shortcut} finance={desk.finance} />
           ) : null}
         </div>
       </article>
@@ -397,12 +399,30 @@ function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: str
   );
 }
 
+function MinistryCash({ finance }: { finance: FinancePanel }) {
+  const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  return (
+    <section className={styles.note} aria-labelledby="caixa-title">
+      <h2 id="caixa-title">Caixa do ministério</h2>
+      {finance.kind === "ready" ? (
+        <ul className={styles.stats}>
+          <li><span>Saldo em caixa</span><strong>{currency.format(finance.balanceCents / 100)}</strong></li>
+          <li><span>Entradas</span><strong>{currency.format(finance.incomeCents / 100)}</strong></li>
+          <li><span>Despesas</span><strong>{currency.format(finance.expenseCents / 100)}</strong></li>
+        </ul>
+      ) : <p>{finance.kind === "denied" ? "Seu perfil não tem acesso ao caixa." : "Saldo ainda indisponível."}</p>}
+    </section>
+  );
+}
+
 function ResourceList({
   ministryId,
   shortcut,
+  finance,
 }: {
   ministryId: string;
   shortcut: { href: string; label: string } | null;
+  finance: FinancePanel;
 }) {
   return (
     <div className={styles.stack}>
@@ -414,12 +434,7 @@ function ResourceList({
           {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
         </div>
       </section>
-      <section className={styles.note} aria-labelledby="caixa-title">
-        <h2 id="caixa-title">Caixa do ministério</h2>
-        <p>
-          Saldo ainda indisponível.
-        </p>
-      </section>
+      <MinistryCash finance={finance} />
     </div>
   );
 }

@@ -166,6 +166,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(0);
+  const [membershipStatus, setMembershipStatus] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [admissionPerson, setAdmissionPerson] = useState("");
@@ -177,7 +178,12 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
 
   useEffect(() => {
     if (view !== "members") return;
-    const openFromUrl = () => setFichaId(new URLSearchParams(window.location.search).get("pessoa"));
+    const openFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      setFichaId(params.get("pessoa"));
+      const status = params.get("situacao") ?? "";
+      setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION"].includes(status) ? status : "");
+    };
     openFromUrl();
     window.addEventListener("popstate", openFromUrl);
     return () => window.removeEventListener("popstate", openFromUrl);
@@ -244,7 +250,10 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const pending = admissions.filter(admission => !CLOSED_ADMISSIONS.includes(admission.status));
   const active = memberships.filter(membership => membership.status === "ACTIVE");
   const q = query.trim().toLocaleLowerCase("pt-BR");
-  const filtered = memberships.filter(membership => [membership.person.displayName, membership.person.email ?? "", membership.status, membership.id].join(" ").toLocaleLowerCase("pt-BR").includes(q));
+  const filtered = memberships.filter(membership =>
+    (!membershipStatus || membership.status === membershipStatus) &&
+    [membership.person.displayName, membership.person.email ?? "", label(membership.status)].join(" ").toLocaleLowerCase("pt-BR").includes(q)
+  );
   const filteredAdmissions = (showHistory ? admissions : pending).filter(admission => {
     const member = membershipByPerson.get(admission.personId);
     return [member?.person.displayName ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
@@ -464,6 +473,12 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                       <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
                     </div>
                   )}
+                  {secretary && <div className={s.viewFilter} role="group" aria-label="Situação dos membros">
+                    {[["", "Todos"], ["ACTIVE", "Ativos"], ["INACTIVE", "Inativos"], ["PENDING_ADMISSION", "Em admissão"]].map(([status, title]) =>
+                      <button key={status} type="button" aria-pressed={membershipStatus === status}
+                        onClick={() => { setMembershipStatus(status); setListPage(0); }}>{title}</button>
+                    )}
+                  </div>}
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : checking ? null : (
                     <div className={s.tableWrap}>
                       <table>
