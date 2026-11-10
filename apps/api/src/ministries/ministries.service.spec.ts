@@ -1350,7 +1350,7 @@ describe("MinistriesService", () => {
     expect(ok.status).toBe("APPROVED");
   });
 
-  it("creates availability / impediment and enqueues confirm alert", async () => {
+  it("creates availability / impediment without sending alert by default", async () => {
     const avail = {
       id: "av1",
       organizationId: pilot.organizationId,
@@ -1468,13 +1468,8 @@ describe("MinistriesService", () => {
     expect(i.id).toBe("imp1");
 
     await service.confirmAssignment(membro, "a1");
-    expect(channels.enqueueRosterAlert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        assignmentId: "a1",
-        kind: "confirm",
-        personId: "p-mem",
-      }),
-    );
+    // A confirmação permanece persistida, mas notificações exigem opt-in explícito.
+    expect(channels.enqueueRosterAlert).not.toHaveBeenCalled();
   });
 
   it("lists/deactivates availability and lists/deletes impediments", async () => {
