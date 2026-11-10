@@ -402,3 +402,135 @@
 @media (prefers-reduced-motion: reduce) {
   .page :is(.primaryButton,.admission,.tableWrap tbody tr,.form input,.form select) { transition: none; transform: none !important; }
 }
+
+
+/* UX 8 -> 9 · Encontrar pessoas e famílias sem buscas concorrentes. */
+.page .personLookup {
+  display: block;
+  margin: 6px 0 14px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #dce7df;
+  border-radius: 11px;
+  background: #f7faf8;
+}
+.personLookup > summary {
+  display: list-item;
+  padding: 13px 16px;
+  color: #38634c;
+  font-size: .82rem;
+  line-height: 1.4;
+  font-weight: 650;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.personLookup > summary:hover { background: #edf5ef; }
+.personLookup[open] > summary { border-bottom: 1px solid #dce7df; background: #eef5f0; }
+.personLookupContent { display: grid; gap: 10px; padding: 15px 16px; }
+.page .personLookupContent > div { width: 100%; }
+.activeFilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0 15px;
+  padding: 9px 13px;
+  border: 1px solid #d9e8dd;
+  border-radius: 10px;
+  background: #f1f8f3;
+  color: #42634e;
+  font-size: .76rem;
+  font-weight: 600;
+}
+.activeFilters button {
+  min-height: 36px;
+  padding: 5px 10px;
+  border: 1px solid #c5daca;
+  border-radius: 8px;
+  background: white;
+  color: #2d634c;
+  font-weight: 650;
+  cursor: pointer;
+}
+.familyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 9px;
+}
+.familyHeader h2 { margin-bottom: 0; }
+.familyHeader > span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 9px;
+  color: #2d6349;
+  background: #e6f1e9;
+  font-size: .76rem;
+  font-weight: 750;
+}
+.familyList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 2px;
+  margin-top: 17px;
+  scrollbar-width: thin;
+  scrollbar-color: #b8cfbd transparent;
+}
+.familyList button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 13px;
+  border: 1px solid #e2ebe4;
+  border-radius: 10px;
+  background: #fbfdfb;
+  color: #355744;
+  text-align: left;
+  font-size: .79rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.familyList button > span { min-width: 0; overflow-wrap: anywhere; }
+.familyList button > small {
+  flex: none;
+  white-space: nowrap;
+  color: #728879;
+  font-size: .69rem;
+  font-weight: 550;
+}
+.familyList button:hover { background: #f0f7f2; border-color: #bad8c3; }
+.familyList button[aria-pressed="true"] {
+  background: #e5f2e9;
+  border-color: #74ad89;
+  color: #225640;
+  box-shadow: inset 3px 0 #387f5f;
+}
+.showFamilies {
+  min-height: 44px;
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #d4e4d7;
+  border-radius: 9px;
+  background: #fff;
+  color: #30644c;
+  font-weight: 650;
+  cursor: pointer;
+}
+.page :is(.showFamilies, .familyList button, .activeFilters button, .personLookup > summary):focus-visible {
+  outline: 3px solid #bba06b;
+  outline-offset: 2px;
+}
+@media(max-width:480px){
+  .familyList button { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .activeFilters button { width: 100%; }
+}
