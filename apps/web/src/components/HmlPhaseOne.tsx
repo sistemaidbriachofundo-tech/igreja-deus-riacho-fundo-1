@@ -445,11 +445,11 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
 
   const names: Record<View, string> = {
     overview: "Início",
-    members: "Membros e famílias",
+    members: "Secretaria",
     secretary: "Secretaria",
     cards: "Carteirinhas",
   };
-  const activeNav = view === "overview" ? "visao" : view === "members" ? "membros" : view === "secretary" ? "secretaria" : "carteirinha";
+  const activeNav = view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
 
   if (process.env.NEXT_PUBLIC_HML_ENABLED !== "true") {
     return (
@@ -491,7 +491,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                   </p>
                 </div>
                 <div className={s.headingActions}>
-                  {(view === "members" || view === "secretary") && secretary && <button type="button" className={s.primaryButton} onClick={() => startSecretaryAction("new")}>Cadastrar pessoa <UIIcon name="arrow" size={17} /></button>
+                  {view === "members" && secretary && <AppNavLink className={s.primaryButton} href="/app/secretaria/?aba=admissoes&acao=cadastrar#cadastro">Cadastrar pessoa <UIIcon name="arrow" size={17} /></AppNavLink>}
+                  {view === "secretary" && secretary && <button type="button" className={s.primaryButton} onClick={() => startSecretaryAction("new")}>Cadastrar pessoa <UIIcon name="arrow" size={17} /></button>
                 <button type="button" className={s.secondaryButton} onClick={() => {
                   setError("");
                   setChecking(true);
