@@ -1,0 +1,763 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-10T01:56:27.788Z",
+    "pagesUrl": "https://sistemaidbriachofundo-tech.github.io/igreja-deus-riacho-fundo-1/",
+    "apiUrl": "https://id-riacho1-api-hml.vercel.app",
+    "pagesSha": "3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3",
+    "apiSha": "3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3",
+    "gitSha": "fdc545829bf3a223eb7963dd3615ab699c0b2fc3"
+  },
+  "decision": {
+    "approved": false,
+    "label": "NÃO APROVADA",
+    "reason": "0 FAIL P0, 2 FAIL P1, 24 BLOCKED críticos. A release não segue para homologação humana como pronta."
+  },
+  "rows": [
+    {
+      "id": "SG-T01",
+      "group": "SG",
+      "title": "Home oficial responde e identifica a igreja",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "Home HTTP 200, título “Igreja de Deus — Riacho Fundo I”.",
+      "evidence": "qa-v3/evidence/antes-home-1440.jpg",
+      "steps": "Abrir https://sistemaidbriachofundo-tech.github.io/igreja-deus-riacho-fundo-1/."
+    },
+    {
+      "id": "SG-T02",
+      "group": "SG",
+      "title": "Menu público limitado a Início, Quem somos, Agenda e Login",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "O menu público mostra só Início, Quem somos, Agenda e Login. Rótulos lidos: Início, Quem somos, Agenda, Login ID Riacho 1 — abrir tela de e-mail e senha, Login.",
+      "evidence": "qa-v3/evidence/antes-home-1440.jpg",
+      "steps": "No desktop, ler a navegação do site público e o link de Login."
+    },
+    {
+      "id": "SG-T03",
+      "group": "SG",
+      "title": "API HML /health",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "GET /health HTTP 200.",
+      "evidence": "",
+      "steps": "GET https://id-riacho1-api-hml.vercel.app/health"
+    },
+    {
+      "id": "SG-T04",
+      "group": "SG",
+      "title": "Pages release.json e API /meta no mesmo sourceSha",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "Pages e API estão em 3c7375c23b7a4ed4d5e18618f34ec80d7fd43ac3.",
+      "evidence": "",
+      "steps": "Comparar /release.json do Pages com sourceSha de GET /meta."
+    },
+    {
+      "id": "SG-T05",
+      "group": "SG",
+      "title": "Login das 8 personas sintéticas",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Nenhuma das 8 contas sintéticas autenticou. HTTP: ADMIN 401; SECRETARIA 401; PASTOR 401; TESOURARIA 401; LIDER 401; MEMBRO 401; EDITOR 401; PUBLICADOR (não está no seed) 401. A senha usada foi a do seed local documentado, uma tentativa por conta. O secret da HML não está neste agente e a senha não foi resetada.",
+      "evidence": "",
+      "steps": "POST /auth/login uma vez por persona sintética. Sem segunda senha e sem reset."
+    },
+    {
+      "id": "SG-T06",
+      "group": "SG",
+      "title": "Rotas protegidas sem sessão respondem 401",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "12 rotas protegidas responderam 401 sem sessão.",
+      "evidence": "",
+      "steps": "GET das rotas protegidas sem cabeçalho Authorization."
+    },
+    {
+      "id": "SG-T07",
+      "group": "SG",
+      "title": "Matriz 403 por persona",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "A matriz 403 por persona não rodou porque o login HML não abriu sessão.",
+      "evidence": "",
+      "steps": "Repetir com QA_DEMO_PASSWORD da HML, sem reset."
+    },
+    {
+      "id": "SG-T08",
+      "group": "SG",
+      "title": "Secretaria busca pessoa",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "A busca de pessoa exige a sessão de Secretaria. O login sintético não abriu.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T09",
+      "group": "SG",
+      "title": "Secretaria edita e reabre o mesmo personId",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O ciclo editar e reabrir o mesmo personId não foi executado. Também não houve PATCH: a frente I não reescreve ficha da HML sem rollback combinado com J.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T10",
+      "group": "SG",
+      "title": "Clique em carteirinha abre a credencial",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "A rota /app/membros/carteirinha/ mostrou o login. Não havia link Carteirinhas para abrir a credencial.",
+      "evidence": "qa-v3/evidence/depois-carteirinha-390.jpg",
+      "steps": "Abrir /app/membros/carteirinha/ em 390 px e procurar Carteirinhas."
+    },
+    {
+      "id": "SG-T11",
+      "group": "SG",
+      "title": "Carteirinha frente, verso, PDF e QR",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Frente, verso, PDF e QR não foram exercitados com sessão. O gate não mostra esses artefatos.",
+      "evidence": "qa-v3/evidence/depois-carteirinha-390.jpg",
+      "steps": ""
+    },
+    {
+      "id": "SG-T12",
+      "group": "SG",
+      "title": "Revogação de credencial e QR inválido",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Nenhuma credencial existente foi revogada. O POST anônimo de revogação não é o fluxo positivo e a HML não deve perder QR sintético nesta rodada.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T13",
+      "group": "SG",
+      "title": "Vínculo formal pessoa → ministério",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Sem sessão não há vínculo formal a gravar. A rota interna caiu no gate. Slugs públicos da API: atmosfera, adolescentes, homens, jovens, mulheres.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T14",
+      "group": "SG",
+      "title": "Escala do ministério",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "A escala autenticada não foi criada. Sem sessão, Meu Espaço e o vínculo interno não listam atribuição.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T15",
+      "group": "SG",
+      "title": "Meu Espaço confirma ou recusa a própria escala",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Meu Espaço pede entrada e não oferece confirmar ou recusar.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T16",
+      "group": "SG",
+      "title": "Evento criado e publicado",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": false,
+      "detail": "Nenhum evento foi criado na HML. A agenda pública foi apenas lida.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T17",
+      "group": "SG",
+      "title": "Inscrição em evento",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": false,
+      "detail": "Nenhuma inscrição foi enviada.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T18",
+      "group": "SG",
+      "title": "Check-in",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": false,
+      "detail": "Nenhum check-in foi registrado.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T19",
+      "group": "SG",
+      "title": "Relatório CSV ou PDF de presença",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": false,
+      "detail": "CSV e PDF de presença não foram gerados. Não há sessão de gestão de evento nesta execução.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T20",
+      "group": "SG",
+      "title": "CMS salva rascunho",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": false,
+      "detail": "O estúdio pede sessão e o rascunho não foi salvo.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T21",
+      "group": "SG",
+      "title": "Editor recebe 403 ao publicar; publicador publica",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Editor e publicador não autenticaram. A conta PUBLICADOR_SITE não está no seed versionado.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T22",
+      "group": "SG",
+      "title": "Tesouraria idempotente sem lançamento duplicado",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "A rota /app/tesouraria/ caiu no login. Nenhum lançamento foi gravado e a dupla submissão não foi executada.",
+      "evidence": "qa-v3/evidence/antes-tesouraria-1440.jpg",
+      "steps": "Abrir /app/tesouraria/ sem sessão e não enviar formulário."
+    },
+    {
+      "id": "SG-T23",
+      "group": "SG",
+      "title": "Tesouraria 403 para quem não é do caixa",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O 403 de tesouraria por persona fica bloqueado junto com o login. O GET anônimo de /ledger/accounts está em SG-T06.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "SG-T24",
+      "group": "SG",
+      "title": "Nenhum envio externo de mensagem ou Pix",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "Não há botão de WhatsApp, e-mail externo ou Pix. POST /channels/outbox sem sessão respondeu 401.",
+      "evidence": "",
+      "steps": "Ler botões visíveis e fazer POST /channels/outbox sem sessão, com corpo vazio."
+    },
+    {
+      "id": "SG-T25",
+      "group": "SG",
+      "title": "Dashboards mostram números vindos da API",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O painel autenticado com números da API não abriu. A tesouraria sem sessão não consulta o ledger.",
+      "evidence": "qa-v3/evidence/antes-tesouraria-1440.jpg",
+      "steps": "Abrir /app/ e /app/tesouraria/."
+    },
+    {
+      "id": "SG-T26",
+      "group": "SG",
+      "title": "Sair encerra a sessão",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O gate de login cobre /app/ antes do shell. Sair não foi exibido e a sessão não existia.",
+      "evidence": "qa-v3/evidence/antes-painel-1440.jpg",
+      "steps": "Abrir /app/ sem sessão e procurar Sair."
+    },
+    {
+      "id": "UX-01",
+      "group": "UX",
+      "title": "Início: contraste e reflow",
+      "status": "FAIL",
+      "severity": "P1",
+      "critical": false,
+      "detail": "home HTTP 200. Contraste 1.48:1, mínimo 4.5, “IMAGEM ILUSTRATIVA”.",
+      "evidence": "qa-v3/evidence/antes-home-1440.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-02",
+      "group": "UX",
+      "title": "Quem somos",
+      "status": "PASS",
+      "severity": null,
+      "critical": false,
+      "detail": "Quem somos carregou. h1: Mais que uma igreja. Uma família..",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-03",
+      "group": "UX",
+      "title": "Agenda",
+      "status": "FAIL",
+      "severity": "P2",
+      "critical": false,
+      "detail": "agenda HTTP 200. Contraste 3.1:1, mínimo 4.5, “AGENDA PÚBLICA”.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-04",
+      "group": "UX",
+      "title": "Login publicado",
+      "status": "PASS",
+      "severity": null,
+      "critical": false,
+      "detail": "Login HTTP 200. E-mail e senha estão na tela.",
+      "evidence": "qa-v3/evidence/antes-login-390.jpg",
+      "steps": "Abrir /login/."
+    },
+    {
+      "id": "UX-05",
+      "group": "UX",
+      "title": "Gate de /app/secretaria sem sessão",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "Sem sessão, /app/secretaria/ mostra o acesso e não a lista.",
+      "evidence": "",
+      "steps": "Abrir /app/secretaria/ em janela sem sessão."
+    },
+    {
+      "id": "UX-06",
+      "group": "UX",
+      "title": "Erro de credencial não ecoa a senha",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "O alerta não devolve a senha. HTTP 401. Mensagem: E-mail ou senha não autorizados. Confira seus dados.",
+      "evidence": "qa-v3/evidence/depois-login-erro-390.jpg",
+      "steps": "Em /login/, enviar uma conta sintética inexistente e ler o alerta."
+    },
+    {
+      "id": "UX-V01",
+      "group": "UX-V",
+      "title": "Sidebar recolhe, persiste e expande",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Sem sessão, /app/ mostra só o login. A sidebar não foi renderizada, então recolher, persistir e expandir não foram executados.",
+      "evidence": "qa-v3/evidence/antes-painel-390.jpg",
+      "steps": "Abrir /app/ sem sessão e, se o shell aparecer, procurar o controle de recolher."
+    },
+    {
+      "id": "UX-V02",
+      "group": "UX-V",
+      "title": "Ministérios expande até Homens",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O submenu autenticado não apareceu porque o gate cobre /app/. A página pública /ministerios/homens/ respondeu HTTP 200. API pública: atmosfera, adolescentes, homens, jovens, mulheres.",
+      "evidence": "qa-v3/evidence/antes-homens-390.jpg",
+      "steps": "Sem sessão, abrir /app/ e também /ministerios/homens/."
+    },
+    {
+      "id": "UX-V03",
+      "group": "UX-V",
+      "title": "Sair discreto no shell autenticado",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O controle Sair fica no shell, que o gate não mostra sem sessão.",
+      "evidence": "qa-v3/evidence/antes-painel-1440.jpg",
+      "steps": "Abrir /app/ sem sessão e procurar Sair."
+    },
+    {
+      "id": "UX-V04",
+      "group": "UX-V",
+      "title": "Canais de Comunicação fora do menu principal",
+      "status": "PASS",
+      "severity": null,
+      "critical": false,
+      "detail": "“Canais de Comunicação” não aparece no menu principal nem na busca de módulos.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-V05",
+      "group": "UX-V",
+      "title": "Telas usuais sem demo, roster, endpoint ou schema",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "O portal e o gate de /app/ não mostram demo, roster, endpoint ou schema. O shell atrás do login não entrou na amostra.",
+      "evidence": "qa-v3/evidence/antes-painel-1440.jpg",
+      "steps": "Ler o texto visível de /app/ sem sessão."
+    },
+    {
+      "id": "UX-V06",
+      "group": "UX-V",
+      "title": "Homologação identificada com discrição",
+      "status": "FAIL",
+      "severity": "P2",
+      "critical": false,
+      "detail": "A tela que substitui /app/* não identifica a homologação.",
+      "evidence": "qa-v3/evidence/antes-painel-390.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-V07",
+      "group": "UX-V",
+      "title": "Frente da carteirinha abre ao clique",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "Não havia carteirinha para abrir: /app/membros/carteirinha/ exibiu só o login.",
+      "evidence": "qa-v3/evidence/depois-carteirinha-390.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-V08",
+      "group": "UX-V",
+      "title": "Verso da carteirinha",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O verso não foi exibido.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-V09",
+      "group": "UX-V",
+      "title": "PDF da carteirinha",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O PDF não foi baixado.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-V10",
+      "group": "UX-V",
+      "title": "QR da carteirinha",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O QR não foi exibido.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-V11",
+      "group": "UX-V",
+      "title": "Dashboard com números da API, sem saldo ilustrado como real",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "A leitura da tesouraria não trouxe o contrato esperado de números. O painel /app/ está no gate e não mostra indicador numérico da API.",
+      "evidence": "qa-v3/evidence/antes-tesouraria-1440.jpg",
+      "steps": "Abrir /app/tesouraria/ sem sessão e ler medidas e ilustração."
+    },
+    {
+      "id": "UX-V12",
+      "group": "UX-V",
+      "title": "Sem rolagem horizontal de 320 a 1920",
+      "status": "FAIL",
+      "severity": "P2",
+      "critical": false,
+      "detail": "ministerios-publicos@320 (387>320); ministerios-publicos@360 (387>360)",
+      "evidence": "qa-v3/evidence/antes-home-320.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-V13",
+      "group": "UX-V",
+      "title": "Alvos de toque com 44 px",
+      "status": "FAIL",
+      "severity": "P2",
+      "critical": false,
+      "detail": "Controles abaixo de 44 px: login-390 “Mostrar senha” 32px; login-1440 “Mostrar senha” 32px; painel-390 “Mostrar senha” 32px; painel-1440 “Mostrar senha” 32px; membros-390 “Mostrar senha” 32px; membros-1440 “Mostrar senha” 32px.",
+      "evidence": "qa-v3/evidence/antes-home-390.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-V14",
+      "group": "UX-V",
+      "title": "Contraste de texto comum ≥ 4,5:1",
+      "status": "FAIL",
+      "severity": "P1",
+      "critical": false,
+      "detail": "Pior contraste fora de fotos: home 1.48:1 (#E3DFD0 sobre #CFB58D) em “IMAGEM ILUSTRATIVA”.",
+      "evidence": "qa-v3/evidence/antes-home-1440.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-V15",
+      "group": "UX-V",
+      "title": "Zoom 200% sem cortar o conteúdo",
+      "status": "PASS",
+      "severity": null,
+      "critical": false,
+      "detail": "Zoom 200% em Início (1440) e no painel (390) não criou rolagem horizontal.",
+      "evidence": "qa-v3/evidence/depois-zoom-home.jpg",
+      "steps": ""
+    },
+    {
+      "id": "UX-V16",
+      "group": "UX-V",
+      "title": "Menu móvel abre e Escape fecha",
+      "status": "PASS",
+      "severity": null,
+      "critical": false,
+      "detail": "Menu móvel aberto=1; depois do Escape aberto=0.",
+      "evidence": "qa-v3/evidence/depois-menu-390.jpg",
+      "steps": "Na home a 390 px, abrir o menu e pressionar Escape."
+    },
+    {
+      "id": "UX-V17",
+      "group": "UX-V",
+      "title": "Sem botão de WhatsApp, e-mail externo ou Pix",
+      "status": "PASS",
+      "severity": null,
+      "critical": true,
+      "detail": "Não há botão de WhatsApp, e-mail externo ou Pix. POST /channels/outbox sem sessão respondeu 401.",
+      "evidence": "",
+      "steps": ""
+    },
+    {
+      "id": "UX-V18",
+      "group": "UX-V",
+      "title": "404 ou 501 visível não conta como sucesso",
+      "status": "BLOCKED",
+      "severity": null,
+      "critical": true,
+      "detail": "O gate visível não mostra 404, 501 nem BLOCKED. O shell autenticado, onde esses rótulos podem existir, não foi aberto.",
+      "evidence": "qa-v3/evidence/antes-painel-1440.jpg",
+      "steps": "Abrir /app/ sem sessão e ler o texto visível."
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "http": 200,
+      "gate": false,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/a-igreja/",
+      "http": 200,
+      "gate": false,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/eventos/",
+      "http": 200,
+      "gate": false,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/login/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/membros/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/secretaria/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/membros/carteirinha/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/ministerios/",
+      "http": 200,
+      "gate": false,
+      "people": false,
+      "jargon": [
+        "demo"
+      ],
+      "leaks": []
+    },
+    {
+      "path": "/ministerios/homens/",
+      "http": 200,
+      "gate": false,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/ministerios/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/tesouraria/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/servir/meu-espaco/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/editorial/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    },
+    {
+      "path": "/app/operacao/",
+      "http": 200,
+      "gate": true,
+      "people": false,
+      "jargon": [],
+      "leaks": []
+    }
+  ],
+  "overflow": [
+    {
+      "id": "ministerios-publicos",
+      "width": 320,
+      "scrollWidth": 387,
+      "clientWidth": 320
+    },
+    {
+      "id": "ministerios-publicos",
+      "width": 360,
+      "scrollWidth": 387,
+      "clientWidth": 360
+    }
+  ],
+  "logins": [
+    {
+      "id": "ADMIN",
+      "email": "platform.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "SECRETARIA",
+      "email": "ana.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "PASTOR",
+      "email": "pastor.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "TESOURARIA",
+      "email": "tesouraria.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "LIDER",
+      "email": "lider.jovens.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "MEMBRO",
+      "email": "bruno.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "EDITOR",
+      "email": "editor.demo@example.test",
+      "seeded": true,
+      "status": 401,
+      "roles": []
+    },
+    {
+      "id": "PUBLICADOR",
+      "email": "publicador.demo@example.test",
+      "seeded": false,
+      "status": 401,
+      "roles": []
+    }
+  ]
+}
