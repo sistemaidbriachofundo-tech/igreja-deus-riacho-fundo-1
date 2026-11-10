@@ -1,8 +1,8 @@
-# Fundação visual (W0/A4)
+# Fundação visual (frente H)
 
-Contrato visual para o portal e os painéis internos da Igreja de Deus no Riacho Fundo I. Os componentes vivem em `apps/web/src/components/ui` e usam variáveis `--ds-*`. Eles não alteram `globals.css`, o `AppShell`, o login, a home nem os workspaces das outras frentes.
+Contrato visual do painel interno da Igreja de Deus no Riacho Fundo I. Os componentes vivem em `apps/web/src/components/ui`. Os tokens semânticos também estão no bloco `Frente H` de `apps/web/src/app/globals.css`.
 
-Lagoinha e Sara Nossa Terra entram só como princípio: acolhimento, hierarquia clara e um convite por região. A paleta, o símbolo e os textos continuam os desta igreja.
+O guia para as outras frentes e para o integrador está em `TOKENS.md`.
 
 ## Ver a vitrine
 
@@ -12,7 +12,7 @@ A rota `/design-system/` não entra no menu público. Em desenvolvimento local:
 NEXT_PUBLIC_BASE_PATH= npm run dev -w @idbrf/web
 ```
 
-Abra `http://localhost:3000/design-system/`. Os nomes da página são fictícios (`@example.test`) e a lista existe só no navegador. Não há API, sessão nem gravação.
+Abra `http://localhost:3000/design-system/`. Os nomes da página são fictícios (`@example.test`) e a lista existe só no navegador.
 
 ## Grade
 
@@ -22,7 +22,7 @@ Abra `http://localhost:3000/design-system/`. Os nomes da página são fictícios
 | a partir de 768 px | 8 |
 | a partir de 1440 px | 12 |
 
-O miolo tem no máximo `75rem`. Alvo de toque: `2.75rem` (44 px).
+O miolo tem no máximo `75rem`. Alvo de toque: `2.75rem` (44 px). A vitrine foi pensada para 320, 360, 390, 768, 1024, 1440 e 1920, inclusive com zoom de 200%.
 
 ## Cor
 
@@ -30,57 +30,44 @@ Texto normal precisa de contraste 4,5. Borda e foco precisam de 3. A vitrine rec
 
 - Creme `#F7EDE0` é o fundo. Marrom `#4A2612` é o texto e o foco nesse fundo.
 - Ouro `#D4AF37` é preenchimento de ação, com texto marrom. Ouro sobre creme fica abaixo de 3 e não deve virar texto.
-- Bronze e terracota são acento gráfico, não texto pequeno.
+- Texto secundário usável: `#6E4A36`. Bronze usável em texto pequeno: `#7A4A16`.
 - Perigo usável: `#8C2F22` com texto creme. Sucesso: `#0E5A38` com texto creme.
+- A aparência escura existe só na vitrine (`data-appearance="dark"`). O portal público não muda.
 
 ## Tipografia
 
-Montserrat para títulos, indicadores e botões. Inter para leitura, campos e tabelas. Corpo de 16 px e entrelinha 1,6.
+Montserrat para títulos, indicadores e botões. Inter para leitura, campos e tabelas. Corpo de 16 px e entrelinha 1,6. O cabeçalho do painel é compacto: não há faixa hero na área administrativa.
 
 ## Componentes
 
 ```tsx
 import {
+  Alert,
+  Avatar,
+  Breadcrumb,
   Button,
-  Input,
-  Select,
-  Card,
-  Table,
-  Loading,
-  ErrorState,
-  Modal,
-  DashboardPage,
-  KpiGrid,
-  KpiCard,
-  FilterBar,
-  StatusBadge,
+  DataTable,
+  Drawer,
   EmptyState,
+  Input,
+  Modal,
+  PageHeader,
+  PasswordField,
+  Skeleton,
+  StatCard,
+  Tabs,
+  Tooltip,
 } from "../../components/ui";
 ```
 
-`ErrorState` é o componente de erro. O nome evita o construtor global `Error`.
+`Modal` e `Drawer` fecham com Escape e com o botão Fechar, prendem o Tab e devolvem o foco. `PasswordField` é o substituto do controle de senha de 32 px.
 
-`Modal` fecha com Escape e com o botão Fechar, prende o Tab e devolve o foco a quem o abriu. O fundo da vitrine fica `inert` enquanto o diálogo está aberto.
+## Dependência
 
-No painel de exemplo, a tabela vira lista abaixo de 768 px para a página não rolar na horizontal. Indicadores: uma coluna no celular, duas a partir de 768 e quatro a partir de 1440.
-
-## Acessibilidade
-
-- Um `h1` na vitrine.
-- Todo campo tem `label`, e o erro usa `aria-invalid` mais `role="alert"`.
-- Carregamento usa `role="status"`.
-- Foco visível de 3 px: marrom no creme, ouro na faixa marrom.
-- Animação respeita `prefers-reduced-motion`.
-- Botão primário tem borda marrom porque o ouro sozinho não se separa do creme.
-
-## Dependência e bloqueio
-
-Esta fundação não depende de contrato de API, RBAC ou migração. Dá para usar os componentes assim que o PR entrar na `main`.
-
-Aplicar a fundação em `AppShell`, `LoginScreen`, `HmlPhaseOne`, `MinistryWorkspace`, home e configurações compartilhadas fica bloqueado de propósito: esses arquivos pertencem a outras frentes. Este PR não os altera.
+Esta fundação não depende de contrato de API, RBAC ou migração. Aplicar o kit em `AppShell`, login, `HmlPhaseOne`, ministérios, tesouraria e eventos fica com cada frente. Este conjunto não altera esses arquivos.
 
 ## Teste
 
 ```bash
-npm run test -w @idbrf/web -- src/components/ui/ui.test.tsx
+npm run test -w @idbrf/web -- src/components/ui/ui.test.tsx src/components/ui/kit.test.tsx
 ```

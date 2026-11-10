@@ -18,6 +18,8 @@ import {
   type ParticipationView,
 } from "../../lib/event-management";
 import { withBasePath } from "../../lib/paths";
+import { eventStatusLabel } from "./calendar";
+import { EventAgenda } from "./EventAgenda";
 import s from "./event-management.module.css";
 
 type Phase = "disabled" | "signed-out" | "loading" | "forbidden" | "error" | "ready";
@@ -116,7 +118,7 @@ export function EventManagementJourney() {
         locationText: creating.locationText.trim() || null,
       });
       setCreating(EMPTY);
-      setNotice("Rascunho gravado na API.");
+      setNotice("Rascunho gravado. A agenda pública continua sem este encontro.");
       await reloadEvents();
     });
   }
@@ -134,7 +136,7 @@ export function EventManagementJourney() {
         locationText: editing.locationText.trim() || null,
         ...(startsAt ? { startsAt } : {}),
       });
-      setNotice("Rascunho atualizado na API.");
+      setNotice("Rascunho atualizado.");
       await reloadEvents();
     });
   }
@@ -143,7 +145,7 @@ export function EventManagementJourney() {
     if (!selected || selected.status !== "DRAFT" || blockReason) return;
     void run(async () => {
       await apiPost(`/events/${encodeURIComponent(selected.id)}/publish`, token, {});
-      setNotice("Evento publicado pela API. A agenda pública só mostra o que ela devolver como publicado.");
+      setNotice("Evento publicado. A agenda pública mostra somente o que estiver publicado.");
       await reloadEvents();
     });
   }
@@ -187,7 +189,7 @@ export function EventManagementJourney() {
         });
         modalityId = textId(created.id);
       }
-      if (!modalityId) throw new Error("A API não devolveu a modalidade.");
+      if (!modalityId) throw new Error("Não foi possível preparar a inscrição.");
       const response = await apiPost<Record<string, unknown>>(`/events/${encodeURIComponent(selected.id)}/registrations`, token, {
         displayName: participant.trim(),
         modalityId,
@@ -211,7 +213,7 @@ export function EventManagementJourney() {
     void run(async () => {
       await apiPost(`/registrations/${encodeURIComponent(row.id)}/check-in`, token, { checkInCode: checkCode.trim() });
       setCheckCode("");
-      setNotice("Presença registrada uma vez na API.");
+      setNotice("Presença registrada.");
       if (selected) await reloadRegistrations(selected.id);
     });
   }
@@ -227,9 +229,9 @@ export function EventManagementJourney() {
         to,
       }), token);
       const parsed = readParticipation(body);
-      if (!parsed) throw new Error("A API não devolveu contagens de participação.");
+      if (!parsed) throw new Error("O relatório não trouxe contagens. Nada foi completado nesta tela.");
       setReport(parsed);
-      setNotice("Relatório lido da API, sem completar lacunas.");
+      setNotice("Contagens atualizadas.");
     });
   }
 
@@ -252,7 +254,7 @@ export function EventManagementJourney() {
       anchor.download = format === "csv" ? "participacao.csv" : "participacao.pdf";
       anchor.click();
       URL.revokeObjectURL(url);
-      setNotice(format === "csv" ? "CSV gerado pela API." : "PDF gerado pela API.");
+      setNotice(format === "csv" ? "Planilha baixada." : "PDF baixado.");
     } catch (error) {
       setNotice(dasError(error));
     } finally {
@@ -344,9 +346,9 @@ export function EventManagementView(props: {
   return <main className={s.page}>
     <header className={s.header}>
       <div>
-        <div className={s.kicker}>FRENTE E · EVENTOS</div>
-        <h1>Evento, presença e participação</h1>
-        <p>Rascunho, revisão, publicação e presença usam a API já existente. Menores não aparecem nesta tela.</p>
+        <div className={s.kicker}>HOMOLOGAÇÃO</div>
+        <h1>Agenda, presença e participação</h1>
+        <p>Rascunho, revisão, publicação e presença ficam gravados neste ambiente. Menores não aparecem nesta tela.</p>
       </div>
       <a className={s.link} href={withBasePath("/app/relatorios/")}>Relatórios de gestão</a>
     </header>
@@ -354,11 +356,15 @@ export function EventManagementView(props: {
     {props.phase === "signed-out" && <p className={s.notice} role="status">Entre na área administrativa para operar eventos reais.</p>}
     {props.phase === "loading" && <p className={s.notice} role="status">Consultando eventos autorizados…</p>}
     {props.phase === "forbidden" && <p className={s.blocked} role="alert">{props.notice || "Seu perfil não tem autorização para eventos."}</p>}
-    {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "A API de eventos não respondeu. Nada foi completado localmente."}</p>}
+    {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Nada foi completado nesta tela."}</p>}
     {props.notice && props.phase === "ready" && <p className={s.notice} role="status">{props.notice}</p>}
     {props.phase === "ready" && <>
+      <section className={s.panel}>
+        <h2>Agenda</h2>
+        <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
+      </section>
       <form className={s.panel} onSubmit={props.onCreate}>
-        <h2>1. Criar rascunho</h2>
+        <h2>Novo rascunho</h2>
         <div className={s.grid}>
           <label>Nome<input value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
           <label>Identificador<input value={props.creating.slug} onChange={(event) => props.onCreating({ ...props.creating, slug: event.target.value })} required pattern="[a-z0-9-]{3,80}"/></label>
@@ -368,22 +374,9 @@ export function EventManagementView(props: {
         </div>
         <button type="submit" disabled={props.busy}>Gravar rascunho</button>
       </form>
-      <section className={s.panel}>
-        <h2>2. Escolher evento</h2>
-        {props.events.length === 0 && <p>Nenhum evento devolvido pela API.</p>}
-        <div className={s.cards}>
-          {props.events.map((event) => <article className={s.card} key={event.id}>
-            <strong>{event.name || "Evento"}</strong>
-            <small>{event.status} · {event.startsAt || "sem data"}</small>
-            <button type="button" className={s.secondary} onClick={() => props.onChoose(event.id)} aria-pressed={props.selected?.id === event.id}>
-              {props.selected?.id === event.id ? "Selecionado" : "Operar este evento"}
-            </button>
-          </article>)}
-        </div>
-      </section>
       {props.selected && <section className={s.panel}>
-        <h2>3. Revisar e publicar</h2>
-        <p className={s.lede}>{props.selected.name} · {props.selected.status}</p>
+        <h2>Revisar e publicar</h2>
+        <p className={s.lede}>{props.selected.name} · {eventStatusLabel(props.selected.status)}</p>
         {props.selected.status === "DRAFT" && <form className={s.grid} onSubmit={props.onSave}>
           <label>Nome<input value={props.editing.name} onChange={(event) => props.onEditing({ ...props.editing, name: event.target.value })} required/></label>
           <label>Identificador<input value={props.editing.slug} onChange={(event) => props.onEditing({ ...props.editing, slug: event.target.value })} required pattern="[a-z0-9-]{3,80}"/></label>
@@ -398,7 +391,7 @@ export function EventManagementView(props: {
         </button>
       </section>}
       {published && props.selected && <section className={s.panel}>
-        <h2>4. Inscritos e presença sintética</h2>
+        <h2>Inscrições e presença</h2>
         <form className={s.grid} onSubmit={props.onRegister}>
           <label>Rótulo fictício<input value={props.participant} onChange={(event) => props.onParticipant(event.target.value)} required/></label>
           <label>Pessoas na inscrição<input type="number" min={1} max={20} value={props.partySize} onChange={(event) => props.onPartySize(Number(event.target.value))}/></label>
@@ -408,14 +401,14 @@ export function EventManagementView(props: {
         <div className={s.cards}>
           {props.registrations.map((row) => <article className={s.card} key={row.id}>
             <strong>{registrationLabel(row)}</strong>
-            <small>{row.status} · {row.partySize} {row.partySize === 1 ? "pessoa" : "pessoas"}</small>
+            <small>{eventStatusLabel(row.status)} · {row.partySize} {row.partySize === 1 ? "pessoa" : "pessoas"}</small>
             {canRecordPresence(row) && <label>Código de presença<input value={props.checkCode} onChange={(event) => props.onCheckCode(event.target.value)} autoComplete="off"/></label>}
             {canRecordPresence(row) && <button type="button" disabled={props.busy} onClick={() => props.onPresence(row)}>Registrar presença</button>}
           </article>)}
         </div>
       </section>}
       {props.selected && <form className={s.panel} onSubmit={props.onReport}>
-        <h2>5. Filtrar e exportar participação</h2>
+        <h2>Filtrar e exportar participação</h2>
         <div className={s.grid}>
           <label>Situação<select value={props.statusFilter} onChange={(event) => props.onStatus(event.target.value)}>
             <option value="">Todas</option>
@@ -432,7 +425,7 @@ export function EventManagementView(props: {
           <button type="button" className={s.secondary} disabled={props.busy || !props.report} onClick={() => props.onDownload("csv")}>Exportar CSV</button>
           <button type="button" className={s.secondary} disabled={props.busy || !props.report} onClick={() => props.onDownload("pdf")}>Exportar PDF</button>
         </div>
-        {props.report && <div className={s.counts} aria-label="Contagens da API">
+        {props.report && <div className={s.counts} aria-label="Contagens de participação">
           <div><strong>{props.report.counts.registrations}</strong><span>Inscrições</span></div>
           <div><strong>{props.report.counts.checkedIn}</strong><span>Presenças</span></div>
           <div><strong>{props.report.counts.participants}</strong><span>Participantes</span></div>
@@ -441,7 +434,7 @@ export function EventManagementView(props: {
         {props.report && <div className={s.cards}>
           {props.report.rows.map((row) => <article className={s.card} key={row.registrationId}>
             <strong>{row.labelRedacted ? "Rótulo omitido" : row.syntheticLabel || "Sem rótulo"}</strong>
-            <small>{row.status} · {row.partySize}</small>
+            <small>{eventStatusLabel(row.status)} · {row.partySize}</small>
           </article>)}
           {props.report.counts.minorsOmitted > 0 && <p>Há {props.report.counts.minorsOmitted} inscrição(ões) de menor fora desta lista.</p>}
         </div>}

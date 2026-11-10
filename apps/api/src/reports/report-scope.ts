@@ -77,6 +77,58 @@ function assertRole(
   }
 }
 
+const MINISTRY_COST_ROLES = [
+  "TESOURARIA",
+  "SECRETARIA",
+  "PASTOR",
+  "PLATFORM_ADMIN",
+  "LIDER_MINISTERIO",
+] as const;
+
+const CHURCH_COST_ROLES = [
+  "TESOURARIA",
+  "SECRETARIA",
+  "PASTOR",
+  "PLATFORM_ADMIN",
+] as const;
+
+export function assertMinistryCostAccess(
+  actor: AuthUser,
+  pilot: PilotScope,
+): void {
+  assertRole(
+    actor,
+    pilot,
+    MINISTRY_COST_ROLES,
+    "Sem permissão para o custo ministerial",
+  );
+}
+
+/**
+ * `null` = tesouraria, secretaria, pastor ou admin veem a congregação.
+ * Lista = somente os ministryId do líder. Lista vazia não abre o caixa da igreja.
+ */
+export function ministryCostScope(
+  actor: AuthUser,
+  pilot: PilotScope,
+): string[] | null {
+  const churchWide = actor.grants.some(
+    (grant) =>
+      (CHURCH_COST_ROLES as readonly string[]).includes(grant.roleCode) &&
+      grantCoversPilot(grant, pilot),
+  );
+  if (churchWide) return null;
+  return actor.grants
+    .filter(
+      (grant) =>
+        grant.roleCode === "LIDER_MINISTERIO" &&
+        grantCoversPilot(grant, pilot) &&
+        typeof grant.ministryId === "string" &&
+        grant.ministryId.length > 0,
+    )
+    .map((grant) => grant.ministryId as string);
+}
+
 function grantCoversPilot(grant: AuthGrant, pilot: PilotScope): boolean {
   if (grant.organizationId && grant.organizationId !== pilot.organizationId) {
     return false;

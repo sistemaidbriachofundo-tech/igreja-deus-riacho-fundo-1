@@ -40,18 +40,21 @@ describe("Church OS: experiência institucional", () => {
     expect(dashboard).toContain("ID Riacho 1");
     expect(dashboard).not.toContain("Só para Moças");
   });
-  it("mantém a mesma fonte de dados fictícios para as quatro telas", () => {
+  it("mantém a mesma fonte de dados fictícios para as telas locais", () => {
     const hook = read("lib/use-church-records.ts");
     expect(hook).toContain("SYNTHETIC_STORE_KEY");
     expect(hook).toContain("isMembersDataset");
-    for (const source of [dashboard,directory,admissions,cards]) {
+    for (const source of [dashboard,directory,admissions]) {
       expect(source).toContain("useChurchRecords");
       expect(source).not.toContain("apiPost(");
       expect(source).not.toContain("apiLogin(");
     }
     expect(admissions).toContain("advanceAdmission(members");
-    expect(cards).toContain("setMemberCard(members");
     expect(directory).toContain("createMember(members");
+    expect(cards).not.toContain("useChurchRecords");
+    expect(cards).not.toContain("setMemberCard(");
+    expect(cards).toContain("CredentialDesk");
+    expect(read("components/credentials/CredentialDesk.tsx")).toContain("Visualizar");
   });
   it("entrega ações reais para cada área, não botões decorativos", () => {
     expect(shell).toContain("Ctrl K");
@@ -59,7 +62,7 @@ describe("Church OS: experiência institucional", () => {
     expect(directory).toContain("downloadCsv(filtered)");
     expect(directory).toContain('view==="GRID"');
     expect(admissions).toContain("complete(activeMember)");
-    expect(cards).toContain("changeCard(selected");
+    expect(cards).toContain("<CredentialDesk");
   });
   it("oferece responsividade com navegabilidade mobile e foco", () => {
     for (const file of uiStyles) {

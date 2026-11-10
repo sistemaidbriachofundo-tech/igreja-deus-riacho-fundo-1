@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Culto">
+  <rect width="960" height="540" fill="#4A2612"/>
+  <rect x="0" y="390" width="960" height="150" fill="#F7EDE0"/>
+  <path d="M80 390 V180 H880 V390" fill="none" stroke="#D4AF37" stroke-width="8"/>
+  <path d="M180 390 V230 H780 V390" fill="none" stroke="#D4AF37" stroke-width="4"/>
+  <circle cx="480" cy="150" r="28" fill="#D4AF37"/>
+  <rect x="466" y="122" width="8" height="56" fill="#F7EDE0"/>
+  <rect x="452" y="140" width="56" height="8" fill="#F7EDE0"/>
+</svg>

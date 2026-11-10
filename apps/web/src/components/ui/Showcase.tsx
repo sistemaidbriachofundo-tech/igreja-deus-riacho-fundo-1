@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { withBasePath } from "../../lib/paths";
+import { AdminKitSample } from "./AdminKitSample";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { DashboardSample } from "./DashboardSample";
@@ -61,22 +62,25 @@ function formatRatio(foreground: string, background: string): string {
 
 export function DesignSystemShowcase() {
   const [retryNote, setRetryNote] = useState("");
+  const [appearance, setAppearance] = useState<"light" | "dark">("light");
+  const dark = appearance === "dark";
 
   return (
-    <div id="ds-root" className={styles.scope}>
+    <div id="ds-root" className={styles.scope} data-appearance={appearance}>
       <a className={styles.skip} href="#ds-conteudo">
         Ir para o conteúdo
       </a>
       <header className={styles.banner}>
         <div className={styles.bannerInner}>
-          <p className={styles.kicker}>Fundação visual</p>
-          <h1 className={styles.display}>Uma linguagem para o portal e os painéis.</h1>
+          <p className={styles.kicker}>ID Riacho 1</p>
+          <h1 className={styles.display}>Kit visual do painel interno.</h1>
           <p className={styles.lede}>
-            Tipografia, cor, grade e componentes novos, para que cada frente desenhe com a mesma voz.
+            Tipografia, cor, grade e componentes para as frentes desenharem com a mesma voz.
             Os cadastros desta página são fictícios e não saem do navegador.
           </p>
           <div className={styles.bannerLinks}>
             <a href={withBasePath("/")}>Portal público</a>
+            <a href="#ds-kit">Ver o kit do painel</a>
             <a href="#ds-painel">Ver o padrão de dashboard</a>
           </div>
         </div>
@@ -165,7 +169,8 @@ export function DesignSystemShowcase() {
           <div>
             <h2 id="ds-componentes">Componentes</h2>
             <p className={styles.sectionIntro}>
-              Button, Input, Card, Table, Loading, Error e Modal. A tabela e o diálogo completos estão no painel abaixo.
+              Button, Input, Card, Table, Loading, Error e Modal. O kit do painel, logo abaixo, acrescenta cabeçalho,
+              indicador, tabela, avatar, trilha, aviso, esqueleto, vazio, diálogo lateral, dica e abas.
             </p>
           </div>
           <div className={styles.componentStack}>
@@ -211,6 +216,22 @@ export function DesignSystemShowcase() {
               {retryNote ? <p role="status">{retryNote}</p> : null}
             </Card>
           </div>
+        </section>
+
+        <section className={styles.section} id="ds-kit" aria-labelledby="ds-kit-titulo">
+          <div className={styles.pageHeader}>
+            <div>
+              <h2 id="ds-kit-titulo">Kit do painel</h2>
+              <p className={styles.sectionIntro}>
+                Peças para as telas internas. Sem faixa hero, com alvo de 44 pixels, foco visível e texto acima de 4,5
+                de contraste. A aparência escura vale só nesta vitrine.
+              </p>
+            </div>
+            <Button variant="secondary" aria-pressed={dark} onClick={() => setAppearance(dark ? "light" : "dark")}>
+              {dark ? "Aparência clara" : "Aparência escura"}
+            </Button>
+          </div>
+          <AdminKitSample />
         </section>
 
         <section className={styles.section} aria-labelledby="ds-painel">

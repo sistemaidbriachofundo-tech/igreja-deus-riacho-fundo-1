@@ -43,18 +43,62 @@ const PORTAL_LINKS = [
   { href: "/eventos/", label: "Agenda oficial" },
 ] as const;
 
+const MARK_PATH = "/images/logo-igreja-aprovada.webp";
+
+const PUBLIC_SCOPE = [
+  /\b(cpf|rg\b|passaporte)\b/i,
+  /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/,
+  /\b(prontu[aá]rio|caso pastoral|aconselhamento pastoral|disciplina eclesi[aá]stica)\b/i,
+  /\b(lista de membros|dados do membro|telefone do membro|e-?mail do membro|endere[cç]o do membro)\b/i,
+  /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i,
+  /(?:\+?\d{2}\s?)?\(?\d{2}\)?\s?9\d{4}-?\d{4}/,
+  /\b(ignore (as |todas as )?(instru[cç][oõ]es|regras)|system prompt|jailbreak|modo desenvolvedor)\b/i,
+];
+
+const EDITORIAL_SCOPE = PUBLIC_SCOPE.filter((_, index) => index !== 4 && index !== 5);
+
+/**
+ * Recusa no navegador, antes de qualquer rede, pedidos com dado pessoal,
+ * contato ou tentativa de mudar as regras. O servidor continua sendo o limite real.
+ */
+/** The public transcript stays plain text. Editorial replies keep Título/Alt markers. */
+export function formatPublicReply(text: string): string {
+  return text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/__(.+?)__/g, "$1");
+}
+
+export function assistantScopeRefusal(text: string, audience: "public" | "editorial" = "public"): string | null {
+  const value = text.trim();
+  if (!value) return null;
+  const patterns = audience === "public" ? PUBLIC_SCOPE : EDITORIAL_SCOPE;
+  if (!patterns.some((pattern) => pattern.test(value))) return null;
+  return audience === "public"
+    ? "Não enviei esta mensagem. O Riachinho não lê dados de membros, contatos, documentos ou assuntos pastorais. Apague esses dados e pergunte só sobre a igreja no portal."
+    : "Não enviei este pedido. O assistente editorial não lê dados de membros, documentos ou assuntos pastorais. Retire esses dados do texto.";
+}
+
+function Mark({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className={className} src={withBasePath(MARK_PATH)} alt="" width={46} height={46} />
+  );
+}
+
 /** Optional visitor assistant; only rendered when explicitly enabled for the HML build. */
 export function RiachinhoPublicChat() {
   const enabled = riachinhoPublicEnabled();
   const panelId = useId();
   const chatId = useId();
+  const statusId = useId();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const openedOnceRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef("");
   const serial = useRef(0);
   const [open, setOpen] = useState(false);
+  const [coversPage, setCoversPage] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [status, setStatus] = useState<ViviStatusResponse | null>(null);
   const [offline, setOffline] = useState(false);
@@ -63,6 +107,19 @@ export function RiachinhoPublicChat() {
   const [error, setError] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [lastNotice, setLastNotice] = useState("");
+
+  useEffect(() => {
+    const narrow = window.matchMedia("(max-width: 640px)");
+    const short = window.matchMedia("(max-height: 520px)");
+    const apply = () => setCoversPage(narrow.matches || short.matches);
+    apply();
+    narrow.addEventListener("change", apply);
+    short.addEventListener("change", apply);
+    return () => {
+      narrow.removeEventListener("change", apply);
+      short.removeEventListener("change", apply);
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled || !open) return;
@@ -98,14 +155,23 @@ export function RiachinhoPublicChat() {
     return () => controller.abort();
   }, [enabled, open]);
 
+  const realProvider = riachinhoProviderReady(status) && !offline;
+
   useEffect(() => {
-    if (open) {
-      openedOnceRef.current = true;
-      inputRef.current?.focus();
-    } else if (openedOnceRef.current) {
-      launcherRef.current?.focus();
+    if (!open) {
+      if (openedOnceRef.current) launcherRef.current?.focus();
+      return;
     }
-  }, [open]);
+    openedOnceRef.current = true;
+    const frame = window.requestAnimationFrame(() => {
+      const field = inputRef.current;
+      const active = document.activeElement;
+      const idle = active === launcherRef.current || active === closeRef.current || active === document.body || active === panelRef.current;
+      if (field && !field.disabled && idle) field.focus();
+      else if (!field || field.disabled) closeRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, realProvider]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,14 +188,23 @@ export function RiachinhoPublicChat() {
 
   if (!enabled) return null;
 
-  const realProvider = riachinhoProviderReady(status) && !offline;
   const hasPublishedKnowledge = (status as OptionalKnowledgeStatus | null)?.knowledge?.mode === "structured-cms";
   const canSend = realProvider && !sending && !loadingStatus && !!question.trim();
+  const availability = loadingStatus
+    ? "consultando"
+    : offline || !realProvider
+      ? "indisponivel"
+      : "disponivel";
 
   async function submit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (!canSend) return;
     const text = question.trim();
+    const blocked = assistantScopeRefusal(text);
+    if (blocked) {
+      setError(blocked);
+      return;
+    }
     setSending(true);
     setError("");
     try {
@@ -180,21 +255,50 @@ export function RiachinhoPublicChat() {
     }
   }
 
+  function keepFocusInside(event: KeyboardEvent<HTMLElement>) {
+    if (!coversPage || event.key !== "Tab" || !panelRef.current) return;
+    const focusable = [...panelRef.current.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled]), summary",
+    )];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
+
   return (
     <div className={s.widget} data-riachinho-public="true">
       {open && (
-        <section id={panelId} className={s.panel} role="dialog" aria-modal="false" aria-labelledby={chatId}>
+        <section
+          id={panelId}
+          ref={panelRef}
+          className={s.panel}
+          role="dialog"
+          aria-modal={coversPage}
+          aria-labelledby={chatId}
+          aria-describedby={statusId}
+          data-riachinho-state={availability}
+          onKeyDown={keepFocusInside}
+        >
           <header className={s.header}>
-            <span className={s.avatar} aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2h7A3.5 3.5 0 0 1 19 5.5v8A3.5 3.5 0 0 1 15.5 17H11l-5 4v-4.8A3.5 3.5 0 0 1 5 13.5z"/><path d="M9 9h6M9 12h4"/></svg></span>
+            <span className={s.avatar} aria-hidden="true"><Mark /></span>
             <div className={s.headerCopy}>
               <h2 id={chatId}>Riachinho</h2>
               <p>Informações públicas da igreja</p>
             </div>
-            <button type="button" className={s.close} onClick={() => setOpen(false)} aria-label="Fechar conversa com o Riachinho">×</button>
+            <button ref={closeRef} type="button" className={s.close} onClick={() => setOpen(false)} aria-label="Fechar conversa com o Riachinho">
+              <span aria-hidden="true">×</span>
+            </button>
           </header>
 
           <div className={s.status}>
-            <span aria-live="polite">
+            <span id={statusId} aria-live="polite">
               {loadingStatus ? "Conectando ao Riachinho…" :
                 offline ? "Assistente temporariamente indisponível" :
                 realProvider ? "Assistente disponível para perguntas públicas" :
@@ -215,7 +319,7 @@ export function RiachinhoPublicChat() {
             {messages.map((message) => (
               <div className={message.role === "user" ? s.question : s.answer} key={message.id}>
                 <span className={s.author}>{message.role === "user" ? "Você" : "Riachinho"}</span>
-                <p>{message.content}</p>
+                <p>{message.role === "assistant" ? formatPublicReply(message.content) : message.content}</p>
                 {message.role === "assistant" && message.knowledgeMiss && (
                   <p className={s.missingOfficialData} role="status">
                     Não encontramos uma informação oficial publicada para esta pergunta. Confira a programação e os canais da igreja.
@@ -243,7 +347,12 @@ export function RiachinhoPublicChat() {
           {messages.length === 0 && (
             <div className={s.quick} aria-label="Perguntas sugeridas">
               {OPTIONS.map((option) => (
-                <button type="button" key={option} onClick={() => { setQuestion(option); inputRef.current?.focus(); }}>
+                <button
+                  type="button"
+                  key={option}
+                  disabled={!realProvider || sending}
+                  onClick={() => { setQuestion(option); inputRef.current?.focus(); }}
+                >
                   {option}
                 </button>
               ))}
@@ -251,8 +360,8 @@ export function RiachinhoPublicChat() {
           )}
 
           {error && <p className={s.error} role="alert">{error}</p>}
-          {!offline && status?.provider === "mock" && (
-            <p className={s.warning}>Este ambiente está em simulação. Nenhuma resposta fictícia será apresentada como IA real.</p>
+          {!loadingStatus && !offline && status && !realProvider && (
+            <p className={s.warning}>O Riachinho não está disponível neste ambiente. Nenhuma resposta será inventada.</p>
           )}
           {offline && <p className={s.warning}>Você ainda pode explorar o site e encontrar os canais oficiais de contato normalmente.</p>}
 
@@ -264,8 +373,8 @@ export function RiachinhoPublicChat() {
           <form className={s.form} onSubmit={(event) => void submit(event)}>
             <label className={s.promptLabel} htmlFor={panelId + "-question"}>Sua pergunta</label>
             <textarea id={panelId + "-question"} ref={inputRef} value={question} rows={2}
-              maxLength={1800} disabled={sending} onKeyDown={onKeyDown}
-              placeholder="O que você gostaria de saber sobre a igreja?"
+              maxLength={1800} disabled={!realProvider || sending} onKeyDown={onKeyDown}
+              placeholder={realProvider ? "O que você gostaria de saber sobre a igreja?" : "O assistente não está disponível neste ambiente"}
               onChange={(event) => setQuestion(event.target.value)} />
             <div className={s.actions}>
               <span>{question.length}/1800</span>
@@ -276,14 +385,14 @@ export function RiachinhoPublicChat() {
           <details className={s.privacy}>
             <summary>Privacidade e uso responsável</summary>
             <p>{lastNotice || "As perguntas podem ser processadas por um provedor de inteligência artificial. Não compartilhe dados pessoais nem informações confidenciais."}</p>
-            <p>Respostas podem conter erros. Confirme horários e programação nos canais oficiais da igreja.</p>
+            <p>O Riachinho não consulta fichas, contatos ou conversas internas. Respostas podem conter erros. Confirme horários e programação nos canais oficiais da igreja.</p>
           </details>
         </section>
       )}
       <button ref={launcherRef} type="button" className={s.launcher} aria-expanded={open} aria-controls={open ? panelId : undefined}
         title={open ? "Fechar conversa" : "Conversar com o Riachinho"} aria-label={open ? "Fechar conversa com o Riachinho" : "Conversar com o Riachinho"}
         onClick={() => setOpen((current) => !current)}>
-        <span className={s.launchIcon} aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 5.5A3.5 3.5 0 0 1 8.5 2h7A3.5 3.5 0 0 1 19 5.5v8A3.5 3.5 0 0 1 15.5 17H11l-5 4v-4.8A3.5 3.5 0 0 1 5 13.5z"/><path d="M9 9h6M9 12h4"/></svg></span>
+        <span className={s.launchIcon} aria-hidden="true"><Mark /></span>
         <span className={s.launchLabel}>{open ? "Fechar" : "Riachinho"}</span>
       </button>
     </div>

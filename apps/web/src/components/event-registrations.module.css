@@ -3,7 +3,7 @@
 .heading small{color:#99703c;font-size:10px;letter-spacing:.1em;font-weight:800}
 .heading h2{font:800 23px/1.25 Montserrat,Inter,sans-serif;letter-spacing:-.035em;margin:7px 0}
 .heading p{margin:0;max-width:700px;line-height:1.65;font-size:13px;color:#79614e}
-.mock{flex-shrink:0;background:#f3e9d9;color:#765025;border:1px solid #e2caab;padding:10px 14px;border-radius:999px;font-size:11px;font-weight:750}
+.note{flex-shrink:0;background:#f6f1e4;color:#6d5430;border:1px solid #e4d3b4;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:750;min-height:44px;display:inline-flex;align-items:center}
 .eventSelect{display:grid;gap:8px;font-size:12px;font-weight:750;color:#63432b;max-width:550px}
 .eventSelect select{width:100%;border:1px solid #dac5a9;background:#fffefa;border-radius:10px;color:#51311d;padding:12px 13px;font:inherit;font-weight:500}
 .summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}

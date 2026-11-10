@@ -25,11 +25,62 @@ export const dsColor = {
 export const dsType = {
   title: '"Montserrat", system-ui, sans-serif',
   body: '"Inter", system-ui, sans-serif',
-  display: "clamp(1.85rem, 1.2rem + 2.2vw, 2.85rem)",
+  display: "clamp(1.45rem, 1.05rem + 1.2vw, 2rem)",
   h2: "clamp(1.35rem, 1.1rem + 1vw, 1.75rem)",
   bodySize: "1rem",
   small: "0.875rem",
   lineBody: 1.6,
+} as const;
+
+/** Superfície, borda, raio, espaço e foco. Mesmos nomes publicados em globals.css. */
+export const dsSurface = {
+  canvas: dsColor.cream,
+  raised: dsColor.raised,
+  inverse: dsColor.brown,
+  darkCanvas: "#24160F",
+  darkRaised: "#3A261C",
+} as const;
+
+export const dsEdge = {
+  default: dsColor.line,
+  strong: dsColor.brown,
+  dark: "#C4A484",
+} as const;
+
+export const dsRadius = {
+  sm: "0.5rem",
+  md: "0.75rem",
+  lg: "1rem",
+  pill: "999px",
+} as const;
+
+export const dsSpace = {
+  1: "0.25rem",
+  2: "0.5rem",
+  3: "0.75rem",
+  4: "1rem",
+  5: "1.5rem",
+  6: "2rem",
+  7: "3rem",
+  8: "4rem",
+} as const;
+
+export const dsFocus = {
+  ring: dsColor.brown,
+  onInverse: dsColor.cream,
+  width: "3px",
+  offset: "3px",
+} as const;
+
+export const dsText = {
+  primary: dsColor.ink,
+  muted: dsColor.muted,
+  onInverse: dsColor.onDark,
+  onAccent: dsColor.onGold,
+  bronze: "#7A4A16",
+  /** Texto de apoio do portal. Substitui o #67797E medido no PR #120. */
+  support: "#243E42",
+  onDarkMuted: "#E7D3C0",
 } as const;
 
 /** Grade do conteúdo: 4 / 8 / 12 colunas. */
@@ -67,6 +118,25 @@ export const dsApprovedPairs: readonly ContrastPair[] = [
   { name: "Borda sobre creme", fg: dsColor.line, bg: dsColor.cream, min: 3 },
   { name: "Borda sobre superfície", fg: dsColor.line, bg: dsColor.raised, min: 3 },
 ];
+
+/** Pares da aparência escura do kit. O portal público não muda com este modo. */
+export const dsDarkPairs: readonly ContrastPair[] = [
+  { name: "Creme sobre canvas escuro", fg: dsColor.onDark, bg: dsSurface.darkCanvas, min: 4.5 },
+  { name: "Creme sobre cartão escuro", fg: dsColor.onDark, bg: dsSurface.darkRaised, min: 4.5 },
+  { name: "Texto secundário escuro", fg: dsText.onDarkMuted, bg: dsSurface.darkCanvas, min: 4.5 },
+  { name: "Secundário sobre cartão escuro", fg: dsText.onDarkMuted, bg: dsSurface.darkRaised, min: 4.5 },
+  { name: "Borda sobre canvas escuro", fg: dsEdge.dark, bg: dsSurface.darkCanvas, min: 3 },
+  { name: "Foco claro sobre canvas escuro", fg: dsFocus.onInverse, bg: dsSurface.darkCanvas, min: 3 },
+];
+
+/** Fundos medidos no PR #120 e o texto que o token global passa a garantir. */
+export const dsAuditedBackgrounds = ["#EDF1EA", "#E9ECE6", "#F7F7F3", "#F8F7F4", "#FFFDF9"] as const;
+
+export const dsAuditedText: readonly ContrastPair[] = dsAuditedBackgrounds.flatMap((bg) => [
+  { name: `Apoio sobre ${bg}`, fg: dsText.support, bg, min: 4.5 },
+  { name: `Muted sobre ${bg}`, fg: dsText.muted, bg, min: 4.5 },
+  { name: `Bronze de texto sobre ${bg}`, fg: dsText.bronze, bg, min: 4.5 },
+]);
 
 /** Combinações medidas que não passam e não devem ser usadas para texto. */
 export const dsRejectedPairs: readonly ContrastPair[] = [

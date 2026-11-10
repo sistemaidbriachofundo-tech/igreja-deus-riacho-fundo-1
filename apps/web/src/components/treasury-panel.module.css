@@ -1,32 +1,42 @@
 .panel {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
 }
 
-.header h1 {
+.header h1,
+.card h2 {
   margin: 0.35rem 0;
   font-family: var(--font-title);
-  font-size: clamp(1.45rem, 2vw, 1.85rem);
   letter-spacing: -0.03em;
+  color: var(--color-marrom);
 }
 
+.header h1 { font-size: clamp(1.45rem, 2vw, 1.85rem); }
+.card h2 { font-size: 1.05rem; }
+
 .kicker {
+  margin: 0;
   color: var(--color-bronze);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .lede,
 .note,
-.banner {
+.banner,
+.unavailable,
+.status {
   margin: 0;
   color: var(--color-ink-muted);
   font-size: 0.92rem;
   line-height: 1.6;
 }
 
-.banner {
+.banner,
+.unavailable {
   padding: 0.9rem 1rem;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-dourado) 18%, white);
@@ -34,29 +44,33 @@
   color: var(--color-marrom);
 }
 
-.metrics {
+.metrics,
+.toolbar,
+.form {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
+.metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.toolbar { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
+.form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 .metric,
-.card,
-.illustration {
+.card {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
+  min-width: 0;
 }
 
-.metric {
-  padding: 0.9rem 1rem;
-  display: grid;
-  gap: 0.35rem;
-}
+.metric,
+.card { padding: 0.95rem 1rem; }
 
-.metric span,
-.illustration span {
+.metric { display: grid; gap: 0.35rem; }
+.card { display: grid; gap: 0.8rem; }
+
+.metric span {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--color-bronze);
@@ -64,88 +78,42 @@
 
 .metric strong {
   font-family: var(--font-title);
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  color: var(--color-marrom);
 }
 
-.metric small {
+.metric small,
+.row small {
   color: var(--color-ink-muted);
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
-.illustration,
-.card {
-  padding: 1rem 1.1rem;
-  display: grid;
-  gap: 0.8rem;
-}
-
-.illustration dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
-  margin: 0;
-}
-
-.illustration div {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.illustration dt {
-  font-size: 0.75rem;
-  color: var(--color-ink-muted);
-}
-
-.illustration dd {
-  margin: 0;
-  font-family: var(--font-title);
-  font-weight: 700;
-}
-
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.tabs button,
-.card button {
-  font: inherit;
-  cursor: pointer;
-}
-
-.tabs button {
-  border: 1px solid var(--color-line);
-  background: transparent;
-  color: var(--color-marrom);
-  border-radius: 999px;
-  padding: 0.45rem 0.8rem;
-  min-height: 2.4rem;
-}
-
-.tabs button[aria-selected="true"] {
-  background: var(--color-marrom);
-  color: var(--color-on-dark);
-  border-color: var(--color-marrom);
-}
-
-.form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
+.toolbar label,
 .form label {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
   font-size: 0.78rem;
   font-weight: 700;
+  color: var(--color-marrom);
 }
 
 .form input,
-.form select {
+.form select,
+.toolbar input,
+.toolbar select,
+.tabs button,
+.card button,
+.form button {
   font: inherit;
+  min-height: 44px;
+}
+
+.form input,
+.form select,
+.toolbar input,
+.toolbar select {
   font-weight: 450;
   padding: 0.7rem 0.75rem;
   border-radius: var(--radius-sm);
@@ -155,41 +123,76 @@
   width: 100%;
 }
 
-.wide {
-  grid-column: 1 / -1;
+.tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+
+.tabs button,
+.card button,
+.form button {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
-.card button[type="submit"] {
-  justify-self: start;
-  border: 0;
-  border-radius: var(--radius-sm);
+.tabs button {
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-marrom);
+  padding: 0.45rem 0.85rem;
+}
+
+.tabs button[aria-selected="true"],
+.form button[type="submit"],
+.row button {
   background: var(--color-marrom);
   color: var(--color-on-dark);
-  padding: 0.75rem 1rem;
-  min-height: 2.75rem;
+  border: 0;
 }
 
-.card button:disabled {
+.wide { grid-column: 1 / -1; }
+
+.form button[type="submit"],
+.row button { padding: 0.75rem 1rem; justify-self: start; }
+
+.card button:disabled,
+.form button:disabled,
+.toolbar select:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.status {
-  margin: 0;
-  font-size: 0.85rem;
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-line);
+  min-width: 0;
+}
+
+.row > div { display: grid; gap: 0.2rem; min-width: 0; }
+.row strong { overflow-wrap: anywhere; }
+
+.panel a {
+  color: var(--color-marrom);
+  font-weight: 700;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.panel :focus-visible {
+  outline: 2px solid var(--color-bronze);
+  outline-offset: 3px;
 }
 
 @media (max-width: 900px) {
-  .metrics,
-  .illustration dl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbar { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
   .metrics,
-  .illustration dl,
-  .form {
-    grid-template-columns: 1fr;
-  }
+  .form { grid-template-columns: 1fr; }
+  .row { align-items: stretch; flex-direction: column; }
+  .row button { width: 100%; }
 }

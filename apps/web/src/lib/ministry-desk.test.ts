@@ -282,6 +282,29 @@ describe("catálogo formal de ministério", () => {
     ).toBe(false);
   });
 
+  it("não consulta outro ministério quando o id não está na lista autorizada", async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      if (url.endsWith("/ministries")) {
+        return json(200, { ministries: [{ id: "min-homens", name: "Homens", slug: "homens" }] });
+      }
+      return json(500, { message: "não deveria ser chamado" });
+    };
+    const desk = await loadMinistryDesk({
+      token,
+      baseUrl: base,
+      ministryId: "min-mulheres",
+      fetchImpl,
+    });
+    expect(desk.kind).toBe("denied");
+    if (desk.kind === "denied") {
+      expect(desk.status).toBe(403);
+      expect(desk.code).toBe("MINISTRY_SCOPE_FORBIDDEN");
+    }
+    expect(calls).toEqual([`${base}/ministries`]);
+  });
+
   it("descarta saldo numérico mesmo em resposta 200", () => {
     const panel = presentFinance(200, { balance: 80, code: "OK" });
     expect(panel.balance).toBeNull();

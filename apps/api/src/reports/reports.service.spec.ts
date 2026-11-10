@@ -217,7 +217,7 @@ describe("ReportsService access", () => {
     expect(audit.mock.calls[0][0].data.metadata).not.toHaveProperty("displayName");
   });
 
-  it("keeps formal ministry membership blocked and omits volunteer contact", async () => {
+  it("counts formal ministry membership and omits volunteer contact and minor names", async () => {
     const reports = service({
       ministry: {
         findMany: jest.fn().mockResolvedValue([
@@ -240,20 +240,73 @@ describe("ReportsService access", () => {
           { ministryId: "m-jovens", status: "OPEN", _count: { _all: 3 } },
         ]),
       },
+      ministryMembership: {
+        groupBy: jest
+          .fn()
+          .mockResolvedValueOnce([
+            { ministryId: "m-jovens", status: "ATIVO", _count: { _all: 4 } },
+          ])
+          .mockResolvedValueOnce([
+            { ministryId: "m-jovens", _count: { _all: 1 } },
+          ]),
+      },
       auditLog: { create: jest.fn() },
     });
     const report = await reports.ministries(user("PASTOR"));
     expect(report.formalMembership).toMatchObject({
-      blocked: true,
+      blocked: false,
       members: null,
-      code: "MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED",
+      code: "MINISTRY_MEMBERSHIP_COUNTED",
     });
     expect(report.ministries[0]).toMatchObject({
-      formalMembers: null,
+      formalMembers: { adultsByStatus: { ATIVO: 4 }, minorsOmitted: 1 },
       eventsByStatus: { PUBLISHED: 2 },
       volunteerInterestsByStatus: { OPEN: 3 },
     });
+    expect(report.eventTotalsByStatus).toEqual({ PUBLISHED: 2 });
     expect(report.unassignedEvents).toBe(1);
-    expect(JSON.stringify(report)).not.toMatch(/email|phone|@/);
+    expect(JSON.stringify(report)).not.toMatch(/email|phone|displayName|@/);
+  });
+
+  it("ministry cost is forbidden to membro and to a leader outside their ministry", async () => {
+    const ledger = jest.fn();
+    const reports = service({
+      ledgerEntry: { findMany: ledger },
+      auditLog: { create: jest.fn() },
+    });
+    await expect(reports.ministryCost(user("MEMBRO"), {})).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(
+      reports.ministryCost(user("LIDER_MINISTERIO", "m-jovens"), {
+        ministryId: "m-homens",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(ledger).not.toHaveBeenCalled();
+  });
+
+  it("does not turn an unlinked cost center into zero and keeps the csv honest", async () => {
+    const reports = service({
+      ministry: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "m-jovens", name: "Jovens", slug: "jovens" },
+        ]),
+      },
+      costCenter: { findMany: jest.fn().mockResolvedValue([{ id: "cc", code: "ADM" }]) },
+      ledgerEntry: { findMany: jest.fn().mockResolvedValue([]) },
+      auditLog: { create: jest.fn() },
+    });
+    const report = await reports.ministryCost(user("LIDER_MINISTERIO", "m-jovens"), {});
+    expect(report.rows[0]).toMatchObject({ attributed: false, expenseCents: null });
+    expect(report.series).toEqual([]);
+    const file = await reports.ministryCostFile(
+      user("TESOURARIA"),
+      {},
+      "csv",
+    );
+    const csv = file.bytes.toString("utf8");
+    expect(csv).toContain("sem_consulta");
+    expect(csv).not.toContain("jovens_despesa_centavos,0");
+    expect(csv).not.toMatch(/@/);
   });
 });

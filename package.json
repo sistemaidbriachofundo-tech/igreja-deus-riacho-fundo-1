@@ -10,7 +10,6 @@
   "scripts": {
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
     "build": "npm run build -w @idbrf/shared && npm run build -w @idbrf/db && npm run build -w @idbrf/api && npm run build -w @idbrf/web",
     "dev:api": "npm run start:dev -w @idbrf/api",
     "dev:web": "npm run dev -w @idbrf/web",
@@ -24,7 +23,9 @@
     "homolog:readiness": "node scripts/backend-readiness-smoke.mjs",
     "homolog:fase1": "node scripts/hml/fase1-e2e.mjs",
     "homolog:eklesia": "node scripts/hml/eklesia-release-gate.mjs",
-    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs"
+    "homolog:revitalizacao": "node --import tsx scripts/hml/release-inventory.mjs && node --import tsx scripts/hml/release-revitalization-gate.mjs",
+    "hml:migrate": "node --import tsx scripts/hml/release-migrate-guard.mjs",
+    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs scripts/hml/presentation/seed-hml.test.mjs"
   },
   "engines": {
     "node": ">=20"

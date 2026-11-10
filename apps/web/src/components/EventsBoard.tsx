@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { apiPatch } from "../lib/api";
 import { churchLocalToISO, dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
-import styles from "./care-boards.module.css";
+import { eventStatusLabel } from "./events-management/calendar";
+import { EventAgenda } from "./events-management/EventAgenda";
+import styles from "./events-board.module.css";
 
 type Props={rows:DasRecord[];token:string;refresh:()=>void};
 const asText=(v:unknown)=>typeof v==="string"?v.trim():"";
@@ -32,6 +34,10 @@ export function EventsBoard({rows,token,refresh}:Props){
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState("");
   const selectedRow=rows.find(row=>getId(row.id)===selected);
+  const agenda=rows.flatMap(row=>{
+    const id=getId(row.id);
+    return id?[{id,name:asText(row.name)||"Evento",status:asText(row.status)||"DRAFT",startsAt:asText(row.startsAt)}]:[];
+  });
   function begin(row:DasRecord){
     setSelected(getId(row.id));setDraft(fromRecord(row));setNotice("");
   }
@@ -44,7 +50,7 @@ export function EventsBoard({rows,token,refresh}:Props){
     const status=asText(selectedRow.status);
     if(status!=="DRAFT"){setNotice("Somente eventos em rascunho podem ser alterados nesta tela.");return;}
     if(draft.name.trim().length<3||!/^[a-z0-9-]{3,80}$/.test(draft.slug)){
-      setNotice("Nome e identificador (slug) inválidos.");return;
+      setNotice("Nome e identificador inválidos.");return;
     }
     if(draft.startsAt&&!churchLocalToISO(draft.startsAt)){setNotice("Data inicial inválida.");return;}
     if(draft.endsAt&&!churchLocalToISO(draft.endsAt)){setNotice("Data final inválida.");return;}
@@ -55,37 +61,42 @@ export function EventsBoard({rows,token,refresh}:Props){
     if(Object.keys(body).length===0){setNotice("Nenhuma alteração identificada.");return;}
     setBusy(true);setNotice("");
     try{await apiPatch("/events/"+encodeURIComponent(selected),token,body);
-      refresh();setSelected(null);setDraft(EMPTY);setNotice("Rascunho atualizado na base de homologação.");
+      refresh();setSelected(null);setDraft(EMPTY);setNotice("Rascunho atualizado.");
     }catch(e){setNotice(dasError(e));}
     finally{setBusy(false);}
   }
   return <section className={styles.board} aria-labelledby="eventos-heading">
-    <div className={styles.intro}><span>RF-020 A RF-022 · EVENTOS</span>
+    <div className={styles.intro}><span>HOMOLOGAÇÃO</span>
       <h2 id="eventos-heading">Agenda e preparação de eventos</h2>
-      <p>Rascunhos podem ser revisados na HML. Inscrições, pagamentos, hospedagem, transporte e check-in ainda dependem de contratos próprios; não serão simulados como funcionais.</p></div>
+      <p>Rascunhos podem ser revisados aqui. O que já foi publicado permanece visível e não é reescrito por esta tela.</p></div>
+    <EventAgenda events={agenda} selectedId={selected??""} onChoose={(id)=>{
+      const row=rows.find(item=>getId(item.id)===id);
+      if(row&&asText(row.status)==="DRAFT") begin(row);
+    }}/>
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <div className={styles.stack}>
-      {rows.length===0&&<p className={styles.empty}>Nenhum evento cadastrado na API.</p>}
+      {rows.length===0&&<p className={styles.empty}>Nenhum evento nesta agenda.</p>}
       {rows.map((row,i)=>{
         const status=asText(row.status),editable=status==="DRAFT",isSelected=selected===getId(row.id);
         return <article className={styles.item} key={getId(row.id)||i}>
           <div className={styles.itemHead}>
             <div><strong>{asText(row.name)||"Evento"}</strong>
-              <small>{formatChurchDate(row.startsAt)} · {status||"estado indisponível"}</small></div>
-            {editable?<button type="button" disabled={!getId(row.id)||busy}
+              <small>{formatChurchDate(row.startsAt)} · {eventStatusLabel(status)}</small></div>
+            {editable?<button type="button" className={styles.quiet} disabled={!getId(row.id)||busy}
               onClick={()=>isSelected?setSelected(null):begin(row)} aria-expanded={isSelected}>
               {isSelected?"Fechar":"Revisar rascunho"}</button>:
-              <small>Sem edição de eventos publicados ou arquivados por esta interface</small>}
+              <small className={styles.locked}>Publicado ou encerrado: esta tela não altera o encontro.</small>}
           </div>
           {isSelected&&editable&&<form className={styles.form} onSubmit={e=>void save(e)}>
-            <h3>Revisar evento (não publica)</h3>
+            <h3>Revisar evento</h3>
+            <p>Salvar mantém o rascunho. A publicação acontece na gestão de eventos, com autorização.</p>
             <label>Nome<input required value={draft.name} onChange={e=>update("name",e.target.value)} maxLength={140}/></label>
-            <label>Identificador (slug)<input required value={draft.slug} onChange={e=>update("slug",e.target.value)} maxLength={80} pattern="[a-z0-9-]+"/></label>
-            <label>Local público (opcional)<input value={draft.locationText} onChange={e=>update("locationText",e.target.value)} maxLength={180}/></label>
-            <label>Nova data de início (opcional)<input type="datetime-local" value={draft.startsAt} onChange={e=>update("startsAt",e.target.value)}/></label>
-            <label>Nova data de término (opcional)<input type="datetime-local" value={draft.endsAt} onChange={e=>update("endsAt",e.target.value)}/></label>
+            <label>Identificador<input required value={draft.slug} onChange={e=>update("slug",e.target.value)} maxLength={80} pattern="[a-z0-9-]+"/></label>
+            <label>Local público<input value={draft.locationText} onChange={e=>update("locationText",e.target.value)} maxLength={180}/></label>
+            <label>Nova data de início<input type="datetime-local" value={draft.startsAt} onChange={e=>update("startsAt",e.target.value)}/></label>
+            <label>Nova data de término<input type="datetime-local" value={draft.endsAt} onChange={e=>update("endsAt",e.target.value)}/></label>
             <label>Descrição sem dados pessoais<textarea rows={3} value={draft.description} onChange={e=>update("description",e.target.value)} maxLength={1200}/></label>
-            <button type="submit" disabled={busy||!draft.name.trim()||!draft.slug.trim()}>Salvar apenas rascunho</button>
+            <button type="submit" disabled={busy||!draft.name.trim()||!draft.slug.trim()}>Salvar rascunho</button>
           </form>}
         </article>;
       })}

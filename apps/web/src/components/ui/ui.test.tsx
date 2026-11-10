@@ -10,13 +10,19 @@ import { Modal } from "./Modal";
 import { DesignSystemShowcase } from "./Showcase";
 import { Table } from "./Table";
 import { nextFocusIndex } from "./focus";
-import { contrastRatio, dsApprovedPairs, dsColor, dsRejectedPairs } from "./tokens";
+import { contrastRatio, dsApprovedPairs, dsAuditedText, dsColor, dsDarkPairs, dsRejectedPairs } from "./tokens";
 
 const css = readFileSync(join(__dirname, "ui.module.css"), "utf8");
 
 describe("tokens de contraste", () => {
   it("aprova os pares de texto, borda e foco", () => {
     for (const pair of dsApprovedPairs) {
+      expect(contrastRatio(pair.fg, pair.bg), pair.name).toBeGreaterThanOrEqual(pair.min);
+    }
+  });
+
+  it("aprova a aparência escura do kit e o texto dos fundos auditados", () => {
+    for (const pair of [...dsDarkPairs, ...dsAuditedText]) {
       expect(contrastRatio(pair.fg, pair.bg), pair.name).toBeGreaterThanOrEqual(pair.min);
     }
   });
@@ -37,7 +43,7 @@ describe("tokens de contraste", () => {
     expect(css).toContain("min-width: 1440px");
     expect(css).toContain("min-height: 2.75rem");
     expect(css).toMatch(/\.primary\s*\{[^}]*background:\s*var\(--ds-gold\)/);
-    expect(css).toMatch(/\.primary\s*\{[^}]*color:\s*var\(--ds-ink\)/);
+    expect(css).toMatch(/\.primary\s*\{[^}]*color:\s*var\(--ds-on-gold\)/);
     expect(css).not.toContain("--color-dourado");
   });
 });
@@ -135,6 +141,43 @@ describe("componentes da fundação", () => {
     expect(html).toContain("ana.lima@example.test");
     expect(html).toContain("Nenhum destes nomes representa uma pessoa real.");
     expect(html).toContain("Ir para o conteúdo");
+    expect(html).toContain("Kit do painel");
+    expect(html).toContain("Mostrar senha");
+    expect(html).toContain('aria-label="Trilha"');
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('role="tooltip"');
     expect(html).not.toContain("@gmail.");
+  });
+});
+
+describe("kit do painel", () => {
+  it("marca alvo de 44 px, quebra de linha e aparência escura no CSS", () => {
+    expect(css).toContain("min-width: 2.75rem");
+    expect(css).toContain("overflow-wrap: anywhere");
+    expect(css).toContain('data-appearance="dark"');
+    expect(css).toContain("#7a4a16");
+    expect(css).toContain("#243e42");
+    expect(css).toContain("#24160f");
+    expect(css).toContain("#e7d3c0");
+  });
+
+  it("publica os mesmos tokens no CSS global, depois das camadas antigas", () => {
+    const globalCss = readFileSync(join(__dirname, "../../app/globals.css"), "utf8");
+    const block = globalCss.slice(globalCss.lastIndexOf("Frente H"));
+    expect(block).toContain("--ds-text-muted: #6e4a36");
+    expect(block).toContain("--color-bronze-text: #7a4a16");
+    expect(block).toContain("--ds-target: 2.75rem");
+    expect(block).toContain("--color-ink-muted: #6e4a36");
+    expect(block).toContain("white-space: normal");
+    expect(block).toContain("outline: 3px solid var(--ds-focus-ring)");
+    expect(globalCss).toContain("--ds-support: #243e42");
+    expect(contrastRatio("#243E42", "#EDF1EA")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#243E42", "#E9ECE6")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#243E42", "#F7F7F3")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#6E4A36", "#F7EDE0")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#7A4A16", "#F7EDE0")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#E7D3C0", "#31190E")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#5C4030", "#FFFDF9")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#4A2612", "#FFFCF8")).toBeGreaterThanOrEqual(3);
   });
 });

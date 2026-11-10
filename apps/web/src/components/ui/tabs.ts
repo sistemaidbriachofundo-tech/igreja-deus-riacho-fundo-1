@@ -1,0 +1,9 @@
+/** Próxima aba no padrão de abas da WAI-ARIA. Null quando a tecla não navega. */
+export function nextTabIndex(current: number, count: number, key: string): number | null {
+  if (count <= 0) return null;
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  if (key === "ArrowRight" || key === "ArrowDown") return (current + 1) % count;
+  if (key === "ArrowLeft" || key === "ArrowUp") return (current - 1 + count) % count;
+  return null;
+}
