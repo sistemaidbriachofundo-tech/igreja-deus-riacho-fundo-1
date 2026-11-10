@@ -247,7 +247,7 @@ describe("grupo Ministérios e ferramentas", () => {
     expect(ministryContextHref({ id: "m-louvor", slug: "Louvor" })).toBe("/app/servir/louvor/");
     expect(ministryContextHref({ id: "m-demo", slug: "louvor-demo" })).toBe("/app/servir/louvor/");
     expect(ministryContextHref({ id: "m-atm", slug: "atmosfera" })).toBe("/app/servir/atmosfera/");
-    expect(ministryContextHref({ id: "m homens", slug: "homens" })).toBe("/app/ministerios/?ministerio=m%20homens");
+    expect(ministryContextHref({ id: "m homens", slug: "homens" })).toBe("/app/ministerios/?ministry=m%20homens");
   });
 
   it("não duplica o destino quando a API já trouxe o mesmo ministério", () => {
