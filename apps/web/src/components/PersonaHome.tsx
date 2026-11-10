@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
-import { apiGet, isForbidden, loadStoredToken } from "../lib/api";
-import { areasForRoles, type AppNavKey } from "../lib/persona-navigation";
+import { ApiRequestError, apiGet, isForbidden, isUnauthorized, loadStoredToken } from "../lib/api";
+import { readPanel } from "../lib/panel-read";
+import { areasForRoles, isMemberOnly, type AppNavKey } from "../lib/persona-navigation";
 import {
   currentPublishedEvents,
   formatPortalDate,
@@ -72,14 +73,24 @@ const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
   membros: "Consultar pessoas",
   secretaria: "Ver admissões",
   carteirinha: "Abrir carteirinha",
-  operacao: "Abrir ministérios",
-  ministerios: "Ver vínculos",
-  escalas: "Escala de louvor",
-  atmosfera: "Escala de atmosfera",
+  ministerios: "Ver ministérios",
+  escalas: "Louvor",
+  atmosfera: "Atmosfera",
   "meu-espaco": "Minha escala",
   tesouraria: "Abrir tesouraria",
   editorial: "Ver conteúdos",
   site: "Abrir o site",
+};
+
+const PRIMARY_TASKS: Record<DeskKey, readonly AppNavKey[]> = {
+  PLATFORM_ADMIN: ["membros", "secretaria", "carteirinha", "editorial"],
+  SECRETARIA: ["membros", "secretaria", "carteirinha"],
+  PASTOR: ["secretaria", "membros", "ministerios"],
+  TESOURARIA: ["tesouraria"],
+  LIDER_MINISTERIO: ["ministerios"],
+  EDITOR_SITE: ["site"],
+  PUBLICADOR_SITE: ["site"],
+  MEMBRO: ["carteirinha", "meu-espaco"],
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -394,20 +405,55 @@ function upcoming(rows: NamedRow[], now = Date.now()): NamedRow[] {
     .slice(0, 4);
 }
 
-type Slot<T> = { state: "skip" | "loading" | "ready" | "empty" | "error"; data: T | null };
+type Slot<T> = { state: "skip" | "loading" | "ready" | "empty" | "error" | "unauthorized"; data: T | null };
 
 const skip = <T,>(): Slot<T> => ({ state: "skip", data: null });
 
-async function loadSlot<T>(token: string, path: string, parse: (value: unknown) => T | null): Promise<Slot<T>> {
+/** 403 some com o bloco. 401 encerra a mesa. Outra falha não vira zero. */
+export function readFailure(error: unknown): "forbidden" | "unauthorized" | "error" {
+  if (isUnauthorized(error) || (error instanceof ApiRequestError && error.status === 401)) return "unauthorized";
+  if (isForbidden(error) || (error instanceof ApiRequestError && error.status === 403)) return "forbidden";
+  return "error";
+}
+
+async function loadSlot<T>(
+  token: string,
+  path: string,
+  parse: (value: unknown) => T | null,
+  fresh = false,
+): Promise<Slot<T>> {
   try {
-    const raw = await apiGet<unknown>(path, token);
+    const raw = await readPanel(token, path, () => apiGet<unknown>(path, token), { fresh });
     const data = parse(raw);
     if (data === null) return { state: "error", data: null };
     return { state: "ready", data };
   } catch (error) {
-    if (isForbidden(error)) return skip();
+    const failure = readFailure(error);
+    if (failure === "forbidden") return skip();
+    if (failure === "unauthorized") return { state: "unauthorized", data: null };
     return { state: "error", data: null };
   }
+}
+
+/**
+ * Leituras da mesa. Antes: resumo, vínculos, admissões, ficha inteira,
+ * ministérios (de novo), eventos, escala pessoal e carteirinha, tudo
+ * esperando a mais lenta. Agora a ficha e a escala pessoal ficam nas
+ * próprias telas, e ministérios é a mesma leitura do menu.
+ */
+export function dashboardPaths(roles: readonly string[]): string[] {
+  const staff = hasRole(roles, "SECRETARIA", "PASTOR", "PLATFORM_ADMIN");
+  const leader = hasRole(roles, "LIDER_MINISTERIO");
+  const treasury = hasRole(roles, "TESOURARIA");
+  const editor = hasRole(roles, "EDITOR_SITE", "PUBLICADOR_SITE");
+  const paths: string[] = [];
+  if (staff || leader) paths.push("/indicators/summary");
+  if (staff) paths.push("/indicators/membership", "/admissions");
+  if (staff || leader) paths.push("/ministries", "/events");
+  if (isMemberOnly(roles)) paths.push("/rosters/me", "/credentials/me");
+  if (treasury) paths.push("/ledger/accounts", "/ledger/entries");
+  if (editor && !staff) paths.push("/cms/contents");
+  return paths;
 }
 
 type Mesa = {
@@ -515,6 +561,39 @@ function Panel({ title, action, children, id }: { title: string; action?: ReactN
   );
 }
 
+const PARSERS = {
+  "/indicators/summary": parseIndicatorCounts,
+  "/indicators/membership": parseMembershipBars,
+  "/admissions": parseAdmissions,
+  "/ministries": parseMinistries,
+  "/events": parseEvents,
+  "/rosters/me": parseAssignments,
+  "/credentials/me": parseOwnCard,
+  "/ledger/accounts": parseAccounts,
+  "/ledger/entries": parseEntries,
+  "/cms/contents": parseContents,
+} as const;
+
+type MesaPath = keyof typeof PARSERS;
+
+function applyPath(current: Mesa, path: MesaPath, slot: Slot<unknown>): Mesa {
+  if (slot.state === "unauthorized") return { ...current, phase: "signed-out", partial: false };
+  const next: Mesa = { ...current };
+  if (slot.state === "error") next.partial = true;
+  if (slot.state !== "ready") return next;
+  if (path === "/indicators/summary") next.counts = slot.data as IndicatorCounts;
+  if (path === "/indicators/membership") next.bars = slot.data as StatusBar[];
+  if (path === "/admissions") next.admissions = slot.data as NamedRow[];
+  if (path === "/ministries") next.ministries = slot.data as NamedRow[];
+  if (path === "/events") next.events = slot.data as NamedRow[];
+  if (path === "/rosters/me") next.assignments = slot.data as NamedRow[];
+  if (path === "/credentials/me") next.card = slot.data as OwnCard;
+  if (path === "/ledger/accounts") next.accounts = slot.data as NamedRow[];
+  if (path === "/ledger/entries") next.entries = slot.data as MoneyRow[];
+  if (path === "/cms/contents") next.contents = slot.data as NamedRow[];
+  return next;
+}
+
 function useMesa(roles: readonly string[], reload: number): Mesa {
   const [mesa, setMesa] = useState<Mesa>(IDLE);
   const signature = roles.join(",");
@@ -525,40 +604,47 @@ function useMesa(roles: readonly string[], reload: number): Mesa {
       return;
     }
     const roleList = signature ? signature.split(",") : [];
-    const staff = hasRole(roleList, "SECRETARIA", "PASTOR", "PLATFORM_ADMIN");
-    const leader = hasRole(roleList, "LIDER_MINISTERIO");
-    const treasury = hasRole(roleList, "TESOURARIA");
-    const editor = hasRole(roleList, "EDITOR_SITE", "PUBLICADOR_SITE");
-    const directory = hasRole(roleList, "SECRETARIA", "PLATFORM_ADMIN");
-    const card = hasRole(roleList, "MEMBRO", "SECRETARIA", "PLATFORM_ADMIN");
-    const personal = hasRole(roleList, "MEMBRO", "LIDER_MINISTERIO", "SECRETARIA", "PASTOR", "PLATFORM_ADMIN");
+    const paths = dashboardPaths(roleList).filter((path): path is MesaPath => path in PARSERS);
     let cancelled = false;
-    setMesa(current => ({ ...current, phase: "loading" }));
-    const jobs: Array<Promise<void>> = [];
-    const next: Mesa = { ...IDLE, phase: "ready" };
-
-    const take = <T,>(path: string, parse: (value: unknown) => T | null, apply: (slot: Slot<T>) => void) => {
-      jobs.push(loadSlot(token, path, parse).then(slot => { apply(slot); }));
-    };
-
-    if (staff || leader) take("/indicators/summary", parseIndicatorCounts, slot => { next.counts = slot.data; if (slot.state === "error") next.partial = true; });
-    if (staff) take("/indicators/membership", parseMembershipBars, slot => { next.bars = slot.data; if (slot.state === "error") next.partial = true; });
-    if (staff) take("/admissions", parseAdmissions, slot => { next.admissions = slot.data; if (slot.state === "error") next.partial = true; });
-    if (directory) take("/memberships", parsePeople, slot => { next.people = slot.data; if (slot.state === "error") next.partial = true; });
-    if (staff || leader) take("/ministries", parseMinistries, slot => { next.ministries = slot.data; if (slot.state === "error") next.partial = true; });
-    if (staff || leader) take("/events", parseEvents, slot => { next.events = slot.data; if (slot.state === "error") next.partial = true; });
-    if (personal) take("/rosters/me", parseAssignments, slot => { next.assignments = slot.data; if (slot.state === "error") next.partial = true; });
-    if (card) take("/credentials/me", parseOwnCard, slot => { next.card = slot.data; if (slot.state === "error") next.partial = true; });
-    if (treasury) {
-      take("/ledger/accounts", parseAccounts, slot => { next.accounts = slot.data; if (slot.state === "error") next.partial = true; });
-      take("/ledger/entries", parseEntries, slot => { next.entries = slot.data; if (slot.state === "error") next.partial = true; });
+    let left = paths.length;
+    setMesa({ ...IDLE, phase: paths.length === 0 ? "ready" : "loading" });
+    for (const path of paths) {
+      const parse = PARSERS[path] as (value: unknown) => unknown;
+      void loadSlot(token, path, parse, reload > 0).then(slot => {
+        if (cancelled) return;
+        left -= 1;
+        setMesa(current => {
+          if (current.phase === "signed-out" && slot.state !== "unauthorized") return current;
+          const next = applyPath(current, path, slot);
+          if (next.phase !== "signed-out" && left === 0) next.phase = "ready";
+          return next;
+        });
+      });
     }
-    if (editor) take("/cms/contents", parseContents, slot => { next.contents = slot.data; if (slot.state === "error") next.partial = true; });
-
-    void Promise.all(jobs).then(() => { if (!cancelled) setMesa(next); });
     return () => { cancelled = true; };
   }, [signature, reload]);
   return mesa;
+}
+
+function PublicAgendaSource({ onRows }: { onRows: (rows: NamedRow[] | null) => void }) {
+  const published = usePublishedResource("/public/home", parsePublishedHome);
+  useEffect(() => {
+    if (published.status === "loading") {
+      onRows(null);
+      return;
+    }
+    if (published.status === "ready" && published.data) {
+      onRows(currentPublishedEvents(published.data.featuredEvents).map(event => ({
+        id: event.id,
+        title: event.name,
+        detail: event.locationText ?? formatPortalDate(event.startsAt).dayAndTime,
+        when: event.startsAt,
+      })));
+      return;
+    }
+    onRows([]);
+  }, [onRows, published.data, published.status]);
+  return null;
 }
 
 export function PersonaHome() {
@@ -572,75 +658,73 @@ export function PersonaHome() {
 export function PersonaBoard() {
   const access = usePersonaAccess();
   const [reload, setReload] = useState(0);
-  const published = usePublishedResource("/public/home", parsePublishedHome);
-  const mesa = useMesa(access.kind === "ready" ? access.roles : [], access.kind === "ready" ? reload : 0);
+  const [publicRows, setPublicRows] = useState<NamedRow[] | null>(null);
+  const onPublicRows = useCallback((rows: NamedRow[] | null) => setPublicRows(rows), []);
+  const roles = access.kind === "ready" ? access.roles : [];
+  const mesa = useMesa(roles, access.kind === "ready" ? reload : 0);
+  const showPublicAgenda = access.kind === "ready" && !dashboardPaths(roles).includes("/events");
   if (access.kind !== "ready") return null;
 
-  const desk = DESK[deskKeyFor(access.roles)];
-  const tasks = areasForRoles(access.roles).filter(area => area.key !== "visao" && TASK_LABEL[area.key]);
+  const deskKey = deskKeyFor(access.roles);
+  const desk = DESK[deskKey];
+  const memberView = isMemberOnly(access.roles);
+  const areas = areasForRoles(access.roles);
+  const tasks = PRIMARY_TASKS[deskKey].flatMap(key => {
+    const area = areas.find(item => item.key === key);
+    return area && TASK_LABEL[key] ? [area] : [];
+  });
   const staff = hasRole(access.roles, "SECRETARIA", "PASTOR", "PLATFORM_ADMIN");
   const leader = hasRole(access.roles, "LIDER_MINISTERIO");
   const treasury = hasRole(access.roles, "TESOURARIA");
   const loading = mesa.phase === "idle" || mesa.phase === "loading";
   const counts = mesa.counts;
-  const openAdmissions = (mesa.admissions ?? []).filter(row => !["Aprovado", "Recusado", "Cancelado"].includes(row.detail));
-  const peopleById = new Map((mesa.people ?? []).map(person => [person.id, person.title]));
-  const admissions = openAdmissions.map(row => ({
-    ...row,
-    title: row.when && peopleById.get(row.when) ? peopleById.get(row.when)! : row.title,
-  }));
-  const authEvents = mesa.events;
-  const publicEvents: NamedRow[] = published.status === "ready" && published.data
-    ? currentPublishedEvents(published.data.featuredEvents).map(event => ({
-      id: event.id,
-      title: event.name,
-      detail: event.locationText ?? formatPortalDate(event.startsAt).dayAndTime,
-      when: event.startsAt,
-    }))
-    : [];
-  const agenda = authEvents ?? (staff || leader || published.status === "loading" ? null : publicEvents);
+  const summaryReady = counts !== null;
+  const admissions = (mesa.admissions ?? []).filter(row => !["Aprovado", "Recusado", "Cancelado"].includes(row.detail));
+  const agenda = mesa.events ?? (showPublicAgenda ? publicRows : null);
   const agendaRows = agenda ? upcoming(agenda) : [];
   const marks = new Set(agendaRows.flatMap(row => row.when ? [spDayKey(new Date(row.when))] : []));
-  const showChart = staff && (loading || mesa.bars !== null);
+  const showChart = staff && (mesa.bars !== null || loading);
   const pendingAssignments = (mesa.assignments ?? []).filter(row => row.detail.includes("A confirmar"));
 
   const metrics: Array<{ label: string; value: number | null; href?: string; hint: string }> = [];
   if (staff || leader) {
-    if (staff) {
+    if (staff && (summaryReady || loading)) {
       metrics.push(
-        { label: "Membros ativos", value: loading ? null : counts?.membershipsActive ?? null, href: "/app/membros/", hint: "Vínculos ativos" },
-        { label: "Admissões em aberto", value: loading ? null : counts?.admissionsOpen ?? null, href: "/app/secretaria/", hint: "Protocolos em andamento" },
+        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos" },
+        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento" },
       );
-      if (!loading && counts?.pastoralOpen !== null && counts?.pastoralOpen !== undefined) {
+      if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
         metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, hint: "Acompanhamentos abertos" });
       }
     }
-    metrics.push(
-      { label: "Ministérios", value: loading ? null : counts?.ministriesTotal ?? null, href: "/app/ministerios/", hint: "Equipes da congregação" },
-      { label: "Próximos eventos", value: loading ? null : counts?.eventsPublishedUpcoming ?? null, href: "/eventos/", hint: "Agenda publicada" },
-    );
-    if (leader && !staff) {
-      metrics.push({ label: "Confirmações pendentes", value: loading ? null : counts?.rosterAssignmentsPending ?? null, href: "/app/servir/meu-espaco/", hint: "Escalas aguardando resposta" });
+    if (summaryReady || loading) {
+      metrics.push(
+        { label: "Ministérios", value: summaryReady ? counts.ministriesTotal : null, href: "/app/ministerios/", hint: "Equipes da congregação" },
+        { label: "Próximos eventos", value: summaryReady ? counts.eventsPublishedUpcoming : null, href: "/eventos/", hint: "Agenda publicada" },
+      );
+    }
+    if (leader && !staff && (summaryReady || loading)) {
+      metrics.push({ label: "Confirmações pendentes", value: summaryReady ? counts.rosterAssignmentsPending : null, href: "/app/ministerios/", hint: "Escalas aguardando resposta" });
     }
   }
   if (treasury) {
     metrics.push(
-      { label: "Contas", value: loading ? null : mesa.accounts ? mesa.accounts.length : null, href: "/app/tesouraria/", hint: "Plano registrado" },
-      { label: "Lançamentos", value: loading ? null : mesa.entries ? mesa.entries.length : null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
+      { label: "Contas", value: mesa.accounts ? mesa.accounts.length : loading ? null : null, href: "/app/tesouraria/", hint: "Plano registrado" },
+      { label: "Lançamentos", value: mesa.entries ? mesa.entries.length : loading ? null : null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
     );
   }
   const visibleMetrics = metrics.filter(item => item.value !== null || loading);
 
   return (
-    <div className={s.board} data-persona-home={access.roles.join(",")} data-desk={deskKeyFor(access.roles)}>
+    <div className={s.board} data-persona-home={access.roles.join(",")} data-desk={deskKey} data-layout={memberView ? "membro" : "admin"}>
+      {showPublicAgenda ? <PublicAgendaSource onRows={onPublicRows} /> : null}
       <header className={s.intro}>
         <div>
           <p className={s.greeting}>{greeting()}</p>
           <h1>{desk.title}</h1>
-          <p className={s.lede}>{desk.lede} Perfil: {access.label}.</p>
+          <p className={s.lede}>{desk.lede}</p>
         </div>
         <div className={s.introAside}>
-          <span className={s.environment}>Ambiente de homologação</span>
           <button type="button" className={s.refresh} onClick={() => setReload(value => value + 1)} disabled={mesa.phase === "loading"}>
             <UIIcon name="refresh" size={16} /> Atualizar
           </button>
@@ -668,26 +752,24 @@ export function PersonaBoard() {
           title="Pendências"
           action={staff ? <AppNavLink href="/app/secretaria/">Ver admissões</AppNavLink> : undefined}
         >
-          {loading && staff ? <p className={s.empty}>Carregando pendências…</p> : null}
-          {!loading && staff && (
+          {staff && mesa.admissions === null && loading ? <p className={s.empty}>Carregando pendências…</p> : null}
+          {staff && mesa.admissions !== null && (
             <RowList
               rows={admissions}
               hrefFor={() => "/app/secretaria/"}
               empty="Nenhuma admissão em aberto."
             />
           )}
-          {!loading && mesa.assignments && (
+          {memberView && mesa.assignments && (
             pendingAssignments.length > 0
               ? <RowList rows={pendingAssignments} hrefFor={() => "/app/servir/meu-espaco/"} empty="" />
-              : !staff && <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>
+              : <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>
           )}
-          {!loading && !staff && !mesa.assignments && mesa.card?.state === "absent" && (
+          {memberView && !loading && !mesa.assignments && mesa.card?.state === "absent" && (
             <AppNavLink className={s.inlineLink} href="/app/membros/carteirinha/">Sua carteirinha ainda não foi emitida</AppNavLink>
           )}
-          {!loading && !staff && !mesa.assignments && mesa.card?.state !== "absent" && !treasury && (
-            <p className={s.empty}>Nada pendente nesta mesa.</p>
-          )}
-          {!loading && treasury && !staff && mesa.entries && mesa.entries.length === 0 && (
+          {!staff && !memberView && !treasury && !loading && <p className={s.empty}>Nada pendente nesta mesa.</p>}
+          {treasury && !staff && !loading && mesa.entries && mesa.entries.length === 0 && (
             <p className={s.empty}>Nenhum lançamento registrado.</p>
           )}
         </Panel>
@@ -718,7 +800,7 @@ export function PersonaBoard() {
       <div className={s.columns}>
         {showChart && (
           <Panel title="Situação dos vínculos">
-            {loading || mesa.bars === null ? <p className={s.empty}>Carregando a distribuição…</p> : mesa.bars.length === 0 ? (
+            {mesa.bars === null ? <p className={s.empty}>Carregando a distribuição…</p> : mesa.bars.length === 0 ? (
               <p className={s.empty}>Nenhum vínculo registrado.</p>
             ) : (
               <ul className={s.bars} aria-label="Quantidade por situação">
@@ -736,7 +818,7 @@ export function PersonaBoard() {
 
         {(staff || leader) && (
           <Panel title="Ministérios" action={<AppNavLink href="/app/ministerios/">Abrir</AppNavLink>}>
-            {loading && mesa.ministries === null ? <p className={s.empty}>Carregando ministérios…</p> : (
+            {mesa.ministries === null ? <p className={s.empty}>Carregando ministérios…</p> : (
               <RowList
                 rows={mesa.ministries ?? []}
                 hrefFor={row => row.when && /^[a-z0-9-]+$/.test(row.when) ? `/ministerios/${row.when}/` : "/app/ministerios/"}
@@ -746,13 +828,7 @@ export function PersonaBoard() {
           </Panel>
         )}
 
-        {mesa.people && (
-          <Panel title="Pessoas recentes" action={<AppNavLink href="/app/membros/">Ver pessoas</AppNavLink>}>
-            <RowList rows={mesa.people} hrefFor={() => "/app/membros/"} empty="Nenhuma pessoa com vínculo." />
-          </Panel>
-        )}
-
-        {mesa.card && (
+        {memberView && mesa.card && (
           <Panel title="Sua carteirinha" action={<AppNavLink href="/app/membros/carteirinha/">Abrir</AppNavLink>}>
             {mesa.card.state === "active" ? (
               <p className={s.cardLine}><span className={s.avatar} aria-hidden="true">{initials(mesa.card.name)}</span><span className={s.rowText}><strong>{mesa.card.name}</strong><small>Carteirinha ativa</small></span></p>
@@ -760,7 +836,7 @@ export function PersonaBoard() {
           </Panel>
         )}
 
-        {mesa.assignments && (deskKeyFor(access.roles) === "MEMBRO" || deskKeyFor(access.roles) === "LIDER_MINISTERIO") && (
+        {memberView && mesa.assignments && (
           <Panel title="Minha escala" action={<AppNavLink href="/app/servir/meu-espaco/">Abrir</AppNavLink>}>
             <RowList rows={upcoming(mesa.assignments).length ? upcoming(mesa.assignments) : mesa.assignments.slice(0, 5)} hrefFor={() => "/app/servir/meu-espaco/"} empty="Nenhum compromisso na sua escala." />
           </Panel>
@@ -768,7 +844,7 @@ export function PersonaBoard() {
 
         {treasury && (
           <Panel title="Lançamentos" action={<AppNavLink href="/app/tesouraria/">Abrir tesouraria</AppNavLink>}>
-            {loading && mesa.entries === null ? <p className={s.empty}>Carregando lançamentos…</p> : mesa.entries && mesa.entries.length > 0 ? (
+            {mesa.entries === null ? <p className={s.empty}>Carregando lançamentos…</p> : mesa.entries.length > 0 ? (
               <ul className={s.list}>
                 {mesa.entries.slice(0, 5).map(entry => (
                   <li key={entry.id}>

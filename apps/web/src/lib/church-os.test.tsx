@@ -8,16 +8,15 @@ import { ChurchCredentials } from "../components/ChurchCredentials";
 import { AppShell } from "../components/AppShell";
 
 describe("Church OS: renderização real de páginas", () => {
-  it("renderiza o painel com indicadores calculados da base sintética", () => {
+  it("renderiza o início sem números inventados", () => {
     const html=renderToStaticMarkup(<ChurchDashboard />);
-    expect(html).toContain("Bem-vindo ao");
     expect(html).toContain("ID Riacho 1");
-    expect(html).toContain("Pessoas cadastradas");
-    expect(html).toContain("19");
-    expect(html).toContain("Acompanhar etapas e aprovações");
-    expect(html).toContain("Ambiente de demonstração");
-    expect(html).toContain("Membros ativos");
-    expect(html).toContain("hero-oficial.jpg");
+    expect(html).toContain("Início");
+    expect(html).toContain("não publica números");
+    expect(html).toContain("Avisos");
+    expect(html).not.toContain("Pessoas cadastradas");
+    expect(html).not.toContain("Ambiente de demonstração");
+    expect(html).not.toContain("hero-oficial.jpg");
     expect(html).not.toContain("412 membros");
     expect(html).not.toContain("undefined");
   });
@@ -47,7 +46,7 @@ describe("Church OS: renderização real de páginas", () => {
   });
   it("fornece comando de busca global, rotas e logomarca correta", () => {
     const html=renderToStaticMarkup(<AppShell active="visao" meta="Visão geral">Conteúdo</AppShell>);
-    expect(html).toContain("Buscar módulos e páginas...");
+    expect(html).toContain("Buscar no painel");
     expect(html).toContain("logo-igreja-aprovada.webp");
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
     expect(html).toContain('aria-label="Navegação principal no celular"');
