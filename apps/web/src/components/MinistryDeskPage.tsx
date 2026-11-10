@@ -1,24 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MinistryExperience } from "./ministry/MinistryExperience";
 import { getApiBaseUrl, loadStoredToken } from "../lib/api";
 import {
-  loadMinistryDesk,
   requestFormalAdmission,
   requestFormalEnd,
   requestInterestConversion,
   type ConversionResult,
-  type DeskResult,
   type FormalRole,
   type MembershipChange,
 } from "../lib/ministry-desk";
-import { MinistryMembershipCatalog } from "./MinistryMembershipCatalog";
+import { loadMinistryBoard, type MinistryBoardData } from "../lib/ministry-presentation";
+import { isMinistryTab, ministryHref, type MinistryTabId } from "../lib/ministry-view";
+import { withBasePath } from "../lib/paths";
 import styles from "./ministry-membership-catalog.module.css";
+
+type Route = { ministryId?: string; tab: MinistryTabId; escalaId?: string };
+
+function readRoute(): Route {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("aba");
+  const ministryId = params.get("ministry")?.trim() || undefined;
+  const escalaId = params.get("escala")?.trim() || undefined;
+  return { ministryId, tab: isMinistryTab(tab) ? tab : "visao", escalaId };
+}
+
+function writeRoute(route: Route) {
+  const url = route.ministryId
+    ? withBasePath(ministryHref(route.ministryId, route.tab, route.escalaId))
+    : withBasePath("/app/ministerios/");
+  window.history.pushState(null, "", url);
+}
 
 export function MinistryDeskPage() {
   const [token, setToken] = useState<string | null>(null);
-  const [ministryId, setMinistryId] = useState<string | undefined>(undefined);
-  const [desk, setDesk] = useState<DeskResult | null>(null);
+  const [routeReady, setRouteReady] = useState(false);
+  const [route, setRoute] = useState<Route>({ tab: "visao" });
+  const [board, setBoard] = useState<MinistryBoardData | null>(null);
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [change, setChange] = useState<MembershipChange | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
@@ -27,42 +46,55 @@ export function MinistryDeskPage() {
 
   useEffect(() => {
     setToken(loadStoredToken());
+    setRoute(readRoute());
+    setRouteReady(true);
+    const onPop = () => setRoute(readRoute());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !routeReady) return;
     let cancelled = false;
-    setDesk(null);
-    void loadMinistryDesk({
+    setBoard(null);
+    void loadMinistryBoard({
       token,
       baseUrl: getApiBaseUrl(),
-      ministryId,
+      ministryId: route.ministryId,
     })
       .then((next) => {
-        if (!cancelled) setDesk(next);
+        if (!cancelled) setBoard(next);
       })
       .catch(() => {
         if (!cancelled) {
-          setDesk({
-            kind: "error",
-            message: "A consulta dos ministérios autorizados não respondeu.",
+          setBoard({
+            desk: { kind: "error", message: "A consulta dos ministérios autorizados não respondeu." },
+            escalas: { kind: "hidden" },
+            activities: { kind: "hidden" },
           });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [token, ministryId, reloadKey]);
+  }, [token, route.ministryId, routeReady, reloadKey]);
+
+  function go(next: Route) {
+    setConversion(null);
+    setChange(null);
+    setRoute(next);
+    writeRoute(next);
+  }
 
   async function convert(interestId: string) {
-    if (!token || !desk || desk.kind !== "ready" || convertingId) return;
+    if (!token || !board || board.desk.kind !== "ready" || convertingId) return;
     setConvertingId(interestId);
     setConversion(null);
     try {
       const result = await requestInterestConversion({
         token,
         baseUrl: getApiBaseUrl(),
-        ministryId: desk.ministry.id,
+        ministryId: board.desk.ministry.id,
         volunteerInterestId: interestId,
       });
       setConversion(result);
@@ -81,14 +113,14 @@ export function MinistryDeskPage() {
   }
 
   async function admit(personId: string, role: FormalRole) {
-    if (!token || !desk || desk.kind !== "ready" || pending) return;
+    if (!token || !board || board.desk.kind !== "ready" || pending) return;
     setPending(true);
     setChange(null);
     try {
       const result = await requestFormalAdmission({
         token,
         baseUrl: getApiBaseUrl(),
-        ministryId: desk.ministry.id,
+        ministryId: board.desk.ministry.id,
         personId,
         role,
       });
@@ -108,14 +140,14 @@ export function MinistryDeskPage() {
   }
 
   async function end(membershipId: string) {
-    if (!token || !desk || desk.kind !== "ready" || pending) return;
+    if (!token || !board || board.desk.kind !== "ready" || pending) return;
     setPending(true);
     setChange(null);
     try {
       const result = await requestFormalEnd({
         token,
         baseUrl: getApiBaseUrl(),
-        ministryId: desk.ministry.id,
+        ministryId: board.desk.ministry.id,
         membershipId,
       });
       setChange(result);
@@ -133,59 +165,53 @@ export function MinistryDeskPage() {
     }
   }
 
+  if (!token) {
+    return (
+      <section className={styles.desk}>
+        <h1>Ministérios</h1>
+        <p className={styles.lede}>A sessão ainda não está disponível nesta página.</p>
+      </section>
+    );
+  }
+
+  if (!board) {
+    return (
+      <section className={styles.desk} role="status">
+        <h1>Ministérios</h1>
+        <p className={styles.lede}>Consultando somente os ministérios autorizados…</p>
+      </section>
+    );
+  }
+
   return (
-    <div>
-      {!token ? (
-        <section className={styles.desk}>
-          <h1>Integrantes do ministério</h1>
-          <p className={styles.lede}>A sessão ainda não está disponível nesta página.</p>
-        </section>
-      ) : null}
-      {token && !desk ? (
-        <section className={styles.desk} role="status">
-          <h1>Integrantes do ministério</h1>
-          <p className={styles.lede}>Consultando somente os ministérios autorizados…</p>
-        </section>
-      ) : null}
-      {desk?.kind === "ready" ? (
-        <MinistryMembershipCatalog
-          desk={desk}
-          conversion={conversion}
-          convertingId={convertingId}
-          change={change}
-          pending={pending}
-          onSelect={(id) => {
-            setConversion(null);
-            setChange(null);
-            setMinistryId(id);
-          }}
-          onConvert={(id) => void convert(id)}
-          onAdmit={(personId, role) => void admit(personId, role)}
-          onEnd={(membershipId) => void end(membershipId)}
-        />
-      ) : null}
-      {desk && desk.kind !== "ready" ? (
-        <section className={styles.desk} aria-labelledby="desk-status-title">
-          <p className={styles.kicker}>MINISTÉRIOS · VÍNCULO FORMAL</p>
-          <h1 id="desk-status-title">
-            {desk.kind === "denied" ? desk.ministry.name : "Integrantes do ministério"}
-          </h1>
-          <div className={desk.kind === "denied" ? styles.banner : styles.blocked} role={desk.kind === "error" || desk.kind === "denied" ? "alert" : "status"}>
-            <strong>
-              {desk.kind === "denied" ? `403 · ${desk.code}` : "BLOCKED"}
-            </strong>
-            <p>{desk.message}</p>
-          </div>
-          {desk.kind === "denied" ? (
-            <p className={styles.lede}>
-              Integrantes, interesses, agenda e saldo deste ministério não são exibidos.
-            </p>
-          ) : null}
-          <button type="button" className={styles.refresh} onClick={() => setReloadKey((value) => value + 1)}>
-            Consultar de novo
-          </button>
-        </section>
-      ) : null}
-    </div>
+    <MinistryExperience
+      desk={board.desk}
+      escalas={board.escalas}
+      activities={board.activities}
+      tab={route.tab}
+      escalaId={route.escalaId}
+      conversion={conversion}
+      convertingId={convertingId}
+      change={change}
+      pending={pending}
+      onSelect={(ministryId) => go({ ministryId, tab: "visao" })}
+      onTab={(tab) =>
+        go({
+          ministryId: route.ministryId ?? (board.desk.kind === "ready" ? board.desk.ministry.id : undefined),
+          tab,
+        })
+      }
+      onOpenEscala={(escalaId) =>
+        go({
+          ministryId: route.ministryId ?? (board.desk.kind === "ready" ? board.desk.ministry.id : undefined),
+          tab: "escalas",
+          escalaId,
+        })
+      }
+      onConvert={(id) => void convert(id)}
+      onAdmit={(personId, role) => void admit(personId, role)}
+      onEnd={(membershipId) => void end(membershipId)}
+      onRefresh={() => setReloadKey((value) => value + 1)}
+    />
   );
 }

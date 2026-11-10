@@ -12,7 +12,18 @@ export const FORMAL_STATUSES = ["ATIVO", "CONVIDADO", "PAUSADO", "ENCERRADO"] as
 export type FormalRole = (typeof FORMAL_ROLES)[number];
 export type FormalStatus = (typeof FORMAL_STATUSES)[number];
 
-export type MinistryOption = { id: string; name: string };
+export type PublicLeader = { displayName: string; roleTitle: string };
+
+export type MinistryOption = {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string | null;
+  scheduleText?: string | null;
+  participationInfo?: string | null;
+  leaderPersonId?: string | null;
+  leadership?: PublicLeader[];
+};
 
 export type FormalMember = {
   id: string;
@@ -130,6 +141,19 @@ export function readMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+function readLeadership(value: unknown): PublicLeader[] {
+  if (!Array.isArray(value)) return [];
+  const leaders: PublicLeader[] = [];
+  for (const item of value) {
+    const row = asRecord(item);
+    const displayName = textOf(row?.displayName);
+    const roleTitle = textOf(row?.roleTitle);
+    if (!displayName || !roleTitle) continue;
+    leaders.push({ displayName, roleTitle });
+  }
+  return leaders;
+}
+
 export function readMinistries(body: unknown): MinistryOption[] {
   const list = asRecord(body)?.ministries;
   if (!Array.isArray(list)) return [];
@@ -138,7 +162,20 @@ export function readMinistries(body: unknown): MinistryOption[] {
     const row = asRecord(item);
     const id = textOf(row?.id);
     if (!id) continue;
-    options.push({ id, name: textOf(row?.name) || "Ministério" });
+    const description = textOf(row?.description);
+    const scheduleText = textOf(row?.scheduleText);
+    const participationInfo = textOf(row?.participationInfo);
+    const leaderPersonId = textOf(row?.leaderPersonId);
+    options.push({
+      id,
+      name: textOf(row?.name) || "Ministério",
+      slug: textOf(row?.slug) || undefined,
+      description: description || null,
+      scheduleText: scheduleText || null,
+      participationInfo: participationInfo || null,
+      leaderPersonId: leaderPersonId || null,
+      leadership: readLeadership(row?.leadershipPublic),
+    });
   }
   return options;
 }
@@ -412,6 +449,16 @@ export async function loadMinistryDesk(options: {
     return {
       kind: "empty",
       message: "Nenhum ministério está autorizado para esta conta.",
+    };
+  }
+  if (options.ministryId && !ministries.some((item) => item.id === options.ministryId)) {
+    return {
+      kind: "denied",
+      ministries,
+      ministry: { id: options.ministryId, name: "Ministério" },
+      status: 403,
+      code: "MINISTRY_SCOPE_FORBIDDEN",
+      message: SCOPE_DENIED,
     };
   }
   const ministry = ministries.find((item) => item.id === options.ministryId) ?? ministries[0];
