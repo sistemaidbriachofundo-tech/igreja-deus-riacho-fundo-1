@@ -5,6 +5,8 @@ import { AppNavLink, UIIcon } from "./AppShell";
 import { ministryContextHref } from "../lib/persona-navigation";
 import { withBasePath } from "../lib/paths";
 import type { IndicatorCounts, NamedRow, StatusBar } from "./PersonaHome";
+import { PageHeader } from "./ui/PageHeader";
+import ui from "./ui/ui.module.css";
 import s from "./administrative-overview.module.css";
 
 type Props = {
@@ -40,14 +42,12 @@ function countLabel(value: number | null | undefined): string {
 
 function Section({
   title,
-  eyebrow,
   action,
   children,
   id,
   className = "",
 }: {
   title: string;
-  eyebrow?: string;
   action?: ReactNode;
   children: ReactNode;
   id?: string;
@@ -57,7 +57,6 @@ function Section({
     <section className={`${s.section} ${className}`} id={id}>
       <header className={s.sectionHead}>
         <div>
-          {eyebrow && <span className={s.eyebrow}>{eyebrow}</span>}
           <h2>{title}</h2>
         </div>
         {action}
@@ -126,9 +125,8 @@ function Congregation({
             ))}
         </svg>
         <div>
-          <small>{selected ? selected.label : "TOTAL DE PESSOAS"}</small>
+          <small>{selected ? selected.label : "Pessoas cadastradas"}</small>
           <strong>{countLabel(selected?.value ?? total)}</strong>
-          <span>{selected ? "na congregação" : "em nossa comunidade"}</span>
         </div>
       </div>
       <ul className={s.memberLegend} aria-label="Distribuição dos vínculos">
@@ -158,10 +156,6 @@ function Congregation({
             </li>
           ))}
       </ul>
-      <p className={s.totalNote}>
-        Pessoas e histórias que fazem parte da igreja.{" "}
-        <UIIcon name="people" size={16} />
-      </p>
     </div>
   );
 }
@@ -206,11 +200,7 @@ function Calendar({
     setSelectedDay(null);
   }
   return (
-    <Section
-      title="Agenda da igreja"
-      eyebrow="PRÓXIMOS ENCONTROS"
-      className={s.calendarSection}
-    >
+    <Section title="Agenda da igreja" className={s.calendarSection}>
       <div className={s.monthHead}>
         <strong>{monthLabel}</strong>
         <div>
@@ -233,7 +223,7 @@ function Calendar({
         </div>
       </div>
       <div className={s.calendar} aria-label={monthLabel}>
-        {["S", "T", "Q", "Q", "S", "S", "D"].map((day, i) => (
+        {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day, i) => (
           <span className={s.weekday} key={i} aria-hidden="true">
             {day}
           </span>
@@ -348,12 +338,10 @@ export function AdministrativeOverview({
     distribution === null
       ? null
       : (distribution.find((row) => row.status === status)?.count ?? 0);
-  const total = distribution?.reduce((sum, row) => sum + row.count, 0) ?? null;
   const cards = [
     {
       title: "Membros ativos",
       value: counts?.membershipsActive ?? valueFor("ACTIVE"),
-      hint: "Pessoas com vínculo ativo",
       icon: "people" as const,
       href: "/app/secretaria/?aba=pessoas&situacao=ACTIVE",
       color: "green",
@@ -361,7 +349,6 @@ export function AdministrativeOverview({
     {
       title: "Membros inativos",
       value: valueFor("INACTIVE"),
-      hint: "Histórico de membresia",
       icon: "family" as const,
       href: "/app/secretaria/?aba=pessoas&situacao=INACTIVE",
       color: "slate",
@@ -369,15 +356,13 @@ export function AdministrativeOverview({
     {
       title: "Em admissão",
       value: counts?.membershipsPending ?? valueFor("PENDING_ADMISSION"),
-      hint: "Acompanhar os protocolos",
       icon: "layers" as const,
-      href: "/app/secretaria/",
+      href: "/app/secretaria/?aba=admissoes",
       color: "gold",
     },
     {
       title: "Escalas publicadas",
       value: counts?.rostersPublished,
-      hint: `${countLabel(counts?.ministriesTotal)} ministérios na congregação`,
       icon: "calendar" as const,
       href: "/app/ministerios/",
       color: "blue",
@@ -399,38 +384,28 @@ export function AdministrativeOverview({
       data-layout="admin"
       data-dashboard="administrative-overview"
     >
-      <header className={s.heading}>
-        <div>
-          <p className={s.eyebrow}>VISÃO GERAL · RIACHO FUNDO I</p>
-          <h1>Painel administrativo</h1>
-          <p className={s.lede}>
-            Pessoas, equipes e os próximos passos da igreja.
-          </p>
-        </div>
-        <div className={s.headingSide}>
-          <div className={s.headingPhoto} role="img" aria-label="Imagem ilustrativa da comunidade"
-            style={{ backgroundImage: `url("${withBasePath("/images/comunidade-oficial.jpg")}")` }} />
-          <div className={s.headingActions}>
-
-          <AppNavLink className={s.primaryAction} href="/app/secretaria/">
-            <UIIcon name="layers" size={17} />
-            <span>Abrir secretaria</span>
-            <UIIcon name="arrow" size={16} />
-          </AppNavLink>
-          <button
-            type="button"
-            aria-label="Atualizar painel"
-            title="Atualizar painel"
-            className={s.refresh}
-            disabled={loading}
-            onClick={onRefresh}
-          >
-            <UIIcon name="refresh" size={16} />
-            <span>Atualizar</span>
-          </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        appearance="workspace"
+        heading="h1"
+        title="Painel administrativo"
+        actions={
+          <>
+            <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/">
+              Abrir secretaria <UIIcon name="arrow" size={16} />
+            </AppNavLink>
+            <button
+              type="button"
+              aria-label="Atualizar painel"
+              className={ui.workspaceSecondary}
+              disabled={loading}
+              onClick={onRefresh}
+            >
+              <UIIcon name="refresh" size={16} />{" "}
+              {loading ? "Atualizando…" : "Atualizar"}
+            </button>
+          </>
+        }
+      />
       {partial && (
         <p className={s.notice} role="status">
           Algumas informações não carregaram. Use Atualizar para tentar
@@ -457,31 +432,41 @@ export function AdministrativeOverview({
               <UIIcon name="chevron" size={15} />
             </span>
             <strong className={s.metricValue}>{countLabel(card.value)}</strong>
-            <span className={s.metricBottom}>
-              <span className={s.metricHint}>{card.hint}</span>
-              <UIIcon name="arrow" size={15} />
-            </span>
           </AppNavLink>
         ))}
       </section>
-      <section className={s.priorities} id="avisos" aria-labelledby="operations-title">
+      <section
+        className={s.priorities}
+        id="avisos"
+        aria-labelledby="operations-title"
+      >
         <header className={s.priorityHeader}>
-          <div>
-            <span className={s.eyebrow}>FLUXO DE TRABALHO</span>
-            <h2 id="operations-title">O que precisa de acompanhamento</h2>
-          </div>
-          <AppNavLink href="/app/ministerios/" className={s.priorityExplore}>Abrir ministérios <UIIcon name="arrow" size={15}/></AppNavLink>
+          <h2 id="operations-title">Pendências de escala</h2>
         </header>
         <div className={s.priorityList}>
           {[
-            {title:"Convites aguardando confirmação",hint:"Acompanhe a resposta dos voluntários",value:counts?.rosterAssignmentsPending,href:"/app/ministerios/",icon:"clock" as const},
-            {title:"Escalas em preparação",hint:"Revise a distribuição antes de publicar",value:counts?.rostersDraft,href:"/app/ministerios/",icon:"calendar" as const}
+            {
+              title: "Convites aguardando confirmação",
+              value: counts?.rosterAssignmentsPending,
+              href: "/app/ministerios/",
+              icon: "clock" as const,
+            },
+            {
+              title: "Escalas em preparação",
+              value: counts?.rostersDraft,
+              href: "/app/ministerios/",
+              icon: "calendar" as const,
+            },
           ].map((item) => (
             <AppNavLink key={item.title} href={item.href}>
-              <span className={s.priorityIcon}><UIIcon name={item.icon} size={21}/></span>
-              <span className={s.priorityText}><strong>{item.title}</strong><small>{item.hint}</small></span>
-              <strong className={s.priorityValue}>{countLabel(item.value)}</strong>
-              <UIIcon name="arrow" size={16}/>
+              <span className={s.priorityIcon}>
+                <UIIcon name={item.icon} size={21} />
+              </span>
+              <span className={s.priorityText}>{item.title}</span>
+              <strong className={s.priorityValue}>
+                {countLabel(item.value)}
+              </strong>
+              <UIIcon name="arrow" size={16} />
             </AppNavLink>
           ))}
         </div>
@@ -489,10 +474,12 @@ export function AdministrativeOverview({
       <div className={s.layout}>
         <div className={s.main}>
           <Section
-            title="Nossa comunidade"
-            eyebrow="CADA PESSOA IMPORTA"
+            title="Pessoas da congregação"
             action={
-              <AppNavLink className={s.textLink} href="/app/secretaria/?aba=pessoas">
+              <AppNavLink
+                className={s.textLink}
+                href="/app/secretaria/?aba=pessoas"
+              >
                 Ver cadastros <UIIcon name="arrow" size={15} />
               </AppNavLink>
             }
@@ -500,11 +487,13 @@ export function AdministrativeOverview({
             <Congregation rows={distribution} loading={loading} />
           </Section>
           <Section
-            title="Caminho da admissão"
-            eyebrow="ACOLHER E ACOMPANHAR"
+            title="Admissões por etapa"
             action={
-              <AppNavLink className={s.textLink} href="/app/secretaria/">
-                Abrir secretaria <UIIcon name="arrow" size={15} />
+              <AppNavLink
+                className={s.textLink}
+                href="/app/secretaria/?aba=admissoes"
+              >
+                Ver admissões <UIIcon name="arrow" size={15} />
               </AppNavLink>
             }
           >
@@ -520,26 +509,19 @@ export function AdministrativeOverview({
               <>
                 <p className={s.flowSummary}>
                   <strong>{countLabel(pendingAdmissions.length)}</strong>
-                  <span>
-                    protocolos em andamento
-                    <br />
-                    <small>Distribuição por etapa</small>
-                  </span>
+                  <span>protocolos em andamento</span>
                 </p>
                 <div
                   className={s.admissionFlow}
                   aria-label="Etapas de admissão"
                 >
-                  {stages.map((stage, index) => {
+                  {stages.map((stage) => {
                     const count = pendingAdmissions.filter(
                       (row) => row.detail === stage,
                     ).length;
                     return (
                       <div className={s.stage} key={stage}>
                         <span className={s.stageLabel}>
-                          <i aria-hidden="true">
-                            {String(index + 1).padStart(2, "0")}
-                          </i>
                           {stage}
                           <strong>{countLabel(count)}</strong>
                         </span>
@@ -564,8 +546,7 @@ export function AdministrativeOverview({
       </div>
       <Section
         className={s.ministriesSection}
-        title="A vida acontece em equipe"
-        eyebrow="MINISTÉRIOS DA IGREJA"
+        title="Ministérios"
         action={
           <AppNavLink className={s.textLink} href="/app/ministerios/">
             Ver todos <UIIcon name="arrow" size={15} />
@@ -584,16 +565,25 @@ export function AdministrativeOverview({
                   href={ministryContextHref({ id: row.id })}
                   data-tone={index % 4}
                 >
-                  <span className={s.ministryIcon} aria-hidden="true"
-                     style={{ backgroundImage: `url("${withBasePath(
-                       /atmosfera|louvor|musica|música|adorac/i.test(row.title) ? "/images/galeria-louvor.webp" :
-                       /jovens|adolesc|pulse|juventude/i.test(row.title) ? "/images/galeria-juventude.webp" :
-                       /oração|oracao|mulheres|intercess/i.test(row.title) ? "/images/galeria-oracao.webp" :
-                       "/images/comunidade-oficial.jpg"
-                     )}")` }} />
+                  <span
+                    className={s.ministryIcon}
+                    aria-hidden="true"
+                    style={{
+                      backgroundImage: `url("${withBasePath(
+                        /atmosfera|louvor|musica|música|adorac/i.test(row.title)
+                          ? "/images/galeria-louvor.webp"
+                          : /jovens|adolesc|pulse|juventude/i.test(row.title)
+                            ? "/images/galeria-juventude.webp"
+                            : /oração|oracao|mulheres|intercess/i.test(
+                                  row.title,
+                                )
+                              ? "/images/galeria-oracao.webp"
+                              : "/images/comunidade-oficial.jpg",
+                      )}")`,
+                    }}
+                  />
                   <span className={s.ministryText}>
                     <strong>{row.title}</strong>
-                    <small>Equipe, escalas e caixa</small>
                   </span>
                   <UIIcon name="arrow" size={17} />
                 </AppNavLink>
@@ -602,14 +592,6 @@ export function AdministrativeOverview({
           </ul>
         )}
       </Section>
-      <footer className={s.footer}>
-        <span>ID Riacho 1 · Gestão da igreja</span>
-        <span>
-          {total === null
-            ? "Consultando os registros"
-            : `${countLabel(total)} vínculos cadastrados`}
-        </span>
-      </footer>
     </div>
   );
 }

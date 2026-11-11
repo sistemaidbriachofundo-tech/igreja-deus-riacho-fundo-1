@@ -218,7 +218,6 @@ export function CredentialDesk({
     <section className={s.desk} aria-labelledby="credential-desk-title">
       <header className={s.deskHead}>
         <div>
-          <p className={s.kicker}>Credenciais</p>
           <h2 id="credential-desk-title">Carteirinhas da congregação</h2>
         </div>
       </header>

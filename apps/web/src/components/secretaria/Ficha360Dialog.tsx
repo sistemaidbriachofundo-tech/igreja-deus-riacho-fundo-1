@@ -85,9 +85,7 @@ export function Ficha360Dialog({
           <div className={s.identityHeader}>
             <PersonPortrait name={person?.displayName ?? "Pessoa"} size="large" />
             <div>
-              <span className={s.kicker}>Cadastro de pessoa</span>
-              <h2 id={titleId}>{person?.displayName ?? "Ficha da pessoa"}</h2>
-              <p>Dados pessoais, família, histórico e identificação.</p>
+              <h2 id={titleId}>{person?.displayName ?? "Cadastro de pessoa"}</h2>
             </div>
           </div>
           <button type="button" className={s.close} onClick={onClose} aria-label="Fechar ficha">Fechar</button>
@@ -144,7 +142,7 @@ export function Ficha360Dialog({
                     data-field="legalGuardianPersonId"
                     value={form.legalGuardianPersonId}
                     autoComplete="off"
-                    placeholder="Identificador da pessoa adulta fictícia"
+                    placeholder="Código do cadastro do responsável"
                     onChange={(event) => onEdit({ ...form, legalGuardianPersonId: event.target.value })}
                   />
                 </label>

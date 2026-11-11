@@ -73,7 +73,7 @@ export function MinistryMembershipCatalog({
                     {member.status === "ENCERRADO" ? (
                       <span className={styles.tag}>Encerrado</span>
                     ) : (
-                      <button type="button" disabled={pending} onClick={() => onEnd(member.id)}>
+                      <button className={styles.endAction} type="button" disabled={pending} onClick={() => onEnd(member.id)}>
                         {pending ? "Registrando…" : "Encerrar vínculo"}
                       </button>
                     )}

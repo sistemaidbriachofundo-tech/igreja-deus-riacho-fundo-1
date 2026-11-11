@@ -1159,3 +1159,109 @@
     background-position: -100% 0;
   }
 }
+
+/* Shared controls for authenticated work screens. */
+.workspaceHeader .pageHeader {
+  align-items: center;
+  min-height: 64px;
+  gap: 16px 24px;
+}
+
+.workspaceHeader .pageTitle {
+  margin: 0;
+  color: var(--app-ink, #22382e);
+  font: 650 clamp(27px, 2.6vw, 35px)/1.18 Inter, Arial, sans-serif;
+  letter-spacing: -0.045em;
+}
+
+.workspaceHeader .sectionIntro {
+  max-width: 66ch;
+  margin: 8px 0 0;
+  color: var(--app-muted, #5f7368);
+  font: 400 14px/1.5 Inter, Arial, sans-serif;
+}
+
+.workspaceHeader .pageActions {
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.workspacePrimary,
+.workspaceSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--app-border, #dce6de);
+  border-radius: var(--app-control-radius, 8px);
+  background: var(--app-surface, #fff);
+  color: var(--app-accent, #255742);
+  font: 600 13px/1.25 Inter, Arial, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.workspacePrimary {
+  border-color: var(--app-accent, #255742);
+  background: var(--app-accent, #255742);
+  color: #fff;
+}
+
+.workspacePrimary:hover:not(:disabled) {
+  border-color: var(--app-accent-hover, #1b4935);
+  background: var(--app-accent-hover, #1b4935);
+}
+
+.workspaceSecondary:hover:not(:disabled) { background: var(--app-subtle, #f5f8f5); }
+.workspacePrimary:disabled, .workspaceSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
+.workspacePrimary svg, .workspaceSecondary svg { flex: none; }
+
+.workspaceSurface {
+  min-width: 0;
+  border: 1px solid var(--app-border, #dce6de);
+  border-radius: var(--app-radius, 12px);
+  background: var(--app-surface, #fff);
+}
+
+.workspaceTabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--app-border, #dce6de);
+  scrollbar-width: thin;
+}
+
+.workspaceTabs > button {
+  position: relative;
+  flex: none;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--app-muted, #5f7368);
+  font: 600 13px/1.35 Inter, Arial, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspaceTabs > button:hover { background: var(--app-subtle, #f5f8f5); }
+.workspaceTabs > button[aria-current="page"],
+.workspaceTabs > button[aria-selected="true"] {
+  border-bottom-color: var(--app-accent, #255742);
+  color: var(--app-accent, #255742);
+}
+.workspaceTabs > button:focus-visible { outline-offset: -4px; }
+
+@media (max-width: 620px) {
+  .workspaceHeader .pageHeader { align-items: flex-start; flex-direction: column; }
+  .workspaceHeader .pageActions { width: 100%; }
+  .workspaceHeader .pageActions > :is(a, button) { flex: 1 1 auto; }
+  .workspaceTabs > button { padding-inline: 12px; }
+}

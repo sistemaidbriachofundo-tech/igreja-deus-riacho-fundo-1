@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "./AppShell";
 import { CredentialDesk } from "./credentials/CredentialDesk";
+import { PageHeader } from "./ui/PageHeader";
 import {
   credentialFailure,
   type CredentialCard,
@@ -151,13 +152,7 @@ export function ChurchCredentials() {
   return (
     <AppShell active="carteirinha" meta="Carteirinhas">
       <div className={s.page}>
-        <header className={s.header}>
-          <div>
-            <p className={s.kicker}>Identidade</p>
-            <h1>Carteirinhas</h1>
-            <p>Abra a credencial para ver a frente, o verso e o QR.</p>
-          </div>
-        </header>
+        <PageHeader appearance="workspace" heading="h1" title="Carteirinhas" />
 
         {phase === "checking" ? <p className={s.panel} role="status">Verificando sessão</p> : null}
 
@@ -181,11 +176,11 @@ export function ChurchCredentials() {
 
         {phase === "ready" ? (
           <>
-            <div className={s.stats}>
+            <section className={s.stats} aria-label="Situação das carteirinhas">
               <div><strong>{activeCount}</strong><span>Ativas</span></div>
               <div><strong>{peopleCount}</strong><span>Pessoas</span></div>
               <div><strong>{Math.max(peopleCount - activeCount, 0)}</strong><span>Sem credencial ativa</span></div>
-            </div>
+            </section>
             <CredentialDesk
               token={token}
               canManage={manager}

@@ -10,7 +10,10 @@ import type {
   FinancePanel,
   MembershipChange,
 } from "../../lib/ministry-desk";
-import type { ActivityPanel, EscalaPanel } from "../../lib/ministry-presentation";
+import type {
+  ActivityPanel,
+  EscalaPanel,
+} from "../../lib/ministry-presentation";
 import {
   MINISTRY_TABS,
   activeFormalMembers,
@@ -26,6 +29,8 @@ import {
 import { MinistryMembershipCatalog } from "../MinistryMembershipCatalog";
 import { MinistryCover } from "./ministry-visuals";
 import { PersonPortrait } from "../PersonPortrait";
+import { PageHeader } from "../ui/PageHeader";
+import ui from "../ui/ui.module.css";
 import styles from "./ministry-home.module.css";
 
 type Props = {
@@ -40,7 +45,7 @@ type Props = {
   pending: boolean;
   onSelect: (ministryId: string) => void;
   onTab: (tab: MinistryTabId) => void;
-  onOpenEscala: (escalaId: string) => void;
+  onOpenEscala: (escalaId?: string) => void;
   onConvert: (interestId: string) => void;
   onAdmit: (personId: string, role: FormalRole) => void;
   onEnd: (membershipId: string) => void;
@@ -58,13 +63,16 @@ function StatusExperience({ desk, onSelect, onRefresh }: Props) {
     const title = ministryPanelTitle(desk.ministry);
     return (
       <div className={styles.board} data-screen="ministerios">
-        <p className={styles.kicker}>Ministérios</p>
-        <h1>{title}</h1>
+        <PageHeader appearance="workspace" heading="h1" title={title} />
         <div className={styles.alert} role="alert" data-status="403">
           <strong>Esta conta não abre este ministério.</strong>
           <p>Integrantes, escalas e atividades ficam ocultos.</p>
         </div>
-        <MinistryGrid ministries={desk.ministries} currentId="" onSelect={onSelect} />
+        <MinistryGrid
+          ministries={desk.ministries}
+          currentId=""
+          onSelect={onSelect}
+        />
         <button type="button" className={styles.secondary} onClick={onRefresh}>
           Consultar de novo
         </button>
@@ -73,15 +81,19 @@ function StatusExperience({ desk, onSelect, onRefresh }: Props) {
   }
 
   const message =
-    desk.kind === "unauthorized" || desk.kind === "empty" || desk.kind === "error"
+    desk.kind === "unauthorized" ||
+    desk.kind === "empty" ||
+    desk.kind === "error"
       ? desk.message
       : "Não foi possível abrir os ministérios autorizados.";
 
   return (
     <div className={styles.board} data-screen="ministerios">
-      <p className={styles.kicker}>Ministérios</p>
-      <h1>Ministérios</h1>
-      <div className={desk.kind === "empty" ? styles.note : styles.alert} role={desk.kind === "empty" ? "status" : "alert"}>
+      <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
+      <div
+        className={desk.kind === "empty" ? styles.note : styles.alert}
+        role={desk.kind === "empty" ? "status" : "alert"}
+      >
         <p>{message}</p>
       </div>
       <button type="button" className={styles.secondary} onClick={onRefresh}>
@@ -110,7 +122,9 @@ function ReadyExperience({
 }: Props & { desk: DeskReady }) {
   const title = ministryPanelTitle(desk.ministry);
   const count =
-    desk.membership.kind === "ready" ? activeFormalMembers(desk.membership.members).length : null;
+    desk.membership.kind === "ready"
+      ? activeFormalMembers(desk.membership.members).length
+      : null;
   const schedule = visibleSchedule(desk);
   const leaders = leadershipOf(desk);
   const shortcut = servingShortcut(desk.ministry.slug);
@@ -120,7 +134,8 @@ function ReadyExperience({
     if (current < 0) return;
     let next = current;
     if (event.key === "ArrowRight") next = (current + 1) % MINISTRY_TABS.length;
-    else if (event.key === "ArrowLeft") next = (current - 1 + MINISTRY_TABS.length) % MINISTRY_TABS.length;
+    else if (event.key === "ArrowLeft")
+      next = (current - 1 + MINISTRY_TABS.length) % MINISTRY_TABS.length;
     else if (event.key === "Home") next = 0;
     else if (event.key === "End") next = MINISTRY_TABS.length - 1;
     else return;
@@ -132,35 +147,38 @@ function ReadyExperience({
 
   return (
     <div className={styles.board} data-screen="ministerios">
-      <header className={styles.sectionIntro}>
-        <div>
-          <p className={styles.kicker}>GESTÃO MINISTERIAL</p>
-          <h1>Ministérios</h1>
-          <p>Equipes, escalas e atividades organizadas por ministério.</p>
-        </div>
-        <label className={styles.ministryPicker}>
-          Acessar ministério
-          <select value={desk.ministry.id} onChange={(event) => onSelect(event.target.value)}>
-            {desk.ministries.map((ministry) => (
-              <option key={ministry.id} value={ministry.id}>{ministryPanelTitle(ministry)}</option>
-            ))}
-          </select>
-        </label>
-      </header>
-      <article className={styles.panel} data-ministry={desk.ministry.id} aria-labelledby="ministry-panel-title">
-        <header className={styles.ministryHero}>
-          <MinistryCover className={styles.hero} name={desk.ministry.name} slug={desk.ministry.slug} />
-          <div className={styles.heroShade} aria-hidden="true" />
-          <div className={styles.heroCopy}>
-            <span>MINISTÉRIO SELECIONADO</span>
-            <h2 id="ministry-panel-title">{title}</h2>
-            {title !== desk.ministry.name ? <p className={styles.official}>{desk.ministry.name}</p> : null}
-            {desk.ministry.description ? <p>{desk.ministry.description}</p> : <p>Gestão da equipe e acompanhamento do ministério.</p>}
-          </div>
-          <span className={styles.heroCount}>{count === null ? "Equipe" : `${count} ${count === 1 ? "integrante" : "integrantes"}`}</span>
-        </header>
-
-        <div className={styles.tabs} role="tablist" aria-label={title} onKeyDown={onTabKey}>
+      <PageHeader
+        appearance="workspace"
+        heading="h1"
+        title={desk.ministry.name}
+        description={desk.ministry.description || undefined}
+        actions={
+          <label className={styles.ministryPicker}>
+            Acessar ministério
+            <select
+              value={desk.ministry.id}
+              onChange={(event) => onSelect(event.target.value)}
+            >
+              {desk.ministries.map((ministry) => (
+                <option key={ministry.id} value={ministry.id}>
+                  {ministryPanelTitle(ministry)}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+      />
+      <article
+        className={styles.panel}
+        data-ministry={desk.ministry.id}
+        aria-label={title}
+      >
+        <div
+          className={`${ui.workspaceTabs} ${styles.tabs}`}
+          role="tablist"
+          aria-label={title}
+          onKeyDown={onTabKey}
+        >
           {MINISTRY_TABS.map((item) => {
             const selected = item.id === tab;
             return (
@@ -172,7 +190,6 @@ function ReadyExperience({
                 aria-selected={selected}
                 aria-controls={`ministry-panel-${item.id}`}
                 tabIndex={selected ? 0 : -1}
-                className={selected ? styles.tabActive : styles.tab}
                 onClick={() => onTab(item.id)}
               >
                 {item.label}
@@ -193,7 +210,9 @@ function ReadyExperience({
               <ul className={styles.stats}>
                 <li>
                   <span>Integrantes formais</span>
-                  <strong>{count === null ? "Indisponível" : String(count)}</strong>
+                  <strong>
+                    {count === null ? "Indisponível" : String(count)}
+                  </strong>
                 </li>
                 <li>
                   <span>Interesses, sem vínculo</span>
@@ -201,10 +220,16 @@ function ReadyExperience({
                 </li>
                 <li>
                   <span>Escalas deste ministério</span>
-                  <strong>{escalas.kind === "ready" ? String(escalas.items.length) : "—"}</strong>
+                  <strong>
+                    {escalas.kind === "ready"
+                      ? String(escalas.items.length)
+                      : "—"}
+                  </strong>
                 </li>
               </ul>
-              {desk.finance.kind === "ready" && <MinistryCash finance={desk.finance} />}
+              {desk.finance.kind === "ready" && (
+                <MinistryCash finance={desk.finance} />
+              )}
               <div className={styles.split}>
                 <section>
                   <h2>Liderança</h2>
@@ -223,18 +248,36 @@ function ReadyExperience({
                       ))}
                     </ul>
                   )}
+                  <a
+                    className={styles.textLink}
+                    href={withBasePath(
+                      ministryHref(desk.ministry.id, "integrantes"),
+                    )}
+                  >
+                    Ver equipe completa
+                  </a>
                 </section>
                 <section>
                   <h2>Encontro habitual</h2>
-                  <p>{schedule ?? "O perfil deste ministério ainda não informa horário."}</p>
-                  {desk.ministry.participationInfo ? <p>{desk.ministry.participationInfo}</p> : null}
+                  <p>
+                    {schedule ??
+                      "O perfil deste ministério ainda não informa horário."}
+                  </p>
+                  {desk.ministry.participationInfo ? (
+                    <p>{desk.ministry.participationInfo}</p>
+                  ) : null}
                 </section>
               </div>
-              <div className={styles.shortcuts}>
-                <a href={withBasePath(ministryHref(desk.ministry.id, "integrantes"))}>Ver integrantes</a>
-                <a href={withBasePath(ministryHref(desk.ministry.id, "escalas"))}>Ver escalas</a>
-                {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
-              </div>
+              {shortcut && (
+                <div className={styles.shortcuts}>
+                  <a
+                    className={ui.workspaceSecondary}
+                    href={withBasePath(shortcut.href)}
+                  >
+                    {shortcut.label}
+                  </a>
+                </div>
+              )}
             </section>
           ) : null}
 
@@ -261,10 +304,16 @@ function ReadyExperience({
             />
           ) : null}
 
-          {tab === "atividades" ? <ActivityList panel={activities} schedule={schedule} /> : null}
+          {tab === "atividades" ? (
+            <ActivityList panel={activities} schedule={schedule} />
+          ) : null}
 
           {tab === "recursos" ? (
-            <ResourceList ministryId={desk.ministry.id} shortcut={shortcut} finance={desk.finance} />
+            <ResourceList
+              ministryId={desk.ministry.id}
+              shortcut={shortcut}
+              finance={desk.finance}
+            />
           ) : null}
         </div>
       </article>
@@ -335,52 +384,89 @@ function EscalaList({
   panel: EscalaPanel;
   escalaId?: string;
   shortcut: { href: string; label: string } | null;
-  onOpen: (escalaId: string) => void;
+  onOpen: (escalaId?: string) => void;
 }) {
-  if (panel.kind === "hidden" || panel.kind === "denied" || panel.kind === "unavailable") {
+  if (
+    panel.kind === "hidden" ||
+    panel.kind === "denied" ||
+    panel.kind === "unavailable"
+  ) {
     return (
       <p className={styles.note} role="status">
-        {panel.kind === "hidden" ? "As escalas deste ministério não foram consultadas." : panel.message}
+        {panel.kind === "hidden"
+          ? "As escalas deste ministério não foram consultadas."
+          : panel.message}
       </p>
     );
   }
   return (
-    <div className={styles.stack}>
-      <div className={styles.shortcuts}>
-        {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
-      </div>
+    <div className={styles.scheduleList}>
+      {shortcut && (
+        <div className={styles.shortcuts}>
+          <a
+            className={ui.workspaceSecondary}
+            href={withBasePath(shortcut.href)}
+          >
+            {shortcut.label}
+          </a>
+        </div>
+      )}
       {panel.items.length === 0 ? (
         <p className={styles.note}>Nenhuma escala deste ministério.</p>
       ) : (
-        panel.items.map((escala) => (
-          <article
-            key={escala.id}
-            id={`escala-${escala.id}`}
-            className={escala.id === escalaId ? `${styles.escala} ${styles.escalaCurrent}` : styles.escala}
-          >
-            <header>
-              <h2>{escala.title}</h2>
-              <span>{escalaStatusLabel(escala.status)}</span>
-            </header>
-            <p>{formatChurchWhen(escala.serviceAt)}</p>
-            <p>
-              {escala.functions.length
-                ? escala.functions.join(", ")
-                : "Funções ainda não definidas"}
-              {" · "}
-              {escala.assignedCount === 1 ? "1 pessoa escalada" : `${escala.assignedCount} pessoas escaladas`}
-            </p>
-            <a
-              href={withBasePath(ministryHref(ministryId, "escalas", escala.id))}
-              onClick={(event) => {
-                event.preventDefault();
-                onOpen(escala.id);
-              }}
+        panel.items.map((escala) => {
+          const expanded = escala.id === escalaId;
+          const detailId = `funcoes-${escala.id}`;
+          const nextId = expanded ? undefined : escala.id;
+          return (
+            <article
+              key={escala.id}
+              id={`escala-${escala.id}`}
+              className={
+                expanded
+                  ? `${styles.escala} ${styles.escalaCurrent}`
+                  : styles.escala
+              }
             >
-              Abrir esta escala
-            </a>
-          </article>
-        ))
+              <header>
+                <h2>{escala.title}</h2>
+                <span>{escalaStatusLabel(escala.status)}</span>
+              </header>
+              <p>
+                {formatChurchWhen(escala.serviceAt)} ·{" "}
+                {escala.assignedCount === 1
+                  ? "1 pessoa escalada"
+                  : `${escala.assignedCount} pessoas escaladas`}
+              </p>
+              <a
+                className={ui.workspaceSecondary}
+                href={withBasePath(ministryHref(ministryId, "escalas", nextId))}
+                aria-expanded={expanded}
+                aria-controls={expanded ? detailId : undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onOpen(nextId);
+                }}
+              >
+                {expanded ? "Fechar detalhes" : "Abrir esta escala"}
+              </a>
+              {expanded && (
+                <div className={styles.escalaDetails} id={detailId}>
+                  <h3>Funções na escala</h3>
+                  {escala.functions.length ? (
+                    <ul>
+                      {escala.functions.map((name) => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Funções ainda não definidas.</p>
+                  )}
+                </div>
+              )}
+            </article>
+          );
+        })
       )}
     </div>
   );
@@ -418,17 +504,35 @@ function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: str
 }
 
 function MinistryCash({ finance }: { finance: FinancePanel }) {
-  const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const currency = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
   return (
-    <section className={styles.note} aria-labelledby="caixa-title">
+    <section className={styles.cash} aria-labelledby="caixa-title">
       <h2 id="caixa-title">Caixa do ministério</h2>
       {finance.kind === "ready" ? (
         <ul className={styles.stats}>
-          <li><span>Saldo em caixa</span><strong>{currency.format(finance.balanceCents / 100)}</strong></li>
-          <li><span>Entradas</span><strong>{currency.format(finance.incomeCents / 100)}</strong></li>
-          <li><span>Despesas</span><strong>{currency.format(finance.expenseCents / 100)}</strong></li>
+          <li>
+            <span>Saldo em caixa</span>
+            <strong>{currency.format(finance.balanceCents / 100)}</strong>
+          </li>
+          <li>
+            <span>Entradas</span>
+            <strong>{currency.format(finance.incomeCents / 100)}</strong>
+          </li>
+          <li>
+            <span>Despesas</span>
+            <strong>{currency.format(finance.expenseCents / 100)}</strong>
+          </li>
         </ul>
-      ) : <p>{finance.kind === "denied" ? "Seu perfil não tem acesso ao caixa." : "Saldo ainda indisponível."}</p>}
+      ) : (
+        <p>
+          {finance.kind === "denied"
+            ? "Seu perfil não tem acesso ao caixa."
+            : "Saldo ainda indisponível."}
+        </p>
+      )}
     </section>
   );
 }
@@ -446,11 +550,31 @@ function ResourceList({
     <div className={styles.stack}>
       <section className={styles.escala}>
         <h2>Acesso rápido</h2>
-        <p>Consulte a equipe, as escalas e os serviços disponíveis para este ministério.</p>
+        <p>
+          Consulte a equipe, as escalas e os serviços disponíveis para este
+          ministério.
+        </p>
         <div className={styles.shortcuts}>
-          <a href={withBasePath(ministryHref(ministryId, "integrantes"))}>Integrantes</a>
-          <a href={withBasePath(ministryHref(ministryId, "escalas"))}>Escalas</a>
-          {shortcut ? <a href={withBasePath(shortcut.href)}>{shortcut.label}</a> : null}
+          <a
+            className={ui.workspaceSecondary}
+            href={withBasePath(ministryHref(ministryId, "integrantes"))}
+          >
+            Integrantes
+          </a>
+          <a
+            className={ui.workspaceSecondary}
+            href={withBasePath(ministryHref(ministryId, "escalas"))}
+          >
+            Escalas
+          </a>
+          {shortcut ? (
+            <a
+              className={ui.workspaceSecondary}
+              href={withBasePath(shortcut.href)}
+            >
+              {shortcut.label}
+            </a>
+          ) : null}
         </div>
       </section>
       <MinistryCash finance={finance} />

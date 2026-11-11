@@ -443,11 +443,18 @@ export function AppShell({
         <button type="button" ref={drawerCloseRef} className={s.drawerClose} hidden={viewport !== "mobile"} onClick={() => { setDrawerOpen(false); menuButtonRef.current?.focus(); }}>
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
-        <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
-          <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
-          <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
-        </AppNavLink>
-
+        <div className={s.railHeader}>
+          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
+            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
+            <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
+          </AppNavLink>
+          <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
+            aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
+            aria-expanded={!collapsed} aria-controls="app-navigation-rail" onClick={toggleMenu}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}>
+            <UIIcon name="chevron" size={17}/>
+          </button>
+        </div>
 
         <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
@@ -475,12 +482,7 @@ export function AppShell({
           })}
           {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de mostrar o menu.</p>}
         </nav>
-        <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
-          aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
-          aria-expanded={!collapsed} aria-controls="app-navigation-rail" onClick={toggleMenu}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}>
-          <UIIcon name="chevron" size={17}/><span className={s.railCollapseText}>{collapsed ? "Expandir menu" : "Recolher menu"}</span>
-        </button>
+
       </aside>
 
       <div className={s.mainColumn}>

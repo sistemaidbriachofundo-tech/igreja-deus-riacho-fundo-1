@@ -15,6 +15,8 @@ import {
 import { loadMinistryBoard, type MinistryBoardData } from "../lib/ministry-presentation";
 import { ministryHref, parseMinistryRoute, type MinistryTabId } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
+import { PageHeader } from "./ui/PageHeader";
+import ui from "./ui/ui.module.css";
 import styles from "./ministry-membership-catalog.module.css";
 
 type Route = { ministryId?: string; tab: MinistryTabId; escalaId?: string };
@@ -154,7 +156,7 @@ export function MinistryDeskPage() {
   if (!token) {
     return (
       <section className={styles.desk}>
-        <h1>Ministérios</h1>
+        <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
         <p className={styles.lede}>A sessão ainda não está disponível nesta página.</p>
       </section>
     );
@@ -163,8 +165,8 @@ export function MinistryDeskPage() {
   if (!board) {
     return (
       <section className={styles.desk} role="status">
-        <h1>Ministérios</h1>
-        <p className={styles.lede}>Consultando somente os ministérios autorizados…</p>
+        <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
+        <p className={`${ui.workspaceSurface} ${styles.loadingPanel}`}>Carregando ministérios…</p>
       </section>
     );
   }
