@@ -48,14 +48,14 @@ export function MinistryMembershipCatalog({
   return (
     <div className={styles.columns}>
       <section className={styles.panel} data-region="formal-members" aria-labelledby="formal-members-title">
-        <h2 id="formal-members-title">Equipe formal</h2>
-        <p>Somente pessoas com vínculo gravado neste ministério. Interesse de voluntariado não entra aqui.</p>
+        <h2 id="formal-members-title">Pessoas da equipe</h2>
+        <p>Integrantes cadastrados neste ministério, com sua função e situação atual.</p>
         {schedule ? <p className={styles.schedule}>Encontro habitual: {schedule}</p> : null}
         {canWrite ? (
           <>
             {active.length === 0 ? (
               <div className={styles.invite} data-region="invite">
-                <strong>Nenhum integrante formal</strong>
+                <strong>Esta equipe ainda não tem integrantes cadastrados</strong>
                 <p>Convide uma pessoa que já tenha cadastro. A lista continua vazia até o vínculo ser gravado.</p>
               </div>
             ) : null}
@@ -95,7 +95,7 @@ export function MinistryMembershipCatalog({
       </section>
 
       <section className={styles.panel} data-region="volunteer-interests" aria-labelledby="interests-title">
-        <h2 id="interests-title">Interesses de voluntariado</h2>
+        <h2 id="interests-title">Pessoas interessadas</h2>
         <p>{desk.interestsMessage}</p>
         {desk.interests.length === 0 ? (
           <p className={styles.schedule}>Nenhum interesse neste ministério.</p>
