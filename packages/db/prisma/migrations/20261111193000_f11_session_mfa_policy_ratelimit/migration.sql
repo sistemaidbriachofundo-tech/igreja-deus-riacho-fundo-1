@@ -92,11 +92,37 @@ ALTER TABLE "mfa_challenges" ADD CONSTRAINT "mfa_challenges_user_id_fkey" FOREIG
 ALTER TABLE "security_policies" ADD CONSTRAINT "security_policies_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Imutabilidade lógica. O dono da tabela também é barrado pelo trigger.
+-- Exceções: anular actor_user_id quando o usuário é removido (FK SET NULL)
+-- e a transação de manutenção do seed sintético (set_config local).
 CREATE OR REPLACE FUNCTION audit_logs_deny_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  IF current_setting('idbrf.audit_maintenance', true) = 'on' THEN
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND NEW.actor_user_id IS NULL
+     AND OLD.actor_user_id IS DISTINCT FROM NEW.actor_user_id
+     AND NEW.id IS NOT DISTINCT FROM OLD.id
+     AND NEW.action IS NOT DISTINCT FROM OLD.action
+     AND NEW.resource_type IS NOT DISTINCT FROM OLD.resource_type
+     AND NEW.resource_id IS NOT DISTINCT FROM OLD.resource_id
+     AND NEW.organization_id IS NOT DISTINCT FROM OLD.organization_id
+     AND NEW.church_id IS NOT DISTINCT FROM OLD.church_id
+     AND NEW.metadata IS NOT DISTINCT FROM OLD.metadata
+     AND NEW.outcome IS NOT DISTINCT FROM OLD.outcome
+     AND NEW.request_id IS NOT DISTINCT FROM OLD.request_id
+     AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+  THEN
+    RETURN NEW;
+  END IF;
+
   RAISE EXCEPTION 'audit_logs are append-only';
 END;
 $$;

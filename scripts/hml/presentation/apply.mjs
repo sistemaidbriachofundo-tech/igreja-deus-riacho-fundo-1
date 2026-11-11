@@ -77,7 +77,12 @@ export async function runSeed({ mode, databaseUrl, env = process.env }) {
   }
 }
 
+async function allowAuditMaintenance(tx) {
+  await tx.$executeRaw`SELECT set_config('idbrf.audit_maintenance', 'on', true)`;
+}
+
 async function apply(tx, { place }) {
+  await allowAuditMaintenance(tx);
   const catalog = buildCatalog();
   const scope = await resolveScope(tx, place);
   await assertNovemberOpen(tx, scope.churchId);
@@ -837,6 +842,7 @@ async function assertBalanced(tx) {
 }
 
 export async function rollback(tx) {
+  await allowAuditMaintenance(tx);
   const before = await inventory(tx);
   await tx.auditLog.deleteMany({
     where: { OR: [{ id: { startsWith: SEED_PREFIX } }, { action: { startsWith: "hml.presentation_seed" } }] },
