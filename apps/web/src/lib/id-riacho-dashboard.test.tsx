@@ -24,7 +24,7 @@ describe("ID Riacho 1 — dashboard administrativo", () => {
   it("abre o menu administrativo sem diagnóstico nem Meu Espaço", () => {
     const html = renderToStaticMarkup(<AppShell active="visao" meta="Início"><p>Conteúdo</p></AppShell>);
     expect(html).toContain("Início");
-    expect(html).toContain("Membros e famílias");
+    expect(html).not.toContain("Membros e famílias");
     expect(html).toContain("Secretaria");
     expect(html).toContain("Carteirinhas");
     expect(html).toContain("Mídia e conteúdo");
