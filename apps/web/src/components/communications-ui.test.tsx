@@ -23,15 +23,15 @@ describe("Comunicação F5 — monitoramento sem disparos",()=>{
 });
 
 describe("Navegação mobile — sem sete itens espremidos",()=>{
-  it("mantém quatro destinos e botão Mais acessível",()=>{
+  it("mantém quatro atalhos, incluindo Caixa, e o botão Mais",()=>{
     const html=renderToStaticMarkup(<AppShell active="operacao" meta="Gestão integrada">
       <h1>Conteúdo do teste</h1>
     </AppShell>);
     const mobile=html.split('aria-label="Navegação principal no celular"')[1]?.split("</nav>")[0]??"";
-    expect((mobile.match(/<a\s/g)||[]).length).toBe(3);
+    expect((mobile.match(/<a\s/g)||[]).length).toBe(4);
     expect(mobile).toContain("Mais módulos e páginas");
     expect(mobile).toContain('aria-haspopup="dialog"');
-    expect(mobile).toContain("Ministérios");
+    for (const item of ["Início", "Secretaria", "Ministérios", "Caixa"]) expect(mobile).toContain(item);
     expect(mobile).not.toContain("Carteira");
     expect(mobile).not.toContain("Membros e famílias");
   });
