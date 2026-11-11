@@ -62,6 +62,9 @@ const ROLE_DEFS = [
 
 /** Seed fictício apenas — sem dados reais da igreja. */
 async function main() {
+  if (process.env.IDBRF_RUNTIME_STAGE === "production") {
+    throw new Error("Seed sintético bloqueado em produção");
+  }
   const org = await prisma.organization.upsert({
     where: { slug: PILOT_ORG_SLUG },
     update: {},

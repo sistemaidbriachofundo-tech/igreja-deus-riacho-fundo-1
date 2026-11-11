@@ -10,6 +10,7 @@ import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import { authenticatedLanding } from "../lib/auth-destination";
+import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
 
 type Props = { onAuthenticated?: () => void };
@@ -90,18 +91,14 @@ export function LoginScreen({ onAuthenticated }: Props) {
             <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
           </div>
           <div className={styles.storyContent}>
-            <span className={styles.eyebrow}>ID RIACHO 1 · PLATAFORMA DE GESTÃO</span>
-            <h1>Uma igreja.<br/><em>Um propósito.</em><br/>Uma gestão que cuida.</h1>
-            <p>O cuidado com as pessoas também está nos detalhes de como servimos, organizamos e protegemos suas histórias.</p>
+            <p className={styles.eyebrow}>ID Riacho 1</p>
+            <p className={styles.storyTitle}>Cuidar da igreja <em>é cuidar de pessoas.</em></p>
           </div>
-          <span className={styles.footerMark}>IGREJA DE DEUS · FÉ, COMUNHÃO E SERVIÇO</span>
         </aside>
         <section className={styles.panel} aria-labelledby="login-heading">
           <div className={styles.panelInner}>
-            <div className={styles.sectionNumber}><span>ÁREA RESTRITA</span><span>01 / ACESSO</span></div>
             <div className={styles.heading}>
-              <span className={styles.kicker}>BEM-VINDO AO ID RIACHO 1</span>
-              <h2 id="login-heading">Entre na sua conta.</h2>
+              <h1 id="login-heading">Entre na sua conta</h1>
               <p>Use seu e-mail e sua senha para acessar o ambiente administrativo.</p>
             </div>
             <form onSubmit={submit} className={styles.form}>
@@ -122,10 +119,10 @@ export function LoginScreen({ onAuthenticated }: Props) {
                   aria-pressed={showPassword} onClick={()=>setShowPassword(value=>!value)}
                   disabled={busy||checking}>{showPassword?"Ocultar":"Mostrar"}</button>
               </div>
-              {error&&<p className={styles.error} role="alert">{error}</p>}
-              {!enabled&&<p className={styles.warning} role="status">O acesso autenticado ainda não está habilitado nesta publicação. Nenhuma credencial será enviada.</p>}
+              {error && <Alert appearance="workspace" tone="danger" title={error} />}
+              {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
               <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking?"Validando sessão…":busy?"Verificando credenciais…":"Entrar no painel"}
+                {checking?"Validando sessão…":busy?"Entrando…":"Entrar no painel"}
                 <span aria-hidden="true">→</span>
               </button>
             </form>

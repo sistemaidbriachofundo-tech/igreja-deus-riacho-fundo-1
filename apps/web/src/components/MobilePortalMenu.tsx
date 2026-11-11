@@ -43,7 +43,6 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
       <PortalGlyph name={isOpen ? "close" : "menu"}/>
     </summary>
     <nav aria-label="Navegação do site público no celular" className={s.mobileMenuPanel}>
-      <span className={s.mobileCategory}>IGREJA DE DEUS · RIACHO FUNDO I</span>
       {links.map(link => {
         const sectionId = sectionIdFromHref(link.href);
         if (sectionId) {
@@ -60,7 +59,6 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
       <Link className={s.mobileStaff} href="/login/" onClick={close}>
         Login <PortalGlyph name="arrow" width={18}/>
       </Link>
-      <span className={s.mobileNote}>Um lugar de fé, comunhão e cuidado.</span>
     </nav>
   </details>;
 }

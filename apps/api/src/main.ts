@@ -1,8 +1,10 @@
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { assertProductionConfiguration } from "./production-config";
 
 async function bootstrap() {
+  assertProductionConfiguration(process.env);
   const app = await NestFactory.create(AppModule);
 
   // Vercel / reverse proxy: habilita req.ip a partir de X-Forwarded-For (rate-limit).
@@ -26,6 +28,7 @@ async function bootstrap() {
       "CORS_ORIGIN é obrigatório quando NODE_ENV=production (lista CSV de origens FE)",
     );
   }
+  app.getHttpAdapter().getInstance().disable("x-powered-by");
   app.enableCors({
     origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true,
   });
@@ -47,6 +50,7 @@ async function bootstrap() {
       },
       next: () => void,
     ) => {
+      res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("Referrer-Policy", "no-referrer");

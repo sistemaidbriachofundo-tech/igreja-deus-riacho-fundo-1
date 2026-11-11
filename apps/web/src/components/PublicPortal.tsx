@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
+import { instagramUrl, ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
 import { PortalMotion } from "./PortalMotion";
@@ -49,7 +49,7 @@ export function PortalFooter() {
       <div className={s.footerTop}>
         <div className={s.footerAbout}>
           <Logo inverse />
-          <p>Uma igreja para Deus, pelas famílias. Um lugar de fé, comunhão e cuidado para cada história.</p>
+          <p>Riacho Fundo I · Brasília, DF</p>
         </div>
         <nav className={s.footerLinks} aria-label="Navegação do rodapé">
           <div><span className={s.footerLabel}>Navegue</span>
@@ -57,13 +57,13 @@ export function PortalFooter() {
             <PortalSectionLink sectionId="quem-somos">Quem somos</PortalSectionLink>
             <PortalSectionLink sectionId="agenda">Agenda</PortalSectionLink>
           </div>
-          <div><span className={s.footerLabel}>Área restrita</span>
+          <div><span className={s.footerLabel}>Acesso</span>
             <Link href="/login/">Login</Link>
-            <span className={s.footerNote}>Gestão interna de equipes, ministérios e recursos com acesso autorizado.</span>
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram da igreja ↗</a>
           </div>
         </nav>
       </div>
-      <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span><span>Fé · Família · Comunhão · Missão</span></div>
+      <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span></div>
     </footer>
   );
 }

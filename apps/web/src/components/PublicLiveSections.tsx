@@ -78,16 +78,29 @@ export function PublishedAgenda() {
   const events = useMemo(() => currentPublishedEvents(data ?? []), [data]);
 
   return (
-    <div className={s.agendaArea}>
-      <div className={s.agendaHeader}>
-        <div><span className={s.overline}>AGENDA PÚBLICA</span><h2 id="agenda-title" tabIndex={-1}>Próximos <em>encontros.</em></h2></div>
-        <p>Somente eventos aprovados para divulgação. Datas e locais são apresentados no fuso de Brasília.</p>
+    <div className={s.visitAgenda}>
+      <div>
+        <p className={s.visitLabel}>Agenda</p>
+        <h2 id="agenda-title" tabIndex={-1}>Próximos <em>encontros.</em></h2>
       </div>
-      {status === "loading" && <p role="status" className={s.loading}>Consultando eventos publicados…</p>}
-      {status !== "loading" && events.length === 0 && <VisitFallback />}
-      {events.length > 0 && <div className={s.eventList}>
-        {events.map((event) => <EventLine event={event} key={event.id}/>)}
-      </div>}
+      <div className={s.visitSchedule}>
+        {status === "loading" && <p role="status">Carregando a programação…</p>}
+        {status === "ready" && events.length === 0 && (
+          <p>Assim que houver novos encontros anunciados, as datas aparecerão aqui.</p>
+        )}
+        {status === "unavailable" && <p>Confira os horários dos cultos e os próximos encontros no Instagram da igreja.</p>}
+        {events.map(event => (
+          <article key={event.id} className={s.visitEvent}>
+            <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
+            <h3>{event.name}</h3>
+            {event.locationText && <p>{event.locationText}</p>}
+            {event.description && <p>{event.description}</p>}
+          </article>
+        ))}
+        <a className={s.visitLink} href={instagramUrl} target="_blank" rel="noopener noreferrer">
+          Instagram da igreja <span aria-hidden="true">↗</span>
+        </a>
+      </div>
     </div>
   );
 }

@@ -139,3 +139,11 @@
   .headerLogin{font-size:11px;padding:9px 11px}
   .headerControls{gap:7px}
 }
+
+.masthead { background: #0b211bea; border-bottom-color: #adc4b12c; }
+.masthead[data-scrolled="true"] { background: #0b211b; border-bottom-color: #adc4b145; }
+.desktopNav>a[aria-current="location"] { color: #f0d9ab; }
+.desktopNav>a[aria-current="location"]::after { transform: scaleX(1); }
+.mobileMenuPanel { background: #102c24; }
+.mobileMenuPanel>a[aria-current="location"] { color: #efcd8d; }
+.footer { background: #0b211b!important; }

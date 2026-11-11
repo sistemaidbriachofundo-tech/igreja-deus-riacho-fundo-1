@@ -21,6 +21,7 @@ export class MetaController {
       contractVersion: API_CONTRACT_VERSION,
       apiPathPrefix: API_PATH_PREFIX,
       pilot: true,
+      stage: process.env.IDBRF_RUNTIME_STAGE === "production" ? "production" : "non-production",
       endpoints: API_ENDPOINT_STATUS,
       hmlPublicUrl: process.env.HML_PUBLIC_API_URL?.trim() || null,
       sourceSha: readSourceSha(),

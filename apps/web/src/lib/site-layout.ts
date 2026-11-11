@@ -22,7 +22,7 @@ export const defaultSiteLayout: SiteLayout = {
   version: 1,
   hero: {
     title: "Sua jornada com Deus", accent: "pode começar aqui.",
-    description: "Um lugar de acolhimento, fé e propósito para você e sua família. Venha nos conhecer e caminhe com uma comunidade que cresce e serve junta.",
+    description: "Um lugar para adorar, caminhar em família e viver a fé juntos.",
     imageUrl: "/images/adoracao-oficial.jpg",
   },
   gallery: {
