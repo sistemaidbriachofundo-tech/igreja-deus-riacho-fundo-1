@@ -37,7 +37,7 @@ describe("TreasuryPanel", () => {
   it("não oferece gravação quando a homologação da interface está desligada", () => {
     process.env.NEXT_PUBLIC_HML_ENABLED = "false";
     const html = renderToStaticMarkup(<TreasuryPanel />);
-    expect(html).toContain("gravação fica desligada");
+    expect(html).not.toContain("Gravar rascunho");
     expect(html).toContain("Nenhum valor foi exibido");
     expect(html).toContain("disabled");
     expect(html).not.toContain("R$");

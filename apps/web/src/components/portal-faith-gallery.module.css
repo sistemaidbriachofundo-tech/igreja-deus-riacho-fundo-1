@@ -32,3 +32,7 @@
 .gallery[data-appearance="verde"] .heading h2 em{color:#468f79}
 .gallery[data-appearance="marfim"]{background:#fffaf1}
 .gallery[data-appearance="marfim"] .heading h2 em{color:#9c8668}
+
+.gallery .eyebrow { color: #55715f; text-transform: uppercase; letter-spacing: .16em; }
+.card[data-crop="true"] .image { transform: scale(1.15); }
+.card[data-crop="true"]:hover .image { transform: scale(1.18); }

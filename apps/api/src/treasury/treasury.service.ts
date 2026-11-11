@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canAccessFinance } from "@idbrf/shared";
+import { canAccessFinance, hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { FinanceService } from "../finance/finance.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -54,7 +54,7 @@ export class TreasuryService {
   ) {}
 
   async position(actor: AuthUser, costCenterId?: string) {
-    const scope = await this.requireTreasury(actor);
+    const scope = await this.requireTreasury(actor, "read");
     const rows = await this.prisma.ledgerEntry.findMany({
       where: {
         organizationId: scope.organizationId,
@@ -342,14 +342,11 @@ export class TreasuryService {
     }
   }
 
-  private async requireTreasury(actor: AuthUser): Promise<PilotScope> {
+  private async requireTreasury(actor: AuthUser, action: "read" | "write" = "write"): Promise<PilotScope> {
     const pilot = await this.pilot.getPilotChurch();
-    if (
-      !canAccessFinance(actor.grants, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      })
-    ) {
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const adminRead = action === "read" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
+    if (!adminRead && !canAccessFinance(actor.grants, scope)) {
       throw new ForbiddenException("Sem permissão de tesouraria nesta congregação");
     }
     return {

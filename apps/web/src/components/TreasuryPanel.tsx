@@ -1,5 +1,7 @@
 "use client";
 
+import { usePersonaAccess } from "./AppShell";
+
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 
 import { useEffect, useState, type FormEvent } from "react";
@@ -184,6 +186,8 @@ export function TreasuryPositionCards({ state }: { state: TreasuryCardState }) {
 }
 
 export function TreasuryPanel() {
+  const access = usePersonaAccess();
+  const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
   const { confirm, confirmation } = useActionConfirmation();
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
   const [tab, setTab] = useState<Tab>("recebido");
@@ -249,7 +253,7 @@ export function TreasuryPanel() {
     }
   }
 
-  const canPost = enabled && Boolean(token) && !busy && accounts.length > 1;
+  const canPost = canWrite && enabled && Boolean(token) && !busy && accounts.length > 1;
   const visibleEntries = (entries ?? []).filter((entry) => {
     if (from && entry.entryDate < from) return false;
     if (to && entry.entryDate > to) return false;
@@ -387,7 +391,7 @@ export function TreasuryPanel() {
                 <small>{entry.entryDate || "Data não informada"} · {entry.amountCents === null ? "Valor não informado" : formatBRL(entry.amountCents)}</small>
                 <small>{approval.text}</small>
               </div>
-              {approval.canApprove && (
+              {canWrite && approval.canApprove && (
                 <button type="button" disabled={busy} onClick={() => { void approve(entry.id); }}>Registrar aprovação</button>
               )}
             </article>
@@ -411,6 +415,7 @@ export function TreasuryPanel() {
         ))}
       </section>
 
+      {canWrite && <>
       <div className={styles.tabs} role="tablist" aria-label="Tipo de lançamento">
         {([
           ["recebido", "Receita recebida"],
@@ -460,6 +465,7 @@ export function TreasuryPanel() {
         <button className={styles.wide} type="submit" disabled={!canPost}>Gravar rascunho</button>
         {message && <p className={`${styles.status} ${styles.wide}`} role="status">{message}</p>}
       </form>
+      </>}
       <p className={styles.note}><a href={withBasePath("/app/relatorios/")}>Abrir relatórios</a></p>
     </section>
   );

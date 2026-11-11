@@ -31,7 +31,7 @@ describe("Gestão do Site — editor visual",()=>{
     expect(hero).toContain(defaultSiteLayout.hero.title);
     expect(hero).toContain(defaultSiteLayout.hero.accent);
     expect(gallery).toContain(defaultSiteLayout.gallery.title);
-    expect(gallery).toContain("galeria-louvor.webp");
+    expect(gallery).toContain("/images/riacho/louvor.webp");
     expect(gallery).toContain('data-appearance="dourado"');
   });
   it("renders existing sections without changing SSR order",()=>{
@@ -46,7 +46,7 @@ describe("Gestão do Site — editor visual",()=>{
   it("provides authorized media upload without needing GitHub",()=>{
     const html=renderToStaticMarkup(<SiteMediaLibrary token="demo-token" onChoose={()=>{}}/>);
     expect(html).toContain("Enviar foto");
-    expect(html).toContain("galeria-louvor.webp");
+    expect(html).toContain("/images/riacho/louvor.webp");
     expect(html).toContain('type="file"');
     expect(html).toContain("autorização");
   });

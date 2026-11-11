@@ -1,13 +1,14 @@
 "use client";
 
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
-import { withBasePath } from "../lib/paths";
+import { SITE_COVER_PHOTO } from "@idbrf/shared";
+import { resolveSitePhoto } from "../lib/site-layout";
 import { PortalSectionLink } from "./PublicSectionLink";
 import s from "./portal-cinematic-hero.module.css";
 
 export function PortalCinematicHero() {
   const { hero, appearance } = usePublishedSiteLayout();
-  const imageUrl = hero.imageUrl.startsWith("/images/") ? withBasePath(hero.imageUrl) : hero.imageUrl;
+  const imageUrl = resolveSitePhoto(hero.imageUrl);
 
   return (
     <section id="inicio" className={s.hero} data-appearance={appearance} aria-labelledby="hero-title">
@@ -28,10 +29,10 @@ export function PortalCinematicHero() {
             </PortalSectionLink>
           </div>
         </div>
-        <div className={s.window} aria-hidden="true">
-          <div className={s.photo}>
+        <div className={s.window}>
+          <div className={s.photo} data-facade={hero.imageUrl === SITE_COVER_PHOTO}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="" fetchPriority="high" />
+            <img src={imageUrl} alt={hero.imageUrl === SITE_COVER_PHOTO ? "Fachada da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
           </div>
         </div>
       </div>

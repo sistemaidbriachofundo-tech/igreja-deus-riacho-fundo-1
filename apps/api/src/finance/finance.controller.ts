@@ -280,6 +280,7 @@ export class FinanceController {
     return this.finance.listBankAdapters();
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("accounts")
   listAccounts(@CurrentUser() user: AuthUser) {
     return this.finance.listAccounts(user);
@@ -326,6 +327,7 @@ export class FinanceController {
     return this.finance.patchFund(user, fundId, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("cost-centers")
   listCostCenters(@CurrentUser() user: AuthUser) {
     return this.finance.listCostCenters(user);
@@ -345,6 +347,7 @@ export class FinanceController {
     return this.finance.patchCostCenter(user, costCenterId, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("entries")
   listEntries(
     @CurrentUser() user: AuthUser,
@@ -527,6 +530,7 @@ export class FinanceController {
     return this.finance.closePeriod(user, periodId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("reconciliations")
   listReconciliations(@CurrentUser() user: AuthUser) {
     return this.finance.listReconciliations(user);

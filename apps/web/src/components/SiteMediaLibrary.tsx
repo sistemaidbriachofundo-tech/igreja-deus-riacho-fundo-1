@@ -5,7 +5,7 @@ import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { getApiBaseUrl } from "../lib/api";
 import { withBasePath } from "../lib/paths";
-import { siteMediaLibrary } from "../lib/site-layout";
+import { resolveSitePhoto, siteMediaLibrary } from "../lib/site-layout";
 import s from "./site-media-library.module.css";
 
 type MediaAsset = { url:string; pathname:string; name:string; size:number; uploadedAt:string };
@@ -82,7 +82,7 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
       <div className={s.assets}>
         {media.map(asset=><button type="button" key={asset.pathname} onClick={()=>onChoose(asset.url)} title={"Usar "+asset.name}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={asset.url} alt={asset.name} loading="lazy"/>
+          <img src={resolveSitePhoto(asset.url)} alt={asset.name} loading="lazy"/>
           <span>{asset.name}</span>
           <small>{(asset.size/1024).toFixed(0)} KB</small>
         </button>)}
