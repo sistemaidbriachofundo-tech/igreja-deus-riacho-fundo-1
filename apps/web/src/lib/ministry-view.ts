@@ -10,7 +10,7 @@ export const MINISTRY_TABS = [
   { id: "integrantes", label: "Integrantes" },
   { id: "escalas", label: "Escalas" },
   { id: "atividades", label: "Atividades" },
-  { id: "recursos", label: "Recursos autorizados" },
+  { id: "recursos", label: "Gestão e caixa" },
 ] as const;
 
 export type MinistryTabId = (typeof MINISTRY_TABS)[number]["id"];
