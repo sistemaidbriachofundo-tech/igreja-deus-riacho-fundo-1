@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { instagramUrl, ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
+import { instagramUrl, youtubeChannelUrl, ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
 import { PortalMotion } from "./PortalMotion";
@@ -59,7 +59,10 @@ export function PortalFooter() {
           </div>
           <div><span className={s.footerLabel}>Acesso</span>
             <Link href="/login/">Login</Link>
-            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram da igreja ↗</a>
+          </div>
+          <div><span className={s.footerLabel}>Redes sociais</span>
+            <a href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">YouTube <span aria-hidden="true">↗</span></a>
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram <span aria-hidden="true">↗</span></a>
           </div>
         </nav>
       </div>

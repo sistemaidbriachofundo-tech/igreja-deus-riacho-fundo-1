@@ -2,6 +2,7 @@ import { PublicPage } from "../components/PublicPortal";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalSectionLink } from "../components/PublicSectionLink";
 import { PublishedAgenda } from "../components/PublicLiveSections";
+import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
 import { withBasePath } from "../lib/paths";
 import s from "./home-institutional.module.css";
@@ -33,6 +34,7 @@ export default function HomePage() {
         <section className={s.agenda} id="agenda" aria-labelledby="agenda-title">
           <div className={s.agendaWrap}><PublishedAgenda /></div>
         </section>
+        <PortalVideoShowcase />
       </main>
     </PublicPage>
   );
