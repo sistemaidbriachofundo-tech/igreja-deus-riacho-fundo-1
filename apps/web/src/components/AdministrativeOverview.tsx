@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { AppNavLink, UIIcon } from "./AppShell";
 import { ministryContextHref } from "../lib/persona-navigation";
+import { withBasePath } from "../lib/paths";
 import type { IndicatorCounts, NamedRow, StatusBar } from "./PersonaHome";
 import s from "./administrative-overview.module.css";
 
@@ -406,18 +407,11 @@ export function AdministrativeOverview({
             Pessoas, equipes e os próximos passos da igreja.
           </p>
         </div>
-        <div className={s.headingActions}>
-          <span className={s.today}>
-            <UIIcon name="calendar" size={16} />
-            <time>
-              {new Intl.DateTimeFormat("pt-BR", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-                timeZone: "America/Sao_Paulo",
-              }).format(new Date())}
-            </time>
-          </span>
+        <div className={s.headingSide}>
+          <div className={s.headingPhoto} role="img" aria-label="Imagem ilustrativa da comunidade"
+            style={{ backgroundImage: `url("${withBasePath("/images/comunidade-oficial.jpg")}")` }} />
+          <div className={s.headingActions}>
+
           <AppNavLink className={s.primaryAction} href="/app/secretaria/">
             <UIIcon name="layers" size={17} />
             <span>Abrir secretaria</span>
@@ -434,6 +428,7 @@ export function AdministrativeOverview({
             <UIIcon name="refresh" size={16} />
             <span>Atualizar</span>
           </button>
+          </div>
         </div>
       </header>
       {partial && (
@@ -469,48 +464,27 @@ export function AdministrativeOverview({
           </AppNavLink>
         ))}
       </section>
-      <section
-        className={s.priorities}
-        id="avisos"
-        aria-label="Prioridades de trabalho"
-      >
-        {[
-          {
-            title: "Admissões em aberto",
-            hint: "Conferir protocolos",
-            value: counts?.admissionsOpen,
-            href: "/app/secretaria/",
-            icon: "layers" as const,
-          },
-          {
-            title: "Convites de escala",
-            hint: "Aguardando confirmação",
-            value: counts?.rosterAssignmentsPending,
-            href: "/app/ministerios/",
-            icon: "clock" as const,
-          },
-          {
-            title: "Escalas em preparação",
-            hint: "Revisar e publicar",
-            value: counts?.rostersDraft,
-            href: "/app/ministerios/",
-            icon: "calendar" as const,
-          },
-        ].map((item) => (
-          <AppNavLink key={item.title} href={item.href}>
-            <span className={s.priorityIcon}>
-              <UIIcon name={item.icon} size={19} />
-            </span>
-            <span className={s.priorityText}>
-              <strong>{item.title}</strong>
-              <small>{item.hint}</small>
-            </span>
-            <strong className={s.priorityValue}>
-              {countLabel(item.value)}
-            </strong>
-            <UIIcon name="chevron" size={16} />
-          </AppNavLink>
-        ))}
+      <section className={s.priorities} id="avisos" aria-labelledby="operations-title">
+        <header className={s.priorityHeader}>
+          <div>
+            <span className={s.eyebrow}>FLUXO DE TRABALHO</span>
+            <h2 id="operations-title">O que precisa de acompanhamento</h2>
+          </div>
+          <AppNavLink href="/app/ministerios/" className={s.priorityExplore}>Abrir ministérios <UIIcon name="arrow" size={15}/></AppNavLink>
+        </header>
+        <div className={s.priorityList}>
+          {[
+            {title:"Convites aguardando confirmação",hint:"Acompanhe a resposta dos voluntários",value:counts?.rosterAssignmentsPending,href:"/app/ministerios/",icon:"clock" as const},
+            {title:"Escalas em preparação",hint:"Revise a distribuição antes de publicar",value:counts?.rostersDraft,href:"/app/ministerios/",icon:"calendar" as const}
+          ].map((item) => (
+            <AppNavLink key={item.title} href={item.href}>
+              <span className={s.priorityIcon}><UIIcon name={item.icon} size={21}/></span>
+              <span className={s.priorityText}><strong>{item.title}</strong><small>{item.hint}</small></span>
+              <strong className={s.priorityValue}>{countLabel(item.value)}</strong>
+              <UIIcon name="arrow" size={16}/>
+            </AppNavLink>
+          ))}
+        </div>
       </section>
       <div className={s.layout}>
         <div className={s.main}>
@@ -610,12 +584,13 @@ export function AdministrativeOverview({
                   href={ministryContextHref({ id: row.id })}
                   data-tone={index % 4}
                 >
-                  <span className={s.ministryIcon} aria-hidden="true">
-                    {row.title
-                      .replace(/^Ministério de /i, "")
-                      .slice(0, 2)
-                      .toLocaleUpperCase("pt-BR")}
-                  </span>
+                  <span className={s.ministryIcon} aria-hidden="true"
+                     style={{ backgroundImage: `url("${withBasePath(
+                       /atmosfera|louvor|musica|música|adorac/i.test(row.title) ? "/images/galeria-louvor.webp" :
+                       /jovens|adolesc|pulse|juventude/i.test(row.title) ? "/images/galeria-juventude.webp" :
+                       /oração|oracao|mulheres|intercess/i.test(row.title) ? "/images/galeria-oracao.webp" :
+                       "/images/comunidade-oficial.jpg"
+                     )}")` }} />
                   <span className={s.ministryText}>
                     <strong>{row.title}</strong>
                     <small>Equipe, escalas e caixa</small>
