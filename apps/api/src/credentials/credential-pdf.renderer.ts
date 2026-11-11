@@ -1,4 +1,6 @@
 import PDFDocument from "pdfkit";
+// PDFKit loads Helvetica through a dynamic import that the serverless tracer misses.
+import "pdfkit/standard-fonts/Helvetica";
 import QRCode from "qrcode";
 import {
   assertOpaqueCredentialPayload,
