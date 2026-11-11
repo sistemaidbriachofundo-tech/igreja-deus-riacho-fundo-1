@@ -20,7 +20,7 @@ describe("Church OS portal editorial contract", () => {
     expect(studio).toContain('"/publish"');
     expect(studio).toContain('"/advance"');
     expect(studio).toContain("publicApiBase(process.env.NEXT_PUBLIC_API_URL)");
-    expect(appShell).toContain("Estúdio editorial");
+    expect(appShell).toContain('aria-label="Módulos"');
     expect(studio).not.toContain("localStorage");
     expect(studio).not.toContain("dangerouslySetInnerHTML");
   });
