@@ -93,6 +93,16 @@ const SENSITIVE_TOKENS = new Set([
   "documents",
   "key",
   "keys",
+  "seed",
+  "recovery",
+  "mnemonic",
+  "pin",
+  "amount",
+  "valor",
+  "saldo",
+  "balance",
+  "money",
+  "iban",
 ]);
 
 type FieldKind =
@@ -173,6 +183,13 @@ const GLOBAL_FIELDS: Record<string, FieldKind> = {
   emailFingerprint: "hash",
   fields: "fieldNames",
   filters: "filters",
+  truncated: "boolean",
+  outcome: "token",
+  correlationId: "id",
+  prevId: "id",
+  prevHash: "hash",
+  entryHash: "hash",
+  chainVersion: "count",
 };
 
 /**
@@ -205,7 +222,7 @@ const JWT = /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const SECRET_MATERIAL =
   /^(?:sk|pk|rk)_[A-Za-z0-9]|bearer\s+\S|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
 const LABEL_NARRATIVE =
-  /pix|senha|oracao|menor|aconselh|testemunh|chave|cpf|token|secret/;
+  /pix|senha|oracao|menor|aconselh|testemunh|chave|cpf|token|secret|documento|saldo|iban|confiss/;
 
 export function redactAuditMetadata(
   action: string,
@@ -227,7 +244,7 @@ function redactObject(
   seen: WeakSet<object>,
 ): Record<string, unknown> {
   if (depth > MAX_DEPTH || seen.has(source)) {
-    return { _: AUDIT_REDACTED };
+    return { truncated: true };
   }
   seen.add(source);
   const out: Record<string, unknown> = {};
@@ -239,7 +256,7 @@ function redactObject(
     out[key] = redactField(action, key, source[key], depth, seen);
   }
   if (Object.keys(source).length > MAX_KEYS) {
-    out._truncated = true;
+    out.truncated = true;
   }
   return out;
 }
@@ -322,7 +339,9 @@ function coerce(
         ? value
         : AUDIT_REDACTED;
     case "hash":
-      return typeof value === "string" && HASH_VALUE.test(value)
+      return typeof value === "string" &&
+        HASH_VALUE.test(value) &&
+        !/^\d+$/.test(value)
         ? value.toLowerCase()
         : AUDIT_REDACTED;
     case "id":
@@ -355,6 +374,9 @@ function safeCount(value: unknown): number | typeof AUDIT_REDACTED {
 }
 
 function safeToken(value: string): boolean {
+  if (scanText(value) !== value) {
+    return false;
+  }
   return SAFE_TOKEN.test(value) && !hasStructuredSecret(value);
 }
 
@@ -395,6 +417,9 @@ function safeLabel(value: string): string | typeof AUDIT_REDACTED {
   if (trimmed.length < 1 || trimmed.length > 80) {
     return AUDIT_REDACTED;
   }
+  if (scanText(trimmed) !== trimmed) {
+    return AUDIT_REDACTED;
+  }
   if (hasStructuredSecret(trimmed)) {
     return AUDIT_REDACTED;
   }
@@ -405,13 +430,17 @@ function safeLabel(value: string): string | typeof AUDIT_REDACTED {
 }
 
 function hasStructuredSecret(value: string): boolean {
-  if (value.length > 200) {
+  const scanned = scanText(value);
+  if (value.length > 200 || scanned.length > 200) {
     return true;
   }
-  if (EMAIL.test(value) || JWT.test(value) || SECRET_MATERIAL.test(value)) {
+  if (EMAIL.test(scanned) || JWT.test(scanned) || SECRET_MATERIAL.test(scanned)) {
     return true;
   }
-  if (looksLikeCpf(value) || looksLikeCnpj(value) || looksLikePhone(value)) {
+  if (looksLikeCpf(scanned) || looksLikeCnpj(scanned) || looksLikePhone(scanned)) {
+    return true;
+  }
+  if (/^\d{4,}$/.test(scanned)) {
     return true;
   }
   return false;
@@ -423,7 +452,7 @@ function looksLikeCpf(value: string): boolean {
   if (digits.length !== 11) {
     return false;
   }
-  return /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(trimmed);
+  return /^[\d.\-\s]+$/.test(trimmed);
 }
 
 function looksLikeCnpj(value: string): boolean {
@@ -432,7 +461,7 @@ function looksLikeCnpj(value: string): boolean {
   if (digits.length !== 14) {
     return false;
   }
-  return /^\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/.test(trimmed);
+  return /^[\d.\-/\s]+$/.test(trimmed);
 }
 
 function looksLikePhone(value: string): boolean {
@@ -452,8 +481,49 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
-function fold(value: string): string {
+const CONFUSABLES: Record<string, string> = {
+  а: "a",
+  е: "e",
+  о: "o",
+  р: "p",
+  с: "c",
+  у: "y",
+  х: "x",
+  і: "i",
+  ѕ: "s",
+  һ: "h",
+  ј: "j",
+  к: "k",
+  м: "m",
+  н: "h",
+  т: "t",
+  ο: "o",
+  ρ: "p",
+  τ: "t",
+  ν: "v",
+  κ: "k",
+  ι: "i",
+  α: "a",
+  ε: "e",
+  μ: "m",
+};
+
+function scanText(value: string): string {
   return value
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00AD]/g, "")
+    .normalize("NFKC");
+}
+
+function mapConfusables(value: string): string {
+  let out = "";
+  for (const ch of value) {
+    out += CONFUSABLES[ch] ?? ch;
+  }
+  return out;
+}
+
+function fold(value: string): string {
+  return mapConfusables(scanText(value))
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase();
