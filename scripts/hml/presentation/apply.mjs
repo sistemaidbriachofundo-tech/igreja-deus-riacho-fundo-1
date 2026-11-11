@@ -2,10 +2,10 @@
  * Aplica ou reverte a massa fictícia.
  * Não envia mensagem, Pix ou pagamento. Não altera senha.
  */
+import { randomUUID } from "node:crypto";
 import { buildCatalog, PILOT_CHURCH_SLUG, PILOT_ORG_SLUG, SEED_PREFIX } from "./catalog.mjs";
 import { assertLiveDatabaseName, assertSeedTarget } from "./guard.mjs";
 
-const MANIFEST_ID = `${SEED_PREFIX}audit_manifest`;
 const MANIFEST_ACTION = "hml.presentation_seed.apply";
 
 class DryRunComplete extends Error {
@@ -650,18 +650,14 @@ async function apply(tx, { place }) {
     messagesSent: false,
     passwordsReset: false,
   };
-  await tx.auditLog.upsert({
-    where: { id: MANIFEST_ID },
-    update: {
-      metadata: report,
-      actorUserId: actors[0],
-    },
-    create: {
-      id: MANIFEST_ID,
-      actorUserId: actors[0],
+  const manifestId = `${SEED_PREFIX}audit_${randomUUID()}`;
+  await tx.auditLog.create({
+    data: {
+      id: manifestId,
+      actorUserId: null,
       action: MANIFEST_ACTION,
       resourceType: "hml_presentation_seed",
-      resourceId: MANIFEST_ID,
+      resourceId: manifestId,
       organizationId: scope.organizationId,
       churchId: scope.churchId,
       metadata: report,
@@ -838,9 +834,7 @@ async function assertBalanced(tx) {
 
 export async function rollback(tx) {
   const before = await inventory(tx);
-  await tx.auditLog.deleteMany({
-    where: { OR: [{ id: { startsWith: SEED_PREFIX } }, { action: { startsWith: "hml.presentation_seed" } }] },
-  });
+  // audit_logs é append-only. O manifesto da massa fica; o rollback não apaga a trilha.
   await tx.groupMeetingAttendance.deleteMany({ where: { id: { startsWith: SEED_PREFIX } } });
   await tx.groupMeeting.deleteMany({ where: { id: { startsWith: SEED_PREFIX } } });
   await tx.smallGroupMember.deleteMany({ where: { id: { startsWith: SEED_PREFIX } } });
