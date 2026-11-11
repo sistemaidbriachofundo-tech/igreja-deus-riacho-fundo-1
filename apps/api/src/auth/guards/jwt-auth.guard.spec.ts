@@ -27,7 +27,7 @@ describe("JwtAuthGuard", () => {
     };
   }
 
-  it("allows @Public routes", () => {
+  it("allows @Public routes", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(true),
     };
@@ -35,10 +35,10 @@ describe("JwtAuthGuard", () => {
       reflector as unknown as Reflector,
       { verifyAccessToken: jest.fn() } as never,
     );
-    expect(guard.canActivate(ctx().context as never)).toBe(true);
+    await expect(guard.canActivate(ctx().context as never)).resolves.toBe(true);
   });
 
-  it("rejects missing bearer", () => {
+  it("rejects missing bearer", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     };
@@ -46,28 +46,28 @@ describe("JwtAuthGuard", () => {
       reflector as unknown as Reflector,
       { verifyAccessToken: jest.fn() } as never,
     );
-    expect(() => guard.canActivate(ctx().context as never)).toThrow(
+    await expect(guard.canActivate(ctx().context as never)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
   });
 
-  it("attaches user on valid token", () => {
+  it("attaches user on valid token", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     };
     const authService = {
-      verifyAccessToken: jest.fn().mockReturnValue(user),
+      verifyAccessToken: jest.fn().mockResolvedValue(user),
     };
     const guard = new JwtAuthGuard(
       reflector as unknown as Reflector,
       authService as never,
     );
     const { context, request } = ctx("Bearer good.token");
-    expect(guard.canActivate(context as never)).toBe(true);
+    await expect(guard.canActivate(context as never)).resolves.toBe(true);
     expect(request.user).toEqual(user);
   });
 
-  it("rejects invalid token", () => {
+  it("rejects invalid token", async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     };
@@ -79,8 +79,8 @@ describe("JwtAuthGuard", () => {
         }),
       } as never,
     );
-    expect(() =>
+    await expect(
       guard.canActivate(ctx("Bearer bad").context as never),
-    ).toThrow(UnauthorizedException);
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });
