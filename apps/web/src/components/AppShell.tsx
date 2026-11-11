@@ -143,7 +143,7 @@ export function AppShell({
   const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [ministryOpen, setMinistryOpen] = useState(false);
+  const [ministryOpen, setMinistryOpen] = useState(childActive);
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -222,7 +222,9 @@ export function AppShell({
       : accessKind === "pending"
         ? "Confirmando perfil"
         : "Sessão não confirmada";
-  const accountName = preview ? "Visitante" : accessKind === "ready" ? accountEmail : accountLabel;
+  const accountName = preview ? "Visitante" : accessKind === "ready"
+    ? (/(@example\.test$|\.demo@)/i.test(accountEmail) ? "Conta de homologação" : accountEmail)
+    : accountLabel;
   const initials = accessKind === "ready" && accountEmail ? accountInitials(accountEmail) : "ID";
   const accessState: PersonaAccessState = {
     kind: accessKind,
