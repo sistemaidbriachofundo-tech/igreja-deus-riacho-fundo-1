@@ -114,6 +114,7 @@ model Organization {
   churchAssets ChurchAsset[]
   pushDeviceTokens PushDeviceToken[]
   ministryMemberships MinistryMembership[]
+  securityPolicies SecurityPolicy[]
   @@map("organizations")
 }
 
@@ -267,6 +268,8 @@ model User {
   status       UserStatus @default(ACTIVE)
   /// Quando true, login local exige segundo fator (TOTP) se habilitado.
   mfaRequired  Boolean    @default(false) @map("mfa_required")
+  /// Incrementa quando grants, status ou política invalidam sessões já emitidas.
+  authzVersion Int        @default(1) @map("authz_version")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -279,6 +282,8 @@ model User {
   pastoralCreated   PastoralCase[]     @relation("PastoralCreator")
   pastoralAssigned  PastoralCase[]     @relation("PastoralAssignee")
   mfaFactors        UserMfaFactor[]
+  authSessions      AuthSession[]
+  mfaChallenges     MfaChallenge[]
   ledgerEntriesCreated LedgerEntry[]   @relation("LedgerEntryCreator")
   ledgerEntriesFirstApproved LedgerEntry[] @relation("LedgerEntryFirstApprover")
   ledgerEntriesSecondApproved LedgerEntry[] @relation("LedgerEntrySecondApprover")
@@ -449,6 +454,10 @@ model AuditLog {
   organizationId String?  @map("organization_id")
   churchId       String?  @map("church_id")
   metadata       Json?
+  /// SUCCESS, DENIED ou ERROR. Nulo em eventos anteriores a esta coluna.
+  outcome        String?
+  /// Correlação técnica, sem corpo da requisição.
+  requestId      String?  @map("request_id")
   createdAt      DateTime @default(now()) @map("created_at")
 
   actorUser    User?         @relation(fields: [actorUserId], references: [id])
@@ -457,6 +466,7 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([organizationId, churchId])
+  @@index([requestId])
   @@map("audit_logs")
 }
 
@@ -1495,6 +1505,112 @@ model UserMfaFactor {
   @@unique([userId, factorType])
   @@index([userId, status])
   @@map("user_mfa_factors")
+}
+
+// —— F1.1: sessão revogável, desafio MFA de uso único, política e limite compartilhado.
+// Migração aditiva. Não reescreve audit_logs existentes. Não aplicar em banco remoto
+// sem autorização explícita do responsável.
+
+enum AuthSessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum MfaChallengePurpose {
+  LOGIN
+  REFRESH
+  SWITCH_CHURCH
+  STEP_UP
+}
+
+enum MfaChallengeStatus {
+  PENDING
+  CONSUMED
+  EXPIRED
+  REVOKED
+}
+
+enum MfaEnforcementMode {
+  OFF
+  PRIVILEGED
+  ALL
+}
+
+/// Sessão de refresh. O token opaco não é persistido; só o hash.
+model AuthSession {
+  id               String            @id @default(cuid())
+  userId           String            @map("user_id")
+  familyId         String            @map("family_id")
+  status           AuthSessionStatus @default(ACTIVE)
+  authzVersion     Int               @map("authz_version")
+  policyVersion    Int               @map("policy_version")
+  refreshTokenHash String            @unique @map("refresh_token_hash")
+  issuedAt         DateTime          @default(now()) @map("issued_at")
+  expiresAt        DateTime          @map("expires_at")
+  revokedAt        DateTime?         @map("revoked_at")
+  revokeReason     String?           @map("revoke_reason")
+  replacedById     String?           @unique @map("replaced_by_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+/// Desafio opaco de curta duração. Uso único por atualização condicional.
+model MfaChallenge {
+  id           String              @id @default(cuid())
+  userId       String              @map("user_id")
+  purpose      MfaChallengePurpose
+  status       MfaChallengeStatus  @default(PENDING)
+  tokenHash    String              @unique @map("token_hash")
+  expiresAt    DateTime            @map("expires_at")
+  consumedAt   DateTime?           @map("consumed_at")
+  attemptCount Int                 @default(0) @map("attempt_count")
+  maxAttempts  Int                 @default(5) @map("max_attempts")
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("mfa_challenges")
+}
+
+/// Versão de política por plataforma (scopeKey=platform) ou por organização.
+model SecurityPolicy {
+  id                  String             @id @default(cuid())
+  scopeKey            String             @unique @map("scope_key")
+  organizationId      String?            @map("organization_id")
+  version             Int                @default(1)
+  mfaEnforcement      MfaEnforcementMode @default(PRIVILEGED) @map("mfa_enforcement")
+  privilegedRoleCodes String[]           @default([]) @map("privileged_role_codes")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("security_policies")
+}
+
+/// Contador compartilhado entre instâncias. A chave é hash; o IP bruto não fica gravado.
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  keyHash     String   @map("key_hash")
+  windowStart DateTime @map("window_start")
+  hits        Int      @default(0)
+  expiresAt   DateTime @map("expires_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([keyHash, windowStart])
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
 }
 
 /// Config OIDC por organização — placeholders; login federado NÃO live neste contrato.

@@ -1,22 +1,29 @@
+import { randomUUID } from "node:crypto";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { acceptRequestId } from "@idbrf/shared";
 import { AppModule } from "./app.module";
+import { requestContext } from "./platform-security/request-context";
+import { resolveTrustProxyHops } from "./platform-security/trusted-proxy";
 import { assertProductionConfiguration } from "./production-config";
+
+function headerValue(headers: Record<string, unknown>, name: string): string | undefined {
+  const value = headers[name];
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return undefined;
+}
 
 async function bootstrap() {
   assertProductionConfiguration(process.env);
   const app = await NestFactory.create(AppModule);
 
-  // Vercel / reverse proxy: habilita req.ip a partir de X-Forwarded-For (rate-limit).
-  const trustProxy =
-    process.env.TRUST_PROXY === "1" ||
-    process.env.VERCEL === "1" ||
-    Boolean(process.env.VERCEL_ENV);
-  if (trustProxy) {
+  const trustProxyHops = resolveTrustProxyHops(process.env);
+  if (trustProxyHops > 0) {
     const expressApp = app.getHttpAdapter().getInstance() as {
       set: (k: string, v: unknown) => void;
     };
-    expressApp.set("trust proxy", 1);
+    expressApp.set("trust proxy", trustProxyHops);
   }
 
   const isProd = process.env.NODE_ENV === "production";
@@ -44,18 +51,25 @@ async function bootstrap() {
   // Headers básicos (sem dependência extra). TLS/HTTPS fica no reverse proxy HML.
   app.use(
     (
-      _req: { url?: string },
+      req: { headers?: Record<string, unknown> },
       res: {
         setHeader: (k: string, v: string) => void;
       },
       next: () => void,
     ) => {
+      const requestId =
+        acceptRequestId(headerValue(req.headers ?? {}, "x-request-id")) ?? randomUUID();
+      res.setHeader("X-Request-Id", requestId);
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("Referrer-Policy", "no-referrer");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
       res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-      next();
+      if (process.env.IDBRF_RUNTIME_STAGE === "production") {
+        res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      }
+      requestContext.run({ requestId }, () => next());
     },
   );
 
