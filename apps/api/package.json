@@ -10,7 +10,8 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "prebuild": "node ../../scripts/hml/apply-dashboard-address-qa.mjs"
   },
   "dependencies": {
     "@idbrf/db": "*",
