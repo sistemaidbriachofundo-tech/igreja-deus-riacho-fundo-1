@@ -40,7 +40,7 @@ describe("mesa por persona", () => {
   it.each(Object.keys(TITLES))("abre a mesa de %s sem jargão e sem valor inventado", role => {
     const html = board(role);
     expect(html).toContain(TITLES[role]);
-    expect(html).toContain("Ambiente de homologação");
+    expect(html).not.toContain("Ambiente de homologação");
     expect(html).toContain(`data-desk="${deskKeyFor([role])}"`);
     expect(html).not.toMatch(/endpoint|schema|PostgreSQL|CHURCH OS|\b501\b|roster/i);
     expect(html).not.toContain("R$");
