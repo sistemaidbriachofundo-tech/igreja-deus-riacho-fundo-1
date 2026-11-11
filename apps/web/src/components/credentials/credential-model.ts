@@ -11,6 +11,8 @@ export type CredentialCard = {
   revokedAt: string | null;
   personId: string;
   membershipId: string;
+  /** URL temporária autorizada, quando o serviço de fotos estiver disponível. */
+  photoUrl?: string | null;
   pdf?: {
     hasFile: boolean;
     contentType: string | null;
