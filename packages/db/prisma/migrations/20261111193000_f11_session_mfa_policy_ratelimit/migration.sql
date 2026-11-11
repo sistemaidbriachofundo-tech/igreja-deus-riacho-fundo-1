@@ -97,24 +97,6 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- A chave do ator pode ir a nulo quando o usuário é apagado (ON DELETE SET NULL).
-  -- O restante da linha continua imutável. DELETE segue proibido.
-  IF TG_OP = 'UPDATE'
-     AND OLD.actor_user_id IS NOT NULL
-     AND NEW.actor_user_id IS NULL
-     AND NEW.id IS NOT DISTINCT FROM OLD.id
-     AND NEW.action IS NOT DISTINCT FROM OLD.action
-     AND NEW.resource_type IS NOT DISTINCT FROM OLD.resource_type
-     AND NEW.resource_id IS NOT DISTINCT FROM OLD.resource_id
-     AND NEW.organization_id IS NOT DISTINCT FROM OLD.organization_id
-     AND NEW.church_id IS NOT DISTINCT FROM OLD.church_id
-     AND NEW.metadata IS NOT DISTINCT FROM OLD.metadata
-     AND NEW.outcome IS NOT DISTINCT FROM OLD.outcome
-     AND NEW.request_id IS NOT DISTINCT FROM OLD.request_id
-     AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
-  THEN
-    RETURN NEW;
-  END IF;
   RAISE EXCEPTION 'audit_logs are append-only';
 END;
 $$;
