@@ -111,7 +111,7 @@ describe("experiência de ministérios", () => {
     expect(html).toContain("Homens de Ação");
     expect(html).toContain("Louvor");
     expect(html).toContain("Jovens");
-    for (const label of ["Visão geral", "Integrantes", "Escalas", "Atividades", "Recursos autorizados"]) {
+    for (const label of ["Visão geral", "Integrantes", "Escalas", "Atividades", "Gestão e caixa"]) {
       expect(html).toContain(label);
     }
     expect(html).toContain('role="tablist"');
@@ -146,7 +146,7 @@ describe("experiência de ministérios", () => {
     );
     expect(interests).toContain("Pedro Almeida");
     expect(interests).toContain("não é integrante");
-    expect(integrantes).toContain("Nenhum integrante formal");
+    expect(integrantes).toContain("Esta equipe ainda não tem integrantes cadastrados");
     expect(integrantes).toContain("Incluir no vínculo formal");
   });
 
