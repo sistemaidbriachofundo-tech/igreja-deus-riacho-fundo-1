@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { UIIcon } from "../AppShell";
+import { PersonPortrait } from "../PersonPortrait";
 import {
   downloadCredentialPdf,
   issueCredential,
@@ -12,7 +13,6 @@ import {
 } from "./credential-api";
 import { CredentialViewer } from "./CredentialViewer";
 import {
-  avatarLabel,
   credentialFailure,
   registrationLabel,
   rowStatus,
@@ -266,7 +266,7 @@ export function CredentialDesk({
         {visible.map((row) => (
           <article key={row.membershipId} className={s.row}>
             <button type="button" className={s.rowMain} disabled={!row.activeCredentialId} onClick={() => void show(row)}>
-              <span className={s.mini} aria-hidden="true">{avatarLabel(row.displayName)}</span>
+              <PersonPortrait name={row.displayName} size="medium" />
               <span>
                 <strong>{row.displayName}</strong>
                 <small>Matrícula {registrationLabel(row.membershipId)}</small>
