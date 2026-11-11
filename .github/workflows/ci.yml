@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, previa/rf1-v1]
   pull_request:
-    branches: [main]
+    branches: [main, previa/rf1-v1]
 
 permissions:
   contents: read
@@ -86,6 +86,10 @@ jobs:
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
       - run: npm run build -w @idbrf/db
+      - name: Recusar migração fora do Postgres local de CI
+        run: node scripts/release/assert-local-database.mjs
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
       - run: npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
@@ -315,6 +319,30 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: apps/web/out
+
+  security-f11:
+    name: Segurança F1.1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Varredura de segredos
+        run: node scripts/release/secret-scan.mjs
+      - name: Banco de CI permanece local
+        run: node scripts/release/assert-local-database.mjs
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+      - name: Testes negativos de sessão, MFA, limite e auditoria
+        run: node --import tsx --test packages/shared/src/security-f11/security-f11.test.ts
+      - name: Dependências de produção
+        continue-on-error: true
+        run: |
+          npm audit --omit=dev --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node scripts/release/summarize-audit.mjs "$RUNNER_TEMP/npm-audit.json"
 
   sonar:
     name: SonarCloud

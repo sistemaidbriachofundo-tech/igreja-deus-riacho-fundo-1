@@ -33,6 +33,7 @@ import { PersonalRostersModule } from "./rosters/personal-rosters.module";
 import { PastoralModule } from "./pastoral/pastoral.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
+import { PlatformSecurityModule } from "./platform-security/platform-security.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublicPortalModule } from "./public-portal/public-portal.module";
 import { ReportsModule } from "./reports/reports.module";
@@ -44,6 +45,7 @@ import { ViviModule } from "./vivi/vivi.module";
 @Module({
   imports: [
     PrismaModule,
+    PlatformSecurityModule,
     StorageModule,
     PilotModule,
     AuthModule,
