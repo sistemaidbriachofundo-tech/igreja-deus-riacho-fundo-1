@@ -482,17 +482,18 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             {view !== "overview" && (
               <header className={s.heading}>
                 <div>
-                  <span className={s.kicker}>Gestão da congregação</span>
+                  <span className={s.kicker}>GESTÃO DE PESSOAS</span>
                   <h1>{names[view]}</h1>
                   <p>
                     {view === "members" && "Cadastros e vínculos familiares fazem parte da Secretaria."}
-                    {view === "secretary" && "Um único lugar para acompanhar pessoas, vínculos familiares e admissões."}
+                    {view === "secretary" && "Pessoas, famílias e admissões em um só lugar."}
                     {view === "cards" && "Emissão e situação das carteirinhas."}
                   </p>
                 </div>
                 <div className={s.headingActions}>
+                   {view === "secretary" && <div className={s.headingPhoto} role="img" aria-label="Imagem institucional da comunidade" style={{ backgroundImage: `url("${withBasePath("/images/comunidade-oficial.jpg")}")` }} />}
                   {view === "members" && secretary && <AppNavLink className={s.primaryButton} href="/app/secretaria/?aba=admissoes&acao=cadastrar#cadastro">Cadastrar pessoa <UIIcon name="arrow" size={17} /></AppNavLink>}
-                  {view === "secretary" && secretary && <button type="button" className={s.primaryButton} onClick={() => startSecretaryAction("new")}>Cadastrar pessoa <UIIcon name="arrow" size={17} /></button>}
+                  {view === "secretary" && secretary && <button type="button" className={s.primaryButton} onClick={() => startSecretaryAction("new")}><UIIcon name="people" size={17} /> Cadastrar pessoa</button>}
                 <button type="button" className={s.secondaryButton} onClick={() => {
                   setError("");
                   setChecking(true);
@@ -509,11 +510,11 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             {view === "secretary" && staff && (
               <nav className={s.secretaryTabs} aria-label="Áreas da secretaria">
                 {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas <span>{memberships.length}</span></button>}
-                <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Cadastros e admissões <span>{pending.length}</span></button>
+                <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões <span>{pending.length}</span></button>
               </nav>
             )}
             {!checking && view === "secretary" && staff && (
-              <div className={s.contextLine} role="status">
+              <div className={s.contextLine} role="status" hidden>
                 {secretary && <span><strong>{memberships.length}</strong> pessoas vinculadas</span>}
                 {secretary && <span><strong>{active.length}</strong> ativas</span>}
                 <span><strong>{pending.length}</strong> admissões em andamento</span>
@@ -524,7 +525,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
               <div className={s.peopleWorkspace}>
                 <section className={s.panel}>
                   <div className={s.panelHeading}>
-                    <div className={s.panelHeadingCopy}><h2>Pessoas cadastradas</h2><span role="status">{filtered.length} {filtered.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}{selectedFamily ? ` · ${selectedFamily.label}` : ""}</span></div>
+                    <div className={s.panelHeadingCopy}><h2>Cadastro de pessoas</h2><span role="status">{filtered.length} {filtered.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}{selectedFamily ? ` · ${selectedFamily.label}` : ""}</span></div>
                     <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
                   </div>
                   {staff && (
@@ -558,17 +559,17 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                     <div className={s.tableWrap}>
                       <table>
                         <thead>
-                          <tr><th>Nome</th><th>Família</th><th>Situação</th><th>E-mail</th><th>Ficha</th></tr>
+                          <tr><th>Pessoa</th><th>Família</th><th>Situação</th><th>Contato</th><th></th></tr>
                         </thead>
                         <tbody>
                           {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => (
                             <tr key={membership.person.id}>
-                              <td data-label="Nome"><div className={s.personIdentity}><span className={s.personInitials} aria-hidden="true">{personInitials(membership.person.displayName)}</span><strong>{membership.person.displayName}</strong></div></td>
+                              <td data-label="Pessoa"><div className={s.personIdentity}><span className={s.personInitials} aria-hidden="true">{personInitials(membership.person.displayName)}</span><strong>{membership.person.displayName}</strong></div></td>
                               <td data-label="Família">{membership.person.householdId ? householdById.get(membership.person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</td>
                               <td data-label="Situação"><span className={s.statusPill} data-status={membership.status}>{label(membership.status)}</span></td>
-                              <td data-label="E-mail">{membership.person.email ?? "—"}</td>
+                              <td data-label="Contato">{membership.person.email ?? "Não informado"}</td>
                               <td data-label="Ficha">
-                                <button type="button" className={s.openFicha} onClick={() => setFichaId(membership.person.id)} aria-label={"Abrir ficha de " + membership.person.displayName}>Abrir ficha</button>
+                                <button type="button" className={s.openFicha} onClick={() => setFichaId(membership.person.id)} aria-label={"Abrir ficha de " + membership.person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
                               </td>
                             </tr>
                           ))}
