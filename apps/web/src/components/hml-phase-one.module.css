@@ -8,141 +8,124 @@
   --secretaria-muted: #63776b;
   --secretaria-gold: #bd9e68;
   width: 100%;
-  max-width: 1430px;
+  max-width: 1480px;
   margin: 0 auto;
   color: var(--secretaria-ink);
   font-family: Inter, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .page *, .page *::before, .page *::after { box-sizing: border-box; }
+
+/* Cabeçalho operacional: o registro vem antes da decoração. */
 .heading {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 28px;
-  padding: clamp(27px, 3.5vw, 48px);
-  margin: 0 0 18px;
-  border-radius: 19px;
-  border: 1px solid #1a4d3e;
-  background: #174538;
-  color: #fff;
-}
-.heading::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background:
-    radial-gradient(circle at 95% -30%, #b6986542 0, transparent 41%),
-    radial-gradient(circle at 74% 126%, #4e887438 0, transparent 37%),
-    linear-gradient(115deg, #173d32 0%, #174b3b 70%, #235946 100%);
-}
-.heading::after {
-  content: "";
-  position: absolute;
-  width: 280px;
-  height: 280px;
-  right: -85px;
-  top: -140px;
-  border: 1px solid #d8bc8755;
-  border-radius: 50%;
-  pointer-events: none;
-  box-shadow: 0 0 0 44px #e5ca8610, 0 0 0 91px #e5ca8609;
+  gap: 26px;
+  min-height: 112px;
+  padding: 8px 4px 23px;
+  margin: 0 0 14px;
+  border-bottom: 1px solid #dfe7e1;
+  background: transparent;
+  color: #183c31;
 }
 .kicker {
   display: block;
-  margin-bottom: 12px;
-  color: #d8bd8a;
-  text-transform: uppercase;
+  margin: 0 0 8px;
+  color: #428064;
   font-size: 10px;
-  font-weight: 750;
-  letter-spacing: .16em;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
 }
 .heading h1 {
-  color: #fff;
-  font: 720 clamp(29px, 3.35vw, 44px)/1.1 Montserrat, Inter, Arial, sans-serif;
-  letter-spacing: -.055em;
-  margin: 0 0 13px;
+  margin: 0 0 7px;
+  color: #15382d;
+  font: 750 clamp(26px, 2.8vw, 34px)/1.16 Montserrat, Inter, Arial, sans-serif;
+  letter-spacing: -.045em;
 }
-.heading p { max-width: 54ch; margin: 0; font-size: 14px; font-weight: 450; color: #d7e5d9; line-height: 1.65; }
-.headingActions {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
+.heading p { max-width: 53ch; margin: 0; color: #708478; font-size: 13px; line-height: 1.5; }
+.headingActions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-shrink: 0; }
+.headingPhoto {
+  width: 114px;
+  height: 72px;
+  background-size: cover;
+  background-position: 50% 39%;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px #dbe5dd;
 }
 .primaryButton, .secondaryButton, .openFicha, .pagination button,
 .admission button, .form button, .loginPanel button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 10px 15px;
-  font: 650 12px/1.25 Inter, Arial, sans-serif;
-  border-radius: 10px;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 9px;
+  font: 650 12px/1.3 Inter, Arial, sans-serif;
   text-decoration: none;
   cursor: pointer;
-  transition: background .15s, border-color .15s, box-shadow .15s;
+  transition: background .15s, box-shadow .15s, border-color .15s;
 }
-.primaryButton { color: #163a2d; background: #e8cd99; border: 1px solid #e8cd99; box-shadow: 0 4px 15px #0a241c26; }
-.primaryButton:hover { background: #f4dcae; border-color: #f4dcae; }
-.secondaryButton { background: #ffffff10; border: 1px solid #ffffff4d; color: #f9fdfa; }
-.secondaryButton:hover { background: #ffffff25; }
-.page :is(button, a, input, select, summary):focus-visible { outline: 3px solid #c6a76d; outline-offset: 3px; }
+.primaryButton {
+  min-height: 42px;
+  padding-inline: 16px;
+  border: 1px solid #236249;
+  background: #236249;
+  color: #fff;
+  box-shadow: 0 4px 12px #1b4d3220;
+}
+.primaryButton:hover { background: #184d38; }
+.secondaryButton { min-height: 42px; border: 1px solid #d9e5db; background: #fff; color: #476b55; }
+.secondaryButton:hover { background: #f1f7f2; }
+.page :is(button, a, input, select, summary):focus-visible { outline: 3px solid #b99a68; outline-offset: 3px; }
 .page button:disabled { cursor: not-allowed; opacity: .55; }
+
+
 .secretaryTabs {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
-  margin: 8px 0 0;
-  padding: 0 6px;
-  border-bottom: 1px solid #dce6dc;
+  gap: 5px;
+  margin: 0 0 17px;
+  padding: 5px;
+  border: 1px solid #e0e8e2;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 11px #244c3110;
 }
 .secretaryTabs button {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 15px 4px 16px;
-  min-height: 53px;
-  background: transparent;
+  gap: 10px;
+  min-height: 43px;
+  padding: 9px 17px;
   border: 0;
-  color: #73877b;
-  text-align: left;
+  border-radius: 8px;
+  color: #648073;
+  background: transparent;
   font: 650 13px Inter, Arial, sans-serif;
   cursor: pointer;
 }
-.secretaryTabs button:hover { color: #1f513d; }
-.secretaryTabs button[aria-current="page"] { color: #215a43; font-weight: 750; }
-.secretaryTabs button[aria-current="page"]::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: #327a57;
+.secretaryTabs button:hover { background: #f2f6f3; color: #21543c; }
+.secretaryTabs button[aria-current="page"] {
+  background: #e6f1e8;
+  color: #20573e;
+  font-weight: 750;
 }
 .secretaryTabs button > span {
-  display: inline-grid;
-  place-items: center;
   padding: 3px 7px;
   min-width: 27px;
-  border-radius: 7px;
-  background: #edf3ee;
-  color: #6a8677;
-  font: 700 11px Inter, Arial, sans-serif;
+  border-radius: 6px;
+  background: #f2f5f2;
+  color: #708878;
+  font: 720 11px Inter, Arial, sans-serif;
+  text-align: center;
 }
-.secretaryTabs button[aria-current="page"] > span { color: #246146; background: #dcece1; }
+.secretaryTabs button[aria-current="page"] > span { background: #d0e5d7; color: #27593d; }
+.contextLine[hidden] { display: none !important; }
+
 .contextLine {
   display: flex;
   flex-wrap: wrap;
@@ -155,6 +138,15 @@
 .contextLine span { display: inline-flex; gap: 6px; align-items: baseline; }
 .contextLine strong { color: #254b3b; font-size: 16px; letter-spacing: -.02em; }
 .peopleWorkspace { display: block; }
+.peopleWorkspace .panel { display: flex; flex-direction: column; }
+.peopleWorkspace .panelHeading { order: 0; }
+.peopleWorkspace .peopleFilters { order: 1; }
+.peopleWorkspace .activeFilters { order: 2; }
+.peopleWorkspace .tableWrap, .peopleWorkspace > .empty { order: 3; }
+.peopleWorkspace .personLookup { order: 4; margin: 16px 0 0; background: transparent; border: 0; }
+.peopleWorkspace .personLookup > summary { padding: 8px 2px; color: #32694c; }
+.peopleWorkspace .personLookup[open] > summary { background: transparent; border: 0; }
+
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(310px, .82fr);
@@ -163,16 +155,16 @@
 }
 .panel {
   min-width: 0;
-  padding: clamp(20px, 2.4vw, 31px);
+  padding: clamp(20px, 2.2vw, 29px);
   border: 1px solid var(--secretaria-stroke);
-  border-radius: 17px;
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 10px 38px #183d2710;
+  box-shadow: 0 5px 22px #163c270a;
 }
 .panel h2 {
   margin: 0;
   color: #244739;
-  font: 690 19px/1.3 Montserrat, Inter, Arial, sans-serif;
+  font: 720 19px/1.3 Montserrat, Inter, Arial, sans-serif;
   letter-spacing: -.035em;
 }
 .panel > p, .footerNote, .empty {
@@ -183,7 +175,7 @@
 .panel > p { margin: 10px 0 0; }
 .panelHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 17px; flex-wrap: wrap; }
 .panelHeadingCopy { display: grid; gap: 7px; }
-.panelHeadingCopy > span { color: #738779; font: 520 12px Inter, Arial, sans-serif; }
+.panelHeadingCopy > span { color: #738779; font: 550 13px Inter, Arial, sans-serif; }
 .panelHeading > input {
   width: min(360px, 100%);
   height: 46px;
@@ -252,7 +244,7 @@
 .tableWrap table { width: 100%; border-collapse: collapse; background: #fff; }
 .tableWrap thead { background: #f5f8f6; }
 .tableWrap th {
-  padding: 15px 15px;
+  padding: 13px 15px;
   color: #688174;
   font: 720 10px/1.3 Inter, Arial, sans-serif;
   text-transform: uppercase;
@@ -261,10 +253,10 @@
   white-space: nowrap;
 }
 .tableWrap td {
-  padding: 15px;
+  padding: 14px 15px;
   border-top: 1px solid #edf1ee;
   color: #4f6a5a;
-  font: 500 12px/1.45 Inter, Arial, sans-serif;
+  font: 500 13px/1.45 Inter, Arial, sans-serif;
   vertical-align: middle;
 }
 .tableWrap tr:hover td { background: #fafcfb; }
@@ -380,7 +372,7 @@
   .heading { align-items: flex-start; }
 }
 @media (max-width: 830px) {
-  .heading { flex-direction: column; padding: 28px; gap: 20px; }
+  .heading { flex-direction: column; align-items: stretch; padding: 8px 0 17px; gap: 15px; }
   .headingActions { justify-content: flex-start; }
   .peopleFilters { align-items: start; flex-direction: column; }
   .familySelect, .familySelect select { width: min(100%, 450px); max-width: 100%; }
@@ -395,14 +387,14 @@
   .tableWrap tr:hover td { background: transparent; }
 }
 @media (max-width: 540px) {
-  .heading { padding: 23px 20px; border-radius: 14px; }
-  .heading h1 { font-size: 30px; }
-  .headingActions, .primaryButton, .headingActions .secondaryButton { width: 100%; }
+  .heading { padding: 7px 0 18px; border-radius: 0; }
+  .heading h1 { font-size: 29px; }
+  .headingActions { width: 100%; justify-content: flex-start; }.headingPhoto { display: none; }.primaryButton { flex: 1 1 auto; }
   .panel { padding: 17px 14px; border-radius: 12px; }
   .panelHeading { display: grid; }
   .panelHeading input { width: 100%; }
-  .secretaryTabs { flex-wrap: nowrap; gap: 10px; padding: 0; }
-  .secretaryTabs button { font-size: 12px; padding-inline: 2px; }
+  .secretaryTabs { flex-wrap: nowrap; gap: 4px; padding: 4px; }
+  .secretaryTabs button { flex: 1; justify-content: center; font-size: 12px; padding-inline: 8px; }
   .viewFilter { max-width: 100%; }
   .viewFilter button { font-size: 11px; padding-inline: 9px; }
   .tableWrap td { grid-template-columns: 85px minmax(0,1fr); font-size: 11px; }
