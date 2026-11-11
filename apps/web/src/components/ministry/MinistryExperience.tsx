@@ -24,7 +24,8 @@ import {
   type MinistryTabId,
 } from "../../lib/ministry-view";
 import { MinistryMembershipCatalog } from "../MinistryMembershipCatalog";
-import { MinistryCover, SyntheticAvatar } from "./ministry-visuals";
+import { MinistryCover } from "./ministry-visuals";
+import { PersonPortrait } from "../PersonPortrait";
 import styles from "./ministry-home.module.css";
 
 type Props = {
@@ -213,7 +214,7 @@ function ReadyExperience({
                     <ul className={styles.leaders}>
                       {leaders.map((leader) => (
                         <li key={`${leader.name}:${leader.role}`}>
-                          <SyntheticAvatar name={leader.name} />
+                          <PersonPortrait name={leader.name} />
                           <span>
                             <strong>{leader.name}</strong>
                             <small>{leader.role}</small>
