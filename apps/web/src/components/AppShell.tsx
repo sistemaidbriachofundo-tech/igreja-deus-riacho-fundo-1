@@ -441,7 +441,7 @@ export function AppShell({
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
         </AppNavLink>
 
-        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{memberShell ? "Sua área" : editorial ? "Estúdio editorial" : "Administração"}</strong><small>Igreja de Deus · Riacho Fundo I</small></span></div>
+        <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
           {menuBlocks.map(block => {
             if (block.kind === "link") {
@@ -456,9 +456,10 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
+                {ministryEntries.slice(0, 4).map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
                   <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
                 </AppNavLink>)}
+                {ministryEntries.length > 4 && <button type="button" className={s.ministryMore} onClick={() => { setTerm(""); setPaletteOpen(true); }}>Encontrar outro ministério <UIIcon name="search" size={14}/></button>}
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;
@@ -478,11 +479,11 @@ export function AppShell({
             <div>
               <strong>{shownMeta}</strong>
               <span className={s.toolbarEyebrow}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "Administração · Riacho Fundo I"}</span>
-              {personaMode && <span className={s.hmlMark}>Ambiente de homologação</span>}
+              
             </div>
           </div>
           <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Buscar no painel — Ctrl K" aria-keyshortcuts="Control+K" disabled={menu.length === 0}>
-            <UIIcon name="search" size={18}/><span>Buscar módulo ou ministério</span><kbd>Ctrl K</kbd>
+            <UIIcon name="search" size={18}/><span>Buscar no sistema</span><kbd>Ctrl K</kbd>
           </button>
           <div className={s.toolbarRight}>
             {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
