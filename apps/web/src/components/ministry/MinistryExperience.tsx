@@ -131,15 +131,32 @@ function ReadyExperience({
 
   return (
     <div className={styles.board} data-screen="ministerios">
-      <p className={styles.kicker}>Ministérios</p>
-      <MinistryGrid ministries={desk.ministries} currentId={desk.ministry.id} onSelect={onSelect} />
-
+      <header className={styles.sectionIntro}>
+        <div>
+          <p className={styles.kicker}>GESTÃO MINISTERIAL</p>
+          <h1>Ministérios</h1>
+          <p>Equipes, escalas e atividades organizadas por ministério.</p>
+        </div>
+        <label className={styles.ministryPicker}>
+          Acessar ministério
+          <select value={desk.ministry.id} onChange={(event) => onSelect(event.target.value)}>
+            {desk.ministries.map((ministry) => (
+              <option key={ministry.id} value={ministry.id}>{ministryPanelTitle(ministry)}</option>
+            ))}
+          </select>
+        </label>
+      </header>
       <article className={styles.panel} data-ministry={desk.ministry.id} aria-labelledby="ministry-panel-title">
-        <MinistryCover className={styles.hero} name={desk.ministry.name} slug={desk.ministry.slug} />
-        <header className={styles.heading}>
-          <h1 id="ministry-panel-title">{title}</h1>
-          {title !== desk.ministry.name ? <p className={styles.official}>{desk.ministry.name}</p> : null}
-          {desk.ministry.description ? <p>{desk.ministry.description}</p> : null}
+        <header className={styles.ministryHero}>
+          <MinistryCover className={styles.hero} name={desk.ministry.name} slug={desk.ministry.slug} />
+          <div className={styles.heroShade} aria-hidden="true" />
+          <div className={styles.heroCopy}>
+            <span>MINISTÉRIO SELECIONADO</span>
+            <h2 id="ministry-panel-title">{title}</h2>
+            {title !== desk.ministry.name ? <p className={styles.official}>{desk.ministry.name}</p> : null}
+            {desk.ministry.description ? <p>{desk.ministry.description}</p> : <p>Gestão da equipe e acompanhamento do ministério.</p>}
+          </div>
+          <span className={styles.heroCount}>{count === null ? "Equipe" : `${count} ${count === 1 ? "integrante" : "integrantes"}`}</span>
         </header>
 
         <div className={styles.tabs} role="tablist" aria-label={title} onKeyDown={onTabKey}>
