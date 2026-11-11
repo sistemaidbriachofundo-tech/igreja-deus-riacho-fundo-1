@@ -229,3 +229,9 @@
   color: var(--app-muted, #5f7368);
   font-size: 13px;
 }
+
+.personDetails { display: grid; gap: 8px; margin: 0; }
+.personDetails > div { padding: 10px 12px; background: #f2f6f3; border-radius: 8px; }
+.personDetails dt { color: #557062; font-size: 12px; }
+.personDetails dd { margin: 4px 0 0; color: #22382e; font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
+.personNote { margin-top: 12px; color: #557062; font-size: 13px; }

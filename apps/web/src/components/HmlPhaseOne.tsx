@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
+import { ReportBars, ReportDashboard, ReportHeadline, ReportMetric } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
@@ -56,6 +57,7 @@ export type CredentialPreviewProps = {
 
 export type HmlPhaseOneProps = {
   view: View;
+  initialSecretarySection?: SecretarySection;
   CredentialPreview?: ComponentType<CredentialPreviewProps>;
 };
 
@@ -158,7 +160,7 @@ export function CredentialCards({
   );
 }
 
-export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
+export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection = "resumo" }: HmlPhaseOneProps) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(true);
@@ -170,13 +172,16 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [admissions, setAdmissions] = useState<Admission[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
+  const [familiesLoaded, setFamiliesLoaded] = useState(false);
   const [loadedGroups, setLoadedGroups] = useState({ people: false, admissions: false });
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState("");
   const [familyFilter, setFamilyFilter] = useState("");
-  const [secretarySection, setSecretarySection] = useState<SecretarySection>("resumo");
+  const [secretarySection, setSecretarySection] = useState<SecretarySection>(initialSecretarySection);
   const [showHistory, setShowHistory] = useState(false);
+  const [admissionStage, setAdmissionStage] = useState("");
+  const [admissionProtocol, setAdmissionProtocol] = useState("");
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [formFeedback, setFormFeedback] = useState("");
   const [admissionPerson, setAdmissionPerson] = useState("");
@@ -192,16 +197,19 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       const params = new URLSearchParams(window.location.search);
       const action = params.get("acao");
       const section = params.get("aba");
-      setSecretarySection(section === "pessoas" || section === "admissoes" ? section : "resumo");
+      setSecretarySection(section === "pessoas" || section === "admissoes" ? section : initialSecretarySection);
       setAdmissionForm(action === "cadastrar" ? "new" : action === "admissao" ? "existing" : null);
+      setAdmissionPerson(action === "admissao" ? params.get("cadastro") ?? "" : "");
       setFichaId(params.get("pessoa"));
+      setAdmissionStage(params.get("etapa") ?? "");
+      setAdmissionProtocol(params.get("protocolo") ?? "");
       const status = params.get("situacao") ?? "";
-      setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION"].includes(status) ? status : "");
+      setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION", "TRANSFERRED"].includes(status) ? status : "");
     };
     readSection();
     window.addEventListener("popstate", readSection);
     return () => window.removeEventListener("popstate", readSection);
-  }, [view]);
+  }, [view, initialSecretarySection]);
 
   useEffect(() => {
     if (view !== "members") return;
@@ -209,7 +217,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       const params = new URLSearchParams(window.location.search);
       setFichaId(params.get("pessoa"));
       const status = params.get("situacao") ?? "";
-      setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION"].includes(status) ? status : "");
+      setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION", "TRANSFERRED"].includes(status) ? status : "");
     };
     openFromUrl();
     window.addEventListener("popstate", openFromUrl);
@@ -237,7 +245,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     const [people, processes, families] = settled;
     if (people.status === "fulfilled") setMemberships(people.value.memberships);
     if (processes.status === "fulfilled") setAdmissions(processes.value.admissions);
-    if (families.status === "fulfilled") setHouseholds(families.value.households);
+    if (families.status === "fulfilled") { setHouseholds(families.value.households); setFamiliesLoaded(true); }
     setLoadedGroups(previous => ({
       people: previous.people || (secretaria && view !== "overview" && people.status === "fulfilled"),
       admissions: previous.admissions || (staff && view === "secretary" && processes.status === "fulfilled"),
@@ -295,6 +303,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const selectedFamily = households.find(household => household.id === familyFilter);
 
   const filteredAdmissions = (showHistory ? admissions : pending).filter(admission => {
+    if (admissionStage && admission.currentStep !== admissionStage) return false;
+    if (admissionProtocol && admission.id !== admissionProtocol) return false;
     const member = membershipByPerson.get(admission.personId);
     return [member?.person.displayName ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
   });
@@ -308,24 +318,6 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   function updateQuery(value: string) {
     setQuery(value);
     setListPage(0);
-  }
-
-  function chooseSecretarySection(next: SecretarySection, status = "") {
-    setSecretarySection(next);
-    setQuery("");
-    setMembershipStatus(status);
-    setFamilyFilter("");
-    setShowHistory(false);
-    setListPage(0);
-    setAdmissionForm(null);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("aba", next);
-      url.searchParams.delete("acao");
-      if (status) url.searchParams.set("situacao", status);
-      else url.searchParams.delete("situacao");
-      window.history.replaceState(null, "", url);
-    }
   }
 
   function startSecretaryAction(next: "new" | "existing") {
@@ -348,6 +340,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     const url = new URL(window.location.href);
     if (url.searchParams.has("acao")) {
       url.searchParams.delete("acao");
+      url.searchParams.delete("cadastro");
       if (url.hash === "#cadastro") url.hash = "";
       window.history.replaceState(null, "", url);
     }
@@ -362,6 +355,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     setSecretarySection("resumo");
     setAdmissions([]);
     setHouseholds([]);
+    setFamiliesLoaded(false);
     setLoadedGroups({ people: false, admissions: false });
     setFichaId(null);
     setPassword("");
@@ -489,7 +483,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   }
 
   return (
-    <AppShell active={activeNav} meta={names[view]}>
+    <AppShell active={activeNav} meta={names[view]} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
         {!token || !user ? (
           checking ? <section className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></section> : <section className={s.loginPanel} aria-labelledby="login-hml">
@@ -512,7 +506,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 title={names[view]}
                 description={view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
                 actions={<>
-                  {view === "members" && secretary && <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/?aba=admissoes&acao=cadastrar#cadastro">Cadastrar pessoa</AppNavLink>}
+                  {view === "members" && secretary && <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/admissoes/?acao=cadastrar#cadastro">Cadastrar pessoa</AppNavLink>}
                   {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction(secretarySection === "admissoes" ? "existing" : "new")}>
                     <UIIcon name="plus" size={17} /> {secretarySection === "admissoes" ? "Iniciar admissão" : "Cadastrar pessoa"}
                   </button>}
@@ -535,39 +529,39 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             {error && <Alert appearance="workspace" tone="danger" title={error} />}
             {view === "secretary" && staff && (
               <nav className={`${ui.workspaceTabs} ${s.secretaryTabs}`} aria-label="Áreas da secretaria">
-                {secretary && <button type="button" aria-current={secretarySection === "resumo" ? "page" : undefined} onClick={() => chooseSecretarySection("resumo")}>Visão geral</button>}
-                {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas</button>}
-                <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões</button>
+                {secretary && <AppNavLink aria-current={secretarySection === "resumo" ? "page" : undefined} href="/app/secretaria/">Visão geral</AppNavLink>}
+                {secretary && <AppNavLink aria-current={secretarySection === "pessoas" ? "page" : undefined} href="/app/secretaria/pessoas/">Pessoas</AppNavLink>}
+                <AppNavLink aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} href="/app/secretaria/admissoes/">Admissões</AppNavLink>
                 {secretary && <AppNavLink href="/app/membros/carteirinha/">Carteirinhas</AppNavLink>}
               </nav>
             )}
             {view === "overview" && <PersonaBoard />}
             {view === "secretary" && secretary && secretarySection === "resumo" && (
-              <div className={s.summary}>
-                <div className={s.summaryCards} aria-label="Indicadores da Secretaria">
-                  {[["ACTIVE", "Pessoas ativas"], ["INACTIVE", "Pessoas inativas"], ["PENDING_ADMISSION", "Em admissão"]].map(([status, title]) => (
-                    <button key={status} type="button" onClick={() => chooseSecretarySection("pessoas", status)}>
-                      <span>{title}</span><strong>{loadedGroups.people ? memberships.filter(row => row.status === status).length.toLocaleString("pt-BR") : "—"}</strong>
-                    </button>
-                  ))}
-                  <AppNavLink href="/app/membros/carteirinha/">
-                    <span>Carteirinhas ativas</span><strong>{loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length.toLocaleString("pt-BR") : "—"}</strong>
-                  </AppNavLink>
-                </div>
-                <section className={s.panel} aria-labelledby="secretary-pending-title">
-                  <div className={s.summaryHeading}>
-                    <h2 id="secretary-pending-title">Admissões em andamento</h2>
-                    <button className={ui.workspaceSecondary} type="button" onClick={() => chooseSecretarySection("admissoes")}>Ver admissões <UIIcon name="arrow" size={15} /></button>
-                  </div>
-                  {loadedGroups.admissions ? (
-                    <dl className={s.summarySteps}>
-                      {[["modality", "Em preparação"], ["documents", "Documentação"], ["secretaria", "Análise da Secretaria"], ["pastor", "Aprovação pastoral"]].map(([step, title]) => (
-                        <div key={step}><dt>{title}</dt><dd>{admissions.filter(row => row.currentStep === step && !CLOSED_ADMISSIONS.includes(row.status)).length.toLocaleString("pt-BR")}</dd></div>
-                      ))}
-                    </dl>
-                  ) : <p role="status">{checking ? "Consultando admissões…" : "Admissões indisponíveis. Use Atualizar para tentar novamente."}</p>}
-                </section>
-              </div>
+              <ReportDashboard>
+                <ReportHeadline label="Pessoas cadastradas" value={loadedGroups.people ? memberships.length : null}>
+                  <ReportMetric label="Famílias cadastradas" value={familiesLoaded ? households.length : null} />
+                  <ReportMetric label="Carteirinhas ativas" value={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null} href="/app/membros/carteirinha/" />
+                </ReportHeadline>
+                <ReportBars title="Situação dos vínculos" description="Selecione uma situação para ver as pessoas." total={memberships.length} loading={checking}
+                  rows={loadedGroups.people ? [
+                    { label: "Ativos", status: "ACTIVE", tone: "green" },
+                    { label: "Inativos", status: "INACTIVE", tone: "slate" },
+                    { label: "Em admissão", status: "PENDING_ADMISSION", tone: "gold" },
+                    { label: "Transferidos", status: "TRANSFERRED", tone: "teal" },
+                  ].map(({ label, status, tone }) => ({
+                    label, tone: tone as "green" | "slate" | "gold" | "teal",
+                    value: memberships.filter(row => row.status === status).length,
+                    href: `/app/secretaria/pessoas/?situacao=${status}`,
+                  })) : null} />
+                <ReportBars title="Admissões em andamento" description="Protocolos pendentes, por etapa." loading={checking}
+                  rows={loadedGroups.admissions ? [
+                    ["modality", "Em preparação"], ["documents", "Documentação"],
+                    ["secretaria", "Análise da Secretaria"], ["pastor", "Aprovação pastoral"],
+                  ].map(([step, label]) => ({
+                    label, value: admissions.filter(row => row.currentStep === step && !CLOSED_ADMISSIONS.includes(row.status)).length,
+                    href: `/app/secretaria/admissoes/?etapa=${step}`,
+                  })) : null} />
+              </ReportDashboard>
             )}
             {showsPeople && (
               <div className={s.peopleWorkspace}>
@@ -579,7 +573,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
 
                   {secretary && <div className={s.peopleFilters}>
                     <div className={s.viewFilter} role="group" aria-label="Situação das pessoas">
-                      {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"]].map(([status, title]) =>
+                      {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"], ["TRANSFERRED", "Transferidos"]].map(([status, title]) =>
                         <button key={status} type="button" aria-pressed={membershipStatus === status}
                           onClick={() => { setMembershipStatus(status); setListPage(0); }}>{title}</button>
                       )}
@@ -641,6 +635,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                     <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
                   <div className={s.viewFilter} role="group" aria-label="Filtrar protocolos">
+                    {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href="/app/secretaria/admissoes/">Limpar seleção</AppNavLink>}
                     <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}>Em andamento</button>
                     <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}>Todos</button>
                   </div>
@@ -664,7 +659,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                               <small><span className={s.statusPill} data-status={admission.status}>{label(admission.status)}</span> {label(admission.modality ?? "")}</small>
                             </div>
                             <div className={s.admissionActions}>
-                              <AppNavLink className={s.openFicha} href={`/app/secretaria/?aba=pessoas&pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>
+                              <AppNavLink className={s.openFicha} href={`/app/secretaria/pessoas/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>
                               <button type="button" disabled={busy || done || !canAct} onClick={() => nextAdmission(admission)}>
                                 {done ? "Concluído" : !canAct ? "Ação reservada" : "Concluir " + stepLabel}
                               </button>
@@ -693,7 +688,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                   {formFeedback && <Alert appearance="workspace" tone="danger" title="Confira o formulário">{formFeedback}</Alert>}
                   {admissionForm === "existing" ? (
                     <>
-                      <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa para admissão" value={admissionPerson} onChange={setAdmissionPerson} placeholder="Buscar pelo nome" required disabled={busy} />
+                      <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa para admissão" value={admissionPerson} onChange={setAdmissionPerson} selectedPerson={membershipByPerson.get(admissionPerson)?.person} placeholder="Buscar pelo nome" required disabled={busy} />
                       <label>Modalidade
                         <select value={modality} onChange={event => setModality(event.target.value)} disabled={busy}>
                           <option value="BATISMO">Batismo</option>

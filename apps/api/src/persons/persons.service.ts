@@ -209,6 +209,7 @@ export class PersonsService {
         id: true,
         displayName: true,
         email: true,
+        address: true,
         status: true,
         householdId: true,
         kind: true,
@@ -223,6 +224,7 @@ export class PersonsService {
     }
     return {
       ...this.toSummary(person),
+      address: person.address ?? null,
       legalGuardianPersonId: person.legalGuardianPersonId,
       ...this.updatedAtField(person.updatedAt),
     };
@@ -242,6 +244,7 @@ export class PersonsService {
         id: true,
         displayName: true,
         email: true,
+        address: true,
         status: true,
         kind: true,
         isMinor: true,
@@ -305,6 +308,7 @@ export class PersonsService {
       person: {
         ...this.toSummary(person),
         email: isStaff || actor.personId === person.id ? person.email : null,
+        address: person.address ?? null,
         legalGuardianPersonId: person.legalGuardianPersonId,
         ...this.updatedAtField(person.updatedAt),
       },
@@ -384,6 +388,7 @@ export class PersonsService {
       const data: {
         displayName?: string;
         email?: string | null;
+        address?: string | null;
         isMinor?: boolean;
         legalGuardianPersonId?: string | null;
         householdId?: string | null;
@@ -401,6 +406,14 @@ export class PersonsService {
         if (email !== person.email) {
           data.email = email;
         }
+      }
+
+      if (input.address !== undefined) {
+        const address = input.address?.trim() || null;
+        if (address && address.length > 500) {
+          throw new BadRequestException("O endereço pode ter até 500 caracteres.");
+        }
+        if (address !== (person.address ?? null)) data.address = address;
       }
 
       if (input.isMinor !== undefined && input.isMinor !== person.isMinor) {
@@ -545,6 +558,7 @@ export class PersonsService {
           id: true,
           displayName: true,
           email: true,
+          address: true,
           status: true,
           householdId: true,
           kind: true,
@@ -561,8 +575,8 @@ export class PersonsService {
       const before: { [key: string]: string | boolean | null } = {};
       const after: { [key: string]: string | boolean | null } = {};
       for (const field of fields) {
-        before[field] = jsonSnapshot(person[field as keyof typeof person]);
-        after[field] = jsonSnapshot(updated[field as keyof typeof updated]);
+        before[field] = field === "address" ? Boolean(person.address) : jsonSnapshot(person[field as keyof typeof person]);
+        after[field] = field === "address" ? Boolean(updated.address) : jsonSnapshot(updated[field as keyof typeof updated]);
       }
 
       await tx.auditLog.create({
@@ -683,6 +697,7 @@ export class PersonsService {
       id: string;
       displayName: string;
       email: string | null;
+      address?: string | null;
       status: string;
       householdId: string | null;
       kind: string;
@@ -698,6 +713,7 @@ export class PersonsService {
   ) {
     return {
       ...this.toSummary(person),
+      address: person.address ?? null,
       legalGuardianPersonId: person.legalGuardianPersonId,
       ...this.updatedAtField(person.updatedAt),
       dedupeAlerts,

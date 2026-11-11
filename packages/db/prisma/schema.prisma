@@ -199,6 +199,7 @@ model Person {
   householdId          String?      @map("household_id")
   displayName          String       @map("display_name")
   email                String?
+  address              String?
   status               PersonStatus @default(ACTIVE)
   kind                 PersonKind   @default(VISITOR)
   isMinor              Boolean      @default(false) @map("is_minor")

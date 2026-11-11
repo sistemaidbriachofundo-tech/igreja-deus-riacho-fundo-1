@@ -51,27 +51,6 @@
 .peopleWorkspace .personLookup > summary { padding: 8px 2px; color: #32694c; }
 .peopleWorkspace .personLookup[open] > summary { background: transparent; border: 0; }
 
-.summary { display: grid; gap: 18px; }
-.summaryCards, .summarySteps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.summaryCards > *, .summarySteps > div {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-  padding: 15px;
-  border: 1px solid var(--app-border, #dce6de);
-  border-radius: 10px;
-  background: var(--app-surface, #fff);
-  color: var(--app-ink, #22382e);
-  text-align: left;
-  text-decoration: none;
-  font: 600 13px/1.4 Inter, Arial, sans-serif;
-}
-.summaryCards > * { cursor: pointer; }
-.summaryCards > *:hover { background: #edf5ee; border-color: #b8cdbd; }
-.summaryCards strong, .summarySteps dd { margin: 0; color: var(--secretaria-forest); font-size: 26px; letter-spacing: -.04em; font-weight: 700; }
-.summaryHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.summarySteps { margin: 14px 0 0; }
-.summarySteps > div { background: var(--app-subtle, #f5f8f5); }
 .panel {
   min-width: 0;
   composes: workspaceSurface from "./ui/ui.module.css";
@@ -289,7 +268,6 @@
 .loginPanel button:hover { background: #1d4b38; }
 
 @media (max-width: 830px) {
-  .summaryCards, .summarySteps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .peopleFilters { align-items: start; flex-direction: column; }
   .familySelect, .familySelect select { width: min(100%, 450px); max-width: 100%; }
   .tableWrap { border: 0; overflow: visible; border-radius: 0; }

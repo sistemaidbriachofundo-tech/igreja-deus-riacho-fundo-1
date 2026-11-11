@@ -107,7 +107,8 @@ describe("ficha 360 pronta para edição", () => {
     expect(html).toContain("Família Demo");
     expect(html).toContain("Menor Demo");
     expect(html).toContain("comprovante-ficticio.pdf");
-    expect(html).toContain("aria-readonly=\"true\"");
+    expect(html).toContain("Vínculo na congregação");
+    expect(html).toContain("Ver protocolo de admissão");
     expect(html).toContain("Ativo");
     expect(html).toContain(">Salvar<");
     expect(html).toContain("Atualizar ficha");

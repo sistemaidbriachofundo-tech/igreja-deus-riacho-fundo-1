@@ -3,7 +3,7 @@ import { BusinessException } from "../common/business.exception";
 
 /**
  * Campos de pessoa que este PATCH grava.
- * Situação, tipo eclesiástico e contatos fora de e-mail ficam de fora de propósito.
+ * Situação, tipo eclesiástico e telefones permanecem fora do cadastro editável.
  */
 export interface CadastralPersonPatch {
   displayName?: string;
@@ -16,7 +16,7 @@ export interface CadastralPersonPatch {
   kind?: string;
   phone?: string;
   mobilePhone?: string;
-  address?: string;
+  address?: string | null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,11 +24,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function rejectPersonPatchPolicy(input: CadastralPersonPatch): void {
   if (
     input.phone !== undefined ||
-    input.mobilePhone !== undefined ||
-    input.address !== undefined
+    input.mobilePhone !== undefined
   ) {
     throw new BusinessException(
-      "Telefone e endereço não existem no cadastro atual. A gravação foi recusada.",
+      "Telefone não existe no cadastro atual. A gravação foi recusada.",
       "PERSON_CONTACT_UNSUPPORTED",
       400,
     );

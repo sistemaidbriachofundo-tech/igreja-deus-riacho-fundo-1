@@ -135,7 +135,7 @@ function Congregation({
           .map((item) => (
             <li key={item.status}>
               <AppNavLink
-                href={`/app/secretaria/?aba=pessoas&situacao=${item.status}`}
+                href={`/app/secretaria/pessoas/?situacao=${item.status}`}
                 onMouseEnter={() => setHighlight(item.status)}
                 onMouseLeave={() => setHighlight(null)}
                 onFocus={() => setHighlight(item.status)}
@@ -343,21 +343,21 @@ export function AdministrativeOverview({
       title: "Membros ativos",
       value: counts?.membershipsActive ?? valueFor("ACTIVE"),
       icon: "people" as const,
-      href: "/app/secretaria/?aba=pessoas&situacao=ACTIVE",
+      href: "/app/secretaria/pessoas/?situacao=ACTIVE",
       color: "green",
     },
     {
       title: "Membros inativos",
       value: valueFor("INACTIVE"),
       icon: "family" as const,
-      href: "/app/secretaria/?aba=pessoas&situacao=INACTIVE",
+      href: "/app/secretaria/pessoas/?situacao=INACTIVE",
       color: "slate",
     },
     {
       title: "Em admissão",
       value: counts?.membershipsPending ?? valueFor("PENDING_ADMISSION"),
       icon: "layers" as const,
-      href: "/app/secretaria/?aba=admissoes",
+      href: "/app/secretaria/admissoes/",
       color: "gold",
     },
     {
@@ -491,7 +491,7 @@ export function AdministrativeOverview({
             action={
               <AppNavLink
                 className={s.textLink}
-                href="/app/secretaria/?aba=pessoas"
+                href="/app/secretaria/pessoas/"
               >
                 Ver cadastros <UIIcon name="arrow" size={15} />
               </AppNavLink>
@@ -504,7 +504,7 @@ export function AdministrativeOverview({
             action={
               <AppNavLink
                 className={s.textLink}
-                href="/app/secretaria/?aba=admissoes"
+                href="/app/secretaria/admissoes/"
               >
                 Ver admissões <UIIcon name="arrow" size={15} />
               </AppNavLink>

@@ -418,3 +418,4 @@
 @media (max-width: 620px) { .memberSearch input { font-size: 16px; } }
 
 .actionFeedback { margin-block: 14px; }
+.personLink { padding: 4px 0; border: 0; background: transparent; color: #245840; font: inherit; font-weight: 700; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

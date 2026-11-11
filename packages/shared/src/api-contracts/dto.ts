@@ -298,6 +298,7 @@ export interface HealthResponse {
 export interface PatchPersonRequest {
   displayName?: string;
   email?: string | null;
+  address?: string | null;
   isMinor?: boolean;
   legalGuardianPersonId?: string | null;
   householdId?: string | null;
@@ -308,6 +309,7 @@ export interface PatchPersonRequest {
 
 export interface PersonDossierResponse {
   person: PersonSummaryDto & {
+    address?: string | null;
     kind: string;
     isMinor: boolean;
     legalGuardianPersonId: string | null;

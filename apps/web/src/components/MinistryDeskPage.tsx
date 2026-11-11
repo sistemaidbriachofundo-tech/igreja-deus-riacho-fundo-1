@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePersonaAccess } from "./AppShell";
+import { MinistryOverview } from "./ministry/MinistryOverview";
 import { MinistryExperience } from "./ministry/MinistryExperience";
 import { getApiBaseUrl, loadStoredToken } from "../lib/api";
 import {
@@ -33,6 +34,7 @@ export function MinistryDeskPage() {
   const { roles } = usePersonaAccess();
   const [token, setToken] = useState<string | null>(null);
   const route = parseMinistryRoute(useSearchParams().toString());
+  const overview = !route.ministryId && route.tab === "visao";
   const [board, setBoard] = useState<MinistryBoardData | null>(null);
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [change, setChange] = useState<MembershipChange | null>(null);
@@ -45,7 +47,7 @@ export function MinistryDeskPage() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || overview) return;
     let cancelled = false;
     setBoard(null);
     void loadMinistryBoard({
@@ -68,7 +70,7 @@ export function MinistryDeskPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, route.ministryId, reloadKey]);
+  }, [token, overview, route.ministryId, reloadKey]);
 
   function go(next: Route) {
     setConversion(null);
@@ -164,6 +166,8 @@ export function MinistryDeskPage() {
     );
   }
 
+  if (overview) return <MinistryOverview token={token} />;
+
   if (!board) {
     return (
       <section className={styles.desk} role="status">
@@ -176,7 +180,6 @@ export function MinistryDeskPage() {
   return (
     <MinistryExperience
       token={token}
-      catalog={!route.ministryId && route.tab === "visao"}
       roles={roles}
       desk={board.desk}
       escalas={board.escalas}

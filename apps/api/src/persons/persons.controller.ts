@@ -33,6 +33,11 @@ export class PatchPersonBody implements PatchPersonRequest {
   email?: string | null;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   isMinor?: boolean;
 

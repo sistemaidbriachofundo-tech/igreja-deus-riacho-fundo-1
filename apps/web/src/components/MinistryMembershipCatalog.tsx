@@ -24,6 +24,7 @@ import {
   type PersonOption,
 } from "./PersonPicker";
 import { Alert } from "./ui/Alert";
+import { MinistryPersonDialog } from "./ministry/MinistryPersonDialog";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import ui from "./ui/ui.module.css";
 import styles from "./ministry-membership-catalog.module.css";
@@ -56,6 +57,7 @@ export function MinistryMembershipCatalog({
   const { confirm, confirmation } = useActionConfirmation();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [openedPerson, setOpenedPerson] = useState<FormalMember | null>(null);
   const members =
     desk.membership.kind === "ready" ? desk.membership.members : [];
   const active = activeFormalMembers(members);
@@ -90,6 +92,8 @@ export function MinistryMembershipCatalog({
 
   return (
     <div className={styles.columns}>
+      {token && openedPerson && <MinistryPersonDialog key={openedPerson.id} token={token}
+        ministryId={desk.ministry.id} member={openedPerson} roles={roles} onClose={() => setOpenedPerson(null)} />}
       <section
         className={styles.panel}
         data-region="formal-members"
@@ -171,7 +175,8 @@ export function MinistryMembershipCatalog({
                   <div className={styles.row} key={member.id}>
                     <PersonPortrait name={member.displayName} />
                     <div>
-                      <strong>{member.displayName}</strong>
+                      {token ? <button className={styles.personLink} type="button" aria-label={"Abrir ficha de " + member.displayName}
+                        onClick={() => setOpenedPerson(member)}>{member.displayName}</button> : <strong>{member.displayName}</strong>}
                       <small>
                         {roleLabel(member.role)} ·{" "}
                         {memberStatusLabel(member.status)}

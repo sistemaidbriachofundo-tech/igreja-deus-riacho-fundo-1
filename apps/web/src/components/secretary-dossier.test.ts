@@ -81,12 +81,18 @@ describe("contrato de PATCH da ficha 360", () => {
     expect(PATCHABLE_PERSON_FIELDS).toEqual([
       "displayName",
       "email",
+      "address",
       "isMinor",
       "legalGuardianPersonId",
       "householdId",
       "expectedUpdatedAt",
     ]);
     expect(REGULATED_PERSON_FIELDS.map((field) => field.key)).toEqual(["status", "kind"]);
+  });
+
+  it("grava e remove o endereço sem alterar a situação", () => {
+    expect(buildPersonPatch({ ...baseline, address: " Rua de QA " }, baseline, null)).toEqual({ address: "Rua de QA" });
+    expect(buildPersonPatch({ ...baseline, address: "" }, { ...baseline, address: "Rua de QA" }, null)).toEqual({ address: null });
   });
 
   it("envia o campo alterado e a versão lida da API", () => {

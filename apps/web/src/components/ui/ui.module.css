@@ -1255,7 +1255,7 @@
 }
 
 .workspaceTabs > :is(button, a):hover { background: var(--app-subtle, #f5f8f5); }
-.workspaceTabs > button[aria-current="page"],
+.workspaceTabs > :is(button, a)[aria-current="page"],
 .workspaceTabs > button[aria-selected="true"] {
   border-bottom-color: var(--app-accent, #255742);
   color: var(--app-accent, #255742);

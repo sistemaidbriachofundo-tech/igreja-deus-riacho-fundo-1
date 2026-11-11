@@ -3,13 +3,14 @@
  * PATCH /persons/:id grava displayName, email, isMinor, legalGuardianPersonId,
  * householdId e expectedUpdatedAt.
  * PATCH /memberships/:id grava a observação do vínculo mais recente.
- * Situação, tipo, telefone e endereço continuam recusados pela API.
+ * Situação, tipo e telefones continuam fora da edição direta.
  * Casos pastorais não são pedidos por esta ficha.
  */
 
 export const PATCHABLE_PERSON_FIELDS = [
   "displayName",
   "email",
+  "address",
   "isMinor",
   "legalGuardianPersonId",
   "householdId",
@@ -29,6 +30,7 @@ export type PersonRecord = {
   id: string;
   displayName: string;
   email: string | null;
+  address?: string | null;
   status: string;
   householdId: string | null;
   kind: string;
@@ -97,6 +99,7 @@ export type PersonDossier = {
 export type EditablePersonFields = {
   displayName: string;
   email: string;
+  address?: string;
   isMinor: boolean;
   legalGuardianPersonId: string;
   householdId: string;
@@ -104,6 +107,7 @@ export type EditablePersonFields = {
 };
 
 export type PersonPatchBody = {
+  address?: string | null;
   displayName?: string;
   email?: string | null;
   isMinor?: boolean;
@@ -182,6 +186,7 @@ export function toEditable(
     PersonRecord,
     | "displayName"
     | "email"
+    | "address"
     | "isMinor"
     | "legalGuardianPersonId"
     | "householdId"
@@ -191,6 +196,7 @@ export function toEditable(
   return {
     displayName: person.displayName,
     email: person.email ?? "",
+    ...(person.address === undefined ? {} : { address: person.address ?? "" }),
     isMinor: person.isMinor,
     legalGuardianPersonId: person.legalGuardianPersonId ?? "",
     householdId: person.householdId ?? "",
@@ -221,6 +227,10 @@ export function buildPersonPatch(
   const email = current.email.trim().toLowerCase();
   const previousEmail = baseline.email.trim().toLowerCase();
   if (email !== previousEmail) body.email = email.length > 0 ? email : null;
+  if (current.address !== undefined) {
+    const address = current.address.trim();
+    if (address !== (baseline.address ?? "").trim()) body.address = address || null;
+  }
   if (current.isMinor !== baseline.isMinor) body.isMinor = current.isMinor;
   if (current.legalGuardianPersonId !== baseline.legalGuardianPersonId) {
     const value = current.legalGuardianPersonId.trim();
@@ -277,6 +287,7 @@ export function localFieldError(
   if (emailChanged && email.length > 0 && !SYNTHETIC_EMAIL.test(email)) {
     return "Na homologação o e-mail de contato precisa terminar em @example.test.";
   }
+  if ((current.address ?? "").trim().length > 500) return "O endereço pode ter até 500 caracteres.";
   if (current.notes.trim().length > 4000) {
     return "A observação pode ter até 4000 caracteres.";
   }

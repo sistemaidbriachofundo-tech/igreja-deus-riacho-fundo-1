@@ -3,10 +3,10 @@
 import { PersonPortrait } from "../PersonPortrait";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Alert } from "../ui/Alert";
+import { AppNavLink } from "../AppShell";
 import { useDialogLifecycle } from "../ui/dialog";
 import ui from "../ui/ui.module.css";
 import {
-  REGULATED_PERSON_FIELDS,
   dossierLabel,
   type AdmissionDocumentList,
   type DossierFailure,
@@ -115,6 +115,7 @@ export function Ficha360Dialog({
   const person = state.person;
   const dossier = state.dossier;
   const form = state.form;
+  const openAdmission = dossier?.admissionHistory.find(item => !["APPROVED", "REJECTED", "CANCELLED"].includes(item.status));
   const loadFailure = state.refreshError ?? state.loadError;
   const editFailure = state.saveError ?? state.refreshError;
   const options = householdOptions(
@@ -231,6 +232,11 @@ export function Ficha360Dialog({
                   Use um endereço @example.test. Deixe em branco para remover o
                   contato.
                 </p>
+                {form.address !== undefined && <label>
+                  Endereço residencial
+                  <textarea value={form.address} maxLength={500} rows={2} autoComplete="street-address"
+                    onChange={event => onEdit({ ...form, address: event.target.value })} />
+                </label>}
                 <label className={s.check}>
                   <input
                     data-field="isMinor"
@@ -374,19 +380,16 @@ export function Ficha360Dialog({
 
             <section className={s.locked} aria-label="Situação do cadastro">
               <h3>Situação do cadastro</h3>
-              <p>A situação muda conforme a admissão ou a transferência.</p>
-              <div className={s.lockedGrid}>
-                {REGULATED_PERSON_FIELDS.map((field) => (
-                  <label key={field.key}>
-                    {field.label}
-                    <input
-                      value={dossierLabel(person[field.key])}
-                      readOnly
-                      aria-readonly="true"
-                    />
-                  </label>
-                ))}
-              </div>
+              <dl className={s.statusGrid}>
+                <div><dt>Cadastro pessoal</dt><dd>{dossierLabel(person.status)}</dd></div>
+                <div><dt>Tipo de cadastro</dt><dd>{dossierLabel(person.kind)}</dd></div>
+                <div><dt>Vínculo na congregação</dt><dd>{dossier.memberships[0] ? dossierLabel(dossier.memberships[0].status) : "Sem vínculo"}</dd></div>
+              </dl>
+              {canEdit && (openAdmission || person.kind === "VISITOR") && <AppNavLink className={ui.workspaceSecondary}
+                href={openAdmission ? `/app/secretaria/admissoes/?protocolo=${encodeURIComponent(openAdmission.id)}` : `/app/secretaria/admissoes/?acao=admissao&cadastro=${encodeURIComponent(person.id)}`}>
+                {openAdmission ? "Ver protocolo de admissão" : "Iniciar admissão desta pessoa"}
+              </AppNavLink>}
+              <p>A condição de membro é registrada na aprovação da admissão.</p>
             </section>
 
             <section className={s.context} aria-label="Vínculos familiares">

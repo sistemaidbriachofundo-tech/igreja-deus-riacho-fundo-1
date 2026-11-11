@@ -78,6 +78,16 @@ export class MinistryMembershipGateService {
     };
   }
 
+  async readPerson(actor: AuthUser, ministryId: string, membershipId: string) {
+    const scope = await this.scope(actor, ministryId);
+    const member = await this.prisma.ministryMembership.findFirst({
+      where: { ...scope, id: membershipId, endedAt: null, status: { not: "ENCERRADO" }, person: { organizationId: scope.organizationId } },
+      select: { person: { select: { id: true, displayName: true, email: true, address: true } } },
+    });
+    if (!member) throw new NotFoundException("Integrante não encontrado na equipe autorizada.");
+    return { person: member.person };
+  }
+
   async admit(actor: AuthUser, ministryId: string, personId: string, role: string) {
     const scope = await this.scope(actor, ministryId);
     if (!personId?.trim() || !isFormalRole(role)) {

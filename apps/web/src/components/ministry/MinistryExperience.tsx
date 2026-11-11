@@ -34,7 +34,6 @@ import ui from "../ui/ui.module.css";
 import styles from "./ministry-home.module.css";
 
 type Props = {
-  catalog?: boolean;
   token?: string | null;
   roles?: readonly string[];
   desk: DeskResult;
@@ -57,14 +56,6 @@ type Props = {
 
 export function MinistryExperience(props: Props) {
   const { desk } = props;
-  if (props.catalog && (desk.kind === "ready" || desk.kind === "denied")) {
-    return (
-      <section className={styles.board} data-screen="ministerios">
-        <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
-        <MinistryGrid ministries={desk.ministries} currentId="" onSelect={props.onSelect} />
-      </section>
-    );
-  }
   if (desk.kind === "ready") return <ReadyExperience {...props} desk={desk} />;
   return <StatusExperience {...props} />;
 }

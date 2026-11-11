@@ -126,12 +126,13 @@ function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last
 }
 
 export function AppShell({
-  active, meta, children, editorial = false, viewer,
+  active, meta, children, editorial = false, viewer, secretarySection,
 }: {
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
   editorial?: boolean;
+  secretarySection?: "resumo" | "pessoas" | "admissoes";
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
@@ -210,7 +211,8 @@ export function AppShell({
   const denied = accessKind === "ready" && !allowed;
   const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
   const phone = mobileItems(menu);
-  const phoneHasActive = active != null && phone.some(item => item.key === active);
+  const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
+  const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
   const shownMeta = showModule ? meta : "Área administrativa";
   const accountEmail = readyUser?.email ?? "";
   const accountLabel = preview
@@ -235,10 +237,23 @@ export function AppShell({
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
   const secretaryMenu = menu.some(item => item.key === "secretaria");
-  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "ministries" } | { kind: "divider" }> = [];
+  const credentialMenu = menu.find(item => item.key === "carteirinha");
+  const secretaryChildren = [
+    ...(preview || roles.some(role => role === "SECRETARIA" || role === "PLATFORM_ADMIN")
+      ? [{ key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const }]
+      : []),
+    { key: "admissoes", title: "Admissões", href: "/app/secretaria/admissoes/", icon: "layers" as const },
+    ...(credentialMenu ? [{ key: "carteirinha", title: "Carteirinhas", href: credentialMenu.href, icon: "badge" as const }] : []),
+  ];
+  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "secretary" } | { kind: "ministries" } | { kind: "divider" }> = [];
   let ministryInserted = false;
   let supportingSectionInserted = false;
   for (const item of menu) {
+    if (item.key === "secretaria") {
+      menuBlocks.push({ kind: "secretary" });
+      continue;
+    }
+    if (secretaryMenu && item.key === "carteirinha") continue;
     if (isMinistryGroupKey(item.key)) {
       if (!ministryInserted && showMinistries) {
         menuBlocks.push({ kind: "ministries" });
@@ -443,11 +458,26 @@ export function AppShell({
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
           {menuBlocks.map(block => {
             if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
+            if (block.kind === "secretary") return (
+              <div key="secretaria">
+                <AppNavLink href="/app/secretaria/" className={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? s.menuActive : s.menuItem}
+                  aria-current={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? "page" : undefined} title={railCollapsed ? "Secretaria" : undefined} onNavigate={afterNavigate}>
+                  <UIIcon name="layers" size={19}/><span className={s.menuLabel}>Secretaria</span>
+                </AppNavLink>
+                {!railCollapsed && <div className={s.subList} role="group" aria-label="Submenu da Secretaria">
+                  {secretaryChildren.map(item => {
+                    const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
+                    return <AppNavLink key={item.key} href={item.href} className={selected ? s.menuActive : s.subItem} aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
+                      <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.title}</span>
+                    </AppNavLink>;
+                  })}
+                </div>}
+              </div>
+            );
             if (block.kind === "link") {
               const item = block.item;
               const label = itemLabel(item);
-              const nested = secretaryMenu && item.key === "carteirinha" && !railCollapsed;
-              return <AppNavLink key={item.key} href={item.href} className={`${active === item.key ? s.menuActive : s.menuItem}${nested ? ` ${s.secretaryChild}` : ""}`} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
+              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
                 <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
               </AppNavLink>;
             }
@@ -506,7 +536,7 @@ export function AppShell({
       </div>
 
       <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
+        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
