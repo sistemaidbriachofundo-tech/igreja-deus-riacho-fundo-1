@@ -21,6 +21,7 @@ module.exports = {
   testEnvironment: "node",
   moduleNameMapper: {
     "^@idbrf/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
+    "^@idbrf/shared/security$": "<rootDir>/../../../packages/shared/src/security-f11/index.ts",
     "^@idbrf/db$": "<rootDir>/../../../packages/db/src/index.ts",
   },
 };

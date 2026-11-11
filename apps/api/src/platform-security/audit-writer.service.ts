@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { sanitizeAuditCreateData, type AuditWriteInput } from "@idbrf/shared";
+import { sanitizeAuditCreateData, type AuditWriteInput } from "@idbrf/shared/security";
 import { PrismaService } from "../prisma/prisma.service";
 import { getRequestId } from "./request-context";
 

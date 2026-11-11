@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { hashOpaqueToken, type RateLimitDecision, type RateLimitStore } from "@idbrf/shared";
+import { hashOpaqueToken, type RateLimitDecision, type RateLimitStore } from "@idbrf/shared/security";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()

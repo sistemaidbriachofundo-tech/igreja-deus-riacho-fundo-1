@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { acceptRequestId } from "@idbrf/shared";
+import { acceptRequestId } from "@idbrf/shared/security";
 import { AppModule } from "./app.module";
 import { requestContext } from "./platform-security/request-context";
 import { resolveTrustProxyHops } from "./platform-security/trusted-proxy";

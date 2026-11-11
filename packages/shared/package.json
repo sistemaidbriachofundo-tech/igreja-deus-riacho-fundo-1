@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./security": {
+      "types": "./dist/security-f11/index.d.ts",
+      "default": "./dist/security-f11/index.js"
     }
   },
   "scripts": {

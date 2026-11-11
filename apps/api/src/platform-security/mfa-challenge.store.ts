@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { MfaChallengeService } from "@idbrf/shared";
+import { MfaChallengeService } from "@idbrf/shared/security";
 import { PrismaMfaChallengeRepository } from "./prisma-mfa-challenge.repository";
 
 @Injectable()

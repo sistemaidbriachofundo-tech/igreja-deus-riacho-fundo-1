@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { SessionService } from "@idbrf/shared";
+import { SessionService } from "@idbrf/shared/security";
 import { PrismaService } from "../prisma/prisma.service";
 import { PrismaSessionRepository } from "./prisma-session.repository";
 import { SecurityPolicyRepository } from "./security-policy.repository";

@@ -1,5 +1,5 @@
 import { getRequestId } from "./request-context";
-import { sanitizeAuditCreateData } from "@idbrf/shared";
+import { sanitizeAuditCreateData } from "@idbrf/shared/security";
 
 const APPEND_ONLY = "audit_logs are append-only";
 

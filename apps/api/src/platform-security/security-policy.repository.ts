@@ -4,7 +4,7 @@ import {
   DEFAULT_SECURITY_POLICY,
   policyScopeKey,
   type SecurityPolicySnapshot,
-} from "@idbrf/shared";
+} from "@idbrf/shared/security";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()

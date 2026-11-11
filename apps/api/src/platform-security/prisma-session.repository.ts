@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { SessionRecord, SessionRepository } from "@idbrf/shared";
+import type { SessionRecord, SessionRepository } from "@idbrf/shared/security";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()

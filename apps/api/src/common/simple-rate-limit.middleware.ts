@@ -6,7 +6,7 @@ import {
   NestMiddleware,
   Optional,
 } from "@nestjs/common";
-import type { RateLimitStore } from "@idbrf/shared";
+import type { RateLimitStore } from "@idbrf/shared/security";
 import type { NextFunction, Request, Response } from "express";
 import { PrismaRateLimitStore } from "../platform-security/prisma-rate-limit.repository";
 
