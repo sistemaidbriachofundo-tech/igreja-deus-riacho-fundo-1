@@ -1,6 +1,7 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import type { PrismaService } from "../../prisma/prisma.service";
 import { AuthClock } from "../session/auth-clock";
+import { utcTimestamp } from "../session/utc-timestamp";
 import {
   digestPresentedId,
   isPresentedId,
@@ -156,11 +157,11 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
           'PENDING',
           ${id},
           ${input.purpose},
-          ${new Date(input.expiresAtMs)},
+          ${utcTimestamp(new Date(input.expiresAtMs))},
           0,
           5,
           0,
-          ${new Date(this.clock.now())}
+          ${utcTimestamp(new Date(this.clock.now()))}
         )
       `;
     } catch {
@@ -212,7 +213,7 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
         UPDATE mfa_challenges
         SET attempt_count = ${attempts},
             status = ${burned ? "CONSUMED" : "PENDING"}::"MfaChallengeStatus",
-            consumed_at = ${burned ? new Date(this.clock.now()) : null}
+            consumed_at = ${utcTimestamp(burned ? new Date(this.clock.now()) : null)}
         WHERE id = ${digestPresentedId(challengeId)}
           AND consumed_at IS NULL
       `;
@@ -234,7 +235,7 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
         UPDATE mfa_challenges
         SET reads = ${reads},
             status = ${burned ? "CONSUMED" : "PENDING"}::"MfaChallengeStatus",
-            consumed_at = ${burned ? new Date(this.clock.now()) : null}
+            consumed_at = ${utcTimestamp(burned ? new Date(this.clock.now()) : null)}
         WHERE id = ${digestPresentedId(challengeId)}
           AND consumed_at IS NULL
       `;
@@ -261,7 +262,7 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
       const updated = await this.prisma.$executeRaw`
         UPDATE mfa_challenges
         SET status = 'CONSUMED',
-            consumed_at = ${new Date(this.clock.now())}
+            consumed_at = ${utcTimestamp(new Date(this.clock.now()))}
         WHERE id = ${digestPresentedId(challengeId)}
           AND consumed_at IS NULL
       `;

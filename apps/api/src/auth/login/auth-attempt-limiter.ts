@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import type { PrismaService } from "../../prisma/prisma.service";
 import { AuthClock } from "../session/auth-clock";
+import { utcTimestamp } from "../session/utc-timestamp";
 
 export const RATE_LIMIT_MESSAGE = "Muitas tentativas — aguarde e tente de novo";
 
@@ -100,17 +101,17 @@ export class PrismaAuthAttemptLimiter implements AuthAttemptLimiter {
     try {
       await this.prisma.$executeRaw`
         INSERT INTO auth_attempt_windows (bucket_key, failures, window_started_at, updated_at)
-        VALUES (${key}, 1, ${now}, ${now})
+        VALUES (${key}, 1, ${utcTimestamp(now)}, ${utcTimestamp(now)})
         ON CONFLICT (bucket_key) DO UPDATE
         SET failures = CASE
-              WHEN auth_attempt_windows.window_started_at <= ${cutoff} THEN 1
+              WHEN auth_attempt_windows.window_started_at <= ${utcTimestamp(cutoff)} THEN 1
               ELSE auth_attempt_windows.failures + 1
             END,
             window_started_at = CASE
-              WHEN auth_attempt_windows.window_started_at <= ${cutoff} THEN ${now}
+              WHEN auth_attempt_windows.window_started_at <= ${utcTimestamp(cutoff)} THEN ${utcTimestamp(now)}
               ELSE auth_attempt_windows.window_started_at
             END,
-            updated_at = ${now}
+            updated_at = ${utcTimestamp(now)}
       `;
     } catch (error) {
       throw storageDown(error);

@@ -2,6 +2,7 @@ import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import type { PrismaService } from "../../prisma/prisma.service";
 import { AuthClock } from "./auth-clock";
+import { utcTimestamp } from "./utc-timestamp";
 
 /**
  * Persistência na tabela auth_sessions da migração F1.1.
@@ -147,9 +148,9 @@ export class PrismaSessionStore implements SessionStore {
           1,
           ${id},
           ${input.mfaSatisfied},
-          ${new Date(input.expiresAtMs)},
-          ${now},
-          ${now}
+          ${utcTimestamp(new Date(input.expiresAtMs))},
+          ${utcTimestamp(now)},
+          ${utcTimestamp(now)}
         )
       `;
     } catch {
@@ -199,9 +200,9 @@ export class PrismaSessionStore implements SessionStore {
       await this.prisma.$executeRaw`
         UPDATE auth_sessions
         SET status = 'REVOKED',
-            revoked_at = ${new Date(this.clock.now())},
+            revoked_at = ${utcTimestamp(new Date(this.clock.now()))},
             replaced_by_id = ${replaced},
-            updated_at = ${new Date(this.clock.now())}
+            updated_at = ${utcTimestamp(new Date(this.clock.now()))}
         WHERE id = ${digestPresentedId(sessionId)}
           AND revoked_at IS NULL
       `;
@@ -215,8 +216,8 @@ export class PrismaSessionStore implements SessionStore {
       await this.prisma.$executeRaw`
         UPDATE auth_sessions
         SET status = 'REVOKED',
-            revoked_at = ${new Date(this.clock.now())},
-            updated_at = ${new Date(this.clock.now())}
+            revoked_at = ${utcTimestamp(new Date(this.clock.now()))},
+            updated_at = ${utcTimestamp(new Date(this.clock.now()))}
         WHERE user_id = ${userId}
           AND revoked_at IS NULL
       `;
@@ -230,8 +231,8 @@ export class PrismaSessionStore implements SessionStore {
       await this.prisma.$executeRaw`
         UPDATE auth_sessions
         SET status = 'REVOKED',
-            revoked_at = ${new Date(this.clock.now())},
-            updated_at = ${new Date(this.clock.now())}
+            revoked_at = ${utcTimestamp(new Date(this.clock.now()))},
+            updated_at = ${utcTimestamp(new Date(this.clock.now()))}
         WHERE family_id = ${familyId}
           AND revoked_at IS NULL
       `;
