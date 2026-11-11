@@ -10,6 +10,8 @@ const configured = {
   JWT_SECRET: "test-fixture-production-session-secret-with-more-than-32-characters",
   PRIVATE_BLOB_READ_WRITE_TOKEN: "test-private-token",
   BLOB_READ_WRITE_TOKEN: "test-public-token",
+  TRUST_PROXY: "1",
+  F11_MFA_BLOCKING: "true",
 };
 
 describe("configuração do ambiente real", () => {
@@ -25,6 +27,9 @@ describe("configuração do ambiente real", () => {
     { CORS_ORIGIN: "http://igreja.example.org" },
     { PRIVATE_BLOB_READ_WRITE_TOKEN: "test-public-token" },
     { HML_DEMO_PASSWORD_HASH: "synthetic-fixture" },
+    { TRUST_PROXY: "0" },
+    { F11_MFA_BLOCKING: "false" },
+    { F11_MFA_ENFORCEMENT: "OFF" },
   ])("bloqueia configuração incompatível %#", overrides => {
     expect(() => assertProductionConfiguration({ ...configured, ...overrides })).toThrow();
   });
