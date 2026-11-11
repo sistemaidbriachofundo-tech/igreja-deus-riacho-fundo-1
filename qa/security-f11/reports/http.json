@@ -1,0 +1,253 @@
+{
+  "executed": true,
+  "origin": "https://id-riacho1-api-hml.vercel.app",
+  "aborted": false,
+  "sourceSha": "6c43aea96ad3fe24ec1ed2c09f717963fb289c62",
+  "candidateSha": "31d3158c7619bbc4c9d24fd9b94e43ef056ab80e",
+  "shaMatchesCandidate": false,
+  "deployProof": "NAO_E_O_SHA_CANDIDATO",
+  "login": {
+    "verdict": "PASS",
+    "detail": "As duas senhas inválidas da conta sintética inexistente devolveram o mesmo corpo."
+  },
+  "results": [
+    {
+      "id": "E2E-META",
+      "method": "GET",
+      "path": "/meta",
+      "status": 200,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"stage\":null,\"sourceSha\":\"6c43aea96ad3fe24ec1ed2c09f717963fb289c62\",\"contractVersion\":\"0.7.4-rf025\"}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-HEALTH",
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"status\":\"ok\",\"service\":\"api\",\"timestamp\":\"2026-11-11T20:06:01.412Z\",\"app\":\"Igreja de Deus — Riacho Fundo I\"}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-READY",
+      "method": "GET",
+      "path": "/ready",
+      "status": 200,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"status\":\"ready\",\"service\":\"api\",\"database\":\"ok\"}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-ME",
+      "method": "GET",
+      "path": "/auth/me",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-PERSON",
+      "method": "GET",
+      "path": "/persons/pessoa-sintetica",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-PASTORAL",
+      "method": "GET",
+      "path": "/pastoral-cases",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-LEDGER",
+      "method": "GET",
+      "path": "/ledger/accounts",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-AUDIT",
+      "method": "GET",
+      "path": "/audit-logs",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-REFRESH",
+      "method": "POST",
+      "path": "/auth/refresh",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-401-SWITCH",
+      "method": "POST",
+      "path": "/auth/switch-church",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-LOGIN-UNKNOWN",
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Credenciais inválidas\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-LOGIN-UNKNOWN-2",
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 401,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"message\":\"Credenciais inválidas\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-QR-SHORT",
+      "method": "GET",
+      "path": "/credentials/verify/curto",
+      "status": 500,
+      "verdict": "FAIL",
+      "notes": [],
+      "body": "{\"statusCode\":500,\"message\":\"Internal server error\"}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    },
+    {
+      "id": "E2E-CORS",
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "verdict": "PASS",
+      "notes": [],
+      "body": "{\"status\":\"ok\",\"service\":\"api\",\"timestamp\":\"2026-11-11T20:06:03.138Z\",\"app\":\"Igreja de Deus — Riacho Fundo I\"}",
+      "headers": {
+        "nosniff": "nosniff",
+        "frame": "DENY",
+        "hsts": "max-age=63072000; includeSubDomains; preload",
+        "cache": "public, max-age=0, must-revalidate",
+        "cors": null,
+        "setCookie": false
+      }
+    }
+  ]
+}
