@@ -513,8 +513,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             {checking && <p className={s.empty} role="status">Carregando registros…</p>}
             {view === "secretary" && staff && (
               <nav className={s.secretaryTabs} aria-label="Áreas da secretaria">
-                {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas <span>{memberships.length}</span></button>}
-                <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões <span>{pending.length}</span></button>
+                {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas</button>}
+                <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões</button>
               </nav>
             )}
             {view === "secretary" && staff && (
@@ -571,15 +571,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                     <div className={s.panelHeadingCopy}><h2>Cadastro de pessoas</h2><span role="status">{filtered.length} {filtered.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}{selectedFamily ? ` · ${selectedFamily.label}` : ""}</span></div>
                     <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
                   </div>
-                  {staff && (
-                    <details className={s.personLookup}>
-                      <summary>Não encontrou na lista? Buscar em todos os cadastros</summary>
-                      <div className={s.personLookupContent}>
-                        <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Procurar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} placeholder="Digite o nome da pessoa" />
-                        <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
-                      </div>
-                    </details>
-                  )}
+
                   {secretary && <div className={s.peopleFilters}>
                     <div className={s.viewFilter} role="group" aria-label="Situação das pessoas">
                       {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"]].map(([status, title]) =>
@@ -621,6 +613,15 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                       {filtered.length === 0 && !error && <p className={s.empty}>Nenhuma pessoa encontrada.</p>}
                       <ListPager total={filtered.length} page={visiblePage} onChange={setListPage} />
                     </div>
+                  )}
+                  {staff && (
+                    <details className={s.personLookup}>
+                      <summary>Não encontrou na lista? Buscar em todos os cadastros</summary>
+                      <div className={s.personLookupContent}>
+                        <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Procurar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} placeholder="Digite o nome da pessoa" />
+                        <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
+                      </div>
+                    </details>
                   )}
                 </section>
               </div>
