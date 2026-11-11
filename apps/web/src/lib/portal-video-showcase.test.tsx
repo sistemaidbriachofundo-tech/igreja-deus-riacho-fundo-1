@@ -19,7 +19,8 @@ describe("V7 — identidade institucional e canal", () => {
     expect(html).toContain("Mídia e conteúdo");
     expect(html).not.toContain("church-os-art.svg");
     expect(html).toContain("Gestão do site");
-    expect(html).toContain("Membros e famílias");
+    expect(html).toContain("Secretaria");
+    expect(html).not.toContain("Membros e famílias");
     expect(html).toContain("Editor");
   });
 });
