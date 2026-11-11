@@ -236,8 +236,9 @@ export function AppShell({
   const roleKey = roles.join("|");
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
-  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "ministries" }> = [];
+  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "ministries" } | { kind: "divider" }> = [];
   let ministryInserted = false;
+  let supportingSectionInserted = false;
   for (const item of menu) {
     if (isMinistryGroupKey(item.key)) {
       if (!ministryInserted && showMinistries) {
@@ -245,6 +246,10 @@ export function AppShell({
         ministryInserted = true;
       }
       continue;
+    }
+    if (!supportingSectionInserted && ["tesouraria", "editorial", "site"].includes(item.key)) {
+      menuBlocks.push({ kind: "divider" });
+      supportingSectionInserted = true;
     }
     menuBlocks.push({ kind: "link", item });
   }
@@ -442,16 +447,12 @@ export function AppShell({
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
         </AppNavLink>
-        <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
-          aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
-          aria-expanded={!collapsed} aria-controls="app-navigation-rail" onClick={toggleMenu}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}>
-          <UIIcon name="chevron" size={17}/>
-        </button>
+
 
         <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
           {menuBlocks.map(block => {
+            if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
             if (block.kind === "link") {
               const item = block.item;
               const label = itemLabel(item);
@@ -474,7 +475,12 @@ export function AppShell({
           })}
           {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de mostrar o menu.</p>}
         </nav>
-        <p className={s.railNote}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "ID Riacho 1"}</p>
+        <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
+          aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
+          aria-expanded={!collapsed} aria-controls="app-navigation-rail" onClick={toggleMenu}
+          title={collapsed ? "Expandir menu" : "Recolher menu"}>
+          <UIIcon name="chevron" size={17}/><span className={s.railCollapseText}>{collapsed ? "Expandir menu" : "Recolher menu"}</span>
+        </button>
       </aside>
 
       <div className={s.mainColumn}>
