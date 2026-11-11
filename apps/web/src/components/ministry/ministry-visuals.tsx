@@ -1,3 +1,5 @@
+import { withBasePath } from "../../lib/paths";
+
 const PALETTES = [
   { bg: "#4A2612", mark: "#D4AF37" },
   { bg: "#0E5A38", mark: "#F7EDE0" },
@@ -40,15 +42,16 @@ export function SyntheticAvatar({ name }: { name: string }) {
   );
 }
 
+/** Fotografia editorial já presente no acervo do site. Ilustrativa, não retrato individual. */
 export function MinistryCover({ name, slug, className }: { name: string; slug?: string; className?: string }) {
-  const palette = PALETTES[paletteIndex(`${slug ?? ""}:${name}`)];
-  return (
-    <svg className={className} viewBox="0 0 640 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-      <rect width="640" height="220" fill={palette.bg} />
-      <circle cx="540" cy="28" r="88" fill={palette.mark} opacity="0.45" />
-      <circle cx="80" cy="180" r="70" fill="#F7EDE0" opacity="0.08" />
-      <rect x="36" y="132" width="168" height="18" rx="9" fill="#F7EDE0" opacity="0.28" />
-      <rect x="36" y="160" width="96" height="18" rx="9" fill={palette.mark} opacity="0.8" />
-    </svg>
-  );
+  const term = `${slug ?? ""} ${name}`.toLocaleLowerCase("pt-BR");
+  const path = /atmosfera|louvor|musica|música|adorac/.test(term)
+    ? "/images/galeria-louvor.webp"
+    : /jovens|adolesc|pulse|juventude/.test(term)
+      ? "/images/galeria-juventude.webp"
+      : /oração|oracao|mulheres|intercess/.test(term)
+        ? "/images/galeria-oracao.webp"
+        : "/images/comunidade-oficial.jpg";
+  return <div className={className} role="img" aria-label={`Imagem ilustrativa do ministério ${name}`}
+    style={{ backgroundImage: `url("${withBasePath(path)}")` }} />;
 }
