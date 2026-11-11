@@ -21,6 +21,23 @@ env:
   NEXT_PUBLIC_BASE_PATH: /igreja-deus-riacho-fundo-1
 
 jobs:
+  qa_f11_api:
+    name: QA API F1.1 isolada (smoke)
+    if: github.event_name == 'pull_request' && github.head_ref == 'cursor/f11-qa-integracao-6560'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Validar allowlist e probes sem rede
+        run: node --test qa/security-f11/src/qa-api-smoke.test.mjs
+      - name: Testar API QA dedicada (um login sintético inválido)
+        run: node qa/security-f11/src/qa-api-smoke.mjs --login-check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
