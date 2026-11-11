@@ -1,3 +1,4 @@
+import { PersonPortrait } from "../PersonPortrait";
 import type { FormEvent } from "react";
 import {
   REGULATED_PERSON_FIELDS,
@@ -81,10 +82,13 @@ export function Ficha360Dialog({
         data-ficha="360"
       >
         <header className={s.header}>
-          <div>
-            <span className={s.kicker}>Cadastro de pessoa</span>
-            <h2 id={titleId}>{person?.displayName ?? "Ficha da pessoa"}</h2>
-            <p>Dados de contato, família e histórico na congregação.</p>
+          <div className={s.identityHeader}>
+            <PersonPortrait name={person?.displayName ?? "Pessoa"} size="large" />
+            <div>
+              <span className={s.kicker}>Cadastro de pessoa</span>
+              <h2 id={titleId}>{person?.displayName ?? "Ficha da pessoa"}</h2>
+              <p>Dados pessoais, família, histórico e identificação.</p>
+            </div>
           </div>
           <button type="button" className={s.close} onClick={onClose} aria-label="Fechar ficha">Fechar</button>
         </header>
@@ -222,8 +226,10 @@ export function Ficha360Dialog({
                   <dd>{dossier.dependents.length ? dossier.dependents.map((item) => item.displayName).join(", ") : "—"}</dd>
                 </div>
                 <div>
-                  <dt>Foto</dt>
-                  <dd>{person.photo?.hasStorageKey ? "Foto registrada" : "Nenhuma foto registrada."}</dd>
+                  <dt>Foto para o cadastro e a carteirinha</dt>
+                  <dd>{person.photo?.hasStorageKey
+                    ? "Referência de foto cadastrada. Visualização e atualização ainda dependem do serviço privado de imagens."
+                    : "Ainda sem foto. O espaço fica reservado para envio autorizado pelo membro ou pela secretaria."}</dd>
                 </div>
                 <div>
                   <dt>Credencial</dt>
