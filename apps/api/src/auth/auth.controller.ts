@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsEmail, IsString, MinLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from "class-validator";
 import { AuthService } from "./auth.service";
+import { clientAddress } from "./login/client-address";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { Public } from "./decorators/public.decorator";
 import { Roles } from "./decorators/roles.decorator";
@@ -22,28 +23,86 @@ class SwitchChurchBody {
   churchId!: string;
 }
 
+class MfaChallengeBody {
+  @IsString()
+  @MinLength(20)
+  @MaxLength(200)
+  challengeId!: string;
+
+  @IsString()
+  @Matches(/^\d{6}$/)
+  code!: string;
+}
+
+class EnrollChallengeBody {
+  @IsString()
+  @MinLength(20)
+  @MaxLength(200)
+  challengeId!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  label?: string;
+}
+
+interface AddressableRequest {
+  ip?: string;
+  socket?: { remoteAddress?: string | null };
+}
+
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post("login")
-  login(@Body() body: LoginBody) {
+  login(@Body() body: LoginBody, @Req() request?: AddressableRequest) {
     return this.authService.login({
       email: body.email ?? "",
       password: body.password ?? "",
+      clientIp: request ? clientAddress(request) : undefined,
     });
   }
 
-  /** Quem sou eu — exige JWT (inclui claims organizationId/churchId). */
+  /** Conclui o login privilegiado. Não emite sessão antes deste passo. */
+  @Public()
+  @Post("mfa/challenge")
+  verifyMfa(@Body() body: MfaChallengeBody) {
+    return this.authService.verifyMfaChallenge({
+      challengeId: body.challengeId,
+      code: body.code,
+    });
+  }
+
+  /** Enrollment preso ao desafio de quem ainda não tem TOTP. Não abre sessão. */
+  @Public()
+  @Post("mfa/enroll")
+  beginEnroll(@Body() body: EnrollChallengeBody) {
+    return this.authService.beginMfaEnrollment({
+      challengeId: body.challengeId,
+      label: body.label,
+    });
+  }
+
+  @Public()
+  @Post("mfa/enroll/confirm")
+  confirmEnroll(@Body() body: MfaChallengeBody) {
+    return this.authService.confirmMfaEnrollment({
+      challengeId: body.challengeId,
+      code: body.code,
+    });
+  }
+
+  /** Quem sou eu — exige JWT de sessão viva (inclui claims organizationId/churchId). */
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
     return user;
   }
 
   /**
-   * Refresh mobile-ready: revalida grants no DB e reemite access token
-   * preservando congregação ativa quando ainda coberta.
+   * Renova a sessão viva. Perfil privilegiado só renova se o MFA já foi cumprido.
+   * O token anterior deixa de valer.
    */
   @Post("refresh")
   refresh(@CurrentUser() user: AuthUser) {
@@ -52,11 +111,21 @@ export class AuthController {
 
   /**
    * Troca congregação ativa no JWT (F6).
-   * Exige grant que cubra `churchId`. Produto default continua RF1.
+   * Exige sessão viva e grant que cubra `churchId`.
    */
   @Post("switch-church")
   switchChurch(@CurrentUser() user: AuthUser, @Body() body: SwitchChurchBody) {
     return this.authService.switchChurch(user, body.churchId);
+  }
+
+  @Post("logout")
+  logout(@CurrentUser() user: AuthUser) {
+    return this.authService.logout(user);
+  }
+
+  @Post("logout-all")
+  logoutAll(@CurrentUser() user: AuthUser) {
+    return this.authService.logoutAll(user);
   }
 
   /**

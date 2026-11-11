@@ -10,6 +10,10 @@ export interface AuthUser {
   organizationId?: string | null;
   /** Congregação ativa no token — default RF1 no login. */
   churchId?: string | null;
+  /** Sessão opaca revogável. Ausente em JWT sem sid (rejeitado). */
+  sessionId?: string;
+  /** Fingerprint de grants/status/fator no momento da emissão. */
+  authzVersion?: string;
 }
 
 export interface JwtPayload {
@@ -19,4 +23,8 @@ export interface JwtPayload {
   grants: AuthGrant[];
   organizationId?: string | null;
   churchId?: string | null;
+  /** Identificador opaco da sessão (não é o hash persistido). */
+  sid?: string;
+  /** Versão de autorização gravada na sessão. */
+  av?: string;
 }

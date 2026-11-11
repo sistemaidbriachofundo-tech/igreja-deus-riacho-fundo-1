@@ -198,8 +198,8 @@ export class MfaService {
   }
 
   /**
-   * Hook para AuthService: se MFA ENABLED + mfaRequired, login deve exigir challenge.
-   * Neste contrato o challenge ainda não bloqueia JWT (interface preparada).
+   * Hint legado. O bloqueio do JWT está em AuthService: perfil privilegiado
+   * ou mfaRequired não recebe sessão antes do TOTP.
    */
   async getLoginMfaHint(userId: string): Promise<{
     mfaEnabled: boolean;
@@ -221,7 +221,6 @@ export class MfaService {
     return {
       mfaEnabled,
       mfaRequired,
-      /** true quando política exigir e fator estiver ENABLED — FE pode forçar challenge. */
       challengeRequired: mfaRequired && mfaEnabled,
     };
   }

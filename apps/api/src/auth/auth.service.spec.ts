@@ -74,7 +74,7 @@ describe("AuthService JWT helpers", () => {
     process.env.NODE_ENV = "test";
   });
 
-  it("signs and verifies token with personId", () => {
+  it("rejects a signed token that is not bound to a live session", async () => {
     const token = service.signAccessToken({
       sub: "user01",
       personId: "demoPersonRiacho01",
@@ -88,13 +88,10 @@ describe("AuthService JWT helpers", () => {
       ],
     });
 
-    const user = service.verifyAccessToken(token);
-    expect(user.personId).toBe("demoPersonRiacho01");
-    expect(user.email).toBe("ana.demo@example.test");
-    expect(user.grants[0]?.roleCode).toBe("SECRETARIA");
+    await expect(service.verifyAccessToken(token)).rejects.toThrow(/Token JWT/);
   });
 
-  it("rejects expired and non-expiring JWTs even with a valid HMAC signature", () => {
+  it("rejects expired and non-expiring JWTs even with a valid HMAC signature", async () => {
     const valid = service.signAccessToken({
       sub: "user01", personId: "demoPersonRiacho01",
       email: "ana.demo@example.test", grants: [],
@@ -109,20 +106,20 @@ describe("AuthService JWT helpers", () => {
     };
     const noExpiration = { ...original };
     delete noExpiration.exp;
-    expect(() => service.verifyAccessToken(forge(noExpiration))).toThrow(/expiração/);
-    expect(() => service.verifyAccessToken(forge({ ...original, exp: 1 }))).toThrow(/expiração/);
+    await expect(service.verifyAccessToken(forge(noExpiration))).rejects.toThrow(/expiração/);
+    await expect(service.verifyAccessToken(forge({ ...original, exp: 1 }))).rejects.toThrow(/expiração/);
     const noneHeader = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
-    expect(() => service.verifyAccessToken(forge(original, noneHeader))).toThrow(/Algoritmo/);
+    await expect(service.verifyAccessToken(forge(original, noneHeader))).rejects.toThrow(/Algoritmo/);
   });
 
-  it("rejects tampered token", () => {
+  it("rejects tampered token", async () => {
     const token = service.signAccessToken({
       sub: "user01",
       personId: "demoPersonRiacho01",
       email: "ana.demo@example.test",
       grants: [],
     });
-    expect(() => service.verifyAccessToken(`${token}x`)).toThrow();
+    await expect(service.verifyAccessToken(`${token}x`)).rejects.toThrow();
   });
 });
 
@@ -140,7 +137,7 @@ describe("AuthService login MFA hint", () => {
     process.env.NODE_ENV = "test";
   });
 
-  it("returns mfa challengeRequired when required+enabled and audits login", async () => {
+  it("withholds the JWT when MFA is required and enabled", async () => {
     const hash = await hashPassword("admin");
     const prisma = {
       user: {
@@ -151,7 +148,7 @@ describe("AuthService login MFA hint", () => {
           passwordHash: hash,
           status: "ACTIVE",
           mfaRequired: true,
-          mfaFactors: [{ id: "f1" }],
+          mfaFactors: [{ id: "f1", status: "ENABLED", secretCiphertext: "cipher" }],
           person: { id: "demoPersonRiacho01" },
           grants: [
             {
@@ -173,18 +170,20 @@ describe("AuthService login MFA hint", () => {
       email: "ana.demo@example.test",
       password: "admin",
     });
-    expect(result.mfa).toBeDefined();
+    expect(result).not.toHaveProperty("accessToken");
     expect(result.mfa).toEqual({
       enabled: true,
       required: true,
       challengeRequired: true,
+      enrollmentRequired: false,
+      challengeId: expect.any(String),
+      expiresInSeconds: 300,
       oidcLive: false,
     });
-    expect(result.accessToken).toBeTruthy();
     expect(prisma.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          action: "auth.login",
+          action: "auth.mfa_challenge_issued",
           actorUserId: "u1",
           resourceType: "auth",
           metadata: expect.objectContaining({
@@ -236,7 +235,9 @@ describe("AuthService login MFA hint", () => {
     });
     expect(result.mfa).toBeDefined();
     expect(result.mfa!.challengeRequired).toBe(false);
+    expect(result.mfa!.enrollmentRequired).toBe(false);
     expect(result.mfa!.enabled).toBe(false);
+    expect("accessToken" in result && result.accessToken).toBeTruthy();
   });
 
   it("audits failed login without leaking email plaintext", async () => {
@@ -280,146 +281,94 @@ describe("AuthService refresh and switchChurch", () => {
     process.env.NODE_ENV = "test";
   });
 
-  it("refresh reloads grants and keeps active church when covered", async () => {
+  async function memberSession(
+    grants: Array<{
+      organizationId: string;
+      churchId: string | null;
+      ministryId: null;
+      role: { code: string };
+    }>,
+    churches?: Record<string, { id: string; organizationId: string }>,
+  ) {
+    const passwordHash = await hashPassword("admin");
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: "user01",
           personId: "demoPersonRiacho01",
           email: "ana.demo@example.test",
+          passwordHash,
           status: "ACTIVE",
-          grants: [
-            {
-              organizationId: "org1",
-              churchId: "ch1",
-              ministryId: null,
-              role: { code: "SECRETARIA" },
-            },
-            {
-              organizationId: "org1",
-              churchId: "ch2",
-              ministryId: null,
-              role: { code: "SECRETARIA" },
-            },
-          ],
+          mfaRequired: false,
+          mfaFactors: [],
+          grants,
         }),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+      church: {
+        findUnique: jest.fn().mockImplementation(async ({ where }: { where: { id: string } }) =>
+          churches?.[where.id] ?? null,
+        ),
       },
     };
     const service = new AuthService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    const pair = await service.refresh({
-      userId: "user01",
-      personId: "demoPersonRiacho01",
+    const login = await service.login({
       email: "ana.demo@example.test",
-      organizationId: "org1",
-      churchId: "ch2",
-      grants: [],
+      password: "admin",
     });
+    if (!("accessToken" in login)) {
+      throw new Error("papel comum deveria receber sessão");
+    }
+    return { service, login };
+  }
+
+  it("refresh reloads grants and keeps active church when covered", async () => {
+    const { service, login } = await memberSession([
+      { organizationId: "org1", churchId: "ch1", ministryId: null, role: { code: "MEMBRO" } },
+      { organizationId: "org1", churchId: "ch2", ministryId: null, role: { code: "MEMBRO" } },
+    ], { ch2: { id: "ch2", organizationId: "org1" } });
+    const moved = await service.switchChurch(login.user, "ch2");
+    const pair = await service.refresh(moved.user);
     expect(pair.user.churchId).toBe("ch2");
     expect(pair.user.grants).toHaveLength(2);
     expect(pair.accessToken).toBeTruthy();
+    await expect(service.verifyAccessToken(moved.accessToken)).rejects.toThrow(/Token JWT/);
   });
 
   it("switchChurch denies church without grant", async () => {
-    const prisma = {
-      user: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: "user01",
-          personId: "demoPersonRiacho01",
-          email: "ana.demo@example.test",
-          status: "ACTIVE",
-          grants: [
-            {
-              organizationId: "org1",
-              churchId: "ch1",
-              ministryId: null,
-              role: { code: "SECRETARIA" },
-            },
-          ],
-        }),
-      },
-      church: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: "ch2",
-          organizationId: "org1",
-        }),
-      },
-    };
+    const { service, login } = await memberSession(
+      [{ organizationId: "org1", churchId: "ch1", ministryId: null, role: { code: "MEMBRO" } }],
+      { ch2: { id: "ch2", organizationId: "org1" } },
+    );
+    await expect(service.switchChurch(login.user, "ch2")).rejects.toThrow(/grant/);
+  });
+
+  it("switchChurch issues new claims when an org-wide grant covers the target", async () => {
+    const { service, login } = await memberSession(
+      [{ organizationId: "org1", churchId: null, ministryId: null, role: { code: "MEMBRO" } }],
+      { ch2: { id: "ch2", organizationId: "org1" } },
+    );
+    const pair = await service.switchChurch(login.user, "ch2");
+    expect(pair.user.churchId).toBe("ch2");
+    expect(pair.user.organizationId).toBe("org1");
+  });
+
+  it("refuses refresh when there is no live session", async () => {
     const service = new AuthService(
-      prisma as never,
+      { user: { findUnique: jest.fn() }, auditLog: { create: jest.fn() } } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.switchChurch(
-        {
-          userId: "user01",
-          personId: "demoPersonRiacho01",
-          email: "ana.demo@example.test",
-          organizationId: "org1",
-          churchId: "ch1",
-          grants: [
-            {
-              roleCode: "SECRETARIA",
-              organizationId: "org1",
-              churchId: "ch1",
-            },
-          ],
-        },
-        "ch2",
-      ),
-    ).rejects.toThrow(/grant/);
-  });
-
-  it("switchChurch issues new claims when grant covers target", async () => {
-    const prisma = {
-      user: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: "user01",
-          personId: "demoPersonRiacho01",
-          email: "platform.demo@example.test",
-          status: "ACTIVE",
-          grants: [
-            {
-              organizationId: "org1",
-              churchId: null,
-              ministryId: null,
-              role: { code: "PLATFORM_ADMIN" },
-            },
-          ],
-        }),
-      },
-      church: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: "ch2",
-          organizationId: "org1",
-        }),
-      },
-    };
-    const service = new AuthService(
-      prisma as never,
-      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
-    );
-    const pair = await service.switchChurch(
-      {
+      service.refresh({
         userId: "user01",
         personId: "demoPersonRiacho01",
-        email: "platform.demo@example.test",
-        organizationId: "org1",
-        churchId: "ch1",
-        grants: [
-          {
-            roleCode: "PLATFORM_ADMIN",
-            organizationId: "org1",
-            churchId: null,
-          },
-        ],
-      },
-      "ch2",
-    );
-    expect(pair.user.churchId).toBe("ch2");
-    expect(pair.user.organizationId).toBe("org1");
+        email: "ana.demo@example.test",
+        grants: [{ roleCode: "SECRETARIA", organizationId: "org1", churchId: "ch1" }],
+      }),
+    ).rejects.toThrow(/Token JWT/);
   });
 });
 
