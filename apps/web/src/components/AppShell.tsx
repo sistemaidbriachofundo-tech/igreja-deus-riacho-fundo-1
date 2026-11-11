@@ -143,7 +143,7 @@ export function AppShell({
   const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [ministryOpen, setMinistryOpen] = useState(childActive);
+  const [ministryOpen, setMinistryOpen] = useState(false);
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -320,7 +320,7 @@ export function AppShell({
   }, []);
   useLayoutEffect(() => {
     setCollapsed(readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY)) === "collapsed");
-    setMinistryOpen(current => current || readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), false));
+    setMinistryOpen(false);
     setRailReady(true);
   }, []);
   useEffect(() => {
@@ -440,6 +440,12 @@ export function AppShell({
           <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
           <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
         </AppNavLink>
+        <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
+          aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
+          aria-expanded={!collapsed} aria-controls="app-navigation-rail" onClick={toggleMenu}
+          title={collapsed ? "Expandir menu" : "Recolher menu"}>
+          <UIIcon name="chevron" size={17}/>
+        </button>
 
         <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
@@ -456,10 +462,10 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.slice(0, 4).map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
+                {ministryEntries.slice(0, 1).map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
                   <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
                 </AppNavLink>)}
-                {ministryEntries.length > 4 && <button type="button" className={s.ministryMore} onClick={() => { setTerm(""); setPaletteOpen(true); }}>Encontrar outro ministério <UIIcon name="search" size={14}/></button>}
+                {ministryEntries.length > 1 && <AppNavLink href="/app/ministerios/" className={s.ministryMore} onNavigate={afterNavigate}>Ver ministérios <UIIcon name="arrow" size={14}/></AppNavLink>}
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;
