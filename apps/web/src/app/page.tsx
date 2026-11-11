@@ -25,7 +25,7 @@ export default function HomePage() {
               <p>Somos a Igreja de Deus no Riacho Fundo I, em Brasília. Nos reunimos para adorar, aprender a Palavra e cuidar uns dos outros.</p>
               <p>Queremos acolher quem chega e caminhar junto com as famílias, dentro e fora dos cultos.</p>
               <PortalSectionLink sectionId="agenda" className={s.textLink}>
-                Veja quando nos reunimos <span aria-hidden="true">↘</span>
+                Veja quando nos reunimos <span aria-hidden="true">↓</span>
               </PortalSectionLink>
             </div>
           </div>

@@ -49,7 +49,7 @@
   font: italic 400 1.04em/.98 Georgia, serif;
   letter-spacing: -.07em;
 }
-.description {
+.content .description {
   max-width: 38ch;
   margin: 26px 0 0;
   color: #d5dfd7;
@@ -110,7 +110,7 @@
   .content { padding: 0; }
   .headline { font-size: clamp(39px, 9.3vw, 62px); text-wrap: initial; }
   .kicker { margin-bottom: 17px; font-size: 10px; }
-  .description { margin-top: 17px; }
+  .content .description { margin-top: 17px; }
   .actions { gap: 9px; margin-top: 20px; }
   .actions a { min-height: 47px; gap: 10px; padding-inline: 13px; font-size: 13px; }
   .window { padding: 5px; margin-inline: 8px; }

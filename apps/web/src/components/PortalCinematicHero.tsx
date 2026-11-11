@@ -21,10 +21,10 @@ export function PortalCinematicHero() {
           <p className={s.description}>{hero.description}</p>
           <div className={s.actions}>
             <PortalSectionLink sectionId="agenda" className={s.primaryAction}>
-              Ver agenda <span aria-hidden="true">↘</span>
+              Ver agenda <span aria-hidden="true">↓</span>
             </PortalSectionLink>
             <PortalSectionLink sectionId="quem-somos" className={s.secondaryAction}>
-              Quem somos <span aria-hidden="true">↓</span>
+              Quem somos
             </PortalSectionLink>
           </div>
         </div>
