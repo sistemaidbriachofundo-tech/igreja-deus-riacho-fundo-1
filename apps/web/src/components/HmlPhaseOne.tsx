@@ -534,7 +534,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             )}
             {error && <Alert appearance="workspace" tone="danger" title={error} />}
             {view === "secretary" && staff && (
-              <nav className={ui.workspaceTabs} aria-label="Áreas da secretaria">
+              <nav className={`${ui.workspaceTabs} ${s.secretaryTabs}`} aria-label="Áreas da secretaria">
                 {secretary && <button type="button" aria-current={secretarySection === "resumo" ? "page" : undefined} onClick={() => chooseSecretarySection("resumo")}>Visão geral</button>}
                 {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas</button>}
                 <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões</button>

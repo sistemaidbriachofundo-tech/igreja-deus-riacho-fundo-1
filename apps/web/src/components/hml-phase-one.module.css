@@ -305,6 +305,15 @@
   .tableWrap tr:hover td { background: transparent; }
 }
 @media (max-width: 540px) {
+  .secretaryTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .secretaryTabs > :is(button, a) {
+    display: flex;
+    min-width: 0;
+    justify-content: center;
+    padding-inline: 2px;
+    font-size: 11px;
+    text-align: center;
+  }
   .panel { padding: 17px 14px; border-radius: 12px; }
   .panelHeading { display: grid; grid-template-columns: minmax(0, 1fr); }
   .panelHeading input { width: 100%; }
