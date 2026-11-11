@@ -43,7 +43,8 @@ export type NavIcon =
   | "book"
   | "settings"
   | "family"
-  | "shield";
+  | "shield"
+  | "wallet";
 
 export type PersonaProbe = {
   method: "GET" | "POST";
@@ -208,7 +209,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     href: "/app/tesouraria/",
     label: "Tesouraria",
     short: "Caixa",
-    icon: "shield",
+    icon: "wallet",
     hint: "Contas e lançamentos",
     ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Saldos, extrato e conciliações." },
     roles: ["TESOURARIA", "PLATFORM_ADMIN"],

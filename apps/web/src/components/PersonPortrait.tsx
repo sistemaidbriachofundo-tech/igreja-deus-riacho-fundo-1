@@ -16,10 +16,12 @@ export function personInitials(name: string): string {
 /**
  * A foto só é renderizada quando uma URL de imagem é fornecida por um serviço autorizado.
  * Nunca deduzir foto de uma pessoa a partir do nome nem usar imagens genéricas como identidade.
- * Sem upload persistente disponível na API HML, mostra um retrato reservado com iniciais.
+ * Sem retrato cadastrado, mostra as iniciais.
  */
 export function PersonPortrait({ name, photoUrl, size = "medium", className }: Props) {
-  const safePhoto = photoUrl && (/^https:\/\//i.test(photoUrl) || /^\/[^/]/.test(photoUrl)) ? photoUrl : null;
+  const safePhoto = photoUrl && photoUrl.length <= 262_200 &&
+    (/^https:\/\//i.test(photoUrl) || /^\/[^/]/.test(photoUrl) || /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photoUrl))
+    ? photoUrl : null;
   const frameClass = [styles.portrait, className].filter(Boolean).join(" ");
   return (
     <span className={frameClass} data-photo-size={size}

@@ -14,6 +14,7 @@ import {
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
+import { portraitDataUrl } from "./person-photo";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
@@ -251,6 +252,7 @@ export class PersonsService {
         householdId: true,
         legalGuardianPersonId: true,
         photoStorageKey: true,
+        photo: { select: { jpeg: true } },
         updatedAt: true,
         legalGuardian: {
           select: { id: true, displayName: true, email: true },
@@ -304,9 +306,11 @@ export class PersonsService {
       churchId: pilot.churchId,
     });
 
+    const photoUrl = portraitDataUrl(person.photo?.jpeg);
     return {
       person: {
         ...this.toSummary(person),
+        ...(photoUrl ? { photoUrl } : {}),
         email: isStaff || actor.personId === person.id ? person.email : null,
         address: person.address ?? null,
         legalGuardianPersonId: person.legalGuardianPersonId,

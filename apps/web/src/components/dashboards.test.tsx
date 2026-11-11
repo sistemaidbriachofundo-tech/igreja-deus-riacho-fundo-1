@@ -60,6 +60,7 @@ describe("mesa por persona", () => {
       "/admissions",
       "/ministries",
       "/events",
+      "/treasury/position",
     ]);
     expect(dashboardPaths(["SECRETARIA"])).toEqual([
       "/indicators/summary",
