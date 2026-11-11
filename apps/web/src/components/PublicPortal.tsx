@@ -61,8 +61,8 @@ export function PortalFooter() {
             <Link href="/login/">Login</Link>
           </div>
           <div><span className={s.footerLabel}>Redes sociais</span>
-            <a href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">YouTube <span aria-hidden="true">↗</span></a>
-            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram <span aria-hidden="true">↗</span></a>
+            <a href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">YouTube</a>
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram</a>
           </div>
         </nav>
       </div>

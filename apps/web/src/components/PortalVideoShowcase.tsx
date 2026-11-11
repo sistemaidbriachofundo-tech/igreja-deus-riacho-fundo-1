@@ -32,7 +32,7 @@ export function PortalVideoShowcase() {
             <p>Assista aos cultos e às mensagens da Igreja de Deus no Riacho Fundo I.</p>
           </div>
           <a className={s.channelLink} href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">
-            Visitar canal no YouTube <span aria-hidden="true">↗</span>
+            Visitar canal no YouTube <span className={s.externalArrow} aria-hidden="true" />
           </a>
         </div>
 
@@ -50,9 +50,9 @@ export function PortalVideoShowcase() {
                   referrerPolicy="strict-origin-when-cross-origin"
                 />
               ) : (
-                <button className={s.cover} type="button" onClick={() => setPlayingId(featured.id)} aria-label={"Assistir a " + featured.title}>
+                <button className={s.cover} type="button" onClick={() => setPlayingId(featured.id)} aria-label={"Reproduzir " + featured.title}>
                   <VideoThumbnail id={featured.id} featured />
-                  <span className={s.play} aria-hidden="true">▶</span>
+                  <span className={s.play} aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -62,7 +62,7 @@ export function PortalVideoShowcase() {
                 <h3>{featured.title}</h3>
               </div>
               <a href={"https://www.youtube.com/watch?v=" + featured.id} target="_blank" rel="noopener noreferrer" className={s.watchLink}>
-                Abrir no YouTube <span aria-hidden="true">↗</span>
+                Abrir no YouTube <span className={s.externalArrow} aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -80,7 +80,7 @@ export function PortalVideoShowcase() {
                   >
                     <span className={s.thumbnail}><VideoThumbnail id={video.id} /></span>
                     <span className={s.videoDetails}><strong>{video.title}</strong><small>{video.date}</small></span>
-                    <span className={s.optionPlay} aria-hidden="true">▶</span>
+                    <span className={s.optionPlay} aria-hidden="true" />
                   </button>
                 </li>
               ))}
@@ -99,7 +99,7 @@ export function PortalVideoShowcase() {
               <circle cx="12" cy="12" r="4" />
               <circle cx="17.5" cy="6.5" r=".8" fill="currentColor" stroke="none" />
             </svg>
-            @idbriacho_ <span aria-hidden="true">↗</span>
+            @idbriacho_ <span className={s.externalArrow} aria-hidden="true" />
           </a>
         </div>
       </div>
