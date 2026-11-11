@@ -503,7 +503,7 @@ export function AppShell({
             {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
             <span className={s.profileCluster}>
               <span className={s.account} aria-hidden="true">{initials}</span>
-              <span className={s.accountInfo} aria-label={`${accountName}, ${accountLabel}`}><strong>{accountName}</strong><small>{accountLabel}</small></span>
+              <span className={s.accountInfo} aria-label={`${accountEmail || accountName}, ${accountLabel}`} title={accountEmail || accountName}><strong>{accountName}</strong><small>{accountLabel}</small></span>
             </span>
             {renderLogout()}
           </div>
