@@ -168,6 +168,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [admissions, setAdmissions] = useState<Admission[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
+  const [loadedGroups, setLoadedGroups] = useState({ people: false, admissions: false, families: false });
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState("");
@@ -234,6 +235,11 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     if (people.status === "fulfilled") setMemberships(people.value.memberships);
     if (processes.status === "fulfilled") setAdmissions(processes.value.admissions);
     if (families.status === "fulfilled") setHouseholds(families.value.households);
+    setLoadedGroups(previous => ({
+      people: secretaria && view !== "overview" ? people.status === "fulfilled" : previous.people,
+      admissions: staff && view === "secretary" ? processes.status === "fulfilled" : previous.admissions,
+      families: secretaria && (view === "members" || view === "secretary") ? families.status === "fulfilled" : previous.families,
+    }));
     if (settled.some(item => item.status === "rejected")) {
       setNotice("Algumas informações não carregaram. As listas disponíveis continuam acessíveis. Use Atualizar para tentar novamente.");
     }
@@ -331,6 +337,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     setSecretarySection("pessoas");
     setAdmissions([]);
     setHouseholds([]);
+    setLoadedGroups({ people: false, admissions: false, families: false });
     setFichaId(null);
     setPassword("");
     setError("");
@@ -513,12 +520,51 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões <span>{pending.length}</span></button>
               </nav>
             )}
-            {!checking && view === "secretary" && staff && (
-              <div className={s.contextLine} role="status" hidden>
-                {secretary && <span><strong>{memberships.length}</strong> pessoas vinculadas</span>}
-                {secretary && <span><strong>{active.length}</strong> ativas</span>}
-                <span><strong>{pending.length}</strong> admissões em andamento</span>
-              </div>
+            {view === "secretary" && staff && (
+              <section className={s.secretarySummary} aria-label="Resumo de trabalho da secretaria" aria-busy={checking}>
+                <div className={s.summaryIntro}>
+                  <div>
+                    <span className={s.summaryEyebrow}>VISÃO OPERACIONAL</span>
+                    <h2>A congregação em números</h2>
+                  </div>
+                  <p>Indicadores dos registros acessíveis ao seu perfil.</p>
+                </div>
+                <div className={s.summaryGrid}>
+                  {secretary && (
+                    <button type="button" className={s.summaryCard} data-tone="forest"
+                      onClick={() => { chooseSecretarySection("pessoas"); setMembershipStatus(""); setFamilyFilter(""); }}>
+                      <span className={s.summaryCardTop}><span className={s.summaryIcon}><UIIcon name="people" size={19} /></span><UIIcon name="arrow" size={17}/></span>
+                      <strong>{checking || !loadedGroups.people ? "—" : memberships.length.toLocaleString("pt-BR")}</strong>
+                      <span className={s.summaryLabel}>Pessoas vinculadas</span>
+                      <small>Abrir relação de pessoas</small>
+                    </button>
+                  )}
+                  {secretary && (
+                    <button type="button" className={s.summaryCard} data-tone="sage"
+                      onClick={() => { chooseSecretarySection("pessoas"); setMembershipStatus("ACTIVE"); setFamilyFilter(""); }}>
+                      <span className={s.summaryCardTop}><span className={s.summaryIcon}><UIIcon name="badge" size={19} /></span><UIIcon name="arrow" size={17}/></span>
+                      <strong>{checking || !loadedGroups.people ? "—" : active.length.toLocaleString("pt-BR")}</strong>
+                      <span className={s.summaryLabel}>Vínculos ativos</span>
+                      <small>Consultar pessoas ativas</small>
+                    </button>
+                  )}
+                  {secretary && (
+                    <div className={s.summaryCard} data-tone="sand">
+                      <span className={s.summaryCardTop}><span className={s.summaryIcon}><UIIcon name="family" size={19}/></span></span>
+                      <strong>{checking || !loadedGroups.families ? "—" : households.length.toLocaleString("pt-BR")}</strong>
+                      <span className={s.summaryLabel}>Famílias vinculadas</span>
+                      <small>Consulte os vínculos nas fichas</small>
+                    </div>
+                  )}
+                  <button type="button" className={s.summaryCard} data-tone="gold"
+                    onClick={() => chooseSecretarySection("admissoes")}>
+                    <span className={s.summaryCardTop}><span className={s.summaryIcon}><UIIcon name="layers" size={19}/></span><UIIcon name="arrow" size={17}/></span>
+                    <strong>{checking || !loadedGroups.admissions ? "—" : pending.length.toLocaleString("pt-BR")}</strong>
+                    <span className={s.summaryLabel}>Admissões em andamento</span>
+                    <small>Consultar e acompanhar etapas</small>
+                  </button>
+                </div>
+              </section>
             )}
             {view === "overview" && <PersonaBoard />}
             {showsPeople && (
