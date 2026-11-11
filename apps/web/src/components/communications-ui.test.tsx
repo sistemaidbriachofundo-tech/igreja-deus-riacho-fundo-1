@@ -28,7 +28,11 @@ describe("Navegação mobile — sem sete itens espremidos",()=>{
       <h1>Conteúdo do teste</h1>
     </AppShell>);
     const mobile=html.split('aria-label="Navegação principal no celular"')[1]?.split("</nav>")[0]??"";
-    expect((mobile.match(/<a\s/g)||[]).length).toBe(3);
+    expect((mobile.match(/<a\s/g)||[]).length).toBe(4);
+    expect(mobile).toContain("Início");
+    expect(mobile).toContain("Secretaria");
+    expect(mobile).toContain("Caixa");
+    expect(mobile).toContain("Ministérios");
     expect(mobile).toContain("Mais módulos e páginas");
     expect(mobile).toContain('aria-haspopup="dialog"');
     expect(mobile).toContain("Ministérios");
