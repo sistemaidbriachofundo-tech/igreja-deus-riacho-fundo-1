@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Header, Post, Req } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from "class-validator";
 import { AuthService } from "./auth.service";
@@ -56,6 +56,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Header("Cache-Control", "no-store")
   @Post("login")
   login(@Body() body: LoginBody, @Req() request?: AddressableRequest) {
     return this.authService.login({
@@ -67,6 +68,7 @@ export class AuthController {
 
   /** Conclui o login privilegiado. Não emite sessão antes deste passo. */
   @Public()
+  @Header("Cache-Control", "no-store")
   @Post("mfa/challenge")
   verifyMfa(@Body() body: MfaChallengeBody) {
     return this.authService.verifyMfaChallenge({
@@ -77,6 +79,7 @@ export class AuthController {
 
   /** Enrollment preso ao desafio de quem ainda não tem TOTP. Não abre sessão. */
   @Public()
+  @Header("Cache-Control", "no-store")
   @Post("mfa/enroll")
   beginEnroll(@Body() body: EnrollChallengeBody) {
     return this.authService.beginMfaEnrollment({
@@ -86,6 +89,7 @@ export class AuthController {
   }
 
   @Public()
+  @Header("Cache-Control", "no-store")
   @Post("mfa/enroll/confirm")
   confirmEnroll(@Body() body: MfaChallengeBody) {
     return this.authService.confirmMfaEnrollment({

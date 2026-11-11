@@ -9,7 +9,7 @@ import {
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import {
-  SESSION_UNAUTHORIZED_EVENT, apiGet, clearToken, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, type AuthUser,
+  SESSION_UNAUTHORIZED_EVENT, apiGet, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, signOutSession, type AuthUser,
 } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import {
@@ -283,8 +283,8 @@ export function AppShell({
     "--shell-target": dsGrid.touchTarget,
   } as CSSProperties;
 
-  function signOut() {
-    clearToken();
+  async function signOut() {
+    await signOutSession().catch(() => undefined);
     window.location.assign(withBasePath("/"));
   }
   function afterNavigate() {

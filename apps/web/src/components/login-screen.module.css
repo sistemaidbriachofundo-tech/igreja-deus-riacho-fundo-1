@@ -70,6 +70,11 @@
 .page :is(a, button, input):focus-visible { outline: 2px solid #9a7540; outline-offset: 3px; }
 .warning { color: #634721; margin: 4px 0; font-size: 14px; }
 .bottom { margin: 22px 0 0; }
+.mfaHelp, .setup p { margin: 0; color: #465c52; font-size: 14px; line-height: 1.5; }
+.setup { display: grid; gap: 9px; margin-bottom: 10px; padding: 14px; border: 1px solid #bfcfc3; border-radius: 10px; background: #edf3ed; }
+.setup a, .mfaBack { color: #214e3c; font-weight: 650; }
+.setup code { padding: 8px; overflow-wrap: anywhere; border-radius: 5px; background: #fff; user-select: all; }
+.mfaBack { min-height: 44px; border: 0; background: transparent; cursor: pointer; text-decoration: underline; }
 @media (max-width: 760px) {
   .page { padding: 16px; }
   .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; border-radius: 15px; }

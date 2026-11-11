@@ -9,22 +9,45 @@ import {
   canManageMemberships,
   isStrongPersonDedupeMatch,
   scorePersonDedupeMatch,
+  PERSON_PROFILE_DATES,
   type PersonDedupeMatchReason,
   type PersonPhotoStubDto,
+  type PersonProfileDates,
+  type PersonProfileFields,
+  type PersonSex,
+  type PersonTimelineEvent,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
 import { portraitDataUrl } from "./person-photo";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { buildSecretaryOverview, secretaryPeriod } from "./secretary-overview";
 import {
   collectNameDedupeAlerts,
   normalizeDisplayName,
   normalizePersonEmail,
+  normalizeProfileDate,
   parseExpectedUpdatedAt,
   rejectPersonPatchPolicy,
   type CadastralPersonPatch,
 } from "./cadastral-patch";
+
+type StoredProfile = Partial<Record<PersonProfileDates, Date | null>> & { sex?: PersonSex | null };
+const profileSelect = { birthDate: true, baptismDate: true, weddingDate: true, firstAttendedOn: true, sex: true } as const;
+
+function profileFields(person: StoredProfile): PersonProfileFields {
+  const fields: PersonProfileFields = {};
+  for (const key of PERSON_PROFILE_DATES) {
+    if (person[key] !== undefined) fields[key] = person[key]?.toISOString().slice(0, 10) ?? null;
+  }
+  if (person.sex !== undefined) fields.sex = person.sex;
+  return fields;
+}
+
+function inChurch(churchId: string) {
+  return { OR: [{ homeChurchId: churchId }, { memberships: { some: { churchId } } }] };
+}
 
 @Injectable()
 export class PersonsService {
@@ -32,6 +55,48 @@ export class PersonsService {
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
   ) {}
+
+  async secretaryOverview(actor: AuthUser, from?: string, to?: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    if (!canManageMemberships(actor.grants, pilot)) {
+      throw new ForbiddenException("Sem permissão de secretaria nesta congregação");
+    }
+    const { churchId, organizationId } = pilot;
+    const period = secretaryPeriod(from, to);
+    const [people, approvals, transfers] = await Promise.all([
+      this.prisma.person.findMany({
+        where: { organizationId, ...inChurch(churchId) },
+        select: {
+          id: true, displayName: true, status: true, kind: true, createdAt: true, updatedAt: true,
+          ...profileSelect,
+          memberships: { where: { churchId }, select: { status: true, joinedAt: true } },
+        },
+        orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      }),
+      this.prisma.auditLog.findMany({
+        where: {
+          organizationId, churchId, action: "admission.advance",
+          createdAt: { gte: period.historyFrom },
+          metadata: { path: ["status"], equals: "APPROVED" },
+        },
+        select: { createdAt: true },
+      }),
+      this.prisma.membershipTransfer.findMany({
+        where: {
+          organizationId, status: "COMPLETED", completedAt: { gte: period.historyFrom },
+          OR: [{ fromChurchId: churchId }, { toChurchId: churchId }],
+        },
+        select: { fromChurchId: true, completedAt: true },
+      }),
+    ]);
+    return buildSecretaryOverview(people, [
+      ...approvals.map(({ createdAt }) => ({ type: "admissoes" as const, at: createdAt })),
+      ...transfers.flatMap(transfer => transfer.completedAt ? [{
+        type: transfer.fromChurchId === churchId ? "transferenciasSaida" as const : "transferenciasEntrada" as const,
+        at: transfer.completedAt,
+      }] : []),
+    ], period);
+  }
 
   async search(actor: AuthUser, q: string, limit = 10) {
     const pilot = await this.pilot.getPilotChurch();
@@ -205,12 +270,14 @@ export class PersonsService {
       where: {
         id: personId,
         organizationId: pilot.organizationId,
+        ...inChurch(pilot.churchId),
       },
       select: {
         id: true,
         displayName: true,
         email: true,
         address: true,
+        ...profileSelect,
         status: true,
         householdId: true,
         kind: true,
@@ -225,6 +292,7 @@ export class PersonsService {
     }
     return {
       ...this.toSummary(person),
+      ...profileFields(person),
       address: person.address ?? null,
       legalGuardianPersonId: person.legalGuardianPersonId,
       ...this.updatedAtField(person.updatedAt),
@@ -239,13 +307,16 @@ export class PersonsService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertCanReadPerson(actor, personId, pilot.organizationId, pilot.churchId);
 
+    const canReadAccess = canManageMemberships(actor.grants, pilot);
     const person = await this.prisma.person.findFirst({
-      where: { id: personId, organizationId: pilot.organizationId },
+      where: { id: personId, organizationId: pilot.organizationId, ...inChurch(pilot.churchId) },
       select: {
         id: true,
         displayName: true,
         email: true,
         address: true,
+        ...profileSelect,
+        createdAt: true,
         status: true,
         kind: true,
         isMinor: true,
@@ -273,6 +344,7 @@ export class PersonsService {
             id: true,
             status: true,
             joinedAt: true,
+            leftAt: true,
             notes: true,
             updatedAt: true,
           },
@@ -294,6 +366,30 @@ export class PersonsService {
           },
           orderBy: { createdAt: "desc" },
         },
+        transfers: {
+          where: {
+            organizationId: pilot.organizationId,
+            status: "COMPLETED",
+            OR: [{ fromChurchId: pilot.churchId }, { toChurchId: pilot.churchId }],
+          },
+          select: { id: true, completedAt: true, fromChurchId: true, fromChurch: { select: { name: true } }, toChurch: { select: { name: true } } },
+        },
+        ministryMemberships: {
+          where: { organizationId: pilot.organizationId, churchId: pilot.churchId },
+          select: { id: true, role: true, startedAt: true, endedAt: true, ministry: { select: { name: true } } },
+        },
+        user: {
+          select: {
+            status: true,
+            grants: {
+              where: { AND: [
+                { OR: [{ organizationId: pilot.organizationId }, { organizationId: null }] },
+                { OR: [{ churchId: pilot.churchId }, { churchId: null }] },
+              ] },
+              select: { role: { select: { name: true } } },
+            },
+          },
+        },
       },
     });
     if (!person) {
@@ -307,9 +403,39 @@ export class PersonsService {
     });
 
     const photoUrl = portraitDataUrl(person.photo?.jpeg);
+    const timeline: PersonTimelineEvent[] = [];
+    if (person.createdAt) timeline.push({ id: "cadastro", type: "cadastro", date: person.createdAt.toISOString(), title: "Cadastro registrado no sistema" });
+    for (const membership of person.memberships) {
+      timeline.push({ id: membership.id, type: "vinculo", date: membership.joinedAt.toISOString(), title: "Início do vínculo na congregação" });
+      if (membership.leftAt) timeline.push({ id: `${membership.id}-saida`, type: "vinculo", date: membership.leftAt.toISOString(), title: "Encerramento do vínculo na congregação" });
+    }
+    for (const admission of person.admissions) {
+      timeline.push({ id: admission.id, type: "admissao", date: admission.createdAt.toISOString(), title: "Protocolo de admissão aberto" });
+      if (+admission.updatedAt > +admission.createdAt && ["APPROVED", "REJECTED", "CANCELLED"].includes(admission.status)) {
+        const title = admission.status === "APPROVED" ? "Protocolo de admissão aprovado"
+          : admission.status === "REJECTED" ? "Protocolo de admissão recusado" : "Protocolo de admissão cancelado";
+        timeline.push({ id: `${admission.id}-estado`, type: "admissao", date: admission.updatedAt.toISOString(), title });
+      }
+    }
+    for (const transfer of person.transfers ?? []) {
+      if (!transfer.completedAt) continue;
+      const outgoing = transfer.fromChurchId === pilot.churchId;
+      timeline.push({ id: transfer.id, type: "transferencia", date: transfer.completedAt.toISOString(),
+        title: outgoing ? "Transferência de saída concluída" : "Transferência de entrada concluída",
+        detail: outgoing ? transfer.toChurch.name : transfer.fromChurch.name });
+    }
+    for (const membership of person.ministryMemberships ?? []) {
+      const detail = `${membership.ministry.name} · ${membership.role}`;
+      timeline.push({ id: membership.id, type: "ministerio", date: membership.startedAt.toISOString(), title: "Início de função no ministério", detail });
+      if (membership.endedAt) timeline.push({ id: `${membership.id}-fim`, type: "ministerio", date: membership.endedAt.toISOString(), title: "Encerramento de função no ministério", detail });
+    }
+    for (const [key, title] of [["baptismDate", "Batismo registrado"], ["weddingDate", "Casamento registrado"], ["firstAttendedOn", "Começou a frequentar a igreja"]] as const) {
+      if (person[key]) timeline.push({ id: key, type: "marco", date: person[key].toISOString().slice(0, 10), title });
+    }
     return {
       person: {
         ...this.toSummary(person),
+        ...profileFields(person),
         ...(photoUrl ? { photoUrl } : {}),
         email: isStaff || actor.personId === person.id ? person.email : null,
         address: person.address ?? null,
@@ -352,6 +478,11 @@ export class PersonsService {
         createdAt: a.createdAt.toISOString(),
         updatedAt: a.updatedAt.toISOString(),
       })),
+      timeline: timeline.sort((left, right) => right.date.localeCompare(left.date)),
+      ...(canReadAccess ? { access: person.user ? {
+        status: person.user.status,
+        roles: [...new Set(person.user.grants.map(grant => grant.role.name))],
+      } : null } : {}),
     };
   }
 
@@ -369,7 +500,7 @@ export class PersonsService {
 
     return this.prisma.$transaction(async (tx) => {
       const person = await tx.person.findFirst({
-        where: { id: personId, organizationId: pilot.organizationId },
+        where: { id: personId, organizationId: pilot.organizationId, ...inChurch(pilot.churchId) },
       });
       if (!person) {
         throw new NotFoundException("Pessoa não encontrada neste escopo");
@@ -389,7 +520,7 @@ export class PersonsService {
         }
       }
 
-      const data: {
+      const data: StoredProfile & {
         displayName?: string;
         email?: string | null;
         address?: string | null;
@@ -397,6 +528,21 @@ export class PersonsService {
         legalGuardianPersonId?: string | null;
         householdId?: string | null;
       } = {};
+
+      for (const key of PERSON_PROFILE_DATES) {
+        const inputValue = input[key];
+        if (inputValue === undefined) continue;
+        const date = normalizeProfileDate(inputValue);
+        if (date?.getTime() !== person[key]?.getTime()) data[key] = date;
+      }
+      if (input.sex !== undefined && input.sex !== person.sex) data.sex = input.sex;
+      const birth = data.birthDate === undefined ? person.birthDate : data.birthDate;
+      if (birth && PERSON_PROFILE_DATES.slice(1).some(key => {
+        const date = data[key] === undefined ? person[key] : data[key];
+        return date && date < birth;
+      })) {
+        throw new BadRequestException("Batismo, casamento e primeira visita devem ocorrer após o nascimento.");
+      }
 
       if (input.displayName !== undefined) {
         const displayName = normalizeDisplayName(input.displayName);
@@ -563,6 +709,7 @@ export class PersonsService {
           displayName: true,
           email: true,
           address: true,
+          ...profileSelect,
           status: true,
           householdId: true,
           kind: true,
@@ -579,8 +726,11 @@ export class PersonsService {
       const before: { [key: string]: string | boolean | null } = {};
       const after: { [key: string]: string | boolean | null } = {};
       for (const field of fields) {
-        before[field] = field === "address" ? Boolean(person.address) : jsonSnapshot(person[field as keyof typeof person]);
-        after[field] = field === "address" ? Boolean(updated.address) : jsonSnapshot(updated[field as keyof typeof updated]);
+        const privateValue = field === "address" || field === "sex" || PERSON_PROFILE_DATES.some(key => key === field);
+        const oldValue = person[field as keyof typeof person];
+        const newValue = updated[field as keyof typeof updated];
+        before[field] = privateValue ? Boolean(oldValue) : jsonSnapshot(oldValue);
+        after[field] = privateValue ? Boolean(newValue) : jsonSnapshot(newValue);
       }
 
       await tx.auditLog.create({
@@ -697,7 +847,7 @@ export class PersonsService {
   }
 
   private toPatchResult(
-    person: {
+    person: StoredProfile & {
       id: string;
       displayName: string;
       email: string | null;
@@ -717,6 +867,7 @@ export class PersonsService {
   ) {
     return {
       ...this.toSummary(person),
+      ...profileFields(person),
       address: person.address ?? null,
       legalGuardianPersonId: person.legalGuardianPersonId,
       ...this.updatedAtField(person.updatedAt),

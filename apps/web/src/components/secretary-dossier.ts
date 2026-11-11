@@ -7,10 +7,14 @@
  * Casos pastorais não são pedidos por esta ficha.
  */
 
+import { PERSON_PROFILE_DATES, type PersonProfileDates, type PersonProfileFields, type PersonSex, type PersonTimelineEvent } from "@idbrf/shared";
+
 export const PATCHABLE_PERSON_FIELDS = [
   "displayName",
   "email",
   "address",
+  ...PERSON_PROFILE_DATES,
+  "sex",
   "isMinor",
   "legalGuardianPersonId",
   "householdId",
@@ -26,7 +30,7 @@ export const REGULATED_PERSON_FIELDS = [
 
 export type PersonPhoto = { status: string; hasStorageKey: boolean };
 
-export type PersonRecord = {
+export type PersonRecord = PersonProfileFields & {
   id: string;
   displayName: string;
   email: string | null;
@@ -95,9 +99,12 @@ export type PersonDossier = {
   } | null;
   memberships: DossierMembership[];
   admissionHistory: DossierAdmission[];
+  timeline?: PersonTimelineEvent[];
+  access?: { status: string; roles: string[] } | null;
 };
 
-export type EditablePersonFields = {
+export type EditablePersonFields = Partial<Record<PersonProfileDates, string>> & {
+  sex?: PersonSex | "";
   displayName: string;
   email: string;
   address?: string;
@@ -107,7 +114,7 @@ export type EditablePersonFields = {
   notes: string;
 };
 
-export type PersonPatchBody = {
+export type PersonPatchBody = PersonProfileFields & {
   address?: string | null;
   displayName?: string;
   email?: string | null;
@@ -191,13 +198,21 @@ export function toEditable(
     | "isMinor"
     | "legalGuardianPersonId"
     | "householdId"
+    | PersonProfileDates
+    | "sex"
   >,
   notes: string | null | undefined,
 ): EditablePersonFields {
+  const profile: Partial<Record<PersonProfileDates, string>> = {};
+  for (const key of PERSON_PROFILE_DATES) {
+    if (person[key] !== undefined) profile[key] = person[key] ?? "";
+  }
   return {
     displayName: person.displayName,
     email: person.email ?? "",
     ...(person.address === undefined ? {} : { address: person.address ?? "" }),
+    ...profile,
+    ...(person.sex === undefined ? {} : { sex: person.sex ?? "" }),
     isMinor: person.isMinor,
     legalGuardianPersonId: person.legalGuardianPersonId ?? "",
     householdId: person.householdId ?? "",
@@ -232,6 +247,10 @@ export function buildPersonPatch(
     const address = current.address.trim();
     if (address !== (baseline.address ?? "").trim()) body.address = address || null;
   }
+  for (const key of PERSON_PROFILE_DATES) {
+    if (current[key] !== undefined && current[key] !== baseline[key]) body[key] = current[key] || null;
+  }
+  if (current.sex !== undefined && current.sex !== baseline.sex) body.sex = current.sex || null;
   if (current.isMinor !== baseline.isMinor) body.isMinor = current.isMinor;
   if (current.legalGuardianPersonId !== baseline.legalGuardianPersonId) {
     const value = current.legalGuardianPersonId.trim();

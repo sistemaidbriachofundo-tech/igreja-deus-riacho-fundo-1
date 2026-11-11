@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  apiGet, apiLogin, clearToken, isInvalidSession, loadStoredToken,
-  loginFailureMessage, readValidatedSession, rememberValidatedSession, storeToken, type LoginResult,
+  apiGet, beginLogin, beginMfaEnrollment, clearToken, isInvalidSession, loadStoredToken,
+  loginFailureMessage, mfaFailureMessage, readValidatedSession, rememberValidatedSession, storeToken,
+  verifyLoginChallenge, type LoginChallenge, type LoginResult, type MfaEnrollment,
 } from "../lib/api";
 import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
@@ -25,6 +26,12 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [challenge, setChallenge] = useState<LoginChallenge["mfa"] | null>(null);
+  const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
+  const [code, setCode] = useState("");
+  const [expired, setExpired] = useState(false);
+  const codeInput = useRef<HTMLInputElement>(null);
+  const needsSetup = Boolean(challenge?.enrollmentRequired && !enrollment);
 
   useEffect(() => { publishPerfProbe(); }, []);
 
@@ -55,19 +62,41 @@ export function LoginScreen({ onAuthenticated }: Props) {
     return () => { cancelled = true; };
   }, [onAuthenticated, enabled]);
 
-  const submit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!challenge) return;
+    const expiry = window.setTimeout(() => {
+      setExpired(true);
+      setEnrollment(null);
+      setCode("");
+    }, challenge.expiresInSeconds * 1000);
+    return () => window.clearTimeout(expiry);
+  }, [challenge]);
+
+  useEffect(() => {
+    if (challenge && !needsSetup && !expired) codeInput.current?.focus();
+  }, [challenge, needsSetup, expired]);
+
+  function acceptSession(login: LoginResult) {
+    rememberValidatedSession(login.accessToken, login.user);
+    storeToken(login.accessToken);
+    setChallenge(null);
+    setEnrollment(null);
+    setCode("");
+    setPassword("");
+    if (onAuthenticated) onAuthenticated();
+    else openAuthenticatedArea(authenticatedLanding(login.user));
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!enabled || busy) return;
     setError("");
     setBusy(true);
     try {
-      const login = await apiLogin(email.trim(), password);
-      // A resposta do login já é a sessão emitida pelo servidor.
-      rememberValidatedSession(login.accessToken, login.user);
-      storeToken(login.accessToken);
+      const login = await beginLogin(email.trim(), password);
       setPassword("");
-      if (onAuthenticated) onAuthenticated();
-      else openAuthenticatedArea(authenticatedLanding(login.user));
+      if ("accessToken" in login) acceptSession(login);
+      else setChallenge(login.mfa);
     } catch (problem) {
       if (isInvalidSession(problem)) {
         clearToken();
@@ -77,7 +106,31 @@ export function LoginScreen({ onAuthenticated }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [busy, email, enabled, onAuthenticated, password]);
+  }
+
+  async function submitChallenge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!challenge || busy || expired || (!needsSetup && !/^\d{6}$/.test(code))) return;
+    setError("");
+    setBusy(true);
+    try {
+      if (needsSetup) setEnrollment(await beginMfaEnrollment(challenge.challengeId));
+      else acceptSession(await verifyLoginChallenge(challenge, code));
+    } catch (problem) {
+      setCode("");
+      setError(mfaFailureMessage(problem));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function restartLogin() {
+    setChallenge(null);
+    setEnrollment(null);
+    setCode("");
+    setError("");
+    setExpired(false);
+  }
 
   return (
     <main className={styles.page} id="conteudo">
@@ -98,10 +151,30 @@ export function LoginScreen({ onAuthenticated }: Props) {
         <section className={styles.panel} aria-labelledby="login-heading">
           <div className={styles.panelInner}>
             <div className={styles.heading}>
-              <h1 id="login-heading">Entre na sua conta</h1>
-              <p>Use seu e-mail e sua senha para acessar o ambiente administrativo.</p>
+              <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
+              <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Use seu e-mail e sua senha para acessar a área da igreja."}</p>
             </div>
-            <form onSubmit={submit} className={styles.form}>
+            {challenge ? <form onSubmit={submitChallenge} className={styles.form}>
+              {expired ? <Alert appearance="workspace" tone="warning" title="O tempo para verificar terminou. Entre novamente." /> : <>
+                {needsSetup && <p className={styles.mfaHelp}>Ative a verificação em um aplicativo autenticador antes de continuar.</p>}
+                {enrollment && <div className={styles.setup}>
+                  {enrollment.otpauthUri.startsWith("otpauth://totp/") && <a href={enrollment.otpauthUri}>Abrir no autenticador</a>}
+                  <p>Se estiver em outro aparelho, adicione uma conta baseada em tempo usando esta chave.</p>
+                  <code>{enrollment.secret}</code>
+                </div>}
+                {!needsSetup && <>
+                  <label htmlFor="church-mfa-code">Código de 6 dígitos</label>
+                  <input id="church-mfa-code" ref={codeInput} autoComplete="one-time-code" inputMode="numeric" required
+                    maxLength={6} pattern="[0-9]{6}" value={code} disabled={busy}
+                    onChange={event => setCode(event.target.value.replace(/\D/g, ""))} />
+                </>}
+                {error && <Alert appearance="workspace" tone="danger" title={error} />}
+                <button className={styles.submit} type="submit" disabled={busy || (!needsSetup && code.length !== 6)}>
+                  {busy ? "Verificando…" : needsSetup ? "Configurar autenticador" : "Confirmar acesso"}
+                </button>
+              </>}
+              <button type="button" className={styles.mfaBack} disabled={busy} onClick={restartLogin}>Voltar ao login</button>
+            </form> : <form onSubmit={submit} className={styles.form}>
               <label htmlFor="church-email">E-mail</label>
               <input id="church-email" type="email" name="email" required
                 autoComplete="username" inputMode="email"
@@ -125,7 +198,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 {checking?"Validando sessão…":busy?"Entrando…":"Entrar no painel"}
                 <span aria-hidden="true">→</span>
               </button>
-            </form>
+            </form>}
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
           </div>
         </section>

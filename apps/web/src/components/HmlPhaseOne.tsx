@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
-import { ReportBars, ReportDashboard, ReportHeadline, ReportMetric } from "./ReportDashboard";
+import { ReportBars, ReportDashboard } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
+import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
@@ -186,6 +187,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [formFeedback, setFormFeedback] = useState("");
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
+  const [summaryRevision, setSummaryRevision] = useState(0);
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -538,21 +540,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             {view === "overview" && <PersonaBoard />}
             {view === "secretary" && secretary && secretarySection === "resumo" && (
               <ReportDashboard>
-                <ReportHeadline label="Pessoas cadastradas" value={loadedGroups.people ? memberships.length : null}>
-                  <ReportMetric label="Famílias cadastradas" value={familiesLoaded ? households.length : null} />
-                  <ReportMetric label="Carteirinhas ativas" value={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null} href="/app/membros/carteirinha/" />
-                </ReportHeadline>
-                <ReportBars title="Situação dos vínculos" description="Selecione uma situação para ver as pessoas." total={memberships.length} loading={checking}
-                  rows={loadedGroups.people ? [
-                    { label: "Ativos", status: "ACTIVE", tone: "green" },
-                    { label: "Inativos", status: "INACTIVE", tone: "slate" },
-                    { label: "Em admissão", status: "PENDING_ADMISSION", tone: "gold" },
-                    { label: "Transferidos", status: "TRANSFERRED", tone: "teal" },
-                  ].map(({ label, status, tone }) => ({
-                    label, tone: tone as "green" | "slate" | "gold" | "teal",
-                    value: memberships.filter(row => row.status === status).length,
-                    href: `/app/secretaria/pessoas/?situacao=${status}`,
-                  })) : null} />
+                <SecretaryDashboard token={token} revision={summaryRevision}
+                  households={familiesLoaded ? households.length : null}
+                  credentials={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null}
+                  onOpenPerson={setFichaId} />
                 <ReportBars title="Admissões em andamento" description="Protocolos pendentes, por etapa." loading={checking}
                   rows={loadedGroups.admissions ? [
                     ["modality", "Em preparação"], ["documents", "Documentação"],
@@ -743,9 +734,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     window.history.replaceState(null, "", url);
                   }
                 }}
-                onPersonSaved={person => setMemberships(rows => rows.map(row =>
-                  row.person.id === person.id ? { ...row, person } : row
-                ))}
+                onPersonSaved={person => {
+                  setMemberships(rows => rows.map(row => row.person.id === person.id ? { ...row, person } : row));
+                  setSummaryRevision(version => version + 1);
+                }}
                 onHouseholdCreated={secretary ? household => setHouseholds(rows => [household, ...rows]) : undefined}
                 onSessionExpired={logout}
               />

@@ -1,6 +1,8 @@
 "use client";
 
 import { PersonPortrait } from "../PersonPortrait";
+import type { PersonProfileDates, PersonSex, PersonTimelineEvent } from "@idbrf/shared";
+import { registrationLabel } from "../credentials/credential-model";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Alert } from "../ui/Alert";
 import { AppNavLink } from "../AppShell";
@@ -17,6 +19,15 @@ import {
 import s from "../secretary-dossier.module.css";
 
 type HouseholdOption = { id: string; label: string };
+
+const dateFields: Array<[PersonProfileDates, string]> = [
+  ["birthDate", "Data de nascimento"], ["firstAttendedOn", "Primeira frequência na igreja"],
+  ["baptismDate", "Data de batismo"], ["weddingDate", "Data de casamento"],
+];
+const timelineLabels: Record<PersonTimelineEvent["type"], string> = {
+  cadastro: "Cadastro", vinculo: "Vínculo", admissao: "Admissão", transferencia: "Transferência",
+  ministerio: "Ministério", marco: "Datas da pessoa",
+};
 
 export type CredentialView =
   | { known: false }
@@ -43,7 +54,8 @@ function formatWhen(value: string | undefined) {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isFinite(date.getTime())
-    ? date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+    ? value.length === 10 ? date.toLocaleDateString("pt-BR", { timeZone: "UTC" })
+      : date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "—";
 }
 
@@ -100,6 +112,8 @@ export function Ficha360Dialog({
   onSessionExpired,
 }: Props) {
   const dialogRef = useRef<HTMLElement>(null);
+  const timelineRef = useRef<HTMLElement>(null);
+  const [timelineType, setTimelineType] = useState("");
   const [newFamily, setNewFamily] = useState("");
   const [familyOpen, setFamilyOpen] = useState(false);
   const [creatingFamily, setCreatingFamily] = useState(false);
@@ -166,6 +180,12 @@ export function Ficha360Dialog({
               <h2 id={titleId}>
                 {person?.displayName ?? "Cadastro de pessoa"}
               </h2>
+              {person && <div className={s.identityMeta}>
+                <span>{dossierLabel(person.kind)} · {dossierLabel(person.status)}</span>
+                {dossier?.memberships[0] && <span>Matrícula {registrationLabel(dossier.memberships[0].id)}</span>}
+                {dossier?.access && <span>{dossier.access.status === "ACTIVE" ? "Acesso ativo" : "Acesso desativado"}{dossier.access.roles.length ? ` · ${dossier.access.roles.join(", ")}` : ""}</span>}
+                {dossier?.access === null && <span>Sem conta de acesso</span>}
+              </div>}
             </div>
           </div>
           <button
@@ -201,6 +221,12 @@ export function Ficha360Dialog({
 
         {form && person && dossier && (
           <>
+            <div className={s.profileTools}>
+              <span title="Nome, e-mail, endereço e nascimento">
+                Dados essenciais preenchidos <strong>{[person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length}/4</strong>
+              </span>
+              <button className={s.secondary} type="button" onClick={() => { timelineRef.current?.scrollIntoView({ block: "start" }); timelineRef.current?.focus({ preventScroll: true }); }}>Ver linha do tempo</button>
+            </div>
             <form className={s.form} onSubmit={onSubmit}>
               <fieldset disabled={busy || !canEdit || creatingFamily}>
                 <legend>Dados pessoais</legend>
@@ -238,6 +264,17 @@ export function Ficha360Dialog({
                   <textarea value={form.address} maxLength={500} rows={2} autoComplete="street-address"
                     onChange={event => onEdit({ ...form, address: event.target.value })} />
                 </label>}
+                {form.birthDate !== undefined && <div className={s.profileFields}>
+                  {dateFields.map(([key, label]) => <label key={key}>{label}
+                    <input type="date" value={form[key] ?? ""} onChange={event => onEdit({ ...form, [key]: event.target.value })} />
+                  </label>)}
+                  <label>Sexo informado
+                    <select value={form.sex ?? ""} onChange={event => onEdit({ ...form, sex: event.target.value as PersonSex | "" })}>
+                      <option value="">Sem informação</option><option value="FEMALE">Feminino</option>
+                      <option value="MALE">Masculino</option><option value="OTHER">Outro</option>
+                    </select>
+                  </label>
+                </div>}
                 <label className={s.check}>
                   <input
                     data-field="isMinor"
@@ -435,8 +472,17 @@ export function Ficha360Dialog({
               </dl>
             </section>
 
-            <section className={s.context} aria-label="Histórico eclesiástico">
-              <h3>Histórico eclesiástico</h3>
+            <section ref={timelineRef} tabIndex={-1} className={s.context} aria-label="Histórico eclesiástico">
+              <div className={s.timelineHeading}><h3>Linha do tempo</h3>
+                <label>Filtrar por tipo
+                  <select value={timelineType} onChange={event => setTimelineType(event.target.value)}>
+                    <option value="">Todos os registros</option>
+                    {Object.entries(timelineLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+              {dossier.timeline && <Timeline events={dossier.timeline} filter={timelineType} />}
+              {!dossier.timeline && <><h3>Histórico eclesiástico</h3>
               {dossier.memberships.length ? (
                 dossier.memberships.map((item) => (
                   <article key={item.id} className={s.history}>
@@ -450,6 +496,7 @@ export function Ficha360Dialog({
               ) : (
                 <p className={s.hint}>Nenhum vínculo nesta congregação.</p>
               )}
+              </>}
               <h3>Protocolos de admissão</h3>
               {dossier.admissionHistory.length ? (
                 dossier.admissionHistory.map((item) => (
@@ -501,6 +548,15 @@ export function Ficha360Dialog({
       </section>
     </div>
   );
+}
+
+function Timeline({ events, filter }: { events: PersonTimelineEvent[]; filter: string }) {
+  const visible = events.filter(event => !filter || event.type === filter);
+  if (!visible.length) return <p className={s.hint}>Nenhum registro neste filtro.</p>;
+  return <ol className={s.timeline}>{visible.map(event => <li key={event.id}>
+    <time dateTime={event.date}>{formatWhen(event.date)}</time>
+    <div><small>{timelineLabels[event.type]}</small><strong>{event.title}</strong>{event.detail && <span>{event.detail}</span>}</div>
+  </li>)}</ol>;
 }
 
 function householdOptions(

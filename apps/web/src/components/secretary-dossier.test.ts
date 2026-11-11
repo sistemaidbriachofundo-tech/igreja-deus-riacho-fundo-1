@@ -82,6 +82,11 @@ describe("contrato de PATCH da ficha 360", () => {
       "displayName",
       "email",
       "address",
+      "birthDate",
+      "baptismDate",
+      "weddingDate",
+      "firstAttendedOn",
+      "sex",
       "isMinor",
       "legalGuardianPersonId",
       "householdId",
@@ -93,6 +98,12 @@ describe("contrato de PATCH da ficha 360", () => {
   it("grava e remove o endereço sem alterar a situação", () => {
     expect(buildPersonPatch({ ...baseline, address: " Rua de QA " }, baseline, null)).toEqual({ address: "Rua de QA" });
     expect(buildPersonPatch({ ...baseline, address: "" }, { ...baseline, address: "Rua de QA" }, null)).toEqual({ address: null });
+  });
+
+  it("edita datas civis e limpa apenas o valor alterado", () => {
+    const previous = { ...baseline, birthDate: "1982-05-13", weddingDate: "2004-05-20" };
+    expect(buildPersonPatch({ ...previous, weddingDate: "", baptismDate: "1999-02-20" }, previous, versions.personUpdatedAt))
+      .toEqual({ weddingDate: null, baptismDate: "1999-02-20", expectedUpdatedAt: versions.personUpdatedAt });
   });
 
   it("envia o campo alterado e a versão lida da API", () => {

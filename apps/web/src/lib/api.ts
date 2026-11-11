@@ -25,6 +25,19 @@ export interface LoginResult {
   user: AuthUser;
 }
 
+export interface LoginChallenge {
+  mfa: {
+    challengeId: string;
+    expiresInSeconds: number;
+    enrollmentRequired: boolean;
+  };
+}
+
+export interface MfaEnrollment {
+  secret: string;
+  otpauthUri: string;
+}
+
 export interface AuthUser {
   userId: string;
   personId: string;
@@ -291,8 +304,34 @@ async function settle<T>(
   }
 }
 
+export function beginLogin(email: string, password: string, options?: ApiCallOptions) {
+  return settle<LoginResult | LoginChallenge>("POST", "/auth/login", null, { email, password }, options, false);
+}
+
 export async function apiLogin(email: string, password: string, options?: ApiCallOptions): Promise<LoginResult> {
-  return settle<LoginResult>("POST", "/auth/login", null, { email, password }, options, false);
+  const result = await beginLogin(email, password, options);
+  if (!("accessToken" in result)) {
+    throw new ApiRequestError("Entre pela tela de acesso para confirmar o segundo fator.", null, "http");
+  }
+  return result;
+}
+
+export function beginMfaEnrollment(challengeId: string) {
+  return settle<MfaEnrollment>("POST", "/auth/mfa/enroll", null, { challengeId }, undefined, false);
+}
+
+export function verifyLoginChallenge(challenge: LoginChallenge["mfa"], code: string) {
+  const path = challenge.enrollmentRequired ? "/auth/mfa/enroll/confirm" : "/auth/mfa/challenge";
+  return settle<LoginResult>("POST", path, null, { challengeId: challenge.challengeId, code }, undefined, false);
+}
+
+export function mfaFailureMessage(error: unknown): string {
+  if (isUnauthorized(error)) {
+    return error instanceof Error && /MFA_EXPIRED|MFA_REPLAY/.test(error.message)
+      ? "Esta verificação terminou. Volte e entre novamente."
+      : "Não foi possível confirmar o código. Confira o código atual no autenticador.";
+  }
+  return loginFailureMessage(error);
 }
 
 export async function apiGet<T>(path: string, token: string, options?: ApiCallOptions): Promise<T> {
@@ -343,4 +382,12 @@ export function clearToken(): void {
   forgetValidatedSession();
   if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(TOKEN_KEY);
+}
+
+export async function signOutSession(): Promise<void> {
+  const token = loadStoredToken();
+  clearToken();
+  if (!token) return;
+  // An older API may lack this route. Always clear the local session as well.
+  await settle("POST", "/auth/logout", token, undefined, { timeoutMs: 4500 }, false);
 }

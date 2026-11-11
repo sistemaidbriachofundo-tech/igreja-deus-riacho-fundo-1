@@ -201,6 +201,11 @@ model Person {
   displayName          String       @map("display_name")
   email                String?
   address              String?
+  birthDate            DateTime?    @db.Date @map("birth_date")
+  baptismDate          DateTime?    @db.Date @map("baptism_date")
+  weddingDate          DateTime?    @db.Date @map("wedding_date")
+  firstAttendedOn      DateTime?    @db.Date @map("first_attended_on")
+  sex                  PersonSex?
   status               PersonStatus @default(ACTIVE)
   kind                 PersonKind   @default(VISITOR)
   isMinor              Boolean      @default(false) @map("is_minor")
@@ -250,6 +255,12 @@ model Person {
   @@index([legalGuardianPersonId])
   ministryMemberships MinistryMembership[]
   @@map("persons")
+}
+
+enum PersonSex {
+  FEMALE
+  MALE
+  OTHER
 }
 
 model PersonPhoto {

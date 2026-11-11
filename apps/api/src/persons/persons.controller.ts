@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Header, Param, Patch, Post, Query } from "@nestjs/common";
-import { ROLE_CODES, type PatchPersonRequest } from "@idbrf/shared";
+import { ROLE_CODES, type PatchPersonRequest, type PersonSex } from "@idbrf/shared";
 import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsIn,
   IsISO8601,
   IsOptional,
   IsString,
@@ -36,6 +37,30 @@ export class PatchPersonBody implements PatchPersonRequest {
   @IsString()
   @MaxLength(500)
   address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  birthDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  baptismDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  weddingDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  firstAttendedOn?: string | null;
+
+  @IsOptional()
+  @IsIn(["FEMALE", "MALE", "OTHER"])
+  sex?: PersonSex | null;
 
   @IsOptional()
   @IsBoolean()
@@ -118,6 +143,13 @@ export class PersonsController {
     @Body() body: PersonCandidatesBody,
   ) {
     return this.persons.findCandidates(user, body);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
+  @Get("secretary-overview")
+  secretaryOverview(@CurrentUser() user: AuthUser, @Query("from") from?: string, @Query("to") to?: string) {
+    return this.persons.secretaryOverview(user, from, to);
   }
 
   @Roles(

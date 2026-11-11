@@ -293,7 +293,11 @@ export function CredentialDesk({
         {visible.map((row) => (
           <article key={row.membershipId} className={s.row}>
             <button type="button" className={s.rowMain} disabled={!row.activeCredentialId} onClick={() => void show(row)}>
-              <PersonPortrait name={row.displayName} size="medium" />
+              <PersonPortrait
+                name={row.displayName}
+                photoUrl={row.membershipId === ownCard?.membershipId ? ownCard.photoUrl : undefined}
+                size="medium"
+              />
               <span>
                 <strong>{row.displayName}</strong>
                 <small>Matrícula {registrationLabel(row.membershipId)}</small>
