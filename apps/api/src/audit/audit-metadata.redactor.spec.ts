@@ -299,4 +299,84 @@ describe("redactAuditMetadata", () => {
       error.mockRestore();
     }
   });
+
+  it("masks nested secrets, unicode tricks and prototype keys", () => {
+    const nested = redactAuditMetadata("pastoral.case.create", {
+      filters: {
+        status: "OPEN",
+        filters: {
+          personId: "person-sintetico",
+          filters: {
+            password: PASSWORD,
+            email: PIX_EMAIL,
+          },
+        },
+      },
+    });
+    const deep = redactAuditMetadata("pastoral.case.create", {
+      filters: {
+        filters: {
+          filters: {
+            filters: {
+              password: PASSWORD,
+              summary: RELIGIOUS_PII,
+            },
+          },
+        },
+      },
+    });
+    const cyrillicSenha = `Louvor s${"\u0435"}nha`;
+    const proto = redactAuditMetadata(
+      "admission.advance",
+      JSON.parse(
+        '{"status":"OPEN","__proto__":{"polluted":"yes"},"password":"senha-sintetica"}',
+      ),
+    );
+    const text = serialized({
+      nested,
+      deep,
+      homoglyph: redactAuditMetadata("ministry.create", {
+        name: cyrillicSenha,
+        slug: "louvor-sintetico",
+      }),
+      zeroWidth: redactAuditMetadata("ministry.create", {
+        name: "Louvor\u200bsenha",
+        slug: "louvor-sintetico",
+      }),
+      fullwidthCpf: redactAuditMetadata("ministry.create", {
+        name: "０００．０００．０００－００",
+      }),
+      accent: redactAuditMetadata("ministry.create", {
+        name: "Louvor Sintético",
+      }),
+      numericHash: redactAuditMetadata("auth.login", {
+        emailFingerprint: "1".repeat(32),
+      }),
+    });
+    for (const secret of [
+      PASSWORD,
+      PIX_EMAIL,
+      RELIGIOUS_PII,
+      cyrillicSenha,
+      "Louvor\u200bsenha",
+      "０００．０００．０００－００",
+      "1".repeat(32),
+    ]) {
+      expect(text).not.toContain(secret);
+    }
+    expect(JSON.stringify(proto)).not.toContain("polluted");
+    expect(proto).toEqual({ status: "OPEN", password: AUDIT_REDACTED });
+    expect(nested).toMatchObject({
+      filters: {
+        status: "OPEN",
+        filters: { personId: "person-sintetico" },
+      },
+    });
+    expect(
+      redactAuditMetadata("ministry.create", { name: "Louvor Sintético" }),
+    ).toEqual({ name: "Louvor Sintético" });
+    const circular: Record<string, unknown> = { status: "OPEN" };
+    circular.filters = circular;
+    expect(() => redactAuditMetadata("admission.advance", circular)).not.toThrow();
+  });
 });
