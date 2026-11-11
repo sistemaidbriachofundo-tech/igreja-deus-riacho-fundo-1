@@ -16,7 +16,7 @@ import {
   roleLabel,
   visibleSchedule,
 } from "../lib/ministry-view";
-import { SyntheticAvatar } from "./ministry/ministry-visuals";
+import { PersonPortrait } from "./PersonPortrait";
 import styles from "./ministry-membership-catalog.module.css";
 
 type Props = {
@@ -63,7 +63,7 @@ export function MinistryMembershipCatalog({
               <div className={styles.people}>
                 {members.map((member) => (
                   <div className={styles.row} key={member.id}>
-                    <SyntheticAvatar name={member.displayName} />
+                    <PersonPortrait name={member.displayName} />
                     <div>
                       <strong>{member.displayName}</strong>
                       <small>
@@ -180,7 +180,7 @@ function InterestLine({
 }) {
   return (
     <div className={styles.row}>
-      <SyntheticAvatar name={interest.displayName} />
+      <PersonPortrait name={interest.displayName} />
       <div>
         <strong>{interest.displayName}</strong>
         <small>{interestStageLabel(interest.stage)} · não é integrante</small>
