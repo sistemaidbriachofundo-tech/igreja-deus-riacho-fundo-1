@@ -360,7 +360,7 @@ export function classifyDossierError(error: unknown): DossierFailure {
       status,
       message: specific
         ? specific + " Suas alterações continuam no formulário."
-        : "O cadastro foi atualizado por outra pessoa. Reabra a ficha para conferir os dados antes de salvar.",
+        : "O cadastro foi atualizado por outra pessoa. Use Atualizar ficha para conferir os dados antes de salvar.",
     };
   }
   if (status === 400) {
@@ -586,6 +586,12 @@ export async function savePersonDossier(
 
 export type FichaPhase = "loading" | "ready" | "saving" | "reopening";
 
+type DossierNotice = {
+  tone: "info" | "success";
+  title: string;
+  detail?: string;
+};
+
 export type FichaState = {
   phase: FichaPhase;
   person: PersonRecord | null;
@@ -596,7 +602,7 @@ export type FichaState = {
   loadError: DossierFailure | null;
   saveError: DossierFailure | null;
   refreshError: DossierFailure | null;
-  notice: string;
+  notice: DossierNotice | null;
   loadMs: number | null;
   saveMs: number | null;
 };
@@ -617,7 +623,7 @@ export const initialFichaState: FichaState = {
   loadError: null,
   saveError: null,
   refreshError: null,
-  notice: "",
+  notice: null,
   loadMs: null,
   saveMs: null,
 };
@@ -659,7 +665,7 @@ function refreshFailure(
 function applyLoaded(
   data: LoadedDossier,
   elapsedMs: number,
-  notice: string,
+  notice: DossierNotice | null,
   saveMs: number | null,
 ): FichaState {
   const notes = primaryMembership(data.dossier)?.notes ?? "";
@@ -682,7 +688,7 @@ function applyLoaded(
 export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
   switch (event.type) {
     case "load-ok":
-      return applyLoaded(event.data, event.elapsedMs, "", null);
+      return applyLoaded(event.data, event.elapsedMs, null, null);
     case "load-fail":
       return {
         ...state,
@@ -695,25 +701,25 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         loadError: event.failure,
         saveError: null,
         refreshError: null,
-        notice: "",
+        notice: null,
         loadMs: event.elapsedMs,
       };
     case "edit":
       if (!state.form) return state;
-      return { ...state, form: event.form, notice: "" };
+      return { ...state, form: event.form, notice: null };
     case "saving":
       return {
         ...state,
         phase: "saving",
         saveError: null,
         refreshError: null,
-        notice: "",
+        notice: null,
       };
     case "save-unchanged":
       return {
         ...state,
         phase: "ready",
-        notice: "Não há alterações para salvar.",
+        notice: { tone: "info", title: "Nenhuma alteração para salvar" },
       };
     case "save-fail":
       return {
@@ -721,7 +727,7 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         phase: "ready",
         saveError: event.failure,
         refreshError: null,
-        notice: "",
+        notice: null,
       };
     case "save-partial": {
       const notes = state.form?.notes ?? "";
@@ -742,7 +748,7 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         },
         saveError: event.failure,
         refreshError: null,
-        notice: "",
+        notice: null,
       };
     }
     case "save-ok":
@@ -752,7 +758,7 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
           phase: "reopening",
           saveError: null,
           refreshError: null,
-          notice: "",
+          notice: null,
         };
       }
       return {
@@ -768,20 +774,20 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         },
         saveError: null,
         refreshError: null,
-        notice: "",
+        notice: null,
       };
     case "reopening":
-      return { ...state, phase: "reopening", refreshError: null, notice: "" };
+      return { ...state, phase: "reopening", refreshError: null, notice: null };
     case "reopen-ok": {
-      const dedupe =
-        event.context === "after-save" &&
-        (state.person?.dedupeAlerts?.length ?? 0) > 0
-          ? " Foi identificado outro cadastro com o mesmo nome."
-          : "";
-      const notice =
-        (event.context === "after-save"
-          ? "Ficha salva e reaberta com os dados atualizados."
-          : "Ficha atualizada.") + dedupe;
+      const saved = event.context === "after-save";
+      const notice: DossierNotice = {
+        tone: "success",
+        title: saved ? "Ficha salva" : "Ficha atualizada",
+        detail:
+          saved && (state.person?.dedupeAlerts?.length ?? 0) > 0
+            ? "Existe outro cadastro com o mesmo nome. Confira os dados se precisar distinguir as pessoas."
+            : undefined,
+      };
       const next = applyLoaded(
         event.data,
         state.loadMs ?? event.elapsedMs,

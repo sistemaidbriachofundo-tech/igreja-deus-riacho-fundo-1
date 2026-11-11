@@ -8,6 +8,7 @@ import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
+import { Alert } from "./ui/Alert";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
 import s from "./hml-phase-one.module.css";
@@ -163,7 +164,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [loginEmail, setLoginEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<{ tone: "success" | "warning"; title: string; detail?: string } | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [admissions, setAdmissions] = useState<Admission[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
@@ -238,9 +239,15 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       people: previous.people || (secretaria && view !== "overview" && people.status === "fulfilled"),
       admissions: previous.admissions || (staff && view === "secretary" && processes.status === "fulfilled"),
     }));
-    if (settled.some(item => item.status === "rejected")) {
-      setNotice("Algumas informações não carregaram. As listas disponíveis continuam acessíveis. Use Atualizar para tentar novamente.");
+    const complete = settled.every(item => item.status === "fulfilled");
+    if (!complete) {
+      setNotice({
+        tone: "warning",
+        title: "Algumas informações não carregaram",
+        detail: "Use Atualizar para tentar novamente.",
+      });
     }
+    return complete;
   }, [view]);
 
   useEffect(() => {
@@ -342,7 +349,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     setFichaId(null);
     setPassword("");
     setError("");
-    setNotice("");
+    setNotice(null);
     window.location.assign(withBasePath("/login/"));
   }
 
@@ -350,14 +357,13 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     event.preventDefault();
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     try {
       const signed = await apiLogin(loginEmail.trim(), password);
       await refresh(signed.accessToken);
       storeToken(signed.accessToken);
       setToken(signed.accessToken);
       setPassword("");
-      setNotice("Acesso autorizado.");
     } catch (err) {
       setError(loginFailureMessage(err));
       if (isInvalidSession(err)) {
@@ -374,16 +380,15 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     if (!token) return false;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     try {
       await action();
-      try {
-        await refresh(token, true);
-        setNotice(message);
-      } catch {
-        // A gravação já foi concluída: não anunciar falha de gravação por erro na releitura.
-        setNotice(message + " Não foi possível atualizar a lista agora; recarregue a página para conferir.");
-      }
+      const updated = await refresh(token, true).catch(() => false);
+      setNotice({
+        tone: updated ? "success" : "warning",
+        title: message,
+        detail: updated ? undefined : "A lista ainda precisa ser atualizada. Use Atualizar para conferir.",
+      });
       return true;
     } catch (err) {
       setError(displayError(err));
@@ -478,7 +483,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             <span className={s.kicker}>Acesso à gestão</span>
             <h1 id="login-hml">Entre no ID Riacho 1</h1>
             <p>Use seu e-mail e senha para acessar as informações da igreja.</p>
-            {error && <p role="alert" className={s.error}>{error}</p>}
+            {error && <Alert appearance="workspace" tone="danger" title="Não foi possível entrar">{error}</Alert>}
             <form onSubmit={login} className={s.form}>
               <label>E-mail<input type="email" required autoComplete="username" value={loginEmail} onChange={event => setLoginEmail(event.target.value)} placeholder="nome@example.test" /></label>
               <label>Senha<input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
@@ -498,7 +503,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                   {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction("new")}><UIIcon name="plus" size={17} /> Cadastrar pessoa</button>}
                   <button type="button" className={ui.workspaceSecondary} onClick={() => {
                     setError("");
-                    setNotice("");
+                    setNotice(null);
                     setChecking(true);
                     void refresh(token, true).catch(err => setError(displayError(err))).finally(() => setChecking(false));
                   }} disabled={checking || busy}>
@@ -507,8 +512,12 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 </>}
               />
             )}
-            {notice && <div role="status" className={s.notice}>{notice}</div>}
-            {error && <div role="alert" className={s.error}>{error}</div>}
+            {notice && (
+              <Alert appearance="workspace" tone={notice.tone} title={notice.title} onDismiss={() => setNotice(null)}>
+                {notice.detail}
+              </Alert>
+            )}
+            {error && <Alert appearance="workspace" tone="danger" title={error} />}
             {view === "secretary" && staff && (
               <nav className={ui.workspaceTabs} aria-label="Áreas da secretaria">
                 {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas</button>}

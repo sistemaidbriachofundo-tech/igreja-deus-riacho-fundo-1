@@ -406,9 +406,6 @@
 .reference { grid-column: 1 / -1; color: #5f7368; font-size: 12px; }
 .reference summary { display: list-item; cursor: pointer; padding-block: 8px; }
 .reference label { margin-top: 6px; }
-.confirmActions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.confirmActions .dangerAction { border-color: #8a4433; background: #8a4433; }
-.confirmActions .dangerAction:hover { border-color: #703525; background: #703525; }
 @media (max-width: 700px) { .admit > button { margin-top: 0; } }
 
 .admit { margin-block: 18px; padding-block: 0 18px; border-top: 0; border-bottom: 1px solid var(--app-border, #dce6de); }
@@ -419,3 +416,5 @@
 .pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #dce6de; color: #5f7368; font: 400 12px/1.4 Inter, Arial, sans-serif; }
 .pagination button { padding-inline: 12px; }
 @media (max-width: 620px) { .memberSearch input { font-size: 16px; } }
+
+.actionFeedback { margin-block: 14px; }

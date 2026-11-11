@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../lib/api";
 import { churchLocalToISO, dasError, formatChurchDate, readDasRows, type DasRecord } from "../lib/das-operations";
@@ -16,6 +18,7 @@ const getRows=(value:unknown,key:string)=>readDasRows(value,key);
 const liveEnrollment=(r:DasRecord)=>r.status==="ENROLLED";
 
 export function EducationBoard({courses,token,roles,refresh}:Props){
+  const { confirm, confirmation } = useActionConfirmation();
   const [courseId,setCourseId]=useState("");
   const [classId,setClassId]=useState("");
   const [classes,setClasses]=useState<DasRecord[]>([]);
@@ -66,7 +69,7 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
     setBusy(true);setMessage("");
     try{
       await apiPost(path,token,body);
-      onSuccess();setMessage("Alteração registrada na homologação. O backend validou a operação.");
+      onSuccess();setMessage("Alteração registrada.");
       setRevision(n=>n+1);refresh();
     }catch(error){setMessage(dasError(error));}
     finally{setBusy(false);}
@@ -86,23 +89,33 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
     void action("/courses/"+id(courseId)+"/classes",{name:className.trim(),...(teacher?{teacherPersonId:teacher}:{})},
       ()=>{setClassName("");setTeacher("");});
   }
-  function enroll(e:FormEvent<HTMLFormElement>){
+  async function enroll(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!classId||!student)return;
-    if(!window.confirm("Matricular esta pessoa fictícia na turma selecionada?"))return;
+    if (!(await confirm({
+      title: "Registrar matrícula?",
+      subject: selectedClass ? title(selectedClass.name) : undefined,
+      description: "A pessoa selecionada será inscrita na turma.",
+      action: "Matricular",
+    }))) return;
     void action("/courses/classes/"+id(classId)+"/enrollments",{personId:student},()=>setStudent(""));
   }
-  function complete(enrollment:DasRecord){
+  async function complete(enrollment:DasRecord){
     const enrollmentId=str(enrollment.id);
     if(!enrollmentId||!liveEnrollment(enrollment))return;
     const issueCertificate=certificates[enrollmentId]===true;
-    if(!window.confirm(issueCertificate
-      ?"Concluir matrícula fictícia e registrar aprovação de certificado? Nenhum PDF será gerado nesta etapa."
-      :"Confirmar a conclusão da matrícula fictícia?"))return;
+    if (!(await confirm({
+      title: "Concluir matrícula?",
+      subject: selectedClass ? title(selectedClass.name) : undefined,
+      description: issueCertificate
+        ? "A matrícula será concluída e a aprovação do certificado será registrada."
+        : "A matrícula será marcada como concluída.",
+      action: "Concluir matrícula",
+    }))) return;
     void action("/courses/enrollments/"+id(enrollmentId)+"/complete",{issueCertificate},()=>{
       setCertificates(prev=>({...prev,[enrollmentId]:false}));
     });
   }
-  function newSession(e:FormEvent<HTMLFormElement>){
+  async function newSession(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!classId)return;
     const occurredAt=churchLocalToISO(meetingAt);
     if(!occurredAt){setMessage("Informe data e hora válidas no fuso de Brasília.");return;}
@@ -110,7 +123,13 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
     const attendances=roster.map(x=>({personId:str(x.personId),present:attendance[str(x.personId)]===true}))
       .filter(x=>x.personId.length>0);
     if(attendances.length!==roster.length){setMessage("Há matrículas sem identidade válida. Não é possível gravar a chamada.");return;}
-    if(!window.confirm("Registrar frequência fictícia desta aula? Ausências não marcadas serão registradas como faltas."))return;
+    if (!(await confirm({
+      title: "Registrar frequência?",
+      subject: meetingTitle.trim() || "Aula de teste",
+      description: "As pessoas marcadas terão presença registrada. As demais receberão falta.",
+      action: "Registrar frequência",
+      cancel: "Revisar chamada",
+    }))) return;
     void action("/courses/classes/"+id(classId)+"/sessions",{
       occurredAt,title:meetingTitle.trim()||"Aula de teste",attendances
     },()=>{setMeetingTitle("");setMeetingAt("");setAttendance({});});
@@ -119,6 +138,7 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
   const selectedCourse=courses.find(x=>x.id===courseId);
   const selectedClass=classes.find(x=>x.id===classId);
   return <section className={s.board} aria-labelledby="education-heading">
+    {confirmation}
     <header className={s.heading}>
       <div><span>RF-023 · ENSINO CRISTÃO</span><h2 id="education-heading">Jornada de ensino e EBD</h2>
         <p>Planeje turmas, acompanhe matrículas, registre frequência e conclusão. Discipulado e EBD permanecem domínios distintos.</p>

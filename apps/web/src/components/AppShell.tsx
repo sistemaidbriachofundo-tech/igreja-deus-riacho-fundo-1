@@ -19,6 +19,7 @@ import {
   personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
   type AppNavKey, type MinistryNavItem, type PersonaArea,
 } from "../lib/persona-navigation";
+import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { dsColor, dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
 
@@ -146,8 +147,7 @@ export function AppShell({
   const [ministryOpen, setMinistryOpen] = useState(childActive);
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
-  const [logoutOpen, setLogoutOpen] = useState(false);
-  const [logoutAnchor, setLogoutAnchor] = useState({ top: 0, left: 0 });
+  const { confirm, confirmation } = useActionConfirmation();
   const [railReady, setRailReady] = useState(false);
   const searchId = useId();
   const ministryListId = useId();
@@ -155,8 +155,6 @@ export function AppShell({
   const deniedRef = useRef<HTMLHeadingElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
-  const logoutRef = useRef<HTMLDivElement>(null);
-  const logoutCancelRef = useRef<HTMLButtonElement>(null);
   const viewportRef = useRef(viewport);
   const drawerRef = useRef(drawerOpen);
   const RouterBridge = useAppRouterBridge();
@@ -274,7 +272,6 @@ export function AppShell({
   }
   function afterNavigate() {
     setPaletteOpen(false);
-    setLogoutOpen(false);
     if (viewportRef.current === "mobile" && drawerRef.current) {
       setDrawerOpen(false);
       menuButtonRef.current?.focus();
@@ -303,13 +300,14 @@ export function AppShell({
       return next;
     });
   }
-  function askLogout(event: MouseEvent<HTMLButtonElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const width = 220;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-    const top = Math.min(rect.bottom + 8, window.innerHeight - 128);
-    setLogoutAnchor({ top, left });
-    setLogoutOpen(true);
+  async function askLogout() {
+    const accepted = await confirm({
+      title: "Sair da sua conta?",
+      description: "Sua sessão será encerrada neste navegador. Entre novamente para acessar o painel.",
+      action: "Sair da conta",
+      cancel: "Continuar no painel",
+    });
+    if (accepted) signOut();
   }
   function onRailKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     const key = event.key;
@@ -370,15 +368,12 @@ export function AppShell({
   }, [preview, roleKey, showMinistries]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (event.target instanceof HTMLElement && event.target.closest("dialog[open]")) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setPaletteOpen(open => !open);
       }
       if (event.key !== "Escape") return;
-      if (logoutOpen) {
-        setLogoutOpen(false);
-        return;
-      }
       if (paletteOpen) {
         setPaletteOpen(false);
         return;
@@ -390,22 +385,9 @@ export function AppShell({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [logoutOpen, paletteOpen, drawerOpen]);
-  useEffect(() => {
-    if (!logoutOpen) return;
-    function onPointer(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (logoutRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest("[data-logout-trigger]")) return;
-      setLogoutOpen(false);
-    }
-    window.addEventListener("pointerdown", onPointer);
-    return () => window.removeEventListener("pointerdown", onPointer);
-  }, [logoutOpen]);
+  }, [paletteOpen, drawerOpen]);
   useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
   useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
-  useEffect(() => { if (logoutOpen) logoutCancelRef.current?.focus(); }, [logoutOpen]);
   useEffect(() => {
     if (viewport === "mobile" && drawerOpen) drawerCloseRef.current?.focus();
   }, [drawerOpen, viewport]);
@@ -418,7 +400,7 @@ export function AppShell({
   }
   function renderLogout() {
     return (
-      <button type="button" className={s.logoutTrigger} data-logout-trigger="" aria-expanded={logoutOpen} aria-controls="confirmar-saida" onClick={askLogout}>
+      <button type="button" className={s.logoutTrigger} aria-haspopup="dialog" onClick={() => void askLogout()}>
         <UIIcon name="logout" size={16}/><span className={s.menuLabel}>Sair</span>
       </button>
     );
@@ -533,11 +515,7 @@ export function AppShell({
         </button>
       </nav>
 
-      {logoutOpen && <div ref={logoutRef} id="confirmar-saida" className={s.logoutConfirm} style={{ top: logoutAnchor.top, left: logoutAnchor.left }} role="group" aria-label="Confirmar saída">
-        <p>Encerrar esta sessão?</p>
-        <button type="button" ref={logoutCancelRef} onClick={() => setLogoutOpen(false)}>Continuar</button>
-        <button type="button" onClick={signOut}>Sair agora</button>
-      </div>}
+      {confirmation}
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
         <section className={s.commandModal} role="dialog" aria-modal="true" aria-label="Buscar no painel">

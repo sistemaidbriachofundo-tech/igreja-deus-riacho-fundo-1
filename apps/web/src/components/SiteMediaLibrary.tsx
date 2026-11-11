@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { getApiBaseUrl } from "../lib/api";
 import { withBasePath } from "../lib/paths";
@@ -10,6 +12,7 @@ type MediaAsset = { url:string; pathname:string; name:string; size:number; uploa
 type MediaList = { configured:boolean; assets:MediaAsset[]; hasMore?:boolean; message?:string|null };
 
 export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:string)=>void}){
+  const { confirm, confirmation } = useActionConfirmation();
   const [media,setMedia]=useState<MediaAsset[]>([]);
   const [ready,setReady]=useState(false),[configured,setConfigured]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
@@ -36,7 +39,13 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
     if(file.size===0||file.size>3*1024*1024||!allowed.includes(file.type)){
       setError("Escolha JPG, PNG, WebP ou AVIF de até 3 MB.");return;
     }
-    if(!window.confirm("Esta foto será enviada a uma biblioteca pública. Confirme que possui autorização para divulgá-la e que não contém dados pessoais sensíveis."))return;
+    if (!(await confirm({
+      title: "Enviar foto à biblioteca pública?",
+      subject: file.name,
+      description: "Envie apenas imagens que você tem autorização para divulgar e que não contenham dados pessoais sensíveis.",
+      action: "Enviar foto",
+      cancel: "Voltar à biblioteca",
+    }))) return;
     setBusy(true);
     try{
       const form=new FormData();
@@ -55,6 +64,7 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
     finally{setBusy(false);}
   }
   return <div className={s.section}>
+    {confirmation}
     <div className={s.toolbar}>
       <div><strong>Fotos da igreja</strong><p>Envie uma nova foto ou reutilize uma já autorizada. Arquivos são públicos somente para divulgação do portal.</p></div>
       <label className={s.uploadButton} aria-disabled={!configured||busy}>

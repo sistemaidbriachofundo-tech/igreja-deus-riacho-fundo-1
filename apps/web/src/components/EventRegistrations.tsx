@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../lib/api";
 import { dasError, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
@@ -54,6 +56,7 @@ function priceLabel(cents:unknown):string {
 }
 
 export function EventRegistrations({events,token}:{events:DasRecord[];token:string}) {
+  const { confirm, confirmation } = useActionConfirmation();
   const [eventId,setEventId]=useState("");
   const [pane,setPane]=useState<Pane>("modalities");
   const [reload,setReload]=useState(0);
@@ -158,22 +161,35 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       setRegistrationName("");setGuardian("");setMinor(false);
     });
   }
-  function checkIn(row:DasRecord){
+  async function checkIn(row:DasRecord){
     const id=keyOf(row.id),provided=(checkInCodes[id]??"").trim(),actual=keyOf(row.checkInCode);
     if(!id||!canCheckInRegistration(row))return;
     if(!actual||!provided||provided!==actual){setMessage("O código digitado não corresponde à inscrição.");return;}
-    if(!window.confirm("Confirmar a presença desta inscrição?"))return;
+    if (!(await confirm({
+      title: "Registrar presença?",
+      subject: row.isMinor === true ? "Inscrição de menor de idade" : registrationTitle(row),
+      description: "A presença será registrada para esta inscrição.",
+      action: "Registrar presença",
+    }))) return;
     void perform("/registrations/"+codeOf(id)+"/check-in",{checkInCode:provided},
       ()=>setCheckInCodes(prev=>({...prev,[id]:""})));
   }
-  function cancel(row:DasRecord){
+  async function cancel(row:DasRecord){
     const id=keyOf(row.id);
     if(!id||row.status==="CANCELLED"||row.status==="CHECKED_IN")return;
-    if(!window.confirm("Cancelar esta inscrição? A ação fica registrada na homologação."))return;
+    if (!(await confirm({
+      title: "Cancelar inscrição?",
+      subject: row.isMinor === true ? "Inscrição de menor de idade" : registrationTitle(row),
+      description: "A situação da inscrição passará para Cancelada.",
+      action: "Cancelar inscrição",
+      cancel: "Manter inscrição",
+      tone: "danger",
+    }))) return;
     void perform("/registrations/"+codeOf(id)+"/cancel");
   }
 
   return <section className={s.workspace} aria-labelledby="registration-workspace-heading">
+    {confirmation}
     <div className={s.heading}>
       <div><small>HOMOLOGAÇÃO</small>
         <h2 id="registration-workspace-heading">Operação do evento</h2>

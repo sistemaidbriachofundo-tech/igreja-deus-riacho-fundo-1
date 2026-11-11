@@ -290,7 +290,7 @@ describe("shell colapsável para os oito papéis", () => {
     expect(shellSource).toContain('aria-expanded={menuExpanded}');
     expect(shellSource).toContain('aria-controls="app-navigation-rail"');
     expect(shellSource).toContain('aria-label="Fechar o menu lateral"');
-    expect(shellSource).toContain("Encerrar esta sessão?");
+    expect(shellSource).toContain("Sair da sua conta?");
     expect(shellSource).toContain("data-nav-group=\"ministerios\"");
     expect(shellSource).not.toContain("CANAIS E COMUNIDADE");
     expect(shellSource).not.toContain("501");
@@ -318,7 +318,7 @@ describe("shell colapsável para os oito papéis", () => {
     expect(html).not.toContain("CANAIS E COMUNIDADE");
     expect(html).not.toContain("501");
     expect(html).not.toContain("centro de custo");
-    expect(html).not.toContain("Encerrar esta sessão?");
+    expect(html).not.toContain("Sair da sua conta?");
     const seesMinistry = (MINISTRY_ROLES as readonly string[]).includes(role);
     if (seesMinistry) {
       expect(html).toContain('data-nav-group="ministerios"');

@@ -422,8 +422,8 @@ describe("cliente da ficha", () => {
     expect(reopened.form?.householdId).toBe("h-exemplo");
     expect(reopened.form?.notes).toBe("nota persistida");
     expect(reopened.baseline?.displayName).toBe("Ana Demo 2");
-    expect(reopened.notice).toMatch(/salva e reaberta/);
-    expect(reopened.notice).toMatch(/outro cadastro com o mesmo nome/);
+    expect(reopened.notice?.title).toBe("Ficha salva");
+    expect(reopened.notice?.detail).toMatch(/outro cadastro com o mesmo nome/);
     expect(reopened.saveError).toBeNull();
     expect(reopened.refreshError).toBeNull();
     expect(reopened.saveMs).toBe(55);

@@ -468,39 +468,6 @@
 .denied a {
   color: #355b44;
 }
-.logoutConfirm {
-  position: fixed;
-  z-index: 80;
-  width: min(220px, calc(100vw - 16px));
-  padding: 14px;
-  border: 1px solid #d9e3d7;
-  border-radius: 11px;
-  background: #fff;
-  color: #405b49;
-  box-shadow: 0 12px 40px #203d2926;
-}
-.logoutConfirm p {
-  margin: 0 0 10px;
-  font-size: 12px;
-}
-.logoutConfirm button {
-  min-height: var(--shell-target);
-  padding: 8px 10px;
-  margin-right: 4px;
-  border: 1px solid #e0e8dd;
-  border-radius: 7px;
-  background: #f7faf5;
-  color: #4b644f;
-  font:
-    550 11px Inter,
-    sans-serif;
-  cursor: pointer;
-}
-.logoutConfirm button:last-child {
-  background: #34573f;
-  border-color: #34573f;
-  color: #fff;
-}
 .modalBackdrop {
   position: fixed;
   inset: 0;

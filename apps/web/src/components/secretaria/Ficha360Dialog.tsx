@@ -2,7 +2,9 @@
 
 import { PersonPortrait } from "../PersonPortrait";
 import { useRef, type FormEvent, type ReactNode } from "react";
+import { Alert } from "../ui/Alert";
 import { useDialogLifecycle } from "../ui/dialog";
+import ui from "../ui/ui.module.css";
 import {
   REGULATED_PERSON_FIELDS,
   dossierLabel,
@@ -44,21 +46,39 @@ function formatWhen(value: string | undefined) {
     : "—";
 }
 
-function failureBlock(
-  failure: DossierFailure | null,
-  slot: string,
-  title: string,
-) {
-  if (!failure) return null;
+function FailureNotice({
+  failure,
+  title,
+  onRetry,
+  onSessionExpired,
+}: {
+  failure: DossierFailure;
+  title: string;
+  onRetry?: () => void;
+  onSessionExpired: () => void;
+}) {
+  const session = failure.kind === "session";
+  const retry = failure.kind === "unknown" ? onRetry : undefined;
+
   return (
-    <div
-      role="alert"
-      className={s.error}
-      data-failure={slot}
-      data-kind={failure.kind}
+    <Alert
+      appearance="workspace"
+      tone={session || failure.kind === "conflict" ? "warning" : "danger"}
+      title={session ? "Sua sessão expirou" : title}
     >
-      <strong>{title}</strong> {failure.message}
-    </div>
+      {session ? "Entre novamente para continuar." : failure.message}
+      {(session || retry) && (
+        <div>
+          <button
+            type="button"
+            className={ui.workspaceSecondary}
+            onClick={session ? onSessionExpired : retry}
+          >
+            {session ? "Entrar novamente" : "Tentar novamente"}
+          </button>
+        </div>
+      )}
+    </Alert>
   );
 }
 
@@ -83,14 +103,11 @@ export function Ficha360Dialog({
     state.phase === "loading" ||
     state.phase === "saving" ||
     state.phase === "reopening";
-  const sessionExpired = [
-    state.loadError,
-    state.saveError,
-    state.refreshError,
-  ].some((failure) => failure?.kind === "session");
   const person = state.person;
   const dossier = state.dossier;
   const form = state.form;
+  const loadFailure = state.refreshError ?? state.loadError;
+  const editFailure = state.saveError ?? state.refreshError;
   const options = householdOptions(
     households,
     form?.householdId ?? "",
@@ -133,28 +150,23 @@ export function Ficha360Dialog({
           </button>
         </header>
 
-        {state.phase === "loading" && (
-          <p className={s.status} role="status">
-            Abrindo ficha…
-          </p>
-        )}
-        {state.phase === "saving" && (
-          <p className={s.status} role="status">
-            Salvando ficha…
-          </p>
-        )}
-        {state.phase === "reopening" && (
-          <p className={s.status} role="status">
-            Atualizando ficha…
-          </p>
-        )}
-
-        {failureBlock(state.loadError, "load", "Falha ao abrir.")}
-        {failureBlock(state.saveError, "save", "Falha ao salvar.")}
-        {failureBlock(state.refreshError, "refresh", "Falha ao reabrir.")}
-        {state.notice && (
-          <div role="status" className={s.notice}>
-            {state.notice}
+        {!form && (
+          <div className={s.feedback}>
+            {busy && (
+              <Alert
+                appearance="workspace"
+                tone="info"
+                title="Abrindo ficha…"
+              />
+            )}
+            {!busy && loadFailure && (
+              <FailureNotice
+                failure={loadFailure}
+                title="Não foi possível abrir a ficha"
+                onRetry={onReopen}
+                onSessionExpired={onSessionExpired}
+              />
+            )}
           </div>
         )}
 
@@ -259,6 +271,37 @@ export function Ficha360Dialog({
                   </p>
                 )}
               </fieldset>
+              {busy && (
+                <Alert
+                  appearance="workspace"
+                  tone="info"
+                  title={
+                    state.phase === "saving"
+                      ? "Salvando ficha…"
+                      : "Atualizando ficha…"
+                  }
+                />
+              )}
+              {!busy && editFailure && (
+                <FailureNotice
+                  failure={editFailure}
+                  title={
+                    state.saveError
+                      ? "Confira a ficha antes de salvar novamente"
+                      : "Atualização incompleta"
+                  }
+                  onSessionExpired={onSessionExpired}
+                />
+              )}
+              {state.notice && (
+                <Alert
+                  appearance="workspace"
+                  tone={state.notice.tone}
+                  title={state.notice.title}
+                >
+                  {state.notice.detail}
+                </Alert>
+              )}
               <div className={s.actions}>
                 {canEdit && (
                   <button type="submit" className={s.primary} disabled={busy}>
@@ -271,17 +314,8 @@ export function Ficha360Dialog({
                   onClick={onReopen}
                   disabled={busy}
                 >
-                  Reabrir ficha
+                  Atualizar ficha
                 </button>
-                {sessionExpired && (
-                  <button
-                    type="button"
-                    className={s.secondary}
-                    onClick={onSessionExpired}
-                  >
-                    Entrar novamente
-                  </button>
-                )}
               </div>
               {!canEdit && (
                 <p className={s.hint}>

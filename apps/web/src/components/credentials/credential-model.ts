@@ -111,7 +111,7 @@ export function credentialFailure(error: unknown): { status: number | null; mess
     const status = error.status ?? null;
     return {
       status,
-      message: `A operação não foi concluída${status ? ` (${status})` : ""}.`,
+      message: "Não foi possível concluir a solicitação agora. Tente novamente.",
     };
   }
   return { status: null, message: "Não foi possível contactar o serviço de carteirinhas." };

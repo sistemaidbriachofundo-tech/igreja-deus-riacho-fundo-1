@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
@@ -62,6 +64,7 @@ async function siteRequest<T>(token:string,path:string,method:"GET"|"PATCH"|"POS
 }
 
 export function SiteManager() {
+  const { confirm, confirmation } = useActionConfirmation();
   const [token,setToken]=useState<string|null>(null);
   const [checking,setChecking]=useState(true),[busy,setBusy]=useState(false);
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
@@ -158,20 +161,32 @@ export function SiteManager() {
     void work(async()=>{
       const result=await siteRequest<{draftUpdatedAt:string}>(token,"/cms/site-layout/draft","PATCH",{layout:validated,expectedUpdatedAt:draftUpdatedAt});
       setDraftUpdatedAt(result.draftUpdatedAt);setDirty(false);
-      setNotice("Rascunho salvo no banco. A página pública não foi alterada.");
+      setNotice("Rascunho salvo. Você pode conferir a prévia antes de publicar.");
     });
   }
-  function publish(){
-    if(!token||dirty||!draftUpdatedAt||!canPublish)return;
-    if(!window.confirm("Publicar a versão salva da Home? Esta ação atualiza a configuração aprovada do site."))return;
+  async function publish(){
+    if(!token||dirty||!draftUpdatedAt||!canPublish||busy)return;
+    if (!(await confirm({
+      title: "Publicar página inicial?",
+      description: "O rascunho salvo passará a ser a versão publicada da página inicial.",
+      action: "Publicar página",
+      cancel: "Voltar ao rascunho",
+    }))) return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/publish","POST",{expectedUpdatedAt:draftUpdatedAt});
       await refresh(token);
       setNotice("Versão publicada. Sites com leitura dinâmica habilitada recebem a atualização automaticamente.");
     });
   }
-  function restore(id:string){
-    if(!token||!window.confirm("Restaurar esta versão ao RASCUNHO? A versão publicada continuará intacta."))return;
+  async function restore(id:string){
+    if (!token || busy) return;
+    if (!(await confirm({
+      title: "Restaurar versão no rascunho?",
+      description: "A versão escolhida substituirá o conteúdo atual do rascunho, inclusive as alterações ainda sem salvar.",
+      action: "Restaurar rascunho",
+      cancel: "Manter rascunho atual",
+      tone: "danger",
+    }))) return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/restore/"+id,"POST");
       await refresh(token);setNotice("Versão recuperada no rascunho. Confira e publique quando estiver pronta.");
@@ -211,6 +226,7 @@ export function SiteManager() {
 
   return <AppShell active="site" meta="Gestão do site" editorial>
     <div className={s.page}>
+    {confirmation}
       <header className={s.hero}>
         <div><span className={s.eyebrow}>ID RIACHO 1 / CENTRAL DE GESTÃO</span>
           <h1>Seu site, nas mãos <em>da sua equipe.</em></h1>

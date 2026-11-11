@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { apiGet, apiPost } from "../lib/api";
@@ -24,6 +26,7 @@ export function financeApproval(actorUserId:string|null, entry:DasRecord):{text:
 }
 
 export function FinanceBoard({tab,rows,token,refresh}:Props){
+  const { confirm, confirmation } = useActionConfirmation();
   const [accounts,setAccounts]=useState<DasRecord[]>([]);
   const [accountsState,setAccountsState]=useState<"loading"|"ready"|"error">("loading");
   const [description,setDescription]=useState("");
@@ -63,7 +66,7 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
     try{
       await apiPost(path,token,body);
       refresh();
-      setMessage("Operação salva no banco de testes. Consulte o histórico e as aprovações.");
+      setMessage("Alteração registrada. Consulte o histórico para acompanhar o lançamento.");
       return true;
     }catch(err){setMessage(dasError(err));return false;}
     finally{setBusy(false);}
@@ -85,14 +88,35 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
     void action("/ledger/reconciliations",{title:title.trim(),periodStart:start,periodEnd:end})
       .then(ok=>{if(ok){setTitle("");setStart("");setEnd("");}});
   }
-  function transition(kind:"entries"|"reconciliations",recordId:string,operation:string){
-    if(busy||!recordId)return;
-    const critical=operation==="approve"||operation==="close"||operation==="reverse";
-    if(critical && !window.confirm("Esta operação altera o fluxo de aprovação na HML. Confirmar?"))return;
-    void action("/ledger/"+kind+"/"+encodeURIComponent(recordId)+"/"+operation);
+  async function transition(kind: "entries" | "reconciliations", recordId: string, operation: "submit" | "approve" | "close" | "reverse") {
+    if (busy || !recordId) return;
+    const record = rows.find((row) => id(row.id) === recordId);
+    const subject = str(record?.description) || str(record?.title) || undefined;
+    const details = {
+      approve: {
+        title: "Registrar aprovação?",
+        description: "Sua aprovação será registrada neste item.",
+        action: "Registrar aprovação",
+      },
+      close: {
+        title: "Fechar período?",
+        description: "A conciliação deste período será marcada como fechada.",
+        action: "Fechar período",
+        tone: "danger",
+      },
+      reverse: {
+        title: "Solicitar estorno?",
+        description: "Será registrada uma solicitação de estorno para este lançamento.",
+        action: "Solicitar estorno",
+        tone: "danger",
+      },
+    } as const;
+    if (operation !== "submit" && !(await confirm({ ...details[operation], subject }))) return;
+    void action("/ledger/" + kind + "/" + encodeURIComponent(recordId) + "/" + operation);
   }
 
   return <section className={styles.board} aria-labelledby="finance-heading">
+    {confirmation}
       <header className={styles.header}>
       <span>Tesouraria · homologação</span>
       <h2 id="finance-heading">Lançamentos e conciliação</h2>
@@ -139,9 +163,16 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
               {entryId&&["DRAFT","REJECTED"].includes(status)&&<button disabled={busy} onClick={()=>transition("entries",entryId,"submit")}>Enviar para aprovação</button>}
               {entryId&&approval.canApprove&&<button disabled={busy} onClick={()=>transition("entries",entryId,"approve")}>Registrar aprovação</button>}
               {entryId&&status==="PENDING_APPROVAL"&&<form className={styles.rejectForm}
-                onSubmit={e=>{e.preventDefault();const reason=(rejectionReasons[entryId]??"").trim();
+                onSubmit={async e=>{e.preventDefault();const reason=(rejectionReasons[entryId]??"").trim();
                   if(reason.length<6){setMessage("Informe o motivo da rejeição com pelo menos seis caracteres.");return;}
-                  if(!window.confirm("Confirmar rejeição deste lançamento fictício?"))return;
+                  if (!(await confirm({
+                    title: "Rejeitar lançamento?",
+                    subject: str(entry.description) || undefined,
+                    description: "O lançamento voltará para revisão com o motivo informado.",
+                    action: "Rejeitar lançamento",
+                    cancel: "Revisar motivo",
+                    tone: "danger",
+                  }))) return;
                   void action("/ledger/entries/"+encodeURIComponent(entryId)+"/reject",{reason})
                     .then(ok=>{if(ok)setRejectionReasons(prev=>({...prev,[entryId]:""}));});
                 }}>

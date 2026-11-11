@@ -1281,3 +1281,191 @@
 @media (max-width: 540px) { .workspaceDialog { padding: 20px; } }
 
 .workspaceOverlay { align-items: center; background: #17372d94; backdrop-filter: blur(3px); }
+
+.actionConfirmation {
+  box-sizing: border-box;
+  width: min(460px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #d9e3db;
+  border-radius: 16px;
+  background: #fff;
+  color: #20372d;
+  box-shadow: 0 24px 72px #102f2a38;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.actionConfirmation::backdrop {
+  background: #18372e85;
+  backdrop-filter: blur(4px);
+}
+
+:global(body):has(.actionConfirmation[open]) {
+  overflow: hidden;
+}
+
+.confirmationContent {
+  padding: 24px;
+  overflow-wrap: anywhere;
+}
+
+.confirmationIcon,
+.alertMark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  font: 700 15px/1 Inter, Arial, sans-serif;
+}
+
+.confirmationIcon {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 16px;
+  background: #e6f1e9;
+  color: #255742;
+}
+
+.actionConfirmation[data-tone="danger"] .confirmationIcon {
+  background: #f9e8e3;
+  color: #8d392e;
+}
+
+.confirmationContent h2 {
+  margin: 0;
+  font-size: clamp(20px, 4vw, 24px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.confirmationSubject {
+  margin: 12px 0 0;
+  color: #20372d;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.confirmationDescription {
+  margin: 8px 0 0;
+  color: #51685c;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.confirmationActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #e3ebe4;
+  background: #f7faf7;
+}
+
+.actionConfirmation[data-tone="danger"] .workspacePrimary {
+  border-color: #963d32;
+  background: #963d32;
+}
+
+.actionConfirmation[data-tone="danger"] .workspacePrimary:hover {
+  border-color: #783027;
+  background: #783027;
+}
+
+.actionConfirmation button:focus-visible,
+.workspaceAlert button:focus-visible {
+  outline: 2px solid #79602e;
+  outline-offset: 3px;
+}
+
+.workspaceAlert {
+  --alert-surface: #f1f6f3;
+  --alert-border: #d9e5de;
+  --alert-ink: #35584a;
+  --alert-mark: #deebe2;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--alert-border);
+  border-radius: 10px;
+  background: var(--alert-surface);
+  color: var(--alert-ink);
+  font: 400 13px/1.55 Inter, Arial, sans-serif;
+}
+
+.workspaceAlert[data-tone="success"] {
+  --alert-surface: #edf7ef;
+  --alert-border: #cce4d1;
+  --alert-ink: #245642;
+  --alert-mark: #d5ebdb;
+}
+
+.workspaceAlert[data-tone="warning"] {
+  --alert-surface: #fff8e9;
+  --alert-border: #eddfba;
+  --alert-ink: #6d4d17;
+  --alert-mark: #f4e6c3;
+}
+
+.workspaceAlert[data-tone="danger"] {
+  --alert-surface: #fff4f0;
+  --alert-border: #eccfc7;
+  --alert-ink: #83372d;
+  --alert-mark: #f5ddd6;
+}
+
+.workspaceAlert .alertCopy {
+  flex: 1;
+  gap: 4px;
+}
+
+.workspaceAlert .alertCopy strong {
+  font: 650 14px/1.45 Inter, Arial, sans-serif;
+}
+
+.workspaceAlert .alertCopy .workspaceSecondary {
+  margin-top: 10px;
+}
+
+.alertMark {
+  width: 24px;
+  height: 24px;
+  background: var(--alert-mark);
+  color: var(--alert-ink);
+}
+
+.alertDismiss {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: 500 21px/1 Inter, Arial, sans-serif;
+  cursor: pointer;
+}
+
+.alertDismiss:hover {
+  background: var(--alert-mark);
+}
+
+@media (max-width: 480px) {
+  .confirmationContent,
+  .confirmationActions {
+    padding-inline: 18px;
+  }
+
+  .confirmationActions {
+    flex-direction: column;
+  }
+}

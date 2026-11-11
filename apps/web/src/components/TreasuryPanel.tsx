@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiPost, loadStoredToken } from "../lib/api";
@@ -182,6 +184,7 @@ export function TreasuryPositionCards({ state }: { state: TreasuryCardState }) {
 }
 
 export function TreasuryPanel() {
+  const { confirm, confirmation } = useActionConfirmation();
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
   const [tab, setTab] = useState<Tab>("recebido");
   const [token, setToken] = useState<string | null>(null);
@@ -303,7 +306,12 @@ export function TreasuryPanel() {
 
   async function approve(entryId: string) {
     if (!token || busy) return;
-    if (!window.confirm("Registrar aprovação neste lançamento de homologação?")) return;
+    if (!(await confirm({
+      title: "Registrar aprovação?",
+      subject: visibleEntries.find((entry) => entry.id === entryId)?.description,
+      description: "Sua aprovação será registrada neste lançamento. A posição financeira só considera lançamentos com as duas aprovações.",
+      action: "Registrar aprovação",
+    }))) return;
     setBusy(true);
     setMessage("");
     try {
@@ -328,6 +336,7 @@ export function TreasuryPanel() {
 
   return (
     <section className={styles.panel} aria-labelledby="treasury-title">
+    {confirmation}
       <header className={styles.header}>
         <p className={styles.kicker}>Tesouraria · homologação</p>
         <h1 id="treasury-title">Posição, extrato e conciliação</h1>

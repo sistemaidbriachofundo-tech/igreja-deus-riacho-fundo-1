@@ -4,6 +4,7 @@ import { useEffect, useId, useReducer, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { usePersonaAccess } from "./AppShell";
 import { PersonPicker } from "./PersonPicker";
+import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { apiGet, apiPatch } from "../lib/api";
 import {
   Ficha360Dialog,
@@ -49,6 +50,7 @@ export function SecretaryDossier({
   onSessionExpired,
 }: Props) {
   const titleId = useId();
+  const { confirm, confirmation } = useActionConfirmation();
   const { roles } = usePersonaAccess();
   const [state, dispatch] = useReducer(fichaReducer, initialFichaState);
   const [documents, setDocuments] = useState<AdmissionDocumentList[] | null>(
@@ -146,11 +148,19 @@ export function SecretaryDossier({
         state.baseline.legalGuardianPersonId ||
       state.form.householdId !== state.baseline.householdId);
 
-  function requestClose() {
+  async function requestClose() {
     if (state.phase === "saving" || state.phase === "reopening") return;
     if (
       dirty &&
-      !window.confirm("Descartar as alterações que ainda não foram salvas?")
+      !(await confirm({
+        title: "Fechar ficha sem salvar?",
+        subject: state.person?.displayName,
+        description:
+          "As alterações feitas desde o último salvamento serão descartadas.",
+        cancel: "Continuar editando",
+        action: "Descartar e fechar",
+        tone: "danger",
+      }))
     )
       return;
     onClose();
@@ -159,9 +169,15 @@ export function SecretaryDossier({
   async function reopen() {
     if (
       dirty &&
-      !window.confirm(
-        "Atualizar esta ficha e descartar as alterações que ainda não foram salvas?",
-      )
+      !(await confirm({
+        title: "Atualizar ficha sem salvar?",
+        subject: state.person?.displayName,
+        description:
+          "A ficha será preenchida com os dados salvos. As alterações atuais serão descartadas.",
+        cancel: "Continuar editando",
+        action: "Descartar e atualizar",
+        tone: "danger",
+      }))
     )
       return;
     dispatch({ type: "reopening" });
@@ -204,7 +220,7 @@ export function SecretaryDossier({
           />
         )
       }
-      onClose={requestClose}
+      onClose={() => void requestClose()}
       onEdit={(next: EditablePersonFields) =>
         dispatch({ type: "edit", form: next })
       }
@@ -215,7 +231,12 @@ export function SecretaryDossier({
   );
 
   if (typeof document !== "undefined")
-    return createPortal(dialog, document.body);
+    return (
+      <>
+        {createPortal(dialog, document.body)}
+        {confirmation}
+      </>
+    );
   return dialog;
 }
 

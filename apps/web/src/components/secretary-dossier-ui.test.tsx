@@ -110,7 +110,7 @@ describe("ficha 360 pronta para edição", () => {
     expect(html).toContain("aria-readonly=\"true\"");
     expect(html).toContain("Ativo");
     expect(html).toContain(">Salvar<");
-    expect(html).toContain("Reabrir ficha");
+    expect(html).toContain("Atualizar ficha");
     expect(html).not.toContain("pastoral-cases");
     expect(html).not.toContain("token");
   });

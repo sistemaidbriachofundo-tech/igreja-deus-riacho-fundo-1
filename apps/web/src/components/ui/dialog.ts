@@ -71,9 +71,14 @@ export function useDialogLifecycle(
     const release = inertOutside(dialog);
     dialog.focus();
 
-    function onKey(event: KeyboardEvent) {
-      if (!dialog) return;
+    const onKey = (event: KeyboardEvent) => {
       const target = event.target;
+      if (
+        target instanceof Node &&
+        target !== document.body &&
+        !dialog.contains(target)
+      )
+        return;
       if (
         event.key === "Escape" &&
         target instanceof HTMLElement &&
@@ -100,7 +105,7 @@ export function useDialogLifecycle(
         return;
       }
       items[action.index]?.focus();
-    }
+    };
 
     document.addEventListener("keydown", onKey, true);
     return () => {

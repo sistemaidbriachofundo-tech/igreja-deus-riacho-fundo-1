@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type {
   ConversionResult,
   DeskReady,
+  FormalMember,
   FormalRole,
   InterestRow,
   MembershipChange,
@@ -22,7 +23,8 @@ import {
   canSearchPersons,
   type PersonOption,
 } from "./PersonPicker";
-import { Modal } from "./ui/Modal";
+import { Alert } from "./ui/Alert";
+import { useActionConfirmation } from "./ui/ActionConfirmation";
 import ui from "./ui/ui.module.css";
 import styles from "./ministry-membership-catalog.module.css";
 
@@ -51,10 +53,7 @@ export function MinistryMembershipCatalog({
   onAdmit,
   onEnd,
 }: Props) {
-  const [removing, setRemoving] = useState<{
-    id: string;
-    displayName: string;
-  } | null>(null);
+  const { confirm, confirmation } = useActionConfirmation();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const members =
@@ -77,6 +76,18 @@ export function MinistryMembershipCatalog({
   );
   const firstRow = visiblePage * pageSize;
 
+  async function requestRemoval(member: FormalMember) {
+    const accepted = await confirm({
+      title: "Retirar integrante da equipe?",
+      subject: member.displayName,
+      description: "O vínculo com este ministério será encerrado e ficará registrado no histórico.",
+      cancel: "Manter na equipe",
+      action: "Retirar da equipe",
+      tone: "danger",
+    });
+    if (accepted) onEnd(member.id);
+  }
+
   return (
     <div className={styles.columns}>
       <section
@@ -92,21 +103,25 @@ export function MinistryMembershipCatalog({
         {schedule ? (
           <p className={styles.schedule}>Encontro habitual: {schedule}</p>
         ) : null}
-        {change ? (
-          <div
-            className={change.applied ? styles.schedule : styles.blocked}
-            role="status"
-          >
-            <strong>
-              {change.applied
-                ? "Alteração registrada"
-                : "Alteração não concluída"}
-            </strong>
-            <p>
-              {humanWriteNotice(change.code, change.applied, change.message)}
-            </p>
+        {change && (
+          <div className={styles.actionFeedback}>
+            <Alert
+              appearance="workspace"
+              tone={change.applied ? "success" : "danger"}
+              title={
+                change.applied
+                  ? "Equipe atualizada"
+                  : "Não foi possível atualizar a equipe"
+              }
+            >
+              {change.applied && change.member
+                ? change.code === "MINISTRY_MEMBERSHIP_ENDED"
+                  ? `A retirada de ${change.member.displayName} foi registrada no histórico.`
+                  : `${change.member.displayName} já aparece na lista de integrantes.`
+                : humanWriteNotice(change.code, change.applied, change.message)}
+            </Alert>
           </div>
-        ) : null}
+        )}
         {canWrite ? (
           <>
             <AdmitForm
@@ -169,9 +184,9 @@ export function MinistryMembershipCatalog({
                         className={styles.endAction}
                         type="button"
                         disabled={pending}
-                        onClick={() => setRemoving(member)}
+                        onClick={() => void requestRemoval(member)}
                       >
-                        {pending ? "Registrando…" : "Retirar da equipe"}
+                        Retirar da equipe
                       </button>
                     )}
                   </div>
@@ -237,59 +252,27 @@ export function MinistryMembershipCatalog({
             ))}
           </div>
         )}
-        {conversion ? (
-          <div
-            className={conversion.created ? styles.schedule : styles.blocked}
-            role="status"
-          >
-            <strong>
-              {conversion.created
-                ? "Integrante registrado"
-                : "Vínculo não criado"}
-            </strong>
-            <p>
+        {conversion && (
+          <div className={styles.actionFeedback}>
+            <Alert
+              appearance="workspace"
+              tone={conversion.created ? "success" : "danger"}
+              title={
+                conversion.created
+                  ? "Integrante registrado"
+                  : "Não foi possível incluir na equipe"
+              }
+            >
               {humanWriteNotice(
                 conversion.code,
                 conversion.created,
                 conversion.message,
               )}
-            </p>
+            </Alert>
           </div>
-        ) : null}
+        )}
       </section>
-      <Modal
-        open={removing !== null}
-        appearance="workspace"
-        title="Retirar pessoa da equipe?"
-        description={
-          removing
-            ? `${removing.displayName} terá o vínculo encerrado. O registro continuará no histórico do ministério.`
-            : undefined
-        }
-        onClose={() => setRemoving(null)}
-      >
-        <div className={styles.confirmActions}>
-          <button
-            type="button"
-            className={ui.workspaceSecondary}
-            onClick={() => setRemoving(null)}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className={`${ui.workspacePrimary} ${styles.dangerAction}`}
-            onClick={() => {
-              if (!removing) return;
-              const id = removing.id;
-              setRemoving(null);
-              onEnd(id);
-            }}
-          >
-            Retirar da equipe
-          </button>
-        </div>
-      </Modal>
+      {confirmation}
     </div>
   );
 }
