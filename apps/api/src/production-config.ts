@@ -37,6 +37,12 @@ export function assertProductionConfiguration(env: NodeJS.ProcessEnv): void {
   if (env.F11_MFA_BLOCKING !== "true") {
     throw new Error("Produção exige MFA bloqueante para papéis privilegiados");
   }
+  if (env.AUTH_STATE_STORE === "memory") {
+    throw new Error("Produção não admite sessão em memória");
+  }
+  if (env.RATE_LIMIT_STORE === "memory") {
+    throw new Error("Produção não admite limite só em memória");
+  }
   if ((env.F11_MFA_ENFORCEMENT ?? "PRIVILEGED").toUpperCase() === "OFF") {
     throw new Error("Produção não admite política MFA desligada");
   }

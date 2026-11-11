@@ -143,15 +143,22 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
   }): Promise<{ challengeId: string }> {
     const challengeId = newPresentedId();
     try {
+      const id = digestPresentedId(challengeId);
+      const purpose = input.purpose === "totp" ? "LOGIN" : "STEP_UP";
       await this.prisma.$executeRaw`
-        INSERT INTO auth_mfa_challenges (
-          id, user_id, purpose, expires_at, attempts, reads, created_at
+        INSERT INTO mfa_challenges (
+          id, user_id, purpose, status, token_hash, challenge_kind,
+          expires_at, attempt_count, max_attempts, reads, created_at
         ) VALUES (
-          ${digestPresentedId(challengeId)},
+          ${id},
           ${input.userId},
+          ${purpose}::"MfaChallengePurpose",
+          'PENDING',
+          ${id},
           ${input.purpose},
           ${new Date(input.expiresAtMs)},
           0,
+          5,
           0,
           ${new Date(this.clock.now())}
         )
@@ -169,23 +176,23 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
     let rows: ChallengeRow[];
     try {
       rows = await this.prisma.$queryRaw<ChallengeRow[]>`
-        SELECT user_id, purpose, expires_at, consumed_at, attempts, reads
-        FROM auth_mfa_challenges
+        SELECT user_id, challenge_kind, expires_at, consumed_at, attempt_count, reads
+        FROM mfa_challenges
         WHERE id = ${digestPresentedId(challengeId)}
       `;
     } catch {
       throw new ServiceUnavailableException("Verificação indisponível");
     }
     const row = rows[0];
-    if (!row || (row.purpose !== "totp" && row.purpose !== "enroll")) {
+    if (!row || (row.challenge_kind !== "totp" && row.challenge_kind !== "enroll")) {
       return null;
     }
     return {
       userId: row.user_id,
-      purpose: row.purpose,
+      purpose: row.challenge_kind,
       expiresAtMs: toMillis(row.expires_at),
       consumedAtMs: row.consumed_at ? toMillis(row.consumed_at) : null,
-      attempts: Number(row.attempts),
+      attempts: Number(row.attempt_count),
       reads: Number(row.reads),
     };
   }
@@ -202,8 +209,9 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
     const burned = attempts >= maxAttempts;
     try {
       await this.prisma.$executeRaw`
-        UPDATE auth_mfa_challenges
-        SET attempts = ${attempts},
+        UPDATE mfa_challenges
+        SET attempt_count = ${attempts},
+            status = ${burned ? "CONSUMED" : "PENDING"}::"MfaChallengeStatus",
             consumed_at = ${burned ? new Date(this.clock.now()) : null}
         WHERE id = ${digestPresentedId(challengeId)}
           AND consumed_at IS NULL
@@ -223,8 +231,9 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
     const burned = reads > maxReads;
     try {
       await this.prisma.$executeRaw`
-        UPDATE auth_mfa_challenges
+        UPDATE mfa_challenges
         SET reads = ${reads},
+            status = ${burned ? "CONSUMED" : "PENDING"}::"MfaChallengeStatus",
             consumed_at = ${burned ? new Date(this.clock.now()) : null}
         WHERE id = ${digestPresentedId(challengeId)}
           AND consumed_at IS NULL
@@ -250,8 +259,9 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
     }
     try {
       const updated = await this.prisma.$executeRaw`
-        UPDATE auth_mfa_challenges
-        SET consumed_at = ${new Date(this.clock.now())}
+        UPDATE mfa_challenges
+        SET status = 'CONSUMED',
+            consumed_at = ${new Date(this.clock.now())}
         WHERE id = ${digestPresentedId(challengeId)}
           AND consumed_at IS NULL
       `;
@@ -267,10 +277,10 @@ export class PrismaMfaChallengeStore implements MfaChallengeStore {
 
 interface ChallengeRow {
   user_id: string;
-  purpose: string;
+  challenge_kind: string;
   expires_at: Date | string;
   consumed_at: Date | string | null;
-  attempts: number;
+  attempt_count: number;
   reads: number;
 }
 

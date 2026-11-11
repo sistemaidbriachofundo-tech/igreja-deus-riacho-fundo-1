@@ -4,44 +4,10 @@ import type { PrismaService } from "../../prisma/prisma.service";
 import { AuthClock } from "./auth-clock";
 
 /**
- * PROPOSTA PARA O INTEGRADOR (#189 / frente E). Esta frente NÃO altera
- * schema.prisma nem cria migration. Persistência durável só liga com
- * AUTH_STATE_STORE=prisma DEPOIS que a migration abaixo existir.
- * Sem a tabela, o adapter falha fechado (503) e não emite JWT.
- *
- * -- reversível: DROP TABLE nas três relações, nesta ordem
- * CREATE TABLE auth_sessions (
- *   id TEXT PRIMARY KEY, -- sha256 hex do sid do JWT, nunca o sid em claro
- *   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- *   family_id TEXT NOT NULL,
- *   authz_version TEXT NOT NULL,
- *   mfa_satisfied BOOLEAN NOT NULL,
- *   expires_at TIMESTAMPTZ NOT NULL,
- *   revoked_at TIMESTAMPTZ,
- *   replaced_by_id TEXT,
- *   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
- * );
- * CREATE INDEX auth_sessions_user_idx ON auth_sessions (user_id);
- * CREATE INDEX auth_sessions_family_idx ON auth_sessions (family_id);
- *
- * CREATE TABLE auth_mfa_challenges (
- *   id TEXT PRIMARY KEY, -- sha256 hex do challenge opaco
- *   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- *   purpose TEXT NOT NULL, -- totp | enroll
- *   expires_at TIMESTAMPTZ NOT NULL,
- *   consumed_at TIMESTAMPTZ,
- *   attempts INTEGER NOT NULL DEFAULT 0,
- *   reads INTEGER NOT NULL DEFAULT 0,
- *   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
- * );
- * CREATE INDEX auth_mfa_challenges_user_idx ON auth_mfa_challenges (user_id);
- *
- * CREATE TABLE auth_attempt_windows (
- *   bucket_key TEXT PRIMARY KEY, -- fingerprint, nunca e-mail ou senha
- *   failures INTEGER NOT NULL,
- *   window_started_at TIMESTAMPTZ NOT NULL,
- *   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
- * );
+ * Persistência na tabela auth_sessions da migração F1.1.
+ * O sid do JWT não é gravado: a chave é o sha256.
+ * authz_version inteiro permanece o contador do schema; o fingerprint
+ * da frente A fica em authz_fingerprint. Sem a tabela, 503 e nenhum JWT.
  */
 
 export interface SessionRecord {
@@ -165,17 +131,25 @@ export class PrismaSessionStore implements SessionStore {
   }): Promise<{ sessionId: string }> {
     const sessionId = newPresentedId();
     try {
+      const now = new Date(this.clock.now());
+      const id = digestPresentedId(sessionId);
       await this.prisma.$executeRaw`
         INSERT INTO auth_sessions (
-          id, user_id, family_id, authz_version, mfa_satisfied, expires_at, created_at
+          id, user_id, family_id, status, authz_version, authz_fingerprint,
+          policy_version, refresh_token_hash, mfa_satisfied, expires_at, created_at, updated_at
         ) VALUES (
-          ${digestPresentedId(sessionId)},
+          ${id},
           ${input.userId},
           ${input.familyId},
+          'ACTIVE',
+          1,
           ${input.authzVersion},
+          1,
+          ${id},
           ${input.mfaSatisfied},
           ${new Date(input.expiresAtMs)},
-          ${new Date(this.clock.now())}
+          ${now},
+          ${now}
         )
       `;
     } catch {
@@ -191,7 +165,7 @@ export class PrismaSessionStore implements SessionStore {
     let rows: SessionRow[];
     try {
       rows = await this.prisma.$queryRaw<SessionRow[]>`
-        SELECT user_id, family_id, authz_version, mfa_satisfied, expires_at, revoked_at, replaced_by_id
+        SELECT user_id, family_id, authz_fingerprint, mfa_satisfied, expires_at, revoked_at, replaced_by_id
         FROM auth_sessions
         WHERE id = ${digestPresentedId(sessionId)}
       `;
@@ -205,7 +179,7 @@ export class PrismaSessionStore implements SessionStore {
     return {
       userId: row.user_id,
       familyId: row.family_id,
-      authzVersion: row.authz_version,
+      authzVersion: row.authz_fingerprint ?? "",
       mfaSatisfied: Boolean(row.mfa_satisfied),
       expiresAtMs: toMillis(row.expires_at),
       revokedAtMs: row.revoked_at ? toMillis(row.revoked_at) : null,
@@ -224,8 +198,10 @@ export class PrismaSessionStore implements SessionStore {
     try {
       await this.prisma.$executeRaw`
         UPDATE auth_sessions
-        SET revoked_at = ${new Date(this.clock.now())},
-            replaced_by_id = ${replaced}
+        SET status = 'REVOKED',
+            revoked_at = ${new Date(this.clock.now())},
+            replaced_by_id = ${replaced},
+            updated_at = ${new Date(this.clock.now())}
         WHERE id = ${digestPresentedId(sessionId)}
           AND revoked_at IS NULL
       `;
@@ -238,7 +214,9 @@ export class PrismaSessionStore implements SessionStore {
     try {
       await this.prisma.$executeRaw`
         UPDATE auth_sessions
-        SET revoked_at = ${new Date(this.clock.now())}
+        SET status = 'REVOKED',
+            revoked_at = ${new Date(this.clock.now())},
+            updated_at = ${new Date(this.clock.now())}
         WHERE user_id = ${userId}
           AND revoked_at IS NULL
       `;
@@ -251,7 +229,9 @@ export class PrismaSessionStore implements SessionStore {
     try {
       await this.prisma.$executeRaw`
         UPDATE auth_sessions
-        SET revoked_at = ${new Date(this.clock.now())}
+        SET status = 'REVOKED',
+            revoked_at = ${new Date(this.clock.now())},
+            updated_at = ${new Date(this.clock.now())}
         WHERE family_id = ${familyId}
           AND revoked_at IS NULL
       `;
@@ -264,7 +244,7 @@ export class PrismaSessionStore implements SessionStore {
 interface SessionRow {
   user_id: string;
   family_id: string;
-  authz_version: string;
+  authz_fingerprint: string | null;
   mfa_satisfied: boolean;
   expires_at: Date | string;
   revoked_at: Date | string | null;

@@ -3,6 +3,8 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { acceptRequestId } from "@idbrf/shared";
 import { AppModule } from "./app.module";
+import { assertDeployedAuthState } from "./auth/session/auth-state.tokens";
+import { assertDeployedRateLimit } from "./common/simple-rate-limit.middleware";
 import { requestContext } from "./platform-security/request-context";
 import { resolveTrustProxyHops } from "./platform-security/trusted-proxy";
 import { assertProductionConfiguration } from "./production-config";
@@ -16,6 +18,8 @@ function headerValue(headers: Record<string, unknown>, name: string): string | u
 
 async function bootstrap() {
   assertProductionConfiguration(process.env);
+  assertDeployedAuthState(process.env);
+  assertDeployedRateLimit(process.env);
   const app = await NestFactory.create(AppModule);
 
   const trustProxyHops = resolveTrustProxyHops(process.env);

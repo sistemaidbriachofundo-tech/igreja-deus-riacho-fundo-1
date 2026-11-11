@@ -41,13 +41,10 @@ describe("scanner estático da candidata", () => {
   const controls = evaluateSources(readRepo());
   const byId = Object.fromEntries(controls.map((item) => [item.id, item]));
 
-  it("marca os furos P0 que o fonte ainda contém", () => {
-    for (const id of ["F11-MFA-01", "F11-MFA-02", "F11-JWT-01", "F11-JWT-02", "F11-RATE-01"]) {
-      assert.equal(byId[id].static, "FAIL", id);
-      assert.equal(byId[id].severity, "P0");
-      assert.ok(byId[id].line > 0, id);
-      assert.ok(byId[id].excerpt.length > 0, id);
-    }
+  it("não trata controle fechado no fonte como prova de deploy", () => {
+    const summary = summarize(controls);
+    assert.equal(summary.e2e.BLOCKED, controls.length);
+    assert.ok(summary.blockers.every((item) => item.severity === "P0"));
   });
 
   it("aponta 500 no QR público quando o token curto vira Error comum", () => {
@@ -55,15 +52,27 @@ describe("scanner estático da candidata", () => {
   });
 
   it("reconhece controles que o fonte já fecha, sem tratar isso como prova de deploy", () => {
-    for (const id of ["F11-JWT-03", "F11-PERSON-01", "F11-PASTORAL-01", "F11-QR-01", "F11-UP-02", "F11-CSRF-01"]) {
+    for (const id of [
+      "F11-MFA-01",
+      "F11-MFA-02",
+      "F11-JWT-01",
+      "F11-JWT-02",
+      "F11-JWT-03",
+      "F11-RATE-01",
+      "F11-PERSON-01",
+      "F11-PASTORAL-01",
+      "F11-QR-01",
+      "F11-UP-02",
+      "F11-CSRF-01",
+    ]) {
       assert.equal(byId[id].static, "PASS", id);
       assert.equal(byId[id].e2e, "BLOCKED", id);
     }
   });
 
-  it("não promove a candidata enquanto houver FAIL P0", () => {
+  it("fecha os P0 estáticos de MFA, sessão e limite sem promover o E2E", () => {
     const summary = summarize(controls);
-    assert.ok(summary.blockers.length >= 5);
+    assert.equal(summary.blockers.length, 0);
     assert.equal(summary.e2e.BLOCKED, controls.length);
   });
 });

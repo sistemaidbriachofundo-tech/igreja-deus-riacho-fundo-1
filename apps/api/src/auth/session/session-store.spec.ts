@@ -56,6 +56,7 @@ describe("session and challenge stores", () => {
       expiresAtMs: Date.now() + 1000,
     });
     expect(calls[0]).toContain("auth_sessions");
+    expect(calls[0]).toContain("authz_fingerprint");
     expect(calls[0]).toContain(digestPresentedId(created.sessionId));
     expect(calls[0]).not.toContain(created.sessionId);
     expect(await store.get(created.sessionId)).toBeNull();

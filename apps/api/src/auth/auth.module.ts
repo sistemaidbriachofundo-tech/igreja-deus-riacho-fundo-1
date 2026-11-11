@@ -29,9 +29,9 @@ import {
 } from "./session/session-store";
 
 /**
- * Store padrão: memória do processo (QA single-node, sem migration).
- * AUTH_STATE_STORE=prisma só depois da migration proposta em session-store.ts
- * (integrador #189). Sem as tabelas o adapter responde 503 e não emite JWT.
+ * Memória só no processo local de teste.
+ * Vercel, produção e AUTH_STATE_STORE=prisma usam Postgres.
+ * Sem as tabelas o adapter responde 503 e não emite JWT.
  */
 @Module({
   controllers: [AuthController, ChurchAccessController],

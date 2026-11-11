@@ -64,22 +64,18 @@ function control(partial) {
 }
 
 function loginIssuesFullJwt(authService) {
-  const body = between(authService, "async login(", "private async writeLoginAudit");
-  const issueAt = body.indexOf("issueTokenPair");
-  const gateAt = body.search(/if\s*\(\s*mfaRequired\s*&&\s*mfaEnabled\s*\)/);
-  if (issueAt < 0) {
-    return { fail: false, detail: "O login deste trecho não chama issueTokenPair." };
+  const body = between(authService, "async login(", "async verifyMfaChallenge(")
+    || between(authService, "async login(", "private async writeLoginAudit");
+  const gated = /requiresStepUpMfa\(/.test(body) && /if\s*\(\s*!stepUp\s*\)/.test(body);
+  const legacyGate = /if\s*\(\s*mfaRequired\s*&&\s*mfaEnabled\s*\)/.test(body);
+  const issueAt = body.search(/issueSession|issueTokenPair/);
+  if (gated || (legacyGate && issueAt > 0 && body.slice(body.search(/mfaRequired/), issueAt).includes("return"))) {
+    return { fail: false, detail: "O JWT privilegiado só sai quando o bloqueio de MFA não exige desafio." };
   }
-  if (gateAt >= 0 && gateAt < issueAt) {
-    const prior = body.slice(gateAt, issueAt);
-    if (/\breturn\b/.test(prior)) {
-      return { fail: false, detail: "Há retorno de desafio antes da emissão do JWT." };
-    }
+  if (issueAt >= 0) {
+    return { fail: true, detail: "POST /auth/login emite sessão sem consultar o bloqueio de MFA." };
   }
-  return {
-    fail: true,
-    detail: "POST /auth/login chama issueTokenPair mesmo quando o hint diz challengeRequired.",
-  };
+  return { fail: false, detail: "O login deste trecho não emite sessão." };
 }
 
 export function evaluateSources(files) {

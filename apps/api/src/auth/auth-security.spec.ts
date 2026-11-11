@@ -153,7 +153,12 @@ describe("F1.1-A segurança de login, MFA e sessão", () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = "unit-test-jwt-secret-32chars-ok!!";
     process.env.NODE_ENV = "test";
+    process.env.F11_MFA_BLOCKING = "true";
     passwordHash = await hashPassword(PASSWORD);
+  });
+
+  afterAll(() => {
+    delete process.env.F11_MFA_BLOCKING;
   });
 
   beforeEach(() => {

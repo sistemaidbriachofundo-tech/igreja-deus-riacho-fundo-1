@@ -27,7 +27,7 @@ Referências oficiais do provedor: [Vercel Blob privado](https://vercel.com/docs
 
 ## Preparação Hostinger — sem implantação
 
-Esta seção prepara a futura VPS. Ela não implanta nada na Hostinger, não altera DNS e não move o site ou a API que hoje estão em GitHub Pages e Vercel. O comando `npm run release:f11-preflight` não abre rede e termina com NO-GO enquanto MFA de login, revogação de sessão no guarda e a QA independente não estiverem fechados.
+Esta seção prepara a futura VPS. Ela não implanta nada na Hostinger, não altera DNS e não move o site ou a API que hoje estão em GitHub Pages e Vercel. O comando `npm run release:f11-preflight` não abre rede e não aplica migração. O status de GO da QA está em `docs/f11-integracao-status.md`.
 
 - Publique a API atrás de um reverse proxy com TLS. O proxy termina HTTPS e encaminha um único salto para o processo Node. Defina `TRUST_PROXY` com esse número de saltos. Sem esse valor, a API de produção não sobe. O limitador usa o IP que o Express calcula depois dessa confiança e ignora um `X-Forwarded-For` forjado pelo cliente.
 - O banco de produção usa usuário de aplicação distinto do usuário de migração, conexão com `sslmode=require` ou `verify-full`, e host/nome conferidos por `PRODUCTION_DATABASE_HOST` e `PRODUCTION_DATABASE_NAME`. A migração F1.1 é aditiva e tem `down.sql`. Ela não foi aplicada em produção nem no Neon de QA. O CI só migra `localhost`.

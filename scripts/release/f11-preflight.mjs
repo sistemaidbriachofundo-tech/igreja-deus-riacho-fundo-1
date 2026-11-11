@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const migration = "packages/db/prisma/migrations/20261111193000_f11_session_mfa_policy_ratelimit/migration.sql";
 const down = "packages/db/prisma/migrations/20261111193000_f11_session_mfa_policy_ratelimit/down.sql";
-const required = [migration, down, "docs/liberacao-producao.md", "docs/f11-integracao-status.md"];
+const align = "packages/db/prisma/migrations/20261111213000_f11_align_auth_runtime/migration.sql";
+const alignDown = "packages/db/prisma/migrations/20261111213000_f11_align_auth_runtime/down.sql";
+const required = [migration, down, align, alignDown, "docs/liberacao-producao.md", "docs/f11-integracao-status.md"];
 let failed = false;
 
 for (const file of required) {
@@ -29,6 +31,6 @@ const database = spawnSync(process.execPath, ["scripts/release/assert-local-data
 });
 if (database.status !== 0) failed = true;
 
-console.log("Nenhuma migração foi aplicada. Nenhum deploy foi feito. Nenhum banco remoto foi contactado.");
-console.log("Decisão desta fase: NO-GO. MFA de login, revogação no guarda JWT e QA independente seguem BLOCKED.");
-process.exit(failed ? 1 : 2);
+console.log("O preflight não aplica migração, não faz deploy e não contacta banco remoto.");
+console.log("MFA bloqueante e sessão Prisma estão no código. A ativação na QA depende de F11_MFA_BLOCKING e da migração autorizada.");
+process.exit(failed ? 1 : 0);

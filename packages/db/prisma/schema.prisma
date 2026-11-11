@@ -1546,6 +1546,9 @@ model AuthSession {
   authzVersion     Int               @map("authz_version")
   policyVersion    Int               @map("policy_version")
   refreshTokenHash String            @unique @map("refresh_token_hash")
+  /// Fingerprint da frente A. O sid em claro não é gravado.
+  authzFingerprint String?           @map("authz_fingerprint")
+  mfaSatisfied     Boolean           @default(false) @map("mfa_satisfied")
   issuedAt         DateTime          @default(now()) @map("issued_at")
   expiresAt        DateTime          @map("expires_at")
   revokedAt        DateTime?         @map("revoked_at")
@@ -1568,11 +1571,14 @@ model MfaChallenge {
   userId       String              @map("user_id")
   purpose      MfaChallengePurpose
   status       MfaChallengeStatus  @default(PENDING)
-  tokenHash    String              @unique @map("token_hash")
-  expiresAt    DateTime            @map("expires_at")
-  consumedAt   DateTime?           @map("consumed_at")
-  attemptCount Int                 @default(0) @map("attempt_count")
-  maxAttempts  Int                 @default(5) @map("max_attempts")
+  tokenHash     String              @unique @map("token_hash")
+  /// totp ou enroll. O enum purpose guarda LOGIN ou STEP_UP.
+  challengeKind String?            @map("challenge_kind")
+  expiresAt     DateTime            @map("expires_at")
+  consumedAt    DateTime?           @map("consumed_at")
+  attemptCount  Int                 @default(0) @map("attempt_count")
+  maxAttempts   Int                 @default(5) @map("max_attempts")
+  reads         Int                 @default(0)
   createdAt    DateTime            @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1611,6 +1617,16 @@ model RateLimitBucket {
   @@unique([keyHash, windowStart])
   @@index([expiresAt])
   @@map("rate_limit_buckets")
+}
+
+/// Falhas de senha e de MFA compartilhadas entre instâncias. A chave já é fingerprint.
+model AuthAttemptWindow {
+  bucketKey       String   @id @map("bucket_key")
+  failures        Int
+  windowStartedAt DateTime @map("window_started_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("auth_attempt_windows")
 }
 
 /// Config OIDC por organização — placeholders; login federado NÃO live neste contrato.

@@ -33,10 +33,23 @@ function isViviPublicChat(req: Request): boolean {
 }
 
 /**
- * Limite em memória por instância e, com RATE_LIMIT_STORE=shared, também no Postgres.
- * Falha do store compartilhado fecha o pedido (429) em vez de liberar a rota.
- * O modo em memória continua o padrão de DEV/HML single-node.
+ * Vercel e produção usam o contador no Postgres.
+ * RATE_LIMIT_STORE=memory é recusado nesses ambientes.
+ * Fora deles, memória continua o padrão de um único processo.
+ * Falha do store compartilhado fecha o pedido (429).
  */
+export function usesSharedRateLimit(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.RATE_LIMIT_STORE === "shared") return true;
+  if (env.RATE_LIMIT_STORE === "memory") return false;
+  return env.VERCEL === "1" || env.IDBRF_RUNTIME_STAGE === "production";
+}
+
+export function assertDeployedRateLimit(env: NodeJS.ProcessEnv = process.env): void {
+  const deployed = env.VERCEL === "1" || env.IDBRF_RUNTIME_STAGE === "production";
+  if (deployed && env.RATE_LIMIT_STORE === "memory") {
+    throw new Error("Limite só em memória é recusado na Vercel e em produção");
+  }
+}
 @Injectable()
 export class SimpleRateLimitMiddleware implements NestMiddleware {
   private readonly buckets = new Map<string, Bucket>();
@@ -104,8 +117,8 @@ export class SimpleRateLimitMiddleware implements NestMiddleware {
   }
 
   use(req: Request, _res: Response, next: NextFunction): void {
-    this.enforceLocal(req);
-    if (process.env.RATE_LIMIT_STORE !== "shared") {
+    if (!usesSharedRateLimit()) {
+      this.enforceLocal(req);
       next();
       return;
     }
