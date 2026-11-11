@@ -159,6 +159,7 @@ export function Ficha360Dialog({
           <div className={s.identityHeader}>
             <PersonPortrait
               name={person?.displayName ?? "Pessoa"}
+              photoUrl={person?.photoUrl}
               size="large"
             />
             <div>
@@ -422,7 +423,7 @@ export function Ficha360Dialog({
                 <div>
                   <dt>Foto para o cadastro e a carteirinha</dt>
                   <dd>
-                    {person.photo?.hasStorageKey
+                    {person.photoUrl ? "Foto cadastrada." : person.photo?.hasStorageKey
                       ? "Foto cadastrada. A imagem não está disponível nesta consulta."
                       : "Sem foto cadastrada."}
                   </dd>

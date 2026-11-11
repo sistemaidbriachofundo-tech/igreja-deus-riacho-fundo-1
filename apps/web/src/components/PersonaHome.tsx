@@ -1,5 +1,6 @@
 "use client";
 
+import { PersonPortrait } from "./PersonPortrait";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
 import { AdministrativeOverview } from "./AdministrativeOverview";
@@ -146,7 +147,7 @@ export type StatusBar = { status: string; count: number };
 export type NamedRow = { id: string; title: string; detail: string; when?: string };
 export type OwnCard =
   | { state: "absent" }
-  | { state: "active"; name: string };
+  | { state: "active" | "revoked"; name: string; photoUrl?: string };
 export type MoneyRow = { id: string; title: string; detail: string; amountCents: number };
 
 const COUNT_KEYS = [
@@ -313,7 +314,8 @@ export function parseOwnCard(value: unknown): OwnCard | null {
   if (row.card === null) return { state: "absent" };
   const card = asRecord(row.card);
   if (!card) return null;
-  return { state: "active", name: text(card.displayName) ?? "Carteirinha ativa" };
+  const photoUrl = text(card.photoUrl);
+  return { state: card.status === "REVOKED" ? "revoked" : "active", name: text(card.displayName) ?? "Membro", ...(photoUrl ? { photoUrl } : {}) };
 }
 
 export function parseAccounts(value: unknown): NamedRow[] | null {
@@ -455,7 +457,7 @@ export function dashboardPaths(roles: readonly string[]): string[] {
   if (staff || leader) paths.push("/ministries", "/events");
   if (isMemberOnly(roles)) paths.push("/rosters/me", "/credentials/me");
   if (treasury) paths.push("/ledger/accounts", "/ledger/entries");
-  if (treasury && roles.includes("PLATFORM_ADMIN")) paths.push("/treasury/position");
+  if (roles.includes("PLATFORM_ADMIN")) paths.push("/treasury/position");
   if (editor && !staff) paths.push("/cms/contents");
   return paths;
 }
@@ -689,7 +691,7 @@ export function PersonaBoard() {
   if (deskKey === "PLATFORM_ADMIN") {
     return <AdministrativeOverview counts={counts} distribution={mesa.bars}
       admissions={mesa.admissions} events={mesa.events}
-      treasuryPosition={treasury ? mesa.treasuryPosition : undefined}
+      treasuryPosition={mesa.treasuryPosition}
       loading={loading} partial={mesa.partial} signedOut={mesa.phase === "signed-out"}
       onRefresh={() => setReload(value => value + 1)} />;
   }
@@ -845,8 +847,8 @@ export function PersonaBoard() {
 
         {memberView && mesa.card && (
           <Panel title="Sua carteirinha" action={<AppNavLink href="/app/membros/carteirinha/">Abrir</AppNavLink>}>
-            {mesa.card.state === "active" ? (
-              <p className={s.cardLine}><span className={s.avatar} aria-hidden="true">{initials(mesa.card.name)}</span><span className={s.rowText}><strong>{mesa.card.name}</strong><small>Carteirinha ativa</small></span></p>
+            {mesa.card.state !== "absent" ? (
+              <p className={s.cardLine}><PersonPortrait name={mesa.card.name} photoUrl={mesa.card.photoUrl} size="small" /><span className={s.rowText}><strong>{mesa.card.name}</strong><small>{mesa.card.state === "active" ? "Carteirinha ativa" : "Carteirinha revogada"}</small></span></p>
             ) : <p className={s.empty}>Ainda não há carteirinha emitida para você.</p>}
           </Panel>
         )}

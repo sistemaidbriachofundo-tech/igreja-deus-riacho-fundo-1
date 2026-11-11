@@ -38,6 +38,7 @@ export type PersonRecord = {
   legalGuardianPersonId: string | null;
   updatedAt?: string;
   photo?: PersonPhoto;
+  photoUrl?: string | null;
   dedupeAlerts?: Array<{ personId: string }>;
 };
 

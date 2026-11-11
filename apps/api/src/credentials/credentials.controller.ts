@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Res } from "@nestjs/common";
+import { Controller, Get, Header, Param, Post, Res } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import type { Response } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -13,6 +13,7 @@ export class CredentialsController {
 
   /** Membro: própria carteirinha ativa. */
   @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
     return this.credentials.getOwn(user);
@@ -84,6 +85,7 @@ export class CredentialsController {
    * Declarado antes de `:credentialId` para o segmento fixo não cair no id.
    */
   @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
   @Get("by-membership/:membershipId")
   byMembership(
     @CurrentUser() user: AuthUser,
@@ -94,6 +96,7 @@ export class CredentialsController {
 
   /** Abre uma carteirinha pelo id. Secretaria no escopo ou o próprio titular. */
   @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
   @Get(":credentialId")
   getOne(
     @CurrentUser() user: AuthUser,
@@ -116,6 +119,7 @@ export class CredentialsController {
   ) {
     const file = await this.credentials.downloadPdf(user, credentialId);
     res.setHeader("Content-Type", file.contentType);
+    res.setHeader("Cache-Control", "private, no-store");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${file.displayName.replace(/"/g, "")}"`,

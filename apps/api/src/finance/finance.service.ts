@@ -24,6 +24,7 @@ import {
   type LedgerAccountTypeCode,
   type LedgerLineInput,
 } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -411,41 +412,74 @@ export class FinanceService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const data =
-        stage.stage === "FIRST"
-          ? {
-              firstApprovedByUserId: actor.userId,
-              firstApprovedAt: new Date(),
-            }
-          : {
-              secondApprovedByUserId: actor.userId,
-              secondApprovedAt: new Date(),
-              status: "APPROVED" as const,
-            };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (stage.stage === "SECOND") await this.assertPendingSettlementFunds(tx, pilot, row);
+        const data =
+          stage.stage === "FIRST"
+            ? {
+                firstApprovedByUserId: actor.userId,
+                firstApprovedAt: new Date(),
+              }
+            : {
+                secondApprovedByUserId: actor.userId,
+                secondApprovedAt: new Date(),
+                status: "APPROVED" as const,
+              };
 
-      const updated = await tx.ledgerEntry.update({
-        where: { id: entryId },
-        data,
-        include: { lines: true },
-      });
+        const updated = await tx.ledgerEntry.update({
+          where: { id: entryId, status: "PENDING_APPROVAL", firstApprovedByUserId: row.firstApprovedByUserId },
+          data,
+          include: { lines: true },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action:
-            stage.stage === "FIRST"
-              ? "ledger.entry.approve.first"
-              : "ledger.entry.approve.second",
-          resourceType: "ledger_entry",
-          resourceId: entryId,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-        },
-      });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action:
+              stage.stage === "FIRST"
+                ? "ledger.entry.approve.first"
+                : "ledger.entry.approve.second",
+            resourceType: "ledger_entry",
+            resourceId: entryId,
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+          },
+        });
 
-      return this.toEntryDto(updated);
+        return this.toEntryDto(updated);
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error.code === "P2025" || error.code === "P2034")) {
+        throw new ConflictException("Outro movimento foi registrado. Atualize o extrato antes de aprovar.");
+      }
+      throw error;
+    }
+  }
+
+  private async assertPendingSettlementFunds(
+    tx: Prisma.TransactionClient,
+    pilot: PilotScope,
+    row: { costCenterId: string | null; lines: Array<{ accountId: string; memo: string | null; side: string; amountCents: number }> },
+  ) {
+    const origin = row.lines.find(line => line.side === "CREDIT" && line.memo === "Tesouraria · baixa da pendência");
+    if (!origin) return;
+    const account = await tx.ledgerAccount.findFirst({
+      where: { id: origin.accountId, ...pilot, type: "ASSET", code: { in: ["1.2.20.01", "1.2.20.02"] } },
+      select: { id: true },
     });
+    if (!account) throw new BadRequestException("Conta de origem inválida para esta baixa.");
+    const totals = await tx.ledgerEntryLine.groupBy({
+      by: ["side"],
+      where: {
+        accountId: origin.accountId,
+        entry: { ...pilot, costCenterId: row.costCenterId, status: { in: ["APPROVED", "REVERSED"] } },
+      },
+      _sum: { amountCents: true },
+    });
+    const balance = totals.reduce((sum, item) =>
+      sum + (item.side === "DEBIT" ? 1 : -1) * (item._sum.amountCents ?? 0), 0);
+    if (origin.amountCents > balance) throw new ConflictException("O valor da baixa ultrapassa o saldo em aberto neste centro de custo.");
   }
 
   async rejectEntry(

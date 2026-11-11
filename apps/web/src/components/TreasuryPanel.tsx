@@ -1,14 +1,15 @@
 "use client";
 
-import { usePersonaAccess } from "./AppShell";
+import { UIIcon, usePersonaAccess } from "./AppShell";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
-import { withBasePath } from "../lib/paths";
+import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
+import { TreasuryOverview } from "./TreasuryOverview";
 import styles from "./treasury-panel.module.css";
 
 /**
@@ -17,7 +18,7 @@ import styles from "./treasury-panel.module.css";
  * Passe `kind: "ready"` somente com o objeto `position` de GET /treasury/position.
  * Em falha use `kind: "error"` — o componente não desenha R$ 0.
  */
-type Tab = "recebido" | "receber" | "compromisso" | "liquidar";
+type Tab = "pix" | "cartao" | "dinheiro" | "deposito" | "liquidacao" | "compromisso" | "pagar";
 
 export type TreasuryPosition = {
   receivedRevenueCents: number;
@@ -30,22 +31,13 @@ export type TreasuryPosition = {
   netRevenueCents: number;
   settledCostCents?: number;
   unclassifiedCents?: number;
+  countedEntryIds?: string[];
 };
 
 export type TreasuryCardState =
   | { kind: "checking" | "disabled" | "signed-out" | "loading" }
   | { kind: "forbidden" | "error"; message: string }
   | { kind: "ready"; position: TreasuryPosition };
-
-type EntryView = {
-  id: string;
-  entryDate: string;
-  description: string;
-  status: string;
-  amountCents: number | null;
-  createdByUserId: string;
-  firstApprovedByUserId: string | null;
-};
 
 type ReconciliationView = {
   id: string;
@@ -54,8 +46,6 @@ type ReconciliationView = {
   periodEnd: string;
   status: string;
 };
-
-type Account = { id: string; code: string; name: string; type: string };
 
 const POSITION_KEYS = [
   "receivedRevenueCents",
@@ -87,6 +77,7 @@ export function readTreasuryPosition(payload: unknown): TreasuryPosition | null 
   if (typeof source.unclassifiedCents === "number" && Number.isInteger(source.unclassifiedCents)) {
     next.unclassifiedCents = source.unclassifiedCents;
   }
+  if (Array.isArray(source.countedEntryIds) && source.countedEntryIds.every(id => typeof id === "string")) next.countedEntryIds = source.countedEntryIds;
   return next;
 }
 
@@ -107,7 +98,7 @@ function statusLabel(status: string): string {
   return status || "Estado não informado";
 }
 
-export function approvalCopy(actorUserId: string | null, entry: EntryView): { text: string; canApprove: boolean } {
+export function approvalCopy(actorUserId: string | null, entry: Pick<EntryView, "status" | "createdByUserId" | "firstApprovedByUserId">): { text: string; canApprove: boolean } {
   if (entry.status !== "PENDING_APPROVAL") return { text: statusLabel(entry.status), canApprove: false };
   if (!actorUserId) return { text: "Aguardando identificar quem aprova.", canApprove: false };
   const stage = nextDualApprovalStage({
@@ -131,9 +122,9 @@ export function approvalCopy(actorUserId: string | null, entry: EntryView): { te
 
 export function TreasuryPositionCards({ state }: { state: TreasuryCardState }) {
   if (state.kind !== "ready") {
-    let message = "Consultando o ledger…";
+    let message = "Consultando lançamentos…";
     if (state.kind === "disabled") message = "A consulta financeira está desligada neste ambiente. Nenhum valor foi exibido.";
-    else if (state.kind === "signed-out") message = "Entre com a conta de tesouraria para consultar a posição. Nenhum valor foi exibido.";
+    else if (state.kind === "signed-out") message = "Entre com um perfil autorizado para consultar a posição. Nenhum valor foi exibido.";
     else if (state.kind === "forbidden") message = "Seu perfil não consulta a tesouraria. Nenhum valor foi exibido.";
     else if (state.kind === "error") message = `${state.message} Nenhum valor foi exibido.`;
     return <p className={styles.unavailable} role="status">{message}</p>;
@@ -190,285 +181,281 @@ export function TreasuryPanel() {
   const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
   const { confirm, confirmation } = useActionConfirmation();
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
-  const [tab, setTab] = useState<Tab>("recebido");
   const [token, setToken] = useState<string | null>(null);
-  const [actorId, setActorId] = useState<string | null>(null);
-  const [cards, setCards] = useState<TreasuryCardState>(enabled ? { kind: "checking" } : { kind: "disabled" });
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountsNote, setAccountsNote] = useState("");
-  const [centers, setCenters] = useState<Array<{ id: string; code: string; name: string }>>([]);
-  const [centerId, setCenterId] = useState("");
-  const [entries, setEntries] = useState<EntryView[] | null>(null);
-  const [entriesNote, setEntriesNote] = useState("");
-  const [reconciliations, setReconciliations] = useState<ReconciliationView[] | null>(null);
-  const [reconciliationNote, setReconciliationNote] = useState("");
+  const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
+  const [failure, setFailure] = useState("");
+  const [center, setCenter] = useState<string | null>(null);
+  const [view, setView] = useState<"visao" | "extrato" | "conciliacao" | "lancar">("visao");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [message, setMessage] = useState("");
+  const [bankFilter, setBankFilter] = useState("");
+  const [channelFilter, setChannelFilter] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [revision, setRevision] = useState(0);
+  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [idempotencyKey, setIdempotencyKey] = useState("");
-  const [entryDate, setEntryDate] = useState("");
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [primary, setPrimary] = useState("");
-  const [secondary, setSecondary] = useState("");
+  const intent = useRef("");
+  const [tab, setTab] = useState<Tab>("pix");
 
   useEffect(() => {
-    if (!enabled) return;
-    const stored = loadStoredToken();
-    setToken(stored);
-    if (!stored) {
-      setCards({ kind: "signed-out" });
-      return;
-    }
-    let cancelled = false;
-    setCards({ kind: "loading" });
-    void loadTreasury(stored, "").then((result) => {
-      if (cancelled) return;
-      setActorId(result.actorId);
-      setCards(result.cards);
-      setAccounts(result.accounts);
-      setAccountsNote(result.accountsNote);
-      setCenters(result.centers);
-      setEntries(result.entries);
-      setEntriesNote(result.entriesNote);
-      setReconciliations(result.reconciliations);
-      setReconciliationNote(result.reconciliationNote);
-    });
-    return () => { cancelled = true; };
+    if (enabled) setToken(loadStoredToken());
   }, [enabled]);
 
-  async function changeCenter(next: string) {
-    if (!token) return;
-    setCenterId(next);
-    setCards({ kind: "loading" });
+  useEffect(() => {
+    if (!enabled || !token) return;
+    let cancelled = false;
+    setData(null);
+    setFailure("");
+    void loadTreasury(token, center ?? "").then(result => {
+      if (cancelled) return;
+      const sample = center === null ? result.centers.find(item => item.code === "QA-TESOURARIA") : undefined;
+      if (sample) {
+        setCenter(sample.id);
+        return;
+      }
+      setData(result);
+    }).catch(error => { if (!cancelled) setFailure(dasError(error)); });
+    return () => { cancelled = true; };
+  }, [enabled, token, center, revision]);
+
+  const cards: TreasuryCardState = data?.cards ?? (
+    !enabled ? { kind: "disabled" } : failure ? { kind: "error", message: failure } : token ? { kind: "loading" } : { kind: "checking" }
+  );
+  const activeCenter = center ?? "";
+  const entries = data?.entries ?? [];
+  const accounts = data?.accounts ?? [];
+  const accountMap = new Map(accounts.map(account => [account.id, account]));
+  const scopeEntries = entries.filter(entry => !activeCenter || entry.costCenterId === activeCenter);
+  const summary = cards.kind === "ready" && cards.position.countedEntryIds && data?.entries && !data.accountsNote
+    ? summarizeTreasury(accounts, entries, cards.position.countedEntryIds, { from, to })
+    : null;
+  const isSample = data?.centers.some(item => item.id === activeCenter && item.code === "QA-TESOURARIA") === true;
+  const validPeriod = !from || !to || from <= to;
+  const rows = scopeEntries.filter(entry => {
+    if (from && entry.entryDate < from) return false;
+    if (to && entry.entryDate > to) return false;
+    if (bankFilter && !entry.lines.some(line => line.accountId === bankFilter)) return false;
+    if (channelFilter && ledgerChannel(entry, accountMap) !== channelFilter) return false;
+    return !query || entry.description.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"));
+  });
+  const reconciliations = data?.reconciliations ?? [];
+
+  function openView(next: typeof view) {
+    setView(next);
+    setPage(1);
+  }
+
+  async function runEntryAction(entry: EntryView, action: "submit" | "approve") {
+    if (!token || busy || !canWrite) return;
+    setBusy(true);
     try {
-      const payload = await apiGet<unknown>(`/treasury/position${next ? `?costCenterId=${encodeURIComponent(next)}` : ""}`, token);
-      const position = readTreasuryPosition(payload);
-      setCards(position
-        ? { kind: "ready", position }
-        : { kind: "error", message: "A API não devolveu a posição completa." });
+      if (!(await confirm({
+        title: action === "submit" ? "Enviar para aprovação?" : "Registrar aprovação?",
+        subject: entry.description,
+        description: action === "submit" ? "Duas pessoas autorizadas precisam aprovar para o movimento entrar nos saldos." : "A aprovação será registrada no histórico deste lançamento.",
+        action: action === "submit" ? "Enviar para aprovação" : "Registrar aprovação",
+      }))) return;
+      await apiPost("/ledger/entries/" + encodeURIComponent(entry.id) + "/" + action, token);
+      setMessage({ text: action === "submit" ? "Lançamento enviado para aprovação." : "Aprovação registrada." });
+      setRevision(value => value + 1);
     } catch (error) {
-      setCards(failureState(error));
+      setMessage({ text: dasError(error), error: true });
+    } finally {
+      setBusy(false);
     }
   }
 
-  const canPost = canWrite && enabled && Boolean(token) && !busy && accounts.length > 1;
-  const visibleEntries = (entries ?? []).filter((entry) => {
-    if (from && entry.entryDate < from) return false;
-    if (to && entry.entryDate > to) return false;
-    return true;
-  });
+  const payables = accounts.filter(account => matches(account, "payable"));
+  const banks = accounts.filter(account => matches(account, "cash"));
+  const expenses = accounts.filter(account => matches(account, "expense"));
+  const channels = treasuryChannels.find(channel => channel.id === tab);
+  const revenue = channels ? accounts.find(account => account.code === channels.revenue && account.type === "REVENUE") : undefined;
+  const waiting = channels && "pending" in channels ? accounts.find(account => account.code === channels.pending && account.type === "ASSET") : undefined;
+  const depositAccount = accounts.find(account => account.code === "1.2.20.02" && account.type === "ASSET");
+  const cardAccount = accounts.find(account => account.code === "1.2.20.01" && account.type === "ASSET");
+  const receiving = tab === "pix" || tab === "cartao" || tab === "dinheiro";
+  const transfer = tab === "deposito" || tab === "liquidacao";
+  const originAccount = tab === "deposito" ? depositAccount : cardAccount;
+  const pendingBalance = tab === "deposito" ? summary?.pending.dinheiro : summary?.pending.cartao;
+  const feeAccount = accounts.find(account => account.code === "5.9.10.01" && account.type === "EXPENSE");
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !canPost) return;
-    const cents = parseAmountCents(amount);
-    if (!cents || description.trim().length < 4 || !primary || !secondary || primary === secondary || idempotencyKey.trim().length < 8) {
-      setMessage("Informe descrição, valor positivo, chave e duas contas diferentes do plano.");
+    if (!token || busy || !canWrite) return;
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const entryDate = str(fields.get("date"));
+    const description = str(fields.get("description"));
+    const amountCents = parseAmountCents(str(fields.get("amount")));
+    const primary = str(fields.get("primary"));
+    const secondary = str(fields.get("secondary"));
+    const feeInput = str(fields.get("fee"));
+    const feeCents = feeInput && !/^0+(?:[,.]0{1,2})?$/.test(feeInput) ? parseAmountCents(feeInput) : 0;
+    if (!amountCents || description.length < 4 || feeCents === null || feeCents >= amountCents) {
+      setMessage({ text: "Confira a descrição, o valor do lançamento e a taxa.", error: true });
       return;
     }
-    const path = tab === "recebido" ? "/treasury/cash-receipts" : tab === "receber" ? "/treasury/receivables" : tab === "compromisso" ? "/treasury/commitments" : "/treasury/settlements";
-    const body = tab === "recebido" || tab === "receber"
-      ? {
-          idempotencyKey: idempotencyKey.trim(),
-          entryDate,
-          description: description.trim(),
-          grossCents: cents,
-          ...(tab === "recebido"
-            ? { cashAccountId: primary, revenueAccountId: secondary }
-            : { receivableAccountId: primary, revenueAccountId: secondary }),
-          ...(centerId ? { costCenterId: centerId } : {}),
-        }
-      : {
-          idempotencyKey: idempotencyKey.trim(),
-          entryDate,
-          description: description.trim(),
-          amountCents: cents,
-          ...(tab === "compromisso"
-            ? { expenseAccountId: primary, payableAccountId: secondary }
-            : { payableAccountId: primary, cashAccountId: secondary }),
-          ...(centerId ? { costCenterId: centerId } : {}),
-        };
+    if (transfer && (!originAccount || pendingBalance === undefined || amountCents > pendingBalance || (feeCents > 0 && !feeAccount))) {
+      setMessage({ text: "Confira a conta de origem e o valor em aberto antes de registrar a baixa.", error: true });
+      return;
+    }
+    if (receiving && !revenue) return;
+    const common = { entryDate, description, ...(activeCenter ? { costCenterId: activeCenter } : {}) };
     setBusy(true);
-    setMessage("");
+    setMessage(null);
     try {
-      const result = await apiPost<{ idempotentReplay?: boolean }>(path, token, body);
-      setMessage(result.idempotentReplay
-        ? "A mesma chave devolveu o lançamento já gravado. Nada foi duplicado."
-        : "Rascunho gravado. Ele só entra na posição depois que duas pessoas diferentes aprovam.");
-      const next = await loadTreasury(token, centerId);
-      setCards(next.cards);
-      setEntries(next.entries);
-      setEntriesNote(next.entriesNote);
+      if (transfer && originAccount) {
+        const lines = [
+          { accountId: primary, side: "DEBIT", amountCents: amountCents - feeCents, memo: "Tesouraria · crédito no banco" },
+          { accountId: originAccount.id, side: "CREDIT", amountCents, memo: "Tesouraria · baixa da pendência" },
+        ];
+        if (feeCents > 0 && feeAccount) lines.push({ accountId: feeAccount.id, side: "DEBIT", amountCents: feeCents, memo: "Taxa de cartão" });
+        await apiPost("/ledger/entries", token, { ...common, lines });
+      } else {
+        if (!intent.current) intent.current = crypto.randomUUID();
+        const base = { ...common, idempotencyKey: intent.current };
+        if (tab === "pix") await apiPost("/treasury/cash-receipts", token, { ...base, cashAccountId: primary, revenueAccountId: revenue?.id, grossCents: amountCents });
+        else if (tab === "cartao" || tab === "dinheiro") await apiPost("/treasury/receivables", token, { ...base, receivableAccountId: waiting?.id, revenueAccountId: revenue?.id, grossCents: amountCents });
+        else if (tab === "compromisso") await apiPost("/treasury/commitments", token, { ...base, expenseAccountId: primary, payableAccountId: secondary, amountCents });
+        else await apiPost("/treasury/settlements", token, { ...base, payableAccountId: primary, cashAccountId: secondary, amountCents });
+      }
+      form.reset();
+      intent.current = "";
+      setMessage({ text: "Rascunho gravado. Use o extrato para enviar à aprovação." });
+      setBankFilter("");
+      setChannelFilter("");
+      setQuery("");
+      setFrom("");
+      setTo("");
+      openView("extrato");
+      setRevision(value => value + 1);
     } catch (error) {
-      setMessage(dasError(error));
+      setMessage({ text: dasError(error), error: true });
     } finally {
       setBusy(false);
     }
   }
 
-  async function approve(entryId: string) {
-    if (!token || busy) return;
-    if (!(await confirm({
-      title: "Registrar aprovação?",
-      subject: visibleEntries.find((entry) => entry.id === entryId)?.description,
-      description: "Sua aprovação será registrada neste lançamento. A posição financeira só considera lançamentos com as duas aprovações.",
-      action: "Registrar aprovação",
-    }))) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      await apiPost(`/ledger/entries/${encodeURIComponent(entryId)}/approve`, token);
-      const next = await loadTreasury(token, centerId);
-      setCards(next.cards);
-      setEntries(next.entries);
-      setEntriesNote(next.entriesNote);
-      setMessage("Aprovação registrada. A posição só muda quando a segunda pessoa conclui.");
-    } catch (error) {
-      setMessage(dasError(error));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const primaryKind = tab === "recebido" ? "cash" : tab === "receber" ? "receivable" : tab === "compromisso" ? "expense" : "payable";
-  const secondaryKind = tab === "compromisso" ? "payable" : tab === "liquidar" ? "cash" : "revenue";
-  const primaryLabel = tab === "recebido" ? "Conta de caixa" : tab === "receber" ? "Conta a receber" : tab === "compromisso" ? "Conta de despesa" : "Conta a pagar";
-  const secondaryLabel = tab === "compromisso" ? "Conta a pagar" : tab === "liquidar" ? "Conta de caixa" : "Conta de receita";
-  const closed = reconciliations?.filter((item) => item.status === "CLOSED") ?? [];
+  const tabConfig = [
+    ["pix", "Entrada Pix"], ["cartao", "Entrada cartão"], ["dinheiro", "Dinheiro de culto"], ["deposito", "Depósito de dinheiro"],
+    ["liquidacao", "Liquidação de cartão"], ["compromisso", "Conta a pagar"], ["pagar", "Pagamento"],
+  ] as const;
+  const disabled = !enabled || !token || busy || cards.kind !== "ready" ||
+    (receiving && (!revenue || (tab !== "pix" && !waiting))) ||
+    (transfer && (!originAccount || pendingBalance === undefined || pendingBalance <= 0));
 
   return (
     <section className={styles.panel} aria-labelledby="treasury-title">
-    {confirmation}
+      {confirmation}
       <header className={styles.header}>
-        <p className={styles.kicker}>Tesouraria · homologação</p>
-        <h1 id="treasury-title">Posição, extrato e conciliação</h1>
-        <p className={styles.lede}>
-          Os saldos aparecem só quando o ledger responde. Uma falha não aparece como saldo zerado.
-          O disponível é o caixa liquidado menos o que ainda está comprometido.
-        </p>
+        <div><p className={styles.kicker}>Finanças da congregação</p><h1 id="treasury-title">Tesouraria</h1><p className={styles.lede}>Saldos por conta, entradas e conferência de depósitos.</p></div>
+        <span className={styles.qaLabel}>Dados de homologação</span>
       </header>
-      <p className={styles.banner} role="status">
-        Ambiente de homologação. Pix, banco e maquininha permanecem bloqueados. Nenhuma movimentação sai da igreja.
-      </p>
-      <TreasuryPositionCards state={cards} />
-      {cards.kind === "ready" && (
-        <p className={styles.note}>
-          {closed.length > 0
-            ? `${closed.length} conciliação(ões) fechada(s). A posição acima continua sendo a leitura atual do ledger, não um saldo de banco.`
-            : "Nenhuma conciliação está fechada. A posição é a leitura do ledger, ainda sem período encerrado."}
-        </p>
-      )}
-
+      <nav className={styles.views} aria-label="Áreas da Tesouraria">
+        <button type="button" aria-current={view === "visao" ? "page" : undefined} onClick={() => openView("visao")}><UIIcon name="grid" size={17} /> Visão geral</button>
+        <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
+        <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
+        {canWrite && <button type="button" aria-current={view === "lancar" ? "page" : undefined} onClick={() => openView("lancar")}><UIIcon name="plus" size={17} /> Lançar</button>}
+      </nav>
       <div className={styles.toolbar}>
         <label>Centro de custo
-          <select value={centerId} onChange={(event) => { void changeCenter(event.target.value); }} disabled={!token || centers.length === 0}>
+          <select value={activeCenter} onChange={event => { setCenter(event.target.value); setBankFilter(""); setPage(1); }} disabled={!data?.centers.length || busy}>
             <option value="">Toda a congregação</option>
-            {centers.map((center) => <option key={center.id} value={center.id}>{center.code} · {center.name}</option>)}
+            {data?.centers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>
-        <label>Extrato de
-          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-        </label>
-        <label>Até
-          <input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} />
-        </label>
+        <label>Movimentos de <input type="date" value={from} max={to || undefined} onChange={event => { setFrom(event.target.value); setPage(1); }} /></label>
+        <label>Até <input type="date" value={to} min={from || undefined} onChange={event => { setTo(event.target.value); setPage(1); }} /></label>
       </div>
-      {accountsNote && <p className={styles.note}>{accountsNote}</p>}
+      {!validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
+      {message && <p className={styles.feedback} data-error={message.error ? "true" : undefined} role={message.error ? "alert" : "status"}>{message.text}</p>}
+      {isSample && view === "visao" && <p className={styles.scopeCaption}>Cenário simulado de novembro de 2026</p>}
+      <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
+        {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
+          <TreasuryOverview position={cards.position} summary={summary}
+            onBank={id => { setBankFilter(id); setChannelFilter(""); setQuery(""); openView("extrato"); }}
+            onDeposits={() => { setBankFilter(""); setChannelFilter("dinheiro"); setQuery(""); openView("extrato"); }}
+            onReconciliation={() => openView("conciliacao")} />
+        ) : <TreasuryPositionCards state={cards} />)}
 
-      <section className={styles.card} aria-label="Extrato">
-        <h2>Extrato</h2>
-        {entries === null && <p className={styles.note}>{entriesNote || "O extrato ainda não foi consultado."}</p>}
-        {entries && entriesNote && <p className={styles.note}>{entriesNote}</p>}
-        {entries && !entriesNote && visibleEntries.length === 0 && <p className={styles.note}>Nenhum lançamento neste período.</p>}
-        {entries && !entriesNote && visibleEntries.map((entry) => {
-          const approval = approvalCopy(actorId, entry);
-          return (
-            <article key={entry.id} className={styles.row}>
-              <div>
-                <strong>{entry.description || "Lançamento sem descrição"}</strong>
-                <small>{entry.entryDate || "Data não informada"} · {entry.amountCents === null ? "Valor não informado" : formatBRL(entry.amountCents)}</small>
-                <small>{approval.text}</small>
+        {view === "extrato" && <section className={styles.card} aria-label="Extrato e aprovações">
+          <h2>Extrato e aprovações</h2>
+          <div className={styles.toolbar}>
+            <label>Buscar movimento<input type="search" value={query} placeholder="Descrição" onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+            <label>Conta<select value={bankFilter} onChange={event => { setBankFilter(event.target.value); setPage(1); }}><option value="">Todas</option>{banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+            <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
+          </div>
+          {!data && <TreasuryPositionCards state={cards} />}
+          {data?.entriesNote && <p role="status">{data.entriesNote}</p>}
+          {data?.entries && rows.length === 0 && <p>Nenhum movimento com estes filtros.</p>}
+          {rows.slice((page - 1) * 15, page * 15).map(entry => {
+            const approval = approvalCopy(data?.actorId ?? null, entry);
+            const ledgerType = ledgerChannel(entry, accountMap);
+            return <article key={entry.id} className={styles.movement}>
+              <div className={styles.movementInfo}>
+                <span className={styles.movementIcon}><UIIcon name={ledgerType === "movimentacao" ? "wallet" : "activity"} size={17} /></span>
+                <div><strong>{entry.description}</strong><small>{displayDate(entry.entryDate)} · {entry.reconciliationId ? "Conciliado" : statusLabel(entry.status)}</small></div>
               </div>
-              {canWrite && approval.canApprove && (
-                <button type="button" disabled={busy} onClick={() => { void approve(entry.id); }}>Registrar aprovação</button>
-              )}
-            </article>
-          );
-        })}
+              <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
+              <details className={styles.movementDetails}><summary>Detalhes</summary>
+                {entry.lines.map((line, index) => <p key={index}>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"} · {formatBRL(line.cents)}</p>)}
+                {canWrite && entry.status === "PENDING_APPROVAL" && <small>{approval.text}</small>}
+              </details>
+              {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
+              {canWrite && approval.canApprove && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
+            </article>;
+          })}
+          {rows.length > 15 && <div className={styles.pagination}>
+            <button type="button" disabled={page === 1} onClick={() => setPage(value => value - 1)}>Anterior</button><span>Página {page} de {Math.ceil(rows.length / 15)}</span>
+            <button type="button" disabled={page * 15 >= rows.length} onClick={() => setPage(value => value + 1)}>Próxima</button>
+          </div>}
+        </section>}
+
+        {view === "conciliacao" && <section className={styles.card} aria-label="Conciliações">
+          <h2>Conciliações</h2>
+          {!data && <TreasuryPositionCards state={cards} />}
+          {data?.reconciliationNote && <p role="status">{data.reconciliationNote}</p>}
+          {data?.reconciliations && !reconciliations.length && <p>Nenhuma conciliação registrada.</p>}
+          {reconciliations.map(item => <article key={item.id} className={styles.row}>
+            <div><strong>{item.title || "Conciliação"}</strong><small>{displayDate(item.periodStart)} a {displayDate(item.periodEnd)}</small></div>
+            <span className={styles.reconcileState} data-closed={item.status === "CLOSED"}>{item.status === "CLOSED" ? "Fechada" : "Em conferência"}</span>
+          </article>)}
+        </section>}
+
+        {view === "lancar" && canWrite && <section className={styles.card} aria-label="Registrar lançamento">
+          <h2>Novo lançamento</h2>
+          <div className={styles.tabs} aria-label="Tipo de movimento">
+            {tabConfig.map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} disabled={busy} onClick={() => { setTab(id); intent.current = ""; }}>{label}</button>)}
+          </div>
+          {transfer && pendingBalance !== undefined && <p className={styles.note}>Valor em aberto para baixa: <strong>{formatBRL(pendingBalance)}</strong></p>}
+          <form key={tab} className={styles.form} onSubmit={onSubmit}>
+            <label>Data <input type="date" name="date" required /></label>
+            <label>Valor (R$) <input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
+            <label className={styles.wide}>Descrição ou referência do comprovante <input name="description" minLength={4} maxLength={180} required /></label>
+            {tab === "pix" || transfer ? <AccountSelect label="Conta bancária" name="primary" accounts={banks} /> : null}
+            {tab === "compromisso" && <AccountSelect label="Categoria da despesa" name="primary" accounts={expenses} />}
+            {tab === "pagar" && <AccountSelect label="Conta a pagar" name="primary" accounts={payables} />}
+            {tab === "compromisso" && <AccountSelect label="Conta a pagar" name="secondary" accounts={payables} />}
+            {tab === "pagar" && <AccountSelect label="Conta bancária" name="secondary" accounts={banks} />}
+            {tab === "liquidacao" && <label>Taxa do cartão (R$) <input name="fee" inputMode="decimal" placeholder="0,00" /></label>}
+            <button className={styles.wide} type="submit" disabled={disabled}>{busy ? "Salvando…" : "Gravar rascunho"}</button>
+          </form>
+        </section>}
       </section>
-
-      <section className={styles.card} aria-label="Conciliações">
-        <h2>Conciliações</h2>
-        {reconciliations === null && <p className={styles.note}>{reconciliationNote || "As conciliações ainda não foram consultadas."}</p>}
-        {reconciliations && reconciliationNote && <p className={styles.note}>{reconciliationNote}</p>}
-        {reconciliations && !reconciliationNote && reconciliations.length === 0 && <p className={styles.note}>O ledger não devolveu conciliações.</p>}
-        {reconciliations && !reconciliationNote && reconciliations.map((item) => (
-          <article key={item.id} className={styles.row}>
-            <div>
-              <strong>{item.title || "Conciliação"}</strong>
-              <small>{item.periodStart} a {item.periodEnd}</small>
-              <small>{item.status === "CLOSED" ? "Período fechado" : "Período ainda aberto"}</small>
-            </div>
-          </article>
-        ))}
-      </section>
-
-      {canWrite && <>
-      <div className={styles.tabs} role="tablist" aria-label="Tipo de lançamento">
-        {([
-          ["recebido", "Receita recebida"],
-          ["receber", "Reconhecer recebível"],
-          ["compromisso", "Comprometer despesa"],
-          ["liquidar", "Liquidar compromisso"],
-        ] as const).map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{label}</button>
-        ))}
-      </div>
-
-      <form className={`${styles.card} ${styles.form}`} onSubmit={onSubmit}>
-        <p className={`${styles.note} ${styles.wide}`}>
-          O lançamento nasce como rascunho. Quem cria não aprova a própria peça, e a segunda aprovação é de outra pessoa.
-          A mesma chave não cria outro lançamento.
-          {!enabled && " A gravação fica desligada enquanto a homologação da interface não está habilitada."}
-          {enabled && !token && cards.kind !== "checking" && cards.kind !== "loading" && " Entre para consultar a API. Nenhuma conta é inventada aqui."}
-        </p>
-        <label>Chave de idempotência
-          <input value={idempotencyKey} onChange={(event) => setIdempotencyKey(event.target.value)} minLength={8} maxLength={80} required />
-        </label>
-        <label>Data
-          <input type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} required />
-        </label>
-        <label className={styles.wide}>Descrição
-          <input value={description} onChange={(event) => setDescription(event.target.value)} minLength={4} maxLength={180} required />
-        </label>
-        <label>Valor em reais
-          <input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="100,00" required />
-        </label>
-        <label>{primaryLabel}
-          <select value={primary} onChange={(event) => setPrimary(event.target.value)} required>
-            <option value="">Selecione uma conta da API</option>
-            {accounts.filter((account) => matches(account, primaryKind)).map((account) => (
-              <option key={account.id} value={account.id}>{account.code} · {account.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>{secondaryLabel}
-          <select value={secondary} onChange={(event) => setSecondary(event.target.value)} required>
-            <option value="">Selecione uma conta da API</option>
-            {accounts.filter((account) => matches(account, secondaryKind)).map((account) => (
-              <option key={account.id} value={account.id}>{account.code} · {account.name}</option>
-            ))}
-          </select>
-        </label>
-        <button className={styles.wide} type="submit" disabled={!canPost}>Gravar rascunho</button>
-        {message && <p className={`${styles.status} ${styles.wide}`} role="status">{message}</p>}
-      </form>
-      </>}
-      <p className={styles.note}><a href={withBasePath("/app/relatorios/")}>Abrir relatórios</a></p>
     </section>
   );
+}
+
+function AccountSelect({ label, name, accounts }: { label: string; name: string; accounts: Account[] }) {
+  return <label>{label}<select name={name} required defaultValue=""><option value="">Selecione</option>
+    {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+  </select></label>;
+}
+
+function displayDate(value: string) {
+  const iso = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.split("-").reverse().join("/") : "Data não informada";
 }
 
 function failureState(error: unknown): TreasuryCardState {
@@ -542,6 +529,15 @@ function readEntries(payload: unknown): EntryView[] | null {
       amountCents: typeof amount === "number" ? amount : null,
       createdByUserId: str(row.createdByUserId),
       firstApprovedByUserId: str(row.firstApprovedByUserId) || null,
+      costCenterId: str(row.costCenterId) || null,
+      reconciliationId: str(row.reconciliationId) || null,
+      lines: Array.isArray(row.lines) ? row.lines.flatMap(raw => {
+        if (!raw || typeof raw !== "object") return [];
+        const line = raw as DasRecord;
+        if (!str(line.accountId) || (line.side !== "DEBIT" && line.side !== "CREDIT") ||
+            typeof line.amountCents !== "number" || !Number.isSafeInteger(line.amountCents) || line.amountCents <= 0) return [];
+        return [{ accountId: str(line.accountId), side: line.side, cents: line.amountCents }];
+      }) : [],
     });
   }
   return entries;

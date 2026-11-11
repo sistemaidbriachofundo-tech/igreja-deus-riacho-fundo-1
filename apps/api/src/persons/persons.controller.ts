@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Patch, Post, Query } from "@nestjs/common";
 import { ROLE_CODES, type PatchPersonRequest } from "@idbrf/shared";
 import {
   IsBoolean,
@@ -126,6 +126,7 @@ export class PersonsController {
     ROLE_CODES.PLATFORM_ADMIN,
     ROLE_CODES.MEMBRO,
   )
+  @Header("Cache-Control", "private, no-store")
   @Get(":personId/dossier")
   dossier(@CurrentUser() user: AuthUser, @Param("personId") personId: string) {
     return this.persons.getDossier(user, personId);
