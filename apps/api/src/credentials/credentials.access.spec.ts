@@ -34,7 +34,7 @@ describe("CredentialsController acesso", () => {
     expect(Reflect.getMetadata(ROLES_KEY, proto.issue)).not.toContain(ROLE_CODES.MEMBRO);
   });
 
-  it("sessão anônima recebe 401 antes de abrir a carteirinha", () => {
+  it("sessão anônima recebe 401 antes de abrir a carteirinha", async () => {
     const guard = new JwtAuthGuard(
       { getAllAndOverride: () => false } as never,
       { verifyAccessToken: jest.fn() } as never,
@@ -44,10 +44,10 @@ describe("CredentialsController acesso", () => {
       getClass: () => CredentialsController,
       switchToHttp: () => ({ getRequest: () => ({ headers: {} }) }),
     };
-    expect(() => guard.canActivate(context as never)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context as never)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it("Bearer inválido também é 401", () => {
+  it("Bearer inválido também é 401", async () => {
     const guard = new JwtAuthGuard(
       { getAllAndOverride: () => false } as never,
       {
@@ -63,6 +63,6 @@ describe("CredentialsController acesso", () => {
         getRequest: () => ({ headers: { authorization: "Bearer nao-e-jwt" } }),
       }),
     };
-    expect(() => guard.canActivate(context as never)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context as never)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

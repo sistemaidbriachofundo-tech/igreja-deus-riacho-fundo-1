@@ -4,6 +4,7 @@ import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { hashPassword } from "./auth.service";
+import { assertPasswordPolicy } from "./password-policy";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { Roles } from "./decorators/roles.decorator";
 import type { AuthUser } from "./types/auth-user";
@@ -105,9 +106,7 @@ export class ChurchAccessController {
     if (isLeader && !ministryId) throw new BadRequestException("Selecione o ministério que a pessoa lidera.");
 
     const email = input.email.trim().toLowerCase();
-    if (!input.password.trim() || input.password.length < 14 || input.password.toLowerCase().includes(email)) {
-      throw new BadRequestException("Crie uma senha de pelo menos 14 caracteres, diferente do e-mail.");
-    }
+    assertPasswordPolicy(input.password, email);
     const passwordHash = await hashPassword(input.password);
     try {
       return await this.prisma.$transaction(async tx => {
