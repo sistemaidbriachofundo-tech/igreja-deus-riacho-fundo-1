@@ -26,6 +26,7 @@ export type AppNavKey =
   | "site"
   | "operacao"
   | "tesouraria"
+  | "acessos"
   | "ministerios"
   | "escalas"
   | "atmosfera"
@@ -209,9 +210,21 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     short: "Caixa",
     icon: "shield",
     hint: "Contas e lançamentos",
-    ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Somente o papel Tesouraria." },
-    roles: ["TESOURARIA"],
+    ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Saldos, extrato e conciliações." },
+    roles: ["TESOURARIA", "PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/ledger/accounts", source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("accounts")' },
+    surface: "admin",
+  },
+  {
+    key: "acessos",
+    href: "/app/acessos/",
+    label: "Acessos",
+    short: "Acessos",
+    icon: "shield",
+    hint: "Contas e perfis",
+    ribbon: { code: "Acessos", title: "Acessos da congregação.", detail: "Contas e perfis atribuídos às pessoas." },
+    roles: ["PLATFORM_ADMIN"],
+    probe: { method: "GET", path: "/admin/access", source: "apps/api/src/auth/church-access.controller.ts", marker: "@Get()" },
     surface: "admin",
   },
   {

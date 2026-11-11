@@ -1,0 +1,17 @@
+.editor { display: grid; justify-items: start; gap: 12px; min-width: 0; width: 100%; }
+.editor > button { display: inline-flex; align-items: center; gap: 8px; }
+.form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; width: 100%; }
+.form label { display: grid; gap: 5px; min-width: 0; flex: 1 1 165px; font-size: 13px; font-weight: 650; }
+.form :is(input, select) { min-width: 0; width: 100%; padding: 9px 10px; min-height: 44px; border: 1px solid #b9cabe; border-radius: 8px; color: #162c23; background: white; }
+.position { width: 100%; padding: 14px; border: 1px solid #cbdad0; border-radius: 10px; background: #f6faf6; }
+.position h4 { margin: 0 0 7px; font-size: 15px; }
+.position details { margin-block: 8px; }
+.position summary { cursor: pointer; padding-block: 7px; font-size: 13px; }
+.position .form { margin-top: 8px; }
+.person { display: grid; gap: 8px; padding-block: 8px; border-top: 1px solid #dce6de; }
+.person small { display: block; margin-top: 3px; color: #536b60; }
+.error { color: #8b2929; }
+@media (max-width: 560px) {
+  .form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
+  .form button { justify-self: start; min-height: 44px; }
+}

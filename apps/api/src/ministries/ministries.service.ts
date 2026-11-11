@@ -272,6 +272,57 @@ export class MinistriesService {
     });
   }
 
+  async editRoster(actor: AuthUser, rosterId: string, input: { title: string; serviceAt: string }) {
+    const pilot = await this.pilot.getPilotChurch();
+    const roster = await this.requireRoster(rosterId, pilot);
+    await this.assertRosterScope(actor, roster, pilot);
+    this.assertRosterDraft(roster);
+    const title = input.title.trim();
+    const serviceAt = new Date(input.serviceAt);
+    if (!title || !Number.isFinite(serviceAt.getTime())) throw new BadRequestException("Informe título e horário válidos.");
+
+    return this.prisma.$transaction(async tx => {
+      if (serviceAt.getTime() !== roster.serviceAt.getTime()) {
+        const assignments = await tx.rosterAssignment.count({
+          where: { slot: { rosterId }, status: { in: ["PENDING", "CONFIRMED"] } },
+        });
+        if (assignments > 0) throw new ConflictException("O horário fica fixo após a primeira pessoa ser escalada.");
+      }
+      const result = await tx.roster.updateMany({
+        where: { id: rosterId, status: "DRAFT", updatedAt: roster.updatedAt },
+        data: { title, serviceAt },
+      });
+      if (result.count !== 1) throw new ConflictException("A escala mudou. Abra novamente para editar.");
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "roster.update", resourceType: "roster", resourceId: rosterId,
+        organizationId: pilot.organizationId, churchId: pilot.churchId,
+      } });
+      return this.toRosterDto(await tx.roster.findUniqueOrThrow({ where: { id: rosterId } }));
+    }, { isolationLevel: "Serializable" });
+  }
+
+  async editRosterSlot(actor: AuthUser, rosterId: string, slotId: string, label: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const roster = await this.requireRoster(rosterId, pilot);
+    await this.assertRosterScope(actor, roster, pilot);
+    this.assertRosterDraft(roster);
+    const roleLabel = label.trim();
+    if (!roleLabel) throw new BadRequestException("Informe o nome da posição.");
+
+    return this.prisma.$transaction(async tx => {
+      const result = await tx.rosterSlot.updateMany({
+        where: { id: slotId, rosterId, roster: { status: "DRAFT" } },
+        data: { roleLabel },
+      });
+      if (result.count !== 1) throw new NotFoundException("Posição não encontrada em uma escala editável.");
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "roster.slot.update", resourceType: "roster_slot", resourceId: slotId,
+        organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { rosterId },
+      } });
+      return this.toSlotDto(await tx.rosterSlot.findUniqueOrThrow({ where: { id: slotId } }));
+    }, { isolationLevel: "Serializable" });
+  }
+
   async listRosters(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);

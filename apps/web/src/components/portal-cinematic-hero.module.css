@@ -119,3 +119,12 @@
   .photo { height: clamp(225px, 72vw, 365px); }
 }
 @media (prefers-reduced-motion: reduce) { .actions a { transition: none; } }
+
+.photo[data-facade="true"] {
+  height: auto;
+  aspect-ratio: 1.5;
+  border-radius: 16px 16px 54px 16px;
+}
+.photo[data-facade="true"] img { display: block; transform: none; object-position: 53% center; }
+.photo[data-facade="true"]::after { background: linear-gradient(0deg, #0a1e172e, transparent 40%); }
+.window:has([data-facade="true"])::before, .window:has([data-facade="true"])::after { border-radius: 24px 24px 65px 24px; }

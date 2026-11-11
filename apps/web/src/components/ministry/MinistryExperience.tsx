@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
+import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
 import { withBasePath } from "../../lib/paths";
 import type {
   ConversionResult,
@@ -32,6 +33,10 @@ import { PersonPortrait } from "../PersonPortrait";
 import { PageHeader } from "../ui/PageHeader";
 import ui from "../ui/ui.module.css";
 import styles from "./ministry-home.module.css";
+
+const ministryTabIcons = {
+  visao: "home", integrantes: "people", escalas: "calendar", atividades: "activity", recursos: "layers",
+} as const;
 
 type Props = {
   token?: string | null;
@@ -123,6 +128,7 @@ function ReadyExperience({
   onConvert,
   onAdmit,
   onEnd,
+  onRefresh,
 }: Props & { desk: DeskReady }) {
   const title = ministryPanelTitle(desk.ministry);
   const count =
@@ -196,7 +202,8 @@ function ReadyExperience({
                 tabIndex={selected ? 0 : -1}
                 onClick={() => onTab(item.id)}
               >
-                {item.label}
+                <span className={styles.tabIcon}><UIIcon name={ministryTabIcons[item.id]} size={18} /></span>
+                <span>{item.label}</span>
               </button>
             );
           })}
@@ -307,6 +314,13 @@ function ReadyExperience({
               escalaId={escalaId}
               shortcut={shortcut}
               onOpen={onOpenEscala}
+              actions={token ? {
+                token,
+                ministryId: desk.ministry.id,
+                members: desk.membership.kind === "ready" ? activeFormalMembers(desk.membership.members) : [],
+                onRefresh,
+                onOpen: onOpenEscala,
+              } : undefined}
             />
           ) : null}
 
@@ -382,12 +396,14 @@ function EscalaList({
   escalaId,
   shortcut,
   onOpen,
+  actions,
 }: {
   ministryId: string;
   panel: EscalaPanel;
   escalaId?: string;
   shortcut: { href: string; label: string } | null;
   onOpen: (escalaId?: string) => void;
+  actions?: RosterActionsProps;
 }) {
   if (
     panel.kind === "hidden" ||
@@ -404,6 +420,7 @@ function EscalaList({
   }
   return (
     <div className={styles.scheduleList}>
+      {actions && <RosterEditor {...actions} />}
       {shortcut && (
         <div className={styles.shortcuts}>
           <a
@@ -455,8 +472,9 @@ function EscalaList({
               </a>
               {expanded && (
                 <div className={styles.escalaDetails} id={detailId}>
-                  <h3>Funções na escala</h3>
-                  {escala.functions.length ? (
+                  {actions && <RosterActions {...actions} roster={escala} />}
+                  {(!actions || !escala.positions?.length) && <h3>Funções na escala</h3>}
+                  {(!actions || !escala.positions?.length) && (escala.functions.length ? (
                     <ul>
                       {escala.functions.map((name) => (
                         <li key={name}>{name}</li>
@@ -464,7 +482,7 @@ function EscalaList({
                     </ul>
                   ) : (
                     <p>Funções ainda não definidas.</p>
-                  )}
+                  ))}
                 </div>
               )}
             </article>

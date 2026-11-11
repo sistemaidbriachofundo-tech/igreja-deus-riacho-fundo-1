@@ -25,14 +25,13 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(html).not.toContain("Culto de Celebração");
   });
 
-  it("exibe quatro imagens ilustrativas com alternativas descritivas e aviso editorial", () => {
+  it("exibe as oito fotos novas com descrições acessíveis", () => {
     const html = renderToStaticMarkup(<PortalFaithGallery />);
     expect(html).toContain("A fé tem muitas formas");
     expect(html).toContain('id="galeria"');
-    expect(html.match(/<img /g)).toHaveLength(4);
-    for (const image of ["galeria-louvor.webp", "galeria-juventude.webp", "galeria-oracao.webp", "galeria-palavra.webp"]) expect(html).toContain(image);
-    for (const name of ["Louvor", "Juventude", "Oração", "Palavra"]) expect(html).toContain(name);
-    expect(html).toContain("Imagens ilustrativas");
+    expect(html.match(/<img /g)).toHaveLength(8);
+    for (const image of ["palavra", "adoracao", "guitarra", "intercessao", "templo", "expressao", "louvor", "ceia"]) expect(html).toContain("/images/riacho/" + image + ".webp");
+    expect(html).toContain('alt="Bandejas com os elementos da Santa Ceia."');
     expect(html).not.toContain("evento confirmado em 2026");
   });
 

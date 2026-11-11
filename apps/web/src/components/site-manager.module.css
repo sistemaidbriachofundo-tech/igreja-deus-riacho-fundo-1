@@ -102,3 +102,10 @@
 @media(max-width:930px){.columns{grid-template-columns:1fr}.controls{max-height:unset}.preview{order:2}.previewCanvas{max-width:calc(100% - 30px)}.hero{min-height:0}}
 @media(max-width:600px){.hero{flex-direction:column;align-items:flex-start}.statusPill{font-size:10px}.controls{padding:16px}.actionbar{padding:12px}.actions{gap:6px}.actions button{padding:10px}.tabs{gap:0}.tab,.activeTab{padding:10px 7px}.previewHead{flex-direction:column;align-items:stretch}.asset img{height:105px}.sections li{align-items:flex-start;flex-direction:column}.sections li>div{width:100%;justify-content:flex-end}}
 @media(prefers-reduced-motion:reduce){.previewCanvas{transition:none}}
+
+.currentPhoto {
+  width: min(100%, 250px);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+}

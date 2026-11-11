@@ -11,6 +11,8 @@ import {
   BUDGET_STATUSES,
   LEDGER_ACCOUNT_TYPES,
   canAccessFinance,
+  hasAccess,
+  ROLE_CODES,
   checkBalancedLines,
   isValidCompetence,
   nextDualApprovalStage,
@@ -55,7 +57,7 @@ export class FinanceService {
   // —— Plano de contas ——
 
   async listAccounts(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const accounts = await this.prisma.ledgerAccount.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -211,7 +213,7 @@ export class FinanceService {
   // —— Lançamentos ——
 
   async listEntries(actor: AuthUser, status?: string) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.ledgerEntry.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -711,7 +713,7 @@ export class FinanceService {
   // —— Conciliação ——
 
   async listReconciliations(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.reconciliation.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -1180,7 +1182,7 @@ export class FinanceService {
   }
 
   async listCostCenters(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.costCenter.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -1696,14 +1698,11 @@ export class FinanceService {
 
   // —— helpers ——
 
-  private async requireFinance(actor: AuthUser): Promise<PilotScope> {
+  private async requireFinance(actor: AuthUser, action: "read" | "write" = "write"): Promise<PilotScope> {
     const pilot = await this.pilot.getPilotChurch();
-    if (
-      !canAccessFinance(actor.grants, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      })
-    ) {
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const adminRead = action === "read" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
+    if (!adminRead && !canAccessFinance(actor.grants, scope)) {
       throw new ForbiddenException(
         "Sem permissão de tesouraria nesta congregação",
       );

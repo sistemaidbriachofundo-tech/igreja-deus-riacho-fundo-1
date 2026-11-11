@@ -9,8 +9,8 @@ import { PageHeader } from "./ui/PageHeader";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
 import { ApiRequestError, apiLogin, clearToken, getApiBaseUrl, isInvalidSession, loadStoredToken, storeToken } from "../lib/api";
 import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
-import { defaultSiteLayout, parseSiteLayout, sectionNames, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
-import { withBasePath } from "../lib/paths";
+import { defaultSiteLayout, parseSiteLayout, resolveSitePhoto, sectionNames, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
+import { SITE_IDENTITY_PHOTO } from "@idbrf/shared";
 import s from "./site-manager.module.css";
 
 type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi";
@@ -21,7 +21,7 @@ const tabs: {key:Tab;label:string}[] = [
   {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},
   {key:"vivi",label:"Riachinho"},
 ];
-const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
+const imageUrl=resolveSitePhoto;
 
 function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"mobile"}){
   return <div className={s.previewCanvas} data-device={device} data-appearance={layout.appearance}>
@@ -31,7 +31,11 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
       <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
       <div><small>IGREJA DE DEUS · RIACHO FUNDO I</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2><p>{layout.hero.description}</p><span>Quero visitar ↗</span></div>
     </div>
-    {layout.sections.filter(key=>!layout.hidden.includes(key)).map(key=>key==="galeria"?<div className={s.previewGallery} key={key}>
+    {layout.sections.filter(key=>!layout.hidden.includes(key)).map(key=>key==="essencia"?<div className={s.previewGallery} key={key}>
+      <h3>Quem somos</h3>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageUrl((layout.identity ?? SITE_IDENTITY_PHOTO).imageUrl)} alt={(layout.identity ?? SITE_IDENTITY_PHOTO).alt} width={120} />
+    </div>:key==="galeria"?<div className={s.previewGallery} key={key}>
       <h3>{layout.gallery.title} <em>{layout.gallery.accent}</em></h3><p>{layout.gallery.description}</p>
       <div>{layout.gallery.items.map((item,index)=><figure key={index}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -77,7 +81,7 @@ export function SiteManager() {
   const [publishedAt,setPublishedAt]=useState<string|null>(null);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [dirty,setDirty]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
-  const [imageSlot,setImageSlot]=useState<"hero"|0|1|2|3>("hero");
+  const [imageSlot,setImageSlot]=useState<"hero"|"identity"|number>("hero");
 
   const configured=Boolean(process.env.NEXT_PUBLIC_API_URL);
   const refresh=useCallback(async(t:string)=>{
@@ -118,6 +122,7 @@ export function SiteManager() {
   function setPhoto(value:string){
     if(!validSiteImage(value)){setError("Escolha uma foto da biblioteca ou uma imagem enviada ao armazenamento da igreja.");return;}
     if(imageSlot==="hero")setHero("imageUrl",value);
+    else if(imageSlot==="identity")update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),imageUrl:value}});
     else {
       const items=layout.gallery.items.map((item,i)=>i===imageSlot?{...item,imageUrl:value}:item);
       update({...layout,gallery:{...layout.gallery,items}});
@@ -274,10 +279,20 @@ export function SiteManager() {
                 <label>Descrição acessível<input maxLength={220} value={item.alt} onChange={e=>changePhotoText(i,"alt",e.target.value)}/></label></div>)}
             </div>}
             {tab==="imagens"&&<div className={s.controls}>
-              <h2>Biblioteca de fotos</h2><p>Escolha o local da imagem e envie novas fotografias diretamente pelo painel. O upload não altera o site até salvar e publicar.</p>
-              <label>Onde usar a imagem<select value={String(imageSlot)} onChange={e=>setImageSlot(e.target.value==="hero"?"hero":Number(e.target.value) as 0|1|2|3)}>
-                <option value="hero">Capa principal</option>{[0,1,2,3].map(x=><option value={x} key={x}>Galeria — foto {x+1}</option>)}
+              <h2>Fotos da página inicial</h2>
+              <p>Escolha a foto que deseja trocar e selecione uma imagem do acervo ou envie um arquivo.</p>
+              <label>Local da foto<select value={String(imageSlot)} onChange={event=>{
+                const value=event.target.value;
+                setImageSlot(value==="hero"||value==="identity"?value:Number(value));
+              }}>
+                <option value="hero">Capa principal</option>
+                <option value="identity">Quem somos</option>
+                {layout.gallery.items.map((item,index)=><option value={index} key={index}>Galeria · {item.title}</option>)}
               </select></label>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={s.currentPhoto} src={imageUrl(imageSlot==="hero"?layout.hero.imageUrl:imageSlot==="identity"?(layout.identity??SITE_IDENTITY_PHOTO).imageUrl:layout.gallery.items[imageSlot]?.imageUrl??layout.hero.imageUrl)} alt="Foto selecionada para este local" />
+              {imageSlot==="identity"&&<label>Descrição acessível<input maxLength={220} value={(layout.identity??SITE_IDENTITY_PHOTO).alt}
+                onChange={event=>update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),alt:event.target.value}})} /></label>}
               <SiteMediaLibrary token={token} onChoose={setPhoto}/>
             </div>}
             {tab==="aparencia"&&<div className={s.controls}>

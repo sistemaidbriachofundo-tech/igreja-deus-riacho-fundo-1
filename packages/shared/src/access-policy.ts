@@ -3,7 +3,7 @@ import { grantMatchesScope, ROLE_CODES, type AuthGrant, type BuiltInRoleCode } f
 /**
  * Política A3 — matriz explícita papel × recurso × ação.
  * Célula ausente = negação. Nenhum papel herda o de outro.
- * PLATFORM_ADMIN não recebe pastoral nem ledger por ser admin.
+ * PLATFORM_ADMIN pode consultar a tesouraria no escopo da congregação.
  * EDITOR_SITE e PUBLICADOR_SITE não recebem secretaria (persons).
  *
  * Rollback operacional: ACCESS_POLICY_MODE=legacy reativa só as
@@ -153,7 +153,7 @@ export const ACCESS_MATRIX: readonly AccessRule[] = [
   ...rule("pastoral", "approve", "church", [ROLE_CODES.PASTOR]),
   ...rule("pastoral", "approve", "church", [ROLE_CODES.PLATFORM_ADMIN], true),
 
-  ...rule("ledger", "read", "church", [ROLE_CODES.TESOURARIA]),
+  ...rule("ledger", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN]),
   ...rule("ledger", "write", "church", [ROLE_CODES.TESOURARIA]),
 
   ...rule("ministries", "read", "church", MINISTRY_LEAD),
@@ -239,7 +239,7 @@ export const IMPLICIT_GRANT_FINDINGS: readonly ImplicitGrantFinding[] = [
     id: "platform-admin-persons-explicit",
     status: "KEPT",
     summary:
-      "persons.read/search/write de PLATFORM_ADMIN é célula nomeada, usada por membresia e pelo break-glass técnico. A célula não abre pastoral nem ledger. Secretaria continua o caminho ordinário de ficha.",
+      "persons.read/search/write de PLATFORM_ADMIN é célula nomeada, usada por membresia e pelo break-glass técnico. A célula mantém a separação do cuidado pastoral. Secretaria continua o caminho ordinário de ficha.",
   },
 ];
 

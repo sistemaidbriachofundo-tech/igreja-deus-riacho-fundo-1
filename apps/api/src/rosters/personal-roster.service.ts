@@ -147,7 +147,9 @@ export class PersonalRosterService {
       include: {
         slots: {
           orderBy: { sortOrder: "asc" },
-          include: { assignments: true },
+          include: {
+            assignments: { include: { person: { select: { displayName: true } }, partner: { select: { displayName: true } } } },
+          },
         },
       },
     });
@@ -166,9 +168,11 @@ export class PersonalRosterService {
           roleLabel: slot.roleLabel,
           requiresCouple: slot.requiresCouple,
           sortOrder: slot.sortOrder,
-          assignments: slot.assignments.map((assignment) =>
-            this.toAssignmentDto(assignment),
-          ),
+          assignments: slot.assignments.map(assignment => ({
+            ...this.toAssignmentDto(assignment),
+            personName: assignment.person?.displayName ?? null,
+            partnerName: assignment.partner?.displayName ?? null,
+          })),
         })),
       })),
     };

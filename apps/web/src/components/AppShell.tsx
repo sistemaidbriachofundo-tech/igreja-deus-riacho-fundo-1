@@ -64,7 +64,7 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">{paths[name]}</svg>;
 }
 
-const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "membros", "secretaria", "ministerios"];
+const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "ministerios"];
 
 export type PersonaAccessState = {
   kind: "preview" | "pending" | "anonymous" | "held" | "ready";
@@ -91,8 +91,8 @@ function mobileItems(menu: readonly PersonaArea[]): PersonaArea[] {
     const item = menu.find(entry => entry.key === key);
     return item ? [item] : [];
   });
-  if (preferred.length >= 3) return preferred.slice(0, 4);
-  return menu.slice(0, 4);
+  if (preferred.length >= 3) return preferred;
+  return [...preferred, ...menu.filter(item => !preferred.includes(item))].slice(0, 3);
 }
 
 export function AppNavLink({
@@ -261,7 +261,7 @@ export function AppShell({
       }
       continue;
     }
-    if (!supportingSectionInserted && ["tesouraria", "editorial", "site"].includes(item.key)) {
+    if (!supportingSectionInserted && ["tesouraria", "acessos", "editorial", "site"].includes(item.key)) {
       menuBlocks.push({ kind: "divider" });
       supportingSectionInserted = true;
     }
@@ -549,7 +549,7 @@ export function AppShell({
       {confirmation}
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
-        <section className={s.commandModal} role="dialog" aria-modal="true" aria-label="Buscar no painel">
+        <section className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
           <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulo ou ministério" aria-label="Buscar módulo ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
           <span className={s.commandTitle}>NAVEGAÇÃO</span>
           <div className={s.commandList}>

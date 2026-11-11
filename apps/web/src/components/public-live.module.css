@@ -93,15 +93,34 @@
 @media(max-width:550px){.ministryGallery{grid-template-columns:1fr}.ministryGallery figure{aspect-ratio:1.3;min-height:220px}}
 @media(prefers-reduced-motion:reduce){.ministryGallery img{transition:none}}
 
-.visitAgenda { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); gap: clamp(32px, 8vw, 108px); align-items: start; }
+.visitAgenda { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); gap: clamp(32px, 8vw, 108px); align-items: center; }
 .visitLabel { color: #4a6357; font: 650 11px/1.5 Inter, sans-serif; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 17px; }
 .visitAgenda h2 { margin: 0; font: 650 clamp(39px, 5.2vw, 72px)/1 Inter, sans-serif; letter-spacing: -.07em; }
 .visitAgenda h2 em { display: block; color: #386451; font: italic 400 1.08em/1 Georgia, serif; }
-.visitSchedule { border-top: 1px solid #aebfb1; padding-top: 20px; }
-.visitSchedule p { margin: 0 0 13px; color: #40574d; font: 400 16px/1.6 Inter, sans-serif; }
+.visitIntro { margin: 16px 0 0; color: #40574d; font: 400 16px/1.6 Inter, sans-serif; }
+.sundayTimes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: clamp(17px, 3vw, 34px) 0;
+  margin: 0;
+  border: 1px solid #c0cec0;
+  border-radius: 16px;
+  background: #f8f7f0;
+  list-style: none;
+}
+.sundayTimes li { padding: 5px clamp(14px, 3vw, 38px); }
+.sundayTimes li + li { border-left: 1px solid #c0cec0; }
+.sundayTimes span { display: block; margin: 0 0 8px; color: #40574d; font: 650 13px/1.4 Inter, sans-serif; }
+.sundayTimes time {
+  color: #183d2e;
+  font: 650 clamp(40px, 6.2vw, 76px)/1 Inter, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.075em;
+}
+.upcomingEvents { margin-top: 26px; }
+.upcomingEvents h3 { margin: 0; font: 650 16px/1.4 Inter, sans-serif; }
 .visitEvent { padding: 16px 0; border-bottom: 1px solid #aebfb1; overflow-wrap: anywhere; }
 .visitEvent time { color: #386451; font: 600 13px Inter, sans-serif; }
-.visitEvent h3 { margin: 5px 0 9px; font: 650 23px/1.2 Inter, sans-serif; }
-.visitLink { display: inline-flex; align-items: center; gap: 20px; min-height: 46px; padding: 0 15px; margin-top: 13px; border-radius: 8px; background: #173d30; color: #fff; font: 600 14px Inter, sans-serif; }
-.visitLink:hover { background: #265746; }
+.visitEvent h4 { margin: 5px 0 9px; font: 650 23px/1.2 Inter, sans-serif; }
+.visitEvent p { margin: 0 0 8px; color: #40574d; font: 400 16px/1.6 Inter, sans-serif; }
 @media (max-width: 720px) { .visitAgenda { grid-template-columns: minmax(0, 1fr); gap: 22px; } }

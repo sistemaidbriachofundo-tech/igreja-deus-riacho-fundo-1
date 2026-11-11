@@ -235,3 +235,9 @@
 .personDetails dt { color: #557062; font-size: 12px; }
 .personDetails dd { margin: 4px 0 0; color: #22382e; font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
 .personNote { margin-top: 12px; color: #557062; font-size: 13px; }
+
+.tabIcon { display: none; }
+@media (max-width: 620px) {
+  .tabs > button { display: flex; flex-direction: column; gap: 4px; justify-content: center; min-height: 54px; }
+  .tabIcon { display: inline-flex; }
+}

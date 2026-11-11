@@ -74,32 +74,34 @@ export function PublishedHomeSpotlight() {
 }
 
 export function PublishedAgenda() {
-  const { status, data } = usePublishedResource("/public/events", parsePublishedEvents);
+  const { data } = usePublishedResource("/public/events", parsePublishedEvents);
   const events = useMemo(() => currentPublishedEvents(data ?? []), [data]);
 
   return (
     <div className={s.visitAgenda}>
       <div>
         <p className={s.visitLabel}>Agenda</p>
-        <h2 id="agenda-title" tabIndex={-1}>Próximos <em>encontros.</em></h2>
+        <h2 id="agenda-title" tabIndex={-1}>Cultos de <em>domingo.</em></h2>
+        <p className={s.visitIntro}>Venha adorar com a gente no Riacho Fundo I.</p>
       </div>
       <div className={s.visitSchedule}>
-        {status === "loading" && <p role="status">Carregando a programação…</p>}
-        {status === "ready" && events.length === 0 && (
-          <p>Assim que houver novos encontros anunciados, as datas aparecerão aqui.</p>
+        <ul className={s.sundayTimes} aria-label="Horários dos cultos de domingo">
+          <li><span>Manhã</span><time dateTime="10:00">10h</time></li>
+          <li><span>Noite</span><time dateTime="19:00">19h</time></li>
+        </ul>
+        {events.length > 0 && (
+          <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
+            <h3 id="upcoming-events-title">Próximos eventos</h3>
+            {events.map(event => (
+              <article key={event.id} className={s.visitEvent}>
+                <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
+                <h4>{event.name}</h4>
+                {event.locationText && <p>{event.locationText}</p>}
+                {event.description && <p>{event.description}</p>}
+              </article>
+            ))}
+          </section>
         )}
-        {status === "unavailable" && <p>Confira os horários dos cultos e os próximos encontros no Instagram da igreja.</p>}
-        {events.map(event => (
-          <article key={event.id} className={s.visitEvent}>
-            <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
-            <h3>{event.name}</h3>
-            {event.locationText && <p>{event.locationText}</p>}
-            {event.description && <p>{event.description}</p>}
-          </article>
-        ))}
-        <a className={s.visitLink} href={instagramUrl} target="_blank" rel="noopener noreferrer">
-          Instagram da igreja <span aria-hidden="true">↗</span>
-        </a>
       </div>
     </div>
   );

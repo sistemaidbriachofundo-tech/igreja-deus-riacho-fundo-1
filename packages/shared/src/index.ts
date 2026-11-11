@@ -277,3 +277,5 @@ export {
   type MigrateMode,
   type MigrateDecision,
 } from "./release/revitalization-144";
+
+export { SITE_COVER_PHOTO, SITE_IDENTITY_PHOTO, SITE_GALLERY_PHOTOS, usesPreviousGallery } from "./site-photos";

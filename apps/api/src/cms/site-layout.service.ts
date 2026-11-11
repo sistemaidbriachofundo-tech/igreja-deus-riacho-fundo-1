@@ -1,3 +1,5 @@
+import { SITE_COVER_PHOTO, SITE_IDENTITY_PHOTO, SITE_GALLERY_PHOTOS, usesPreviousGallery } from "@idbrf/shared";
+
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -19,6 +21,7 @@ type SiteSection = (typeof SITE_SECTIONS)[number];
 export type SiteLayout = {
   version: 1;
   hero: { title: string; accent: string; description: string; imageUrl: string };
+  identity?: { imageUrl: string; alt: string };
   gallery: { title: string; accent: string; description: string; items: GalleryItem[] };
   appearance: "dourado" | "verde" | "marfim";
   sections: SiteSection[];
@@ -31,18 +34,14 @@ export const DEFAULT_SITE_LAYOUT: SiteLayout = {
     title: "Sua jornada com Deus",
     accent: "pode começar aqui.",
     description: "Um lugar de acolhimento, fé e propósito para você e sua família. Venha nos conhecer e caminhe com uma comunidade que cresce e serve junta.",
-    imageUrl: "/images/adoracao-oficial.jpg",
+    imageUrl: SITE_COVER_PHOTO,
   },
+  identity: SITE_IDENTITY_PHOTO,
   gallery: {
     title: "A fé tem muitas formas",
     accent: "de se expressar.",
     description: "Louvor, juventude, oração e Palavra. Expressões que traduzem a vida em comunidade e o desejo de caminhar com Deus.",
-    items: [
-      { title: "Louvor", subtitle: "Uma expressão de fé", alt: "Homem cantando e com uma das mãos erguidas.", imageUrl: "/images/galeria-louvor.webp" },
-      { title: "Juventude", subtitle: "Geração com propósito", alt: "Apresentação artística de jovens no palco.", imageUrl: "/images/galeria-juventude.webp" },
-      { title: "Oração", subtitle: "Caminhar uns com os outros", alt: "Pessoas reunidas em oração.", imageUrl: "/images/galeria-oracao.webp" },
-      { title: "Palavra", subtitle: "Uma mensagem que inspira", alt: "Homem falando com um microfone.", imageUrl: "/images/galeria-palavra.webp" },
-    ],
+    items: SITE_GALLERY_PHOTOS,
   },
   appearance: "dourado",
   sections: [...SITE_SECTIONS],
@@ -69,7 +68,8 @@ export function parseSiteLayout(value: unknown): SiteLayout {
   if (input.version !== 1) throw new BadRequestException("Versão do editor não suportada");
   const hero = record(input.hero), gallery = record(input.gallery);
   const items = gallery.items;
-  if (!Array.isArray(items) || items.length !== 4) throw new BadRequestException("A galeria exige quatro imagens");
+  const identity = input.identity === undefined ? SITE_IDENTITY_PHOTO : record(input.identity);
+  if (!Array.isArray(items) || items.length < 1 || items.length > 8) throw new BadRequestException("A galeria aceita de uma a oito imagens");
   if (!["dourado", "verde", "marfim"].includes(String(input.appearance))) throw new BadRequestException("Aparência não permitida");
   const sections = input.sections, hidden = input.hidden;
   const valid = (v: unknown): v is SiteSection => typeof v === "string" && SITE_SECTIONS.includes(v as SiteSection);
@@ -81,27 +81,29 @@ export function parseSiteLayout(value: unknown): SiteLayout {
       hidden.includes("convite")) {
     throw new BadRequestException("Não é permitido ocultar o convite final ou repetir seções");
   }
+  const photos = items.map((item, i) => {
+    const entry = record(item);
+    return {
+      title: short(entry.title, "Título da imagem " + i, 55),
+      subtitle: short(entry.subtitle, "Legenda da imagem " + i, 80),
+      alt: short(entry.alt, "Texto alternativo da imagem " + i, 220),
+      imageUrl: validatedSiteImage(entry.imageUrl),
+    };
+  });
   return {
     version: 1,
     hero: {
       title: short(hero.title, "Título da capa", 110),
       accent: short(hero.accent, "Destaque da capa", 110),
       description: short(hero.description, "Descrição da capa", 500),
-      imageUrl: validatedSiteImage(hero.imageUrl),
+      imageUrl: validatedSiteImage(hero.imageUrl === "/images/adoracao-oficial.jpg" ? SITE_COVER_PHOTO : hero.imageUrl),
     },
+    identity: { imageUrl: validatedSiteImage(identity.imageUrl), alt: short(identity.alt, "Descrição de Quem somos", 220) },
     gallery: {
       title: short(gallery.title, "Título da galeria", 110),
       accent: short(gallery.accent, "Destaque da galeria", 110),
       description: short(gallery.description, "Descrição da galeria", 500),
-      items: items.map((item, i) => {
-        const entry = record(item);
-        return {
-          title: short(entry.title, "Título da imagem " + i, 55),
-          subtitle: short(entry.subtitle, "Legenda da imagem " + i, 80),
-          alt: short(entry.alt, "Texto alternativo da imagem " + i, 220),
-          imageUrl: validatedSiteImage(entry.imageUrl),
-        };
-      }),
+      items: usesPreviousGallery(photos) ? SITE_GALLERY_PHOTOS : photos,
     },
     appearance: input.appearance as SiteLayout["appearance"],
     sections: sections as SiteSection[],
