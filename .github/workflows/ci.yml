@@ -355,6 +355,8 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Testes negativos de sessão, MFA, limite e auditoria
         run: node --import tsx --test packages/shared/src/security-f11/security-f11.test.ts
+      - name: Smoke da API QA com origem fixa e fetch simulado
+        run: node --test qa/security-f11/src/qa-api-smoke.test.mjs
       - name: Dependências de produção
         continue-on-error: true
         run: |
