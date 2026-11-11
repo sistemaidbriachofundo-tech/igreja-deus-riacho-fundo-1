@@ -445,7 +445,8 @@ function ResourceList({
   return (
     <div className={styles.stack}>
       <section className={styles.escala}>
-        <h2>O que esta conta pode abrir</h2>
+        <h2>Acesso rápido</h2>
+        <p>Consulte a equipe, as escalas e os serviços disponíveis para este ministério.</p>
         <div className={styles.shortcuts}>
           <a href={withBasePath(ministryHref(ministryId, "integrantes"))}>Integrantes</a>
           <a href={withBasePath(ministryHref(ministryId, "escalas"))}>Escalas</a>
