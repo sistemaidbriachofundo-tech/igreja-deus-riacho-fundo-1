@@ -246,25 +246,30 @@
   font-size: 10px;
 }
 .railCollapse {
-  position: absolute;
-  top: 26px;
-  right: 5px;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 27px;
-  height: 30px;
-  border: 1px solid #dce7de;
-  border-radius: 7px;
-  background: #f0f5f1;
-  color: #547666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: none;
+  width: calc(100% - 10px);
+  min-height: 42px;
+  margin: 10px 5px 0;
+  padding: 9px 12px;
+  border: 1px solid #e0eae2;
+  border-radius: 9px;
+  background: #f0f6f1;
+  color: #426b53;
+  font: 650 12px/1.2 Inter, Arial, sans-serif;
   cursor: pointer;
 }
+.railCollapse:hover { color: #23583d; background: #e3efe5; }
 .railCollapse[hidden], .drawerClose[hidden] { display: none !important; }
-.railCollapse:hover { color: #23583d; background: #e2eee5; }
-.frame[data-rail="collapsed"] .railCollapse { top: 78px; right: 22px; width: 26px; height: 26px; }
+.railCollapseText { white-space: nowrap; }
+.frame[data-rail="collapsed"] .railCollapse { width: 44px; min-height: 44px; margin: 10px auto 0; padding: 8px; }
 .frame[data-rail="collapsed"] .railCollapse svg { transform: rotate(180deg); }
-.frame[data-rail="collapsed"] .menuCaption { display: none; }
+.frame[data-rail="collapsed"] .railCollapseText,
+.frame[data-rail="collapsed"] .menuCaption,
+.frame[data-rail="collapsed"] .menuDivider { display: none; }
 .hamburger {
   display: none;
   place-items: center;
@@ -884,6 +889,15 @@
   }
 }
 
+.menuDivider {
+  display: block;
+  margin: 16px 10px 6px;
+  padding-top: 12px;
+  border-top: 1px solid #e4ebe5;
+  color: #83998a;
+  font: 760 10px/1.35 Inter, Arial, sans-serif;
+  letter-spacing: .13em;
+}
 .menuCaption {
   margin: 3px 11px 12px;
   color: #779481;
