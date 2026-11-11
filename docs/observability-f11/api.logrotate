@@ -1,0 +1,10 @@
+/var/log/idbrf/api.log {
+  daily
+  rotate 14
+  compress
+  delaycompress
+  missingok
+  notifempty
+  copytruncate
+  maxsize 100M
+}
