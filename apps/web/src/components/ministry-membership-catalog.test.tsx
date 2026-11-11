@@ -137,7 +137,7 @@ describe("MinistryMembershipCatalog", () => {
         {...actions}
       />,
     );
-    expect(html).toContain("Nenhum integrante formal");
+    expect(html).toContain("Esta equipe ainda não tem integrantes cadastrados");
     expect(html).toContain('name="personId"');
     expect(html).toContain("Incluir no vínculo formal");
     expect(region(html, "formal-members")).not.toContain("Pessoa Sintética");
