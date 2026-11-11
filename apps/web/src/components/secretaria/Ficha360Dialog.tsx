@@ -1,7 +1,7 @@
 "use client";
 
 import { PersonPortrait } from "../PersonPortrait";
-import { useRef, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Alert } from "../ui/Alert";
 import { useDialogLifecycle } from "../ui/dialog";
 import ui from "../ui/ui.module.css";
@@ -31,6 +31,7 @@ type Props = {
   canReadDocuments: boolean;
   credential: CredentialView;
   documents: AdmissionDocumentList[] | null;
+  onCreateHousehold?: (label: string) => Promise<string>;
   onClose: () => void;
   onEdit: (next: EditablePersonFields) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -91,6 +92,7 @@ export function Ficha360Dialog({
   canReadDocuments,
   credential,
   documents,
+  onCreateHousehold,
   onClose,
   onEdit,
   onSubmit,
@@ -98,7 +100,14 @@ export function Ficha360Dialog({
   onSessionExpired,
 }: Props) {
   const dialogRef = useRef<HTMLElement>(null);
-  useDialogLifecycle(true, onClose, dialogRef);
+  const [newFamily, setNewFamily] = useState("");
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const [creatingFamily, setCreatingFamily] = useState(false);
+  const [familyFeedback, setFamilyFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  function close() {
+    if (!creatingFamily) onClose();
+  }
+  useDialogLifecycle(true, close, dialogRef);
   const busy =
     state.phase === "loading" ||
     state.phase === "saving" ||
@@ -113,6 +122,24 @@ export function Ficha360Dialog({
     form?.householdId ?? "",
     dossier,
   );
+
+  async function createFamily() {
+    const name = newFamily.trim();
+    if (!form || !onCreateHousehold || creatingFamily || name.length < 3) return;
+    setCreatingFamily(true);
+    setFamilyFeedback(null);
+    try {
+      const householdId = await onCreateHousehold(name);
+      onEdit({ ...form, householdId });
+      setFamilyOpen(false);
+      setNewFamily("");
+      setFamilyFeedback({ error: false, text: "Família cadastrada. Salve a ficha para confirmar o vínculo." });
+    } catch {
+      setFamilyFeedback({ error: true, text: "Não foi possível cadastrar a família. Tente novamente." });
+    } finally {
+      setCreatingFamily(false);
+    }
+  }
 
   return (
     <div className={s.overlay}>
@@ -142,8 +169,8 @@ export function Ficha360Dialog({
           <button
             type="button"
             className={s.close}
-            disabled={state.phase === "saving" || state.phase === "reopening"}
-            onClick={onClose}
+            disabled={state.phase === "saving" || state.phase === "reopening" || creatingFamily}
+            onClick={close}
             aria-label="Fechar ficha"
           >
             Fechar
@@ -173,7 +200,7 @@ export function Ficha360Dialog({
         {form && person && dossier && (
           <>
             <form className={s.form} onSubmit={onSubmit}>
-              <fieldset disabled={busy || !canEdit}>
+              <fieldset disabled={busy || !canEdit || creatingFamily}>
                 <legend>Dados pessoais</legend>
                 <label>
                   Nome
@@ -252,6 +279,26 @@ export function Ficha360Dialog({
                     ))}
                   </select>
                 </label>
+                {canEdit && onCreateHousehold && (
+                  <div className={s.familyEditor}>
+                    {familyOpen ? (
+                      <>
+                        <label>Nome da nova família<input value={newFamily} maxLength={120} onChange={(event) => setNewFamily(event.target.value)} onKeyDown={event => {
+                          if (event.key === "Enter") { event.preventDefault(); void createFamily(); }
+                        }} /></label>
+                        <div className={s.actions}>
+                          <button type="button" className={s.secondary} onClick={() => { setFamilyOpen(false); setFamilyFeedback(null); setNewFamily(""); }}>Cancelar</button>
+                          <button type="button" className={s.primary} disabled={newFamily.trim().length < 3 || creatingFamily} onClick={() => void createFamily()}>
+                            {creatingFamily ? "Cadastrando…" : "Cadastrar família"}
+                          </button>
+                        </div>
+                      </>
+                    ) : <button type="button" className={s.secondary} onClick={() => { setFamilyOpen(true); setFamilyFeedback(null); }}>Nova família</button>}
+                    {familyFeedback && (familyFeedback.error || (!busy && person.householdId !== form.householdId)) && (
+                      <p className={s.hint} role={familyFeedback.error ? "alert" : "status"}>{familyFeedback.text}</p>
+                    )}
+                  </div>
+                )}
                 <label>
                   Observação do vínculo mais recente
                   <textarea
@@ -304,7 +351,7 @@ export function Ficha360Dialog({
               )}
               <div className={s.actions}>
                 {canEdit && (
-                  <button type="submit" className={s.primary} disabled={busy}>
+                  <button type="submit" className={s.primary} disabled={busy || creatingFamily}>
                     {state.phase === "saving" ? "Salvando…" : "Salvar"}
                   </button>
                 )}
@@ -312,7 +359,7 @@ export function Ficha360Dialog({
                   type="button"
                   className={s.secondary}
                   onClick={onReopen}
-                  disabled={busy}
+                  disabled={busy || creatingFamily}
                 >
                   Atualizar ficha
                 </button>

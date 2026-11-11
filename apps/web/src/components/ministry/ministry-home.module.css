@@ -147,7 +147,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(185px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
   gap: 12px;
   margin: 0;
   padding: 0;
@@ -155,21 +155,22 @@
 }
 
 .card, .cardCurrent {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  padding: 10px 10px 13px;
+  min-height: 74px;
+  padding: 12px 14px;
   border: 1px solid var(--app-border, #dce6de);
   border-radius: var(--app-radius, 12px);
   background: var(--app-surface, #fff);
   color: var(--app-ink, #22382e);
   text-decoration: none;
 }
-.card:hover, .cardCurrent { border-color: #80a28c; }
-.cover { display: block; width: 100%; aspect-ratio: 2; border-radius: 8px; background-size: cover; background-position: center; }
-.card strong, .cardCurrent strong { margin-inline: 4px; font-size: 14px; font-weight: 650; }
-.card small, .cardCurrent small { margin-inline: 4px; color: var(--app-muted, #5f7368); font-size: 12px; }
+.card:hover, .cardCurrent { border-color: #80a28c; background: #f0f6f1; }
+.catalogIcon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: #e7f1e9; color: #2a6146; }
+.card strong, .cardCurrent strong { overflow-wrap: anywhere; font-size: 14px; font-weight: 650; }
 
 .board [role="tabpanel"]:focus-visible { outline: 3px solid #b79a6e; outline-offset: -4px; }
 

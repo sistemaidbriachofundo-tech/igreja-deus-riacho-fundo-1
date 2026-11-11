@@ -9,12 +9,14 @@ import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier"
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
+import { Modal } from "./ui/Modal";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
 
 type View = "overview" | "members" | "secretary" | "cards";
+type SecretarySection = "resumo" | "pessoas" | "admissoes";
 type Role = "SECRETARIA" | "PASTOR" | "PLATFORM_ADMIN" | "MEMBRO";
 type AuthUser = LoginResult["user"];
 type Membership = {
@@ -173,9 +175,10 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
   const [listPage, setListPage] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState("");
   const [familyFilter, setFamilyFilter] = useState("");
-  const [secretarySection, setSecretarySection] = useState<"pessoas" | "admissoes">("pessoas");
+  const [secretarySection, setSecretarySection] = useState<SecretarySection>("resumo");
   const [showHistory, setShowHistory] = useState(false);
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
+  const [formFeedback, setFormFeedback] = useState("");
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [searchedPerson, setSearchedPerson] = useState("");
@@ -188,9 +191,9 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     const readSection = () => {
       const params = new URLSearchParams(window.location.search);
       const action = params.get("acao");
-      setSecretarySection(params.get("aba") === "admissoes" || action === "cadastrar" || action === "admissao" ? "admissoes" : "pessoas");
-      if (action === "cadastrar") setAdmissionForm("new");
-      else if (action === "admissao") setAdmissionForm("existing");
+      const section = params.get("aba");
+      setSecretarySection(section === "pessoas" || section === "admissoes" ? section : "resumo");
+      setAdmissionForm(action === "cadastrar" ? "new" : action === "admissao" ? "existing" : null);
       setFichaId(params.get("pessoa"));
       const status = params.get("situacao") ?? "";
       setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION"].includes(status) ? status : "");
@@ -307,33 +310,47 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     setListPage(0);
   }
 
-  function chooseSecretarySection(next: "pessoas" | "admissoes") {
+  function chooseSecretarySection(next: SecretarySection, status = "") {
     setSecretarySection(next);
     setQuery("");
+    setMembershipStatus(status);
+    setFamilyFilter("");
+    setShowHistory(false);
     setListPage(0);
     setAdmissionForm(null);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("aba", next);
       url.searchParams.delete("acao");
+      if (status) url.searchParams.set("situacao", status);
+      else url.searchParams.delete("situacao");
       window.history.replaceState(null, "", url);
     }
   }
 
   function startSecretaryAction(next: "new" | "existing") {
-    setSecretarySection("admissoes");
     setAdmissionForm(next);
-    setQuery("");
-    setListPage(0);
+    setFormFeedback("");
+  }
+
+  function closeSecretaryAction() {
+    if (busy) return;
+    resetSecretaryAction();
+  }
+
+  function resetSecretaryAction() {
+    setAdmissionForm(null);
+    setFormFeedback("");
+    setNewName("");
+    setNewEmail("");
+    setAdmissionPerson("");
+    setModality("BATISMO");
     const url = new URL(window.location.href);
-    url.searchParams.set("aba", "admissoes");
-    url.searchParams.set("acao", next === "new" ? "cadastrar" : "admissao");
-    window.history.replaceState(null, "", url);
-    window.setTimeout(() => {
-      const panel = document.getElementById("cadastro");
-      panel?.scrollIntoView({ block: "nearest" });
-      panel?.querySelector<HTMLInputElement>('form input:not([type="hidden"])')?.focus({ preventScroll: true });
-    }, 0);
+    if (url.searchParams.has("acao")) {
+      url.searchParams.delete("acao");
+      if (url.hash === "#cadastro") url.hash = "";
+      window.history.replaceState(null, "", url);
+    }
   }
 
   function logout() {
@@ -342,7 +359,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     setUser(null);
     setMemberships([]);
     setFamilyFilter("");
-    setSecretarySection("pessoas");
+    setSecretarySection("resumo");
     setAdmissions([]);
     setHouseholds([]);
     setLoadedGroups({ people: false, admissions: false });
@@ -376,7 +393,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     }
   }
 
-  async function run(action: () => Promise<unknown>, message: string): Promise<boolean> {
+  async function run(action: () => Promise<unknown>, message: string, reportError = setError): Promise<boolean> {
     if (!token) return false;
     setBusy(true);
     setError("");
@@ -391,7 +408,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
       });
       return true;
     } catch (err) {
-      setError(displayError(err));
+      reportError(displayError(err));
       return false;
     } finally {
       setBusy(false);
@@ -403,16 +420,17 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
     if (!token || !secretary || busy || !admissionForm) return;
     const name = newName.trim();
     const email = newEmail.trim().toLowerCase();
+    setFormFeedback("");
     if (admissionForm === "existing" && !admissionPerson) {
-      setError("Selecione a pessoa que vai iniciar a admissão.");
+      setFormFeedback("Selecione a pessoa que vai iniciar a admissão.");
       return;
     }
     if (admissionForm === "new" && (name.length < 3 || !email.endsWith("@example.test"))) {
-      setError("Use um nome e um e-mail terminado em @example.test.");
+      setFormFeedback("Use um nome e um e-mail terminado em @example.test.");
       return;
     }
     const completed = admissionForm === "existing"
-      ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.")
+      ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.", setFormFeedback)
       : await run(async () => {
           const candidates = await apiPost<{ hits: Array<{ person: { email: string | null } }> }>(
             "/persons/candidates", token, { displayName: name, email },
@@ -421,13 +439,8 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             throw new Error("E-mail já cadastrado.");
           }
           return apiPost("/memberships", token, { displayName: name, email });
-        }, "Pessoa cadastrada. Você já pode iniciar a admissão quando precisar.");
-    if (completed) {
-      setNewName("");
-      setNewEmail("");
-      setAdmissionPerson("");
-      setAdmissionForm(null);
-    }
+        }, "Pessoa cadastrada. Você já pode iniciar a admissão quando precisar.", setFormFeedback);
+    if (completed) resetSecretaryAction();
   }
 
   function nextAdmission(admission: Admission) {
@@ -500,7 +513,9 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 description={view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
                 actions={<>
                   {view === "members" && secretary && <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/?aba=admissoes&acao=cadastrar#cadastro">Cadastrar pessoa</AppNavLink>}
-                  {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction("new")}><UIIcon name="plus" size={17} /> Cadastrar pessoa</button>}
+                  {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction(secretarySection === "admissoes" ? "existing" : "new")}>
+                    <UIIcon name="plus" size={17} /> {secretarySection === "admissoes" ? "Iniciar admissão" : "Cadastrar pessoa"}
+                  </button>}
                   <button type="button" className={ui.workspaceSecondary} onClick={() => {
                     setError("");
                     setNotice(null);
@@ -520,11 +535,40 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
             {error && <Alert appearance="workspace" tone="danger" title={error} />}
             {view === "secretary" && staff && (
               <nav className={ui.workspaceTabs} aria-label="Áreas da secretaria">
+                {secretary && <button type="button" aria-current={secretarySection === "resumo" ? "page" : undefined} onClick={() => chooseSecretarySection("resumo")}>Visão geral</button>}
                 {secretary && <button type="button" aria-current={secretarySection === "pessoas" ? "page" : undefined} onClick={() => chooseSecretarySection("pessoas")}>Pessoas</button>}
                 <button type="button" aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} onClick={() => chooseSecretarySection("admissoes")}>Admissões</button>
+                {secretary && <AppNavLink href="/app/membros/carteirinha/">Carteirinhas</AppNavLink>}
               </nav>
             )}
             {view === "overview" && <PersonaBoard />}
+            {view === "secretary" && secretary && secretarySection === "resumo" && (
+              <div className={s.summary}>
+                <div className={s.summaryCards} aria-label="Indicadores da Secretaria">
+                  {[["ACTIVE", "Pessoas ativas"], ["INACTIVE", "Pessoas inativas"], ["PENDING_ADMISSION", "Em admissão"]].map(([status, title]) => (
+                    <button key={status} type="button" onClick={() => chooseSecretarySection("pessoas", status)}>
+                      <span>{title}</span><strong>{loadedGroups.people ? memberships.filter(row => row.status === status).length.toLocaleString("pt-BR") : "—"}</strong>
+                    </button>
+                  ))}
+                  <AppNavLink href="/app/membros/carteirinha/">
+                    <span>Carteirinhas ativas</span><strong>{loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length.toLocaleString("pt-BR") : "—"}</strong>
+                  </AppNavLink>
+                </div>
+                <section className={s.panel} aria-labelledby="secretary-pending-title">
+                  <div className={s.summaryHeading}>
+                    <h2 id="secretary-pending-title">Admissões em andamento</h2>
+                    <button className={ui.workspaceSecondary} type="button" onClick={() => chooseSecretarySection("admissoes")}>Ver admissões <UIIcon name="arrow" size={15} /></button>
+                  </div>
+                  {loadedGroups.admissions ? (
+                    <dl className={s.summarySteps}>
+                      {[["modality", "Em preparação"], ["documents", "Documentação"], ["secretaria", "Análise da Secretaria"], ["pastor", "Aprovação pastoral"]].map(([step, title]) => (
+                        <div key={step}><dt>{title}</dt><dd>{admissions.filter(row => row.currentStep === step && !CLOSED_ADMISSIONS.includes(row.status)).length.toLocaleString("pt-BR")}</dd></div>
+                      ))}
+                    </dl>
+                  ) : <p role="status">{checking ? "Consultando admissões…" : "Admissões indisponíveis. Use Atualizar para tentar novamente."}</p>}
+                </section>
+              </div>
+            )}
             {showsPeople && (
               <div className={s.peopleWorkspace}>
                 <section className={s.panel} aria-busy={checking}>
@@ -590,7 +634,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
               </div>
             )}
             {showsAdmissions && (
-              <div className={s.grid} data-form-open={admissionForm ? "true" : undefined}>
+              <div>
                 <section className={s.panel} aria-busy={checking}>
                   <div className={s.panelHeading}>
                     <div className={s.panelHeadingCopy}><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Processos da secretaria"}</span></div>
@@ -633,44 +677,46 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                     </div>
                   )}
                 </section>
-                <section className={`${s.panel} ${s.registrationPanel}`} id="cadastro">
-                  <h2>Cadastro e admissão</h2>
-                  {secretary ? (
-                    <>
-                      <p>Cadastre a pessoa ou abra um protocolo para um cadastro existente.</p>
-                      <div className={s.viewFilter} role="group" aria-label="Ações da secretaria">
-                        <button type="button" aria-pressed={admissionForm === "existing"} onClick={() => setAdmissionForm("existing")}>Iniciar admissão</button>
-                        <button type="button" aria-pressed={admissionForm === "new"} onClick={() => setAdmissionForm("new")}>Novo cadastro</button>
-                      </div>
-                      {admissionForm && (
-                        <form className={s.form} onSubmit={submitSecretariatForm}>
-                          {admissionForm === "existing" ? (
-                            <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa para admissão" value={admissionPerson} onChange={setAdmissionPerson} placeholder="Buscar pelo nome" required />
-                          ) : (
-                            <>
-                              <label>Nome<input value={newName} onChange={event => setNewName(event.target.value)} required minLength={3} maxLength={160} placeholder="Maria Oliveira" /></label>
-                              <label>E-mail de homologação<input value={newEmail} onChange={event => setNewEmail(event.target.value)} required type="email" placeholder="maria.oliveira@example.test" /></label>
-                            </>
-                          )}
-                          {admissionForm === "existing" ? (
-                            <label>Modalidade
-                              <select value={modality} onChange={event => setModality(event.target.value)}>
-                                <option value="BATISMO">Batismo</option>
-                                <option value="TRANSFERENCIA">Transferência</option>
-                                <option value="RECONCILIACAO">Reconciliação</option>
-                                <option value="OUTRO">Outro</option>
-                              </select>
-                            </label>
-                          ) : <p>O cadastro cria um vínculo pendente. O protocolo pode ser aberto depois.</p>}
-                          <button type="submit" disabled={busy || (admissionForm === "existing" && !admissionPerson)}>
-                            {busy ? "Salvando…" : admissionForm === "existing" ? "Abrir protocolo" : "Salvar cadastro"}
-                          </button>
-                        </form>
-                      )}
-                    </>
-                  ) : <p className={s.empty}>A abertura de protocolo fica com a secretaria.</p>}
-                </section>
               </div>
+            )}
+            {secretary && view === "secretary" && admissionForm && (
+              <Modal
+                open
+                appearance="workspace"
+                title={admissionForm === "existing" ? "Iniciar admissão" : "Cadastrar pessoa"}
+                description={admissionForm === "existing"
+                  ? "Escolha uma pessoa cadastrada e a modalidade de admissão."
+                  : "Preencha os dados iniciais da pessoa. A admissão pode ser aberta depois."}
+                onClose={closeSecretaryAction}
+              >
+                <form className={s.form} onSubmit={submitSecretariatForm} aria-busy={busy}>
+                  {formFeedback && <Alert appearance="workspace" tone="danger" title="Confira o formulário">{formFeedback}</Alert>}
+                  {admissionForm === "existing" ? (
+                    <>
+                      <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa para admissão" value={admissionPerson} onChange={setAdmissionPerson} placeholder="Buscar pelo nome" required disabled={busy} />
+                      <label>Modalidade
+                        <select value={modality} onChange={event => setModality(event.target.value)} disabled={busy}>
+                          <option value="BATISMO">Batismo</option>
+                          <option value="TRANSFERENCIA">Transferência</option>
+                          <option value="RECONCILIACAO">Reconciliação</option>
+                          <option value="OUTRO">Outro</option>
+                        </select>
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <label>Nome<input value={newName} onChange={event => setNewName(event.target.value)} required minLength={3} maxLength={160} autoComplete="off" disabled={busy} /></label>
+                      <label>E-mail de homologação<input value={newEmail} onChange={event => setNewEmail(event.target.value)} required type="email" placeholder="nome@example.test" disabled={busy} /></label>
+                    </>
+                  )}
+                  <div className={s.formActions}>
+                    <button type="button" className={ui.workspaceSecondary} onClick={closeSecretaryAction} disabled={busy}>Cancelar</button>
+                    <button type="submit" disabled={busy || (admissionForm === "existing" && !admissionPerson)}>
+                      {busy ? "Salvando…" : admissionForm === "existing" ? "Abrir protocolo" : "Salvar cadastro"}
+                    </button>
+                  </div>
+                </form>
+              </Modal>
             )}
             {view === "cards" && (
               <section className={s.panel}>
@@ -705,6 +751,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 onPersonSaved={person => setMemberships(rows => rows.map(row =>
                   row.person.id === person.id ? { ...row, person } : row
                 ))}
+                onHouseholdCreated={secretary ? household => setHouseholds(rows => [household, ...rows]) : undefined}
                 onSessionExpired={logout}
               />
             )}

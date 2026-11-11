@@ -5,6 +5,7 @@ import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
+import { PageHeader } from "./ui/PageHeader";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
 import { ApiRequestError, apiLogin, clearToken, getApiBaseUrl, isInvalidSession, loadStoredToken, storeToken } from "../lib/api";
 import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
@@ -225,14 +226,10 @@ export function SiteManager() {
   }
 
   return <AppShell active="site" meta="Gestão do site" editorial>
-    <div className={s.page}>
+    <div className={s.page} id="capa">
     {confirmation}
-      <header className={s.hero}>
-        <div><span className={s.eyebrow}>ID RIACHO 1 / CENTRAL DE GESTÃO</span>
-          <h1>Seu site, nas mãos <em>da sua equipe.</em></h1>
-          <p>Atualize textos e fotos, confira a prévia e publique somente com autorização.</p></div>
-        <span className={s.statusPill}><UIIcon name="shield" size={16}/> Acesso por perfil</span>
-      </header>
+      <PageHeader appearance="workspace" heading="h1" title="Gestão do site"
+        description="Edite a capa, os textos e as fotos da página inicial." />
       {!configured&&<div className={s.message}>O ambiente de edição ainda não está conectado. A página pública permanece como está.</div>}
       {error&&<div className={s.error} role="alert">{error}</div>}
       {notice&&<div className={s.notice} role="status">{notice}</div>}

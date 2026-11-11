@@ -2,9 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import { AppNavLink, UIIcon } from "./AppShell";
-import { ministryContextHref } from "../lib/persona-navigation";
-import { withBasePath } from "../lib/paths";
+import { formatBRL } from "../lib/das-operations";
 import type { IndicatorCounts, NamedRow, StatusBar } from "./PersonaHome";
+import type { TreasuryPosition } from "./TreasuryPanel";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
 import s from "./administrative-overview.module.css";
@@ -13,8 +13,8 @@ type Props = {
   counts: IndicatorCounts | null;
   distribution: StatusBar[] | null;
   admissions: NamedRow[] | null;
-  ministries: NamedRow[] | null;
   events: NamedRow[] | null;
+  treasuryPosition?: TreasuryPosition | null;
   loading: boolean;
   partial: boolean;
   signedOut: boolean;
@@ -327,8 +327,8 @@ export function AdministrativeOverview({
   counts,
   distribution,
   admissions,
-  ministries,
   events,
+  treasuryPosition,
   loading,
   partial,
   signedOut,
@@ -389,10 +389,6 @@ export function AdministrativeOverview({
         heading="h1"
         title="Painel administrativo"
         actions={
-          <>
-            <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/">
-              Abrir secretaria <UIIcon name="arrow" size={16} />
-            </AppNavLink>
             <button
               type="button"
               aria-label="Atualizar painel"
@@ -403,7 +399,6 @@ export function AdministrativeOverview({
               <UIIcon name="refresh" size={16} />{" "}
               {loading ? "Atualizando…" : "Atualizar"}
             </button>
-          </>
         }
       />
       {partial && (
@@ -473,6 +468,24 @@ export function AdministrativeOverview({
       </section>
       <div className={s.layout}>
         <div className={s.main}>
+          {treasuryPosition !== undefined && (
+            <Section title="Posição financeira" className={s.finance}>
+              {treasuryPosition === null ? (
+                <p className={s.empty} role="status">
+                  {loading ? "Consultando a Tesouraria…" : "Posição financeira indisponível."}
+                </p>
+              ) : (
+                <>
+                  <dl className={s.financeValues}>
+                    <div><dt>Disponível</dt><dd>{formatBRL(treasuryPosition.availableCents)}</dd></div>
+                    <div><dt>Caixa liquidado</dt><dd>{formatBRL(treasuryPosition.settledCashCents)}</dd></div>
+                    <div><dt>Compromissos</dt><dd>{formatBRL(treasuryPosition.committedExpenseCents)}</dd></div>
+                  </dl>
+                  <p className={s.financeSource}>Consolidado dos lançamentos da Tesouraria.</p>
+                </>
+              )}
+            </Section>
+          )}
           <Section
             title="Pessoas da congregação"
             action={
@@ -544,54 +557,6 @@ export function AdministrativeOverview({
           <Calendar events={events} loading={loading} />
         </aside>
       </div>
-      <Section
-        className={s.ministriesSection}
-        title="Ministérios"
-        action={
-          <AppNavLink className={s.textLink} href="/app/ministerios/">
-            Ver todos <UIIcon name="arrow" size={15} />
-          </AppNavLink>
-        }
-      >
-        {ministries === null ? (
-          <p className={s.empty}>
-            {loading ? "Carregando ministérios…" : "Ministérios indisponíveis."}
-          </p>
-        ) : (
-          <ul className={s.ministryList}>
-            {ministries.slice(0, 6).map((row, index) => (
-              <li key={row.id}>
-                <AppNavLink
-                  href={ministryContextHref({ id: row.id })}
-                  data-tone={index % 4}
-                >
-                  <span
-                    className={s.ministryIcon}
-                    aria-hidden="true"
-                    style={{
-                      backgroundImage: `url("${withBasePath(
-                        /atmosfera|louvor|musica|música|adorac/i.test(row.title)
-                          ? "/images/galeria-louvor.webp"
-                          : /jovens|adolesc|pulse|juventude/i.test(row.title)
-                            ? "/images/galeria-juventude.webp"
-                            : /oração|oracao|mulheres|intercess/i.test(
-                                  row.title,
-                                )
-                              ? "/images/galeria-oracao.webp"
-                              : "/images/comunidade-oficial.jpg",
-                      )}")`,
-                    }}
-                  />
-                  <span className={s.ministryText}>
-                    <strong>{row.title}</strong>
-                  </span>
-                  <UIIcon name="arrow" size={17} />
-                </AppNavLink>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
     </div>
   );
 }

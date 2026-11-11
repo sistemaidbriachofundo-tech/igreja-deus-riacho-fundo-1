@@ -176,6 +176,7 @@ export function MinistryDeskPage() {
   return (
     <MinistryExperience
       token={token}
+      catalog={!route.ministryId && route.tab === "visao"}
       roles={roles}
       desk={board.desk}
       escalas={board.escalas}

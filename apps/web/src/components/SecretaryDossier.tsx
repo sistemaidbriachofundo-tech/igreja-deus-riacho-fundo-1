@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { usePersonaAccess } from "./AppShell";
 import { PersonPicker } from "./PersonPicker";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
-import { apiGet, apiPatch } from "../lib/api";
+import { apiGet, apiPatch, apiPost } from "../lib/api";
 import {
   Ficha360Dialog,
   type CredentialView,
@@ -33,6 +33,7 @@ type Props = {
   credential: CredentialView;
   onClose: () => void;
   onPersonSaved?: (person: PersonRecord) => void;
+  onHouseholdCreated?: (household: HouseholdOption) => void;
   onSessionExpired: () => void;
 };
 
@@ -47,6 +48,7 @@ export function SecretaryDossier({
   credential,
   onClose,
   onPersonSaved,
+  onHouseholdCreated,
   onSessionExpired,
 }: Props) {
   const titleId = useId();
@@ -193,6 +195,12 @@ export function SecretaryDossier({
       canReadDocuments={canReadDocuments}
       credential={credential}
       documents={documents}
+      onCreateHousehold={onHouseholdCreated ? async (label) => {
+        const household = await apiPost<HouseholdOption>("/households", token, { label });
+        if (!household?.id || !household.label) throw new Error("Resposta da Secretaria incompleta");
+        onHouseholdCreated(household);
+        return household.id;
+      } : undefined}
       guardianPicker={
         state.form && (
           <PersonPicker

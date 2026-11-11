@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
 import { AdministrativeOverview } from "./AdministrativeOverview";
+import { readTreasuryPosition, type TreasuryPosition } from "./TreasuryPanel";
 import { ApiRequestError, apiGet, isForbidden, isUnauthorized, loadStoredToken } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import { areasForRoles, isMemberOnly, ministryContextHref, type AppNavKey } from "../lib/persona-navigation";
@@ -454,6 +455,7 @@ export function dashboardPaths(roles: readonly string[]): string[] {
   if (staff || leader) paths.push("/ministries", "/events");
   if (isMemberOnly(roles)) paths.push("/rosters/me", "/credentials/me");
   if (treasury) paths.push("/ledger/accounts", "/ledger/entries");
+  if (treasury && roles.includes("PLATFORM_ADMIN")) paths.push("/treasury/position");
   if (editor && !staff) paths.push("/cms/contents");
   return paths;
 }
@@ -471,6 +473,7 @@ type Mesa = {
   card: OwnCard | null;
   accounts: NamedRow[] | null;
   entries: MoneyRow[] | null;
+  treasuryPosition: TreasuryPosition | null;
   contents: NamedRow[] | null;
 };
 
@@ -487,6 +490,7 @@ const IDLE: Mesa = {
   card: null,
   accounts: null,
   entries: null,
+  treasuryPosition: null,
   contents: null,
 };
 
@@ -573,6 +577,7 @@ const PARSERS = {
   "/credentials/me": parseOwnCard,
   "/ledger/accounts": parseAccounts,
   "/ledger/entries": parseEntries,
+  "/treasury/position": readTreasuryPosition,
   "/cms/contents": parseContents,
 } as const;
 
@@ -592,6 +597,7 @@ function applyPath(current: Mesa, path: MesaPath, slot: Slot<unknown>): Mesa {
   if (path === "/credentials/me") next.card = slot.data as OwnCard;
   if (path === "/ledger/accounts") next.accounts = slot.data as NamedRow[];
   if (path === "/ledger/entries") next.entries = slot.data as MoneyRow[];
+  if (path === "/treasury/position") next.treasuryPosition = slot.data as TreasuryPosition;
   if (path === "/cms/contents") next.contents = slot.data as NamedRow[];
   return next;
 }
@@ -682,7 +688,8 @@ export function PersonaBoard() {
   const counts = mesa.counts;
   if (deskKey === "PLATFORM_ADMIN") {
     return <AdministrativeOverview counts={counts} distribution={mesa.bars}
-      admissions={mesa.admissions} ministries={mesa.ministries} events={mesa.events}
+      admissions={mesa.admissions} events={mesa.events}
+      treasuryPosition={treasury ? mesa.treasuryPosition : undefined}
       loading={loading} partial={mesa.partial} signedOut={mesa.phase === "signed-out"}
       onRefresh={() => setReload(value => value + 1)} />;
   }

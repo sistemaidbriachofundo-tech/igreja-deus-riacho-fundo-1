@@ -27,13 +27,14 @@ import {
   type MinistryTabId,
 } from "../../lib/ministry-view";
 import { MinistryMembershipCatalog } from "../MinistryMembershipCatalog";
-import { MinistryCover } from "./ministry-visuals";
+import { UIIcon } from "../AppShell";
 import { PersonPortrait } from "../PersonPortrait";
 import { PageHeader } from "../ui/PageHeader";
 import ui from "../ui/ui.module.css";
 import styles from "./ministry-home.module.css";
 
 type Props = {
+  catalog?: boolean;
   token?: string | null;
   roles?: readonly string[];
   desk: DeskResult;
@@ -56,6 +57,14 @@ type Props = {
 
 export function MinistryExperience(props: Props) {
   const { desk } = props;
+  if (props.catalog && (desk.kind === "ready" || desk.kind === "denied")) {
+    return (
+      <section className={styles.board} data-screen="ministerios">
+        <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
+        <MinistryGrid ministries={desk.ministries} currentId="" onSelect={props.onSelect} />
+      </section>
+    );
+  }
   if (desk.kind === "ready") return <ReadyExperience {...props} desk={desk} />;
   return <StatusExperience {...props} />;
 }
@@ -315,11 +324,7 @@ function ReadyExperience({
           ) : null}
 
           {tab === "recursos" ? (
-            <ResourceList
-              ministryId={desk.ministry.id}
-              shortcut={shortcut}
-              finance={desk.finance}
-            />
+            <MinistryCash finance={desk.finance} />
           ) : null}
         </div>
       </article>
@@ -349,13 +354,14 @@ function MinistryGrid({
               aria-current={current ? "page" : undefined}
               className={current ? styles.cardCurrent : styles.card}
               onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                 event.preventDefault();
                 onSelect(ministry.id);
               }}
             >
-              <MinistryCover className={styles.cover} name={ministry.name} slug={ministry.slug} />
+              <span className={styles.catalogIcon}><UIIcon name="family" size={19} /></span>
               <strong>{title}</strong>
-              {title !== ministry.name ? <small>{ministry.name}</small> : <small>Equipe autorizada</small>}
+              <UIIcon name="arrow" size={16} />
             </a>
           </li>
         );
@@ -540,50 +546,5 @@ function MinistryCash({ finance }: { finance: FinancePanel }) {
         </p>
       )}
     </section>
-  );
-}
-
-function ResourceList({
-  ministryId,
-  shortcut,
-  finance,
-}: {
-  ministryId: string;
-  shortcut: { href: string; label: string } | null;
-  finance: FinancePanel;
-}) {
-  return (
-    <div className={styles.stack}>
-      <section className={styles.escala}>
-        <h2>Acesso rápido</h2>
-        <p>
-          Consulte a equipe, as escalas e os serviços disponíveis para este
-          ministério.
-        </p>
-        <div className={styles.shortcuts}>
-          <a
-            className={ui.workspaceSecondary}
-            href={withBasePath(ministryHref(ministryId, "integrantes"))}
-          >
-            Integrantes
-          </a>
-          <a
-            className={ui.workspaceSecondary}
-            href={withBasePath(ministryHref(ministryId, "escalas"))}
-          >
-            Escalas
-          </a>
-          {shortcut ? (
-            <a
-              className={ui.workspaceSecondary}
-              href={withBasePath(shortcut.href)}
-            >
-              {shortcut.label}
-            </a>
-          ) : null}
-        </div>
-      </section>
-      <MinistryCash finance={finance} />
-    </div>
   );
 }

@@ -234,6 +234,7 @@ export function AppShell({
   const roleKey = roles.join("|");
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
+  const secretaryMenu = menu.some(item => item.key === "secretaria");
   const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "ministries" } | { kind: "divider" }> = [];
   let ministryInserted = false;
   let supportingSectionInserted = false;
@@ -445,7 +446,8 @@ export function AppShell({
             if (block.kind === "link") {
               const item = block.item;
               const label = itemLabel(item);
-              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
+              const nested = secretaryMenu && item.key === "carteirinha" && !railCollapsed;
+              return <AppNavLink key={item.key} href={item.href} className={`${active === item.key ? s.menuActive : s.menuItem}${nested ? ` ${s.secretaryChild}` : ""}`} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
                 <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
               </AppNavLink>;
             }
@@ -454,10 +456,9 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.slice(0, 1).map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
+                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={s.subItem} onNavigate={afterNavigate}>
                   <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
                 </AppNavLink>)}
-                {ministryEntries.length > 1 && <AppNavLink href="/app/ministerios/" className={s.ministryMore} onNavigate={afterNavigate}>Ver ministérios <UIIcon name="arrow" size={14}/></AppNavLink>}
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;

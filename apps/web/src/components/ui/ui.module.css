@@ -1237,7 +1237,9 @@
   scrollbar-width: thin;
 }
 
-.workspaceTabs > button {
+.workspaceTabs > :is(button, a) {
+  display: inline-flex;
+  align-items: center;
   position: relative;
   flex: none;
   min-height: 46px;
@@ -1248,22 +1250,23 @@
   color: var(--app-muted, #5f7368);
   font: 600 13px/1.35 Inter, Arial, sans-serif;
   white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.workspaceTabs > button:hover { background: var(--app-subtle, #f5f8f5); }
+.workspaceTabs > :is(button, a):hover { background: var(--app-subtle, #f5f8f5); }
 .workspaceTabs > button[aria-current="page"],
 .workspaceTabs > button[aria-selected="true"] {
   border-bottom-color: var(--app-accent, #255742);
   color: var(--app-accent, #255742);
 }
-.workspaceTabs > button:focus-visible { outline-offset: -4px; }
+.workspaceTabs > :is(button, a):focus-visible { outline-offset: -4px; }
 
 @media (max-width: 620px) {
   .workspaceHeader .pageHeader { align-items: flex-start; flex-direction: column; }
   .workspaceHeader .pageActions { width: 100%; }
   .workspaceHeader .pageActions > :is(a, button) { flex: 1 1 auto; }
-  .workspaceTabs > button { padding-inline: 12px; }
+  .workspaceTabs > :is(button, a) { padding-inline: 12px; }
 }
 
 .workspaceDialog {
