@@ -1,12 +1,28 @@
-.picker,.manual{display:flex;flex-direction:column;gap:8px;min-width:0;color:#5e4230;font-size:12px;font-weight:750}
-.searchLabel{font-size:12px}.control{display:flex;align-items:center;gap:8px}
-.picker input,.manual input{min-width:0;width:100%;font:inherit;font-size:12px;font-weight:480;background:#fffdfa;border:1px solid #dac4aa;border-radius:10px;padding:11px 12px;color:#482b1d}
-.picker input:focus-visible,.manual input:focus-visible,.picker button:focus-visible{outline:3px solid #b88d4f;outline-offset:2px}
-.clear{border:1px solid #ddc7ae;background:#fff7ea;color:#76512e;font:inherit;font-size:11px;font-weight:700;border-radius:10px;padding:10px;cursor:pointer}
-.results{display:grid;gap:5px;max-height:240px;overflow:auto;padding:6px;background:#fffdfa;border:1px solid #ddceb8;border-radius:11px;box-shadow:0 8px 21px rgba(65,39,17,.05)}
-.results button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;border:0;background:#fffdfa;border-radius:8px;padding:10px 12px;font:inherit;color:#452a18;text-align:left;cursor:pointer}
-.results button:hover,.results button:focus-visible{background:#f3e7d4}
-.results button span{font-size:12px;font-weight:740}.results button small{font-size:10px;color:#836a50;font-weight:480}
-.helper,.error,.selected{font-size:10px!important;line-height:1.5!important;margin:0!important;font-weight:500;color:#866f5a!important}
-.selected{color:#38613f!important;background:#edf5e9;border-radius:8px;padding:7px 9px}
-.error{color:#9b4a31!important}
+.picker, .manual { display: grid; gap: 7px; min-width: 0; color: var(--app-ink, #22382e); }
+.searchLabel, .manual { font: 600 13px/1.4 Inter, Arial, sans-serif; }
+.control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.picker .control input, .manual input {
+  width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--app-border, #dce6de); border-radius: var(--app-control-radius, 8px);
+  background: #fff; color: var(--app-ink, #22382e); font: 400 14px/1.4 Inter, Arial, sans-serif;
+}
+.picker .clear, .picker .error button {
+  flex: none; width: auto; min-height: 44px; padding: 8px 11px; border: 1px solid var(--app-border, #dce6de);
+  border-radius: 8px; background: #fff; color: var(--app-accent, #255742); font: 600 12px/1.3 Inter, Arial, sans-serif; cursor: pointer;
+}
+.picker .clear:hover, .picker .error button:hover { background: #edf5ee; }
+.picker .results { display: grid; max-height: 255px; overflow: auto; padding: 5px; border: 1px solid #cadbce; border-radius: 8px; background: #fff; }
+.picker .results .option {
+  display: grid; gap: 3px; width: 100%; min-height: 52px; padding: 10px 12px; border: 0;
+  border-radius: 5px; background: #fff; color: #22382e; text-align: left;
+  font: 600 14px/1.35 Inter, Arial, sans-serif; cursor: pointer;
+}
+.picker .results .option:hover, .picker .results .option[aria-selected="true"] { background: #eaf3ec; }
+.picker .option small { color: #5f7368; font: 400 12px/1.4 Inter, Arial, sans-serif; }
+.picker .helper, .manual small, .picker .selected { margin: 0; color: #5f7368; font: 400 12px/1.5 Inter, Arial, sans-serif; }
+.picker .selected { color: #275c42; }
+.picker .error { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #843e2f; font: 400 12px/1.5 Inter, Arial, sans-serif; }
+.picker :is(input, button):focus-visible, .manual input:focus-visible { outline: 3px solid #b79a6e; outline-offset: 2px; }
+@media (max-width: 620px) { .picker .control input, .manual input { font-size: 16px; } }
+
+.picker .selected { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

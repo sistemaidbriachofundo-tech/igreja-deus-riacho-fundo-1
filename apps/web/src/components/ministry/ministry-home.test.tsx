@@ -147,7 +147,7 @@ describe("experiência de ministérios", () => {
     expect(interests).toContain("Pedro Almeida");
     expect(interests).toContain("não é integrante");
     expect(integrantes).toContain("Esta equipe ainda não tem integrantes cadastrados");
-    expect(integrantes).toContain("Incluir no vínculo formal");
+    expect(integrantes).toContain("Adicionar à equipe");
   });
 
   it("mostra atividade do próprio ministério e deixa o caixa fora das abas", () => {

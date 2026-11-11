@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { usePersonaAccess } from "./AppShell";
 import { MinistryExperience } from "./ministry/MinistryExperience";
 import { getApiBaseUrl, loadStoredToken } from "../lib/api";
 import {
@@ -29,6 +30,7 @@ function writeRoute(route: Route) {
 }
 
 export function MinistryDeskPage() {
+  const { roles } = usePersonaAccess();
   const [token, setToken] = useState<string | null>(null);
   const route = parseMinistryRoute(useSearchParams().toString());
   const [board, setBoard] = useState<MinistryBoardData | null>(null);
@@ -173,6 +175,8 @@ export function MinistryDeskPage() {
 
   return (
     <MinistryExperience
+      token={token}
+      roles={roles}
       desk={board.desk}
       escalas={board.escalas}
       activities={board.activities}

@@ -34,6 +34,8 @@ import ui from "../ui/ui.module.css";
 import styles from "./ministry-home.module.css";
 
 type Props = {
+  token?: string | null;
+  roles?: readonly string[];
   desk: DeskResult;
   escalas: EscalaPanel;
   activities: ActivityPanel;
@@ -104,6 +106,8 @@ function StatusExperience({ desk, onSelect, onRefresh }: Props) {
 }
 
 function ReadyExperience({
+  token,
+  roles,
   desk,
   escalas,
   activities,
@@ -283,6 +287,8 @@ function ReadyExperience({
 
           {tab === "integrantes" ? (
             <MinistryMembershipCatalog
+              token={token}
+              roles={roles}
               desk={desk}
               conversion={conversion}
               convertingId={convertingId}

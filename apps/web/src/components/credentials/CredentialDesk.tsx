@@ -115,7 +115,7 @@ export function CredentialDesk({
 
   async function issue(membershipId: string) {
     if (!token) {
-      setBanner("Emitir a carteirinha usa a API autenticada.");
+      setBanner("Entre com sua conta para emitir a carteirinha.");
       return;
     }
     setBusy(true);
@@ -151,7 +151,7 @@ export function CredentialDesk({
 
   async function revoke(credentialId: string) {
     if (!token) {
-      setViewerError("Revogar a carteirinha usa a API autenticada.");
+      setViewerError("Entre com sua conta para revogar a carteirinha.");
       return;
     }
     setBusy(true);
@@ -182,14 +182,14 @@ export function CredentialDesk({
 
   async function download() {
     if (!token || !card) {
-      setViewerError("Baixar PDF usa a API autenticada.");
+      setViewerError("Entre com sua conta para baixar o PDF.");
       return;
     }
     setBusy(true);
     setViewerError("");
     try {
       await downloadCredentialPdf(token, card.id);
-      setNotice("PDF gerado pela API.");
+      setNotice("PDF pronto para download.");
     } catch (error) {
       setViewerError(credentialFailure(error).message);
     } finally {
@@ -200,7 +200,7 @@ export function CredentialDesk({
   async function verify() {
     if (!card) return;
     if (previewCard && !token) {
-      setViewerError("Conferir o QR usa a API autenticada.");
+      setViewerError("Entre com sua conta para conferir o QR.");
       return;
     }
     setBusy(true);

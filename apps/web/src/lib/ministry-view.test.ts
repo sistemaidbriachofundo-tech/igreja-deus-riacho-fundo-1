@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MINISTRY_PERSONAS, ministryAccess, ministryHref, ministryPanelTitle, parseMinistryRoute } from "./ministry-view";
+import { humanWriteNotice, MINISTRY_PERSONAS, ministryAccess, ministryHref, ministryPanelTitle, parseMinistryRoute } from "./ministry-view";
 
 describe("painel de ministério", () => {
   it("chama Homens pelo nome curto e preserva o nome oficial no restante", () => {
@@ -46,5 +46,17 @@ describe("painel de ministério", () => {
         expect(foreign).toBe("403");
       }
     }
+  });
+});
+
+
+describe("Retorno das alterações de equipe", () => {
+  it("traduz confirmação sem expor o identificador da auditoria", () => {
+    const message = humanWriteNotice("MINISTRY_MEMBERSHIP_CREATED", true, "O cadastro formal registrou a alteração. Auditoria segredo-123.");
+    expect(message).toBe("A pessoa foi adicionada à equipe.");
+    expect(message).not.toMatch(/auditoria|segredo-123/i);
+  });
+  it("explica que a retirada conserva o histórico", () => {
+    expect(humanWriteNotice("MINISTRY_MEMBERSHIP_ENDED", true, "")).toContain("histórico foi preservado");
   });
 });

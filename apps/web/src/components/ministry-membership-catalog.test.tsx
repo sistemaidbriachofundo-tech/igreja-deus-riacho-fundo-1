@@ -73,7 +73,7 @@ describe("MinistryMembershipCatalog", () => {
     expect(interests).toContain("não é integrante");
     expect(html).toContain("Sábado, 16h — encontro sintético");
     expect(html).toContain("Inclusão e remoção permanecem indisponíveis");
-    expect(html).not.toContain("Incluir no vínculo formal");
+    expect(html).not.toContain("Adicionar à equipe");
     expect(html).not.toContain("MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED");
     expect(html).not.toContain("MINISTRY_FINANCE_CONTRACT_BLOCKED");
     expect(html).not.toContain("501");
@@ -120,8 +120,8 @@ describe("MinistryMembershipCatalog", () => {
     const members = region(html, "formal-members");
     const interests = region(html, "volunteer-interests");
     expect(members).toContain("Jovem Sintético");
-    expect(members).toContain("Encerrar vínculo");
-    expect(members).toContain("Incluir no vínculo formal");
+    expect(members).toContain("Retirar da equipe");
+    expect(members).toContain("Adicionar à equipe");
     expect(members).not.toContain("Interessado Sintético");
     expect(interests).toContain("Interessado Sintético");
     expect(interests).not.toContain("Jovem Sintético");
@@ -138,8 +138,9 @@ describe("MinistryMembershipCatalog", () => {
       />,
     );
     expect(html).toContain("Esta equipe ainda não tem integrantes cadastrados");
-    expect(html).toContain('name="personId"');
-    expect(html).toContain("Incluir no vínculo formal");
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain("Pessoa para adicionar à equipe");
+    expect(html).toContain("Adicionar à equipe");
     expect(region(html, "formal-members")).not.toContain("Pessoa Sintética");
   });
 
@@ -150,7 +151,7 @@ describe("MinistryMembershipCatalog", () => {
     expect(page).toContain("MinistryDeskPage");
     expect(screen).not.toContain("FinanceBoard");
     expect(screen).not.toContain("HmlPhaseOne");
-    expect(screen).not.toContain("AppShell");
+    expect(screen).not.toContain("<AppShell");
     expect(screen).not.toContain("/rosters");
     expect(adapter).toContain("/ministry-scope/");
     expect(adapter).not.toContain("/rosters");

@@ -400,3 +400,22 @@
   .columns .row { grid-template-columns: 44px minmax(0, 1fr); column-gap: 10px; }
   .columns .row .endAction { grid-column: 2; justify-self: start; width: auto; padding-inline: 0; }
 }
+
+.admit { align-items: start; }
+.admit > button { margin-top: 25px; }
+.reference { grid-column: 1 / -1; color: #5f7368; font-size: 12px; }
+.reference summary { display: list-item; cursor: pointer; padding-block: 8px; }
+.reference label { margin-top: 6px; }
+.confirmActions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.confirmActions .dangerAction { border-color: #8a4433; background: #8a4433; }
+.confirmActions .dangerAction:hover { border-color: #703525; background: #703525; }
+@media (max-width: 700px) { .admit > button { margin-top: 0; } }
+
+.admit { margin-block: 18px; padding-block: 0 18px; border-top: 0; border-bottom: 1px solid var(--app-border, #dce6de); }
+.memberSearch { display: grid; gap: 7px; margin-top: 18px; max-width: 420px; color: #5f7368; font: 600 12px/1.4 Inter, Arial, sans-serif; }
+.memberSearch input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #dce6de; border-radius: 8px; background: #fff; color: #22382e; font: 400 14px/1.4 Inter, Arial, sans-serif; }
+.memberSearch input:focus-visible { outline: 3px solid #b79a6e; outline-offset: 2px; }
+.emptySearch { margin-top: 20px !important; }
+.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #dce6de; color: #5f7368; font: 400 12px/1.4 Inter, Arial, sans-serif; }
+.pagination button { padding-inline: 12px; }
+@media (max-width: 620px) { .memberSearch input { font-size: 16px; } }

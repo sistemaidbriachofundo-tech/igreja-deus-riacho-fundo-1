@@ -7,13 +7,21 @@ import { useDialogLifecycle } from "./dialog";
 
 type ModalProps = {
   open: boolean;
+  appearance?: "default" | "workspace";
   title: string;
   description?: string;
   onClose: () => void;
   children: ReactNode;
 };
 
-export function Modal({ open, title, description, onClose, children }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  description,
+  onClose,
+  children,
+  appearance = "default",
+}: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -22,10 +30,21 @@ export function Modal({ open, title, description, onClose, children }: ModalProp
   if (!open) return null;
 
   return (
-    <div className={styles.overlay} onMouseDown={() => onClose()}>
+    <div
+      className={
+        appearance === "workspace"
+          ? `${styles.overlay} ${styles.workspaceOverlay}`
+          : styles.overlay
+      }
+      onMouseDown={() => onClose()}
+    >
       <div
         ref={dialogRef}
-        className={styles.dialog}
+        className={
+          appearance === "workspace"
+            ? `${styles.dialog} ${styles.workspaceDialog}`
+            : styles.dialog
+        }
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -35,7 +54,14 @@ export function Modal({ open, title, description, onClose, children }: ModalProp
       >
         <div className={styles.dialogHeader}>
           <h2 id={titleId}>{title}</h2>
-          <Button variant="secondary" onClick={onClose} aria-label="Fechar">
+          <Button
+            variant="secondary"
+            className={
+              appearance === "workspace" ? styles.workspaceSecondary : undefined
+            }
+            onClick={onClose}
+            aria-label="Fechar"
+          >
             Fechar
           </Button>
         </div>

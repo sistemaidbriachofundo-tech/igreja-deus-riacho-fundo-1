@@ -51,6 +51,7 @@ export function useDialogLifecycle(
   onClose: () => void,
   dialogRef: RefObject<HTMLElement | null>,
 ) {
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -59,7 +60,12 @@ export function useDialogLifecycle(
     const dialog = dialogRef.current;
     if (!dialog) return;
 
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    if (previous && !dialog.contains(previous))
+      returnFocusRef.current = previous;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const release = inertOutside(dialog);
@@ -67,9 +73,22 @@ export function useDialogLifecycle(
 
     function onKey(event: KeyboardEvent) {
       if (!dialog) return;
+      const target = event.target;
+      if (
+        event.key === "Escape" &&
+        target instanceof HTMLElement &&
+        target.getAttribute("role") === "combobox" &&
+        target.getAttribute("aria-expanded") === "true"
+      )
+        return;
       const items = listFocusable(dialog);
       const current = items.indexOf(document.activeElement as HTMLElement);
-      const action = dialogKeyAction(event.key, event.shiftKey, current, items.length);
+      const action = dialogKeyAction(
+        event.key,
+        event.shiftKey,
+        current,
+        items.length,
+      );
       if (action.type === "ignore") return;
       event.preventDefault();
       if (action.type === "close") {
@@ -88,7 +107,7 @@ export function useDialogLifecycle(
       document.removeEventListener("keydown", onKey, true);
       document.body.style.overflow = previousOverflow;
       release();
-      const restore = previous;
+      const restore = returnFocusRef.current;
       requestAnimationFrame(() => {
         if (restore && document.contains(restore)) restore.focus();
       });

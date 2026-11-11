@@ -1265,3 +1265,19 @@
   .workspaceHeader .pageActions > :is(a, button) { flex: 1 1 auto; }
   .workspaceTabs > button { padding-inline: 12px; }
 }
+
+.workspaceDialog {
+  max-width: 480px;
+  padding: 24px;
+  border: 1px solid #dce6de;
+  border-radius: 12px;
+  background: #fff;
+  color: #22382e;
+}
+.workspaceDialog .dialogHeader { gap: 14px; align-items: flex-start; }
+.workspaceDialog .dialogHeader h2 { margin: 0; color: #22382e; font: 650 21px/1.25 Inter, Arial, sans-serif; letter-spacing: -0.03em; }
+.workspaceDialog .dialogCopy { margin: 16px 0 0; color: #5f7368; font: 400 14px/1.6 Inter, Arial, sans-serif; }
+.workspaceDialog .dialogBody { margin-top: 20px; }
+@media (max-width: 540px) { .workspaceDialog { padding: 20px; } }
+
+.workspaceOverlay { align-items: center; background: #17372d94; backdrop-filter: blur(3px); }
