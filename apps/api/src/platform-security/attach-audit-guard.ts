@@ -37,8 +37,8 @@ export interface AuditGuardClient {
  * tesouraria, financeiro e CMS: todos gravam por auditLog.create.
  * A sanitização acontece antes do INSERT. UPDATE e DELETE são recusados.
  */
-export function attachAuditWriteGuard(client: AuditGuardClient): void {
-  const extended = client.$extends({
+export function withAuditWriteGuard(client: AuditGuardClient) {
+  return client.$extends({
     query: {
       auditLog: {
         async create({ args, query }) {
@@ -71,12 +71,4 @@ export function attachAuditWriteGuard(client: AuditGuardClient): void {
     },
   });
 
-  Object.defineProperty(client, "auditLog", {
-    configurable: true,
-    enumerable: true,
-    get() {
-      return extended.auditLog;
-    },
-  });
-  client.$transaction = ((...args: unknown[]) => extended.$transaction(...args)) as AuditGuardClient["$transaction"];
 }

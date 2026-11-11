@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { attachAuditWriteGuard, type AuditGuardExtension } from "./attach-audit-guard";
+import { withAuditWriteGuard, type AuditGuardExtension } from "./attach-audit-guard";
 import { AuditWriterService } from "./audit-writer.service";
 import { requestContext } from "./request-context";
 import { resolveTrustProxyHops } from "./trusted-proxy";
@@ -43,9 +43,9 @@ describe("guarda de escrita da auditoria", () => {
         };
       },
     };
-    attachAuditWriteGuard(client);
+    const guarded = withAuditWriteGuard(client);
     await requestContext.run({ requestId: "req-abcdefgh" }, async () => {
-      await client.auditLog.create({
+      await guarded.auditLog.create({
         data: {
           action: "finance.entry",
           resourceType: "ledger",
@@ -62,7 +62,8 @@ describe("guarda de escrita da auditoria", () => {
     });
     await expect(captured?.query.auditLog.update()).rejects.toThrow("append-only");
     await expect(captured?.query.auditLog.delete()).rejects.toThrow("append-only");
-    await expect(client.$transaction()).resolves.toBe("extended");
+    await expect(guarded.$transaction()).resolves.toBe("extended");
+    await expect(client.$transaction()).resolves.toBe("base");
   });
 });
 

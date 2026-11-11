@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import {
-  attachAuditWriteGuard,
+  withAuditWriteGuard,
   type AuditGuardClient,
 } from "../platform-security/attach-audit-guard";
 
@@ -12,7 +12,9 @@ export class PrismaService
 {
   constructor() {
     super();
-    attachAuditWriteGuard(this as unknown as AuditGuardClient);
+    // The Prisma extension follows transaction clients. Replacing the original
+    // client's method causes Prisma's proxies to call themselves recursively.
+    return withAuditWriteGuard(this as unknown as AuditGuardClient) as unknown as PrismaService;
   }
 
   async onModuleInit(): Promise<void> {
