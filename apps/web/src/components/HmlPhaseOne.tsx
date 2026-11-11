@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType, type For
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
 import { PersonPicker } from "./PersonPicker";
+import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
@@ -88,10 +89,6 @@ function displayError(error: unknown): string {
 
 function hasRole(user: AuthUser | null, role: Role) {
   return Boolean(user?.grants.some(grant => grant.roleCode === role));
-}
-
-function personInitials(name: string): string {
-  return name.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0).toLocaleUpperCase("pt-BR")).join("") || "ID";
 }
 
 function formatDate(value: string) {
@@ -610,7 +607,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                         <tbody>
                           {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => (
                             <tr key={membership.person.id}>
-                              <td data-label="Pessoa"><div className={s.personIdentity}><span className={s.personInitials} aria-hidden="true">{personInitials(membership.person.displayName)}</span><strong>{membership.person.displayName}</strong></div></td>
+                              <td data-label="Pessoa"><div className={s.personIdentity}><PersonPortrait name={membership.person.displayName} size="small" /><strong>{membership.person.displayName}</strong></div></td>
                               <td data-label="Família">{membership.person.householdId ? householdById.get(membership.person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</td>
                               <td data-label="Situação"><span className={s.statusPill} data-status={membership.status}>{label(membership.status)}</span></td>
                               <td data-label="Contato">{membership.person.email ?? "Não informado"}</td>
