@@ -25,16 +25,16 @@
   height: 100svh;
   min-width: 0;
   padding: 20px 11px 15px;
-  background: #193a32;
-  color: #c7d3d0;
-  border-right: 1px solid #245040;
+  background: #fbfcfa;
+  color: #4a6657;
+  border-right: 1px solid #e1e9e3;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 11px;
   padding: 0 9px 21px;
-  color: #fff;
+  color: #1c4735;
   text-decoration: none;
 }
 .brandEmblem {
@@ -52,7 +52,7 @@
   min-width: 0;
 }
 .brandText strong {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 720;
   letter-spacing: -0.025em;
   white-space: nowrap;
@@ -61,7 +61,7 @@
   font-size: 10px;
   font-weight: 550;
   letter-spacing: 0.09em;
-  color: #a9bab2;
+  color: #7c9787;
   white-space: nowrap;
 }
 .railContext {
@@ -104,7 +104,7 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #536c61 transparent;
+  scrollbar-color: #c8d8ce transparent;
 }
 .menuItem,
 .menuActive,
@@ -116,7 +116,7 @@
   min-height: 43px;
   padding: 10px 12px;
   border-radius: 9px;
-  color: #c1d6cc;
+  color: #4d6859;
   text-decoration: none;
   font:
     500 13px/1.4 Inter,
@@ -125,8 +125,8 @@
 .menuItem:hover,
 .ministryToggle:hover,
 .subItem:hover {
-  background: #243c3c;
-  color: #fff;
+  background: #eff5f0;
+  color: #1f543b;
 }
 .menuItem svg,
 .menuActive svg,
@@ -139,10 +139,10 @@
   min-width: 0;
 }
 .menuActive {
-  background: #305b4c;
-  color: #fff;
-  border-left: 2px solid #cfb67b;
-  padding-left: 10px;
+  background: #e4f0e6;
+  color: #225942;
+  border-left: 3px solid #367955;
+  padding-left: 9px;
   font-weight: 700;
 }
 .activeIndicator {
@@ -166,7 +166,7 @@
   transform: rotate(90deg);
 }
 .ministryToggle[data-current="true"] {
-  color: #f0ddad;
+  color: #205b41;
 }
 .subList {
   display: flex;
@@ -174,28 +174,28 @@
   gap: 2px;
   margin: 2px 0 4px 13px;
   padding-left: 9px;
-  border-left: 1px solid #466b5d;
+  border-left: 1px solid #d7e5da;
 }
 .subList[hidden] {
   display: none;
 }
 .subItem {
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 12px;
   min-height: 37px;
   line-height: 1.3;
 }
 .menuWait {
   margin: 12px;
-  color: #b5c7c0;
+  color: #627b6b;
   font-size: 12px;
   line-height: 1.5;
 }
 .railNote {
   margin: 8px 8px 0;
   padding-top: 19px;
-  border-top: 1px solid #32423e;
-  color: #8da498;
+  border-top: 1px solid #e2eae3;
+  color: #81968b;
   font-size: 10px;
 }
 .mainColumn,
@@ -217,7 +217,7 @@
   min-height: 66px;
   padding: 10px 28px;
   background: #fffffffa;
-  border-bottom: 1px solid #e7ece9;
+  border-bottom: 1px solid #e2ebe4;
   backdrop-filter: blur(14px);
 }
 .toolbarIdentity {
@@ -233,13 +233,13 @@
   min-width: 0;
 }
 .toolbarIdentity strong {
-  color: #53645f;
+  color: #254d3a;
   font-size: 14px;
   font-weight: 680;
 }
 .toolbarEyebrow {
-  color: #8e9c93;
-  font-size: 11px;
+  color: #71867a;
+  font-size: 12px;
 }
 .hmlMark {
   color: #7c8b80;
@@ -254,14 +254,14 @@
   place-items: center;
   width: 27px;
   height: 30px;
-  border: 1px solid #4f756533;
+  border: 1px solid #dce7de;
   border-radius: 7px;
-  background: #264a3e;
-  color: #c9dfd2;
+  background: #f0f5f1;
+  color: #547666;
   cursor: pointer;
 }
 .railCollapse[hidden], .drawerClose[hidden] { display: none !important; }
-.railCollapse:hover { color: #fff; background: #35614d; }
+.railCollapse:hover { color: #23583d; background: #e2eee5; }
 .frame[data-rail="collapsed"] .railCollapse { top: 78px; right: 22px; width: 26px; height: 26px; }
 .frame[data-rail="collapsed"] .railCollapse svg { transform: rotate(180deg); }
 .frame[data-rail="collapsed"] .menuCaption { display: none; }
@@ -298,13 +298,13 @@
   max-width: 330px;
   min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid #e6ece6;
-  background: #f8faf8;
-  border-radius: 8px;
+  border: 1px solid #dfe9e1;
+  background: #f6f9f6;
+  border-radius: 10px;
   color: #687b70;
   text-align: left;
   font:
-    400 12px Inter,
+    500 12px Inter,
     sans-serif;
   cursor: pointer;
 }
@@ -361,8 +361,8 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #e6eee0;
-  color: #647b48;
+  background: #e6f0e7;
+  color: #397054;
   font-size: 10px;
   font-weight: 650;
 }
@@ -373,16 +373,16 @@
   max-width: 210px;
 }
 .accountInfo strong {
-  color: #415449;
-  font-size: 10px;
-  font-weight: 550;
+  color: #284c3a;
+  font-size: 12px;
+  font-weight: 680;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .accountInfo small {
   color: #677963;
-  font-size: 10px;
+  font-size: 11px;
 }
 .logoutTrigger {
   display: inline-flex;
@@ -886,7 +886,7 @@
 
 .menuCaption {
   margin: 3px 11px 12px;
-  color: #a4c1b1;
+  color: #779481;
   font: 750 10px/1.3 Inter, Arial, sans-serif;
   letter-spacing: .14em;
 }
@@ -899,16 +899,16 @@
   gap: 7px;
   margin: 3px 0 2px;
   padding: 8px 10px;
-  border: 1px solid #4e79662a;
+  border: 1px solid #dfece1;
   border-radius: 8px;
-  background: #29513f;
-  color: #d9e8df;
+  background: #f2f7f3;
+  color: #3c7454;
   text-align: left;
   font: 630 11px/1.3 Inter, Arial, sans-serif;
   cursor: pointer;
 }
-.ministryMore:hover { background: #38674d; color: white; }
-.menuItem:hover, .ministryToggle:hover, .subItem:hover { background: #245043; }
+.ministryMore:hover { background: #e4efe6; color: #205a3e; }
+.menuItem:hover, .ministryToggle:hover, .subItem:hover { background: #eef5ef; }
 .mainColumn { background: #f8faf8; }
 .frame :is(a,button,input,select,textarea):focus-visible { outline: 3px solid #c7a96d; outline-offset: 3px; }
 @media (max-width: 1270px) {
