@@ -492,7 +492,7 @@ export function HmlPhaseOne({ view, CredentialPreview }: HmlPhaseOneProps) {
                 </div>
                 <div className={s.headingActions}>
                   {view === "members" && secretary && <AppNavLink className={s.primaryButton} href="/app/secretaria/?aba=admissoes&acao=cadastrar#cadastro">Cadastrar pessoa <UIIcon name="arrow" size={17} /></AppNavLink>}
-                  {view === "secretary" && secretary && <button type="button" className={s.primaryButton} onClick={() => startSecretaryAction("new")}>Cadastrar pessoa <UIIcon name="arrow" size={17} /></button>
+                  {view === "secretary" && secretary && <button type="button" className={s.primaryButton} onClick={() => startSecretaryAction("new")}>Cadastrar pessoa <UIIcon name="arrow" size={17} /></button>}
                 <button type="button" className={s.secondaryButton} onClick={() => {
                   setError("");
                   setChecking(true);
