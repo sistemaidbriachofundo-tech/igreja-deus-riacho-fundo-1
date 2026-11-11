@@ -163,8 +163,8 @@ test("o inventário da rodada não encontra os módulos retirados", () => {
   ]) {
     assert.equal(existsSync(join(root, path)), false, path);
   }
-  const demo = readFileSync(join(root, "apps/web/src/app/app/demo/page.tsx"), "utf8");
-  assert.equal(demo.includes("localStorage"), false);
+  // A rota de demonstração foi removida no V1: não tentar ler arquivo inexistente.
+  assert.equal(existsSync(join(root, "apps/web/src/app/app/demo/page.tsx")), false);
   const result = run("node", ["--import", "tsx", inventoryScript], {});
   assert.equal(result.status, 0, result.stderr);
   const document = JSON.parse(readFileSync(join(root, "docs/revitalizacao-144/inventario.json"), "utf8"));
