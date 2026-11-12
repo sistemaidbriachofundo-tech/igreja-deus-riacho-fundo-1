@@ -26,6 +26,22 @@ export default function HomePage() {
               </div>
             </div>
           </section>
+          <section className={s.purposes} aria-labelledby="purposes-title">
+            <div className={s.purposesWrap}>
+              <div className={s.purposesIntro}>
+                <span>PORQUE EXISTIMOS</span>
+                <h2 id="purposes-title">Nossa fé se transforma em cuidado.</h2>
+                <p>Os cinco propósitos da igreja dão direção à forma como nos reunimos, cuidamos e servimos.</p>
+              </div>
+              <ol className={s.purposesList}>
+                <li><span>01</span><strong>Adoração</strong><small>Celebrar a Deus.</small></li>
+                <li><span>02</span><strong>Comunhão</strong><small>Pertencer e caminhar juntos.</small></li>
+                <li><span>03</span><strong>Discipulado</strong><small>Crescer na Palavra e na fé.</small></li>
+                <li><span>04</span><strong>Serviço</strong><small>Cuidar das pessoas.</small></li>
+                <li><span>05</span><strong>Evangelização e missão</strong><small>Compartilhar a esperança.</small></li>
+              </ol>
+            </div>
+          </section>
           <section className={s.agenda} id="agenda" aria-labelledby="agenda-title">
             <div className={s.agendaWrap}><PublishedAgenda /></div>
           </section>
