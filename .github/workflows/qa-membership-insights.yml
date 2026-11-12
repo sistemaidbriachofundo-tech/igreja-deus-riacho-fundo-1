@@ -1,0 +1,34 @@
+name: QA isolada — Ficha 360 e Membresia
+
+on:
+  push:
+    branches: [chatgpt/eklesia-ficha-dashboard-20261111]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  membership-insights:
+    name: Compilar e testar Ficha 360 e indicadores
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://idbrf:idbrf_ci@localhost:5432/idbrf?schema=public
+      NEXT_PUBLIC_BASE_PATH: /igreja-deus-riacho-fundo-1
+      NEXT_PUBLIC_HML_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @idbrf/shared
+      - run: npx prisma generate --schema packages/db/prisma/schema.prisma
+      - run: npm run build -w @idbrf/db
+      - run: npm run typecheck -w @idbrf/api
+      - run: npm run typecheck -w @idbrf/web
+      - run: cd apps/web && ../../node_modules/.bin/vitest run src/components/membership-insights-model.test.ts
+      - run: cd apps/api && ../../node_modules/.bin/jest --runInBand membership-insights-domain.spec.ts
+      - run: node scripts/hml/write-pages-release.mjs
+      - run: npm run build -w @idbrf/web
