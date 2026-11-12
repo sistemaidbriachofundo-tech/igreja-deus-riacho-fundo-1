@@ -15,9 +15,9 @@ describe("web brand", () => {
     const svg = readFileSync(join(__dirname, "../../public", officialLogoAsset.slice(1)), "utf8");
     expect(svg).toContain('viewBox="286 96 1664 1832"');
     expect(svg).toContain('fill="#ff5700"');
-    expect(svg).toMatch(/<path\\b/);
-    expect(svg).not.toMatch(/<(?:rect|image|pattern|foreignObject)\\b/i);
-    expect(svg).not.toMatch(/<(?:script|style)\\b/i);
+    expect(svg).toMatch(/<path\b/);
+    expect(svg).not.toMatch(/<(?:rect|image|pattern|foreignObject)\b/i);
+    expect(svg).not.toMatch(/<(?:script|style)\b/i);
     for (const filename of [
       "LoginScreen.tsx", "AppShell.tsx", "PublicPortal.tsx",
       "SiteManager.tsx", "ViviEditorialAssistant.tsx",
@@ -30,17 +30,17 @@ describe("web brand", () => {
     const rootLayout = readFileSync(join(__dirname, "../app/layout.tsx"), "utf8");
     expect(rootLayout).toContain("icons: { icon: withBasePath(officialLogoAsset)");
     const shellCss = readFileSync(join(__dirname, "../components/app-shell.module.css"), "utf8");
-    expect(shellCss).not.toMatch(/\\.brandEmblem\\s*\\{[^}]*background-size:\\s*cover/s);
+    expect(shellCss).not.toMatch(/\.brandEmblem\s*\{[^}]*background-size:\s*cover/s);
     const loginCss = readFileSync(join(__dirname, "../components/login-screen.module.css"), "utf8");
-    expect(loginCss).toMatch(/\\.brand img\\s*\\{[^}]*object-fit:\\s*contain/s);
-    expect(loginCss).toMatch(/\\.brand img\\s*\\{[^}]*background:\\s*transparent/s);
+    expect(loginCss).toMatch(/\.brand img\s*\{[^}]*object-fit:\s*contain/s);
+    expect(loginCss).toMatch(/\.brand img\s*\{[^}]*background:\s*transparent/s);
     const publicCss = readFileSync(join(__dirname, "../components/portal-design-system.module.css"), "utf8");
-    expect(publicCss).not.toMatch(/\\.brand img\\s*\\{[^}]*background:\\s*#0b0b0b/s);
-    expect(publicCss).not.toMatch(/\\.brand img\\s*\\{[^}]*border-radius:\\s*7px/s);
+    expect(publicCss).not.toMatch(/\.brand img\s*\{[^}]*background:\s*#0b0b0b/s);
+    expect(publicCss).not.toMatch(/\.brand img\s*\{[^}]*border-radius:\s*7px/s);
     const editorCss = readFileSync(join(__dirname, "../components/site-manager.module.css"), "utf8");
     expect(editorCss).not.toContain(".previewTop img{border-radius:50%}");
     const assistantCss = readFileSync(join(__dirname, "../components/vivi-editorial-assistant.module.css"), "utf8");
-    expect(assistantCss).not.toMatch(/\\.icon img\\s*\\{[^}]*object-fit:\\s*cover/s);
+    expect(assistantCss).not.toMatch(/\.icon img\s*\{[^}]*object-fit:\s*cover/s);
   });
 
   it("uses shared slug", () => {
