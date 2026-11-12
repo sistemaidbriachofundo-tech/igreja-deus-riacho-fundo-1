@@ -17,10 +17,14 @@ export type FeedbackMessage = {
 type FeedbackContextValue = { showFeedback: (message: FeedbackMessage) => void };
 const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 
+/** Durante SSR isolado não há interação nem portal; no navegador exigimos o provider. */
+const serverOnlyFeedback: FeedbackContextValue = { showFeedback: () => {} };
+
 export function useFeedback(): FeedbackContextValue {
   const value = useContext(FeedbackContext);
-  if (!value) throw new Error("FeedbackProvider precisa envolver a aplicação.");
-  return value;
+  if (value) return value;
+  if (typeof window === "undefined") return serverOnlyFeedback;
+  throw new Error("FeedbackProvider precisa envolver a aplicação.");
 }
 
 const toneLabels: Record<FeedbackTone, string> = {
