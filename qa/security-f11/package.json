@@ -1,0 +1,12 @@
+{
+  "name": "@idbrf/qa-security-f11",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QA adversarial independente da F1.1-D. Não altera API, schema, workflow nem deploy.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test src/static-scan.test.mjs src/http-matrix.test.mjs src/cve-classify.test.mjs src/qa-api-smoke.test.mjs",
+    "audit": "node src/run.mjs",
+    "audit:hml": "node src/run.mjs --live-hml"
+  }
+}

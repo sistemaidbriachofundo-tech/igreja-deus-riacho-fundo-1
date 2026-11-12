@@ -1,0 +1,1014 @@
+{
+  "generatedAt": "2026-11-11T20:06:26.696Z",
+  "headSha": "31d3158c7619bbc4c9d24fd9b94e43ef056ab80e",
+  "candidateSha": "31d3158c7619bbc4c9d24fd9b94e43ef056ab80e",
+  "release": "NAO LIBERAR",
+  "summary": {
+    "counts": {
+      "PASS": 13,
+      "FAIL": 20,
+      "BLOCKED": 0
+    },
+    "e2e": {
+      "PASS": 0,
+      "FAIL": 0,
+      "BLOCKED": 33
+    },
+    "blockers": [
+      {
+        "e2e": "BLOCKED",
+        "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+        "id": "F11-MFA-01",
+        "severity": "P0",
+        "surface": "autenticacao",
+        "title": "Login privilegiado não pode emitir JWT pleno antes do TOTP",
+        "static": "FAIL",
+        "detail": "POST /auth/login chama issueTokenPair mesmo quando o hint diz challengeRequired.",
+        "file": "apps/api/src/auth/auth.service.ts",
+        "line": 128,
+        "excerpt": "...this.issueTokenPair(authUser),"
+      },
+      {
+        "e2e": "BLOCKED",
+        "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+        "id": "F11-MFA-02",
+        "severity": "P0",
+        "surface": "autenticacao",
+        "title": "Refresh e troca de congregação herdam a sessão sem novo desafio MFA",
+        "static": "FAIL",
+        "detail": "refresh() e switchChurch() reemitem o par de tokens sem consultar fator TOTP.",
+        "file": "apps/api/src/auth/auth.service.ts",
+        "line": 169,
+        "excerpt": "async refresh(actor: AuthUser): Promise<TokenPair> {"
+      },
+      {
+        "e2e": "BLOCKED",
+        "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+        "id": "F11-JWT-01",
+        "severity": "P0",
+        "surface": "sessao",
+        "title": "O guard reconsulta status, revogação e grants a cada pedido",
+        "static": "FAIL",
+        "detail": "verifyAccessToken aceita os grants do payload. JwtAuthGuard não consulta o banco. Um token já emitido sobrevive a desativação, logout inexistente e troca de papel até exp.",
+        "file": "apps/api/src/auth/auth.service.ts",
+        "line": 239,
+        "excerpt": "grants: payload.grants ?? [],"
+      },
+      {
+        "e2e": "BLOCKED",
+        "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+        "id": "F11-JWT-02",
+        "severity": "P0",
+        "surface": "sessao",
+        "title": "Existe logout que invalida a sessão no servidor",
+        "static": "FAIL",
+        "detail": "AuthController expõe login, me, refresh e switch-church. Não há logout nem logout-all.",
+        "file": "apps/api/src/auth/auth.controller.ts",
+        "line": 25,
+        "excerpt": "@Controller(\"auth\")"
+      },
+      {
+        "e2e": "BLOCKED",
+        "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+        "id": "F11-RATE-01",
+        "severity": "P0",
+        "surface": "abuso",
+        "title": "O limite de login não confia no primeiro X-Forwarded-For enviado pelo cliente",
+        "static": "FAIL",
+        "detail": "clientIp usa o primeiro salto do cabeçalho, sem lista de proxies confiáveis. Um cliente pode variar o valor e ganhar um balde novo.",
+        "file": "apps/api/src/common/simple-rate-limit.middleware.ts",
+        "line": 12,
+        "excerpt": "const forwarded = req.headers[\"x-forwarded-for\"];"
+      }
+    ],
+    "total": 33
+  },
+  "controls": [
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-MFA-01",
+      "severity": "P0",
+      "surface": "autenticacao",
+      "title": "Login privilegiado não pode emitir JWT pleno antes do TOTP",
+      "static": "FAIL",
+      "detail": "POST /auth/login chama issueTokenPair mesmo quando o hint diz challengeRequired.",
+      "file": "apps/api/src/auth/auth.service.ts",
+      "line": 128,
+      "excerpt": "...this.issueTokenPair(authUser),"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-MFA-02",
+      "severity": "P0",
+      "surface": "autenticacao",
+      "title": "Refresh e troca de congregação herdam a sessão sem novo desafio MFA",
+      "static": "FAIL",
+      "detail": "refresh() e switchChurch() reemitem o par de tokens sem consultar fator TOTP.",
+      "file": "apps/api/src/auth/auth.service.ts",
+      "line": 169,
+      "excerpt": "async refresh(actor: AuthUser): Promise<TokenPair> {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-MFA-03",
+      "severity": "P1",
+      "surface": "autenticacao",
+      "title": "Editor e publicador conseguem iniciar o próprio TOTP",
+      "static": "FAIL",
+      "detail": "MfaController lista papéis autenticados e omite EDITOR_SITE e PUBLICADOR_SITE. O login dessas contas continua a emitir JWT. Quando a F1.1 exigir MFA, o reteste tem de provar que elas não ficam sem caminho de cadastro nem entram privilegiadas sem desafio.",
+      "file": "apps/api/src/auth/mfa/mfa.controller.ts",
+      "line": 40,
+      "excerpt": "ROLE_CODES.PLATFORM_ADMIN,"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-MFA-04",
+      "severity": "P1",
+      "surface": "autenticacao",
+      "title": "Enrollment não devolve segredo TOTP depois que a senha já abriu sessão",
+      "static": "FAIL",
+      "detail": "enrollTotp devolve otpauthUri e o segredo no corpo. Combinado com o JWT do login, a senha basta para retirar o fator.",
+      "file": "apps/api/src/auth/mfa/mfa.service.ts",
+      "line": 109,
+      "excerpt": "otpauthUri: buildOtpAuthUri({"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-MFA-05",
+      "severity": "P1",
+      "surface": "autenticacao",
+      "title": "Produção exige chave dedicada de cifragem do TOTP",
+      "static": "FAIL",
+      "detail": "Sem MFA_ENCRYPTION_KEY e sem JWT_SECRET, a cifragem cai num literal de desenvolvimento. Produção exige JWT_SECRET, mas não exige chave MFA separada.",
+      "file": "apps/api/src/auth/mfa/mfa-crypto.util.ts",
+      "line": 39,
+      "excerpt": "function resolveMfaKey(): Buffer {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-JWT-01",
+      "severity": "P0",
+      "surface": "sessao",
+      "title": "O guard reconsulta status, revogação e grants a cada pedido",
+      "static": "FAIL",
+      "detail": "verifyAccessToken aceita os grants do payload. JwtAuthGuard não consulta o banco. Um token já emitido sobrevive a desativação, logout inexistente e troca de papel até exp.",
+      "file": "apps/api/src/auth/auth.service.ts",
+      "line": 239,
+      "excerpt": "grants: payload.grants ?? [],"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-JWT-02",
+      "severity": "P0",
+      "surface": "sessao",
+      "title": "Existe logout que invalida a sessão no servidor",
+      "static": "FAIL",
+      "detail": "AuthController expõe login, me, refresh e switch-church. Não há logout nem logout-all.",
+      "file": "apps/api/src/auth/auth.controller.ts",
+      "line": 25,
+      "excerpt": "@Controller(\"auth\")"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-JWT-03",
+      "severity": "P1",
+      "surface": "sessao",
+      "title": "Algoritmo JWT fixo, expiração obrigatória e segredo de produção recusado se for curto ou de desenvolvimento",
+      "static": "PASS",
+      "detail": "Assinatura HS256, exp e iat são verificados. NODE_ENV=production recusa segredo curto ou com prefixo de desenvolvimento.",
+      "file": "apps/api/src/auth/auth.service.ts",
+      "line": 413,
+      "excerpt": "if (header.alg !== \"HS256\") {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-JWT-04",
+      "severity": "P2",
+      "surface": "sessao",
+      "title": "Senha nova usa Argon2id e a falha de login não distingue usuário de senha na mensagem",
+      "static": "PASS",
+      "detail": "As duas falhas devolvem a mesma mensagem. O Argon2id só roda quando o usuário existe, então o tempo de resposta ainda diferencia conta ausente de senha errada.",
+      "file": "apps/api/src/auth/auth.service.ts",
+      "line": 84,
+      "excerpt": "throw new UnauthorizedException(\"Credenciais inválidas\");"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-ENUM-01",
+      "severity": "P2",
+      "surface": "autenticacao",
+      "title": "A verificação de senha não cria oráculo de tempo por existência de conta",
+      "static": "FAIL",
+      "detail": "Usuário inexistente responde antes do Argon2. A mensagem é igual; o tempo não é.",
+      "file": "apps/api/src/auth/auth.service.ts",
+      "line": 76,
+      "excerpt": "if (!user || user.status !== \"ACTIVE\") {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-RATE-01",
+      "severity": "P0",
+      "surface": "abuso",
+      "title": "O limite de login não confia no primeiro X-Forwarded-For enviado pelo cliente",
+      "static": "FAIL",
+      "detail": "clientIp usa o primeiro salto do cabeçalho, sem lista de proxies confiáveis. Um cliente pode variar o valor e ganhar um balde novo.",
+      "file": "apps/api/src/common/simple-rate-limit.middleware.ts",
+      "line": 12,
+      "excerpt": "const forwarded = req.headers[\"x-forwarded-for\"];"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-RATE-02",
+      "severity": "P1",
+      "surface": "abuso",
+      "title": "O limite é compartilhado entre instâncias e cobre confirmação MFA, refresh e troca de congregação",
+      "static": "FAIL",
+      "detail": "O contador é um Map no processo. As rotas limitadas são login, verificação de carteirinha, voluntariado, inscrição pública, webhook mock e chat público. MFA, refresh e switch-church ficam de fora. Em mais de uma instância o limite não se soma.",
+      "file": "apps/api/src/app.module.ts",
+      "line": 85,
+      "excerpt": "{ path: \"auth/login\", method: RequestMethod.POST },"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-CORS-01",
+      "severity": "P1",
+      "surface": "borda",
+      "title": "CORS de ambiente publicado é uma lista explícita, nunca reflexo de qualquer origem",
+      "static": "FAIL",
+      "detail": "Sem CORS_ORIGIN, a API reflete qualquer origem. A exigência da lista só dispara quando NODE_ENV é production. Homologação com outro NODE_ENV fica aberta. Não há cookie de sessão; o impacto é browser chamando a API a partir de outra origem com um Bearer que a página já tenha.",
+      "file": "apps/api/src/main.ts",
+      "line": 33,
+      "excerpt": "origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true,"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-HDR-01",
+      "severity": "P1",
+      "surface": "borda",
+      "title": "Respostas levam nosniff, anti-frame, referrer e sem cache",
+      "static": "PASS",
+      "detail": "Cabeçalhos básicos estão no bootstrap. Content-Security-Policy e Strict-Transport-Security não estão na aplicação; HSTS depende da borda e não foi medido no deploy.",
+      "file": "apps/api/src/main.ts",
+      "line": 54,
+      "excerpt": "res.setHeader(\"X-Content-Type-Options\", \"nosniff\");"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-HDR-02",
+      "severity": "P2",
+      "surface": "borda",
+      "title": "A aplicação envia Content-Security-Policy",
+      "static": "FAIL",
+      "detail": "O bootstrap não define CSP. O portal estático precisa da política no host que entrega o HTML. Isso não foi visto no deploy.",
+      "file": "apps/api/src/main.ts",
+      "line": 56,
+      "excerpt": "res.setHeader(\"Referrer-Policy\", \"no-referrer\");"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-CSRF-01",
+      "severity": "P2",
+      "surface": "sessao",
+      "title": "Sessão autenticada não viaja em cookie",
+      "static": "PASS",
+      "detail": "O acesso autenticado exige Authorization Bearer. Não há emissão de cookie de sessão no módulo de auth, então CSRF clássico de cookie não se aplica a essas rotas. Escritas públicas continuam chamáveis por outro site e dependem do limite em memória.",
+      "file": "apps/api/src/auth/guards/jwt-auth.guard.ts",
+      "line": 13,
+      "excerpt": "* Stub JWT: valida Bearer token via AuthService.verifyAccessToken."
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-UP-01",
+      "severity": "P1",
+      "surface": "upload",
+      "title": "Comprovante financeiro confere a assinatura do arquivo, não só o mimetype declarado",
+      "static": "FAIL",
+      "detail": "O anexo de lançamento aceita PDF, JPEG ou PNG pelo mimetype do cliente, com teto de 5 MiB e nome saneado. Não há conferência dos bytes. A mídia do site confere assinatura e recusa o pedido quando o tipo declarado diverge.",
+      "file": "apps/api/src/finance/finance.service.ts",
+      "line": 1574,
+      "excerpt": "if (!ATTACHMENT_TYPES.has(file.mimetype)) {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-UP-02",
+      "severity": "P1",
+      "surface": "upload",
+      "title": "Foto pública do site só entra com assinatura real, teto e caminho contido",
+      "static": "PASS",
+      "detail": "Upload exige papel de edição, no máximo 3 MB, e a assinatura JPEG, PNG, WebP ou AVIF. A leitura pública recalcula a assinatura e recusa nome ou igreja fora do padrão.",
+      "file": "apps/api/src/cms/site-media.service.ts",
+      "line": 24,
+      "excerpt": "function fileSignature(bytes:Buffer):\"image/jpeg\"|\"image/png\"|\"image/webp\"|\"image/avif\"|null {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-QR-01",
+      "severity": "P1",
+      "surface": "publico",
+      "title": "QR de carteirinha é opaco e a consulta pública não devolve documento nem contato",
+      "static": "PASS",
+      "detail": "O token tem 32 bytes. A resposta pública leva status, validade, nome de exibição, igreja e datas. O próprio código diz que CPF e telefone não saem. O nome de exibição ainda identifica a pessoa para quem possui o token.",
+      "file": "apps/api/src/credentials/credentials.service.ts",
+      "line": 413,
+      "excerpt": "async lookupByOpaqueToken(opaqueToken: string) {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-QR-02",
+      "severity": "P1",
+      "surface": "publico",
+      "title": "Token de QR malformado responde 400, não erro interno",
+      "static": "FAIL",
+      "detail": "assertOpaqueCredentialPayload lança Error comum. A rota pública não converte isso em 400. O filtro do Nest responde 500. A homologação observada devolveu 500 para um token curto sintético; isso descreve a origem consultada e o mesmo padrão está no fonte candidato.",
+      "file": "packages/shared/src/credential-token.ts",
+      "line": 75,
+      "excerpt": "throw new Error(\"Token da carteirinha inválido (esperado opaco base64url)\");"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-PUB-01",
+      "severity": "P2",
+      "surface": "publico",
+      "title": "Status público de inscrição não devolve nome e o código tem entropia de 16 bytes",
+      "static": "PASS",
+      "detail": "O código de check-in não é enumerável na prática. A resposta ainda inclui isMinor e o estado da autorização do responsável para quem já tem o código. O GET público não está na lista do limitador.",
+      "file": "apps/api/src/events/event-registrations.service.ts",
+      "line": 1066,
+      "excerpt": "const checkInCode = randomBytes(16).toString(\"hex\");"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-WH-01",
+      "severity": "P1",
+      "surface": "publico",
+      "title": "Webhook de pagamento mock não usa segredo fixo quando a variável falta",
+      "static": "FAIL",
+      "detail": "A rota é pública e exige HMAC e Idempotency-Key. Se EVENT_PAYMENT_WEBHOOK_SECRET não estiver definida, o código volta a um segredo de demonstração embutido. Isso não pode existir numa instância publicada.",
+      "file": "apps/api/src/events/event-registrations.service.ts",
+      "line": 1626,
+      "excerpt": "function webhookSecret(): string {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-PERSON-01",
+      "severity": "P1",
+      "surface": "idor",
+      "title": "Leitura de pessoa por membro fica restrita ao próprio cadastro",
+      "static": "PASS",
+      "detail": "assertCanReadPerson libera busca para quem pode pesquisar na congregação e, no restante, só o próprio personId. A prova de dois usuários sintéticos na API ainda não foi executada.",
+      "file": "apps/api/src/persons/persons.service.ts",
+      "line": 760,
+      "excerpt": "private assertCanReadPerson("
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-PASTORAL-01",
+      "severity": "P1",
+      "surface": "pastoral",
+      "title": "Casos pastorais exigem papel PASTOR na borda HTTP",
+      "static": "PASS",
+      "detail": "O controller declara PASTOR em todas as rotas vistas. Tesouraria e Secretaria não entram nessa lista. O grant continua sendo o do JWT, então o controle cai junto com a sessão obsoleta.",
+      "file": "apps/api/src/pastoral/pastoral.controller.ts",
+      "line": 115,
+      "excerpt": "@Roles(ROLE_CODES.PASTOR)"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-FIN-01",
+      "severity": "P1",
+      "surface": "financeiro",
+      "title": "Lançamentos exigem papel de tesouraria na classe do controller",
+      "static": "PASS",
+      "detail": "A classe do ledger exige TESOURARIA e o serviço confirma o grant na congregação piloto. PLATFORM_ADMIN entra só nos métodos que o declaram de novo. Grants velhos no JWT ainda passam.",
+      "file": "apps/api/src/finance/finance.controller.ts",
+      "line": 274,
+      "excerpt": "@Roles(ROLE_CODES.TESOURARIA)"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-IDEM-01",
+      "severity": "P1",
+      "surface": "financeiro",
+      "title": "Reenvio de lançamento não duplica o efeito",
+      "static": "FAIL",
+      "detail": "POST do ledger não recebe chave de idempotência. O caixa em treasury/treasury.service.ts consulta um audit_log e só depois grava: duas requisições simultâneas com a mesma chave podem criar dois lançamentos. Não há restrição única no banco para essa chave.",
+      "file": "apps/api/src/finance/finance.controller.ts",
+      "line": 360,
+      "excerpt": "createEntry(@CurrentUser() user: AuthUser, @Body() body: CreateEntryBody) {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-SCALE-01",
+      "severity": "P1",
+      "surface": "escala",
+      "title": "Atribuição de escala não duplica a mesma pessoa no mesmo slot",
+      "static": "FAIL",
+      "detail": "roster_assignments indexa slot e pessoa, sem unicidade. O serviço procura conflitos antes de gravar; a corrida de dois envios não está fechada no banco.",
+      "file": "packages/db/prisma/schema.prisma",
+      "line": 1344,
+      "excerpt": "model RosterAssignment {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-AUD-01",
+      "severity": "P1",
+      "surface": "auditoria",
+      "title": "Metadado sensível é recusado na escrita, não só mascarado na leitura",
+      "static": "FAIL",
+      "detail": "A redação acontece em listRecent, sem olhar o papel de quem lê. Os escritores gravam o JSON que receberam. Segredo no metadado permanece na linha até alguém ler pela API.",
+      "file": "apps/api/src/audit/audit-metadata.redactor.ts",
+      "line": 2,
+      "excerpt": "* Redige metadata de auditoria na leitura (GET /audit-logs)."
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-AUD-02",
+      "severity": "P1",
+      "surface": "auditoria",
+      "title": "audit_logs não é atualizável pelo modelo usado pela aplicação",
+      "static": "FAIL",
+      "detail": "O modelo não tem updatedAt. Também não há REVOKE de UPDATE/DELETE nem gatilho append-only neste schema. A trilha ainda depende da disciplina do client Prisma.",
+      "file": "packages/db/prisma/schema.prisma",
+      "line": 434,
+      "excerpt": "model AuditLog {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-AUD-03",
+      "severity": "P2",
+      "surface": "auditoria",
+      "title": "Leitura de auditoria tem teto e a visão da organização exige admin",
+      "static": "PASS",
+      "detail": "limit fica entre 1 e 200. scope=organization exige PLATFORM_ADMIN da organização. Secretaria, pastor e admin da congregação leem a trilha local, com metadado mascarado só na resposta.",
+      "file": "apps/api/src/audit/audit.service.ts",
+      "line": 42,
+      "excerpt": "const take = Math.min(Math.max(limit, 1), 200);"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-GUARD-01",
+      "severity": "P1",
+      "surface": "idor",
+      "title": "Líder sem ministryId no grant não é aceito em rota de outro ministério",
+      "static": "FAIL",
+      "detail": "AccessPolicyGuard passa unknownLeader allow. Na política compartilhada, grant de líder sem ministryId cobre o ministryId pedido. O serviço de vínculo formal pode apertar depois; a borda HTTP deste guard não aperta.",
+      "file": "apps/api/src/auth/guards/access-policy.guard.ts",
+      "line": 88,
+      "excerpt": "unknownLeader: \"allow\","
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-READY-01",
+      "severity": "P2",
+      "surface": "observabilidade",
+      "title": "/ready não devolve cadeia de conexão nem segredo",
+      "static": "PASS",
+      "detail": "A prontidão responde status, service e database ok ou unavailable. Não há requestId, log JSON global nem métrica protegida neste SHA.",
+      "file": "apps/api/src/health.service.ts",
+      "line": 10,
+      "excerpt": "async getReadiness(): Promise<{ status: \"ready\"; service: \"api\"; database: \"ok\" }> {"
+    },
+    {
+      "e2e": "BLOCKED",
+      "e2eDetail": "Prova de deploy exige a API da candidata no ar. Análise estática não substitui.",
+      "id": "F11-LOG-01",
+      "severity": "P1",
+      "surface": "observabilidade",
+      "title": "O bootstrap não escreve Authorization, cookie ou senha no stdout",
+      "static": "PASS",
+      "detail": "O único console.log do bootstrap anuncia a porta. Não há filtro global que impeça um serviço futuro de gravar o corpo. A frente C, que criaria esse filtro, não está nesta árvore.",
+      "file": "apps/api/src/main.ts",
+      "line": 65,
+      "excerpt": "console.log(`API listening on http://localhost:${port}`);"
+    }
+  ],
+  "http": {
+    "executed": true,
+    "origin": "https://id-riacho1-api-hml.vercel.app",
+    "aborted": false,
+    "sourceSha": "6c43aea96ad3fe24ec1ed2c09f717963fb289c62",
+    "candidateSha": "31d3158c7619bbc4c9d24fd9b94e43ef056ab80e",
+    "shaMatchesCandidate": false,
+    "deployProof": "NAO_E_O_SHA_CANDIDATO",
+    "login": {
+      "verdict": "PASS",
+      "detail": "As duas senhas inválidas da conta sintética inexistente devolveram o mesmo corpo."
+    },
+    "results": [
+      {
+        "id": "E2E-META",
+        "method": "GET",
+        "path": "/meta",
+        "status": 200,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"stage\":null,\"sourceSha\":\"6c43aea96ad3fe24ec1ed2c09f717963fb289c62\",\"contractVersion\":\"0.7.4-rf025\"}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-HEALTH",
+        "method": "GET",
+        "path": "/health",
+        "status": 200,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"status\":\"ok\",\"service\":\"api\",\"timestamp\":\"2026-11-11T20:06:01.412Z\",\"app\":\"Igreja de Deus — Riacho Fundo I\"}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-READY",
+        "method": "GET",
+        "path": "/ready",
+        "status": 200,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"status\":\"ready\",\"service\":\"api\",\"database\":\"ok\"}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-ME",
+        "method": "GET",
+        "path": "/auth/me",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-PERSON",
+        "method": "GET",
+        "path": "/persons/pessoa-sintetica",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-PASTORAL",
+        "method": "GET",
+        "path": "/pastoral-cases",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-LEDGER",
+        "method": "GET",
+        "path": "/ledger/accounts",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-AUDIT",
+        "method": "GET",
+        "path": "/audit-logs",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-REFRESH",
+        "method": "POST",
+        "path": "/auth/refresh",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-401-SWITCH",
+        "method": "POST",
+        "path": "/auth/switch-church",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Token JWT ausente\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-LOGIN-UNKNOWN",
+        "method": "POST",
+        "path": "/auth/login",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Credenciais inválidas\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-LOGIN-UNKNOWN-2",
+        "method": "POST",
+        "path": "/auth/login",
+        "status": 401,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"message\":\"Credenciais inválidas\",\"error\":\"Unauthorized\",\"statusCode\":401}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-QR-SHORT",
+        "method": "GET",
+        "path": "/credentials/verify/curto",
+        "status": 500,
+        "verdict": "FAIL",
+        "notes": [],
+        "body": "{\"statusCode\":500,\"message\":\"Internal server error\"}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      },
+      {
+        "id": "E2E-CORS",
+        "method": "GET",
+        "path": "/health",
+        "status": 200,
+        "verdict": "PASS",
+        "notes": [],
+        "body": "{\"status\":\"ok\",\"service\":\"api\",\"timestamp\":\"2026-11-11T20:06:03.138Z\",\"app\":\"Igreja de Deus — Riacho Fundo I\"}",
+        "headers": {
+          "nosniff": "nosniff",
+          "frame": "DENY",
+          "hsts": "max-age=63072000; includeSubDomains; preload",
+          "cache": "public, max-age=0, must-revalidate",
+          "cors": null,
+          "setCookie": false
+        }
+      }
+    ]
+  },
+  "cve": {
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 1,
+      "high": 8,
+      "critical": 0,
+      "total": 9
+    },
+    "rows": [
+      {
+        "name": "@prisma/config",
+        "severity": "high",
+        "range": "6.13.0-dev.1 - 7.10.0 || 8.1.0-dev.1 - 8.1.0-dev.4",
+        "version": "6.19.3",
+        "devOptional": true,
+        "advisories": [
+          {
+            "title": "via deepmerge-ts",
+            "url": "",
+            "cve": null
+          }
+        ],
+        "reachable": false,
+        "impact": "Dependência do CLI Prisma, também devOptional. O client de runtime é @prisma/client.",
+        "recommendation": "Tratar junto com o CLI. Não fazer upgrade solto nesta frente."
+      },
+      {
+        "name": "@vercel/blob",
+        "severity": "high",
+        "range": ">=2.4.1-b7027de-20260616193056",
+        "version": "2.9.0",
+        "devOptional": false,
+        "advisories": [
+          {
+            "title": "via @vercel/oidc",
+            "url": "",
+            "cve": null
+          }
+        ],
+        "reachable": true,
+        "impact": "Dependência direta da API, usada no upload público de foto do site. O alerta alto entra por @vercel/oidc, não por um defeito isolado de armazenamento.",
+        "recommendation": "Subir @vercel/blob somente para uma versão cujo lock deixe zod em 4.6.6 ou acima, e repetir o teste de upload de JPG, PNG, WebP e arquivo disfarçado."
+      },
+      {
+        "name": "@vercel/cli-config",
+        "severity": "high",
+        "range": "<=0.3.5",
+        "version": "0.3.1",
+        "devOptional": false,
+        "advisories": [
+          {
+            "title": "via zod",
+            "url": "",
+            "cve": null
+          }
+        ],
+        "reachable": true,
+        "impact": "Fixa zod em 4.1.11. O aviso é de memória ao validar coleções grandes, não de leitura de segredo.",
+        "recommendation": "A correção testável é uma versão de @vercel/cli-config que declare zod >= 4.6.6, puxada pelo blob. Override manual fica para o integrador depois do teste de mídia."
+      },
+      {
+        "name": "@vercel/oidc",
+        "severity": "high",
+        "range": "3.6.0 - 4.0.5",
+        "version": "3.8.10",
+        "devOptional": false,
+        "advisories": [
+          {
+            "title": "via @vercel/cli-config",
+            "url": "",
+            "cve": null
+          }
+        ],
+        "reachable": true,
+        "impact": "Entra no processo da API porque @vercel/blob 2.9.0 depende dele. O efeito observado é o zod antigo puxado por @vercel/cli-config.",
+        "recommendation": "Não override cego de pacote transitivo. Trocar a cadeia a partir de uma release nova do blob e testar o upload."
+      },
+      {
+        "name": "deepmerge-ts",
+        "severity": "high",
+        "range": "<8.0.0",
+        "version": "7.1.5",
+        "devOptional": true,
+        "advisories": [
+          {
+            "title": "DeepmergeTS has stack exhaustion when merging recursive object graphs",
+            "url": "https://github.com/advisories/GHSA-ggr8-5vv4-36mx",
+            "cve": null
+          }
+        ],
+        "reachable": false,
+        "impact": "Esgotamento de pilha ao fundir objetos recursivos no carregamento de configuração do CLI Prisma.",
+        "recommendation": "Fora do processo da API. Manter o CLI em devDependency e só subir quando a versão corrigida passar por generate e migrate em banco isolado."
+      },
+      {
+        "name": "next",
+        "severity": "moderate",
+        "range": "9.3.4-canary.0 - 16.3.0-preview.10",
+        "version": "15.5.29",
+        "devOptional": false,
+        "advisories": [
+          {
+            "title": "via postcss",
+            "url": "",
+            "cve": null
+          }
+        ],
+        "reachable": false,
+        "impact": "O moderado do Next, neste audit, chega via postcss. O app web é export estático. Não há execução de postcss no pedido do visitante.",
+        "recommendation": "Tratar como o postcss. Não marcar o portal como corrigido enquanto o lock continuar em 8.4.31."
+      },
+      {
+        "name": "postcss",
+        "severity": "high",
+        "range": "<=8.5.22",
+        "version": "8.4.31",
+        "devOptional": false,
+        "advisories": [
+          {
+            "title": "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+            "url": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+            "cve": null
+          },
+          {
+            "title": "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+            "url": "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+            "cve": null
+          },
+          {
+            "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+            "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+            "cve": null
+          },
+          {
+            "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+            "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+            "cve": null
+          }
+        ],
+        "reachable": false,
+        "impact": "postcss 8.4.31 é dependência de build do Next 15.5.29. Os avisos são XSS na serialização de CSS e leitura de source map na compilação. O runtime da API não importa postcss. O portal não compila CSS enviado por visitante.",
+        "recommendation": "Não adotar o major do Next só por este aviso. Caminho curto: override de postcss para a faixa corrigida, build do web e a suíte já existente. O PR de major fica separado e revisado."
+      },
+      {
+        "name": "prisma",
+        "severity": "high",
+        "range": "6.13.0-dev.1 - 7.10.0 || 8.0.0-rc.3 - 8.1.0-dev.4",
+        "version": "6.19.3",
+        "devOptional": true,
+        "advisories": [
+          {
+            "title": "via @prisma/config",
+            "url": "",
+            "cve": null
+          }
+        ],
+        "reachable": false,
+        "impact": "O pacote é o CLI de migração, marcado devOptional no lockfile. Não atende pedido HTTP.",
+        "recommendation": "Não promover o CLI a dependência de runtime. Repetir o audit com --omit=dev --omit=optional no gate de produção."
+      },
+      {
+        "name": "zod",
+        "severity": "high",
+        "range": "<4.6.6",
+        "version": "4.1.11",
+        "devOptional": false,
+        "advisories": [
+          {
+            "title": "Zod can exhaust memory while validating oversized constrained collections",
+            "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+            "cve": null
+          }
+        ],
+        "reachable": true,
+        "impact": "zod 4.1.11 pode consumir memória demais ao validar coleções com limite. Quem chama esse zod é a cadeia do blob, com entrada vinda do serviço da Vercel, não do corpo bruto de um fiel.",
+        "recommendation": "Não editar package.json nesta frente. O integrador ensaia a cadeia nova em QA e compara o lock antes de aceitar."
+      }
+    ]
+  },
+  "fronts": {
+    "integrated": false,
+    "summary": "Nenhum head remoto com nome de F1.1-A, B ou C apareceu nesta coleta. As issues #185, #186 e #187 seguem sem PR nesta prova. Integração BLOCKED.",
+    "branches": {},
+    "remoteHits": []
+  },
+  "personas": [
+    {
+      "id": "admin",
+      "role": "PLATFORM_ADMIN",
+      "email": "platform.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "obrigatório quando a frente A entrar"
+    },
+    {
+      "id": "secretaria",
+      "role": "SECRETARIA",
+      "email": "ana.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "obrigatório quando a frente A entrar"
+    },
+    {
+      "id": "pastor",
+      "role": "PASTOR",
+      "email": "pastor.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "obrigatório quando a frente A entrar"
+    },
+    {
+      "id": "tesouraria",
+      "role": "TESOURARIA",
+      "email": "tesouraria.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "obrigatório quando a frente A entrar"
+    },
+    {
+      "id": "lider",
+      "role": "LIDER_MINISTERIO",
+      "email": "lider.jovens.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "confirmar com o integrador se o líder entra no conjunto privilegiado"
+    },
+    {
+      "id": "membro",
+      "role": "MEMBRO",
+      "email": "bruno.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "login com senha deve continuar sem trancar a conta sintética"
+    },
+    {
+      "id": "editor",
+      "role": "EDITOR_SITE",
+      "email": "editor.demo@example.test",
+      "seeded": true,
+      "mfaExpected": "hoje o controller de MFA não lista este papel; o reteste prova cadastro ou exclusão explícita"
+    },
+    {
+      "id": "publicador",
+      "role": "PUBLICADOR_SITE",
+      "email": "publicador.demo@example.test",
+      "seeded": false,
+      "mfaExpected": "não há usuário no seed; o roteiro fica bloqueado até existir conta fictícia"
+    }
+  ]
+}

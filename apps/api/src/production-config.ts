@@ -31,6 +31,22 @@ export function assertProductionConfiguration(env: NodeJS.ProcessEnv): void {
     throw new Error("Configure uma chave de sessão exclusiva para produção");
   }
 
+  if (!/^[1-9]\d*$/.test(env.TRUST_PROXY?.trim() ?? "")) {
+    throw new Error("Produção exige TRUST_PROXY com o número de saltos do proxy conhecido");
+  }
+  if (env.F11_MFA_BLOCKING !== "true") {
+    throw new Error("Produção exige MFA bloqueante para papéis privilegiados");
+  }
+  if (env.AUTH_STATE_STORE === "memory") {
+    throw new Error("Produção não admite sessão em memória");
+  }
+  if (env.RATE_LIMIT_STORE === "memory") {
+    throw new Error("Produção não admite limite só em memória");
+  }
+  if ((env.F11_MFA_ENFORCEMENT ?? "PRIVILEGED").toUpperCase() === "OFF") {
+    throw new Error("Produção não admite política MFA desligada");
+  }
+
   const privateBlob = env.PRIVATE_BLOB_READ_WRITE_TOKEN?.trim();
   if (!privateBlob || privateBlob === env.BLOB_READ_WRITE_TOKEN?.trim()) {
     throw new Error("Configure o armazenamento privado separado da biblioteca pública");

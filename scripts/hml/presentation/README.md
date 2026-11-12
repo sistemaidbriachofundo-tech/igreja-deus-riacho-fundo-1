@@ -34,7 +34,7 @@ Sem `DATABASE_URL`, `--dry-run` imprime o plano e não abre conexão. No Postgre
 - Lançamentos aprovados em partida dobrada (oferta, dízimo a receber, despesa a pagar e taxa). A posição derivada fica no manifesto: recebido 18000, a receber 9600, caixa 17700, comprometido 4200, disponível 13500, bruto 27600, taxa 300, líquido 27300, em centavos.
 - Três usuários desabilitados e sem senha só são criados quando a congregação ainda não tem três usuários. Senha de usuário existente não é lida de novo nem reescrita.
 
-O manifesto vai para `audit_logs` (`hml.presentation_seed.apply`) e para o stdout, com contagem antes e depois. A segunda execução não duplica linhas. O rollback apaga apenas ids `hmlpres_`.
+O manifesto vai para `audit_logs` (`hml.presentation_seed.apply`) e para o stdout, com contagem antes e depois. Cada execução acrescenta uma linha nova, sem regravar a anterior. O rollback apaga os demais ids `hmlpres_` e deixa a trilha de auditoria.
 
 ## Imagens
 

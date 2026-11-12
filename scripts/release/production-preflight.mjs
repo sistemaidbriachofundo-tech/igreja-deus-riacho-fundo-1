@@ -16,6 +16,12 @@ function origin(raw) {
   return null;
 }
 
+if (
+  typeof production === "string" && /id-riacho1-api-hml\.vercel\.app|github\.io/i.test(production) ||
+  typeof web === "string" && /id-riacho1-api-hml\.vercel\.app|github\.io/i.test(web)
+) {
+  failures.push("A origem informada é o site ou a API de homologação atuais. Este preflight não libera produção.");
+}
 if (!origin(production) || !origin(web)) {
   failures.push("Informe as origens HTTPS do site e da API de produção, separadas da homologação.");
 }

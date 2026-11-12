@@ -279,3 +279,48 @@ export {
 } from "./release/revitalization-144";
 
 export { SITE_COVER_PHOTO, SITE_IDENTITY_PHOTO, SITE_GALLERY_PHOTOS, usesPreviousGallery } from "./site-photos";
+
+export {
+  PRIVILEGED_ROLE_CODES,
+  DEFAULT_SECURITY_POLICY,
+  requiresPrivilegedMfa,
+  mfaBlocksPrivilegedSession,
+  assertRuntimePolicy,
+  policyScopeKey,
+  type MfaEnforcementMode,
+  type SecurityPolicySnapshot,
+} from "./security-f11/policy";
+export {
+  hashOpaqueToken,
+  generateOpaqueToken,
+  acceptRequestId,
+} from "./security-f11/token";
+export {
+  assessSession,
+  MemorySessionRepository,
+  SessionService,
+  type AuthSessionStatus,
+  type SessionRecord,
+  type SessionFailure,
+  type SessionRepository,
+  type IssuedSession,
+} from "./security-f11/session";
+export {
+  MemoryMfaChallengeRepository,
+  MfaChallengeService,
+  type MfaChallengePurpose,
+  type MfaChallengeStatus,
+  type MfaChallengeRecord,
+  type MfaChallengeFailure,
+  type MfaChallengeRepository,
+} from "./security-f11/mfa-challenge";
+export {
+  MemoryRateLimitStore,
+  type RateLimitDecision,
+  type RateLimitStore,
+} from "./security-f11/rate-limit";
+export {
+  AuditWriteRejected,
+  sanitizeAuditCreateData,
+  type AuditWriteInput,
+} from "./security-f11/audit-write";
