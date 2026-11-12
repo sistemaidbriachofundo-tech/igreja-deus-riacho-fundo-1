@@ -33,10 +33,26 @@ export function treasurySidebarItems(roles: readonly string[]): readonly Treasur
   );
 }
 
+/** Tipo do lançamento também fica na âncora, para não transformar Pix em despesa. */
+export const TREASURY_MOVEMENT_TYPES = [
+  "despesa", "pix", "cartao", "dinheiro", "deposito", "liquidacao", "compromisso", "pagar",
+] as const;
+export type TreasuryMovement = (typeof TREASURY_MOVEMENT_TYPES)[number];
+
+export function treasuryMovementFromHash(hash: string): TreasuryMovement {
+  const raw = hash.replace(/^#/, "");
+  const candidate = raw === "lancar" ? "despesa" : raw.startsWith("lancar:") ? raw.slice(7) : "";
+  return TREASURY_MOVEMENT_TYPES.find(item => item === candidate) ?? "despesa";
+}
+export function treasuryMovementHash(movement: TreasuryMovement): string {
+  return movement === "despesa" ? "#lancar" : `#lancar:${movement}`;
+}
+
 export function treasurySectionFromHash(hash: string, roles: readonly string[]): TreasurySection {
   const items = treasurySidebarItems(roles);
   const raw = hash.startsWith("#") ? hash.slice(1) : hash;
-  const found = items.find(item => item.section === raw);
+  const section = raw.startsWith("lancar:") && TREASURY_MOVEMENT_TYPES.some(type => raw === `lancar:${type}`) ? "lancar" : raw;
+  const found = items.find(item => item.section === section);
   return found?.section ?? (roles.includes("PASTOR") && !roles.includes("TESOURARIA") ? "aprovacoes" : "visao");
 }
 
