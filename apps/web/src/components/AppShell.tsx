@@ -495,10 +495,9 @@ export function AppShell({
               </div>
             );
             if (block.kind === "treasury") {
-              const pastorOnly = roles.includes("PASTOR") && !roles.includes("TESOURARIA");
               const currentParent = active === "tesouraria";
               return <div key="tesouraria" className={s.treasuryBlock}>
-                <AppNavLink href={pastorOnly ? treasurySectionHref("aprovacoes") : "/app/tesouraria/"}
+                <AppNavLink href="/app/tesouraria/"
                   className={currentParent ? s.menuActive : s.menuItem}
                   title={railCollapsed ? "Tesouraria" : undefined} onNavigate={afterNavigate}>
                   <UIIcon name="wallet" size={19}/><span className={s.menuLabel}>Tesouraria</span>
