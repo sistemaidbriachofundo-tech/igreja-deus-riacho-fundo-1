@@ -14,7 +14,7 @@ export function PortalCinematicHero() {
     <section id="inicio" className={s.hero} data-appearance={site.appearance} aria-labelledby="hero-title">
       <div className={s.visual} aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} className={s.coverPhoto} alt="" fetchPriority="high" />
+        <img src={imageUrl} className={s.coverPhoto} alt="" fetchPriority="high" onError={(event) => { const fallback = withBasePath("/images/hero-oficial.jpg"); if (!event.currentTarget.src.endsWith(fallback)) event.currentTarget.src = fallback; }} />
       </div>
       <div className={s.colorGrade} aria-hidden="true" />
       <div className={s.content}>
