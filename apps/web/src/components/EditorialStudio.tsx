@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { Alert } from "./ui/Alert";
+import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
 import { loadStoredToken } from "../lib/api";
 import { publicApiBase } from "../lib/portal-live-data";
@@ -43,11 +44,11 @@ async function request<T>(token:string,path:string,method:"GET"|"POST"|"PATCH"="
   return await response.json() as T;
 }
 export function EditorialStudio() {
+  const { showFeedback } = useFeedback();
   const configured = Boolean(publicApiBase(process.env.NEXT_PUBLIC_API_URL));
   const [token, setToken] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [info, setInfo] = useState("");
   const [error, setError] = useState("");
   const [events, setEvents] = useState<PortalEvent[]>([]);
   const [ministries, setMinistries] = useState<Array<{ id: string; name: string }>>([]);
@@ -81,14 +82,13 @@ export function EditorialStudio() {
   async function perform(action: () => Promise<unknown>, success: string) {
     if (!token || busy) return;
     setBusy(true);
-    setInfo("");
     setError("");
     try {
       await action();
-      setInfo(success);
+      showFeedback({ tone: "success", title: "Alteração concluída", message: success });
       await reload(token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível concluir a ação.");
+      showFeedback({ tone: "error", title: "Operação não concluída", message: err instanceof Error ? err.message : "Não foi possível concluir a ação." });
     } finally {
       setBusy(false);
     }
@@ -101,14 +101,13 @@ export function EditorialStudio() {
       description: item.description ?? "", locationText: item.locationText ?? "",
       ministryId: item.ministryId ?? "", featuredOnHome: item.featuredOnHome,
     });
-    setInfo("");
     setError("");
   }
 
   function saveEvent(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!token)return;
     const dt=new Date(eventData.startsAt);
-    if(!eventData.startsAt||!Number.isFinite(dt.getTime())){setError("Informe uma data válida.");return;}
+    if(!eventData.startsAt||!Number.isFinite(dt.getTime())){showFeedback({ tone: "error", title: "Confira a data", message: "Informe uma data e horário válidos para o evento." });return;}
     const payload={...eventData,name:eventData.name.trim(),slug:slugify(eventData.slug||eventData.name),
       startsAt:dt.toISOString(),description:eventData.description||null,locationText:eventData.locationText||null,ministryId:eventData.ministryId||null};
     void perform(async()=>{
@@ -125,7 +124,6 @@ export function EditorialStudio() {
             Editar capa <UIIcon name="arrow" size={16} />
           </AppNavLink>} />
         {error && <Alert appearance="workspace" tone="danger" title={error} />}
-        {info && <Alert appearance="workspace" tone="success" title={info} />}
         {!configured ? <p role="status">A agenda está indisponível neste ambiente.</p> :
           checking || !token ? <p role="status">Consultando a agenda…</p> : (
           <section aria-label="Agenda do portal">
