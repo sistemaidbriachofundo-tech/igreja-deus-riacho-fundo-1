@@ -10,6 +10,7 @@ import { ApiRequestError, apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
+import { treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
 import { ExpenseApprovals } from "./ExpenseApprovals";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
@@ -207,7 +208,7 @@ export function TreasuryPanel() {
   const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
   const [failure, setFailure] = useState("");
   const [center, setCenter] = useState<string | null>(null);
-  const [view, setView] = useState<"visao" | "despesas" | "extrato" | "conciliacao" | "lancar" | "aprovacoes">("visao");
+  const [view, setView] = useState<TreasurySection>("visao");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [bankFilter, setBankFilter] = useState("");
@@ -219,6 +220,21 @@ export function TreasuryPanel() {
   const [busy, setBusy] = useState(false);
   const intent = useRef("");
   const [tab, setTab] = useState<Tab>("despesa");
+  const treasuryRoles = access.kind === "ready" ? access.roles.join("|") : "";
+
+  // Navegação lateral e abas locais compartilham a mesma seção da URL.
+  // Hashes funcionam no GitHub Pages sem novas rotas ou dependência de servidor.
+  useEffect(() => {
+    const roles = treasuryRoles ? treasuryRoles.split("|") : [];
+    const syncFromHash = () => {
+      const section = treasurySectionFromHash(window.location.hash, roles);
+      setView(section);
+      if (section === "lancar") setTab("despesa");
+    };
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, [treasuryRoles]);
 
   useEffect(() => {
     if (enabled) setToken(loadStoredToken());
@@ -261,9 +277,12 @@ export function TreasuryPanel() {
   });
   const reconciliations = data?.reconciliations ?? [];
 
-  function openView(next: typeof view) {
+  function openView(next: TreasurySection) {
     setView(next);
     setPage(1);
+    if (typeof window !== "undefined" && window.location.hash !== `#${next}`) {
+      window.location.hash = next;
+    }
   }
 
   function openMovement(next: Tab) {
