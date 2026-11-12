@@ -100,14 +100,14 @@ export function SessionGateNotice({
         title: "Não conseguimos confirmar a sessão.",
         detail: "A conexão demorou ou falhou. Você não foi desconectado.",
       };
-  return <main className={styles.waiting} role={mode === "checking" ? "status" : "alert"} aria-live="polite">
+  return <main className={styles.waiting} role="alert" aria-live="polite">
     <span className={styles.waitingIcon} aria-hidden="true">✦</span>
     <h1>{copy.title}</h1>
     <p>{copy.detail}</p>
-    {mode !== "checking" && <div className={styles.gateActions}>
+    <div className={styles.gateActions}>
       {mode === "unavailable" && onRetry && <button type="button" className={styles.retry} onClick={onRetry}>Tentar de novo</button>}
       <a className={styles.gateLink} href={withBasePath("/")}>Voltar ao site</a>
       {onSignOut && <button type="button" className={styles.gateLinkButton} onClick={onSignOut}>Sair da sessão</button>}
-    </div>}
+    </div>
   </main>;
 }
