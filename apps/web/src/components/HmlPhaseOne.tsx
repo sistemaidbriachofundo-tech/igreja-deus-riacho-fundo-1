@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
-import { ReportBars, ReportDashboard } from "./ReportDashboard";
+import { ReportBars } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
@@ -575,7 +575,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             )}
             {view === "overview" && <PersonaBoard />}
             {view === "secretary" && secretary && secretarySection === "resumo" && (
-              <ReportDashboard>
+              <div className={s.secretaryOverview}>
+
                 <SecretaryDashboard token={token} revision={summaryRevision}
                   households={familiesLoaded ? households.length : null}
                   credentials={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null}
@@ -588,7 +589,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     label, value: admissions.filter(row => row.currentStep === step && !CLOSED_ADMISSIONS.includes(row.status)).length,
                     href: `/app/secretaria/admissoes/?etapa=${step}`,
                   })) : null} />
-              </ReportDashboard>
+              </div>
             )}
             {showsPeople && (
               <div className={s.peopleWorkspace}>
