@@ -7,7 +7,7 @@ import { ReportBars, ReportDashboard } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
-import { NewPersonIntake } from "./secretaria/NewPersonIntake";
+import { NewPersonIntake, personUnder18 } from "./secretaria/NewPersonIntake";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
@@ -424,13 +424,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     if (!token || !secretary || busy || !admissionForm) return;
     const name = newName.trim();
     const email = newEmail.trim().toLowerCase();
-    const computedMinor = newProfile.birthDate ? (() => {
-      const [by,bm,bd] = newProfile.birthDate.split("-").map(Number);
-      const now = new Date();
-      const age = now.getFullYear() - by -
-        (now.getMonth()+1 < bm || (now.getMonth()+1 === bm && now.getDate() < bd) ? 1 : 0);
-      return age < 18;
-    })() : newProfile.isMinor;
+    const computedMinor = newProfile.birthDate ? personUnder18(newProfile.birthDate) : newProfile.isMinor;
     setFormFeedback("");
     if (admissionForm === "existing" && !admissionPerson) {
       setFormFeedback("Selecione a pessoa que vai iniciar a admissão.");
