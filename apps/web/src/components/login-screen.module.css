@@ -98,3 +98,8 @@
 .manualSetup { margin-top: 4px; font-size: 13px; color: #315346; }
 .manualSetup summary { min-height: 36px; padding: 6px 0; cursor: pointer; font-weight: 650; }
 .manualSetup code { display: block; margin-top: 6px; font-size: 13px; letter-spacing: .08em; word-break: break-all; }
+
+/* Entrada limpa: carregamento visual sem mostrar estados técnicos de autenticação. */
+.submitSpinner{display:block;height:18px;width:18px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:login-load .7s linear infinite}
+@keyframes login-load{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.submitSpinner{animation:none;border-color:#fff}}
