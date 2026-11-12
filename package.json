@@ -25,7 +25,8 @@
     "homolog:eklesia": "node scripts/hml/eklesia-release-gate.mjs",
     "homolog:revitalizacao": "node --import tsx scripts/hml/release-inventory.mjs && node --import tsx scripts/hml/release-revitalization-gate.mjs",
     "hml:migrate": "node --import tsx scripts/hml/release-migrate-guard.mjs",
-    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs scripts/hml/presentation/seed-hml.test.mjs"
+    "hml:web-preview:check": "bash scripts/hml/web-preview-build.sh --check && node scripts/hml/web-preview-diagnose.mjs --offline",
+    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs scripts/hml/web-preview.test.mjs scripts/hml/presentation/seed-hml.test.mjs"
   },
   "engines": {
     "node": ">=20"

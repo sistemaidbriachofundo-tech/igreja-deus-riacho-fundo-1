@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-11-10T16:33:46.463Z",
+  "offline": false,
+  "alias": {
+    "url": "https://id-riacho1-web-hml.vercel.app/",
+    "httpStatus": 503,
+    "vercelError": "DEPLOYMENT_PAUSED",
+    "ssoChallenge": false,
+    "body": "The deployment is currently unavailable\n\nDEPLOYMENT_PAUSED\n\niad1::fzqkp-1794328426207-de1a2c19947a\n"
+  },
+  "apiHealthStatus": 200,
+  "deployment": {
+    "available": false,
+    "missingToken": true,
+    "httpStatus": 403
+  },
+  "report": {
+    "previewReady": false,
+    "ssoAction": "preserve",
+    "deploymentId": "dpl_J3zExHhufmJ8DtwZQiKvmVLnn8ju",
+    "projectId": "prj_apLd6QGDRLNUBWF6BsFAI7s72Uai",
+    "teamId": "team_CMNbcFRquQfcR2yWEO7UbsOS",
+    "baselineSha": "6c43aea96ad3fe24ec1ed2c09f717963fb289c62",
+    "causeFromDeploymentMessage": null,
+    "messageStillRequired": true,
+    "findings": [
+      {
+        "id": "alias-paused",
+        "status": "BLOCKED",
+        "evidence": "https://id-riacho1-web-hml.vercel.app/ respondeu HTTP 503 com x-vercel-error=DEPLOYMENT_PAUSED. Não houve desafio SSO (401)."
+      },
+      {
+        "id": "api-hml-up",
+        "status": "PASS",
+        "evidence": "https://id-riacho1-api-hml.vercel.app/health respondeu 200 no mesmo intervalo. A pausa não é uma queda geral da Vercel nem da API HML."
+      },
+      {
+        "id": "deployment-unread",
+        "status": "BLOCKED",
+        "evidence": "GET /v13/deployments/dpl_J3zExHhufmJ8DtwZQiKvmVLnn8ju (HTTP 403) não devolveu o deployment. O errorMessage segue indisponível para o time team_CMNbcFRquQfcR2yWEO7UbsOS."
+      },
+      {
+        "id": "git-author",
+        "status": "PASS",
+        "evidence": "O commit 6c43aea96ad3fe24ec1ed2c09f717963fb289c62 é de sistemaidbriachofundo-tech <sistemaidbriachofundo@gmail.com> (GitHub id 352435434); o committer é web-flow. Repositório public. A doc da Vercel para Hobby exige que o autor do commit seja o dono do time, conferido em Login Connections."
+      }
+    ],
+    "humanControls": [
+      {
+        "id": "read-deployment",
+        "actor": "conta membro do time team_CMNbcFRquQfcR2yWEO7UbsOS",
+        "action": "Abrir o projeto id-riacho1-web-hml (prj_apLd6QGDRLNUBWF6BsFAI7s72Uai) e o deployment dpl_J3zExHhufmJ8DtwZQiKvmVLnn8ju. Copiar readyState, errorCode, errorMessage, quantidade de linhas de build, repositório Git conectado, Production Branch e o estado de Vercel Authentication. Não alterar nenhum desses controles nesta leitura."
+      },
+      {
+        "id": "act-on-message",
+        "actor": "dono do time Vercel, depois da leitura",
+        "action": "Se a mensagem for autor Git no Hobby, conferir Login Connections do dono com o GitHub sistemaidbriachofundo-tech e o e-mail sistemaidbriachofundo@gmail.com, sem convidar outros autores. Se a mensagem for gasto, cota ou pausa, tratar só no painel e no e-mail da Vercel. Se o Git conectado não for sistemaidbriachofundo-tech/igreja-deus-riacho-fundo-1, parar e confirmar antes de reconectar."
+      },
+      {
+        "id": "apply-web-project-settings",
+        "actor": "dono do time, somente no projeto web",
+        "action": "Aplicar à mão os campos de deploy/hml/web-preview.project.json no projeto id-riacho1-web-hml. O arquivo está com apply=false. Não aplicar no projeto id-riacho1-api-hml, não criar deployment e não promover a branch main."
+      },
+      {
+        "id": "cors-later",
+        "actor": "dono do time, só após URL READY e decisão explícita",
+        "action": "A prévia nasce com NEXT_PUBLIC_API_URL vazio. Só se a prévia for autorizada a falar com a API sintética, acrescentar a origem HTTPS exata dessa prévia em CORS_ORIGIN de id-riacho1-api-hml. Não fazer isso agora."
+      }
+    ],
+    "forbidden": [
+      "disable-sso",
+      "change-permissions",
+      "change-secrets",
+      "official-deploy",
+      "merge-main",
+      "seed",
+      "migrate"
+    ]
+  }
+}
