@@ -448,7 +448,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       showFormIssue("Informe o nome completo com pelo menos 3 caracteres.", "intake-person-name");
       return;
     }
-    if (admissionForm === "new" && !/^[^\\s@]+@example\\.test$/i.test(email)) {
+    if (admissionForm === "new" && !/^[^\s@]+@example\.test$/i.test(email)) {
       showFormIssue(
         "Este é um ambiente de testes. Informe um e-mail fictício terminado em @example.test (por exemplo: pessoa@example.test). E-mails reais não são permitidos nesta base.",
         "intake-person-email",
