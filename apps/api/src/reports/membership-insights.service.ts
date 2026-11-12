@@ -60,7 +60,7 @@ export class MembershipInsightsService {
         },
         orderBy: { createdAt: "desc" },
         take: 16,
-        select: { id: true, displayName: true, createdAt: true, kind: true },
+        select: { id: true, displayName: true, createdAt: true, kind: true, isMinor: true, birthDate: true },
       }),
     ]);
     return buildMembershipInsights({
