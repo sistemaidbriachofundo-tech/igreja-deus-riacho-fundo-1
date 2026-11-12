@@ -245,7 +245,7 @@ export function Ficha360Dialog({
               {activeTab==="visao" && <Ficha360Overview person={person} dossier={dossier}
                 canEdit={canEdit} onTab={setActiveTab}/>}
             </div>
-            {activeTab === "cadastro" && <>
+            {activeTab === "cadastro" && <div id={titleId+"-cadastro"} role="tabpanel" aria-labelledby={titleId+"-tab-cadastro"}>
             <div className={s.profileTools}>
               <div className={s.completeness}>
                 <div className={s.completenessLabel}>
@@ -261,7 +261,7 @@ export function Ficha360Dialog({
                   <i style={{ width: Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100) + "%" }} />
                 </div>
               </div>
-              <button className={s.secondary} type="button" onClick={() => { timelineRef.current?.scrollIntoView({ block: "start" }); timelineRef.current?.focus({ preventScroll: true }); }}>Ver linha do tempo</button>
+              <button className={s.secondary} type="button" onClick={() => setActiveTab("historico")}>Ver linha do tempo</button>
             </div>
             <form className={s.form} onSubmit={onSubmit}>
               <fieldset disabled={busy || !canEdit || creatingFamily}>
@@ -506,9 +506,11 @@ export function Ficha360Dialog({
                 </div>
               </dl>
             </section>
-            </>}
+            </div>}
 
-            <section ref={timelineRef} tabIndex={-1} className={s.context} hidden={activeTab!=="historico" && activeTab!=="admissoes"}
+            <section id={titleId+(activeTab==="admissoes"?"-admissoes":"-historico")} role="tabpanel"
+              aria-labelledby={titleId+"-tab-"+(activeTab==="admissoes"?"admissoes":"historico")}
+              ref={timelineRef} tabIndex={-1} className={s.context} hidden={activeTab!=="historico" && activeTab!=="admissoes"}
               aria-label={activeTab==="admissoes"?"Admissões e documentos":"Histórico eclesiástico"}>
               {activeTab==="historico" && <>
                 <div className={s.historyLead}>
@@ -603,11 +605,22 @@ export function Ficha360Dialog({
 
 function Timeline({ events, filter }: { events: PersonTimelineEvent[]; filter: string }) {
   const visible = events.filter(event => !filter || event.type === filter);
-  if (!visible.length) return <p className={s.hint}>Nenhum registro neste filtro.</p>;
-  return <ol className={s.timeline}>{visible.map(event => <li key={event.id}>
-    <time dateTime={event.date}>{formatWhen(event.date)}</time>
-    <div><small>{timelineLabels[event.type]}</small><strong>{event.title}</strong>{event.detail && <span>{event.detail}</span>}</div>
-  </li>)}</ol>;
+  if (!visible.length) return <p className={s.timelineEmpty}>Nenhum acontecimento registrado neste filtro. Selecione outro tipo.</p>;
+  return <ol className={s.timeline} aria-label="Acontecimentos da vida eclesiástica">
+    {visible.map((event, index) => <li key={event.type+"-"+event.id+"-"+index} data-event-type={event.type}>
+      <span className={s.timelineMarker} data-event-type={event.type} aria-hidden="true">
+        {event.type==="ministerio"?"✦":event.type==="marco"?"♥":event.type==="cadastro"?"✓":event.type==="transferencia"?"↗":"●"}
+      </span>
+      <article className={s.timelineCard}>
+        <div className={s.timelineCardHeader}>
+          <span className={s.timelineCategory}>{timelineLabels[event.type]}</span>
+          <time dateTime={event.date}>{formatWhen(event.date)}</time>
+        </div>
+        <h4>{event.title}</h4>
+        {event.detail && <p>{event.detail}</p>}
+      </article>
+    </li>)}
+  </ol>;
 }
 
 function householdOptions(
