@@ -32,3 +32,27 @@ jobs:
       - run: cd apps/api && ../../node_modules/.bin/jest --runInBand membership-insights-domain.spec.ts
       - run: node scripts/hml/write-pages-release.mjs
       - run: npm run build -w @idbrf/web
+      - name: Entregar código-fonte da evolução em ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: riacho1-ficha360-dashboard-codigo
+          retention-days: 30
+          path: |
+            apps/api/src/reports/membership-insights-*
+            apps/api/src/reports/reports.module.ts
+            apps/web/src/components/MembershipInsights.tsx
+            apps/web/src/components/membership-insights-*
+            apps/web/src/components/secretaria/Ficha360Dialog.tsx
+            apps/web/src/components/secretary-dossier.module.css
+            apps/web/src/components/AdministrativeOverview.tsx
+            apps/web/src/components/administrative-overview.module.css
+            apps/web/src/components/reports/ManagementReports.tsx
+            apps/web/src/components/reports/management-reports.module.css
+            apps/web/src/app/app/secretaria/indicadores/page.tsx
+            docs/entrega-ficha360-membresia-20261111.md
+      - name: Entregar preview estático compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: riacho1-ficha360-dashboard-preview
+          retention-days: 14
+          path: apps/web/out
