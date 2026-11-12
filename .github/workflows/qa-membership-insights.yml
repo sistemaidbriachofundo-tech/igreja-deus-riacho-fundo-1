@@ -28,7 +28,7 @@ jobs:
       - run: npm run build -w @idbrf/db
       - run: npm run typecheck -w @idbrf/api
       - run: npm run typecheck -w @idbrf/web
-      - run: cd apps/web && ../../node_modules/.bin/vitest run src/components/membership-insights-model.test.ts src/components/secretaria/new-person-intake-model.test.ts
+      - run: cd apps/web && ../../node_modules/.bin/vitest run src/components/membership-insights-model.test.ts src/components/secretaria/new-person-intake-model.test.ts src/components/secretary-dossier-ui.test.tsx
       - run: cd apps/api && ../../node_modules/.bin/jest --runInBand membership-insights-domain.spec.ts membership-profile-registration.spec.ts
       - run: node scripts/hml/write-pages-release.mjs
       - run: npm run build -w @idbrf/web
