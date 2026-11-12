@@ -464,6 +464,8 @@ export function AppShell({
         </button>
         <div className={s.railHeader}>
           <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
+            {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />
             <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
           </AppNavLink>
@@ -547,6 +549,8 @@ export function AppShell({
             <button type="button" ref={menuButtonRef} className={s.hamburger} aria-expanded={menuExpanded} aria-controls="app-navigation-rail" aria-label={menuButtonLabel} onClick={toggleMenu}>
               <UIIcon name="menu" size={20}/>
             </button>
+            {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={s.smallLogo} src={withBasePath(officialLogoAsset)} width={36} height={40} alt="" loading="eager" />
             <div>
               <strong>{shownMeta}</strong>
