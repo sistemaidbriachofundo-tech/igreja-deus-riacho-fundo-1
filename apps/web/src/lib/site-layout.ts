@@ -23,12 +23,14 @@ export type SiteLayout = {
   sections: SiteSection[];
   hidden: SiteSection[];
 };
+export const PUBLIC_FACADE_IMAGE = "/images/fachada-igreja-riacho-fundo.jpg";
+
 export const defaultSiteLayout: SiteLayout = {
   version: 1,
   hero: {
     title: "Sua jornada com Deus", accent: "pode começar aqui.",
     description: "Um lugar para adorar, caminhar em família e viver a fé juntos.",
-    imageUrl: SITE_COVER_PHOTO,
+    imageUrl: PUBLIC_FACADE_IMAGE,
   },
   identity: SITE_IDENTITY_PHOTO,
   gallery: {
@@ -71,7 +73,7 @@ export function parseSiteLayout(value:unknown):SiteLayout|null {
   if(o.identity!==undefined&&(!o.identity||!isText(o.identity.alt,220)||!validSiteImage(o.identity.imageUrl)))return null;
   return {
     ...o as SiteLayout,
-    hero: { ...hero, imageUrl: hero.imageUrl === "/images/adoracao-oficial.jpg" ? SITE_COVER_PHOTO : hero.imageUrl },
+    hero: { ...hero, imageUrl: ["/images/adoracao-oficial.jpg", SITE_COVER_PHOTO].includes(hero.imageUrl) ? PUBLIC_FACADE_IMAGE : hero.imageUrl },
     identity: o.identity ?? SITE_IDENTITY_PHOTO,
     gallery: { ...gallery, items: usesPreviousGallery(gallery.items) ? SITE_GALLERY_PHOTOS : gallery.items },
   };
@@ -82,7 +84,7 @@ export function parsePublicSiteLayout(value:unknown):{layout:SiteLayout|null}|nu
   return {layout:response.layout===null?null:parseSiteLayout(response.layout)};
 }
 export const siteMediaLibrary = [
-  { title: "Fachada da igreja", src: SITE_COVER_PHOTO },
+  { title: "Fachada oficial do Riacho Fundo I", src: PUBLIC_FACADE_IMAGE },
   { title: "Quem somos", src: SITE_IDENTITY_PHOTO.imageUrl },
   ...SITE_GALLERY_PHOTOS.map(photo => ({ title: photo.title, src: photo.imageUrl })),
 ];
