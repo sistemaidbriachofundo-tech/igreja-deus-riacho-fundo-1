@@ -177,6 +177,7 @@ export function Ficha360Dialog({
               size="large"
             />
             <div>
+              <span className={s.profileEyebrow}>FICHA 360 · HISTÓRIA E CUIDADO</span>
               <h2 id={titleId}>
                 {person?.displayName ?? "Cadastro de pessoa"}
               </h2>
@@ -222,9 +223,20 @@ export function Ficha360Dialog({
         {form && person && dossier && (
           <>
             <div className={s.profileTools}>
-              <span title="Nome, e-mail, endereço e nascimento">
-                Dados essenciais preenchidos <strong>{[person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length}/4</strong>
-              </span>
+              <div className={s.completeness}>
+                <div className={s.completenessLabel}>
+                  <span title="Nome, e-mail, endereço e nascimento">
+                    Dados essenciais preenchidos <strong>{[person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length}/4</strong>
+                  </span>
+                  <strong>{Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100)}%</strong>
+                </div>
+                <div className={s.completenessTrack} role="progressbar"
+                  aria-label="Preenchimento dos dados essenciais"
+                  aria-valuemin={0} aria-valuemax={100}
+                  aria-valuenow={Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100)}>
+                  <i style={{ width: Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100) + "%" }} />
+                </div>
+              </div>
               <button className={s.secondary} type="button" onClick={() => { timelineRef.current?.scrollIntoView({ block: "start" }); timelineRef.current?.focus({ preventScroll: true }); }}>Ver linha do tempo</button>
             </div>
             <form className={s.form} onSubmit={onSubmit}>
