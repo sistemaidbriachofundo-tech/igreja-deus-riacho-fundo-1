@@ -67,6 +67,16 @@ export function Ficha360Overview({person,dossier,canEdit,onTab}: Props) {
           <p className={s.subtitle}>{dossier.household ? "Núcleo "+dossier.household.label:"Nenhuma família vinculada até o momento."}</p>
           {canEdit && dossier.household?.members.length ? <ul className={s.familyList}>{dossier.household.members.slice(0,10).map(m=><li key={m.id}><span>{m.displayName.slice(0,1).toLocaleUpperCase("pt-BR")}</span><strong>{m.displayName}</strong><small>{m.isMinor?"Menor de idade":"Pessoa da família"}</small></li>)}</ul>:
             <p className={s.muted}>Vínculos familiares são consultados conforme a permissão da Secretaria.</p>}
+          {canEdit && dossier.dependents.length > 0 && <div className={s.dependents}>
+            <h4>Dependentes vinculados</h4>
+            <ul className={s.familyList}>
+              {dossier.dependents.slice(0,10).map(child=><li key={child.id}>
+                <span>{child.displayName.slice(0,1).toLocaleUpperCase("pt-BR")}</span>
+                <strong>{child.displayName}</strong>
+                <small>{child.isMinor?"Menor de idade":"Dependente"}</small>
+              </li>)}
+            </ul>
+          </div>}
           <p className={s.summaryFooter}><strong>Dependentes:</strong> {dossier.dependents.length} · <strong>Responsável:</strong> {dossier.legalGuardian?.displayName??"Não informado"}</p>
         </section>
         <section className={s.card}>
