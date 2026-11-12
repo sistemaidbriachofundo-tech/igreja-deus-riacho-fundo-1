@@ -57,7 +57,7 @@ describe("Church OS: experiência institucional", () => {
     expect(read("components/credentials/CredentialDesk.tsx")).toContain("Visualizar");
   });
   it("entrega ações reais para cada área, não botões decorativos", () => {
-    expect(shell).toContain("Ctrl K");
+    expect(shell).toContain('aria-keyshortcuts="Control+K Meta+K"');
     expect(shell).toContain("paletteOpen");
     expect(directory).toContain("downloadCsv(filtered)");
     expect(directory).toContain('view==="GRID"');

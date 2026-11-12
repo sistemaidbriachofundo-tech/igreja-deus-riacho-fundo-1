@@ -10,6 +10,7 @@ export type TreasuryEntry = {
   amountCents: number | null;
   createdByUserId: string;
   firstApprovedByUserId: string | null;
+  approvalFlow?: "TREASURER_THEN_PASTOR" | "DUAL_APPROVAL";
   costCenterId: string | null;
   reconciliationId: string | null;
   lines: TreasuryEntryLine[];

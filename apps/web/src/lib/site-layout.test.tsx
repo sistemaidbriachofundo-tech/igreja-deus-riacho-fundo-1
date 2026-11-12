@@ -83,9 +83,8 @@ describe("Gestão do Site — editor visual",()=>{
   it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
     const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"RASCUNHO SECRETO 5a13"}};
     const empty=renderToStaticMarkup(<SiteReaderPreview published={null} device="mobile"/>);
-    expect(empty).toContain("O leitor não vê o rascunho");
+    expect(empty).toContain("A página pública ainda usa o conteúdo padrão da igreja.");
     expect(empty).not.toContain(secret.hero.title);
-    expect(empty).toContain("gate");
     const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"Versão publicada 5a13"}};
     const live=renderToStaticMarkup(<SiteReaderPreview published={published} device="desktop"/>);
     expect(live).toContain("Versão publicada 5a13");

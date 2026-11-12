@@ -27,3 +27,9 @@
   .profiles { grid-column: 1 / -1; grid-row: 2; }
   .form { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Convites controlados de acesso — sem senha definida pelo administrador. */
+.accessState{display:grid;justify-items:start;gap:6px;min-width:0}
+.resend{min-height:36px;border:1px solid #c8ddd0;background:#f0f6ee;color:#266143;border-radius:9px;padding:7px 11px;font-size:.75rem;font-weight:760;cursor:pointer}
+.resend:disabled{opacity:.5;cursor:not-allowed}
+.inviteInfo{margin:0;padding:14px 16px;background:#eff7f0;border:1px solid #d2e4d5;border-radius:12px;color:#315942;font-size:.81rem;line-height:1.6}

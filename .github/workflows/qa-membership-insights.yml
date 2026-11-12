@@ -2,7 +2,7 @@ name: QA isolada — Ficha 360 e Membresia
 
 on:
   push:
-    branches: [chatgpt/eklesia-ficha-dashboard-20261111, chatgpt/secretaria-dashboard-redesign-20261112]
+    branches: [chatgpt/eklesia-ficha-dashboard-20261111, chatgpt/secretaria-dashboard-redesign-20261112, chatgpt/hml-finance-approvals-access-invite-20261112]
   workflow_dispatch:
 
 permissions:
@@ -29,7 +29,9 @@ jobs:
       - run: npm run typecheck -w @idbrf/api
       - run: npm run typecheck -w @idbrf/web
       - run: cd apps/web && ../../node_modules/.bin/vitest run src/components/membership-insights-model.test.ts src/components/secretaria/new-person-intake-model.test.ts src/components/secretary-dossier-ui.test.tsx src/components/secretaria/secretary-dashboard.layout.test.ts
-      - run: cd apps/api && ../../node_modules/.bin/jest --runInBand membership-insights-domain.spec.ts membership-profile-registration.spec.ts
+      - run: cd apps/api && ../../node_modules/.bin/jest --runInBand membership-insights-domain.spec.ts membership-profile-registration.spec.ts church-access.controller.spec.ts access-invitation.service.spec.ts
+      - run: cd apps/api && ../../node_modules/.bin/jest --runInBand finance.service.spec.ts expense-approval-role.spec.ts
+      - run: cd apps/web && ../../node_modules/.bin/vitest run src/components/treasury-panel.test.tsx src/lib/treasury-overview.test.ts
       - run: node scripts/hml/write-pages-release.mjs
       - run: npm run build -w @idbrf/web
       - name: Entregar código-fonte da evolução em ZIP

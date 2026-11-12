@@ -2,13 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { PersonPicker, canSearchPersons } from "../PersonPicker";
+import { RosterPreviewPanel } from "./RosterPreviewPanel";
 import { formatChurchDate } from "../../lib/das-operations";
 import {
+  assignmentStatusLabel,
   blocksForRoster,
   canConfirmAssignment,
   canSubstituteAssignment,
   isRosterLead,
   otherRosterTitles,
+  rosterStatusLabel,
   type MinistryView,
   type RosterView,
   type ServingSurfaceId,
@@ -66,10 +69,7 @@ export function MinistryRosterDesk({
     return (
       <section className={styles.blocked} role="status" data-blocked="ministry">
         <h2>Ministério ainda não disponível nesta conta</h2>
-        <p>
-          Nenhuma resposta de GET /ministries trouxe o slug desta frente.
-          A tela não cria o ministério e não exibe escalas de outros grupos.
-        </p>
+        <p>Se você faz parte da equipe, peça à Secretaria para verificar seu acesso.</p>
       </section>
     );
   }
@@ -89,22 +89,19 @@ export function MinistryRosterDesk({
       )}
       <section className={styles.card}>
         <h2>{ministry.name}</h2>
-        <p className={styles.footnote}>
-          Slug reconhecido na API: {ministry.slug}. As funções abaixo pertencem somente às escalas com este ministryId.
-        </p>
         {ministry.scheduleText && (
-          <p>Texto de agenda já gravado no ministério: {ministry.scheduleText}</p>
+          <p>{ministry.scheduleText}</p>
         )}
         {surface === "louvor" && (
           <p className={styles.footnote} data-blocked="rehearsal">
-            Equipes formais e ensaios de Louvor continuam bloqueados na issue #97. Este texto não é uma agenda de ensaio.
+            O calendário de ensaios ainda está indisponível.
           </p>
         )}
       </section>
 
       {rosters.length === 0 ? (
         <p className={styles.card} role="status">
-          Nenhuma escala vinculada a este ministério na API.
+          Nenhuma escala cadastrada para este ministério.
         </p>
       ) : (
         <div className={styles.schedule}>
@@ -117,8 +114,9 @@ export function MinistryRosterDesk({
                     <h3>{roster.title}</h3>
                     <p className={styles.footnote}>{formatChurchDate(roster.serviceAt)}</p>
                   </div>
-                  <span className={styles.badge}>{roster.status}</span>
+                  <span className={styles.badge}>{rosterStatusLabel[roster.status]}</span>
                 </div>
+                {lead && roster.status !== "CLOSED" && roster.slots.length > 0 && <RosterPreviewPanel token={token} rosterId={roster.id} />}
                 {roster.slots.map((slot) => (
                   <section className={styles.slot} key={slot.id}>
                     <div className={styles.slotHeader}>
@@ -150,17 +148,17 @@ export function MinistryRosterDesk({
                           data-conflict={showConflict ? "true" : "false"}
                         >
                           <span className={styles.person}>
-                            Pessoa {assignment.personId}
+                            {assignment.personName ?? "Pessoa escalada"}
                             {assignment.partnerPersonId
-                              ? ` · par ${assignment.partnerPersonId}`
+                              ? ` · ${assignment.partnerName ?? "Par na escala"}`
                               : ""}
                           </span>
-                          <span className={styles.badge}>{assignment.status}</span>
+                          <span className={styles.badge}>{assignmentStatusLabel[assignment.status]}</span>
                           {showConflict && (
                             <p className={styles.conflict} role="status">
                               {block?.internal
-                                ? "Esta pessoa ocupa mais de uma função ativa neste dia. A designação recusa com ROSTER_SAME_DAY."
-                                : `Esta pessoa já está em outra posição ativa neste dia${others.length ? `: ${others.join(", ")}` : ""}. A designação recusa com ROSTER_SAME_DAY.`}
+                                ? "Esta pessoa ocupa mais de uma posição neste dia."
+                                : `Esta pessoa já está em outra posição neste dia${others.length ? `: ${others.join(", ")}` : ""}.`}
                             </p>
                           )}
                           {assignment.status === "PENDING" && canAnswer && (
@@ -309,7 +307,7 @@ export function MinistryRosterDesk({
                           }))
                         }
                       />
-                      Exige casal, conforme a regra já existente na API
+                      Posição para casal
                     </label>
                     <button
                       type="submit"
@@ -342,10 +340,7 @@ export function MinistryRosterDesk({
 
       {lead && (
         <form className={`${styles.card} ${styles.form}`} onSubmit={createRoster}>
-          <h2>Nova escala neste ministério</h2>
-          <p className={styles.footnote}>
-            O horário é gravado em serviceAt e o ministryId enviado é o deste slug. A nova posição e a troca não enviam mensagem. Publicar ainda usa o endpoint legado, que pode gravar outbox mock.
-          </p>
+          <h2>Nova escala</h2>
           <div className={styles.formGrid}>
             <label>
               Título

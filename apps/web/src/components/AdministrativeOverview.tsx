@@ -392,7 +392,7 @@ export function AdministrativeOverview({
             <button
               type="button"
               aria-label="Atualizar painel"
-              className={ui.workspaceSecondary}
+              className={ui.workspaceQuiet}
               disabled={loading}
               onClick={onRefresh}
             >
@@ -403,8 +403,7 @@ export function AdministrativeOverview({
       />
       {partial && (
         <p className={s.notice} role="status">
-          Algumas informações não carregaram. Use Atualizar para tentar
-          novamente.
+          Parte dos dados está indisponível. Selecione Atualizar para tentar de novo.
         </p>
       )}
       {signedOut && (
@@ -489,14 +488,9 @@ export function AdministrativeOverview({
           <Section
             title="Pessoas da congregação"
             action={
-              <div className={s.sectionActions}>
-                <AppNavLink className={s.textLink} href="/app/secretaria/indicadores/">
-                  Ver indicadores <UIIcon name="arrow" size={15} />
-                </AppNavLink>
-                <AppNavLink className={s.textLink} href="/app/secretaria/pessoas/">
-                  Ver cadastros <UIIcon name="arrow" size={15} />
-                </AppNavLink>
-              </div>
+              <AppNavLink className={s.textLink} href="/app/secretaria/indicadores/">
+                Ver indicadores <UIIcon name="arrow" size={15} />
+              </AppNavLink>
             }
           >
             <Congregation rows={distribution} loading={loading} />

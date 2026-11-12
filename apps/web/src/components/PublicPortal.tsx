@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { instagramUrl, youtubeChannelUrl, ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
-import { PortalMotion } from "./PortalMotion";
 import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
 import { PortalButton } from "./PortalButton";
@@ -35,7 +34,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
-          <Link href="/login/" className={d.headerLogin} aria-label="Login ID Riacho 1 — abrir tela de e-mail e senha" title="Entrar na plataforma ID Riacho 1">Login</Link>
+          <Link href="/login/" className={d.headerLogin}>Login</Link>
           <MobilePortalMenu links={navigation} />
         </div>
       </div>
@@ -52,12 +51,10 @@ export function PortalFooter() {
           <p>Riacho Fundo I · Brasília, DF</p>
         </div>
         <nav className={s.footerLinks} aria-label="Navegação do rodapé">
-          <div><span className={s.footerLabel}>Navegue</span>
+          <div><span className={s.footerLabel}>Site</span>
             <PortalSectionLink sectionId="inicio">Início</PortalSectionLink>
             <PortalSectionLink sectionId="quem-somos">Quem somos</PortalSectionLink>
             <PortalSectionLink sectionId="agenda">Agenda</PortalSectionLink>
-          </div>
-          <div><span className={s.footerLabel}>Acesso</span>
             <Link href="/login/">Login</Link>
           </div>
           <div><span className={s.footerLabel}>Redes sociais</span>
@@ -72,7 +69,7 @@ export function PortalFooter() {
 }
 
 export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PublicHashFocus /><PortalMotion />{children}<PortalFooter /></div>;
+  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {

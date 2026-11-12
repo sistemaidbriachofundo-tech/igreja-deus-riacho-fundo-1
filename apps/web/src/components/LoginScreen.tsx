@@ -143,16 +143,14 @@ export function LoginScreen({ onAuthenticated }: Props) {
             <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="Igreja de Deus — Riacho Fundo I" width={64} height={64}/>
             <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
           </div>
-          <div className={styles.storyContent}>
-            <p className={styles.eyebrow}>ID Riacho 1</p>
-            <p className={styles.storyTitle}>Cuidar da igreja <em>é cuidar de pessoas.</em></p>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.facade} src={withBasePath("/images/fachada-igreja-riacho-fundo.jpg")} alt="Fachada da igreja" />
         </aside>
         <section className={styles.panel} aria-labelledby="login-heading">
           <div className={styles.panelInner}>
             <div className={styles.heading}>
               <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
-              <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Use seu e-mail e sua senha para acessar a área da igreja."}</p>
+              <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Acesso ao ID Riacho 1"}</p>
             </div>
             {challenge ? <form onSubmit={submitChallenge} className={styles.form}>
               {expired ? <Alert appearance="workspace" tone="warning" title="O tempo para verificar terminou. Entre novamente." /> : <>
@@ -179,7 +177,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
               <input id="church-email" type="email" name="email" required
                 autoComplete="username" inputMode="email"
                 value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="seu.email@exemplo.com" maxLength={254} disabled={busy||checking}/>
+                maxLength={254} disabled={busy||checking}/>
               <div className={styles.passwordLabel}>
                 <label htmlFor="church-password">Senha</label>
               </div>
@@ -187,7 +185,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 <input id="church-password" type={showPassword?"text":"password"} name="password"
                   required autoComplete="current-password" minLength={1}
                   value={password} onChange={e=>setPassword(e.target.value)}
-                  placeholder="Digite sua senha" disabled={busy||checking}/>
+                  disabled={busy||checking}/>
                 <button type="button" className={styles.reveal} aria-label={showPassword?"Ocultar senha":"Mostrar senha"}
                   aria-pressed={showPassword} onClick={()=>setShowPassword(value=>!value)}
                   disabled={busy||checking}>{showPassword?"Ocultar":"Mostrar"}</button>
@@ -196,7 +194,6 @@ export function LoginScreen({ onAuthenticated }: Props) {
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
               <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
                 {checking?"Validando sessão…":busy?"Entrando…":"Entrar no painel"}
-                <span aria-hidden="true">→</span>
               </button>
             </form>}
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>

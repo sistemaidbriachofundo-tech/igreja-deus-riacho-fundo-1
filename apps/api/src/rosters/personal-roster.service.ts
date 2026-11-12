@@ -8,11 +8,15 @@ import {
 import {
   canAdministerMinistries,
   canManageSpecificMinistry,
+  type RosterPreviewDto,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { churchDayBounds, churchDayKey } from "./church-day";
+import { previewSlots } from "./preview-domain/scheduler";
+import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
+import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
 
 const ACTIVE = ["PENDING", "CONFIRMED"] as const;
 
@@ -129,6 +133,102 @@ export class PersonalRosterService {
       source: "jwt" as const,
       notified: false,
       assignments,
+    };
+  }
+
+  async preview(actor: AuthUser, rosterId: string): Promise<RosterPreviewDto> {
+    const pilot = await this.pilot.getPilotChurch();
+    const roster = await this.prisma.roster.findFirst({
+      where: { id: rosterId, organizationId: pilot.organizationId, churchId: pilot.churchId },
+      include: {
+        ministry: { select: { id: true, name: true, slug: true, leaderPersonId: true } },
+        slots: {
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          include: { assignments: { where: { status: { in: [...ACTIVE] } }, select: { id: true }, take: 1 } },
+        },
+      },
+    });
+    if (!roster?.ministry) throw new NotFoundException("Escala de ministério não encontrada.");
+    this.assertCanOperateMinistry(actor, roster.ministry, pilot, roster);
+    if (roster.status === "CLOSED") throw new ConflictException("A escala já foi encerrada.");
+
+    const openSlots = roster.slots.filter(slot => !slot.assignments.length);
+    if (!openSlots.length) return { rosterId, positions: [] };
+
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const ministryId = roster.ministry.id;
+    const members = await this.prisma.ministryMembership.findMany({
+      where: { ...scope, ministryId, status: "ATIVO", person: { status: "ACTIVE" } },
+      select: { personId: true, role: true, person: { select: { displayName: true } } },
+    });
+    if (!members.length) {
+      return { rosterId, positions: openSlots.map(({ id, roleLabel }) => ({
+        slotId: id, roleLabel, personName: null, partnerName: null, reasons: ["EMPTY_TEAM"],
+      })) };
+    }
+
+    const personIds = members.map(member => member.personId);
+    const [year, month] = churchDayKey(roster.serviceAt).slice(0, 7).split("-").map(Number);
+    const firstOfMonth = new Date(Date.UTC(year, month - 1, 1, 3));
+    const nextMonth = new Date(Date.UTC(year, month, 1, 3));
+    const interval = DEFAULT_RULES.minIntervalDays * 86_400_000;
+    const [history, availability, impediments] = await Promise.all([
+      this.prisma.rosterAssignment.findMany({
+        where: {
+          status: { in: [...ACTIVE] },
+          OR: [{ personId: { in: personIds } }, { partnerPersonId: { in: personIds } }],
+          slot: { roster: { ...scope, serviceAt: { gte: new Date(+firstOfMonth - interval), lt: new Date(+nextMonth + interval) } } },
+        },
+        select: {
+          id: true, personId: true, partnerPersonId: true, status: true,
+          slot: { select: { id: true, roster: { select: { id: true, ministryId: true, serviceAt: true } } } },
+        },
+      }),
+      this.prisma.volunteerAvailability.findMany({
+        where: { ...scope, personId: { in: personIds }, active: true },
+        select: { personId: true, weekday: true, startMinute: true, endMinute: true },
+      }),
+      this.prisma.volunteerImpediment.findMany({
+        where: { ...scope, personId: { in: personIds }, startsAt: { lte: roster.serviceAt }, endsAt: { gt: roster.serviceAt } },
+        select: { personId: true, startsAt: true, endsAt: true },
+      }),
+    ]);
+    const names = new Map(members.map(member => [member.personId, member.person.displayName]));
+    const existing: ExistingAssignment[] = history.map(row => ({
+      assignmentId: row.id, churchId: pilot.churchId, ministryId: row.slot.roster.ministryId ?? "",
+      positionId: row.slot.id, slotId: row.slot.id, rosterId: row.slot.roster.id,
+      serviceAt: row.slot.roster.serviceAt.toISOString(), status: row.status,
+      personId: row.personId, partnerPersonId: row.partnerPersonId,
+    }));
+    const candidates: Candidate[] = members.map(member => ({
+      personId: member.personId,
+      active: true,
+      churchIds: [pilot.churchId],
+      ministryIds: [ministryId],
+      qualifiedPositionIds: openSlots.map(slot => slot.id),
+      approvedRoleTags: [member.role],
+      availability: utcWeeklyWindowsToRiachoLocal(availability.filter(window => window.personId === member.personId)),
+      impediments: impediments.filter(item => item.personId === member.personId)
+        .map(item => ({ startsAt: item.startsAt.toISOString(), endsAt: item.endsAt.toISOString() })),
+    }));
+    const plan = previewSlots(openSlots.map(slot => ({
+      slotId: slot.id, rosterId, churchId: pilot.churchId, ministryId,
+      positionId: slot.id, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple,
+      serviceAt: roster.serviceAt.toISOString(), serviceType: "special_event",
+    })), candidates, existing, DEFAULT_RULES);
+    const suggestions = new Map(plan.drafts.map(item => [item.slotId, item]));
+    const unfilled = new Map(plan.unfilled.map(item => [item.slotId, item.reasons]));
+    return {
+      rosterId,
+      positions: openSlots.map(slot => {
+        const suggestion = suggestions.get(slot.id);
+        return {
+          slotId: slot.id, roleLabel: slot.roleLabel,
+          personName: suggestion ? names.get(suggestion.personId) ?? null : null,
+          partnerName: suggestion?.partnerPersonId ? names.get(suggestion.partnerPersonId) ?? null : null,
+          reasons: unfilled.get(slot.id) ?? [],
+        };
+      }),
     };
   }
 

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Post,
 } from "@nestjs/common";
@@ -67,6 +68,13 @@ export class PersonalRostersController {
     @Param("ministryId") ministryId: string,
   ) {
     return this.rosters.listMinistry(user, ministryId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Header("Cache-Control", "private, no-store")
+  @Get(":rosterId/preview")
+  preview(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string) {
+    return this.rosters.preview(user, rosterId);
   }
 
   @Roles(...LEAD_ROLES)

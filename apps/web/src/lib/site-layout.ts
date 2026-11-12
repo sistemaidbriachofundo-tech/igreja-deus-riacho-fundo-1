@@ -28,14 +28,14 @@ export const PUBLIC_FACADE_IMAGE = "/images/fachada-igreja-riacho-fundo.jpg";
 export const defaultSiteLayout: SiteLayout = {
   version: 1,
   hero: {
-    title: "Sua jornada com Deus", accent: "pode começar aqui.",
-    description: "Um lugar para adorar, caminhar em família e viver a fé juntos.",
+    title: "Igreja de Deus", accent: "Riacho Fundo I",
+    description: "A gente se encontra aos domingos, às 10h e às 19h, no Riacho Fundo I.",
     imageUrl: PUBLIC_FACADE_IMAGE,
   },
   identity: SITE_IDENTITY_PHOTO,
   gallery: {
-    title: "A fé tem muitas formas", accent: "de se expressar.",
-    description: "Louvor, juventude, oração e Palavra. Expressões que traduzem a vida em comunidade e o desejo de caminhar com Deus.",
+    title: "A igreja", accent: "em fotos",
+    description: "Registros dos nossos cultos, encontros e momentos de oração.",
     items: SITE_GALLERY_PHOTOS,
   },
   appearance: "dourado",

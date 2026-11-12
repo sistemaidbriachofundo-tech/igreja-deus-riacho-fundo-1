@@ -1,6 +1,5 @@
 import { PublicPage } from "../components/PublicPortal";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
-import { PortalSectionLink } from "../components/PublicSectionLink";
 import { PublishedAgenda } from "../components/PublicLiveSections";
 import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
@@ -20,13 +19,9 @@ export default function HomePage() {
                 <PortalIdentityPhoto />
               </figure>
               <div className={s.identityCopy}>
-                <p className={s.eyebrow}>Quem somos</p>
-                <h2 id="identity-title" tabIndex={-1}>A fé ganha vida <em>quando a gente se reúne.</em></h2>
-                <p>Somos a Igreja de Deus no Riacho Fundo I, em Brasília. Nos reunimos para adorar, aprender a Palavra e cuidar uns dos outros.</p>
-                <p>Queremos acolher quem chega e caminhar junto com as famílias, dentro e fora dos cultos.</p>
-                <PortalSectionLink sectionId="agenda" className={s.textLink}>
-                  Veja quando nos reunimos <span aria-hidden="true">↓</span>
-                </PortalSectionLink>
+                <h2 id="identity-title" tabIndex={-1}>Quem somos</h2>
+                <p>Somos uma congregação da Igreja de Deus no Brasil. Aqui no Riacho Fundo I, a gente se reúne para orar, ler a Bíblia e servir ao bairro.</p>
+                <p>Se for sua primeira vez, pode chegar. Nossa equipe de recepção te espera na entrada.</p>
               </div>
             </div>
           </section>

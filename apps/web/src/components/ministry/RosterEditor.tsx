@@ -6,6 +6,7 @@ import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
 import type { EscalaAssignment, EscalaPosition, MinistryEscala } from "../../lib/ministry-presentation";
 import { UIIcon } from "../AppShell";
+import { RosterPreviewPanel } from "../serving/RosterPreviewPanel";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
 import ui from "../ui/ui.module.css";
 import s from "./roster-editor.module.css";
@@ -125,6 +126,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     <div className={s.editor}>
       {confirmation}
       {draft && <RosterEditor {...props} />}
+      {open && Boolean(roster.positions?.length) && <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} />}
       {roster.positions?.map(position => (
         <section className={s.position} key={position.id} aria-label={position.label}>
           <h4>{position.label}</h4>

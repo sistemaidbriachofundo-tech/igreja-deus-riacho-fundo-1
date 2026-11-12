@@ -57,9 +57,6 @@ function ActionConfirmation({
       }}
     >
       <div className={styles.confirmationContent}>
-        <span className={styles.confirmationIcon} aria-hidden="true">
-          !
-        </span>
         <h2 id={titleId}>{details.title}</h2>
         {details.subject && (
           <p id={subjectId} className={styles.confirmationSubject}>

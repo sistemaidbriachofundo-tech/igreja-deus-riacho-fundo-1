@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { PrismaService } from "../prisma/prisma.service";
-import { ChurchAccessController } from "./church-access.controller";
+import { ChurchAccessController, AccessActivationController } from "./church-access.controller";
+import { AccessInvitationService } from "./access-invitation.service";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
@@ -34,7 +35,7 @@ import {
  * Sem as tabelas o adapter responde 503 e não emite JWT.
  */
 @Module({
-  controllers: [AuthController, ChurchAccessController],
+  controllers: [AuthController, ChurchAccessController, AccessActivationController],
   providers: [
     AuthClock,
     {
@@ -62,6 +63,7 @@ import {
           : new InMemoryAuthAttemptLimiter(clock),
     },
     AuthService,
+    AccessInvitationService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ScopeGuard },

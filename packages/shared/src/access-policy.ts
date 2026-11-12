@@ -155,6 +155,8 @@ export const ACCESS_MATRIX: readonly AccessRule[] = [
 
   ...rule("ledger", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN]),
   ...rule("ledger", "write", "church", [ROLE_CODES.TESOURARIA]),
+  // Aprovação de despesas: serviço valida a sequência tesoureiro → pastor e impede acesso a outros lançamentos.
+  ...rule("ledger", "approve", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR]),
 
   ...rule("ministries", "read", "church", MINISTRY_LEAD),
   ...rule("ministries", "write", "church", [
