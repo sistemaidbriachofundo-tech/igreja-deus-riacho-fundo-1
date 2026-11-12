@@ -13,6 +13,7 @@ import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
 import { defaultSiteLayout, parseSiteLayout, resolveSitePhoto, sectionNames, validSiteImage, type SiteLayout } from "../lib/site-layout";
 import { SITE_IDENTITY_PHOTO } from "@idbrf/shared";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import ui from "./ui/ui.module.css";
 import s from "./site-manager.module.css";
 
@@ -30,7 +31,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
   return <div className={s.previewCanvas} data-device={device} data-appearance={layout.appearance}>
     <div className={s.previewTop}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={26} height={26} /><strong>Igreja de Deus</strong><small>Riacho Fundo I</small>
+      <img src={withBasePath(officialLogoAsset)} alt="" width={26} height={26} /><strong>Igreja de Deus</strong><small>Riacho Fundo I</small>
     </div>
     <div className={s.previewCover}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
