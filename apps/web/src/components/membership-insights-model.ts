@@ -68,8 +68,8 @@ export function makeCsv(data: MembershipInsightsData): string {
   ];
   return "\uFEFF" + rows.map(row => row.map(escape).join(";")).join("\r\n");
 }
-export function makeLinePoints(values: number[], width = 660, height = 204) {
-  const max = Math.max(1, ...values);
+export function makeLinePoints(values: number[], width = 660, height = 204, maxValue?: number) {
+  const max = Math.max(1, maxValue ?? Math.max(...values));
   const w = Math.max(1, width - 44), h = Math.max(1, height - 42);
   return values.map((value, index) => {
     const x = 22 + (values.length <= 1 ? w / 2 : index / (values.length - 1) * w);
