@@ -281,3 +281,47 @@
   color: var(--app-ink);
   font: inherit;
 }
+
+/* Despesas: cadastro e acompanhamento em uma superfície legível no celular. */
+.expenseHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.expenseHeading > div { display: grid; gap: 5px; min-width: 0; }
+.expenseHeading h2 { margin: 0; font-size: clamp(1.2rem, 2.1vw, 1.5rem); }
+.expenseHeading button { min-height: 44px; }
+.expenseEmpty {
+  margin: 0;
+  padding: 20px;
+  border: 1px dashed #cadccc;
+  border-radius: 12px;
+  background: #f7faf7;
+  color: #466453;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.expenseItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 15px;
+  padding: 14px 4px;
+  border-bottom: 1px solid #e1e9e2;
+}
+.expenseItem:last-child { border-bottom: 0; }
+.expenseInfo { display: grid; min-width: 0; gap: 5px; }
+.expenseInfo strong { overflow-wrap: anywhere; font-size: 14px; color: #244f3c; }
+.expenseInfo small { color: #6c8073; font-size: 12px; }
+.expenseState { width: fit-content; max-width: 100%; padding: 5px 9px; border-radius: 7px; background: #f8eed9; color: #775520; font-size: 12px; font-weight: 700; }
+.expenseState[data-status="APPROVED"] { background: #e6f4e7; color: #236044; }
+.expenseState[data-status="REJECTED"], .expenseState[data-status="REVERSED"] { background: #fae9e6; color: #963e37; }
+.expenseItem .entryAction { grid-column: 1 / -1; }
+@media (max-width: 620px) {
+  .expenseHeading { align-items: stretch; }
+  .expenseHeading button { width: 100%; justify-content: center; }
+  .expenseItem { grid-template-columns: minmax(0, 1fr); }
+  .expenseItem .amount { justify-self: start; }
+}
