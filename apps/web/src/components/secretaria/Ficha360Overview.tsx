@@ -143,6 +143,14 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
             </li>)}
           </ul> : <p className={s.emptyCaption}>Membros do núcleo familiar são apresentados conforme a permissão da Secretaria.</p>}
           {dossier.legalGuardian && <div className={s.guardian}><span>Responsável legal</span><strong>{dossier.legalGuardian.displayName}</strong></div>}
+          {canEdit && dossier.dependents.length > 0 && <div className={s.dependentBlock}>
+            <h4>Dependentes e pessoas sob cuidado</h4>
+            <ul className={s.familyList}>{dossier.dependents.slice(0,12).map(member => <li key={member.id}>
+              <span className={s.avatar} aria-hidden="true">{initials(member.displayName)}</span>
+              <strong>{member.displayName}</strong>
+              <small>{member.isMinor ? "Menor de idade" : "Dependente"}</small>
+            </li>)}</ul>
+          </div>}
           <p className={s.detailCaption}>Dependentes vinculados: <strong>{dossier.dependents.length}</strong></p>
         </section>
         <section className={s.detailCard}>
