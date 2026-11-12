@@ -111,7 +111,7 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
     </div>
 
     <section className={s.stats} aria-label="Identificação e vínculo">
-      <Stat featured label="Situação eclesiástica" value={membership ? dossierLabel(membership.status) : "Sem vínculo"} caption={membership ? "Vínculo desde "+dateLabel(membership.joinedAt) : "Aguardando registro na congregação"}/>
+      <Stat featured label="SITUAÇÃO ECLESIÁSTICA" value={membership ? dossierLabel(membership.status) : "Sem vínculo"} caption={membership ? "Vínculo desde "+dateLabel(membership.joinedAt) : "Aguardando registro na congregação"}/>
       <Stat label="Tipo de pessoa" value={dossierLabel(person.kind)} caption={dossierLabel(person.status)}/>
       <Stat label="Matrícula" value={membership ? registrationLabel(membership.id) : "Não emitida"} caption="Identificador do vínculo eclesiástico"/>
       <Stat label="Família" value={dossier.household?.label || "Não vinculada"} caption={(dossier.household?.members.length ?? 0) + " pessoa(s) no núcleo familiar"}/>
