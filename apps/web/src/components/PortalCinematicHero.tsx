@@ -2,7 +2,7 @@
 
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import { SITE_COVER_PHOTO } from "@idbrf/shared";
-import { resolveSitePhoto } from "../lib/site-layout";
+import { PUBLIC_FACADE_IMAGE, resolveSitePhoto } from "../lib/site-layout";
 import { PortalSectionLink } from "./PublicSectionLink";
 import s from "./portal-cinematic-hero.module.css";
 
@@ -30,9 +30,9 @@ export function PortalCinematicHero() {
           </div>
         </div>
         <div className={s.window}>
-          <div className={s.photo} data-facade={hero.imageUrl === SITE_COVER_PHOTO}>
+          <div className={s.photo} data-facade={[SITE_COVER_PHOTO, PUBLIC_FACADE_IMAGE].includes(hero.imageUrl)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt={hero.imageUrl === SITE_COVER_PHOTO ? "Fachada da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
+            <img src={imageUrl} alt={[SITE_COVER_PHOTO, PUBLIC_FACADE_IMAGE].includes(hero.imageUrl) ? "Fachada da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
           </div>
         </div>
       </div>
