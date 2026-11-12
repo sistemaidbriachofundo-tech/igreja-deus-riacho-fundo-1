@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Optional, Post, Query, Param, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Header, NotFoundException, Optional, Post, Query, Param, ServiceUnavailableException } from "@nestjs/common";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { PilotService } from "../pilot/pilot.service";
@@ -200,5 +200,30 @@ export class ChurchAccessController {
       throw new ForbiddenException("Sem permissão para administrar acessos nesta congregação.");
     }
     return pilot;
+  }
+}
+
+class ActivateInviteBody {
+  @IsString()
+  @MinLength(43)
+  @MaxLength(43)
+  token!: string;
+
+  @IsString()
+  @MinLength(14)
+  @MaxLength(128)
+  password!: string;
+}
+
+/** Endpoint público só consome convite de uso único, não registra usuários nem concede perfis. */
+@Controller("auth")
+export class AccessActivationController {
+  constructor(private readonly invitations: AccessInvitationService) {}
+
+  @Public()
+  @Header("Cache-Control", "no-store")
+  @Post("activate-invite")
+  activate(@Body() body: ActivateInviteBody) {
+    return this.invitations.accept(body);
   }
 }
