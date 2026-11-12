@@ -62,11 +62,19 @@ Pipeline em `.github/workflows/ci.yml`:
 2. **SonarCloud** — soft-fail / skip se `SONAR_TOKEN` não estiver configurado
 3. **Deploy Pages** — só em push para `main` (artefato estático de `apps/web/out`)
 
+### Produção (Hostinger)
+
+Trilho separado — **não** publica DNS sozinho:
+
+1. Branch **`production`** (só via PR)
+2. Workflow `.github/workflows/production.yml` — lint/test/build + **Sonar Quality Gate bloqueante**
+3. Environment GitHub **`production`** (aprovação manual) + checklist em `docs/prod-pipeline.md`
+
 ### Secrets necessários
 
 | Secret | Obrigatório? | Onde |
 |---|---|---|
-| `SONAR_TOKEN` | Para ativar Sonar | Repo → Settings → Secrets and variables → Actions |
+| `SONAR_TOKEN` | CI soft / **obrigatório** no pipeline de produção | Environment `SONAR_TOKEN` |
 
 ## GitHub Pages
 
@@ -99,6 +107,9 @@ packages/
   shared/       person_id, RBAC, pilot slug, opaque QR token
 .github/
   workflows/ci.yml
+  workflows/production.yml
+docs/prod-pipeline.md
+deploy/prod/
 docker-compose.yml
 ```
 
