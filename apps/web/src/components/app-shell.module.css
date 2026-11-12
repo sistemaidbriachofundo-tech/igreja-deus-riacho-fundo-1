@@ -67,11 +67,12 @@
 }
 .brandEmblem {
   flex: none;
-  width: 36px;
-  height: 36px;
-  background-position: center;
-  background-size: cover;
-  border-radius: 50%;
+  width: 43px;
+  height: 48px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0;
+  background: transparent;
 }
 .brandText {
   display: flex;
@@ -328,11 +329,12 @@
 }
 .smallLogo {
   display: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background-size: cover;
-  background-position: center;
+  width: 36px;
+  height: 40px;
+  border-radius: 0;
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
   flex: none;
 }
 .commandButton {
@@ -933,7 +935,7 @@
 
 @media (max-width: 970px) {
   .toolbar .hamburger, .toolbar .commandButton { display: none; }
-  .toolbar .smallLogo { display: block; flex: none; width: 31px; height: 31px; }
+  .toolbar .smallLogo { display: block; flex: none; width: 32px; height: 36px; }
   .mobileNav { gap: 4px; min-height: 61px; background: #fff; backdrop-filter: none; }
   .mobileItem, .mobileActive { min-height: 46px; border-radius: 6px; font-size: 11px; }
   .mobileActive { color: #214f39; background: #e7efe6; }
