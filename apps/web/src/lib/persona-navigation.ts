@@ -212,8 +212,8 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     icon: "wallet",
     hint: "Contas e lançamentos",
     ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Saldos, extrato e conciliações." },
-    roles: ["TESOURARIA", "PLATFORM_ADMIN"],
-    probe: { method: "GET", path: "/ledger/accounts", source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("accounts")' },
+    roles: ["TESOURARIA", "PASTOR", "PLATFORM_ADMIN"],
+    probe: { method: "GET", path: "/ledger/expense-approvals", source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("expense-approvals")' },
     surface: "admin",
   },
   {
