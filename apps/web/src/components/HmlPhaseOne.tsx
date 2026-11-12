@@ -9,7 +9,8 @@ import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier"
 import { NewPersonIntake } from "./secretaria/NewPersonIntake";
 import { personUnder18 } from "./secretaria/new-person-intake-model";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
-import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
+import { apiGet, apiPost, clearToken, isInvalidSession, loadStoredToken, type LoginResult } from "../lib/api";
+import { LoginScreen } from "./LoginScreen";
 import { readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
 import { Modal } from "./ui/Modal";
@@ -167,8 +168,6 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{ tone: "success" | "warning"; title: string; detail?: string } | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -368,31 +367,30 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setFamiliesLoaded(false);
     setLoadedGroups({ people: false, admissions: false });
     setFichaId(null);
-    setPassword("");
     setError("");
     setNotice(null);
     window.location.assign(withBasePath("/login/"));
   }
 
-  async function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
+  /** Retorna à página protegida somente após /auth/me confirmar a nova sessão. */
+  async function finishMfaLogin(): Promise<void> {
+    const accessToken = loadStoredToken();
+    if (!accessToken) {
+      setError("Sessão não encontrada. Entre novamente.");
+      return;
+    }
+    setChecking(true);
     setError("");
-    setNotice(null);
     try {
-      const signed = await apiLogin(loginEmail.trim(), password);
-      await refresh(signed.accessToken);
-      storeToken(signed.accessToken);
-      setToken(signed.accessToken);
-      setPassword("");
-    } catch (err) {
-      setError(loginFailureMessage(err));
-      if (isInvalidSession(err)) {
-        clearToken();
-        setToken(null);
-      }
+      await apiGet<AuthUser>("/auth/me", accessToken, { fresh: true });
+      await refresh(accessToken, true);
+      setToken(accessToken);
+    } catch (problem) {
+      if (isInvalidSession(problem)) clearToken();
+      setToken(null);
+      setUser(null);
+      setError(displayError(problem));
     } finally {
-      setBusy(false);
       setChecking(false);
     }
   }
@@ -519,23 +517,22 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     );
   }
 
+  // A versão anterior exibia uma tela de senha própria e ignorava o desafio MFA.
+  // Todos os acessos HML devem passar pelo mesmo fluxo seguro da rota /login.
+  if (!token || !user) {
+    if (checking) {
+      return <main className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></main>;
+    }
+    return <>
+      {error && <div role="alert" className={s.loginPanel}>{error}</div>}
+      <LoginScreen onAuthenticated={() => { void finishMfaLogin(); }} />
+    </>;
+  }
+
   return (
     <AppShell active={activeNav} meta={names[view]} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
-        {!token || !user ? (
-          checking ? <section className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></section> : <section className={s.loginPanel} aria-labelledby="login-hml">
-            <span className={s.kicker}>Acesso à gestão</span>
-            <h1 id="login-hml">Entre no ID Riacho 1</h1>
-            <p>Use seu e-mail e senha para acessar as informações da igreja.</p>
-            {error && <Alert appearance="workspace" tone="danger" title="Não foi possível entrar">{error}</Alert>}
-            <form onSubmit={login} className={s.form}>
-              <label>E-mail<input type="email" required autoComplete="username" value={loginEmail} onChange={event => setLoginEmail(event.target.value)} placeholder="nome@example.test" /></label>
-              <label>Senha<input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-              <button type="submit" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
-            </form>
-          </section>
-        ) : (
-          <div className={s.workspace}>
+        <div className={s.workspace}>
             {view !== "overview" && (
               <PageHeader
                 appearance="workspace"
@@ -809,7 +806,6 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             )}
             <p className={s.footerNote}>Ambiente de homologação. Não cadastre dados de pessoas reais.</p>
           </div>
-        )}
       </div>
     </AppShell>
   );
