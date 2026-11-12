@@ -46,3 +46,5 @@
 .miniTimeline small{font-size:.71rem;color:#76877a;line-height:1.5}
 @media(max-width:1050px){.statusGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.columns{grid-template-columns:1fr}.side{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.leading{grid-template-columns:1fr;padding:17px}.completeness{max-width:100%}.statusGrid{gap:8px}.statusCard{padding:13px;min-height:110px}.side{grid-template-columns:1fr}.facts{grid-template-columns:1fr}.card{padding:17px}.familyList li{grid-template-columns:34px 1fr}.familyList small{grid-column:2}}
+
+.dependents{margin-top:17px;border-top:1px solid #e4ece4;padding-top:12px}.dependents h4{font:780 .86rem Montserrat,Arial,sans-serif;margin:0 0 9px;color:#315c44}
