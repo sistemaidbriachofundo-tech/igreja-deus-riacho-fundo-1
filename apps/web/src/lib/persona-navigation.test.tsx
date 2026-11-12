@@ -212,6 +212,41 @@ describe("shell sem flash de módulo restrito", () => {
     expect(html).toContain("caixa.demo@example.test");
   });
 
+  it("mostra submenus reais de Tesouraria, com links para cada seção", () => {
+    const html = renderToStaticMarkup(
+      <AppShell active="tesouraria" meta="Tesouraria" viewer={account("TESOURARIA")}>
+        <p>Painel financeiro</p>
+      </AppShell>,
+    );
+    const links = hrefs(html);
+    expect(html).toContain('aria-label="Submenu da Tesouraria"');
+    for (const section of ["visao", "despesas", "lancar", "extrato", "conciliacao", "aprovacoes"]) {
+      expect(links).toContain(`/app/tesouraria/#${section}`);
+    }
+    expect(html).toContain("Incluir despesa");
+    expect(html).toContain("Conciliações");
+  });
+
+  it("pastor vê só aprovação; administrador sem Tesouraria não recebe Incluir despesa", () => {
+    const pastor = hrefs(renderToStaticMarkup(
+      <AppShell active="tesouraria" meta="Tesouraria" viewer={account("PASTOR")}>
+        <p>Aprovações</p>
+      </AppShell>,
+    ));
+    const admin = hrefs(renderToStaticMarkup(
+      <AppShell active="tesouraria" meta="Tesouraria" viewer={account("PLATFORM_ADMIN")}>
+        <p>Consulta</p>
+      </AppShell>,
+    ));
+    expect(pastor).toContain("/app/tesouraria/");
+    expect(pastor).toContain("/app/tesouraria/#aprovacoes");
+    expect(pastor).not.toContain("/app/tesouraria/#lancar");
+    expect(pastor).not.toContain("/app/tesouraria/#extrato");
+    expect(admin).toContain("/app/tesouraria/#despesas");
+    expect(admin).not.toContain("/app/tesouraria/#lancar");
+    expect(admin).not.toContain("/app/tesouraria/#aprovacoes");
+  });
+
   it("editor e publicador ficam na gestão do site", () => {
     for (const role of ["EDITOR_SITE", "PUBLICADOR_SITE"]) {
       const html = renderToStaticMarkup(
