@@ -75,7 +75,8 @@ for (const page of findHtml(outDir)) {
       failures.push("Login must display email and password inputs before opening the dashboard.");
     }
   }
-  if (relative(outDir, page) === "app/index.html" && !html.includes("Verificando seu acesso")) {
+  if (relative(outDir, page) === "app/index.html" &&
+      (!html.includes("Carregando área administrativa") || !html.includes('aria-busy="true"'))) {
     failures.push("Admin route must start behind the authentication gate.");
   }
   if (requiredPages.includes(relative(outDir, page))) {
