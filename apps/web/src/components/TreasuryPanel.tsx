@@ -10,7 +10,7 @@ import { ApiRequestError, apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
-import { treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
+import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
 import { ExpenseApprovals } from "./ExpenseApprovals";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
@@ -229,7 +229,7 @@ export function TreasuryPanel() {
     const syncFromHash = () => {
       const section = treasurySectionFromHash(window.location.hash, roles);
       setView(section);
-      if (section === "lancar") setTab("despesa");
+      if (section === "lancar") setTab(treasuryMovementFromHash(window.location.hash));
     };
     syncFromHash();
     window.addEventListener("hashchange", syncFromHash);
@@ -277,11 +277,12 @@ export function TreasuryPanel() {
   });
   const reconciliations = data?.reconciliations ?? [];
 
-  function openView(next: TreasurySection) {
+  function openView(next: TreasurySection, movement?: Tab) {
     setView(next);
     setPage(1);
-    if (typeof window !== "undefined" && window.location.hash !== `#${next}`) {
-      window.location.hash = next;
+    if (typeof window !== "undefined") {
+      const hash = next === "lancar" ? treasuryMovementHash(movement ?? tab) : `#${next}`;
+      if (window.location.hash !== hash) window.location.hash = hash;
     }
   }
 
@@ -289,7 +290,7 @@ export function TreasuryPanel() {
     setTab(next);
     intent.current = "";
     setMessage(null);
-    openView("lancar");
+    openView("lancar", next);
   }
 
   async function runEntryAction(entry: EntryView, action: "submit" | "approve") {
@@ -542,7 +543,7 @@ export function TreasuryPanel() {
           <label className={styles.movementType}>Tipo de lançamento
             <select value={tab} disabled={busy} onChange={event => {
               const next = tabConfig.find(([id]) => id === event.target.value);
-              if (next) { setTab(next[0]); intent.current = ""; }
+              if (next) { setTab(next[0]); intent.current = ""; openView("lancar", next[0]); }
             }}>
               {tabConfig.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
