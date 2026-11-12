@@ -109,6 +109,7 @@ export function SecretaryDossier({
         elapsedMs,
         context,
       });
+    return result.ok;
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -142,8 +143,10 @@ export function SecretaryDossier({
     }
     if (saved.person) onPersonSaved?.(saved.person);
     dispatch({ type: "save-ok", person: saved.person });
-    await reload("after-save", started);
-    showFeedback({ tone: "success", title: "Ficha salva", message: "As informações foram registradas. Confira a ficha atualizada." });
+    const reloaded = await reload("after-save", started);
+    showFeedback(reloaded
+      ? { tone: "success", title: "Ficha salva", message: "As informações foram registradas e a ficha foi atualizada." }
+      : { tone: "warning", title: "Informações salvas", message: "Os dados foram registrados, mas não foi possível atualizar a ficha. Recarregue antes de continuar." });
   }
 
   const dirty = Boolean(
