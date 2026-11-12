@@ -1,11 +1,8 @@
 .gallery {
   padding: clamp(48px, 7vw, 94px) var(--portal-gutter);
-  background: var(--portal-paper);
+  background: var(--portal-gallery-ground);
   color: var(--portal-ink);
 }
-
-.gallery[data-appearance="verde"] { background: #edf5ed; }
-.gallery[data-appearance="marfim"] { background: #fffaf1; }
 
 .inner { max-width: var(--portal-content); margin-inline: auto; }
 .heading { margin-bottom: clamp(23px, 3.5vw, 42px); }

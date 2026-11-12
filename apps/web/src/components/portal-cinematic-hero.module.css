@@ -1,5 +1,5 @@
 .hero {
-  background: var(--portal-paper);
+  background: var(--portal-ivory);
   color: var(--portal-ink);
   scroll-margin-top: var(--portal-header);
 }

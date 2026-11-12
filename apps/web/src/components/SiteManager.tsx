@@ -39,7 +39,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
         <div><p>{layout.hero.description}</p><span>Horários dos cultos</span></div>
       </div>
     </div>
-    <div className={s.previewGallery}>
+    <div className={s.previewGallery} data-section="identity">
       <h3>Quem somos</h3>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl((layout.identity ?? SITE_IDENTITY_PHOTO).imageUrl)} alt={(layout.identity ?? SITE_IDENTITY_PHOTO).alt} width={120} />
@@ -52,7 +52,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
         <img src={imageUrl(item.imageUrl)} alt={item.alt}/><figcaption>{item.title}</figcaption>
       </figure>)}</div>
     </div>}
-    {!layout.hidden.includes("videos") && <div className={s.previewGallery}><h3>Cultos e mensagens</h3></div>}
+    {!layout.hidden.includes("videos") && <div className={s.previewGallery} data-section="videos"><h3>Cultos e mensagens</h3></div>}
   </div>;
 }
 

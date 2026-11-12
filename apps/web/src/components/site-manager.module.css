@@ -70,7 +70,7 @@
 .previewTop{display:flex;align-items:center;gap:7px;background:var(--portal-green);color:var(--portal-on-green);padding:9px 12px}
 .previewTop img{border-radius:50%}
 .previewTop strong{font:650 11px Inter,Arial,sans-serif}.previewTop small{font:500 10px Inter,sans-serif;color:var(--portal-on-green-muted)}
-.previewCover{background:var(--portal-paper);color:var(--portal-ink)}
+.previewCover{background:var(--portal-ivory);color:var(--portal-ink)}
 .previewCover>img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover;object-position:center 52%}
 .previewIntro{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);align-items:end;gap:14px;padding:15px}
 .previewCover small{font:500 10px Inter,sans-serif;color:var(--portal-muted)}
@@ -80,11 +80,11 @@
 .previewIntro span{font:650 10px Inter,sans-serif;text-decoration:underline;text-underline-offset:3px}
 .previewAgenda{background:var(--portal-green);color:var(--portal-on-green);padding:18px}
 .previewAgenda h3{margin:0 0 4px;font-size:16px}.previewAgenda p{margin:0;color:var(--portal-on-green-muted);font-size:13px}
-.previewGallery{padding:25px 18px;background:#f6f5ef}
-.previewCanvas[data-appearance="verde"] .previewGallery{background:#edf5ed}.previewCanvas[data-appearance="marfim"] .previewGallery{background:#fffaf1}
+.previewGallery{padding:25px 18px;background:var(--portal-gallery-ground)}
+.previewGallery:is([data-section="identity"], [data-section="videos"]){background:var(--portal-sage)}
 .previewGallery h3{font:850 19px Montserrat,sans-serif;letter-spacing:-.03em;margin:0 0 7px;color:#153c30}
-.previewGallery h3 em{color:#b38743;font:italic 500 1em Georgia,serif}
-.previewGallery p{font:500 11px/1.45 Inter,sans-serif;color:#597466;max-width:480px}
+.previewGallery h3 em{color:var(--portal-title-accent);font:italic 500 1em var(--portal-display)}
+.previewGallery p{font:500 11px/1.45 Inter,sans-serif;color:var(--portal-muted);max-width:480px}
 .previewGallery>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .previewGallery figure{margin:0;min-width:0;position:relative}
 .previewGallery img{width:100%;height:110px;object-fit:cover;display:block}

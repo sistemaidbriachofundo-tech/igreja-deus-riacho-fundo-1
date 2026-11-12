@@ -1,6 +1,6 @@
 .section {
   padding: clamp(58px, 7vw, 108px) var(--portal-gutter);
-  background: #f1eee5;
+  background: var(--portal-sage);
   color: #17382c;
 }
 .inner { max-width: 1260px; margin-inline: auto; }
