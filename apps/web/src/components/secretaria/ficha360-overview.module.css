@@ -64,3 +64,5 @@
 @media(max-width:720px){.introduction{grid-template-columns:1fr}.stats{gap:8px}.factStat{min-height:128px;padding:14px}.factStat strong{font-size:1rem}.story{padding:16px}.storyItem{grid-template-columns:36px minmax(0,1fr);gap:8px}.storyRail span{width:35px;height:35px;font-size:.76rem}.storyItem:not(:last-child)::before{left:17px;top:38px}.storyMeta{padding:11px}.storyEntry>strong{margin:11px}.storyEntry p{margin:0 11px 12px}.detailSide{grid-template-columns:1fr}.facts{grid-template-columns:1fr}.detailCard{padding:17px}.familyList li{grid-template-columns:38px minmax(0,1fr)}.familyList small{grid-column:2}.storyButton,.textAction{width:100%;justify-content:space-between}.sectionHeader{gap:14px}}
 @media(max-width:370px){.stats{grid-template-columns:1fr}.introCopy{padding:21px}}
 @media print{.introduction,.story,.detailCard,.factStat{box-shadow:none;break-inside:avoid}.storyButton,.textAction,.moreHistory,.introduction .completeness button{display:none}.storyItem{break-inside:avoid}}
+
+.dependentBlock{border-top:1px solid #e4ece4;margin-top:16px;padding-top:14px}.dependentBlock h4{font:800 .83rem Montserrat,Inter,Arial,sans-serif;color:#295a42;margin:0 0 11px}
