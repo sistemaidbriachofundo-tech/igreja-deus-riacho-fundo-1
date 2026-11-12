@@ -567,7 +567,7 @@ export function AppShell({
         </header>
         <main className={s.content}>
           {showModule && children}
-          {accessKind === "pending" && <p className={s.holdNote} role="status">Verificando seu acesso…</p>}
+          {accessKind === "pending" && <div className={s.accessLoading} role="status" aria-label="Carregando painel"><span className={s.accessSpinner} aria-hidden="true" /><span className={s.screenReaderOnly}>Carregando painel</span></div>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
             <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
             <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>
