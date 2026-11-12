@@ -39,6 +39,8 @@ jobs:
           retention-days: 30
           path: |
             apps/api/src/reports/membership-insights-*
+            apps/api/src/reports/membership-insights.*
+            .github/workflows/qa-membership-insights.yml
             apps/api/src/reports/reports.module.ts
             apps/web/src/components/MembershipInsights.tsx
             apps/web/src/components/membership-insights-*
