@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { formatBRL } from "../lib/das-operations";
-import { TreasuryPanel, TreasuryPositionCards, approvalCopy, type TreasuryPosition } from "./TreasuryPanel";
+import { TreasuryPanel, TreasuryPositionCards, approvalCopy, expenseWorkflowStatus, type TreasuryPosition } from "./TreasuryPanel";
 
 const original = process.env.NEXT_PUBLIC_HML_ENABLED;
 
@@ -26,6 +26,17 @@ afterEach(() => {
 });
 
 describe("TreasuryPanel", () => {
+  it("diferencia despesa pendente de uma despesa aprovada no acompanhamento", () => {
+    expect(expenseWorkflowStatus({ status: "PENDING_APPROVAL", firstApprovedByUserId: "tesoureiro" }))
+      .toBe("Aguardando aprovação do pastor");
+    expect(expenseWorkflowStatus({ status: "PENDING_APPROVAL", firstApprovedByUserId: null }))
+      .toBe("Aguardando conferência da Tesouraria");
+    expect(expenseWorkflowStatus({ status: "APPROVED", firstApprovedByUserId: "tesoureiro" }))
+      .toBe("Aprovada pelo pastor");
+    expect(expenseWorkflowStatus({ status: "REJECTED", firstApprovedByUserId: "tesoureiro" }))
+      .toBe("Devolvida para correção");
+  });
+
   it("mostra aprovação pastoral diretamente após o registro pelo tesoureiro", () => {
     const entry = {
       status: "PENDING_APPROVAL", createdByUserId: "tesoureiro", firstApprovedByUserId: "tesoureiro",
