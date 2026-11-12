@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useEffect, useState } from "react";
 import { apiGet, apiPatch } from "../lib/api";
 import { dasError, readDasRows, type DasRecord } from "../lib/das-operations";
@@ -17,6 +19,7 @@ const next=(stage:string)=>{
   return at>=0&&at<journey.length-1?journey[at+1]:null;
 };
 export function VolunteerPipeline({ministries,token,refresh}:Props){
+  const { confirm, confirmation } = useActionConfirmation();
   const [ministryId,setMinistryId]=useState("");
   const [interests,setInterests]=useState<DasRecord[]>([]);
   const [state,setState]=useState<"idle"|"loading"|"ready"|"error">("idle");
@@ -41,20 +44,28 @@ export function VolunteerPipeline({ministries,token,refresh}:Props){
     if(!id||busy)return;
     const target=next(stage);
     if(action==="advance"&&!target)return;
-    if(action==="reject"&&!window.confirm("Rejeitar este interesse de voluntariado na base de testes?"))return;
+    if (action === "reject" && !(await confirm({
+      title: "Recusar interesse de voluntariado?",
+      subject: txt(interest.displayName) || undefined,
+      description: "O interesse será encerrado e deixará de seguir para as próximas etapas de avaliação.",
+      action: "Recusar interesse",
+      cancel: "Manter em avaliação",
+      tone: "danger",
+    }))) return;
     setBusy(true);setMessage("");
     try{
       const body=action==="reject"?{status:"REJECTED"}:{
         stage:target,...(txt(personIds[id])?{personId:txt(personIds[id])}:{})
       };
       await apiPatch("/volunteer-interests/"+encodeURIComponent(id),token,body);
-      setMessage("Etapa atualizada na API de homologação.");
+      setMessage(action === "reject" ? "Interesse recusado." : "Etapa atualizada.");
       setReload(value=>value+1);refresh();
     }catch(error){setMessage(dasError(error));}
     finally{setBusy(false);}
   }
 
   return <section className={styles.board} aria-labelledby="interests-heading">
+    {confirmation}
     <div className={styles.intro}><span>RF-012/015 · SERVIÇO VOLUNTÁRIO</span>
       <h2 id="interests-heading">Do interesse até a escala</h2>
       <p>A integração de voluntários exige avaliação humana, vínculo autorizado e disponibilidade. Esta etapa não envia mensagens automáticas.</p></div>

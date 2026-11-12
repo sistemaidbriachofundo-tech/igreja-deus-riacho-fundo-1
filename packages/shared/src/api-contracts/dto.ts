@@ -295,9 +295,23 @@ export interface HealthResponse {
  * `status` e `kind`, se enviados, são recusados: a API não grava
  * e não devolve uma situação inventada.
  */
-export interface PatchPersonRequest {
+export const PERSON_PROFILE_DATES = ["birthDate", "baptismDate", "weddingDate", "firstAttendedOn"] as const;
+
+export type PersonProfileDates = (typeof PERSON_PROFILE_DATES)[number];
+export type PersonSex = "FEMALE" | "MALE" | "OTHER";
+export type PersonProfileFields = Partial<Record<PersonProfileDates, string | null>> & { sex?: PersonSex | null };
+export interface PersonTimelineEvent {
+  id: string;
+  type: "cadastro" | "vinculo" | "admissao" | "transferencia" | "ministerio" | "marco";
+  date: string;
+  title: string;
+  detail?: string;
+}
+
+export interface PatchPersonRequest extends PersonProfileFields {
   displayName?: string;
   email?: string | null;
+  address?: string | null;
   isMinor?: boolean;
   legalGuardianPersonId?: string | null;
   householdId?: string | null;
@@ -307,7 +321,8 @@ export interface PatchPersonRequest {
 }
 
 export interface PersonDossierResponse {
-  person: PersonSummaryDto & {
+  person: PersonSummaryDto & PersonProfileFields & {
+    address?: string | null;
     kind: string;
     isMinor: boolean;
     legalGuardianPersonId: string | null;
@@ -334,6 +349,8 @@ export interface PersonDossierResponse {
     createdAt: string;
     updatedAt: string;
   }>;
+  timeline?: PersonTimelineEvent[];
+  access?: { status: string; roles: string[] } | null;
 }
 
 export interface AdmissionDocumentMetaDto {

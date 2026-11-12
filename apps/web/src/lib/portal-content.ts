@@ -185,3 +185,4 @@ export function getMinistry(slug: string): PortalMinistry | undefined {
 }
 
 export const instagramUrl = "https://www.instagram.com/idbriacho_/";
+export const youtubeChannelUrl = "https://www.youtube.com/c/IDBRiachoFundo1IDB";

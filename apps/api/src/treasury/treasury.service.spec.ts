@@ -59,7 +59,6 @@ describe("TreasuryService", () => {
   it.each([
     "SECRETARIA",
     "PASTOR",
-    "PLATFORM_ADMIN",
     "LIDER_MINISTERIO",
     "MEMBRO",
   ])("nega %s na posição e no lançamento", async (role) => {
@@ -76,6 +75,17 @@ describe("TreasuryService", () => {
         grossCents: 1000,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("permite consulta da administração e reserva lançamentos à tesouraria", async () => {
+    const service = build({ ledgerEntry: { findMany: jest.fn().mockResolvedValue([]) } });
+    const admin = user("PLATFORM_ADMIN");
+    await expect(service.position(admin)).resolves.toMatchObject({ churchId: pilot.churchId });
+    await expect(service.position(user("PLATFORM_ADMIN", "church-other"))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.postCashReceipt(admin, {
+      idempotencyKey: "hml-key-01", entryDate: "2026-11-09", description: "Oferta sintética",
+      cashAccountId: cash.id, revenueAccountId: revenue.id, grossCents: 1000,
+    })).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("nega tesouraria de outra congregação", async () => {

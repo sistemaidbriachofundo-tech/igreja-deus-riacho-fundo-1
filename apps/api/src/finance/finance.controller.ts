@@ -22,7 +22,9 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -32,6 +34,7 @@ import type { Response } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
+import { RequireAccess } from "../auth/decorators/require-access.decorator";
 import { FinanceService } from "./finance.service";
 
 class CreateAccountBody {
@@ -136,6 +139,36 @@ class RejectEntryBody {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+class CreateExpenseBody {
+  @IsUUID("4")
+  requestId!: string;
+
+  @IsString()
+  entryDate!: string;
+
+  @IsString()
+  @MinLength(4)
+  @MaxLength(180)
+  description!: string;
+
+  @IsString()
+  @MinLength(1)
+  expenseAccountId!: string;
+
+  @IsString()
+  @MinLength(1)
+  cashAccountId!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  amountCents!: number;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
 }
 
 class MatchBankLineBody {
@@ -280,6 +313,7 @@ export class FinanceController {
     return this.finance.listBankAdapters();
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("accounts")
   listAccounts(@CurrentUser() user: AuthUser) {
     return this.finance.listAccounts(user);
@@ -326,6 +360,7 @@ export class FinanceController {
     return this.finance.patchFund(user, fundId, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("cost-centers")
   listCostCenters(@CurrentUser() user: AuthUser) {
     return this.finance.listCostCenters(user);
@@ -345,6 +380,7 @@ export class FinanceController {
     return this.finance.patchCostCenter(user, costCenterId, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("entries")
   listEntries(
     @CurrentUser() user: AuthUser,
@@ -356,6 +392,19 @@ export class FinanceController {
   @Post("entries")
   createEntry(@CurrentUser() user: AuthUser, @Body() body: CreateEntryBody) {
     return this.finance.createEntry(user, body);
+  }
+
+  @Post("expenses")
+  createExpense(@CurrentUser() user: AuthUser, @Body() body: CreateExpenseBody) {
+    return this.finance.createExpense(user, body);
+  }
+
+  /** Aprovações de despesas pendentes, sem abrir o extrato completo ao pastor. */
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
+  @RequireAccess({ resource: "ledger", action: "approve" })
+  @Get("expense-approvals")
+  listExpenseApprovals(@CurrentUser() user: AuthUser) {
+    return this.finance.listExpenseApprovals(user);
   }
 
   @Get("entries/:entryId")
@@ -371,6 +420,8 @@ export class FinanceController {
     return this.finance.submitEntry(user, entryId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
+  @RequireAccess({ resource: "ledger", action: "approve" })
   @Post("entries/:entryId/approve")
   approveEntry(
     @CurrentUser() user: AuthUser,
@@ -527,6 +578,7 @@ export class FinanceController {
     return this.finance.closePeriod(user, periodId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("reconciliations")
   listReconciliations(@CurrentUser() user: AuthUser) {
     return this.finance.listReconciliations(user);

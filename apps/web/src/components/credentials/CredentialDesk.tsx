@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { UIIcon } from "../AppShell";
+import { PersonPortrait } from "../PersonPortrait";
+import { Alert } from "../ui/Alert";
+import { useActionConfirmation } from "../ui/ActionConfirmation";
 import {
   downloadCredentialPdf,
   issueCredential,
@@ -12,7 +15,6 @@ import {
 } from "./credential-api";
 import { CredentialViewer } from "./CredentialViewer";
 import {
-  avatarLabel,
   credentialFailure,
   registrationLabel,
   rowStatus,
@@ -47,6 +49,9 @@ export function CredentialDesk({
   previewCard = null,
   initialOpen = false,
 }: CredentialDeskProps) {
+  const { confirm, confirmation } = useActionConfirmation();
+  const readVersion = useRef(0);
+  const [selectedRow, setSelectedRow] = useState<CredentialMembershipRow | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "PENDING">("ALL");
   const [notice, setNotice] = useState("");
@@ -85,7 +90,19 @@ export function CredentialDesk({
     setViewerError("");
   }
 
+  function closeViewer() {
+    if (busy) return;
+    readVersion.current += 1;
+    setLoading(false);
+    setSelectedRow(null);
+    setOpen(false);
+  }
+
   async function show(row: CredentialMembershipRow) {
+    if (busy) return;
+    const version = ++readVersion.current;
+    setSelectedRow(row);
+    setNotice("");
     setOpen(true);
     resetViewer();
     if (previewCard && !token) {
@@ -96,6 +113,7 @@ export function CredentialDesk({
     if (!token) {
       setCard(null);
       setLoading(false);
+      setSelectedRow(null);
       setViewerError("Entre na sua conta para abrir a carteirinha.");
       return;
     }
@@ -105,17 +123,20 @@ export function CredentialDesk({
       const loaded = row.activeCredentialId
         ? await openCredential(token, row.activeCredentialId)
         : await openCredentialByMembership(token, row.membershipId);
-      setCard(loaded);
+      if (version === readVersion.current) setCard(loaded);
     } catch (error) {
-      setViewerError(credentialFailure(error).message);
+      if (version !== readVersion.current) return;
+      const failure = credentialFailure(error);
+      if (failure.status && failure.status < 500 && failure.status !== 429) setSelectedRow(null);
+      setViewerError(failure.message);
     } finally {
-      setLoading(false);
+      if (version === readVersion.current) setLoading(false);
     }
   }
 
   async function issue(membershipId: string) {
     if (!token) {
-      setBanner("Emitir a carteirinha usa a API autenticada.");
+      setBanner("Entre com sua conta para emitir a carteirinha.");
       return;
     }
     setBusy(true);
@@ -123,45 +144,67 @@ export function CredentialDesk({
     setNotice("");
     try {
       const issued = await issueCredential(token, membershipId);
-      const detail = await openCredential(token, issued.id);
-      setCard(detail);
+      setCard(issued);
       setOpen(true);
       resetViewer();
       setNotice("Carteirinha emitida.");
       await onReload?.();
     } catch (error) {
-      setBanner(credentialFailure(error).message);
+      const failure = credentialFailure(error);
+      if (failure.status === 409 && /^Já existe/.test(failure.message)) {
+        try {
+          const existing = await openCredentialByMembership(token, membershipId);
+          setCard(existing);
+          setOpen(true);
+          resetViewer();
+          setNotice("Carteirinha ativa encontrada.");
+          await onReload?.();
+          return;
+        } catch {
+          // A lista pode ter mudado de novo depois do conflito.
+        }
+      }
+      setBanner(failure.message);
     } finally {
       setBusy(false);
     }
   }
 
-  async function revoke(credentialId: string) {
+  async function revoke(credentialId: string, displayName: string) {
+    if (busy) return;
+    const reportError = open ? setViewerError : setBanner;
     if (!token) {
-      setViewerError("Revogar a carteirinha usa a API autenticada.");
+      reportError("Entre com sua conta para revogar a carteirinha.");
       return;
     }
+    const accepted = await confirm({
+      title: "Revogar carteirinha?",
+      subject: displayName,
+      description: "A carteirinha perderá a validade. O QR passará a indicar que ela foi revogada.",
+      action: "Revogar carteirinha",
+      cancel: "Manter ativa",
+      tone: "danger",
+    });
+    if (!accepted) return;
+
     setBusy(true);
-    setViewerError("");
+    setBanner("");
+    setNotice("");
+    resetViewer();
     try {
       const revoked = await revokeCredential(token, credentialId);
-      let detail: CredentialCard = { ...revoked, status: "REVOKED" };
-      try {
-        detail = await openCredential(token, revoked.id);
-      } catch (error) {
-        setViewerError(credentialFailure(error).message);
-      }
-      setCard(detail);
+      setCard({ ...revoked, status: "REVOKED" });
       setOpen(true);
       try {
+        const detail = await openCredential(token, revoked.id);
+        setCard(detail);
         setVerification(await verifyCredentialQr(detail.qrPayload));
-      } catch (error) {
-        setViewerError(credentialFailure(error).message);
+      } catch {
+        setViewerError("A carteirinha foi revogada. Use Conferir QR para consultar a validação novamente.");
       }
-      setNotice("Carteirinha revogada.");
       await onReload?.();
     } catch (error) {
-      setViewerError(credentialFailure(error).message);
+      reportError(credentialFailure(error).message);
     } finally {
       setBusy(false);
     }
@@ -169,14 +212,15 @@ export function CredentialDesk({
 
   async function download() {
     if (!token || !card) {
-      setViewerError("Baixar PDF usa a API autenticada.");
+      setViewerError("Entre com sua conta para baixar o PDF.");
       return;
     }
     setBusy(true);
+    setNotice("");
     setViewerError("");
     try {
       await downloadCredentialPdf(token, card.id);
-      setNotice("PDF gerado pela API.");
+      setNotice("Download do PDF iniciado.");
     } catch (error) {
       setViewerError(credentialFailure(error).message);
     } finally {
@@ -187,7 +231,7 @@ export function CredentialDesk({
   async function verify() {
     if (!card) return;
     if (previewCard && !token) {
-      setViewerError("Conferir o QR usa a API autenticada.");
+      setViewerError("Entre com sua conta para conferir o QR.");
       return;
     }
     setBusy(true);
@@ -205,20 +249,16 @@ export function CredentialDesk({
     <section className={s.desk} aria-labelledby="credential-desk-title">
       <header className={s.deskHead}>
         <div>
-          <p className={s.kicker}>Credenciais</p>
           <h2 id="credential-desk-title">Carteirinhas da congregação</h2>
         </div>
       </header>
-      {notice ? (
-        <p className={s.notice} role="status">
-          <UIIcon name="check" size={16} />
-          {notice}
-          <button type="button" aria-label="Fechar aviso" onClick={() => setNotice("")}>
-            <UIIcon name="close" size={16} />
-          </button>
-        </p>
-      ) : null}
-      {banner ? <p className={s.alert} role="alert">{banner}</p> : null}
+      {!open && (notice || banner || busy) && (
+        <div className={s.feedback}>
+          {notice && <Alert appearance="workspace" tone="success" title={notice} onDismiss={() => setNotice("")} />}
+          {banner && <Alert appearance="workspace" tone="danger" title="Não foi possível concluir a ação">{banner}</Alert>}
+          {busy && <Alert appearance="workspace" tone="info" title="Salvando alteração…" />}
+        </div>
+      )}
 
       <div className={s.controls}>
         <label className={s.search}>
@@ -252,8 +292,12 @@ export function CredentialDesk({
       <div className={s.list}>
         {visible.map((row) => (
           <article key={row.membershipId} className={s.row}>
-            <button type="button" className={s.rowMain} onClick={() => void show(row)}>
-              <span className={s.mini} aria-hidden="true">{avatarLabel(row.displayName)}</span>
+            <button type="button" className={s.rowMain} disabled={!row.activeCredentialId} onClick={() => void show(row)}>
+              <PersonPortrait
+                name={row.displayName}
+                photoUrl={row.membershipId === ownCard?.membershipId ? ownCard.photoUrl : undefined}
+                size="medium"
+              />
               <span>
                 <strong>{row.displayName}</strong>
                 <small>Matrícula {registrationLabel(row.membershipId)}</small>
@@ -261,13 +305,13 @@ export function CredentialDesk({
               <span className={row.activeCredentialId ? s.badgeOn : s.badgeOff}>{rowStatus(row.activeCredentialId)}</span>
             </button>
             <div className={s.rowActions}>
-              <button type="button" onClick={() => void show(row)}>Visualizar</button>
+              {row.activeCredentialId && <button type="button" onClick={() => void show(row)}>Visualizar</button>}
               {canManage ? (
                 <button
                   type="button"
                   className={row.activeCredentialId ? s.quiet : undefined}
                   disabled={busy}
-                  onClick={() => void (row.activeCredentialId ? revoke(row.activeCredentialId) : issue(row.membershipId))}
+                  onClick={() => void (row.activeCredentialId ? revoke(row.activeCredentialId, row.displayName) : issue(row.membershipId))}
                 >
                   {row.activeCredentialId ? "Revogar" : "Emitir"}
                 </button>
@@ -289,16 +333,19 @@ export function CredentialDesk({
           card={card}
           loading={loading}
           error={viewerError}
+          notice={notice}
+          onRetry={selectedRow ? () => void show(selectedRow) : undefined}
           verification={verification}
           busy={busy}
           canRevoke={canManage}
-          onClose={() => setOpen(false)}
+          onClose={closeViewer}
           onDownload={() => void download()}
           onPrint={() => window.print()}
           onVerify={() => void verify()}
-          onRevoke={() => { if (card) void revoke(card.id); }}
+          onRevoke={() => { if (card) void revoke(card.id, card.displayName); }}
         />
       ) : null}
+      {confirmation}
     </section>
   );
 }

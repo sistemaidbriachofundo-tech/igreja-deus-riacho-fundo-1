@@ -10,4 +10,16 @@ describe("AuditController roles", () => {
     ) as string[] | undefined;
     expect(roles).toEqual(["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"]);
   });
+
+  it("keeps export on the same roles and exposes no mutation method", () => {
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      AuditController.prototype.exportLogs,
+    ) as string[] | undefined;
+    expect(roles).toEqual(["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"]);
+    const methods = Object.getOwnPropertyNames(AuditController.prototype);
+    expect(
+      methods.some((name) => /delete|update|remove|purge|patch/i.test(name)),
+    ).toBe(false);
+  });
 });

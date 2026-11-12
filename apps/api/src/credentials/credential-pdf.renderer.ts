@@ -1,4 +1,6 @@
 import PDFDocument from "pdfkit";
+// PDFKit loads Helvetica through a dynamic import that the serverless tracer misses.
+import "pdfkit/standard-fonts/Helvetica";
 import QRCode from "qrcode";
 import {
   assertOpaqueCredentialPayload,
@@ -11,6 +13,7 @@ export interface CredentialPdfInput {
   opaqueToken: string;
   issuedAt: Date;
   credentialId: string;
+  photo?: Buffer;
 }
 
 /**
@@ -69,6 +72,7 @@ export async function renderCredentialPdf(
     .text("QR: token opaco (sem documento pessoal)", { width: 200 });
 
   doc.image(qrPng, 240, 40, { width: 96, height: 96 });
+  if (input.photo) doc.image(input.photo, 24, 112, { fit: [80, 83] });
 
   doc.end();
   const pdf = await done;

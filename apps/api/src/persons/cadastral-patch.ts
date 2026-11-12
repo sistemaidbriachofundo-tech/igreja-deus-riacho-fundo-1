@@ -1,11 +1,11 @@
-import { normalizePersonSearchText } from "@idbrf/shared";
+import { normalizePersonSearchText, type PersonProfileFields } from "@idbrf/shared";
 import { BusinessException } from "../common/business.exception";
 
 /**
  * Campos de pessoa que este PATCH grava.
- * Situação, tipo eclesiástico e contatos fora de e-mail ficam de fora de propósito.
+ * Situação, tipo eclesiástico e telefones permanecem fora do cadastro editável.
  */
-export interface CadastralPersonPatch {
+export interface CadastralPersonPatch extends PersonProfileFields {
   displayName?: string;
   email?: string | null;
   isMinor?: boolean;
@@ -16,19 +16,29 @@ export interface CadastralPersonPatch {
   kind?: string;
   phone?: string;
   mobilePhone?: string;
-  address?: string;
+  address?: string | null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function normalizeProfileDate(value: string | null): Date | null {
+  if (value === null) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(+parsed) ||
+      parsed.toISOString().slice(0, 10) !== value || parsed.getUTCFullYear() < 1850 ||
+      value > new Date().toISOString().slice(0, 10)) {
+    throw new BusinessException("Informe uma data válida até hoje.", "PERSON_PROFILE_DATE_INVALID", 400);
+  }
+  return parsed;
+}
+
 export function rejectPersonPatchPolicy(input: CadastralPersonPatch): void {
   if (
     input.phone !== undefined ||
-    input.mobilePhone !== undefined ||
-    input.address !== undefined
+    input.mobilePhone !== undefined
   ) {
     throw new BusinessException(
-      "Telefone e endereço não existem no cadastro atual. A gravação foi recusada.",
+      "Telefone não existe no cadastro atual. A gravação foi recusada.",
       "PERSON_CONTACT_UNSUPPORTED",
       400,
     );

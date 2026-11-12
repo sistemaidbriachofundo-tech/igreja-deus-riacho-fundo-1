@@ -2,8 +2,14 @@
 
 import { useEffect, useId, useReducer, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { apiGet, apiPatch } from "../lib/api";
-import { Ficha360Dialog, type CredentialView } from "./secretaria/Ficha360Dialog";
+import { usePersonaAccess } from "./AppShell";
+import { PersonPicker } from "./PersonPicker";
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { apiGet, apiPatch, apiPost } from "../lib/api";
+import {
+  Ficha360Dialog,
+  type CredentialView,
+} from "./secretaria/Ficha360Dialog";
 import {
   fichaReducer,
   initialFichaState,
@@ -13,6 +19,7 @@ import {
   type AdmissionDocumentList,
   type DossierClient,
   type EditablePersonFields,
+  type PersonRecord,
 } from "./secretary-dossier";
 
 type HouseholdOption = { id: string; label: string };
@@ -25,6 +32,8 @@ type Props = {
   canReadDocuments: boolean;
   credential: CredentialView;
   onClose: () => void;
+  onPersonSaved?: (person: PersonRecord) => void;
+  onHouseholdCreated?: (household: HouseholdOption) => void;
   onSessionExpired: () => void;
 };
 
@@ -38,27 +47,17 @@ export function SecretaryDossier({
   canReadDocuments,
   credential,
   onClose,
+  onPersonSaved,
+  onHouseholdCreated,
   onSessionExpired,
 }: Props) {
   const titleId = useId();
+  const { confirm, confirmation } = useActionConfirmation();
+  const { roles } = usePersonaAccess();
   const [state, dispatch] = useReducer(fichaReducer, initialFichaState);
-  const [documents, setDocuments] = useState<AdmissionDocumentList[] | null>(null);
-
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const [documents, setDocuments] = useState<AdmissionDocumentList[] | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +66,8 @@ export function SecretaryDossier({
     void loadPersonDossier(client, token, personId).then((result) => {
       if (cancelled) return;
       const elapsedMs = performance.now() - started;
-      if (result.ok) dispatch({ type: "load-ok", data: result.data, elapsedMs });
+      if (result.ok)
+        dispatch({ type: "load-ok", data: result.data, elapsedMs });
       else dispatch({ type: "load-fail", failure: result.failure, elapsedMs });
     });
     return () => {
@@ -75,7 +75,8 @@ export function SecretaryDossier({
     };
   }, [token, personId]);
 
-  const admissionKey = state.dossier?.admissionHistory.map((item) => item.id).join("|") ?? "";
+  const admissionKey =
+    state.dossier?.admissionHistory.map((item) => item.id).join("|") ?? "";
 
   useEffect(() => {
     if (!canReadDocuments || admissionKey.length === 0) {
@@ -83,9 +84,11 @@ export function SecretaryDossier({
       return;
     }
     let cancelled = false;
-    void loadAdmissionDocuments(client, token, admissionKey.split("|")).then((lists) => {
-      if (!cancelled) setDocuments(lists);
-    });
+    void loadAdmissionDocuments(client, token, admissionKey.split("|")).then(
+      (lists) => {
+        if (!cancelled) setDocuments(lists);
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -95,8 +98,15 @@ export function SecretaryDossier({
     const started = startedAt ?? performance.now();
     const result = await loadPersonDossier(client, token, personId);
     const elapsedMs = performance.now() - started;
-    if (result.ok) dispatch({ type: "reopen-ok", data: result.data, elapsedMs, context });
-    else dispatch({ type: "reopen-fail", failure: result.failure, elapsedMs, context });
+    if (result.ok)
+      dispatch({ type: "reopen-ok", data: result.data, elapsedMs, context });
+    else
+      dispatch({
+        type: "reopen-fail",
+        failure: result.failure,
+        elapsedMs,
+        context,
+      });
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -114,24 +124,72 @@ export function SecretaryDossier({
     );
     if (!saved.ok) {
       if ("unchanged" in saved) dispatch({ type: "save-unchanged" });
-      else if (saved.partialPerson) dispatch({ type: "save-partial", person: saved.partialPerson, failure: saved.failure });
-      else dispatch({ type: "save-fail", failure: saved.failure });
+      else if (saved.partialPerson) {
+        onPersonSaved?.(saved.partialPerson);
+        dispatch({
+          type: "save-partial",
+          person: saved.partialPerson,
+          failure: saved.failure,
+        });
+      } else dispatch({ type: "save-fail", failure: saved.failure });
       return;
     }
+    if (saved.person) onPersonSaved?.(saved.person);
     dispatch({ type: "save-ok", person: saved.person });
     await reload("after-save", started);
   }
 
+  const dirty = Boolean(
+    state.form &&
+    state.baseline &&
+    (
+      state.form.displayName !== state.baseline.displayName ||
+      state.form.email !== state.baseline.email ||
+      state.form.notes !== state.baseline.notes ||
+      state.form.address !== state.baseline.address ||
+      state.form.birthDate !== state.baseline.birthDate ||
+      state.form.firstAttendedOn !== state.baseline.firstAttendedOn ||
+      state.form.baptismDate !== state.baseline.baptismDate ||
+      state.form.weddingDate !== state.baseline.weddingDate ||
+      state.form.sex !== state.baseline.sex ||
+      state.form.isMinor !== state.baseline.isMinor ||
+      state.form.legalGuardianPersonId !== state.baseline.legalGuardianPersonId ||
+      state.form.householdId !== state.baseline.householdId
+    ),
+  );
+
+  async function requestClose() {
+    if (state.phase === "saving" || state.phase === "reopening") return;
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Fechar ficha sem salvar?",
+        subject: state.person?.displayName,
+        description:
+          "As alterações feitas desde o último salvamento serão descartadas.",
+        cancel: "Continuar editando",
+        action: "Descartar e fechar",
+        tone: "danger",
+      }))
+    )
+      return;
+    onClose();
+  }
+
   async function reopen() {
-    const dirty = state.form && state.baseline && (
-      state.form.displayName !== state.baseline.displayName
-      || state.form.email !== state.baseline.email
-      || state.form.notes !== state.baseline.notes
-      || state.form.isMinor !== state.baseline.isMinor
-      || state.form.legalGuardianPersonId !== state.baseline.legalGuardianPersonId
-      || state.form.householdId !== state.baseline.householdId
-    );
-    if (dirty && !window.confirm("Reabrir substitui o que ainda não foi salvo pelos dados atuais da API.")) return;
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Atualizar ficha sem salvar?",
+        subject: state.person?.displayName,
+        description:
+          "A ficha será preenchida com os dados salvos. As alterações atuais serão descartadas.",
+        cancel: "Continuar editando",
+        action: "Descartar e atualizar",
+        tone: "danger",
+      }))
+    )
+      return;
     dispatch({ type: "reopening" });
     await reload("manual");
   }
@@ -139,28 +197,71 @@ export function SecretaryDossier({
   const dialog = (
     <Ficha360Dialog
       titleId={titleId}
-      personId={personId}
       state={state}
       households={households}
       canEdit={canEdit}
       canReadDocuments={canReadDocuments}
       credential={credential}
       documents={documents}
-      onClose={onClose}
-      onEdit={(next: EditablePersonFields) => dispatch({ type: "edit", form: next })}
+      onCreateHousehold={onHouseholdCreated ? async (label) => {
+        const household = await apiPost<HouseholdOption>("/households", token, { label });
+        if (!household?.id || !household.label) throw new Error("Resposta da Secretaria incompleta");
+        onHouseholdCreated(household);
+        return household.id;
+      } : undefined}
+      guardianPicker={
+        state.form && (
+          <PersonPicker
+            token={token}
+            roles={roles}
+            label="Responsável legal"
+            value={state.form.legalGuardianPersonId}
+            selectedPerson={state.dossier?.legalGuardian ?? undefined}
+            onChange={(id) => {
+              if (state.form)
+                dispatch({
+                  type: "edit",
+                  form: { ...state.form, legalGuardianPersonId: id },
+                });
+            }}
+            excludeIds={[personId]}
+            adultsOnly
+            required={state.form.isMinor}
+            disabled={
+              !canEdit ||
+              state.phase === "saving" ||
+              state.phase === "reopening"
+            }
+            help="Busque uma pessoa adulta já cadastrada na igreja."
+          />
+        )
+      }
+      onClose={() => void requestClose()}
+      onEdit={(next: EditablePersonFields) =>
+        dispatch({ type: "edit", form: next })
+      }
       onSubmit={(event) => void onSubmit(event)}
       onReopen={() => void reopen()}
       onSessionExpired={onSessionExpired}
     />
   );
 
-  if (typeof document !== "undefined") return createPortal(dialog, document.body);
+  if (typeof document !== "undefined")
+    return (
+      <>
+        {createPortal(dialog, document.body)}
+        {confirmation}
+      </>
+    );
   return dialog;
 }
 
 export function credentialFromMemberships(
   known: boolean,
-  memberships: Array<{ person: { id: string }; activeCredentialId: string | null }>,
+  memberships: Array<{
+    person: { id: string };
+    activeCredentialId: string | null;
+  }>,
   personId: string | null,
 ): CredentialView {
   if (!known || !personId) return { known: false };

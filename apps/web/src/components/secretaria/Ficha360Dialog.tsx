@@ -1,6 +1,14 @@
-import type { FormEvent } from "react";
+"use client";
+
+import { PersonPortrait } from "../PersonPortrait";
+import type { PersonProfileDates, PersonSex, PersonTimelineEvent } from "@idbrf/shared";
+import { registrationLabel } from "../credentials/credential-model";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Alert } from "../ui/Alert";
+import { AppNavLink } from "../AppShell";
+import { useDialogLifecycle } from "../ui/dialog";
+import ui from "../ui/ui.module.css";
 import {
-  REGULATED_PERSON_FIELDS,
   dossierLabel,
   type AdmissionDocumentList,
   type DossierFailure,
@@ -9,8 +17,18 @@ import {
   type PersonDossier,
 } from "../secretary-dossier";
 import s from "../secretary-dossier.module.css";
+import { Ficha360Overview, type FichaTab } from "./Ficha360Overview";
 
 type HouseholdOption = { id: string; label: string };
+
+const dateFields: Array<[PersonProfileDates, string]> = [
+  ["birthDate", "Data de nascimento"], ["firstAttendedOn", "Primeira frequência na igreja"],
+  ["baptismDate", "Data de batismo"], ["weddingDate", "Data de casamento"],
+];
+const timelineLabels: Record<PersonTimelineEvent["type"], string> = {
+  cadastro: "Origem do cadastro", vinculo: "Situação eclesiástica", admissao: "Admissão", transferencia: "Transferência",
+  ministerio: "Liderança / função", marco: "Marcos pessoais",
+};
 
 export type CredentialView =
   | { known: false }
@@ -18,13 +36,14 @@ export type CredentialView =
 
 type Props = {
   titleId: string;
-  personId: string;
+  guardianPicker?: ReactNode;
   state: FichaState;
   households: HouseholdOption[];
   canEdit: boolean;
   canReadDocuments: boolean;
   credential: CredentialView;
   documents: AdmissionDocumentList[] | null;
+  onCreateHousehold?: (label: string) => Promise<string>;
   onClose: () => void;
   onEdit: (next: EditablePersonFields) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -36,44 +55,114 @@ function formatWhen(value: string | undefined) {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isFinite(date.getTime())
-    ? date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+    ? value.length === 10 ? date.toLocaleDateString("pt-BR", { timeZone: "UTC" })
+      : date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
     : "—";
 }
 
-function failureBlock(failure: DossierFailure | null, slot: string, title: string) {
-  if (!failure) return null;
+function FailureNotice({
+  failure,
+  title,
+  onRetry,
+  onSessionExpired,
+}: {
+  failure: DossierFailure;
+  title: string;
+  onRetry?: () => void;
+  onSessionExpired: () => void;
+}) {
+  const session = failure.kind === "session";
+  const retry = failure.kind === "unknown" ? onRetry : undefined;
+
   return (
-    <div role="alert" className={s.error} data-failure={slot} data-kind={failure.kind}>
-      <strong>{title}</strong> {failure.message}
-    </div>
+    <Alert
+      appearance="workspace"
+      tone={session || failure.kind === "conflict" ? "warning" : "danger"}
+      title={session ? "Sua sessão expirou" : title}
+    >
+      {session ? "Entre novamente para continuar." : failure.message}
+      {(session || retry) && (
+        <div>
+          <button
+            type="button"
+            className={ui.workspaceSecondary}
+            onClick={session ? onSessionExpired : retry}
+          >
+            {session ? "Entrar novamente" : "Tentar novamente"}
+          </button>
+        </div>
+      )}
+    </Alert>
   );
 }
 
 export function Ficha360Dialog({
   titleId,
-  personId,
+  guardianPicker,
   state,
   households,
   canEdit,
   canReadDocuments,
   credential,
   documents,
+  onCreateHousehold,
   onClose,
   onEdit,
   onSubmit,
   onReopen,
   onSessionExpired,
 }: Props) {
-  const busy = state.phase === "loading" || state.phase === "saving" || state.phase === "reopening";
-  const sessionExpired = [state.loadError, state.saveError, state.refreshError].some((failure) => failure?.kind === "session");
+  const dialogRef = useRef<HTMLElement>(null);
+  const timelineRef = useRef<HTMLElement>(null);
+  const [timelineType, setTimelineType] = useState("");
+  const [activeTab, setActiveTab] = useState<FichaTab>("visao");
+  const [newFamily, setNewFamily] = useState("");
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const [creatingFamily, setCreatingFamily] = useState(false);
+  const [familyFeedback, setFamilyFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  function close() {
+    if (!creatingFamily) onClose();
+  }
+  useDialogLifecycle(true, close, dialogRef);
+  const busy =
+    state.phase === "loading" ||
+    state.phase === "saving" ||
+    state.phase === "reopening";
   const person = state.person;
   const dossier = state.dossier;
   const form = state.form;
-  const options = householdOptions(households, form?.householdId ?? "", dossier);
+  const openAdmission = dossier?.admissionHistory.find(item => !["APPROVED", "REJECTED", "CANCELLED"].includes(item.status));
+  const loadFailure = state.refreshError ?? state.loadError;
+  const editFailure = state.saveError ?? state.refreshError;
+  const options = householdOptions(
+    households,
+    form?.householdId ?? "",
+    dossier,
+  );
+
+  async function createFamily() {
+    const name = newFamily.trim();
+    if (!form || !onCreateHousehold || creatingFamily || name.length < 3) return;
+    setCreatingFamily(true);
+    setFamilyFeedback(null);
+    try {
+      const householdId = await onCreateHousehold(name);
+      onEdit({ ...form, householdId });
+      setFamilyOpen(false);
+      setNewFamily("");
+      setFamilyFeedback({ error: false, text: "Família cadastrada. Salve a ficha para confirmar o vínculo." });
+    } catch {
+      setFamilyFeedback({ error: true, text: "Não foi possível cadastrar a família. Tente novamente." });
+    } finally {
+      setCreatingFamily(false);
+    }
+  }
 
   return (
     <div className={s.overlay}>
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         className={s.dialog}
         role="dialog"
         aria-modal="true"
@@ -83,28 +172,100 @@ export function Ficha360Dialog({
         data-ficha="360"
       >
         <header className={s.header}>
-          <div>
-            <span className={s.kicker}>FICHA 360 · SECRETARIA · DADOS FICTÍCIOS</span>
-            <h2 id={titleId}>{person?.displayName ?? "Ficha da pessoa"}</h2>
-            <p>Identificador {personId}. A gravação usa a API de homologação. Casos pastorais não entram nesta ficha.</p>
+          <div className={s.identityHeader}>
+            <PersonPortrait
+              name={person?.displayName ?? "Pessoa"}
+              photoUrl={person?.photoUrl}
+              size="large"
+            />
+            <div>
+              <span className={s.profileEyebrow}>FICHA 360 · HISTÓRIA E CUIDADO</span>
+              <h2 id={titleId}>
+                {person?.displayName ?? "Cadastro de pessoa"}
+              </h2>
+              {person && <div className={s.identityMeta}>
+                <span>{dossierLabel(person.kind)} · {dossierLabel(person.status)}</span>
+                {dossier?.memberships[0] && <span>Matrícula {registrationLabel(dossier.memberships[0].id)}</span>}
+                {dossier?.access && <span>{dossier.access.status === "ACTIVE" ? "Acesso ativo" : "Acesso desativado"}{dossier.access.roles.length ? ` · ${dossier.access.roles.join(", ")}` : ""}</span>}
+                {dossier?.access === null && <span>Sem conta de acesso</span>}
+              </div>}
+            </div>
           </div>
-          <button type="button" className={s.close} onClick={onClose} aria-label="Fechar ficha">Fechar</button>
+          <button
+            type="button"
+            className={s.close}
+            disabled={state.phase === "saving" || state.phase === "reopening" || creatingFamily}
+            onClick={close}
+            aria-label="Fechar ficha"
+          >
+            Fechar
+          </button>
         </header>
 
-        {state.phase === "loading" && <p className={s.status} role="status">Abrindo ficha…</p>}
-        {state.phase === "saving" && <p className={s.status} role="status">Salvando na API…</p>}
-        {state.phase === "reopening" && <p className={s.status} role="status">Reabrindo ficha na API…</p>}
-
-        {failureBlock(state.loadError, "load", "Falha ao abrir.")}
-        {failureBlock(state.saveError, "save", "Falha ao salvar.")}
-        {failureBlock(state.refreshError, "refresh", "Falha ao reabrir.")}
-        {state.notice && <div role="status" className={s.notice}>{state.notice}</div>}
+        {!form && (
+          <div className={s.feedback}>
+            {busy && (
+              <Alert
+                appearance="workspace"
+                tone="info"
+                title="Abrindo ficha…"
+              />
+            )}
+            {!busy && loadFailure && (
+              <FailureNotice
+                failure={loadFailure}
+                title="Não foi possível abrir a ficha"
+                onRetry={onReopen}
+                onSessionExpired={onSessionExpired}
+              />
+            )}
+          </div>
+        )}
 
         {form && person && dossier && (
           <>
+            <nav className={s.fichaTabs} role="tablist" aria-label="Seções da Ficha 360">
+              {([
+                ["visao","Visão geral"],
+                ["historico","Histórico eclesiástico"],
+                ["cadastro","Dados e edição"],
+                ["admissoes","Admissões e documentos"],
+              ] as const).map(([tab,label])=>(
+                <button type="button" key={tab} role="tab" aria-selected={activeTab===tab}
+                  aria-controls={titleId+"-"+tab} id={titleId+"-tab-"+tab}
+                  onClick={()=>setActiveTab(tab)}>
+                  {label}
+                  {tab==="historico" && <span>{dossier.timeline?.length??0}</span>}
+                  {tab==="admissoes" && <span>{dossier.admissionHistory.length}</span>}
+                </button>
+              ))}
+            </nav>
+            <div id={titleId+"-visao"} role="tabpanel" aria-labelledby={titleId+"-tab-visao"}
+              hidden={activeTab!=="visao"} className={s.fichaTabPanel}>
+              {activeTab==="visao" && <Ficha360Overview person={person} dossier={dossier}
+                canEdit={canEdit} onTab={setActiveTab}/>}
+            </div>
+            {activeTab === "cadastro" && <div id={titleId+"-cadastro"} role="tabpanel" aria-labelledby={titleId+"-tab-cadastro"}>
+            <div className={s.profileTools}>
+              <div className={s.completeness}>
+                <div className={s.completenessLabel}>
+                  <span title="Nome, e-mail, endereço e nascimento">
+                    Dados essenciais preenchidos <strong>{[person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length}/4</strong>
+                  </span>
+                  <strong>{Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100)}%</strong>
+                </div>
+                <div className={s.completenessTrack} role="progressbar"
+                  aria-label="Preenchimento dos dados essenciais"
+                  aria-valuemin={0} aria-valuemax={100}
+                  aria-valuenow={Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100)}>
+                  <i style={{ width: Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100) + "%" }} />
+                </div>
+              </div>
+              <button className={s.secondary} type="button" onClick={() => setActiveTab("historico")}>Ver linha do tempo</button>
+            </div>
             <form className={s.form} onSubmit={onSubmit}>
-              <fieldset disabled={busy || !canEdit}>
-                <legend>Dados gerais que a API grava</legend>
+              <fieldset disabled={busy || !canEdit || creatingFamily}>
+                <legend>Dados pessoais</legend>
                 <label>
                   Nome
                   <input
@@ -112,7 +273,9 @@ export function Ficha360Dialog({
                     value={form.displayName}
                     autoComplete="off"
                     maxLength={160}
-                    onChange={(event) => onEdit({ ...form, displayName: event.target.value })}
+                    onChange={(event) =>
+                      onEdit({ ...form, displayName: event.target.value })
+                    }
                   />
                 </label>
                 <label>
@@ -123,49 +286,99 @@ export function Ficha360Dialog({
                     value={form.email}
                     autoComplete="off"
                     placeholder="pessoa.demo@example.test"
-                    onChange={(event) => onEdit({ ...form, email: event.target.value })}
+                    onChange={(event) =>
+                      onEdit({ ...form, email: event.target.value })
+                    }
                   />
                 </label>
-                <p className={s.hint}>E-mail de contato, não de login. Na homologação só é aceito o domínio example.test. Em branco, a API limpa o contato.</p>
+                <p className={s.hint}>
+                  Use um endereço @example.test. Deixe em branco para remover o
+                  contato.
+                </p>
+                {form.address !== undefined && <label>
+                  Endereço residencial
+                  <textarea value={form.address} maxLength={500} rows={2} autoComplete="street-address"
+                    onChange={event => onEdit({ ...form, address: event.target.value })} />
+                </label>}
+                {form.birthDate !== undefined && <div className={s.profileFields}>
+                  {dateFields.map(([key, label]) => <label key={key}>{label}
+                    <input type="date" value={form[key] ?? ""} onChange={event => onEdit({ ...form, [key]: event.target.value })} />
+                  </label>)}
+                  <label>Sexo informado
+                    <select value={form.sex ?? ""} onChange={event => onEdit({ ...form, sex: event.target.value as PersonSex | "" })}>
+                      <option value="">Sem informação</option><option value="FEMALE">Feminino</option>
+                      <option value="MALE">Masculino</option><option value="OTHER">Outro</option>
+                    </select>
+                  </label>
+                </div>}
                 <label className={s.check}>
                   <input
                     data-field="isMinor"
                     type="checkbox"
                     checked={form.isMinor}
-                    onChange={(event) => onEdit({ ...form, isMinor: event.target.checked })}
+                    onChange={(event) =>
+                      onEdit({ ...form, isMinor: event.target.checked })
+                    }
                   />
                   Pessoa menor de idade
                 </label>
-                <label>
-                  Responsável legal
-                  <input
-                    data-field="legalGuardianPersonId"
-                    value={form.legalGuardianPersonId}
-                    autoComplete="off"
-                    placeholder="Identificador da pessoa adulta fictícia"
-                    onChange={(event) => onEdit({ ...form, legalGuardianPersonId: event.target.value })}
-                  />
-                </label>
-                {dossier.legalGuardian && (
-                  <p className={s.hint}>
-                    Responsável atual: {dossier.legalGuardian.displayName}
-                    {dossier.legalGuardian.email ? ` · ${dossier.legalGuardian.email}` : ""}
-                  </p>
+                {(form.isMinor || form.legalGuardianPersonId) && (
+                  <div className={s.guardianField}>
+                    {guardianPicker ?? (
+                      <p className={s.hint}>
+                        Responsável legal:{" "}
+                        {dossier.legalGuardian?.displayName ?? "Não informado"}
+                      </p>
+                    )}
+                  </div>
                 )}
+                {dossier.legalGuardian &&
+                  form.legalGuardianPersonId !== dossier.legalGuardian.id && (
+                    <p className={s.hint}>
+                      Responsável atual: {dossier.legalGuardian.displayName}
+                      {dossier.legalGuardian.email
+                        ? ` · ${dossier.legalGuardian.email}`
+                        : ""}
+                    </p>
+                  )}
                 <label>
                   Família
                   <select
                     data-field="householdId"
                     aria-label="Família"
                     value={form.householdId}
-                    onChange={(event) => onEdit({ ...form, householdId: event.target.value })}
+                    onChange={(event) =>
+                      onEdit({ ...form, householdId: event.target.value })
+                    }
                   >
                     <option value="">Sem família vinculada</option>
                     {options.map((item) => (
-                      <option key={item.id} value={item.id}>{item.label}</option>
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
                     ))}
                   </select>
                 </label>
+                {canEdit && onCreateHousehold && (
+                  <div className={s.familyEditor}>
+                    {familyOpen ? (
+                      <>
+                        <label>Nome da nova família<input value={newFamily} maxLength={120} onChange={(event) => setNewFamily(event.target.value)} onKeyDown={event => {
+                          if (event.key === "Enter") { event.preventDefault(); void createFamily(); }
+                        }} /></label>
+                        <div className={s.actions}>
+                          <button type="button" className={s.secondary} onClick={() => { setFamilyOpen(false); setFamilyFeedback(null); setNewFamily(""); }}>Cancelar</button>
+                          <button type="button" className={s.primary} disabled={newFamily.trim().length < 3 || creatingFamily} onClick={() => void createFamily()}>
+                            {creatingFamily ? "Cadastrando…" : "Cadastrar família"}
+                          </button>
+                        </div>
+                      </>
+                    ) : <button type="button" className={s.secondary} onClick={() => { setFamilyOpen(true); setFamilyFeedback(null); }}>Nova família</button>}
+                    {familyFeedback && (familyFeedback.error || (!busy && person.householdId !== form.householdId)) && (
+                      <p className={s.hint} role={familyFeedback.error ? "alert" : "status"}>{familyFeedback.text}</p>
+                    )}
+                  </div>
+                )}
                 <label>
                   Observação do vínculo mais recente
                   <textarea
@@ -174,42 +387,82 @@ export function Ficha360Dialog({
                     maxLength={4000}
                     rows={3}
                     disabled={busy || !canEdit || !state.versions.membershipId}
-                    onChange={(event) => onEdit({ ...form, notes: event.target.value })}
+                    onChange={(event) =>
+                      onEdit({ ...form, notes: event.target.value })
+                    }
                   />
                 </label>
                 {canEdit && !state.versions.membershipId && (
-                  <p className={s.hint}>Não há vínculo nesta congregação para gravar observação.</p>
+                  <p className={s.hint}>
+                    Não há vínculo nesta congregação para gravar observação.
+                  </p>
                 )}
               </fieldset>
+              {busy && (
+                <Alert
+                  appearance="workspace"
+                  tone="info"
+                  title={
+                    state.phase === "saving"
+                      ? "Salvando ficha…"
+                      : "Atualizando ficha…"
+                  }
+                />
+              )}
+              {!busy && editFailure && (
+                <FailureNotice
+                  failure={editFailure}
+                  title={
+                    state.saveError
+                      ? "Confira a ficha antes de salvar novamente"
+                      : "Atualização incompleta"
+                  }
+                  onSessionExpired={onSessionExpired}
+                />
+              )}
+              {state.notice && (
+                <Alert
+                  appearance="workspace"
+                  tone={state.notice.tone}
+                  title={state.notice.title}
+                >
+                  {state.notice.detail}
+                </Alert>
+              )}
               <div className={s.actions}>
                 {canEdit && (
-                  <button type="submit" className={s.primary} disabled={busy}>
+                  <button type="submit" className={s.primary} disabled={busy || creatingFamily}>
                     {state.phase === "saving" ? "Salvando…" : "Salvar"}
                   </button>
                 )}
-                <button type="button" className={s.secondary} onClick={onReopen} disabled={busy}>
-                  Reabrir ficha
+                <button
+                  type="button"
+                  className={s.secondary}
+                  onClick={onReopen}
+                  disabled={busy || creatingFamily}
+                >
+                  Atualizar ficha
                 </button>
-                {sessionExpired && (
-                  <button type="button" className={s.secondary} onClick={onSessionExpired}>Entrar novamente</button>
-                )}
               </div>
-              {!canEdit && <p className={s.hint}>Seu perfil pode consultar a ficha. A gravação exige Secretaria.</p>}
+              {!canEdit && (
+                <p className={s.hint}>
+                  Seu perfil pode consultar a ficha. A gravação exige
+                  Secretaria.
+                </p>
+              )}
             </form>
-
-            <section className={s.locked} aria-label="Campos que a API recusa neste fluxo">
-              <h3>Situação e tipo — a API recusa alteração direta</h3>
-              <p>
-                Situação e tipo seguem admissão e transferência. Telefone e endereço não existem neste cadastro e não são gravados aqui.
-              </p>
-              <div className={s.lockedGrid}>
-                {REGULATED_PERSON_FIELDS.map((field) => (
-                  <label key={field.key}>
-                    {field.label}
-                    <input value={dossierLabel(person[field.key])} readOnly aria-readonly="true" />
-                  </label>
-                ))}
-              </div>
+            <section className={s.locked} aria-label="Situação do cadastro">
+              <h3>Situação do cadastro</h3>
+              <dl className={s.statusGrid}>
+                <div><dt>Cadastro pessoal</dt><dd>{dossierLabel(person.status)}</dd></div>
+                <div><dt>Tipo de cadastro</dt><dd>{dossierLabel(person.kind)}</dd></div>
+                <div><dt>Vínculo na congregação</dt><dd>{dossier.memberships[0] ? dossierLabel(dossier.memberships[0].status) : "Sem vínculo"}</dd></div>
+              </dl>
+              {canEdit && (openAdmission || person.kind === "VISITOR") && <AppNavLink className={ui.workspaceSecondary}
+                href={openAdmission ? `/app/secretaria/admissoes/?protocolo=${encodeURIComponent(openAdmission.id)}` : `/app/secretaria/admissoes/?acao=admissao&cadastro=${encodeURIComponent(person.id)}`}>
+                {openAdmission ? "Ver protocolo de admissão" : "Iniciar admissão desta pessoa"}
+              </AppNavLink>}
+              <p>A condição de membro é registrada na aprovação da admissão.</p>
             </section>
 
             <section className={s.context} aria-label="Vínculos familiares">
@@ -217,15 +470,35 @@ export function Ficha360Dialog({
               <dl>
                 <div>
                   <dt>Pessoas na família</dt>
-                  <dd>{dossier.household ? dossier.household.members.map((item) => item.displayName + (item.isMinor ? " (menor)" : "")).join(", ") : "—"}</dd>
+                  <dd>
+                    {dossier.household
+                      ? dossier.household.members
+                          .map(
+                            (item) =>
+                              item.displayName +
+                              (item.isMinor ? " (menor)" : ""),
+                          )
+                          .join(", ")
+                      : "—"}
+                  </dd>
                 </div>
                 <div>
                   <dt>Dependentes</dt>
-                  <dd>{dossier.dependents.length ? dossier.dependents.map((item) => item.displayName).join(", ") : "—"}</dd>
+                  <dd>
+                    {dossier.dependents.length
+                      ? dossier.dependents
+                          .map((item) => item.displayName)
+                          .join(", ")
+                      : "—"}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Foto</dt>
-                  <dd>{person.photo?.hasStorageKey ? "Arquivo privado registrado. A imagem não é baixada nesta ficha." : "Nenhuma foto registrada."}</dd>
+                  <dt>Foto para o cadastro e a carteirinha</dt>
+                  <dd>
+                    {person.photoUrl ? "Foto cadastrada." : person.photo?.hasStorageKey
+                      ? "Foto cadastrada. A imagem não está disponível nesta consulta."
+                      : "Sem foto cadastrada."}
+                  </dd>
                 </div>
                 <div>
                   <dt>Credencial</dt>
@@ -233,48 +506,121 @@ export function Ficha360Dialog({
                 </div>
               </dl>
             </section>
+            </div>}
 
-            <section className={s.context} aria-label="Histórico eclesiástico">
-              <h3>Histórico eclesiástico</h3>
-              {dossier.memberships.length ? dossier.memberships.map((item) => (
-                <article key={item.id} className={s.history}>
-                  <strong>{dossierLabel(item.status)}</strong>
-                  <span>Vínculo desde {formatWhen(item.joinedAt)}</span>
-                  {item.id !== state.versions.membershipId && item.notes && <small>Observação: {item.notes}</small>}
-                </article>
-              )) : <p className={s.hint}>Nenhum vínculo neste escopo.</p>}
+            <section id={titleId+(activeTab==="admissoes"?"-admissoes":"-historico")} role="tabpanel"
+              aria-labelledby={titleId+"-tab-"+(activeTab==="admissoes"?"admissoes":"historico")}
+              ref={timelineRef} tabIndex={-1} className={s.context} hidden={activeTab!=="historico" && activeTab!=="admissoes"}
+              aria-label={activeTab==="admissoes"?"Admissões e documentos":"Histórico eclesiástico"}>
+              {activeTab==="historico" && <>
+                <div className={s.historyLead}>
+                  <span>HISTÓRIA DA PESSOA</span>
+                  <h3>Uma vida contada em acontecimentos.</h3>
+                  <p>Registros efetivamente presentes no sistema, em ordem cronológica. Situações e funções são preservadas conforme os processos existentes.</p>
+                </div>
+              <div className={s.timelineHeading}><h3>Linha do tempo</h3>
+                <label>Filtrar por tipo
+                  <select value={timelineType} onChange={event => setTimelineType(event.target.value)}>
+                    <option value="">Todos os registros</option>
+                    {Object.entries(timelineLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+              {dossier.timeline && <Timeline events={dossier.timeline} filter={timelineType} />}
+              {!dossier.timeline && <><h3>Histórico eclesiástico</h3>
+              {dossier.memberships.length ? (
+                dossier.memberships.map((item) => (
+                  <article key={item.id} className={s.history}>
+                    <strong>{dossierLabel(item.status)}</strong>
+                    <span>Vínculo desde {formatWhen(item.joinedAt)}</span>
+                    {item.id !== state.versions.membershipId && item.notes && (
+                      <small>Observação: {item.notes}</small>
+                    )}
+                  </article>
+                ))
+              ) : (
+                <p className={s.hint}>Nenhum vínculo nesta congregação.</p>
+              )}
+              </>}
+              </>}
+              {activeTab==="admissoes" && <>
+              <div className={s.historyLead}>
+                <span>ADMISSÃO E DOCUMENTAÇÃO</span>
+                <h3>Protocolos e acompanhamento.</h3>
+                <p>Confira o andamento, as aprovações e os documentos autorizados desta pessoa.</p>
+              </div>
               <h3>Protocolos de admissão</h3>
-              {dossier.admissionHistory.length ? dossier.admissionHistory.map((item) => (
-                <article key={item.id} className={s.history} data-admission={item.id}>
-                  <strong>{dossierLabel(item.status)}</strong>
-                  <span>{dossierLabel(item.modality)} · {dossierLabel(item.currentStep)}</span>
-                  <small>
-                    Documentação {item.checklist.documentsComplete ? "completa" : "pendente"}
-                    {" · "}Secretaria {item.checklist.secretariaApproved ? "aprovou" : "pendente"}
-                    {" · "}Pastoral {item.checklist.pastorApproved ? "aprovou" : "pendente"}
-                  </small>
-                  <small>Atualizado em {formatWhen(item.updatedAt)}</small>
-                  <DocumentList
-                    canRead={canReadDocuments}
-                    list={documents?.find((entry) => entry.admissionId === item.id) ?? null}
-                    pending={canReadDocuments && documents === null}
-                  />
-                </article>
-              )) : <p className={s.hint}>Nenhum protocolo neste escopo.</p>}
-              {!canReadDocuments && <p className={s.hint}>Documentos de admissão não são pedidos para este perfil.</p>}
+              {dossier.admissionHistory.length ? (
+                dossier.admissionHistory.map((item) => (
+                  <article
+                    key={item.id}
+                    className={s.history}
+                    data-admission={item.id}
+                  >
+                    <strong>{dossierLabel(item.status)}</strong>
+                    <span>
+                      {dossierLabel(item.modality)} ·{" "}
+                      {dossierLabel(item.currentStep)}
+                    </span>
+                    <small>
+                      Documentação{" "}
+                      {item.checklist.documentsComplete
+                        ? "completa"
+                        : "pendente"}
+                      {" · "}Secretaria{" "}
+                      {item.checklist.secretariaApproved
+                        ? "aprovou"
+                        : "pendente"}
+                      {" · "}Pastoral{" "}
+                      {item.checklist.pastorApproved ? "aprovou" : "pendente"}
+                    </small>
+                    <small>Atualizado em {formatWhen(item.updatedAt)}</small>
+                    <DocumentList
+                      canRead={canReadDocuments}
+                      list={
+                        documents?.find(
+                          (entry) => entry.admissionId === item.id,
+                        ) ?? null
+                      }
+                      pending={canReadDocuments && documents === null}
+                    />
+                  </article>
+                ))
+              ) : (
+                <p className={s.hint}>Nenhum protocolo neste escopo.</p>
+              )}
+              {!canReadDocuments && (
+                <p className={s.hint}>
+                  Documentos de admissão não são pedidos para este perfil.
+                </p>
+              )}
+              </>}
             </section>
           </>
-        )}
-
-        {(state.loadMs !== null || state.saveMs !== null) && (
-          <p className={s.timing}>
-            {state.loadMs !== null && <span>Abertura da ficha: {Math.round(state.loadMs)} ms neste navegador. </span>}
-            {state.saveMs !== null && <span>Salvar e reabrir: {Math.round(state.saveMs)} ms neste navegador.</span>}
-          </p>
         )}
       </section>
     </div>
   );
+}
+
+function Timeline({ events, filter }: { events: PersonTimelineEvent[]; filter: string }) {
+  const visible = events.filter(event => !filter || event.type === filter);
+  if (!visible.length) return <p className={s.timelineEmpty}>Nenhum acontecimento registrado neste filtro. Selecione outro tipo.</p>;
+  return <ol className={s.timeline} aria-label="Acontecimentos da vida eclesiástica">
+    {visible.map((event, index) => <li key={event.type+"-"+event.id+"-"+index} data-event-type={event.type}>
+      <span className={s.timelineMarker} data-event-type={event.type} aria-hidden="true">
+        {event.type==="ministerio"?"✦":event.type==="marco"?"♥":event.type==="cadastro"?"✓":event.type==="transferencia"?"↗":"●"}
+      </span>
+      <article className={s.timelineCard}>
+        <div className={s.timelineCardHeader}>
+          <span className={s.timelineCategory}>{timelineLabels[event.type]}</span>
+          <time dateTime={event.date}>{formatWhen(event.date)}</time>
+        </div>
+        <h4>{event.title}</h4>
+        {event.detail && <p>{event.detail}</p>}
+      </article>
+    </li>)}
+  </ol>;
 }
 
 function householdOptions(
@@ -282,20 +628,27 @@ function householdOptions(
   current: string,
   dossier: PersonDossier | null,
 ) {
-  const options = households.map((item) => ({ id: item.id, label: item.label }));
+  const options = households.map((item) => ({
+    id: item.id,
+    label: item.label,
+  }));
   if (current && !options.some((item) => item.id === current)) {
     options.unshift({
       id: current,
-      label: dossier?.household?.id === current ? dossier.household.label : "Família vinculada",
+      label:
+        dossier?.household?.id === current
+          ? dossier.household.label
+          : "Família vinculada",
     });
   }
   return options;
 }
 
 function credentialText(credential: CredentialView) {
-  if (!credential.known) return "A listagem de credenciais exige Secretaria.";
+  if (!credential.known)
+    return "Consulte a Secretaria para verificar a carteirinha.";
   if (!credential.activeCredentialId) return "Nenhuma credencial ativa.";
-  return "Credencial ativa registrada. O arquivo não é baixado nesta ficha.";
+  return "Carteirinha ativa. Consulte a área de Carteirinhas para visualizar.";
 }
 
 function DocumentList({
@@ -308,14 +661,17 @@ function DocumentList({
   pending: boolean;
 }) {
   if (!canRead) return null;
-  if (pending || !list) return <small>Consultando documentos do protocolo…</small>;
+  if (pending || !list)
+    return <small>Consultando documentos do protocolo…</small>;
   if (list.failure) return <small>Documentos: {list.failure.message}</small>;
-  if (list.documents.length === 0) return <small>Nenhum documento anexado neste protocolo.</small>;
+  if (list.documents.length === 0)
+    return <small>Nenhum documento anexado neste protocolo.</small>;
   return (
     <ul className={s.documents}>
       {list.documents.map((document) => (
         <li key={document.id}>
-          {document.displayName} · {document.contentType} · {document.byteSize} bytes
+          {document.displayName} · {document.contentType} · {document.byteSize}{" "}
+          bytes
         </li>
       ))}
     </ul>

@@ -93,7 +93,10 @@ describe("AccessPolicyGuard", () => {
 
   it.each([
     ["PLATFORM_ADMIN", "GET", "/pastoral-cases", 403],
-    ["PLATFORM_ADMIN", "GET", "/ledger/accounts", 403],
+    ["PLATFORM_ADMIN", "GET", "/ledger/accounts", 200],
+    ["PLATFORM_ADMIN", "POST", "/ledger/accounts", 403],
+    ["PLATFORM_ADMIN", "GET", "/admin/access", 200],
+    ["SECRETARIA", "GET", "/admin/access", 403],
     ["PLATFORM_ADMIN", "POST", "/pastoral-cases", 403],
     ["PLATFORM_ADMIN", "GET", "/auth/oidc/config", 200],
     ["PLATFORM_ADMIN", "GET", "/persons/search", 200],

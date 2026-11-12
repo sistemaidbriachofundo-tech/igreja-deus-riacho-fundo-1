@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function MeuEspacoPage() {
-  return <AppShell active="meu-espaco" meta="Meu Espaço · agenda da sua pessoa"><ServingWorkspace surface="membro" /></AppShell>;
+  return <AppShell active="meu-espaco" meta="Minha escala"><ServingWorkspace surface="membro" /></AppShell>;
 }

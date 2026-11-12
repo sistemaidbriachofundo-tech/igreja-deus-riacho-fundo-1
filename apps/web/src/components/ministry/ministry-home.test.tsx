@@ -111,13 +111,13 @@ describe("experiência de ministérios", () => {
     expect(html).toContain("Homens de Ação");
     expect(html).toContain("Louvor");
     expect(html).toContain("Jovens");
-    for (const label of ["Visão geral", "Integrantes", "Escalas", "Atividades", "Recursos autorizados"]) {
+    for (const label of ["Visão geral", "Integrantes", "Escalas", "Atividades", "Gestão e caixa"]) {
       expect(html).toContain(label);
     }
     expect(html).toContain('role="tablist"');
     expect(html).toContain("João Carvalho");
     expect(html).toContain("Sábado, 16h — encontro sintético");
-    expect(html).toContain("/app/servir/meu-espaco/");
+    expect(html).not.toContain("/app/servir/meu-espaco/");
     expect(html).toContain("ministry=min-homens");
     expect(html).not.toContain("Caixa do ministério");
     expect(html).not.toContain(">501<");
@@ -146,19 +146,19 @@ describe("experiência de ministérios", () => {
     );
     expect(interests).toContain("Pedro Almeida");
     expect(interests).toContain("não é integrante");
-    expect(integrantes).toContain("Nenhum integrante formal");
-    expect(integrantes).toContain("Incluir no vínculo formal");
+    expect(integrantes).toContain("Esta equipe ainda não tem integrantes cadastrados");
+    expect(integrantes).toContain("Adicionar à equipe");
   });
 
   it("mostra atividade do próprio ministério e deixa o caixa fora das abas", () => {
     const atividades = render("atividades");
     expect(atividades).toContain("Café dos homens");
-    expect(atividades).not.toContain("Saldo ainda não disponível");
+    expect(atividades).not.toContain("Saldo ainda indisponível");
 
     const recursos = render("recursos");
-    expect(recursos).toContain("Saldo ainda não disponível");
+    expect(recursos).toContain("Saldo ainda indisponível");
     expect(recursos).not.toContain("R$");
-    expect(recursos).toContain("Pedidos do ministério ainda não estão disponíveis.");
+    expect(recursos).not.toContain("Pedidos internos");
   });
 
   it("responde 403 sem integrantes, escala ou saldo", () => {

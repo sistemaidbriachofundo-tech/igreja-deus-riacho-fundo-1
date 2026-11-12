@@ -1,13 +1,18 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
+import { PageHeader } from "./ui/PageHeader";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
 import { ApiRequestError, apiLogin, clearToken, getApiBaseUrl, isInvalidSession, loadStoredToken, storeToken } from "../lib/api";
 import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
-import { defaultSiteLayout, parseSiteLayout, sectionNames, validSiteImage, type SiteLayout, type SiteSection } from "../lib/site-layout";
+import { defaultSiteLayout, parseSiteLayout, resolveSitePhoto, sectionNames, validSiteImage, type SiteLayout } from "../lib/site-layout";
+import { SITE_IDENTITY_PHOTO } from "@idbrf/shared";
 import { withBasePath } from "../lib/paths";
+import ui from "./ui/ui.module.css";
 import s from "./site-manager.module.css";
 
 type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi";
@@ -16,31 +21,44 @@ type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|n
 const tabs: {key:Tab;label:string}[] = [
   {key:"conteudo",label:"Textos"},{key:"imagens",label:"Fotos"},{key:"aparencia",label:"Cores"},
   {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},
-  {key:"vivi",label:"Riachinho"},
 ];
-const imageUrl=(url:string)=>url.startsWith("/")?withBasePath(url):url;
+const optionalSections = ["galeria", "videos"] as const;
+const imageUrl=resolveSitePhoto;
 
 function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"mobile"}){
   return <div className={s.previewCanvas} data-device={device} data-appearance={layout.appearance}>
-    <div className={s.previewTop}><span className={s.previewMark}>✝</span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></div>
+    <div className={s.previewTop}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={26} height={26} /><strong>Igreja de Deus</strong><small>Riacho Fundo I</small>
+    </div>
     <div className={s.previewCover}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
-      <div><small>IGREJA DE DEUS · RIACHO FUNDO I</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2><p>{layout.hero.description}</p><span>Quero visitar ↗</span></div>
+      <div className={s.previewIntro}>
+        <div><small>Brasília, DF</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2></div>
+        <div><p>{layout.hero.description}</p><span>Horários dos cultos</span></div>
+      </div>
     </div>
-    {layout.sections.filter(key=>!layout.hidden.includes(key)).map(key=>key==="galeria"?<div className={s.previewGallery} key={key}>
+    <div className={s.previewGallery} data-section="identity">
+      <h3>Quem somos</h3>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageUrl((layout.identity ?? SITE_IDENTITY_PHOTO).imageUrl)} alt={(layout.identity ?? SITE_IDENTITY_PHOTO).alt} width={120} />
+    </div>
+    <div className={s.previewAgenda}><h3>Cultos de domingo</h3><p>10h e 19h</p></div>
+    {!layout.hidden.includes("galeria") && <div className={s.previewGallery}>
       <h3>{layout.gallery.title} <em>{layout.gallery.accent}</em></h3><p>{layout.gallery.description}</p>
       <div>{layout.gallery.items.map((item,index)=><figure key={index}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl(item.imageUrl)} alt={item.alt}/><figcaption>{item.title}</figcaption>
       </figure>)}</div>
-    </div>:<div className={s.previewOther} key={key}>{sectionNames[key]} <small>Componente original preservado</small></div>)}
+    </div>}
+    {!layout.hidden.includes("videos") && <div className={s.previewGallery} data-section="videos"><h3>Cultos e mensagens</h3></div>}
   </div>;
 }
 
 export function SiteReaderPreview({published,device}:{published:SiteLayout|null;device:"desktop"|"mobile"}){
   if(!published){
-    return <p className={s.readerEmpty} data-reader="empty">O leitor não vê o rascunho. A página pública só muda depois do gate de publicação.</p>;
+    return <p className={s.readerEmpty} data-reader="empty">A página pública ainda usa o conteúdo padrão da igreja.</p>;
   }
   return <div data-reader="published"><SiteLayoutCanvas layout={published} device={device}/></div>;
 }
@@ -62,6 +80,7 @@ async function siteRequest<T>(token:string,path:string,method:"GET"|"PATCH"|"POS
 }
 
 export function SiteManager() {
+  const { confirm, confirmation } = useActionConfirmation();
   const [token,setToken]=useState<string|null>(null);
   const [checking,setChecking]=useState(true),[busy,setBusy]=useState(false);
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
@@ -73,7 +92,7 @@ export function SiteManager() {
   const [publishedAt,setPublishedAt]=useState<string|null>(null);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [dirty,setDirty]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
-  const [imageSlot,setImageSlot]=useState<"hero"|0|1|2|3>("hero");
+  const [imageSlot,setImageSlot]=useState<"hero"|"identity"|number>("hero");
 
   const configured=Boolean(process.env.NEXT_PUBLIC_API_URL);
   const refresh=useCallback(async(t:string)=>{
@@ -114,6 +133,7 @@ export function SiteManager() {
   function setPhoto(value:string){
     if(!validSiteImage(value)){setError("Escolha uma foto da biblioteca ou uma imagem enviada ao armazenamento da igreja.");return;}
     if(imageSlot==="hero")setHero("imageUrl",value);
+    else if(imageSlot==="identity")update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),imageUrl:value}});
     else {
       const items=layout.gallery.items.map((item,i)=>i===imageSlot?{...item,imageUrl:value}:item);
       update({...layout,gallery:{...layout.gallery,items}});
@@ -125,18 +145,19 @@ export function SiteManager() {
       items:layout.gallery.items.map((item,i)=>i===index?{...item,[field]:value}:item),
     }});
   }
-  function move(key:SiteSection,delta:-1|1){
-    const order=[...layout.sections],idx=order.indexOf(key),target=idx+delta;
-    if(target<0||target>=order.length)return;
-    [order[idx],order[target]]=[order[target],order[idx]];
-    update({...layout,sections:order});
-  }
-  function toggle(key:SiteSection){
-    if(key==="convite")return;
+  function toggle(key:(typeof optionalSections)[number]){
     const hidden=layout.hidden.includes(key)?layout.hidden.filter(x=>x!==key):[...layout.hidden,key];
     update({...layout,hidden});
   }
-  function logout(){clearToken();setToken(null);setPassword("");setError("");setNotice("");}
+  async function reloadDraft() {
+    if (dirty && !await confirm({
+      title: "Recarregar o rascunho?",
+      description: "Você perderá as alterações que ainda não salvou.",
+      action: "Recarregar rascunho",
+    })) return;
+    if (!token) return;
+    void work(async()=>{await refresh(token);setNotice("Rascunho salvo carregado.");});
+  }
   async function login(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setError("");
     try{
@@ -158,20 +179,32 @@ export function SiteManager() {
     void work(async()=>{
       const result=await siteRequest<{draftUpdatedAt:string}>(token,"/cms/site-layout/draft","PATCH",{layout:validated,expectedUpdatedAt:draftUpdatedAt});
       setDraftUpdatedAt(result.draftUpdatedAt);setDirty(false);
-      setNotice("Rascunho salvo no banco. A página pública não foi alterada.");
+      setNotice("Rascunho salvo. Você pode conferir a prévia antes de publicar.");
     });
   }
-  function publish(){
-    if(!token||dirty||!draftUpdatedAt||!canPublish)return;
-    if(!window.confirm("Publicar a versão salva da Home? Esta ação atualiza a configuração aprovada do site."))return;
+  async function publish(){
+    if(!token||dirty||!draftUpdatedAt||!canPublish||busy)return;
+    if (!(await confirm({
+      title: "Publicar página inicial?",
+      description: "O rascunho salvo passará a ser a versão publicada da página inicial.",
+      action: "Publicar página",
+      cancel: "Voltar ao rascunho",
+    }))) return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/publish","POST",{expectedUpdatedAt:draftUpdatedAt});
       await refresh(token);
       setNotice("Versão publicada. Sites com leitura dinâmica habilitada recebem a atualização automaticamente.");
     });
   }
-  function restore(id:string){
-    if(!token||!window.confirm("Restaurar esta versão ao RASCUNHO? A versão publicada continuará intacta."))return;
+  async function restore(id:string){
+    if (!token || busy) return;
+    if (!(await confirm({
+      title: "Restaurar versão no rascunho?",
+      description: "A versão escolhida substituirá o conteúdo atual do rascunho, inclusive as alterações ainda sem salvar.",
+      action: "Restaurar rascunho",
+      cancel: "Manter rascunho atual",
+      tone: "danger",
+    }))) return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/restore/"+id,"POST");
       await refresh(token);setNotice("Versão recuperada no rascunho. Confira e publique quando estiver pronta.");
@@ -206,17 +239,14 @@ export function SiteManager() {
       });
     }
     setTab("conteudo");
-    setNotice("Sugestão do Riachinho aplicada ao rascunho. Revise e salve quando quiser — nada foi publicado.");
+    setNotice("Sugestão aplicada. Revise o texto e salve o rascunho.");
   }
 
   return <AppShell active="site" meta="Gestão do site" editorial>
-    <div className={s.page}>
-      <header className={s.hero}>
-        <div><span className={s.eyebrow}>ID RIACHO 1 / CENTRAL DE GESTÃO</span>
-          <h1>Seu site, nas mãos <em>da sua equipe.</em></h1>
-          <p>Atualize textos e fotos, confira a prévia e publique somente com autorização.</p></div>
-        <span className={s.statusPill}><UIIcon name="shield" size={16}/> Acesso por perfil</span>
-      </header>
+    <div className={s.page} id="capa">
+    {confirmation}
+      <PageHeader appearance="workspace" heading="h1" title="Gestão do site"
+        description="Edite a capa, os textos e as fotos da página inicial." />
       {!configured&&<div className={s.message}>O ambiente de edição ainda não está conectado. A página pública permanece como está.</div>}
       {error&&<div className={s.error} role="alert">{error}</div>}
       {notice&&<div className={s.notice} role="status">{notice}</div>}
@@ -231,12 +261,11 @@ export function SiteManager() {
       </section>}
       {token&&<div className={s.workspace}>
         <div className={s.actionbar}>
-          <div><span className={s.mutedLabel}>PÁGINA INICIAL</span><strong>{dirty?"Alterações não salvas":published?"Versão publicada disponível":"Ainda não publicado"}</strong></div>
+          <div><strong>{dirty?"Alterações não salvas":published?"Página publicada":"Página padrão no ar"}</strong></div>
           <div className={s.actions}>
-            <button type="button" disabled={busy} className={s.lightButton} onClick={()=>void work(async()=>{await refresh(token);setNotice("Última versão salva carregada.");})}>Recarregar</button>
-            <button type="button" disabled={busy||!dirty} className={s.saveButton} onClick={save}>Salvar rascunho</button>
-            <button type="button" disabled={busy||dirty||!draftUpdatedAt||!canPublish} title={!canPublish?"Somente pastor, publicador do site ou administrador podem publicar":undefined} className={s.publishButton} onClick={publish}>Publicar Home</button>
-            <button type="button" className={s.logout} onClick={logout}>Sair</button>
+            <button type="button" disabled={busy} className={ui.workspaceQuiet} onClick={() => void reloadDraft()}>Recarregar</button>
+            <button type="button" disabled={busy||!dirty} className={dirty ? ui.workspacePrimary : ui.workspaceSecondary} onClick={save}>Salvar rascunho</button>
+            {canPublish && <button type="button" disabled={busy||dirty||!draftUpdatedAt} className={dirty ? ui.workspaceSecondary : ui.workspacePrimary} onClick={publish}>Publicar página</button>}
           </div>
         </div>
         {!canPublish&&<p className={s.warning} role="status">Seu perfil pode preparar e salvar o site. A publicação precisa ser feita por um pastor ou publicador autorizado.</p>}
@@ -246,7 +275,7 @@ export function SiteManager() {
               {tabs.map(item=><button type="button" key={item.key} className={tab===item.key?s.activeTab:s.tab} aria-pressed={tab===item.key} onClick={()=>setTab(item.key)}>{item.label}</button>)}
             </div>
             {tab==="conteudo"&&<div className={s.controls}>
-              <h2>Textos da página</h2><p>Escreva normalmente; a prévia mostra as mudanças antes da publicação.</p>
+              <div className={s.editorHeading}><h2>Textos da página</h2><button type="button" className={ui.workspaceQuiet} onClick={() => setTab("vivi")}>Ajuda de redação</button></div>
               <h3>Capa principal</h3>
               <label>Título principal<input value={layout.hero.title} maxLength={110} onChange={e=>setHero("title",e.target.value)}/></label>
               <label>Palavra ou frase de destaque<input value={layout.hero.accent} maxLength={110} onChange={e=>setHero("accent",e.target.value)}/></label>
@@ -261,10 +290,20 @@ export function SiteManager() {
                 <label>Descrição acessível<input maxLength={220} value={item.alt} onChange={e=>changePhotoText(i,"alt",e.target.value)}/></label></div>)}
             </div>}
             {tab==="imagens"&&<div className={s.controls}>
-              <h2>Biblioteca de fotos</h2><p>Escolha o local da imagem e envie novas fotografias diretamente pelo painel. O upload não altera o site até salvar e publicar.</p>
-              <label>Onde usar a imagem<select value={String(imageSlot)} onChange={e=>setImageSlot(e.target.value==="hero"?"hero":Number(e.target.value) as 0|1|2|3)}>
-                <option value="hero">Capa principal</option>{[0,1,2,3].map(x=><option value={x} key={x}>Galeria — foto {x+1}</option>)}
+              <h2>Fotos da página inicial</h2>
+              <p>Escolha a foto que deseja trocar e selecione uma imagem do acervo ou envie um arquivo.</p>
+              <label>Local da foto<select value={String(imageSlot)} onChange={event=>{
+                const value=event.target.value;
+                setImageSlot(value==="hero"||value==="identity"?value:Number(value));
+              }}>
+                <option value="hero">Capa principal</option>
+                <option value="identity">Quem somos</option>
+                {layout.gallery.items.map((item,index)=><option value={index} key={index}>Galeria · {item.title}</option>)}
               </select></label>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={s.currentPhoto} src={imageUrl(imageSlot==="hero"?layout.hero.imageUrl:imageSlot==="identity"?(layout.identity??SITE_IDENTITY_PHOTO).imageUrl:layout.gallery.items[imageSlot]?.imageUrl??layout.hero.imageUrl)} alt="Foto selecionada para este local" />
+              {imageSlot==="identity"&&<label>Descrição acessível<input maxLength={220} value={(layout.identity??SITE_IDENTITY_PHOTO).alt}
+                onChange={event=>update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),alt:event.target.value}})} /></label>}
               <SiteMediaLibrary token={token} onChoose={setPhoto}/>
             </div>}
             {tab==="aparencia"&&<div className={s.controls}>
@@ -275,16 +314,13 @@ export function SiteManager() {
               </div>
             </div>}
             {tab==="estrutura"&&<div className={s.controls}>
-              <h2>Organização da página</h2><p>Reordene as seções com as setas e escolha quais aparecem. O convite final fica sempre visível.</p>
-              <ol className={s.sections}>{layout.sections.map((key,i)=><li key={key}>
-                <span><strong>{sectionNames[key]}</strong><small>{layout.hidden.includes(key)?"Oculta":"Visível"}</small></span>
-                <div>
-                  <button type="button" aria-label={"Subir "+sectionNames[key]} disabled={i===0} onClick={()=>move(key,-1)}>↑</button>
-                  <button type="button" aria-label={"Descer "+sectionNames[key]} disabled={i===layout.sections.length-1} onClick={()=>move(key,1)}>↓</button>
-                  <label className={s.toggle}><input type="checkbox" checked={!layout.hidden.includes(key)} disabled={key==="convite"} onChange={()=>toggle(key)}/>Exibir</label>
-                </div></li>)}</ol>
+              <h2>Seções da página inicial</h2>
+              <ul className={s.sections}>{optionalSections.map(key=><li key={key}>
+                <strong>{sectionNames[key]}</strong>
+                <label className={s.toggle}><input type="checkbox" checked={!layout.hidden.includes(key)} onChange={()=>toggle(key)}/>Exibir {sectionNames[key].toLocaleLowerCase("pt-BR")}</label>
+              </li>)}</ul>
             </div>}
-            {tab==="vivi"&&<div className={s.controls}><ViviEditorialAssistant token={token} layout={layout} onApplySuggestion={applyRiachinhoSuggestion}/></div>}
+            {tab==="vivi"&&<div className={s.controls}><button type="button" className={ui.workspaceQuiet} onClick={() => setTab("conteudo")}>Voltar aos textos</button><ViviEditorialAssistant token={token} layout={layout} onApplySuggestion={applyRiachinhoSuggestion}/></div>}
             {tab==="historico"&&<div className={s.controls}>
               <h2>Histórico de publicações</h2><p>Restaure uma versão ao rascunho. Nada é substituído no site sem nova publicação.</p>
               {!revisions.length&&<p>Nenhuma versão publicada no histórico.</p>}
@@ -304,9 +340,6 @@ export function SiteManager() {
             {previewMode==="leitor"
               ? <SiteReaderPreview published={published} device={previewDevice}/>
               : <SiteLayoutCanvas layout={layout} device={previewDevice}/>}
-            <p className={s.previewNote}>{previewMode==="leitor"
-              ? "Esta vista usa só a versão publicada. Rascunho e histórico ficam de fora. A página pública não muda sem o gate de publicação."
-              : "O rascunho fica nesta tela. Salvar não publica e o leitor continua na versão anterior."}</p>
           </section>
         </div>
       </div>}

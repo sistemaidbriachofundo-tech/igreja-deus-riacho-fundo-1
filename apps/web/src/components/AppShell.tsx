@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AnchorHTMLAttributes, CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
@@ -9,15 +9,18 @@ import {
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import {
-  apiGet, clearToken, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, type AuthUser,
+  SESSION_UNAUTHORIZED_EVENT, apiGet, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, signOutSession, type AuthUser,
 } from "../lib/api";
+import { readPanel } from "../lib/panel-read";
 import {
   SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
-  accountInitials, areaAllowed, areasForPreview, areasForRoles, canListMinistries,
-  isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
-  personaLabel, railForRoles, readGroupPreference, readRailPreference,
-  type AppNavKey, type MinistryNavItem, type PersonaArea, type RailLink,
+  accountInitials, areaAllowed, canListMinistries,
+  isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
+  personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
+  type AppNavKey, type MinistryNavItem, type PersonaArea,
 } from "../lib/persona-navigation";
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useDialogLifecycle } from "./ui/dialog";
 import { dsColor, dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
 
@@ -25,7 +28,7 @@ export type { AppNavKey };
 
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
-  "activity" | "calendar" | "book" | "bell" | "filter" | "download" | "refresh" |
+  "activity" | "calendar" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
   "family" | "more" | "mail" | "settings" | "menu" | "logout";
 
 export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
@@ -44,6 +47,7 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
     check: <path d="m4 12 5 5L20 6"/>,
     close: <path d="M5 5 19 19M19 5 5 19"/>,
     home: <><path d="m3 10 9-7 9 7v11H3V10Z"/><path d="M9 21v-8h6v8"/></>,
+    wallet: <><path d="M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15v-4"/><path d="M3 7h17v3h-6a3 3 0 0 0 0 6h6v-6M16 13h1"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
     activity: <path d="M2 12h5l3-8 4 16 3-8h5"/>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/></>,
@@ -62,7 +66,7 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">{paths[name]}</svg>;
 }
 
-const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "membros", "secretaria", "operacao"];
+const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "tesouraria", "ministerios"];
 
 export type PersonaAccessState = {
   kind: "preview" | "pending" | "anonymous" | "held" | "ready";
@@ -84,9 +88,13 @@ type LoadedAccess =
   | { kind: "held" }
   | { kind: "ready"; user: AuthUser };
 
-function mobileItems(menu: readonly PersonaArea[], preview: boolean): PersonaArea[] {
-  if (preview) return menu.filter(item => MOBILE_PRIMARY.includes(item.key));
-  return menu.slice(0, 4);
+function mobileItems(menu: readonly PersonaArea[]): PersonaArea[] {
+  const preferred = MOBILE_PRIMARY.flatMap(key => {
+    const item = menu.find(entry => entry.key === key);
+    return item ? [item] : [];
+  });
+  if (preferred.length >= 3) return preferred.slice(0, 4);
+  return [...preferred, ...menu.filter(item => !preferred.includes(item))].slice(0, 3);
 }
 
 export function AppNavLink({
@@ -106,17 +114,6 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
-function RailAnchor({ link, onNavigate, tip }: { link: RailLink; onNavigate?: () => void; tip?: string }) {
-  const label = <span className={s.menuLabel}>{link.label}</span>;
-  if (link.external) {
-    return <a className={s.menuItem} href={link.href} target="_blank" rel="noopener noreferrer" title={tip} onClick={onNavigate}><UIIcon name={link.icon} size={19}/>{label}<UIIcon name="arrow" size={15}/></a>;
-  }
-  if (link.href.startsWith("/app")) {
-    return <AppNavLink className={s.menuItem} href={link.href} title={tip} onNavigate={onNavigate}><UIIcon name={link.icon} size={19}/>{label}<UIIcon name="arrow" size={15}/></AppNavLink>;
-  }
-  return <a className={s.menuItem} href={withBasePath(link.href)} title={tip} onClick={onNavigate}><UIIcon name={link.icon} size={19}/>{label}{link.href !== "/status/" && <UIIcon name="arrow" size={15}/>}</a>;
-}
-
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
   const root = current.closest("[data-rail-keys]");
   if (!root) return;
@@ -131,12 +128,13 @@ function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last
 }
 
 export function AppShell({
-  active, meta, children, editorial = false, viewer,
+  active, meta, children, editorial = false, viewer, secretarySection,
 }: {
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
   editorial?: boolean;
+  secretarySection?: "resumo" | "pessoas" | "admissoes";
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
@@ -150,25 +148,23 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [ministryOpen, setMinistryOpen] = useState(childActive);
-  const [toolsOpen, setToolsOpen] = useState(false);
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
-  const [logoutOpen, setLogoutOpen] = useState(false);
-  const [logoutAnchor, setLogoutAnchor] = useState({ top: 0, left: 0 });
+  const { confirm, confirmation } = useActionConfirmation();
+  const [railReady, setRailReady] = useState(false);
   const searchId = useId();
   const ministryListId = useId();
-  const toolsListId = useId();
+  const paletteRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const deniedRef = useRef<HTMLHeadingElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
-  const logoutRef = useRef<HTMLDivElement>(null);
-  const logoutCancelRef = useRef<HTMLButtonElement>(null);
   const viewportRef = useRef(viewport);
   const drawerRef = useRef(drawerOpen);
   const RouterBridge = useAppRouterBridge();
   viewportRef.current = viewport;
   drawerRef.current = drawerOpen;
+  useDialogLifecycle(paletteOpen, () => setPaletteOpen(false), paletteRef);
 
   useEffect(() => {
     finishClientNavigation(window.location.pathname);
@@ -208,26 +204,31 @@ export function AppShell({
         : loaded?.kind === "held"
           ? "held"
           : "pending";
-  const menu = preview ? areasForPreview() : accessKind === "ready" ? areasForRoles(roles) : [];
-  const rails = railForRoles(roles, preview);
+  const memberShell = !preview && accessKind === "ready" && isMemberOnly(roles);
+  const menu = preview
+    ? shellAreasForRoles(roles, true)
+    : accessKind === "ready"
+      ? shellAreasForRoles(roles)
+      : [];
   const allowed = areaAllowed(roles, active, preview);
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
-  const area = menu.find(item => item.key === active) ?? areasForPreview().find(item => item.key === active);
-  const context = area?.ribbon ?? { code: "IGREJA DE DEUS / CHURCH OS", title: "Gestão com propósito.", detail: "ID Riacho 1 · Plataforma administrativa." };
   const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
-  const phone = mobileItems(menu, preview);
-  const phoneHasActive = active != null && phone.some(item => item.key === active);
+  const phone = mobileItems(menu);
+  const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
+  const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
   const shownMeta = showModule ? meta : "Área administrativa";
   const accountEmail = readyUser?.email ?? "";
   const accountLabel = preview
-    ? "Ambiente de homologação"
+    ? "Acesso local"
     : accessKind === "ready"
       ? personaLabel(roles)
       : accessKind === "pending"
         ? "Confirmando perfil"
         : "Sessão não confirmada";
-  const accountName = preview ? "Perfil de homologação" : accessKind === "ready" ? accountEmail : accountLabel;
+  const accountName = preview ? "Visitante" : accessKind === "ready"
+    ? (/(@example\.test$|\.demo@)/i.test(accountEmail) ? "Conta de homologação" : accountEmail)
+    : accountLabel;
   const initials = accessKind === "ready" && accountEmail ? accountInitials(accountEmail) : "ID";
   const accessState: PersonaAccessState = {
     kind: accessKind,
@@ -239,15 +240,34 @@ export function AppShell({
   const roleKey = roles.join("|");
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
-  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "ministries" }> = [];
+  const secretaryMenu = menu.some(item => item.key === "secretaria");
+  const credentialMenu = menu.find(item => item.key === "carteirinha");
+  const secretaryChildren = [
+    ...(preview || roles.some(role => role === "SECRETARIA" || role === "PLATFORM_ADMIN")
+      ? [{ key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const }]
+      : []),
+    { key: "admissoes", title: "Admissões", href: "/app/secretaria/admissoes/", icon: "layers" as const },
+    ...(credentialMenu ? [{ key: "carteirinha", title: "Carteirinhas", href: credentialMenu.href, icon: "badge" as const }] : []),
+  ];
+  const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "secretary" } | { kind: "ministries" } | { kind: "divider" }> = [];
   let ministryInserted = false;
+  let supportingSectionInserted = false;
   for (const item of menu) {
+    if (item.key === "secretaria") {
+      menuBlocks.push({ kind: "secretary" });
+      continue;
+    }
+    if (secretaryMenu && item.key === "carteirinha") continue;
     if (isMinistryGroupKey(item.key)) {
       if (!ministryInserted && showMinistries) {
         menuBlocks.push({ kind: "ministries" });
         ministryInserted = true;
       }
       continue;
+    }
+    if (!supportingSectionInserted && ["acessos", "editorial", "site"].includes(item.key)) {
+      menuBlocks.push({ kind: "divider" });
+      supportingSectionInserted = true;
     }
     menuBlocks.push({ kind: "link", item });
   }
@@ -266,13 +286,12 @@ export function AppShell({
     "--shell-target": dsGrid.touchTarget,
   } as CSSProperties;
 
-  function switchPersona() {
-    clearToken();
-    window.location.assign(withBasePath("/login/"));
+  async function signOut() {
+    await signOutSession().catch(() => undefined);
+    window.location.assign(withBasePath("/"));
   }
   function afterNavigate() {
     setPaletteOpen(false);
-    setLogoutOpen(false);
     if (viewportRef.current === "mobile" && drawerRef.current) {
       setDrawerOpen(false);
       menuButtonRef.current?.focus();
@@ -284,7 +303,6 @@ export function AppShell({
         const next = !value;
         if (next) {
           setMinistryOpen(false);
-          setToolsOpen(false);
         } else {
           setMinistryOpen(readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), childActive));
         }
@@ -298,25 +316,18 @@ export function AppShell({
   function toggleMinistries() {
     setMinistryOpen(open => {
       const next = !open;
-      if (next && railCollapsed) setToolsOpen(false);
       window.localStorage.setItem(SHELL_MINISTRY_STORAGE_KEY, next ? "open" : "closed");
       return next;
     });
   }
-  function toggleTools() {
-    setToolsOpen(open => {
-      const next = !open;
-      if (next && railCollapsed) setMinistryOpen(false);
-      return next;
+  async function askLogout() {
+    const accepted = await confirm({
+      title: "Sair da sua conta?",
+      description: "Sua sessão será encerrada neste navegador. Entre novamente para acessar o painel.",
+      action: "Sair da conta",
+      cancel: "Continuar no painel",
     });
-  }
-  function askLogout(event: MouseEvent<HTMLButtonElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const width = 220;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-    const top = Math.min(rect.bottom + 8, window.innerHeight - 128);
-    setLogoutAnchor({ top, left });
-    setLogoutOpen(true);
+    if (accepted) signOut();
   }
   function onRailKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     const key = event.key;
@@ -332,9 +343,19 @@ export function AppShell({
     query.addEventListener("change", apply);
     return () => query.removeEventListener("change", apply);
   }, []);
+  useLayoutEffect(() => {
+    const rail = readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY));
+    const storedGroup = window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY);
+    setCollapsed(rail === "collapsed");
+    setMinistryOpen(childActive || (rail === "expanded" && readGroupPreference(storedGroup, false)));
+    setRailReady(true);
+  }, [childActive]);
   useEffect(() => {
-    setCollapsed(readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY)) === "collapsed");
-    setMinistryOpen(current => current || readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), false));
+    function onLost() {
+      setLoaded({ kind: "anonymous" });
+    }
+    window.addEventListener(SESSION_UNAUTHORIZED_EVENT, onLost);
+    return () => window.removeEventListener(SESSION_UNAUTHORIZED_EVENT, onLost);
   }, []);
   useEffect(() => {
     if (!showMinistries || preview) {
@@ -349,31 +370,32 @@ export function AppShell({
       return;
     }
     let cancelled = false;
-    setMinistryNote("Consultando ministérios autorizados.");
-    void apiGet<unknown>("/ministries", token)
+    setMinistryNote("");
+    void readPanel(token, "/ministries", () => apiGet<unknown>("/ministries", token))
       .then(body => {
         if (cancelled) return;
         setMinistries(parseMinistryNav(body));
         setMinistryNote("");
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (cancelled) return;
         setMinistries(null);
-        setMinistryNote("A lista de ministérios não pôde ser atualizada.");
+        if (isUnauthorized(error) || isForbidden(error)) {
+          setMinistryNote("");
+          return;
+        }
+        setMinistryNote("Não foi possível atualizar a lista de ministérios.");
       });
     return () => { cancelled = true; };
   }, [preview, roleKey, showMinistries]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (event.defaultPrevented || event.target instanceof HTMLElement && event.target.closest('dialog[open], [role="dialog"]')) return;
+      if ((preview || accessKind === "ready") && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setPaletteOpen(open => !open);
       }
       if (event.key !== "Escape") return;
-      if (logoutOpen) {
-        setLogoutOpen(false);
-        return;
-      }
       if (paletteOpen) {
         setPaletteOpen(false);
         return;
@@ -385,29 +407,22 @@ export function AppShell({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [logoutOpen, paletteOpen, drawerOpen]);
-  useEffect(() => {
-    if (!logoutOpen) return;
-    function onPointer(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (logoutRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest("[data-logout-trigger]")) return;
-      setLogoutOpen(false);
-    }
-    window.addEventListener("pointerdown", onPointer);
-    return () => window.removeEventListener("pointerdown", onPointer);
-  }, [logoutOpen]);
+  }, [accessKind, preview, paletteOpen, drawerOpen]);
   useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
   useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
-  useEffect(() => { if (logoutOpen) logoutCancelRef.current?.focus(); }, [logoutOpen]);
   useEffect(() => {
     if (viewport === "mobile" && drawerOpen) drawerCloseRef.current?.focus();
   }, [drawerOpen, viewport]);
 
+  function itemLabel(item: PersonaArea): string {
+    if (!memberShell) return item.label;
+    if (item.key === "carteirinha") return "Minha carteirinha";
+    if (item.key === "meu-espaco") return "Minha escala";
+    return item.label;
+  }
   function renderLogout() {
     return (
-      <button type="button" className={s.logoutTrigger} data-logout-trigger="" aria-expanded={logoutOpen} aria-controls="confirmar-saida" title={railCollapsed ? "Sair" : undefined} onClick={askLogout}>
+      <button type="button" className={s.logoutTrigger} aria-haspopup="dialog" onClick={() => void askLogout()}>
         <UIIcon name="logout" size={16}/><span className={s.menuLabel}>Sair</span>
       </button>
     );
@@ -419,10 +434,12 @@ export function AppShell({
       className={s.frame}
       style={shellStyle}
       data-nav-state={accessKind}
+      data-shell={memberShell ? "membro" : "admin"}
       data-rail={railCollapsed ? "collapsed" : "expanded"}
+      data-rail-ready={railReady ? "true" : "false"}
       data-drawer={drawerOpen ? "open" : "closed"}
     >
-      {RouterBridge ? <RouterBridge prefetch={menu.map(item => item.href)} /> : null}
+      {RouterBridge ? <RouterBridge /> : null}
       {viewport === "mobile" && drawerOpen && (
         <button type="button" className={s.backdrop} aria-label="Fechar o menu lateral" onClick={() => { setDrawerOpen(false); menuButtonRef.current?.focus(); }} />
       )}
@@ -430,19 +447,44 @@ export function AppShell({
         <button type="button" ref={drawerCloseRef} className={s.drawerClose} hidden={viewport !== "mobile"} onClick={() => { setDrawerOpen(false); menuButtonRef.current?.focus(); }}>
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
-        <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
-          <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
-          <span className={s.brandText}><strong>ID Riacho 1</strong><small>IGREJA DE DEUS · RIACHO FUNDO I</small></span>
-        </AppNavLink>
+        <div className={s.railHeader}>
+          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
+            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
+            <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
+          </AppNavLink>
+          <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
+            aria-label={collapsed ? "Expandir a barra lateral" : "Recolher a barra lateral"}
+            aria-expanded={!collapsed} aria-controls="app-navigation-rail" onClick={toggleMenu}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}>
+            <UIIcon name="chevron" size={17}/>
+          </button>
+        </div>
 
-        <div className={s.railContext}><span className={s.railOnline} /><span><strong>{editorial ? "Estúdio editorial" : "Área administrativa"}</strong><small>{editorial ? "Acesso por perfil · requer API" : preview ? "Demonstração com dados sintéticos" : personaMode ? "Homologação · módulos do perfil" : "Módulos do perfil autenticado"}</small></span></div>
-        <span className={s.groupTitle}>PAINEL DE CONTROLE</span>
+        <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
           {menuBlocks.map(block => {
+            if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
+            if (block.kind === "secretary") return (
+              <div key="secretaria">
+                <AppNavLink href="/app/secretaria/" className={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? s.menuActive : s.menuItem}
+                  aria-current={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? "page" : undefined} title={railCollapsed ? "Secretaria" : undefined} onNavigate={afterNavigate}>
+                  <UIIcon name="layers" size={19}/><span className={s.menuLabel}>Secretaria</span>
+                </AppNavLink>
+                {!railCollapsed && <div className={s.subList} role="group" aria-label="Submenu da Secretaria">
+                  {secretaryChildren.map(item => {
+                    const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
+                    return <AppNavLink key={item.key} href={item.href} className={selected ? s.menuActive : s.subItem} aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
+                      <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.title}</span>
+                    </AppNavLink>;
+                  })}
+                </div>}
+              </div>
+            );
             if (block.kind === "link") {
               const item = block.item;
-              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? item.label : undefined} onNavigate={afterNavigate}>
-                <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{item.label}</span>{active === item.key && <span className={s.activeIndicator}/>}
+              const label = itemLabel(item);
+              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
+                <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
               </AppNavLink>;
             }
             return <div key="ministerios" className={s.ministryBlock} data-open={ministryOpen ? "true" : "false"}>
@@ -450,35 +492,15 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={active === entry.key ? s.menuActive : s.subItem} aria-current={active === entry.key ? "page" : undefined} onNavigate={afterNavigate}>
+                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={s.subItem} onNavigate={afterNavigate}>
                   <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
                 </AppNavLink>)}
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;
           })}
-          {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de listar módulos.</p>}
         </nav>
-        {rails.length > 0 && <>
-          <div className={s.railDivider}/>
-          <div className={s.tools}>
-            <button type="button" className={s.toolToggle} aria-expanded={toolsOpen} aria-controls={toolsListId} title={railCollapsed ? "Ferramentas" : undefined} onClick={toggleTools}>
-              <UIIcon name="settings" size={19}/><span className={s.menuLabel}>Ferramentas</span><UIIcon name="chevron" size={15}/>
-            </button>
-            <div id={toolsListId} className={s.toolList} hidden={!toolsOpen}>
-              {rails.map(link => <RailAnchor key={link.href} link={link} onNavigate={afterNavigate} tip={railCollapsed ? link.label : undefined} />)}
-            </div>
-          </div>
-        </>}
 
-        <div className={s.profileDock}>
-          <div className={s.profileRow}>
-            <span className={s.account} aria-hidden="true">{initials}</span>
-            <span className={s.profileCopy}><strong>{accountName}</strong><small>{accountLabel}</small></span>
-            {renderLogout()}
-          </div>
-          <p className={s.railSignature}><strong>ID Riacho 1</strong><small>Gestão ministerial</small></p>
-        </div>
       </aside>
 
       <div className={s.mainColumn}>
@@ -490,67 +512,55 @@ export function AppShell({
             <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
             <div>
               <strong>{shownMeta}</strong>
-              <span className={s.toolbarEyebrow}>Gestão da Igreja de Deus · Riacho Fundo I</span>
-              {accessKind === "ready" && <span className={s.personaLine}>{accountEmail} · {accessState.label}</span>}
+              <span className={s.toolbarEyebrow}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "Administração · Riacho Fundo I"}</span>
+              
             </div>
           </div>
-          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Pesquisar e navegar — Ctrl K" aria-keyshortcuts="Control+K" disabled={menu.length === 0}>
-            <UIIcon name="search" size={18}/><span>Buscar módulos e páginas...</span><kbd>Ctrl K</kbd>
+          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Buscar no painel" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" disabled={menu.length === 0}>
+            <UIIcon name="search" size={18}/><span>Buscar no painel</span>
           </button>
           <div className={s.toolbarRight}>
-            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ir para avisos no painel"><UIIcon name="bell" size={21}/><span aria-hidden="true"/></AppNavLink>}
-            <span className={s.toolbarDivider}/>
-            <span className={s.account} aria-hidden="true">{initials}</span>
-            <span className={s.accountInfo} aria-label={`${accountName}, ${accountLabel}`}><strong>{accountName}</strong><small>{accountLabel}</small></span>
+            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
+            <span className={s.profileCluster}>
+              <span className={s.account} aria-hidden="true">{initials}</span>
+              <span className={s.accountInfo} aria-label={`${accountEmail || accountName}, ${accountLabel}`} title={accountEmail || accountName}><strong>{accountName}</strong><small>{accountLabel}</small></span>
+            </span>
             {renderLogout()}
           </div>
         </header>
-        {showModule && active !== "visao" && active != null && <div className={s.workspaceRibbon}>
-          {/* Ilustração vetorial original; não representa fotografias de pessoas. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={withBasePath("/images/church-os-art.svg")} alt="" className={s.ribbonArt} aria-hidden="true" />
-          <div className={s.ribbonCopy}><span>{context.code}</span><strong>{context.title}</strong><small>{context.detail}</small></div>
-          <span className={s.ribbonSeal}><UIIcon name="spark" size={23}/></span>
-        </div>}
         <main className={s.content}>
           {showModule && children}
-          {accessKind === "pending" && <p className={s.holdNote} role="status">Confirmando seu perfil. Os módulos restritos ficam ocultos até a sessão responder.</p>}
+          {accessKind === "pending" && <p className={s.holdNote} role="status">Verificando seu acesso…</p>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
-            <h1 tabIndex={-1} ref={deniedRef}>Este perfil não abre esta área</h1>
-            <p>O menu mostra só o que o servidor autoriza para {accessState.label}. O módulo não foi carregado.</p>
-            <AppNavLink href={landingForRoles(roles)}>Voltar ao início do perfil</AppNavLink>
+            <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
+            <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>
           </section>}
-          {(accessKind === "anonymous" || accessKind === "held") && <p className={s.holdNote} role="alert">Não confirmamos seu perfil. Nada restrito foi exibido.</p>}
+          {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p><AppNavLink href="/login/">Ir para o login</AppNavLink></div>}
+          {accessKind === "held" && <p className={s.holdNote} role="alert">Não foi possível verificar seu acesso. Atualize a página para tentar de novo.</p>}
         </main>
       </div>
 
-      <nav className={s.mobileNav} aria-label="Navegação principal no celular">
-        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
-          <UIIcon name={item.icon} size={20}/><span>{item.short}</span>
+      {menu.length > 0 && <nav className={s.mobileNav} aria-label="Navegação principal no celular">
+        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
+          <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
           aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
           onClick={() => setPaletteOpen(true)}>
           <UIIcon name="more" size={20}/><span>Mais</span>
         </button>
-      </nav>
+      </nav>}
 
-      {logoutOpen && <div ref={logoutRef} id="confirmar-saida" className={s.logoutConfirm} style={{ top: logoutAnchor.top, left: logoutAnchor.left }} role="group" aria-label="Confirmar saída">
-        <p>Encerrar esta sessão?</p>
-        <button type="button" ref={logoutCancelRef} onClick={() => setLogoutOpen(false)}>Continuar</button>
-        <button type="button" onClick={switchPersona}>Sair agora</button>
-      </div>}
+      {confirmation}
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
-        <section className={s.commandModal} role="dialog" aria-modal="true" aria-labelledby={searchId}>
-          <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulos e páginas..." autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
-          <span className={s.commandTitle}>NAVEGAÇÃO</span>
+        <section ref={paletteRef} tabIndex={-1} className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
+          <div className={s.commandSearch}><label htmlFor={searchId} aria-label="Buscar página ou ministério"><UIIcon name="search" size={20}/></label><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></div>
           <div className={s.commandList}>
             {filtered.map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong><small>Ministério autorizado</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
-          <div className={s.commandFooter}><kbd>Esc</kbd> para fechar <span>·</span> <kbd>Ctrl K</kbd> para abrir</div>
         </section>
       </div>}
     </div>

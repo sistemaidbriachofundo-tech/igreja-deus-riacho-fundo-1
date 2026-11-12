@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { AuditService } from "./audit.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
@@ -84,7 +84,7 @@ describe("AuditService", () => {
     expect(result.churchId).toBe("church-rf1");
     expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        take: 10,
+        take: 11,
         where: expect.objectContaining({
           organizationId: "org1",
           churchId: "church-rf1",
@@ -189,7 +189,10 @@ describe("AuditService", () => {
   it("redacts private metadata for the technical auditor without widening access", async () => {
     const prisma = {
       auditLog: {
-        findMany: jest.fn().mockResolvedValue([sensitiveRow]),
+        findMany: jest.fn().mockResolvedValue([
+          sensitiveRow,
+          { ...sampleRow, id: "l-op", action: "admission.create", metadata: { ok: true } },
+        ]),
       },
     };
     const service = new AuditService(
@@ -204,15 +207,16 @@ describe("AuditService", () => {
     try {
       const result = await service.listRecent(platformAdmin, 20);
       const asSecretaria = await service.listRecent(secretaria, 20);
-      expect(asSecretaria.logs[0]?.metadata).toEqual(
-        result.logs[0]?.metadata,
-      );
+      expect(asSecretaria.logs.map((entry) => entry.action)).toEqual([
+        "admission.create",
+      ]);
       expect(result.scope).toBe("church");
       expect(result.logs[0]).toMatchObject({
         action: "ledger.entry.create",
         resourceType: "ledger_entry",
         resourceId: "entry-sintetico",
         actorUserId: "u-sec",
+        sensitivity: "financial",
         metadata: {
           amountCents: "[redacted]",
           fundId: "fund-sintetico",
@@ -232,6 +236,12 @@ describe("AuditService", () => {
       for (const fragment of leakedFragments) {
         expect(serialized).not.toContain(fragment);
       }
+      expect(JSON.stringify(asSecretaria)).not.toContain("entry-sintetico");
+      expect(prisma.auditLog.findMany.mock.calls[1][0].where.AND).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ NOT: expect.any(Object) }),
+        ]),
+      );
       for (const spy of [debug, log, info, warn, error]) {
         expect(spy).not.toHaveBeenCalled();
       }
@@ -278,5 +288,136 @@ describe("AuditService", () => {
       expect(serialized).not.toContain(fragment);
     }
     expect(serialized).toContain("fund-sintetico");
+  });
+
+  const pastor: AuthUser = {
+    userId: "u-pas",
+    personId: "p-pas",
+    email: "pastor.sintetico@example.test",
+    organizationId: "org1",
+    churchId: "church-rf1",
+    grants: [
+      {
+        roleCode: "PASTOR",
+        organizationId: "org1",
+        churchId: "church-rf1",
+      },
+    ],
+  };
+
+  it("shows pastoral trails to the pastor and withholds financial types", async () => {
+    const rows = [
+      sensitiveRow,
+      {
+        ...sampleRow,
+        id: "l-pastoral",
+        action: "pastoral.case.create",
+        resourceType: "pastoral_case",
+        resourceId: "case-sintetico",
+        metadata: {
+          personId: "person-sintetico",
+          prayerRequest: "Pedido sintetico de oracao pela familia Exemplo",
+        },
+      },
+    ];
+    const prisma = {
+      auditLog: { findMany: jest.fn().mockResolvedValue(rows) },
+    };
+    const service = new AuditService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const result = await service.listRecent(pastor, 20);
+    expect(result.logs.map((entry) => entry.action)).toEqual([
+      "pastoral.case.create",
+    ]);
+    expect(JSON.stringify(result)).not.toContain(
+      "Pedido sintetico de oracao pela familia Exemplo",
+    );
+    expect(JSON.stringify(result)).not.toContain("entry-sintetico");
+    expect(result.logs[0]?.metadata).toMatchObject({
+      personId: "person-sintetico",
+      prayerRequest: "[redacted]",
+    });
+  });
+
+  it("records a minimal denial when secretaria asks for another church", async () => {
+    const created: Array<{ data: Record<string, unknown> }> = [];
+    const findMany = jest.fn();
+    const service = new AuditService(
+      {
+        auditLog: {
+          findMany,
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn(async (args: { data: Record<string, unknown> }) => {
+            created.push(args);
+            return { id: "denial-1", createdAt: new Date("2026-11-11T12:00:00Z") };
+          }),
+        },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.listRecent(secretaria, 20, {
+        churchId: "church-rf2",
+        correlationId: "pessoa.sintetica@example.test",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(findMany).not.toHaveBeenCalled();
+    expect(created).toHaveLength(1);
+    const stored = JSON.stringify(created[0]);
+    expect(stored).toContain("audit.read.denied");
+    expect(stored).toContain("church_scope");
+    expect(stored).not.toContain("pessoa.sintetica@example.test");
+    expect(stored).not.toContain("church-rf2");
+    expect(created[0]?.data.churchId).toBe("church-rf1");
+    expect(created[0]?.data.actorUserId).toBe("u-sec");
+  });
+
+  it("rejects a filter that is not a safe token before querying", async () => {
+    const findMany = jest.fn();
+    const service = new AuditService(
+      { auditLog: { findMany } } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(
+      service.listRecent(secretaria, 20, {
+        action: "pessoa.sintetica@example.test",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it("pages with a cursor and does not repeat the first page", async () => {
+    const rows = [
+      { ...sampleRow, id: "l3", createdAt: new Date("2026-11-03T00:00:00Z") },
+      { ...sampleRow, id: "l2", createdAt: new Date("2026-11-02T00:00:00Z") },
+      { ...sampleRow, id: "l1", createdAt: new Date("2026-11-01T00:00:00Z") },
+    ];
+    const findMany = jest.fn(async (args: { take: number; where: { AND?: unknown[] } }) => {
+      const cursor = args.where.AND?.find(
+        (part) =>
+          typeof part === "object" &&
+          part !== null &&
+          "OR" in part,
+      ) as { OR?: Array<{ createdAt?: { lt?: Date } }> } | undefined;
+      const before = cursor?.OR?.[0]?.createdAt?.lt;
+      const filtered = before
+        ? rows.filter((row) => row.createdAt.getTime() < before.getTime())
+        : rows;
+      return filtered.slice(0, args.take);
+    });
+    const service = new AuditService(
+      { auditLog: { findMany } } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const first = await service.listRecent(secretaria, 2);
+    expect(first.logs.map((entry) => entry.id)).toEqual(["l3", "l2"]);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    const second = await service.listRecent(secretaria, 2, {
+      cursor: first.nextCursor ?? undefined,
+    });
+    expect(second.logs.map((entry) => entry.id)).toEqual(["l1"]);
+    expect(second.nextCursor).toBeNull();
   });
 });

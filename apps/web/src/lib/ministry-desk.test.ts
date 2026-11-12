@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  MINISTRY_FINANCE_CONTRACT_APPROVED,
   acceptFormalMembers,
   interpretConversion,
   interpretMembershipChange,
@@ -189,7 +188,6 @@ describe("catálogo formal de ministério", () => {
       scheduleText: "Sábado, 16h — encontro sintético",
     });
     expect(desk.requests).toMatchObject({ kind: "blocked", requests: null });
-    expect(MINISTRY_FINANCE_CONTRACT_APPROVED).toBe(false);
     expect(desk.finance).toMatchObject({ kind: "blocked", balance: null, dependency: "issue-96" });
     expect(JSON.stringify(desk.finance)).not.toContain("1500");
 
@@ -305,9 +303,15 @@ describe("catálogo formal de ministério", () => {
     expect(calls).toEqual([`${base}/ministries`]);
   });
 
+  it("mostra os centavos de um caixa autorizado", () => {
+    expect(presentFinance(200, { currency: "BRL", balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 }))
+      .toEqual({ kind: "ready", balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 });
+    expect(presentFinance(403, { currency: "BRL", balanceCents: 4500 }).kind).toBe("denied");
+  });
+
   it("descarta saldo numérico mesmo em resposta 200", () => {
     const panel = presentFinance(200, { balance: 80, code: "OK" });
-    expect(panel.balance).toBeNull();
+    expect(panel).toMatchObject({ balance: null });
     expect(panel.kind).toBe("blocked");
     expect(JSON.stringify(panel)).not.toContain("80");
   });

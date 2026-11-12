@@ -8,8 +8,8 @@ import type { AuthUser } from "./api";
 import { canViewDasModule, DAS_MODULES } from "./das-operations";
 import {
   BUILTIN_ROLES, PERSONA_AREAS, accountInitials, areaAllowed, areasForRoles,
-  canListMinistries, expectedAccessStatus, landingForRoles, ministryContextHref,
-  ministrySubmenu, parseMinistryNav, personaLabel, railForRoles,
+  canListMinistries, expectedAccessStatus, isMemberOnly, landingForRoles, ministryContextHref,
+  ministrySubmenu, parseMinistryNav, personaLabel, railForRoles, shellAreasForRoles,
 } from "./persona-navigation";
 
 const repoRoot = join(__dirname, "../../../..");
@@ -37,9 +37,9 @@ function hrefs(html: string): string[] {
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
-  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
+  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "acessos", "editorial", "site"],
   SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
-  PASTOR: ["visao", "membros", "secretaria", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
+  PASTOR: ["visao", "membros", "secretaria", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "editorial", "site"],
   TESOURARIA: ["visao", "operacao", "tesouraria"],
   LIDER_MINISTERIO: ["visao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco"],
   MEMBRO: ["visao", "carteirinha", "meu-espaco"],
@@ -70,8 +70,20 @@ describe("menu por persona", () => {
     );
   });
 
+  it("tira operação genérica e Meu Espaço do menu administrativo e guarda a rota", () => {
+    expect(isMemberOnly(["MEMBRO"])).toBe(true);
+    expect(isMemberOnly(["MEMBRO", "SECRETARIA"])).toBe(false);
+    expect(shellAreasForRoles(["SECRETARIA"]).map(area => area.key)).not.toContain("operacao");
+    expect(shellAreasForRoles(["SECRETARIA"]).map(area => area.key)).not.toContain("meu-espaco");
+    expect(shellAreasForRoles(["MEMBRO"]).map(area => area.key)).toEqual(["visao", "carteirinha", "meu-espaco"]);
+    expect(areaAllowed(["SECRETARIA"], "operacao")).toBe(true);
+    expect(areaAllowed(["MEMBRO"], "meu-espaco")).toBe(true);
+    expect(shellAreasForRoles([], true).map(area => area.key)).not.toContain("operacao");
+    expect(shellAreasForRoles([], true).map(area => area.key)).not.toContain("meu-espaco");
+  });
+
   it("escolhe a página inicial sem conceder módulo financeiro ao líder", () => {
-    expect(landingForRoles(["LIDER_MINISTERIO"])).toBe("/app/operacao/");
+    expect(landingForRoles(["LIDER_MINISTERIO"])).toBe("/app/");
     expect(landingForRoles(["TESOURARIA"])).toBe("/app/");
     expect(landingForRoles(["LIDER_MINISTERIO", "SECRETARIA"])).toBe("/app/");
     expect(landingForRoles(["EDITOR_SITE"])).toBe("/app/site/");
@@ -100,13 +112,18 @@ describe("menu por persona", () => {
 });
 
 describe("rota direta e 403 do servidor", () => {
+  const probes = PERSONA_AREAS.flatMap(area => area.probe
+    ? [area.probe, ...(area.additionalProbes ?? [])].map(probe => ({
+      ...probe, key: area.key, roles: probe.roles ?? area.roles,
+    }))
+    : []);
+
   it("espelha a decisão do guard: 401 sem sessão, 403 sem o papel, 200 com o papel", () => {
-    for (const area of PERSONA_AREAS) {
-      if (!area.probe) continue;
-      expect(expectedAccessStatus(null, area.roles)).toBe(401);
+    for (const probe of probes) {
+      expect(expectedAccessStatus(null, probe.roles)).toBe(401);
       for (const role of BUILTIN_ROLES) {
-        const status = expectedAccessStatus([role], area.roles);
-        expect(status, `${role} ${area.probe.path}`).toBe(area.roles.includes(role) ? 200 : 403);
+        const status = expectedAccessStatus([role], probe.roles);
+        expect(status, `${role} ${probe.path}`).toBe(probe.roles.includes(role) ? 200 : 403);
       }
     }
   });
@@ -115,23 +132,25 @@ describe("rota direta e 403 do servidor", () => {
     const spec = readFileSync(join(repoRoot, "apps/api/src/auth/guards/persona-route-denial.spec.ts"), "utf8");
     for (const area of PERSONA_AREAS) {
       if (!area.probe) continue;
-      const block = spec.split(`key: "${area.key}"`)[1]?.split("},")[0] ?? "";
-      expect(block, area.key).toContain(area.probe.path);
-      for (const role of area.roles) expect(block, `${area.key} ${role}`).toContain(role);
+      const reachable = probes.filter(probe => probe.key === area.key).flatMap(probe => probe.roles);
+      expect(new Set(reachable), area.key).toEqual(new Set(area.roles));
+    }
+    for (const probe of probes) {
+      const block = spec.split(`key: "${probe.key}", path: "${probe.path}"`)[1]?.split("},")[0] ?? "";
+      for (const role of probe.roles) expect(block, `${probe.path} ${role}`).toContain(role);
       for (const role of BUILTIN_ROLES) {
-        if (!area.roles.includes(role)) expect(block, `${area.key} não inclui ${role}`).not.toContain(role);
+        if (!probe.roles.includes(role)) expect(block, `${probe.path} não inclui ${role}`).not.toContain(role);
       }
     }
   });
 
   it("declara no controller os mesmos papéis que o menu usa para não prometer um 200", () => {
-    for (const area of PERSONA_AREAS) {
-      if (!area.probe) continue;
-      const source = readFileSync(join(repoRoot, area.probe.source), "utf8");
-      const at = source.indexOf(area.probe.marker);
-      expect(at, area.key).toBeGreaterThan(-1);
+    for (const probe of probes) {
+      const source = readFileSync(join(repoRoot, probe.source), "utf8");
+      const at = source.indexOf(probe.marker);
+      expect(at, probe.path).toBeGreaterThan(-1);
       const window = source.slice(Math.max(0, at - 1800), at);
-      for (const role of area.roles) expect(window, `${area.key} ${role}`).toContain(role);
+      for (const role of probe.roles) expect(window, `${probe.path} ${role}`).toContain(role);
     }
   });
 });
@@ -147,7 +166,7 @@ describe("shell sem flash de módulo restrito", () => {
     expect(html).toContain('data-nav-state="pending"');
     expect(html).not.toContain("SALDO-QUE-NAO-PODE-APARECER");
     expect(html).not.toContain("/app/tesouraria/");
-    expect(html).toContain("Confirmando seu perfil");
+    expect(html).toContain("Verificando seu acesso");
     expect(html).toContain("Sair");
   });
 
@@ -177,7 +196,7 @@ describe("shell sem flash de módulo restrito", () => {
     expect(denied).toContain('data-nav-denied="tesouraria"');
     expect(denied).not.toContain("SALDO-QUE-NAO-PODE-APARECER");
     expect(denied).not.toContain("Tesouraria · HML sintética");
-    expect(denied).toContain("Este perfil não abre esta área");
+    expect(denied).toContain("Seu perfil não tem acesso a esta página");
     expect(denied).toContain('tabindex="-1"');
   });
 
@@ -231,11 +250,10 @@ describe("grupo Ministérios e ferramentas", () => {
     expect(JSON.stringify(parseMinistryNav({ ministries: [{ id: "1", name: "Jovens", slug: "jovens", note: "501" }] }))).not.toContain("501");
   });
 
-  it("abre Louvor e Atmosfera na superfície que já existe e os demais no vínculo autorizado", () => {
-    expect(ministryContextHref({ id: "m-louvor", slug: "Louvor" })).toBe("/app/servir/louvor/");
-    expect(ministryContextHref({ id: "m-demo", slug: "louvor-demo" })).toBe("/app/servir/louvor/");
-    expect(ministryContextHref({ id: "m-atm", slug: "atmosfera" })).toBe("/app/servir/atmosfera/");
-    expect(ministryContextHref({ id: "m homens", slug: "homens" })).toBe("/app/ministerios/?ministerio=m%20homens");
+  it("abre todos os ministérios pelo identificador autorizado", () => {
+    expect(ministryContextHref({ id: "m-louvor" })).toBe("/app/ministerios/?ministry=m-louvor");
+    expect(ministryContextHref({ id: "m-atm" })).toBe("/app/ministerios/?ministry=m-atm");
+    expect(ministryContextHref({ id: "m homens" })).toBe("/app/ministerios/?ministry=m%20homens");
   });
 
   it("não duplica o destino quando a API já trouxe o mesmo ministério", () => {
@@ -246,9 +264,9 @@ describe("grupo Ministérios e ferramentas", () => {
       { id: "m-jovens", name: "Jovens", slug: "jovens" },
     ]);
     expect(entries.map(entry => entry.label)).toEqual([
-      "Homens", "Louvor", "Jovens", "Vínculo de ministério", "Escalas de Atmosfera",
+      "Todos os ministérios", "Homens", "Louvor", "Jovens",
     ]);
-    expect(entries.filter(entry => entry.href === "/app/servir/louvor/")).toHaveLength(1);
+    expect(entries.filter(entry => entry.href === "/app/ministerios/?ministry=m-louvor")).toHaveLength(1);
   });
 
   it.each(BUILTIN_ROLES)("decide o grupo de ministérios e o canal conforme o papel %s", role => {
@@ -262,8 +280,7 @@ describe("grupo Ministérios e ferramentas", () => {
     } else {
       expect(tools).not.toContain("Canal da igreja");
     }
-    if (role === "PLATFORM_ADMIN") expect(tools).toContain("Evolução do sistema");
-    else expect(tools).not.toContain("Evolução do sistema");
+    expect(tools).not.toContain("Evolução do sistema");
   });
 
   it("mantém o canal na pré-visualização e esconde da tesouraria e do membro", () => {
@@ -280,7 +297,7 @@ describe("shell colapsável para os oito papéis", () => {
     expect(shellSource).toContain('aria-expanded={menuExpanded}');
     expect(shellSource).toContain('aria-controls="app-navigation-rail"');
     expect(shellSource).toContain('aria-label="Fechar o menu lateral"');
-    expect(shellSource).toContain("Encerrar esta sessão?");
+    expect(shellSource).toContain("Sair da sua conta?");
     expect(shellSource).toContain("data-nav-group=\"ministerios\"");
     expect(shellSource).not.toContain("CANAIS E COMUNIDADE");
     expect(shellSource).not.toContain("501");
@@ -288,7 +305,7 @@ describe("shell colapsável para os oito papéis", () => {
     expect(shellCss).toContain("data-rail=\"collapsed\"");
     expect(shellCss).toContain("data-drawer=\"open\"");
     expect(shellCss).toContain("--shell-target");
-    expect(shellCss).toContain("@media(max-width:970px)");
+    expect(shellCss).toMatch(/@media\s*\(max-width:\s*970px\)/);
     expect(shellCss).toContain("prefers-reduced-motion");
   });
 
@@ -301,25 +318,25 @@ describe("shell colapsável para os oito papéis", () => {
     );
     expect(html).toContain(`PAINEL-${role}`);
     expect(html).toContain(`${role.toLowerCase()}@example.test`);
-    expect(html).toContain("Sair");
+    expect(html.match(/>Sair</g)).toHaveLength(1);
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('data-drawer="closed"');
-    expect(html).toContain("Ferramentas");
+    expect(html).not.toContain("Ferramentas");
     expect(html).not.toContain("CANAIS E COMUNIDADE");
     expect(html).not.toContain("501");
     expect(html).not.toContain("centro de custo");
-    expect(html).not.toContain("Encerrar esta sessão?");
+    expect(html).not.toContain("Sair da sua conta?");
     const seesMinistry = (MINISTRY_ROLES as readonly string[]).includes(role);
     if (seesMinistry) {
       expect(html).toContain('data-nav-group="ministerios"');
-      expect(html).toContain("Vínculo de ministério");
+      expect(html).toContain("Todos os ministérios");
+      expect(html).not.toContain("Meu Espaço");
+      expect(html).not.toContain("/app/operacao/");
     } else {
       expect(html).not.toContain('data-nav-group="ministerios"');
       expect(html).not.toContain("/app/ministerios/");
     }
-    if (role !== "TESOURARIA" && role !== "PLATFORM_ADMIN" && role !== "SECRETARIA") {
-      expect(hrefs(html)).not.toContain("/app/tesouraria/");
-    }
+    expect(hrefs(html).includes("/app/tesouraria/")).toBe(areaAllowed([role], "tesouraria"));
   });
 
   it("não escreve status técnico no vínculo quando o grupo está na página do ministério", () => {
@@ -330,7 +347,6 @@ describe("shell colapsável para os oito papéis", () => {
       </AppShell>,
     );
     expect(html).toContain("EQUIPE");
-    expect(html).toContain("Equipe do ministério.");
     expect(html).not.toContain("501");
     expect(html).not.toContain("schema");
     expect(html).not.toContain("endpoint");

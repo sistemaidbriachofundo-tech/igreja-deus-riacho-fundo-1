@@ -15,9 +15,9 @@ describe("Área administrativa: estados acessíveis e dados de avaliação", () 
     expect(html).not.toContain("PESSOAS &amp; RELACIONAMENTOS / 2026");
   });
 
-  it("a carteirinha identifica homologação e oferece filtro, sem documento oficial", () => {
+  it("a carteirinha identifica sessão e oferece filtro, sem documento oficial", () => {
     const html = renderToStaticMarkup(<ChurchCredentials />);
-    expect(html).toContain("Homologação");
+    expect(html).toContain("Verificando sessão");
     expect(html).not.toContain("DOCUMENTO OFICIAL");
     expect(html).not.toContain("MEMBRESIA / DEMONSTRAÇÃO");
     const desk = renderToStaticMarkup(
@@ -36,6 +36,8 @@ describe("Área administrativa: estados acessíveis e dados de avaliação", () 
     );
     expect(desk).toContain('aria-label="Filtrar carteirinhas"');
     expect(desk).toContain('aria-pressed="true"');
-    expect(desk).toContain("Visualizar");
+    expect(desk).toContain("Emitir");
+    expect(desk).toContain("Sem credencial ativa");
+    expect(desk).not.toContain("Visualizar");
   });
 });

@@ -486,3 +486,61 @@ function matchesPersonClause(row: Assignment, clause: Record<string, unknown>): 
   if (partner?.in) return Boolean(row.partnerPersonId && partner.in.includes(row.partnerPersonId));
   return false;
 }
+
+describe("prévia de preenchimento da escala", () => {
+  const serviceAt = new Date("2026-11-15T22:00:00Z");
+  const roster = {
+    ...rosterOf("slot-voz"),
+    serviceAt,
+    slots: [
+      { id: "ja-designada", roleLabel: "Som", assignments: [{ id: "existente" }] },
+      { id: "vaga", roleLabel: "Voz", requiresCouple: false, assignments: [] },
+      { id: "casal", roleLabel: "Apoio em dupla", requiresCouple: true, assignments: [] },
+    ],
+  };
+
+  function setupPreview() {
+    const db = {
+      roster: { findFirst: jest.fn().mockResolvedValue(roster) },
+      ministryMembership: { findMany: jest.fn().mockResolvedValue([
+        { personId: "escalada", role: "INTEGRANTE", person: { displayName: "Com escala no dia" } },
+        { personId: "disponivel", role: "INTEGRANTE", person: { displayName: "Pessoa disponível" } },
+        { personId: "impedida", role: "INTEGRANTE", person: { displayName: "Pessoa impedida" } },
+      ]) },
+      rosterAssignment: { findMany: jest.fn().mockResolvedValue([
+        { id: "existente", personId: "escalada", partnerPersonId: null, status: "CONFIRMED",
+          slot: { id: "outra-vaga", roster: { id: "outra-escala", ministryId: "min-atmosfera", serviceAt } } },
+      ]) },
+      volunteerAvailability: { findMany: jest.fn().mockResolvedValue([
+        { personId: "disponivel", weekday: 0, startMinute: 1260, endMinute: 1440 },
+      ]) },
+      volunteerImpediment: { findMany: jest.fn().mockResolvedValue([
+        { personId: "impedida", startsAt: new Date("2026-11-15T21:00:00Z"), endsAt: new Date("2026-11-15T23:00:00Z") },
+      ]) },
+    };
+    const service = new PersonalRosterService(db as never, {
+      getPilotChurch: async () => ({ organizationId: ORG, churchId: CHURCH }),
+    } as never);
+    return { db, service };
+  }
+
+  it("sugere apenas nas vagas livres e respeita impedimento, mesmo dia e função em casal", async () => {
+    const { db, service } = setupPreview();
+    const leader = user("usr-lider", "per-lider", "LIDER_MINISTERIO", "min-louvor");
+    const preview = await service.preview(leader, roster.id);
+    expect(preview.positions).toEqual([
+      { slotId: "vaga", roleLabel: "Voz", personName: "Pessoa disponível", partnerName: null, reasons: [] },
+      expect.objectContaining({ slotId: "casal", personName: null, reasons: expect.arrayContaining(["COUPLE_REQUIRED"]) }),
+    ]);
+    expect(db.ministryMembership.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { organizationId: ORG, churchId: CHURCH, ministryId: "min-louvor", status: "ATIVO", person: { status: "ACTIVE" } },
+    }));
+  });
+
+  it("bloqueia outro líder antes de consultar os integrantes", async () => {
+    const { db, service } = setupPreview();
+    const leader = user("usr-outra-equipe", "per-atmosfera", "LIDER_MINISTERIO", "min-atmosfera");
+    await expect(service.preview(leader, roster.id)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(db.ministryMembership.findMany).not.toHaveBeenCalled();
+  });
+});

@@ -173,6 +173,7 @@ class SettlementBody {
 export class TreasuryController {
   constructor(private readonly treasury: TreasuryService) {}
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("position")
   position(
     @CurrentUser() actor: AuthUser,

@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { usePersonaAccess } from "./AppShell";
+import { MinistryOverview } from "./ministry/MinistryOverview";
 import { MinistryExperience } from "./ministry/MinistryExperience";
 import { getApiBaseUrl, loadStoredToken } from "../lib/api";
 import {
@@ -12,19 +15,13 @@ import {
   type MembershipChange,
 } from "../lib/ministry-desk";
 import { loadMinistryBoard, type MinistryBoardData } from "../lib/ministry-presentation";
-import { isMinistryTab, ministryHref, type MinistryTabId } from "../lib/ministry-view";
+import { ministryHref, parseMinistryRoute, type MinistryTabId } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
+import { PageHeader } from "./ui/PageHeader";
+import ui from "./ui/ui.module.css";
 import styles from "./ministry-membership-catalog.module.css";
 
 type Route = { ministryId?: string; tab: MinistryTabId; escalaId?: string };
-
-function readRoute(): Route {
-  const params = new URLSearchParams(window.location.search);
-  const tab = params.get("aba");
-  const ministryId = params.get("ministry")?.trim() || undefined;
-  const escalaId = params.get("escala")?.trim() || undefined;
-  return { ministryId, tab: isMinistryTab(tab) ? tab : "visao", escalaId };
-}
 
 function writeRoute(route: Route) {
   const url = route.ministryId
@@ -34,9 +31,10 @@ function writeRoute(route: Route) {
 }
 
 export function MinistryDeskPage() {
+  const { roles } = usePersonaAccess();
   const [token, setToken] = useState<string | null>(null);
-  const [routeReady, setRouteReady] = useState(false);
-  const [route, setRoute] = useState<Route>({ tab: "visao" });
+  const route = parseMinistryRoute(useSearchParams().toString());
+  const overview = !route.ministryId && route.tab === "visao";
   const [board, setBoard] = useState<MinistryBoardData | null>(null);
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [change, setChange] = useState<MembershipChange | null>(null);
@@ -46,15 +44,10 @@ export function MinistryDeskPage() {
 
   useEffect(() => {
     setToken(loadStoredToken());
-    setRoute(readRoute());
-    setRouteReady(true);
-    const onPop = () => setRoute(readRoute());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   useEffect(() => {
-    if (!token || !routeReady) return;
+    if (!token || overview) return;
     let cancelled = false;
     setBoard(null);
     void loadMinistryBoard({
@@ -77,12 +70,11 @@ export function MinistryDeskPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, route.ministryId, routeReady, reloadKey]);
+  }, [token, overview, route.ministryId, reloadKey]);
 
   function go(next: Route) {
     setConversion(null);
     setChange(null);
-    setRoute(next);
     writeRoute(next);
   }
 
@@ -168,23 +160,27 @@ export function MinistryDeskPage() {
   if (!token) {
     return (
       <section className={styles.desk}>
-        <h1>Ministérios</h1>
+        <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
         <p className={styles.lede}>A sessão ainda não está disponível nesta página.</p>
       </section>
     );
   }
 
+  if (overview) return <MinistryOverview token={token} />;
+
   if (!board) {
     return (
       <section className={styles.desk} role="status">
-        <h1>Ministérios</h1>
-        <p className={styles.lede}>Consultando somente os ministérios autorizados…</p>
+        <PageHeader appearance="workspace" heading="h1" title="Ministérios" />
+        <p className={`${ui.workspaceSurface} ${styles.loadingPanel}`}>Carregando ministérios…</p>
       </section>
     );
   }
 
   return (
     <MinistryExperience
+      token={token}
+      roles={roles}
       desk={board.desk}
       escalas={board.escalas}
       activities={board.activities}

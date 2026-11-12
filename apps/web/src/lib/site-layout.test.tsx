@@ -31,7 +31,7 @@ describe("Gestão do Site — editor visual",()=>{
     expect(hero).toContain(defaultSiteLayout.hero.title);
     expect(hero).toContain(defaultSiteLayout.hero.accent);
     expect(gallery).toContain(defaultSiteLayout.gallery.title);
-    expect(gallery).toContain("galeria-louvor.webp");
+    expect(gallery).toContain("/images/riacho/louvor.webp");
     expect(gallery).toContain('data-appearance="dourado"');
   });
   it("renders existing sections without changing SSR order",()=>{
@@ -46,7 +46,7 @@ describe("Gestão do Site — editor visual",()=>{
   it("provides authorized media upload without needing GitHub",()=>{
     const html=renderToStaticMarkup(<SiteMediaLibrary token="demo-token" onChoose={()=>{}}/>);
     expect(html).toContain("Enviar foto");
-    expect(html).toContain("galeria-louvor.webp");
+    expect(html).toContain("/images/riacho/louvor.webp");
     expect(html).toContain('type="file"');
     expect(html).toContain("autorização");
   });
@@ -77,15 +77,14 @@ describe("Gestão do Site — editor visual",()=>{
   });
   it("provides an authenticated editor route without faking data",()=>{
     const html=renderToStaticMarkup(<SiteManager/>);
-    expect(html).toContain("Seu site, nas mãos");
+    expect(html).toContain("Gestão do site");
     expect(html).toContain("Gestão do site");
   });
   it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
     const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"RASCUNHO SECRETO 5a13"}};
     const empty=renderToStaticMarkup(<SiteReaderPreview published={null} device="mobile"/>);
-    expect(empty).toContain("O leitor não vê o rascunho");
+    expect(empty).toContain("A página pública ainda usa o conteúdo padrão da igreja.");
     expect(empty).not.toContain(secret.hero.title);
-    expect(empty).toContain("gate");
     const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"Versão publicada 5a13"}};
     const live=renderToStaticMarkup(<SiteReaderPreview published={published} device="desktop"/>);
     expect(live).toContain("Versão publicada 5a13");

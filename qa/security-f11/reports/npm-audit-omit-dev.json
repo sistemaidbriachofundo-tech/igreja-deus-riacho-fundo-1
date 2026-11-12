@@ -1,0 +1,188 @@
+{
+  "counts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 1,
+    "high": 8,
+    "critical": 0,
+    "total": 9
+  },
+  "omitOptionalCounts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 1,
+    "high": 5,
+    "critical": 0,
+    "total": 6
+  },
+  "rows": [
+    {
+      "name": "@prisma/config",
+      "severity": "high",
+      "range": "6.13.0-dev.1 - 7.10.0 || 8.1.0-dev.1 - 8.1.0-dev.4",
+      "version": "6.19.3",
+      "devOptional": true,
+      "advisories": [
+        {
+          "title": "via deepmerge-ts",
+          "url": "",
+          "cve": null
+        }
+      ],
+      "reachable": false,
+      "impact": "Dependência do CLI Prisma, também devOptional. O client de runtime é @prisma/client.",
+      "recommendation": "Tratar junto com o CLI. Não fazer upgrade solto nesta frente."
+    },
+    {
+      "name": "@vercel/blob",
+      "severity": "high",
+      "range": ">=2.4.1-b7027de-20260616193056",
+      "version": "2.9.0",
+      "devOptional": false,
+      "advisories": [
+        {
+          "title": "via @vercel/oidc",
+          "url": "",
+          "cve": null
+        }
+      ],
+      "reachable": true,
+      "impact": "Dependência direta da API, usada no upload público de foto do site. O alerta alto entra por @vercel/oidc, não por um defeito isolado de armazenamento.",
+      "recommendation": "Subir @vercel/blob somente para uma versão cujo lock deixe zod em 4.6.6 ou acima, e repetir o teste de upload de JPG, PNG, WebP e arquivo disfarçado."
+    },
+    {
+      "name": "@vercel/cli-config",
+      "severity": "high",
+      "range": "<=0.3.5",
+      "version": "0.3.1",
+      "devOptional": false,
+      "advisories": [
+        {
+          "title": "via zod",
+          "url": "",
+          "cve": null
+        }
+      ],
+      "reachable": true,
+      "impact": "Fixa zod em 4.1.11. O aviso é de memória ao validar coleções grandes, não de leitura de segredo.",
+      "recommendation": "A correção testável é uma versão de @vercel/cli-config que declare zod >= 4.6.6, puxada pelo blob. Override manual fica para o integrador depois do teste de mídia."
+    },
+    {
+      "name": "@vercel/oidc",
+      "severity": "high",
+      "range": "3.6.0 - 4.0.5",
+      "version": "3.8.10",
+      "devOptional": false,
+      "advisories": [
+        {
+          "title": "via @vercel/cli-config",
+          "url": "",
+          "cve": null
+        }
+      ],
+      "reachable": true,
+      "impact": "Entra no processo da API porque @vercel/blob 2.9.0 depende dele. O efeito observado é o zod antigo puxado por @vercel/cli-config.",
+      "recommendation": "Não override cego de pacote transitivo. Trocar a cadeia a partir de uma release nova do blob e testar o upload."
+    },
+    {
+      "name": "deepmerge-ts",
+      "severity": "high",
+      "range": "<8.0.0",
+      "version": "7.1.5",
+      "devOptional": true,
+      "advisories": [
+        {
+          "title": "DeepmergeTS has stack exhaustion when merging recursive object graphs",
+          "url": "https://github.com/advisories/GHSA-ggr8-5vv4-36mx",
+          "cve": null
+        }
+      ],
+      "reachable": false,
+      "impact": "Esgotamento de pilha ao fundir objetos recursivos no carregamento de configuração do CLI Prisma.",
+      "recommendation": "Fora do processo da API. Manter o CLI em devDependency e só subir quando a versão corrigida passar por generate e migrate em banco isolado."
+    },
+    {
+      "name": "next",
+      "severity": "moderate",
+      "range": "9.3.4-canary.0 - 16.3.0-preview.10",
+      "version": "15.5.29",
+      "devOptional": false,
+      "advisories": [
+        {
+          "title": "via postcss",
+          "url": "",
+          "cve": null
+        }
+      ],
+      "reachable": false,
+      "impact": "O moderado do Next, neste audit, chega via postcss. O app web é export estático. Não há execução de postcss no pedido do visitante.",
+      "recommendation": "Tratar como o postcss. Não marcar o portal como corrigido enquanto o lock continuar em 8.4.31."
+    },
+    {
+      "name": "postcss",
+      "severity": "high",
+      "range": "<=8.5.22",
+      "version": "8.4.31",
+      "devOptional": false,
+      "advisories": [
+        {
+          "title": "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+          "url": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+          "cve": null
+        },
+        {
+          "title": "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+          "url": "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+          "cve": null
+        },
+        {
+          "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+          "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+          "cve": null
+        },
+        {
+          "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+          "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+          "cve": null
+        }
+      ],
+      "reachable": false,
+      "impact": "postcss 8.4.31 é dependência de build do Next 15.5.29. Os avisos são XSS na serialização de CSS e leitura de source map na compilação. O runtime da API não importa postcss. O portal não compila CSS enviado por visitante.",
+      "recommendation": "Não adotar o major do Next só por este aviso. Caminho curto: override de postcss para a faixa corrigida, build do web e a suíte já existente. O PR de major fica separado e revisado."
+    },
+    {
+      "name": "prisma",
+      "severity": "high",
+      "range": "6.13.0-dev.1 - 7.10.0 || 8.0.0-rc.3 - 8.1.0-dev.4",
+      "version": "6.19.3",
+      "devOptional": true,
+      "advisories": [
+        {
+          "title": "via @prisma/config",
+          "url": "",
+          "cve": null
+        }
+      ],
+      "reachable": false,
+      "impact": "O pacote é o CLI de migração, marcado devOptional no lockfile. Não atende pedido HTTP.",
+      "recommendation": "Não promover o CLI a dependência de runtime. Repetir o audit com --omit=dev --omit=optional no gate de produção."
+    },
+    {
+      "name": "zod",
+      "severity": "high",
+      "range": "<4.6.6",
+      "version": "4.1.11",
+      "devOptional": false,
+      "advisories": [
+        {
+          "title": "Zod can exhaust memory while validating oversized constrained collections",
+          "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+          "cve": null
+        }
+      ],
+      "reachable": true,
+      "impact": "zod 4.1.11 pode consumir memória demais ao validar coleções com limite. Quem chama esse zod é a cadeia do blob, com entrada vinda do serviço da Vercel, não do corpo bruto de um fiel.",
+      "recommendation": "Não editar package.json nesta frente. O integrador ensaia a cadeia nova em QA e compara o lock antes de aceitar."
+    }
+  ]
+}

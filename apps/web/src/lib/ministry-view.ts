@@ -10,7 +10,7 @@ export const MINISTRY_TABS = [
   { id: "integrantes", label: "Integrantes" },
   { id: "escalas", label: "Escalas" },
   { id: "atividades", label: "Atividades" },
-  { id: "recursos", label: "Recursos autorizados" },
+  { id: "recursos", label: "Gestão e caixa" },
 ] as const;
 
 export type MinistryTabId = (typeof MINISTRY_TABS)[number]["id"];
@@ -78,6 +78,15 @@ export function visibleSchedule(desk: DeskReady): string | null {
   return desk.agenda.scheduleText || fromProfile;
 }
 
+/** A URL canônica usa ministry; links antigos com ministerio continuam válidos. */
+export function parseMinistryRoute(search: string): { ministryId?: string; tab: MinistryTabId; escalaId?: string } {
+  const params = new URLSearchParams(search);
+  const ministryId = params.get("ministry")?.trim() || params.get("ministerio")?.trim() || undefined;
+  const tab = params.get("aba");
+  const escalaId = params.get("escala")?.trim() || undefined;
+  return { ministryId, tab: isMinistryTab(tab) ? tab : "visao", escalaId };
+}
+
 export function ministryHref(ministryId: string, tab: MinistryTabId = "visao", escalaId?: string): string {
   const params = new URLSearchParams();
   params.set("ministry", ministryId);
@@ -131,7 +140,12 @@ export function formatChurchWhen(iso: string): string {
 
 /** A resposta técnica não entra na tela. O efeito para a pessoa é o que fica. */
 export function humanWriteNotice(code: string, applied: boolean, fallback: string): string {
-  if (applied) return fallback;
+  if (applied) {
+    if (code === "MINISTRY_MEMBERSHIP_ENDED") return "A pessoa foi retirada da equipe. O histórico foi preservado.";
+    if (code === "MINISTRY_MEMBERSHIP_REACTIVATED") return "A pessoa voltou a integrar a equipe.";
+    if (code === "MINISTRY_MEMBERSHIP_CREATED") return "A pessoa foi adicionada à equipe.";
+    return "Alteração salva.";
+  }
   if (code.includes("FORBIDDEN")) return "Esta conta não altera este ministério.";
   if (code.includes("ALREADY_ACTIVE")) return "Esta pessoa já integra este ministério.";
   if (code.includes("ALREADY_ENDED")) return "Este vínculo já está encerrado.";

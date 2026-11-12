@@ -1,15 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppShell } from "./AppShell";
 import { CredentialCards, type CredentialPreviewProps } from "./HmlPhaseOne";
-import { PersonaBoard, parseIndicatorCounts, parseOwnCard, parseEntries, deskKeyFor } from "./PersonaHome";
-import type { AuthUser } from "../lib/api";
+import { PersonaBoard, dashboardPaths, parseIndicatorCounts, parseOwnCard, parseEntries, deskKeyFor, readFailure } from "./PersonaHome";
+import { ApiRequestError, type AuthUser } from "../lib/api";
+
+const originalHml = process.env.NEXT_PUBLIC_HML_ENABLED;
+
+afterEach(() => {
+  if (originalHml === undefined) delete process.env.NEXT_PUBLIC_HML_ENABLED;
+  else process.env.NEXT_PUBLIC_HML_ENABLED = originalHml;
+});
 
 function account(role: string, email = `${role.toLowerCase()}@example.test`): AuthUser {
   return { userId: `u-${role}`, personId: `p-${role}`, email, grants: [{ roleCode: role }] };
 }
 
 function board(role: string) {
+  process.env.NEXT_PUBLIC_HML_ENABLED = "true";
   return renderToStaticMarkup(
     <AppShell active="visao" meta="Início" viewer={account(role)}>
       <PersonaBoard />
@@ -18,7 +26,7 @@ function board(role: string) {
 }
 
 const TITLES: Record<string, string> = {
-  PLATFORM_ADMIN: "Mesa da administração",
+  PLATFORM_ADMIN: "Painel administrativo",
   SECRETARIA: "Mesa da secretaria",
   PASTOR: "Mesa pastoral",
   TESOURARIA: "Mesa da tesouraria",
@@ -32,12 +40,46 @@ describe("mesa por persona", () => {
   it.each(Object.keys(TITLES))("abre a mesa de %s sem jargão e sem valor inventado", role => {
     const html = board(role);
     expect(html).toContain(TITLES[role]);
-    expect(html).toContain("Ambiente de homologação");
+    expect(html).not.toContain("Ambiente de homologação");
     expect(html).toContain(`data-desk="${deskKeyFor([role])}"`);
     expect(html).not.toMatch(/endpoint|schema|PostgreSQL|CHURCH OS|\b501\b|roster/i);
     expect(html).not.toContain("R$");
     expect(html).not.toContain("87%");
     expect(html).not.toContain("412");
+    expect(html).not.toContain("/app/operacao/");
+    expect(html.match(/>Sair</g)).toHaveLength(1);
+    if (role === "MEMBRO") expect(html).toContain('data-layout="membro"');
+    else expect(html).toContain('data-layout="admin"');
+    if (role !== "MEMBRO") expect(html).not.toContain("/app/servir/meu-espaco/");
+  });
+
+  it("mede menos leituras na mesa e não transforma 401 ou 403 em zero", () => {
+    expect(dashboardPaths(["PLATFORM_ADMIN"])).toEqual([
+      "/indicators/summary",
+      "/indicators/membership",
+      "/admissions",
+      "/ministries",
+      "/events",
+      "/treasury/position",
+    ]);
+    expect(dashboardPaths(["SECRETARIA"])).toEqual([
+      "/indicators/summary",
+      "/indicators/membership",
+      "/admissions",
+      "/ministries",
+      "/events",
+    ]);
+    expect(dashboardPaths(["LIDER_MINISTERIO"])).toEqual([
+      "/indicators/summary",
+      "/ministries",
+      "/events",
+    ]);
+    expect(dashboardPaths(["MEMBRO"])).toEqual(["/rosters/me", "/credentials/me"]);
+    expect(dashboardPaths(["TESOURARIA"])).toEqual(["/ledger/accounts", "/ledger/entries"]);
+    expect(dashboardPaths(["EDITOR_SITE"])).toEqual(["/cms/contents"]);
+    expect(readFailure(new ApiRequestError("negado", 403, "forbidden"))).toBe("forbidden");
+    expect(readFailure(new ApiRequestError("sessão", 401, "unauthorized"))).toBe("unauthorized");
+    expect(readFailure(new ApiRequestError("falha", 500, "http"))).toBe("error");
   });
 
   it("membro navega só para a própria carteirinha e a própria escala", () => {

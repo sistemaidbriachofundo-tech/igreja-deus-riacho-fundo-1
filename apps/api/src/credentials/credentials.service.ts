@@ -18,6 +18,7 @@ import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
+import { jpegPortrait, portraitDataUrl } from "../persons/person-photo";
 import { renderCredentialPdf } from "./credential-pdf.renderer";
 
 @Injectable()
@@ -321,6 +322,7 @@ export class CredentialsService {
       opaqueToken: credential.opaqueToken,
       issuedAt: credential.issuedAt,
       credentialId: credential.id,
+      photo: jpegPortrait((await this.getPhoto(credential.personId))?.jpeg),
     });
 
     if (credential.pdfStorageKey) {
@@ -604,11 +606,16 @@ export class CredentialsService {
     card: T,
     pilot: { organizationId: string; churchId: string },
   ) {
-    const [ministryName, qrSvg] = await Promise.all([
+    const [ministryName, qrSvg, photo] = await Promise.all([
       this.optionalMinistryName(card.personId, pilot),
       this.qrMarkup(card.qrPayload),
+      this.getPhoto(card.personId),
     ]);
-    return { ...card, ministryName, qrSvg };
+    return { ...card, ministryName, qrSvg, ...(photo ? { photoUrl: portraitDataUrl(photo.jpeg) } : {}) };
+  }
+
+  private getPhoto(personId: string) {
+    return this.prisma.personPhoto?.findUnique({ where: { personId }, select: { jpeg: true } });
   }
 
   private assertCanManage(

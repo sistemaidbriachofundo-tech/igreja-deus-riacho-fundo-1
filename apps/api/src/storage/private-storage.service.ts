@@ -4,13 +4,11 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
+import { del, get, put } from "@vercel/blob";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import { dirname, normalize, resolve, sep } from "node:path";
 
-/**
- * Storage privado local (DEV/HML). Não serve arquivos via URL pública.
- * Em PRD: trocar por object storage com bucket privado + signed URL curta.
- */
+/** Storage privado, com chaves estáveis e acesso mediado pela API. */
 @Injectable()
 export class PrivateStorageService {
   private root(): string {
@@ -145,15 +143,31 @@ export class PrivateStorageService {
     return full;
   }
 
+  private blobToken(): string | undefined {
+    return process.env.PRIVATE_BLOB_READ_WRITE_TOKEN?.trim() || undefined;
+  }
+
   async put(storageKey: string, bytes: Buffer): Promise<void> {
     const full = this.resolveSafe(storageKey);
+    const token = this.blobToken();
+    if (token) {
+      await put(storageKey, bytes, { access: "private", token, addRandomSuffix: false });
+      return;
+    }
     await mkdir(dirname(full), { recursive: true });
     await writeFile(full, bytes, { mode: 0o600 });
   }
 
   async get(storageKey: string): Promise<Buffer> {
+    const full = this.resolveSafe(storageKey);
+    const token = this.blobToken();
+    if (token) {
+      const blob = await get(storageKey, { access: "private", token, useCache: false });
+      if (!blob || blob.statusCode !== 200) throw new NotFoundException("Arquivo não encontrado no storage");
+      return Buffer.from(await new Response(blob.stream).arrayBuffer());
+    }
     try {
-      return await readFile(this.resolveSafe(storageKey));
+      return await readFile(full);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         throw new NotFoundException("Arquivo não encontrado no storage");
@@ -163,10 +177,16 @@ export class PrivateStorageService {
   }
 
   async remove(storageKey: string): Promise<void> {
+    const full = this.resolveSafe(storageKey);
+    const token = this.blobToken();
+    if (token) {
+      await del(storageKey, { token });
+      return;
+    }
     try {
-      await unlink(this.resolveSafe(storageKey));
-    } catch {
-      // idempotente
+      await unlink(full);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
 

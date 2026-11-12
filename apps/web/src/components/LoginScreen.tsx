@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  apiGet, apiLogin, clearToken, isInvalidSession, loadStoredToken,
-  loginFailureMessage, readValidatedSession, rememberValidatedSession, storeToken, type LoginResult,
+  apiGet, beginLogin, beginMfaEnrollment, clearToken, isInvalidSession, loadStoredToken,
+  loginFailureMessage, mfaFailureMessage, readValidatedSession, rememberValidatedSession, storeToken,
+  verifyLoginChallenge, type LoginChallenge, type LoginResult, type MfaEnrollment,
 } from "../lib/api";
 import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import { authenticatedLanding } from "../lib/auth-destination";
+import { generateAuthenticatorQr } from "../lib/authenticator-qr";
+import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
 
 type Props = { onAuthenticated?: () => void };
@@ -24,6 +27,14 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [challenge, setChallenge] = useState<LoginChallenge["mfa"] | null>(null);
+  const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrUnavailable, setQrUnavailable] = useState(false);
+  const [code, setCode] = useState("");
+  const [expired, setExpired] = useState(false);
+  const codeInput = useRef<HTMLInputElement>(null);
+  const needsSetup = Boolean(challenge?.enrollmentRequired && !enrollment);
 
   useEffect(() => { publishPerfProbe(); }, []);
 
@@ -54,19 +65,63 @@ export function LoginScreen({ onAuthenticated }: Props) {
     return () => { cancelled = true; };
   }, [onAuthenticated, enabled]);
 
-  const submit = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!challenge) return;
+    const expiry = window.setTimeout(() => {
+      setExpired(true);
+      setEnrollment(null);
+      setCode("");
+    }, challenge.expiresInSeconds * 1000);
+    return () => window.clearTimeout(expiry);
+  }, [challenge]);
+
+  // O QR é criado no próprio dispositivo e não passa por API de terceiros.
+  useEffect(() => {
+    setQrDataUrl(null);
+    setQrUnavailable(false);
+    if (!enrollment) return;
+    let active = true;
+    void generateAuthenticatorQr(enrollment.otpauthUri)
+      .then(value => { if (active) setQrDataUrl(value); })
+      .catch(() => { if (active) setQrUnavailable(true); });
+    return () => { active = false; };
+  }, [enrollment]);
+
+  useEffect(() => {
+    if (challenge && !needsSetup && !expired) codeInput.current?.focus();
+  }, [challenge, needsSetup, expired]);
+
+  function acceptSession(login: LoginResult) {
+    rememberValidatedSession(login.accessToken, login.user);
+    storeToken(login.accessToken);
+    setChallenge(null);
+    setEnrollment(null);
+    setCode("");
+    setPassword("");
+    if (onAuthenticated) onAuthenticated();
+    else openAuthenticatedArea(authenticatedLanding(login.user));
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!enabled || busy) return;
     setError("");
     setBusy(true);
     try {
-      const login = await apiLogin(email.trim(), password);
-      // A resposta do login já é a sessão emitida pelo servidor.
-      rememberValidatedSession(login.accessToken, login.user);
-      storeToken(login.accessToken);
+      const login = await beginLogin(email.trim(), password);
       setPassword("");
-      if (onAuthenticated) onAuthenticated();
-      else openAuthenticatedArea(authenticatedLanding(login.user));
+      if ("accessToken" in login) acceptSession(login);
+      else {
+        setChallenge(login.mfa);
+        // Primeiro acesso privilegiado: abrir o QR automaticamente.
+        if (login.mfa.enrollmentRequired) {
+          try {
+            setEnrollment(await beginMfaEnrollment(login.mfa.challengeId));
+          } catch (setupError) {
+            setError(mfaFailureMessage(setupError));
+          }
+        }
+      }
     } catch (problem) {
       if (isInvalidSession(problem)) {
         clearToken();
@@ -76,7 +131,33 @@ export function LoginScreen({ onAuthenticated }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [busy, email, enabled, onAuthenticated, password]);
+  }
+
+  async function submitChallenge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!challenge || busy || expired || (!needsSetup && !/^\d{6}$/.test(code))) return;
+    setError("");
+    setBusy(true);
+    try {
+      if (needsSetup) setEnrollment(await beginMfaEnrollment(challenge.challengeId));
+      else acceptSession(await verifyLoginChallenge(challenge, code));
+    } catch (problem) {
+      setCode("");
+      setError(mfaFailureMessage(problem));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function restartLogin() {
+    setChallenge(null);
+    setEnrollment(null);
+    setCode("");
+    setError("");
+    setExpired(false);
+    setQrDataUrl(null);
+    setQrUnavailable(false);
+  }
 
   return (
     <main className={styles.page} id="conteudo">
@@ -89,27 +170,53 @@ export function LoginScreen({ onAuthenticated }: Props) {
             <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="Igreja de Deus — Riacho Fundo I" width={64} height={64}/>
             <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
           </div>
-          <div className={styles.storyContent}>
-            <span className={styles.eyebrow}>ID RIACHO 1 · PLATAFORMA DE GESTÃO</span>
-            <h1>Uma igreja.<br/><em>Um propósito.</em><br/>Uma gestão que cuida.</h1>
-            <p>O cuidado com as pessoas também está nos detalhes de como servimos, organizamos e protegemos suas histórias.</p>
-          </div>
-          <span className={styles.footerMark}>IGREJA DE DEUS · FÉ, COMUNHÃO E SERVIÇO</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={styles.facade} src={withBasePath("/images/fachada-igreja-riacho-fundo.jpg")} alt="Fachada da igreja" />
         </aside>
         <section className={styles.panel} aria-labelledby="login-heading">
           <div className={styles.panelInner}>
-            <div className={styles.sectionNumber}><span>ÁREA RESTRITA</span><span>01 / ACESSO</span></div>
             <div className={styles.heading}>
-              <span className={styles.kicker}>BEM-VINDO AO ID RIACHO 1</span>
-              <h2 id="login-heading">Entre na sua conta.</h2>
-              <p>Use seu e-mail e sua senha para acessar o ambiente administrativo.</p>
+              <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
+              <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Acesso ao ID Riacho 1"}</p>
             </div>
-            <form onSubmit={submit} className={styles.form}>
+            {challenge ? <form onSubmit={submitChallenge} className={styles.form}>
+              {expired ? <Alert appearance="workspace" tone="warning" title="O tempo para verificar terminou. Entre novamente." /> : <>
+                {needsSetup && <p className={styles.mfaHelp}>Ative a verificação em um aplicativo autenticador antes de continuar.</p>}
+                {enrollment && <div className={styles.setup}>
+                  <p>Abra o Google Authenticator, Microsoft Authenticator ou outro aplicativo e escolha <strong>Adicionar conta → Ler QR Code</strong>.</p>
+                  <div className={styles.qrFrame}>
+                    {qrDataUrl
+                      ? <img src={qrDataUrl} className={styles.qrImage} width={220} height={220}
+                          alt="QR Code para cadastrar a verificação em duas etapas no aplicativo autenticador." />
+                      : <span className={styles.qrPending} role="status">
+                          {qrUnavailable ? "Não foi possível gerar o QR Code neste navegador. Use a chave manual." : "Preparando QR Code…"}
+                        </span>}
+                  </div>
+                  <p>Depois de escanear, digite abaixo o código de 6 dígitos mostrado no aplicativo.</p>
+                  <details className={styles.manualSetup}>
+                    <summary>Não conseguiu escanear? Mostrar chave manual</summary>
+                    <p>Adicione uma conta baseada em tempo (TOTP) e use esta chave somente no seu aplicativo:</p>
+                    <code>{enrollment.secret}</code>
+                  </details>
+                </div>}
+                {!needsSetup && <>
+                  <label htmlFor="church-mfa-code">Código de 6 dígitos</label>
+                  <input id="church-mfa-code" ref={codeInput} autoComplete="one-time-code" inputMode="numeric" required
+                    maxLength={6} pattern="[0-9]{6}" value={code} disabled={busy}
+                    onChange={event => setCode(event.target.value.replace(/\D/g, ""))} />
+                </>}
+                {error && <Alert appearance="workspace" tone="danger" title={error} />}
+                <button className={styles.submit} type="submit" disabled={busy || (!needsSetup && code.length !== 6)}>
+                  {busy ? "Verificando…" : needsSetup ? "Tentar configurar novamente" : "Confirmar acesso"}
+                </button>
+              </>}
+              <button type="button" className={styles.mfaBack} disabled={busy} onClick={restartLogin}>Voltar ao login</button>
+            </form> : <form onSubmit={submit} className={styles.form}>
               <label htmlFor="church-email">E-mail</label>
               <input id="church-email" type="email" name="email" required
                 autoComplete="username" inputMode="email"
                 value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="seu.email@exemplo.com" maxLength={254} disabled={busy||checking}/>
+                maxLength={254} disabled={busy||checking}/>
               <div className={styles.passwordLabel}>
                 <label htmlFor="church-password">Senha</label>
               </div>
@@ -117,24 +224,17 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 <input id="church-password" type={showPassword?"text":"password"} name="password"
                   required autoComplete="current-password" minLength={1}
                   value={password} onChange={e=>setPassword(e.target.value)}
-                  placeholder="Digite sua senha" disabled={busy||checking}/>
+                  disabled={busy||checking}/>
                 <button type="button" className={styles.reveal} aria-label={showPassword?"Ocultar senha":"Mostrar senha"}
                   aria-pressed={showPassword} onClick={()=>setShowPassword(value=>!value)}
                   disabled={busy||checking}>{showPassword?"Ocultar":"Mostrar"}</button>
               </div>
-              {error&&<p className={styles.error} role="alert">{error}</p>}
-              {!enabled&&<p className={styles.warning} role="status">O acesso autenticado ainda não está habilitado nesta publicação. Nenhuma credencial será enviada.</p>}
+              {error && <Alert appearance="workspace" tone="danger" title={error} />}
+              {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
               <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking?"Validando sessão…":busy?"Verificando credenciais…":"Entrar no painel"}
-                <span aria-hidden="true">→</span>
+                {checking?"Validando sessão…":busy?"Entrando…":"Entrar no painel"}
               </button>
-            </form>
-            <div className={styles.protection}>
-              <span className={styles.protectionIcon} aria-hidden="true">✦</span>
-              <div><strong>Seu acesso é individual.</strong>
-                <p>A plataforma valida a sessão e as permissões antes de abrir o painel. O uso de dados reais depende de autorização institucional.</p>
-              </div>
-            </div>
+            </form>}
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
           </div>
         </section>

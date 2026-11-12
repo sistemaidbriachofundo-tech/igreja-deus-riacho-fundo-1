@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AppShell } from "../../../components/AppShell";
 import { MinistryDeskPage } from "../../../components/MinistryDeskPage";
 
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 export default function MinisteriosFormaisPage() {
   return (
     <AppShell active="ministerios" meta="Ministérios">
-      <MinistryDeskPage />
+      <Suspense fallback={<p role="status">Carregando ministérios…</p>}>
+        <MinistryDeskPage />
+      </Suspense>
     </AppShell>
   );
 }

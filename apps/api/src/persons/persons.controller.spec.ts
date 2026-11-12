@@ -31,7 +31,8 @@ describe("PatchPersonBody", () => {
     await expect(validate({ phone: "61999999999" })).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    await expect(validate({ address: "Rua 1" })).rejects.toBeInstanceOf(
+    await expect(validate({ address: "Rua 1" })).resolves.toMatchObject({ address: "Rua 1" });
+    await expect(validate({ address: "x".repeat(501) })).rejects.toBeInstanceOf(
       BadRequestException,
     );
     await expect(validate({ email: "sem-arroba" })).rejects.toBeInstanceOf(

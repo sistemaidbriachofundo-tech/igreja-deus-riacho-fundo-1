@@ -1,6 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { RiachinhoPublicChat } from "../components/RiachinhoPublicChat";
 import {
   parseRiachinhoAnswer, parseRiachinhoStatus, prepareRiachinhoPublicRequest,
   requestRiachinhoPublicAnswer,
@@ -70,25 +70,15 @@ describe("Riachinho — visitor chat", () => {
     expect(riachinhoPublicError(400,{code:"VIVI_CONSENT_REQUIRED"})).toContain("autorizar");
   });
 
-  it("renders a visible accessible launcher only when explicitly enabled for HML", () => {
-    const prevFlag = process.env.NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED;
-    const prevApi = process.env.NEXT_PUBLIC_API_URL;
-    try {
-      process.env.NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED = "true";
-      process.env.NEXT_PUBLIC_API_URL = "https://id-riacho1-api-hml.vercel.app";
-      const html = renderToStaticMarkup(<RiachinhoPublicChat/>);
-      expect(html).toContain("Conversar com o Riachinho");
-      expect(html).toContain("aria-expanded");
-      expect(html).not.toContain("GEMINI_API_KEY");
-      expect(html).not.toContain("Bearer ");
-      process.env.NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED = "false";
-      expect(renderToStaticMarkup(<RiachinhoPublicChat/>)).toBe("");
-    } finally {
-      if (prevFlag === undefined) delete process.env.NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED;
-      else process.env.NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED = prevFlag;
-      if (prevApi === undefined) delete process.env.NEXT_PUBLIC_API_URL;
-      else process.env.NEXT_PUBLIC_API_URL = prevApi;
-    }
+  it("não monta o chatbot na experiência pública", () => {
+    const portal = readFileSync(join(__dirname, "../components/PublicPortal.tsx"), "utf8");
+    const home = readFileSync(join(__dirname, "../app/page.tsx"), "utf8");
+    expect(portal).not.toContain("RiachinhoPublicChat");
+    expect(portal).not.toContain("riachinhoPublicEnabled");
+    expect(home).not.toContain("Riachinho");
+    expect(portal).toContain('href: "/#quem-somos"');
+    expect(portal).toContain('href: "/#agenda"');
+    expect(portal).toContain('href="/login/"');
   });
   it("posts to the public endpoint only, never sends auth headers or browser credentials", async () => {
     const request = prepareRiachinhoPublicRequest([], "Como visitar?", "session-test", true);
@@ -180,7 +170,7 @@ describe("Riachinho — visitor chat", () => {
       href: "/ministerios/", label: "Ver ministérios",
     });
     expect(riachinhoKnowledgeSection("event")).toEqual({
-      href: "/eventos/", label: "Ver agenda",
+      href: "/#agenda", label: "Ver agenda",
     });
     expect(riachinhoKnowledgeSection("cms")).toBeNull();
   });

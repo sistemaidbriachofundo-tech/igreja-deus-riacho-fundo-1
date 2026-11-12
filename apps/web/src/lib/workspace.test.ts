@@ -35,16 +35,16 @@ describe("Church OS: experiência institucional", () => {
     expect(shell).toContain("logo-igreja-aprovada.webp");
     expect(directory).not.toContain("pessoas-sinteticas.webp");
     expect(directory).toContain("Avatar fictício");
-    expect(dashboard).toContain("hero-oficial.jpg");
-    expect(dashboard).toContain("FOTO DO ACERVO");
     expect(dashboard).toContain("ID Riacho 1");
+    expect(dashboard).not.toContain("hero-oficial.jpg");
     expect(dashboard).not.toContain("Só para Moças");
   });
-  it("mantém a mesma fonte de dados fictícios para as telas locais", () => {
+  it("mantém a mesma fonte de dados fictícios para as telas locais de cadastro", () => {
     const hook = read("lib/use-church-records.ts");
     expect(hook).toContain("SYNTHETIC_STORE_KEY");
     expect(hook).toContain("isMembersDataset");
-    for (const source of [dashboard,directory,admissions]) {
+    expect(dashboard).not.toContain("useChurchRecords");
+    for (const source of [directory, admissions]) {
       expect(source).toContain("useChurchRecords");
       expect(source).not.toContain("apiPost(");
       expect(source).not.toContain("apiLogin(");
@@ -57,7 +57,7 @@ describe("Church OS: experiência institucional", () => {
     expect(read("components/credentials/CredentialDesk.tsx")).toContain("Visualizar");
   });
   it("entrega ações reais para cada área, não botões decorativos", () => {
-    expect(shell).toContain("Ctrl K");
+    expect(shell).toContain('aria-keyshortcuts="Control+K Meta+K"');
     expect(shell).toContain("paletteOpen");
     expect(directory).toContain("downloadCsv(filtered)");
     expect(directory).toContain('view==="GRID"');

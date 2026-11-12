@@ -1,5 +1,6 @@
 /* Public experience only: Church OS admin styles stay untouched. */
 .portal{--paper:#f6f2eb;--white:#fffdf8;--dark:#251c18;--ink:#2e251f;--muted:#74685e;--gold:#cfaa61;--line:#e4dace;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif}
+.portal main:focus{outline:none}
 .portal *{box-sizing:border-box}
 .portal h1,.portal h2,.portal h3,.portal p{margin-top:0}
 .portal h1,.portal h2,.portal h3{font-family:Montserrat,Arial,sans-serif}
@@ -122,13 +123,13 @@
 .contactCta h2{max-width:690px;font-size:clamp(34px,4.9vw,70px);line-height:1.12;letter-spacing:-.065em;margin:18px 0}
 .contactCta p{max-width:530px;color:#cfbfae;line-height:1.75;font-size:14px;margin:0}
 .lightButton{background:#e2bd7a;color:#251b14;white-space:nowrap;flex-shrink:0}
-.footer{background:#1f1916;color:#fff7ea;padding:70px clamp(22px,6vw,88px) 25px}
+.footer{background:#1f1916;color:#fff7ea;padding:42px var(--portal-gutter, 22px) 24px}
 .footerTop,.footerBottom{max-width:1290px;margin:auto}
-.footerTop{display:grid;grid-template-columns:1fr 1.5fr;gap:80px;padding-bottom:70px}
+.footerTop{display:grid;grid-template-columns:1fr 1fr;gap:40px;padding-bottom:28px}
 .footerAbout p{font-size:13px;line-height:1.9;color:#bfae9c;max-width:320px;margin-top:25px}
-.footerLinks{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.footerLinks{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
 .footerLinks>div{display:flex;flex-direction:column;gap:14px}
-.footerLinks a{font-size:12px;color:#f2e6d5}
+.footerLinks a{font-size:14px;color:#f2e6d5}
 .footerLinks a:hover{color:#dab579}
 .footerLabel{color:#bc9360;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
 .footerNote{max-width:145px;color:#9c8d7e;font-size:11px;line-height:1.6}

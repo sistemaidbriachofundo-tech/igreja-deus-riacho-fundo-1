@@ -17,6 +17,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -121,6 +122,24 @@ class CreateRosterBody {
   @IsOptional()
   @IsString()
   ministryId?: string;
+}
+
+class EditRosterBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  title!: string;
+
+  @IsString()
+  @MinLength(1)
+  serviceAt!: string;
+}
+
+class EditRosterSlotBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  roleLabel!: string;
 }
 
 class CreateSlotBody {
@@ -341,6 +360,23 @@ export class RostersController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() body: CreateRosterBody) {
     return this.ministries.createRoster(user, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":rosterId")
+  update(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string, @Body() body: EditRosterBody) {
+    return this.ministries.editRoster(user, rosterId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":rosterId/slots/:slotId")
+  updateSlot(
+    @CurrentUser() user: AuthUser,
+    @Param("rosterId") rosterId: string,
+    @Param("slotId") slotId: string,
+    @Body() body: EditRosterSlotBody,
+  ) {
+    return this.ministries.editRosterSlot(user, rosterId, slotId, body.roleLabel);
   }
 
   @Roles(

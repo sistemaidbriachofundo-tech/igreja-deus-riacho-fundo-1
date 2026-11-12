@@ -22,8 +22,37 @@ export interface RegisterMembershipInput {
   email?: string;
   notes?: string;
   householdLabel?: string;
+  householdId?: string;
+  address?: string;
+  birthDate?: string;
+  baptismDate?: string;
+  firstAttendedOn?: string;
+  weddingDate?: string;
+  sex?: "MALE" | "FEMALE" | "OTHER";
+  isMinor?: boolean;
+  legalGuardianPersonId?: string;
   /** Se informado, vincula pessoa existente; senão cria pessoa fictícia. */
   personId?: string;
+}
+
+/** Apenas datas civis válidas; jamais deixar Date normalizar 31 de fevereiro. */
+export function calendarDay(value: string | undefined, label: string): Date | undefined {
+  if (!value) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new BadRequestException(label + ": informe DD/MM/AAAA no formulário.");
+  const date = new Date(value + "T00:00:00.000Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== value)
+    throw new BadRequestException(label + ": data inválida.");
+  if (date.getTime() > Date.now()) throw new BadRequestException(label + ": a data não pode ser futura.");
+  return date;
+}
+
+export function isUnder18(birthDate: Date, now = new Date()): boolean {
+  const birth = birthDate.toISOString().slice(0,10);
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone:"America/Sao_Paulo", year:"numeric",month:"2-digit",day:"2-digit" }).formatToParts(now);
+  const get = (name: string) => Number(parts.find(item => item.type === name)?.value ?? 0);
+  const year = get("year"), month = get("month"), day = get("day");
+  const [by,bm,bd] = birth.split("-").map(Number);
+  return year - by - (month < bm || (month === bm && day < bd) ? 1 : 0) < 18;
 }
 
 @Injectable()
@@ -95,6 +124,31 @@ export class MembershipsService {
 
     let personId = input.personId?.trim();
 
+    // Regras de dados apenas para novos cadastros; pessoas existentes não são
+    // modificadas indiretamente por este endpoint.
+    const birthDate = personId ? undefined : calendarDay(input.birthDate, "Nascimento");
+    const baptismDate = personId ? undefined : calendarDay(input.baptismDate, "Batismo");
+    const weddingDate = personId ? undefined : calendarDay(input.weddingDate, "Casamento");
+    const firstAttendedOn = personId ? undefined : calendarDay(input.firstAttendedOn, "Primeira frequência");
+    const isMinor = !personId && (birthDate ? isUnder18(birthDate) : input.isMinor === true);
+    if (!personId && input.isMinor === true && birthDate && !isUnder18(birthDate)) {
+      throw new BadRequestException("Verifique o nascimento: a pessoa já é maior de idade.");
+    }
+    if (!personId && isMinor && !input.legalGuardianPersonId?.trim()) {
+      throw new BadRequestException("Informe o responsável legal para o cadastro de menor.");
+    }
+    if (!personId && input.legalGuardianPersonId) {
+      const guardian = await this.prisma.person.findFirst({
+        where: {
+          id: input.legalGuardianPersonId, organizationId: pilot.organizationId,
+          homeChurchId: pilot.churchId, isMinor: false,
+        }, select: { id: true, birthDate: true },
+      });
+      if (!guardian || (guardian.birthDate && isUnder18(guardian.birthDate))) {
+        throw new BadRequestException("Responsável legal inválido ou menor de idade.");
+      }
+    }
+
     if (personId) {
       const existing = await this.prisma.person.findFirst({
         where: {
@@ -107,7 +161,17 @@ export class MembershipsService {
       }
     } else {
       let householdId: string | undefined;
-      if (input.householdLabel?.trim()) {
+      if (input.householdId && input.householdLabel) {
+        throw new BadRequestException("Selecione a família existente ou cadastre um novo núcleo.");
+      }
+      if (input.householdId?.trim()) {
+        const family = await this.prisma.household.findFirst({
+          where: { id: input.householdId, organizationId: pilot.organizationId, churchId: pilot.churchId },
+          select: { id: true },
+        });
+        if (!family) throw new BadRequestException("Família não encontrada nesta congregação.");
+        householdId = family.id;
+      } else if (input.householdLabel?.trim()) {
         const household = await this.prisma.household.create({
           data: {
             organizationId: pilot.organizationId,
@@ -125,6 +189,14 @@ export class MembershipsService {
           householdId,
           displayName,
           email: input.email?.trim().toLowerCase() || null,
+          address: input.address?.trim() || null,
+          birthDate,
+          baptismDate,
+          weddingDate,
+          firstAttendedOn,
+          sex: input.sex ?? null,
+          isMinor,
+          legalGuardianPersonId: input.legalGuardianPersonId?.trim() || null,
           status: "ACTIVE",
         },
       });

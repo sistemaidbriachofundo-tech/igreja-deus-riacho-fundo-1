@@ -1,46 +1,36 @@
 "use client";
 
-import Link from "next/link";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
-import { withBasePath } from "../lib/paths";
+import { SITE_COVER_PHOTO } from "@idbrf/shared";
+import { PUBLIC_FACADE_IMAGE, resolveSitePhoto } from "../lib/site-layout";
+import { PortalSectionLink } from "./PublicSectionLink";
 import { PortalGlyph } from "./PortalGlyph";
 import s from "./portal-cinematic-hero.module.css";
 
-/** A vitrine pública fala da igreja, não expõe módulos de gestão ministerial. */
 export function PortalCinematicHero() {
-  const site = usePublishedSiteLayout();
-  const imageUrl = site.hero.imageUrl.startsWith("/") ? withBasePath(site.hero.imageUrl) : site.hero.imageUrl;
+  const { hero, appearance } = usePublishedSiteLayout();
+  const imageUrl = resolveSitePhoto(hero.imageUrl);
+
   return (
-    <section id="inicio" className={s.hero} data-appearance={site.appearance} aria-labelledby="hero-title">
-      <div className={s.visual} aria-hidden="true">
+    <section id="inicio" className={s.hero} data-appearance={appearance} aria-labelledby="hero-title">
+      <div className={s.photo}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} className={s.coverPhoto} alt="" fetchPriority="high" onError={(event) => { const fallback = withBasePath("/images/hero-oficial.jpg"); if (!event.currentTarget.src.endsWith(fallback)) event.currentTarget.src = fallback; }} />
+        <img src={imageUrl} alt={[SITE_COVER_PHOTO, PUBLIC_FACADE_IMAGE].includes(hero.imageUrl) ? "Fachada da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
       </div>
-      <div className={s.colorGrade} aria-hidden="true" />
-      <div className={s.content}>
-        <div className={s.kicker}>
-          <span className={s.kickerLine} aria-hidden="true" />
-          IGREJA DE DEUS <span aria-hidden="true">•</span> RIACHO FUNDO I
+      <div className={s.layout}>
+        <div>
+          <p className={s.location}>Brasília, DF</p>
+          <h1 id="hero-title" tabIndex={-1} className={s.headline}>
+            <span>{hero.title}</span>
+            <em>{hero.accent}</em>
+          </h1>
         </div>
-        <h1 id="hero-title" className={s.headline}>
-          <span>{site.hero.title}</span>
-          <em>{site.hero.accent}</em>
-        </h1>
-        <p>{site.hero.description}</p>
-        <div className={s.actions}>
-          <Link href="/a-igreja/" className={s.primaryAction}>
-            <span>Quem somos</span><PortalGlyph name="arrow" className={s.actionArrow} width={19} height={19} />
-          </Link>
-          <Link href="/eventos/" className={s.secondaryAction}>
-            <span>Ver agenda</span><PortalGlyph name="arrow" className={s.actionArrow} width={19} height={19}/>
-          </Link>
+        <div className={s.intro}>
+          <p className={s.description}>{hero.description}</p>
+          <PortalSectionLink sectionId="agenda" className={s.primaryAction}>
+            Horários dos cultos <PortalGlyph name="down" width={17} />
+          </PortalSectionLink>
         </div>
-      </div>
-      <div className={s.heroFooter}>
-        <span>UMA IGREJA PARA DEUS, PELAS FAMÍLIAS</span>
-        <a href="#quem-somos" aria-label="Rolar para conhecer a igreja">
-          Descubra nossa história <PortalGlyph name="down" width={18} height={18}/>
-        </a>
       </div>
     </section>
   );

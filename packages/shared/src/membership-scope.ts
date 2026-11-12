@@ -177,5 +177,5 @@ export function canAccessFinance(
   grants: AuthGrant[],
   target: MembershipScopeTarget,
 ): boolean {
-  return allows(grants, target, "ledger", "read");
+  return allows(grants, target, "ledger", "write");
 }

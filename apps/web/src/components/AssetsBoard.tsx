@@ -1,5 +1,7 @@
 "use client";
 
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost } from "../lib/api";
 import { dasError, formatChurchDate, readDasRows, type DasRecord } from "../lib/das-operations";
@@ -22,6 +24,7 @@ export function canChangeAssetStatus(before:unknown,after:AssetStatus,reason:str
 }
 
 export function AssetsBoard({assets,token,roles,refresh}:Props){
+  const { confirm, confirmation } = useActionConfirmation();
   const [filter,setFilter]=useState("ALL");
   const [query,setQuery]=useState("");
   const [selected,setSelected]=useState("");
@@ -99,7 +102,7 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
       setName("");setCode("");setLocation("");setDescription("");setOwner("");
     });
   }
-  function change(e:FormEvent<HTMLFormElement>){
+  async function change(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!detail||!selected)return;
     const statusChanged=detail.status!==nextStatus;
     if(statusChanged&&!canChangeAssetStatus(detail.status,nextStatus,reason)){
@@ -111,8 +114,14 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
     if(newOwner!==str(detail.responsiblePersonId))body.responsiblePersonId=newOwner||null;
     if(reason.trim())body.note=reason.trim();
     if(Object.keys(body).length===0){setNotice("Nenhuma alteração foi informada.");return;}
-    if((nextStatus==="DISPOSED"||nextStatus==="LOST")&&statusChanged
-      &&!window.confirm("Confirma esta mudança patrimonial sensível na base fictícia?"))return;
+    if (statusChanged && (nextStatus === "DISPOSED" || nextStatus === "LOST") && !(await confirm({
+      title: nextStatus === "DISPOSED" ? "Dar baixa no bem?" : "Marcar bem como não localizado?",
+      subject: safe(detail.name, "Bem do inventário"),
+      description: `A situação passará para ${label(nextStatus)} e a justificativa ficará no histórico.`,
+      action: nextStatus === "DISPOSED" ? "Dar baixa no bem" : "Registrar situação",
+      cancel: "Revisar alteração",
+      tone: "danger",
+    }))) return;
     void action("/assets/"+encodeURIComponent(selected),body,"PATCH",()=>setReason(""));
   }
   function addHistory(e:FormEvent<HTMLFormElement>){
@@ -120,6 +129,7 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
     void action("/assets/"+encodeURIComponent(selected)+"/history",{note:note.trim()},"POST",()=>setNote(""));
   }
   return <section className={s.board} aria-labelledby="asset-heading">
+    {confirmation}
     <header className={s.heading}><div><span>RF-030 · GOVERNANÇA E PATRIMÔNIO</span>
       <h2 id="asset-heading">Inventário sob responsabilidade</h2>
       <p>Bens, localizações, responsáveis, manutenção e trilha de alterações por congregação.</p>

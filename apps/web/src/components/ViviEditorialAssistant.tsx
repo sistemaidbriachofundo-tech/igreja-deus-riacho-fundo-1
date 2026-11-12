@@ -10,7 +10,7 @@ import {
   type RiachinhoParsedSuggestion,
   type RiachinhoSuggestionTarget,
 } from "../lib/riachinho-suggestion";
-import { assistantScopeRefusal } from "./RiachinhoPublicChat";
+import { assistantScopeRefusal } from "../lib/assistant-scope";
 import { withBasePath } from "../lib/paths";
 import s from "./vivi-editorial-assistant.module.css";
 

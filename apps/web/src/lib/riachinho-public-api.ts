@@ -151,7 +151,7 @@ export function riachinhoKnowledgeSection(
   kind: RiachinhoPublicKnowledgeSource["kind"],
 ): { href: string; label: string } | null {
   if (kind === "ministry") return { href: "/ministerios/", label: "Ver ministérios" };
-  if (kind === "event") return { href: "/eventos/", label: "Ver agenda" };
+  if (kind === "event") return { href: "/#agenda", label: "Ver agenda" };
   // CMS slugs can represent banners/pages/news, so no speculative deep link.
   return null;
 }

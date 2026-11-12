@@ -1,0 +1,54 @@
+.overview { display: grid; gap: 18px; min-width: 0; color: #18382d; }
+.position {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 24px;
+  padding: clamp(20px, 3.5vw, 42px); border-radius: 18px;
+  background: radial-gradient(ellipse at 100% -35%, #397159, transparent 67%), #102b23; color: #fcf8ed;
+}
+.available { display: grid; align-content: center; gap: 11px; min-width: 0; }
+.positionLabel { display: flex; align-items: center; gap: 8px; color: #c7ded0; font-size: 13px; font-weight: 640; }
+.available > strong { color: #f5e2b9; font: 670 clamp(31px, 4.4vw, 57px)/1.06 Inter, sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+.position dl { display: grid; gap: 10px; margin: 0; }
+.position dl > div { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #c4d7ca33; }
+.position dt { color: #c7ded0; font-size: 13px; }
+.position dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sectionHeading { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 7px 14px; margin-bottom: 14px; }
+.sectionHeading h2 { margin: 0; font-size: clamp(17px, 2vw, 21px); letter-spacing: -.035em; }
+.sectionHeading p { margin: 4px 0 0; font-size: 12px; color: #526b60; }
+.sectionHeading > span { font-size: 12px; color: #526b60; }
+.sectionHeading > span strong { color: #234839; margin-left: 5px; }
+.bankGrid, .analyticGrid { display: grid; gap: 12px; }
+.bankGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr)); }
+.bank, .surface { background: #fff; border: 1px solid #dbe7dd; border-radius: 13px; min-width: 0; padding: clamp(14px, 2vw, 22px); }
+.bank { display: grid; justify-items: start; gap: 7px; text-align: left; color: #234839; font-size: 13px; cursor: pointer; }
+.bank:hover { border-color: #7ca38c; background: #f6faf5; }
+.bankTop { display: flex; justify-content: space-between; align-items: center; width: 100%; color: #526d60; }
+.bankIcon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #e5f0e7; }
+.bank strong { font-size: clamp(16px, 2vw, 25px); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.analyticGrid { grid-template-columns: minmax(0, 1.13fr) minmax(0, 1fr); }
+.channels { display: grid; gap: 13px; list-style: none; padding: 0; margin: 0; }
+.channels li { --bar: #28775f; }
+.channels li[data-channel="cartao"] { --bar: #5572a1; }
+.channels li[data-channel="dinheiro"] { --bar: #a78037; }
+.channels li[data-channel="outras"] { --bar: #708076; }
+.channels li > div, .pending > div, .transferHistory > span { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.track { display: block; margin-top: 6px; height: 8px; border-radius: 99px; background: #ecf2ed; overflow: hidden; }
+.track > span { display: block; height: 100%; background: var(--bar); border-radius: inherit; }
+.pending { display: grid; gap: 8px; }
+.pending > div { background: #faf4e6; color: #493a22; padding: 11px; border-radius: 8px; }
+.transferHistory { display: grid; gap: 6px; margin-top: 11px; color: #486557; }
+.transferHistory > span { font-size: 12px; }
+.textAction { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; border: 0; padding: 0 2px; background: none; color: #245e4b; font-size: 13px; cursor: pointer; }
+.textAction:hover { text-decoration: underline; }
+.timeline { list-style: none; display: flex; gap: 12px; margin: 14px 0 0; padding: 4px 0 0; overflow-x: auto; }
+.timeline li { flex: 1 0 46px; display: grid; justify-items: center; gap: 5px; font-size: 11px; color: #4b6659; font-variant-numeric: tabular-nums; }
+.plot { height: 126px; width: min(90%, 74px); display: grid; grid-template-rows: 18px 1fr; align-items: end; text-align: center; }
+.plot > small { font-size: 10px; }
+.plot > span { display: block; min-height: 1px; border-radius: 5px 5px 0 0; background: #438774; }
+.timeline li[data-negative="true"] .plot > span { background: #af6550; }
+.empty { font-size: 13px; color: #526b60; }
+@media (max-width: 740px) {
+  .position, .analyticGrid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .bankGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .bank { padding: 12px; }
+  .position dl { gap: 3px; }
+}

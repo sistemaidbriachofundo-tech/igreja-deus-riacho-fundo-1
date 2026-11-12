@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
-import { ROLE_CODES, type PatchPersonRequest } from "@idbrf/shared";
+import { Body, Controller, Get, Header, Param, Patch, Post, Query } from "@nestjs/common";
+import { ROLE_CODES, type PatchPersonRequest, type PersonSex } from "@idbrf/shared";
 import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsIn,
   IsISO8601,
   IsOptional,
   IsString,
@@ -31,6 +32,35 @@ export class PatchPersonBody implements PatchPersonRequest {
   @IsEmail()
   @MaxLength(254)
   email?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  birthDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  baptismDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  weddingDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  firstAttendedOn?: string | null;
+
+  @IsOptional()
+  @IsIn(["FEMALE", "MALE", "OTHER"])
+  sex?: PersonSex | null;
 
   @IsOptional()
   @IsBoolean()
@@ -115,12 +145,20 @@ export class PersonsController {
     return this.persons.findCandidates(user, body);
   }
 
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
+  @Get("secretary-overview")
+  secretaryOverview(@CurrentUser() user: AuthUser, @Query("from") from?: string, @Query("to") to?: string) {
+    return this.persons.secretaryOverview(user, from, to);
+  }
+
   @Roles(
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.PLATFORM_ADMIN,
     ROLE_CODES.MEMBRO,
   )
+  @Header("Cache-Control", "private, no-store")
   @Get(":personId/dossier")
   dossier(@CurrentUser() user: AuthUser, @Param("personId") personId: string) {
     return this.persons.getDossier(user, personId);

@@ -64,10 +64,8 @@ describe("access policy matrix", () => {
       lines.some((line) => line.startsWith("PLATFORM_ADMIN pastoral.")),
       false,
     );
-    assert.equal(
-      lines.some((line) => line.startsWith("PLATFORM_ADMIN ledger.")),
-      false,
-    );
+    assert.ok(lines.includes("PLATFORM_ADMIN ledger.read church"));
+    assert.ok(!lines.includes("PLATFORM_ADMIN ledger.write church"));
     assert.equal(
       lines.some((line) => line.startsWith("EDITOR_SITE persons.")),
       false,
@@ -90,12 +88,12 @@ describe("access policy matrix", () => {
     assert.ok(IMPLICIT_GRANT_FINDINGS.every((item) => item.summary.length > 20));
   });
 
-  it("PLATFORM_ADMIN não lê pastoral nem ledger; TESOURARIA no mesmo token lê o caixa", () => {
+  it("PLATFORM_ADMIN consulta o ledger no seu escopo e TESOURARIA permite movimentar", () => {
     const admin = [grant(ROLE_CODES.PLATFORM_ADMIN, { churchId: null })];
     assert.equal(allow(admin, { resource: "pastoral", action: "read" }), false);
     assert.equal(allow(admin, { resource: "pastoral", action: "write" }), false);
     assert.equal(allow(admin, { resource: "pastoral", action: "approve" }), false);
-    assert.equal(allow(admin, { resource: "ledger", action: "read" }), false);
+    assert.equal(allow(admin, { resource: "ledger", action: "read" }), true);
     assert.equal(allow(admin, { resource: "ledger", action: "write" }), false);
     assert.equal(allow(admin, { resource: "admin", action: "administer" }), true);
     assert.equal(allow(admin, { resource: "persons", action: "search" }), true);

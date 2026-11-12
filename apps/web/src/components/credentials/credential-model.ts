@@ -11,6 +11,8 @@ export type CredentialCard = {
   revokedAt: string | null;
   personId: string;
   membershipId: string;
+  /** URL temporária autorizada, quando o serviço de fotos estiver disponível. */
+  photoUrl?: string | null;
   pdf?: {
     hasFile: boolean;
     contentType: string | null;
@@ -98,12 +100,18 @@ export function credentialFailure(error: unknown): { status: number | null; mess
       return { status: 404, message: "Não há carteirinha disponível para esta matrícula." };
     }
     if (error.status === 409) {
-      return { status: 409, message: "Já existe uma carteirinha ativa para esta matrícula." };
+      if (/CREDENTIAL_NOT_ELIGIBLE|credentialEligible=false/i.test(error.message)) {
+        return { status: 409, message: "A admissão precisa da aprovação pastoral antes da emissão." };
+      }
+      if (/já existe carteirinha ativa/i.test(error.message)) {
+        return { status: 409, message: "Já existe uma carteirinha ativa para esta matrícula." };
+      }
+      return { status: 409, message: "A carteirinha foi alterada. Atualize a lista antes de tentar novamente." };
     }
     const status = error.status ?? null;
     return {
       status,
-      message: `A operação não foi concluída${status ? ` (${status})` : ""}.`,
+      message: "Não foi possível concluir a solicitação agora. Tente novamente.",
     };
   }
   return { status: null, message: "Não foi possível contactar o serviço de carteirinhas." };

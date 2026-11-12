@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { PortalSectionLink } from "./PublicSectionLink";
 import { instagramUrl } from "../lib/portal-content";
 import {
   currentPublishedEvents, formatPortalDate,
@@ -35,7 +36,7 @@ function VisitFallback({ compact = false }: { compact?: boolean }) {
     <strong>Programação em atualização</strong>
     <p>Os próximos encontros aparecem aqui quando forem confirmados e publicados pela igreja. Para informações atuais, consulte os canais da comunidade.</p>
     <div className={s.fallbackLinks}>
-      <Link href="/a-igreja/">Conheça nossa igreja <span aria-hidden="true">↗</span></Link>
+      <PortalSectionLink sectionId="quem-somos">Conheça nossa igreja <span aria-hidden="true">↗</span></PortalSectionLink>
       <a href={instagramUrl} rel="noopener noreferrer" target="_blank">Acompanhe os avisos <span aria-hidden="true">↗</span></a>
     </div>
   </div>;
@@ -53,7 +54,7 @@ export function PublishedHomeSpotlight() {
       </div>
       <div className={s.spotlightGrid}>
         <div className={s.spotlightAgenda}>
-          <div className={s.columnHeading}><span>AGENDA</span><Link href="/eventos/">Ver programação <span aria-hidden="true">↗</span></Link></div>
+          <div className={s.columnHeading}><span>AGENDA</span><PortalSectionLink sectionId="agenda">Ver programação <span aria-hidden="true">↗</span></PortalSectionLink></div>
           {events.length > 0 ? events.map((event) => <EventLine event={event} key={event.id} />) :
             status === "loading" ? <p className={s.loading} role="status">Consultando programação publicada…</p> :
             <VisitFallback compact />}
@@ -65,7 +66,7 @@ export function PublishedHomeSpotlight() {
               <span className={s.newsNumber}>0{index + 1}</span>
               <div><span className={s.meta}>PUBLICAÇÃO DA IGREJA</span><h3>{item.title}</h3>{item.summary && <p>{item.summary}</p>}</div>
             </article>
-          ) : <div className={s.newsEmpty}><strong>Histórias que merecem ser contadas.</strong><p>Notícias e testemunhos autorizados serão publicados aqui. Enquanto isso, conheça a nossa comunidade.</p><Link href="/a-igreja/">Nossa história <span aria-hidden="true">↗</span></Link></div>}
+          ) : <div className={s.newsEmpty}><strong>Histórias que merecem ser contadas.</strong><p>Notícias e testemunhos autorizados serão publicados aqui. Enquanto isso, conheça a nossa comunidade.</p><PortalSectionLink sectionId="quem-somos">Nossa história <span aria-hidden="true">↗</span></PortalSectionLink></div>}
         </div>
       </div>
     </section>
@@ -73,20 +74,31 @@ export function PublishedHomeSpotlight() {
 }
 
 export function PublishedAgenda() {
-  const { status, data } = usePublishedResource("/public/events", parsePublishedEvents);
+  const { data } = usePublishedResource("/public/events", parsePublishedEvents);
   const events = useMemo(() => currentPublishedEvents(data ?? []), [data]);
 
   return (
-    <div className={s.agendaArea}>
-      <div className={s.agendaHeader}>
-        <div><span className={s.overline}>AGENDA PÚBLICA</span><h2>Próximos <em>encontros.</em></h2></div>
-        <p>Somente eventos aprovados para divulgação. Datas e locais são apresentados no fuso de Brasília.</p>
+    <div className={s.visitAgenda}>
+      <h2 id="agenda-title" tabIndex={-1}>Cultos de domingo</h2>
+      <div className={s.visitSchedule}>
+        <ul className={s.sundayTimes} aria-label="Horários dos cultos de domingo">
+          <li><span>Manhã</span><time dateTime="10:00">10h</time></li>
+          <li><span>Noite</span><time dateTime="19:00">19h</time></li>
+        </ul>
+        {events.length > 0 && (
+          <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
+            <h3 id="upcoming-events-title">Próximos eventos</h3>
+            {events.map(event => (
+              <article key={event.id} className={s.visitEvent}>
+                <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
+                <h4>{event.name}</h4>
+                {event.locationText && <p>{event.locationText}</p>}
+                {event.description && <p>{event.description}</p>}
+              </article>
+            ))}
+          </section>
+        )}
       </div>
-      {status === "loading" && <p role="status" className={s.loading}>Consultando eventos publicados…</p>}
-      {status !== "loading" && events.length === 0 && <VisitFallback />}
-      {events.length > 0 && <div className={s.eventList}>
-        {events.map((event) => <EventLine event={event} key={event.id}/>)}
-      </div>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { withBasePath } from "../../lib/paths";
+import { PersonPortrait } from "../PersonPortrait";
 import {
-  avatarLabel,
   credentialStatusLabel,
   formatCredentialDate,
   registrationLabel,
@@ -9,14 +9,6 @@ import {
   type QrCheck,
 } from "./credential-model";
 import s from "./credentials.module.css";
-
-function Portrait({ name }: { name: string }) {
-  return (
-    <span className={s.portrait} role="img" aria-label={`Retrato ilustrado de ${name}`}>
-      {avatarLabel(name)}
-    </span>
-  );
-}
 
 export function CredentialFaces({
   card,
@@ -46,7 +38,7 @@ export function CredentialFaces({
           <span className={s.edition}>Homologação</span>
         </header>
         <div className={s.identity}>
-          <Portrait name={card.displayName} />
+          <PersonPortrait name={card.displayName} photoUrl={card.photoUrl} size="card" />
           <div>
             <p className={s.overline}>Membro</p>
             <h3>{card.displayName}</h3>

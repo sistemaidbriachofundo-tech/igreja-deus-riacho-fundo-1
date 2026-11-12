@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
+  IsBoolean,
   IsEmail,
+  IsIn,
   IsISO8601,
+  Matches,
   IsOptional,
   IsString,
   MaxLength,
@@ -36,7 +39,44 @@ class RegisterMembershipBody implements RegisterMembershipInput {
 
   @IsOptional()
   @IsString()
+  householdId?: string;
+
+  @IsOptional()
+  @IsString()
   personId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  birthDate?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  baptismDate?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  firstAttendedOn?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  weddingDate?: string;
+
+  @IsOptional()
+  @IsIn(["MALE", "FEMALE", "OTHER"])
+  sex?: "MALE" | "FEMALE" | "OTHER";
+
+  @IsOptional()
+  @IsBoolean()
+  isMinor?: boolean;
+
+  @IsOptional()
+  @IsString()
+  legalGuardianPersonId?: string;
 }
 
 export class PatchMembershipBody {

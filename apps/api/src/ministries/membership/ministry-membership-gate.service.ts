@@ -78,6 +78,16 @@ export class MinistryMembershipGateService {
     };
   }
 
+  async readPerson(actor: AuthUser, ministryId: string, membershipId: string) {
+    const scope = await this.scope(actor, ministryId);
+    const member = await this.prisma.ministryMembership.findFirst({
+      where: { ...scope, id: membershipId, endedAt: null, status: { not: "ENCERRADO" }, person: { organizationId: scope.organizationId } },
+      select: { person: { select: { id: true, displayName: true, email: true, address: true } } },
+    });
+    if (!member) throw new NotFoundException("Integrante não encontrado na equipe autorizada.");
+    return { person: member.person };
+  }
+
   async admit(actor: AuthUser, ministryId: string, personId: string, role: string) {
     const scope = await this.scope(actor, ministryId);
     if (!personId?.trim() || !isFormalRole(role)) {
@@ -162,14 +172,48 @@ export class MinistryMembershipGateService {
   }
 
   async readCostCenterBalance(actor: AuthUser, ministryId: string) {
-    await this.assertScope(actor, ministryId);
-    this.blocked(MINISTRY_FINANCE_CONTRACT_BLOCKED, {
-      dependency: "issue-96",
-      issue: 96,
-      balance: null,
-      message:
-        "O saldo do centro de custo ministerial depende do contrato financeiro. Nenhum valor foi calculado.",
-    });
+    const ministry = await this.assertScope({
+      ...actor,
+      grants: actor.grants.filter(grant =>
+        grant.roleCode === "PLATFORM_ADMIN" || grant.roleCode === "LIDER_MINISTERIO"
+      ),
+    }, ministryId);
+
+    // The cost center code points to the immutable ministry ID, even if its name changes.
+    const rows = await this.prisma.$queryRaw<Array<{
+      incomeCents: number;
+      expenseCents: number;
+      balanceCents: number;
+    }>>`
+      SELECT COALESCE(SUM(CASE WHEN account.type = 'REVENUE' THEN
+        CASE WHEN line.side = 'CREDIT' THEN line.amount_cents ELSE -line.amount_cents END END), 0)::float8 AS "incomeCents",
+        COALESCE(SUM(CASE WHEN account.type = 'EXPENSE' THEN
+          CASE WHEN line.side = 'DEBIT' THEN line.amount_cents ELSE -line.amount_cents END END), 0)::float8 AS "expenseCents",
+        COALESCE(SUM(CASE WHEN account.type = 'ASSET' THEN
+          CASE WHEN line.side = 'DEBIT' THEN line.amount_cents ELSE -line.amount_cents END END), 0)::float8 AS "balanceCents"
+      FROM cost_centers center
+      LEFT JOIN ledger_entries entry ON entry.organization_id = center.organization_id
+        AND entry.church_id = center.church_id AND entry.status IN ('APPROVED', 'REVERSED')
+        AND (entry.cost_center_id = center.id OR (entry.cost_center_id IS NULL AND EXISTS (
+          SELECT 1 FROM ledger_entries original
+          WHERE original.id = entry.reversal_of_entry_id AND original.cost_center_id = center.id
+        )))
+      LEFT JOIN ledger_entry_lines line ON line.entry_id = entry.id
+      LEFT JOIN ledger_accounts account ON account.id = line.account_id
+        AND account.organization_id = center.organization_id AND account.church_id = center.church_id
+      WHERE center.organization_id = ${ministry.organizationId}
+        AND center.church_id = ${ministry.churchId} AND center.code = ${"MIN:" + ministry.id}
+      GROUP BY center.id
+    `;
+    const totals = rows[0];
+    if (!totals) {
+      this.blocked(MINISTRY_FINANCE_CONTRACT_BLOCKED, {
+        dependency: "issue-96",
+        balance: null,
+        message: "Ainda não há um centro de custo associado a este ministério.",
+      });
+    }
+    return { ministryId: ministry.id, currency: "BRL", ...totals };
   }
 
   private async scope(actor: AuthUser, ministryId: string): Promise<MembershipScope> {

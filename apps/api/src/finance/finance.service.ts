@@ -11,6 +11,8 @@ import {
   BUDGET_STATUSES,
   LEDGER_ACCOUNT_TYPES,
   canAccessFinance,
+  hasAccess,
+  ROLE_CODES,
   checkBalancedLines,
   isValidCompetence,
   nextDualApprovalStage,
@@ -22,6 +24,7 @@ import {
   type LedgerAccountTypeCode,
   type LedgerLineInput,
 } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -55,7 +58,7 @@ export class FinanceService {
   // —— Plano de contas ——
 
   async listAccounts(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const accounts = await this.prisma.ledgerAccount.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -208,10 +211,61 @@ export class FinanceService {
     });
   }
 
+  /** Uma despesa reconhecida requer registro ou conferência de TESOURARIA e aprovação de PASTOR.
+   * Taxas técnicas 5.9 não são tratadas como despesa de fornecedor.
+   * A relação account é carregada pelo Prisma, nunca classificada por texto enviado pelo cliente.
+   */
+  private isExpenseForPastor(lines: Array<{
+    side: string; account?: { type: string; code: string } | null;
+  }>) {
+    return lines.some(line => line.side === "DEBIT" && line.account?.type === "EXPENSE"
+      && !/^5\.9(\.|$)/.test(line.account.code));
+  }
+
+  async listExpenseApprovals(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    if ((actor.churchId && actor.churchId !== scope.churchId)
+      || (actor.organizationId && actor.organizationId !== scope.organizationId)
+      || !hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA] })) {
+      throw new ForbiddenException("Somente tesoureiro e pastor da congregação consultam essas aprovações.");
+    }
+    const rows = await this.prisma.ledgerEntry.findMany({
+      where: {
+        ...scope, status: "PENDING_APPROVAL",
+        lines: { some: { side: "DEBIT", account: { type: "EXPENSE", code: { not: { startsWith: "5.9" } } } } },
+      },
+      orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }],
+      take: 100,
+      include: { lines: { include: { account: { select: { type: true, code: true } } } } },
+    });
+    return { entries: rows.map(row => this.toEntryDto(row)) };
+  }
+
   // —— Lançamentos ——
 
+  async createExpense(actor: AuthUser, input: {
+    requestId: string;
+    entryDate: string;
+    description: string;
+    expenseAccountId: string;
+    cashAccountId: string;
+    amountCents: number;
+    costCenterId?: string;
+  }) {
+    return this.createEntry(actor, {
+      entryDate: input.entryDate,
+      description: input.description,
+      costCenterId: input.costCenterId,
+      lines: [
+        { accountId: input.expenseAccountId, side: "DEBIT", amountCents: input.amountCents, memo: "treasury:expense" },
+        { accountId: input.cashAccountId, side: "CREDIT", amountCents: input.amountCents, memo: "treasury:cash" },
+      ],
+    }, `expense-${input.requestId}`);
+  }
+
   async listEntries(actor: AuthUser, status?: string) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.ledgerEntry.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -219,7 +273,7 @@ export class FinanceService {
         ...(status ? { status: status as never } : {}),
       },
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { type: true, code: true } } } } },
     });
     return {
       churchId: pilot.churchId,
@@ -238,11 +292,15 @@ export class FinanceService {
       competenceYear?: number;
       competenceMonth?: number;
     },
+    expenseId?: string,
   ) {
     const pilot = await this.requireFinance(actor);
     const description = input.description?.trim();
     if (!description) {
       throw new BadRequestException("description é obrigatória");
+    }
+    if (expenseId && description.length < 4) {
+      throw new BadRequestException("Descreva a despesa com pelo menos quatro caracteres.");
     }
     const entryDate = this.parseDateOnly(input.entryDate, "entryDate");
     const competenceYear =
@@ -279,6 +337,16 @@ export class FinanceService {
     if (accounts.length !== accountIds.length) {
       throw new BadRequestException("Conta inválida ou inativa no escopo");
     }
+    if (expenseId) {
+      const debit = input.lines.find(line => line.side === "DEBIT");
+      const credit = input.lines.find(line => line.side === "CREDIT");
+      const expense = accounts.find(account => account.id === debit?.accountId);
+      const cash = accounts.find(account => account.id === credit?.accountId);
+      if (!this.isExpenseForPastor([{ side: "DEBIT", account: expense }])
+        || cash?.type !== "ASSET" || !/^1\.1(\.|$)/.test(cash.code)) {
+        throw new BadRequestException("Selecione uma categoria de despesa e uma conta bancária válidas.");
+      }
+    }
 
     let fundId: string | null = null;
     let costCenterId: string | null = null;
@@ -291,6 +359,7 @@ export class FinanceService {
       ).id;
     }
 
+    const submittedAt = expenseId ? new Date() : null;
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.ledgerEntry.create({
         data: {
@@ -299,6 +368,13 @@ export class FinanceService {
           entryDate,
           description,
           status: "DRAFT",
+          ...(expenseId ? {
+            id: expenseId,
+            status: "PENDING_APPROVAL" as const,
+            submittedAt,
+            firstApprovedByUserId: actor.userId,
+            firstApprovedAt: submittedAt,
+          } : {}),
           amountCents: balance.amountCents,
           createdByUserId: actor.userId,
           fundId,
@@ -314,7 +390,7 @@ export class FinanceService {
             })),
           },
         },
-        include: { lines: true },
+        include: { lines: { include: { account: { select: { type: true, code: true } } } } },
       });
 
       await tx.auditLog.create({
@@ -335,7 +411,29 @@ export class FinanceService {
         },
       });
 
+      if (expenseId) {
+        await tx.auditLog.create({ data: {
+          ...pilot,
+          actorUserId: actor.userId,
+          action: "ledger.entry.submit",
+          resourceType: "ledger_entry",
+          resourceId: row.id,
+          metadata: { approvalStage: "PASTOR", treasuryAction: "expense_registration" },
+        } });
+      }
+
       return this.toEntryDto(row);
+    }).catch(async (error: unknown) => {
+      if (!expenseId || !error || typeof error !== "object" || !("code" in error) || error.code !== "P2002") throw error;
+      const existing = await this.prisma.ledgerEntry.findFirst({
+        where: { ...pilot, id: expenseId, createdByUserId: actor.userId },
+        include: { lines: { include: { account: { select: { type: true, code: true } } } } },
+      });
+      if (existing && existing.description === description && existing.entryDate.getTime() === entryDate.getTime()
+        && existing.costCenterId === costCenterId && existing.lines.length === input.lines.length
+        && input.lines.every(line => existing.lines.some(saved => saved.accountId === line.accountId
+          && saved.side === line.side && saved.amountCents === line.amountCents))) return this.toEntryDto(existing);
+      throw new ConflictException("Este envio já foi usado. Atualize a Tesouraria e confira a despesa antes de tentar novamente.");
     });
   }
 
@@ -388,8 +486,22 @@ export class FinanceService {
   }
 
   async approveEntry(actor: AuthUser, entryId: string) {
-    const pilot = await this.requireFinance(actor);
-    const row = await this.requireEntryInPilot(pilot, entryId);
+    const pilot = await this.pilot.getPilotChurch();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const row = await this.requireEntryInPilot(scope, entryId);
+    const specialExpense = this.isExpenseForPastor(row.lines);
+    if (specialExpense) {
+      const requiredRole = row.firstApprovedByUserId ? ROLE_CODES.PASTOR : ROLE_CODES.TESOURARIA;
+      if ((actor.churchId && actor.churchId !== scope.churchId)
+        || (actor.organizationId && actor.organizationId !== scope.organizationId)
+        || !hasAccess(actor.grants, { ...scope, roleCodes: [requiredRole] })) {
+        throw new ForbiddenException(row.firstApprovedByUserId
+          ? "A aprovação final desta despesa pertence ao pastor da congregação."
+          : "A primeira aprovação desta despesa pertence à tesouraria.");
+      }
+    } else {
+      await this.requireFinance(actor);
+    }
     if (row.status !== "PENDING_APPROVAL") {
       throw new ConflictException({
         code: "LEDGER_ENTRY_NOT_PENDING",
@@ -409,41 +521,74 @@ export class FinanceService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const data =
-        stage.stage === "FIRST"
-          ? {
-              firstApprovedByUserId: actor.userId,
-              firstApprovedAt: new Date(),
-            }
-          : {
-              secondApprovedByUserId: actor.userId,
-              secondApprovedAt: new Date(),
-              status: "APPROVED" as const,
-            };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (stage.stage === "SECOND") await this.assertPendingSettlementFunds(tx, pilot, row);
+        const data =
+          stage.stage === "FIRST"
+            ? {
+                firstApprovedByUserId: actor.userId,
+                firstApprovedAt: new Date(),
+              }
+            : {
+                secondApprovedByUserId: actor.userId,
+                secondApprovedAt: new Date(),
+                status: "APPROVED" as const,
+              };
 
-      const updated = await tx.ledgerEntry.update({
-        where: { id: entryId },
-        data,
-        include: { lines: true },
-      });
+        const updated = await tx.ledgerEntry.update({
+          where: { id: entryId, status: "PENDING_APPROVAL", firstApprovedByUserId: row.firstApprovedByUserId },
+          data,
+          include: { lines: true },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action:
-            stage.stage === "FIRST"
-              ? "ledger.entry.approve.first"
-              : "ledger.entry.approve.second",
-          resourceType: "ledger_entry",
-          resourceId: entryId,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-        },
-      });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action:
+              stage.stage === "FIRST"
+                ? "ledger.entry.approve.first"
+                : "ledger.entry.approve.second",
+            resourceType: "ledger_entry",
+            resourceId: entryId,
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+          },
+        });
 
-      return this.toEntryDto(updated);
+        return this.toEntryDto(updated);
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error.code === "P2025" || error.code === "P2034")) {
+        throw new ConflictException("Outro movimento foi registrado. Atualize o extrato antes de aprovar.");
+      }
+      throw error;
+    }
+  }
+
+  private async assertPendingSettlementFunds(
+    tx: Prisma.TransactionClient,
+    pilot: PilotScope,
+    row: { costCenterId: string | null; lines: Array<{ accountId: string; memo: string | null; side: string; amountCents: number }> },
+  ) {
+    const origin = row.lines.find(line => line.side === "CREDIT" && line.memo === "Tesouraria · baixa da pendência");
+    if (!origin) return;
+    const account = await tx.ledgerAccount.findFirst({
+      where: { id: origin.accountId, ...pilot, type: "ASSET", code: { in: ["1.2.20.01", "1.2.20.02"] } },
+      select: { id: true },
     });
+    if (!account) throw new BadRequestException("Conta de origem inválida para esta baixa.");
+    const totals = await tx.ledgerEntryLine.groupBy({
+      by: ["side"],
+      where: {
+        accountId: origin.accountId,
+        entry: { ...pilot, costCenterId: row.costCenterId, status: { in: ["APPROVED", "REVERSED"] } },
+      },
+      _sum: { amountCents: true },
+    });
+    const balance = totals.reduce((sum, item) =>
+      sum + (item.side === "DEBIT" ? 1 : -1) * (item._sum.amountCents ?? 0), 0);
+    if (origin.amountCents > balance) throw new ConflictException("O valor da baixa ultrapassa o saldo em aberto neste centro de custo.");
   }
 
   async rejectEntry(
@@ -711,7 +856,7 @@ export class FinanceService {
   // —— Conciliação ——
 
   async listReconciliations(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.reconciliation.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -1180,7 +1325,7 @@ export class FinanceService {
   }
 
   async listCostCenters(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.costCenter.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -1696,14 +1841,11 @@ export class FinanceService {
 
   // —— helpers ——
 
-  private async requireFinance(actor: AuthUser): Promise<PilotScope> {
+  private async requireFinance(actor: AuthUser, action: "read" | "write" = "write"): Promise<PilotScope> {
     const pilot = await this.pilot.getPilotChurch();
-    if (
-      !canAccessFinance(actor.grants, {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-      })
-    ) {
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const adminRead = action === "read" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
+    if (!adminRead && !canAccessFinance(actor.grants, scope)) {
       throw new ForbiddenException(
         "Sem permissão de tesouraria nesta congregação",
       );
@@ -1763,7 +1905,7 @@ export class FinanceService {
         churchId: pilot.churchId,
       },
       include: {
-        lines: true,
+        lines: { include: { account: { select: { type: true, code: true } } } },
         reversedBy: { select: { id: true } },
       },
     });
@@ -1979,9 +2121,11 @@ export class FinanceService {
       side: string;
       amountCents: number;
       memo: string | null;
+      account?: { type: string; code: string } | null;
     }>;
   }) {
     return {
+      approvalFlow: this.isExpenseForPastor(row.lines) ? "TREASURER_THEN_PASTOR" : "DUAL_APPROVAL",
       id: row.id,
       churchId: row.churchId,
       entryDate: row.entryDate.toISOString().slice(0, 10),

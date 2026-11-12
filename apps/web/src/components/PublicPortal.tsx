@@ -1,14 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
+import { instagramUrl, youtubeChannelUrl, ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
 import s from "./public-portal.module.css";
-import { PortalMotion } from "./PortalMotion";
 import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
 import { PortalButton } from "./PortalButton";
-import { RiachinhoPublicChat } from "./RiachinhoPublicChat";
-import { riachinhoPublicEnabled } from "../lib/riachinho-public-api";
+import { PublicHashFocus, PortalSectionLink } from "./PublicSectionLink";
 import d from "./portal-design-system.module.css";
 
 export { s as portalStyles };
@@ -24,9 +22,9 @@ function Logo({ inverse = false }: { inverse?: boolean }) {
 }
 
 const navigation = [
-  { href: "/", label: "Início" },
-  { href: "/a-igreja/", label: "Quem somos" },
-  { href: "/eventos/", label: "Agenda" },
+  { href: "/#inicio", label: "Início" },
+  { href: "/#quem-somos", label: "Quem somos" },
+  { href: "/#agenda", label: "Agenda" },
 ];
 
 export function PortalHeader({ light = false }: { light?: boolean }) {
@@ -36,7 +34,7 @@ export function PortalHeader({ light = false }: { light?: boolean }) {
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
-          <Link href="/login/" className={d.headerLogin} aria-label="Login ID Riacho 1 — abrir tela de e-mail e senha" title="Entrar na plataforma ID Riacho 1">Login</Link>
+          <Link href="/login/" className={d.headerLogin}>Login</Link>
           <MobilePortalMenu links={navigation} />
         </div>
       </div>
@@ -50,27 +48,28 @@ export function PortalFooter() {
       <div className={s.footerTop}>
         <div className={s.footerAbout}>
           <Logo inverse />
-          <p>Uma igreja para Deus, pelas famílias. Um lugar de fé, comunhão e cuidado para cada história.</p>
+          <p>Riacho Fundo I · Brasília, DF</p>
         </div>
         <nav className={s.footerLinks} aria-label="Navegação do rodapé">
-          <div><span className={s.footerLabel}>Navegue</span>
-            <Link href="/">Início</Link>
-            <Link href="/a-igreja/">Quem somos</Link>
-            <Link href="/eventos/">Agenda</Link>
-          </div>
-          <div><span className={s.footerLabel}>Área restrita</span>
+          <div><span className={s.footerLabel}>Site</span>
+            <PortalSectionLink sectionId="inicio">Início</PortalSectionLink>
+            <PortalSectionLink sectionId="quem-somos">Quem somos</PortalSectionLink>
+            <PortalSectionLink sectionId="agenda">Agenda</PortalSectionLink>
             <Link href="/login/">Login</Link>
-            <span className={s.footerNote}>Gestão interna de equipes, ministérios e recursos com acesso autorizado.</span>
+          </div>
+          <div><span className={s.footerLabel}>Redes sociais</span>
+            <a href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">YouTube</a>
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram</a>
           </div>
         </nav>
       </div>
-      <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span><span>Fé · Família · Comunhão · Missão</span></div>
+      <div className={s.footerBottom}><span>© 2026 Igreja de Deus · Riacho Fundo I</span></div>
     </footer>
   );
 }
 
 export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PortalMotion withRiachinho={riachinhoPublicEnabled()} />{children}<PortalFooter /><RiachinhoPublicChat /></div>;
+  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {
@@ -108,10 +107,6 @@ export function MinistryCard({ ministry, index }: { ministry: PortalMinistry; fe
 export function MinistryGrid({ showAll = true }: { showAll?: boolean }) {
   const items = showAll ? ministries : ministries.slice(0, 3);
   return <div className={s.ministryJourney}>{items.map((ministry, index) => <MinistryCard key={ministry.slug} ministry={ministry} index={index} />)}</div>;
-}
-
-export function DemoNote({ compact = false }: { compact?: boolean }) {
-  return <p className={compact ? s.demoNoteCompact : s.demoNote}><span aria-hidden="true">✳</span> Agenda ilustrativa para avaliação do portal. Datas e eventos não são programação oficial.</p>;
 }
 
 export function EventCard({ event }: { event: PortalEvent }) {

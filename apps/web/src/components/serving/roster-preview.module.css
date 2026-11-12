@@ -1,0 +1,8 @@
+.panel { display: grid; gap: 12px; padding: 16px; margin-block: 12px; border: 1px solid #d6e6da; border-radius: 12px; background: #f3f8f3; color: #15382b; }
+.panel header { display: grid; gap: 4px; }
+.panel :is(h4, p) { margin: 0; }
+.panel p { color: #486358; font-size: .875rem; }
+.panel button { justify-self: start; }
+.positions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 8px; list-style: none; margin: 0; padding: 0; }
+.positions li { display: grid; gap: 4px; align-content: start; padding: 10px; border-radius: 8px; background: #fff; overflow-wrap: anywhere; }
+.positions small { color: #486358; }

@@ -1,24 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import d from "./portal-design-system.module.css";
+import { PUBLIC_SECTIONS, PortalSectionLink, useActivePublicSection } from "./PublicSectionLink";
 
-/** Site institucional: os ministérios são gerenciados na área autenticada. */
-const PAGES = [
-  { href: "/", label: "Início" },
-  { href: "/a-igreja/", label: "Quem somos" },
-  { href: "/eventos/", label: "Agenda" },
-] as const;
-
+/** Site institucional: uma página, três seções. Ministérios ficam na área autenticada. */
 export function PortalDesktopNavigation() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const onHome = pathname === "/" || pathname === "";
+  const active = useActivePublicSection();
   return <nav className={d.desktopNav} aria-label="Navegação do site público">
-    {PAGES.map(item=>
-      <Link key={item.href} href={item.href}
-        aria-current={pathname === item.href || pathname === item.href.slice(0,-1) ? "page" : undefined}>
+    {PUBLIC_SECTIONS.map(item =>
+      <PortalSectionLink key={item.id} sectionId={item.id} current={onHome && active === item.id}>
         {item.label}
-      </Link>
+      </PortalSectionLink>
     )}
   </nav>;
 }

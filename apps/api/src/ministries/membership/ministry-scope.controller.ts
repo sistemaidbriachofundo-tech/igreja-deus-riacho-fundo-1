@@ -42,6 +42,15 @@ export class MinistryScopeController {
     return this.gate.readMemberships(user, ministryId);
   }
 
+  @Get(":ministryId/formal-memberships/:membershipId/person")
+  person(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("membershipId") membershipId: string,
+  ) {
+    return this.gate.readPerson(user, ministryId, membershipId);
+  }
+
   @Post(":ministryId/formal-memberships")
   @HttpCode(201)
   admit(

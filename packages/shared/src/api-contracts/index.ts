@@ -50,6 +50,10 @@ export type {
   AdvanceAdmissionRequest,
   HealthResponse,
   PatchPersonRequest,
+  PersonProfileDates,
+  PersonProfileFields,
+  PersonSex,
+  PersonTimelineEvent,
   PersonDossierResponse,
   AdmissionDocumentMetaDto,
   AdmissionDocumentsListResponse,
@@ -68,6 +72,7 @@ export type {
   ViviChatResponse,
   ViviStatusResponse,
 } from "./dto";
+export { PERSON_PROFILE_DATES } from "./dto";
 
 /**
  * Matriz de implementação vs contrato (FE usa para feature flags).

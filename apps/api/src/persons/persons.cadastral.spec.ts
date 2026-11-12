@@ -301,10 +301,15 @@ describe("PersonsService cadastral patch", () => {
     expect((await codeOf(service.patch(secretaria, "p1", { phone: "61999999999" }))).code).toBe(
       "PERSON_CONTACT_UNSUPPORTED",
     );
-    expect(
-      (await codeOf(service.patch(secretaria, "p1", { address: "Rua 1" }))).code,
-    ).toBe("PERSON_CONTACT_UNSUPPORTED");
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("atualiza endereço sem copiar seu conteúdo para a auditoria", async () => {
+    const { service, prisma } = build();
+    prisma.person.findFirst.mockResolvedValueOnce(row({ address: null })).mockResolvedValueOnce(row({ address: "Rua 1" }));
+    await expect(service.patch(secretaria, "p1", { address: " Rua 1 " })).resolves.toMatchObject({ address: "Rua 1" });
+    expect(prisma.person.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { address: "Rua 1" } }));
+    expect(JSON.stringify(prisma.auditLog.create.mock.calls)).not.toContain("Rua 1");
   });
 
   it("exige família da congregação piloto", async () => {

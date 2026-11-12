@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { PortalMotion } from "../components/PortalMotion";
 import { PortalJourney } from "../components/PortalJourney";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { FirstVisitFeature, VisitQuestions } from "../components/FirstVisit";
@@ -9,30 +8,29 @@ import { MobilePortalMenu } from "../components/MobilePortalMenu";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
 import { PortalButton } from "../components/PortalButton";
 import { PortalDesktopNavigation } from "../components/PortalDesktopNavigation";
-import { PortalHeader, PortalFooter } from "../components/PublicPortal";
+import { PortalHeader, PortalFooter, PublicPage } from "../components/PublicPortal";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
 
 describe("portal v3+ — camadas de experiência", () => {
   it("reproduz a direção de arte aprovada com componentes funcionais", () => {
     const html = renderToStaticMarkup(<PortalCinematicHero />);
-    expect(html).toContain("Sua jornada com Deus");
-    expect(html).toContain("pode começar aqui.");
-    expect(html).toContain("Quem somos");
+    expect(html).toContain("Igreja de Deus");
+    expect(html).toContain("Riacho Fundo I");
     expect(html).not.toContain("Quero visitar");
-    expect(html).toContain("Ver agenda");
+    expect(html).toContain("Horários dos cultos");
+    expect(html.match(/<a /g)).toHaveLength(1);
     expect(html).not.toContain('aria-label="Explorar os cinco ministérios"');
     expect(html).not.toContain('href="/ministerios');
     expect(html).not.toContain("Culto de Celebração");
   });
 
-  it("exibe quatro imagens ilustrativas com alternativas descritivas e aviso editorial", () => {
+  it("exibe as oito fotos novas com descrições acessíveis", () => {
     const html = renderToStaticMarkup(<PortalFaithGallery />);
-    expect(html).toContain("A fé tem muitas formas");
+    expect(html).toContain("em fotos");
     expect(html).toContain('id="galeria"');
-    expect(html.match(/<img /g)).toHaveLength(4);
-    for (const image of ["galeria-louvor.webp", "galeria-juventude.webp", "galeria-oracao.webp", "galeria-palavra.webp"]) expect(html).toContain(image);
-    for (const name of ["Louvor", "Juventude", "Oração", "Palavra"]) expect(html).toContain(name);
-    expect(html).toContain("Imagens ilustrativas");
+    expect(html.match(/<img /g)).toHaveLength(8);
+    for (const image of ["palavra", "adoracao", "guitarra", "intercessao", "templo", "expressao", "louvor", "ceia"]) expect(html).toContain("/images/riacho/" + image + ".webp");
+    expect(html).toContain('alt="Bandejas com os elementos da Santa Ceia."');
     expect(html).not.toContain("evento confirmado em 2026");
   });
 
@@ -60,25 +58,27 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(header).not.toContain("/ministerios");
     expect(header).not.toContain("Primeira visita");
     expect(header).toContain('href="/login');
-    expect(header).toContain("abrir tela de e-mail e senha");
-    expect(mobile).toContain("Login");
+    expect(header.match(/>Login<\/a>/g)).toHaveLength(1);
+    expect(mobile).not.toContain("Login");
     expect(mobile).not.toContain("Ministérios");
     expect(footer).toContain(">Login</a>");
   });
 
-  it("mantém as melhorias de rolagem não intrusivas e acessíveis", () => {
-    const html = renderToStaticMarkup(<PortalMotion />);
-    expect(html).toContain('aria-label="Voltar ao início da página"');
-    expect(html).toContain('aria-hidden="true"');
-    expect(html).toContain("scaleX(");
+  it("mantém o acesso ao conteúdo sem inserir controles flutuantes", () => {
+    const html = renderToStaticMarkup(<PublicPage><main id="conteudo">Portal</main></PublicPage>);
+    expect(html).toContain('href="#conteudo"');
+    expect(html).not.toContain("Voltar ao início da página");
   });
 
   it("preserva a navegação mobile acessível e permite fechamento ao navegar", () => {
-    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/", label: "Início" },{ href: "/a-igreja/", label: "Quem somos" },{ href: "/eventos/", label: "Agenda" }]} />);
+    const html = renderToStaticMarkup(<MobilePortalMenu links={[{ href: "/#inicio", label: "Início" },{ href: "/#quem-somos", label: "Quem somos" },{ href: "/#agenda", label: "Agenda" }]} />);
     expect(html).toContain('aria-label="Navegação do site público no celular"');
+    expect(html).toContain('href="/#quem-somos"');
+    expect(html).toContain('href="/#agenda"');
+    expect(html).not.toContain('href="/a-igreja');
     expect(html).toContain("Quem somos");
     expect(html).toContain("Agenda");
-    expect(html).toContain("Login");
+    expect(html).not.toContain("Login");
     expect(html).not.toContain("Primeira visita");
     expect(html).toContain("Abrir menu");
   });

@@ -19,10 +19,9 @@ describe("ficha da secretaria no primeiro render", () => {
       />,
     );
     expect(html).toContain("Abrindo ficha…");
-    expect(html).toContain("p-ana");
+    expect(html).not.toContain("p-ana");
     expect(html).toContain('data-can-edit="true"');
-    expect(html).toContain("DADOS FICTÍCIOS");
-    expect(html).toContain("Casos pastorais não entram nesta ficha");
+    expect(html).toContain("Cadastro de pessoa");
     expect(html).not.toContain("token-ultrassecreto");
     expect(html).not.toContain("Salvar campos permitidos");
     expect(html).not.toContain("ana.demo@example.test");
@@ -84,7 +83,6 @@ describe("ficha 360 pronta para edição", () => {
     const html = renderToStaticMarkup(
       <Ficha360Dialog
         titleId="ficha-titulo"
-        personId="p-bruno"
         state={state}
         households={[{ id: "h-demo", label: "Família Demo" }]}
         canEdit
@@ -103,17 +101,19 @@ describe("ficha 360 pronta para edição", () => {
       />,
     );
     expect(html).toContain("Bruno Demo Membro");
-    expect(html).toContain('data-field="displayName"');
-    expect(html).toContain('data-field="email"');
-    expect(html).toContain('data-field="notes"');
+    expect(html).toContain("Visão geral");
+    expect(html).toContain("Histórico eclesiástico");
+    expect(html).toContain("Dados e edição");
+    expect(html).toContain("Admissões e documentos");
     expect(html).toContain("Família Demo");
     expect(html).toContain("Menor Demo");
-    expect(html).toContain("comprovante-ficticio.pdf");
-    expect(html).toContain("aria-readonly=\"true\"");
+    expect(html).toContain("SITUAÇÃO ECLESIÁSTICA");
     expect(html).toContain("Ativo");
-    expect(html).toContain(">Salvar<");
-    expect(html).toContain("Reabrir ficha");
+    // A ficha passa a abrir em modo leitura e não exige editar para consultar.
+    expect(html).not.toContain('data-field="displayName"');
+    expect(html).not.toContain('data-field="notes"');
+    expect(html).not.toContain("comprovante-ficticio.pdf");
     expect(html).not.toContain("pastoral-cases");
-    expect(html).not.toContain("token");
+    expect(html).not.toContain("outro-token");
   });
 });

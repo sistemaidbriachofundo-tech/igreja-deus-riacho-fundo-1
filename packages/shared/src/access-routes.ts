@@ -54,6 +54,10 @@ export function classifyAccessRoute(
     return { resource: "pastoral", action: read ? "read" : "write" };
   }
 
+  if (path === "/admin/access" || path.startsWith("/admin/access/")) {
+    return { resource: "admin", action: "administer" };
+  }
+
   if (path === "/ledger" || path.startsWith("/ledger/")) {
     return { resource: "ledger", action: read ? "read" : "write" };
   }

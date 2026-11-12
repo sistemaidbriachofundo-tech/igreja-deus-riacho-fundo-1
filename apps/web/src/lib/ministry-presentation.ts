@@ -6,6 +6,9 @@
 
 import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
 
+export type EscalaAssignment = { id: string; personId: string; partnerPersonId: string; status: string; personName: string; partnerName: string };
+export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; assignments: EscalaAssignment[] };
+
 export type MinistryEscala = {
   id: string;
   title: string;
@@ -13,6 +16,7 @@ export type MinistryEscala = {
   status: string;
   functions: string[];
   assignedCount: number;
+  positions?: EscalaPosition[];
 };
 
 export type MinistryActivity = {
@@ -89,16 +93,26 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
     if (!Number.isFinite(Date.parse(serviceAt))) continue;
     const slots = Array.isArray(row.slots) ? row.slots : [];
     const functions: string[] = [];
+    const positions: EscalaPosition[] = [];
     let assignedCount = 0;
     for (const slot of slots) {
       const card = asRecord(slot);
       const label = textOf(card?.roleLabel);
       if (label) functions.push(label);
       const assignments = Array.isArray(card?.assignments) ? card.assignments : [];
-      for (const assignment of assignments) {
-        const status = textOf(asRecord(assignment)?.status);
-        if (status === "PENDING" || status === "CONFIRMED") assignedCount += 1;
-      }
+      const assigned = assignments.flatMap(assignment => {
+        const item = asRecord(assignment);
+        const status = textOf(item?.status);
+        if (status !== "PENDING" && status !== "CONFIRMED") return [];
+        assignedCount += 1;
+        const id = textOf(item?.id), personId = textOf(item?.personId);
+        return id && personId ? [{
+          id, personId, status, partnerPersonId: textOf(item?.partnerPersonId),
+          personName: textOf(item?.personName), partnerName: textOf(item?.partnerName),
+        }] : [];
+      });
+      const id = textOf(card?.id);
+      if (id && label) positions.push({ id, label, requiresCouple: card?.requiresCouple === true, assignments: assigned });
     }
     items.push({
       id,
@@ -107,6 +121,7 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
       status: textOf(row.status) || "DRAFT",
       functions,
       assignedCount,
+      ...(positions.length ? { positions } : {}),
     });
   }
   items.sort((a, b) => Date.parse(a.serviceAt) - Date.parse(b.serviceAt) || a.title.localeCompare(b.title, "pt-BR"));

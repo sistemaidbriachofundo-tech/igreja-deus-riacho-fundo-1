@@ -12,6 +12,9 @@ import { MfaModule } from "./auth/mfa/mfa.module";
 import { OidcModule } from "./auth/oidc/oidc.module";
 import { CredentialsModule } from "./credentials/credentials.module";
 import { SimpleRateLimitMiddleware } from "./common/simple-rate-limit.middleware";
+import { CorrelationMiddleware } from "./common/observability/correlation.middleware";
+import { ObservabilityModule } from "./common/observability/observability.module";
+import { ALL_ROUTES } from "./common/observability/wiring";
 import { ChannelsModule } from "./channels/channels.module";
 import { ChurchesModule } from "./churches/churches.module";
 import { CmsModule } from "./cms/cms.module";
@@ -33,6 +36,7 @@ import { PersonalRostersModule } from "./rosters/personal-rosters.module";
 import { PastoralModule } from "./pastoral/pastoral.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
+import { PlatformSecurityModule } from "./platform-security/platform-security.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublicPortalModule } from "./public-portal/public-portal.module";
 import { ReportsModule } from "./reports/reports.module";
@@ -44,6 +48,8 @@ import { ViviModule } from "./vivi/vivi.module";
 @Module({
   imports: [
     PrismaModule,
+    PlatformSecurityModule,
+    ObservabilityModule.forRoot({ env: observabilityEnv() }),
     StorageModule,
     PilotModule,
     AuthModule,
@@ -81,6 +87,9 @@ import { ViviModule } from "./vivi/vivi.module";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
+    if (observabilityInstalled()) {
+      consumer.apply(CorrelationMiddleware).forRoutes(ALL_ROUTES);
+    }
     consumer.apply(SimpleRateLimitMiddleware).forRoutes(
       { path: "auth/login", method: RequestMethod.POST },
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
@@ -91,4 +100,18 @@ export class AppModule implements NestModule {
       { path: "public/vivi/chat", method: RequestMethod.POST },
     );
   }
+}
+
+function observabilityInstalled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.OBSERVABILITY_INSTALL_GLOBALS === "1"
+    || env.VERCEL === "1"
+    || env.IDBRF_RUNTIME_STAGE === "production";
+}
+
+function observabilityEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    OBSERVABILITY_INSTALL_GLOBALS: env.OBSERVABILITY_INSTALL_GLOBALS ?? (observabilityInstalled(env) ? "1" : "0"),
+    OBSERVABILITY_WIRE_MIDDLEWARE: "0",
+  };
 }

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s · " + APP_NAME,
   },
   description:
-    "Igreja de Deus no Riacho Fundo I — conheça nossa comunidade, ministérios, agenda e portal de gestão Church OS.",
+    "Igreja de Deus no Riacho Fundo I, em Brasília. Conheça a igreja e confira os horários dos cultos.",
 };
 
 export default function RootLayout({

@@ -97,6 +97,7 @@ describe("MinistryMembershipGateService", () => {
       create: jest.fn(),
     };
     const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       ministry: { findFirst },
       volunteerInterest,
       ledgerEntry: { findMany: jest.fn() },
@@ -117,6 +118,16 @@ describe("MinistryMembershipGateService", () => {
     }
     throw new Error("a chamada deveria falhar");
   }
+
+  it("devolve o caixa autorizado pelo centro do próprio ministério", async () => {
+    const { service, prisma } = setup();
+    prisma.$queryRaw.mockResolvedValueOnce([{ balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 }]);
+    await expect(service.readCostCenterBalance(liderHomens, homens.id))
+      .resolves.toEqual({ ministryId: homens.id, currency: "BRL", balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 });
+    expect(prisma.$queryRaw).toHaveBeenCalledWith(expect.anything(), pilot.organizationId, pilot.churchId, "MIN:" + homens.id);
+    await expect(service.readCostCenterBalance(secretaria, homens.id)).rejects.toBeInstanceOf(HttpException);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
 
   it("responde 403 quando o líder dos Homens consulta Mulheres", async () => {
     const { service, prisma, volunteerInterest } = setup();

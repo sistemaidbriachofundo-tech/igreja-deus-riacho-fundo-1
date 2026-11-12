@@ -270,6 +270,7 @@ function applyEntry(bucket: Bucket, entry: PositionEntry): void {
       throw new Error("INVALID_SIDE");
     }
     assertAmount(item.amountCents);
+    if (item.accountType === "EQUITY") continue;
     const role = classifyAccount(item.accountType, item.accountCode);
     const debit = item.side === "DEBIT";
     if (role === "UNCLASSIFIED") {

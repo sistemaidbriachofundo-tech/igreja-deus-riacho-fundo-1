@@ -26,10 +26,22 @@ afterEach(() => {
 });
 
 describe("TreasuryPanel", () => {
+  it("mostra aprovação pastoral diretamente após o registro pelo tesoureiro", () => {
+    const entry = {
+      status: "PENDING_APPROVAL", createdByUserId: "tesoureiro", firstApprovedByUserId: "tesoureiro",
+      approvalFlow: "TREASURER_THEN_PASTOR" as const,
+    };
+    expect(approvalCopy("tesoureiro", entry, ["TESOURARIA", "PASTOR"])).toEqual({
+      text: "Aguardando aprovação do pastor", canApprove: false,
+    });
+    expect(approvalCopy("pastor", entry, ["PASTOR"]).canApprove).toBe(true);
+    expect(approvalCopy("outro-tesoureiro", entry, ["TESOURARIA"]).canApprove).toBe(false);
+  });
+
   it("não publica saldo antes da consulta", () => {
     const html = renderToStaticMarkup(<TreasuryPanel />);
-    expect(html).toContain("Consultando o ledger");
-    expect(html).toContain("Pix, banco e maquininha permanecem bloqueados");
+    expect(html).toContain("Consultando lançamentos");
+    expect(html).not.toContain("Dados de teste");
     expect(html).not.toContain("R$");
     expect(html).not.toContain("Sem consulta");
   });
@@ -37,7 +49,7 @@ describe("TreasuryPanel", () => {
   it("não oferece gravação quando a homologação da interface está desligada", () => {
     process.env.NEXT_PUBLIC_HML_ENABLED = "false";
     const html = renderToStaticMarkup(<TreasuryPanel />);
-    expect(html).toContain("gravação fica desligada");
+    expect(html).not.toContain("Gravar rascunho");
     expect(html).toContain("Nenhum valor foi exibido");
     expect(html).toContain("disabled");
     expect(html).not.toContain("R$");

@@ -81,12 +81,29 @@ describe("contrato de PATCH da ficha 360", () => {
     expect(PATCHABLE_PERSON_FIELDS).toEqual([
       "displayName",
       "email",
+      "address",
+      "birthDate",
+      "baptismDate",
+      "weddingDate",
+      "firstAttendedOn",
+      "sex",
       "isMinor",
       "legalGuardianPersonId",
       "householdId",
       "expectedUpdatedAt",
     ]);
     expect(REGULATED_PERSON_FIELDS.map((field) => field.key)).toEqual(["status", "kind"]);
+  });
+
+  it("grava e remove o endereço sem alterar a situação", () => {
+    expect(buildPersonPatch({ ...baseline, address: " Rua de QA " }, baseline, null)).toEqual({ address: "Rua de QA" });
+    expect(buildPersonPatch({ ...baseline, address: "" }, { ...baseline, address: "Rua de QA" }, null)).toEqual({ address: null });
+  });
+
+  it("edita datas civis e limpa apenas o valor alterado", () => {
+    const previous = { ...baseline, birthDate: "1982-05-13", weddingDate: "2004-05-20" };
+    expect(buildPersonPatch({ ...previous, weddingDate: "", baptismDate: "1999-02-20" }, previous, versions.personUpdatedAt))
+      .toEqual({ weddingDate: null, baptismDate: "1999-02-20", expectedUpdatedAt: versions.personUpdatedAt });
   });
 
   it("envia o campo alterado e a versão lida da API", () => {
@@ -172,7 +189,8 @@ describe("erros de abrir, salvar e reabrir", () => {
   it("diferencia conflito de sessão e preserva a mensagem de validação", () => {
     const conflict = classifyDossierError(new Error('{"statusCode":409,"message":"A ficha foi alterada por outra gravação. Reabra antes de salvar.","code":"PERSON_VERSION_CONFLICT"}'));
     expect(conflict.kind).toBe("conflict");
-    expect(conflict.message).toMatch(/409/);
+    expect(conflict.status).toBe(409);
+    expect(conflict.message).not.toMatch(/409/);
     expect(conflict.message).toMatch(/outra gravação/);
     expect(conflict.message).not.toMatch(/sessão expirou/i);
     const validation = classifyDossierError(new Error(JSON.stringify({
@@ -181,7 +199,7 @@ describe("erros de abrir, salvar e reabrir", () => {
     })));
     expect(validation).toMatchObject({
       kind: "validation",
-      message: "Menor de idade exige responsável legal (legalGuardianPersonId)",
+      message: "Menor de idade exige responsável legal",
     });
     expect(classifyDossierError(new Error("jwt expired")).kind).toBe("session");
   });
@@ -210,7 +228,7 @@ describe("erros de abrir, salvar e reabrir", () => {
     });
     expect(next.form?.householdId).toBe("h-exemplo");
     expect(next.saveError).toBeNull();
-    expect(next.refreshError?.message).toMatch(/não é falha de salvamento/);
+    expect(next.refreshError?.message).toMatch(/Os dados foram salvos/);
     expect(next.refreshError?.message).toMatch(/releitura indisponível/);
   });
 
@@ -421,8 +439,8 @@ describe("cliente da ficha", () => {
     expect(reopened.form?.householdId).toBe("h-exemplo");
     expect(reopened.form?.notes).toBe("nota persistida");
     expect(reopened.baseline?.displayName).toBe("Ana Demo 2");
-    expect(reopened.notice).toMatch(/salva e reaberta/);
-    expect(reopened.notice).toMatch(/homônimo/);
+    expect(reopened.notice?.title).toBe("Ficha salva");
+    expect(reopened.notice?.detail).toMatch(/outro cadastro com o mesmo nome/);
     expect(reopened.saveError).toBeNull();
     expect(reopened.refreshError).toBeNull();
     expect(reopened.saveMs).toBe(55);
