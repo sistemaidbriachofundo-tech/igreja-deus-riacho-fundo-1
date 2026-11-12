@@ -168,7 +168,8 @@ describe("shell sem flash de módulo restrito", () => {
     expect(html).not.toContain("/app/tesouraria/");
     expect(html).toContain('aria-label="Carregando painel"');
     expect(html).not.toContain("Verificando seu acesso");
-    expect(html).toContain("Sair");
+    expect(html).not.toContain("Confirmando perfil");
+    expect(html).not.toContain("Sair");
   });
 
   it("membro não vê tesouraria, secretaria nem pessoas e a rota direta não monta o módulo", () => {
