@@ -17,6 +17,7 @@ import {
   type PersonDossier,
 } from "../secretary-dossier";
 import s from "../secretary-dossier.module.css";
+import { Ficha360Overview, type FichaTab } from "./Ficha360Overview";
 
 type HouseholdOption = { id: string; label: string };
 
@@ -25,8 +26,8 @@ const dateFields: Array<[PersonProfileDates, string]> = [
   ["baptismDate", "Data de batismo"], ["weddingDate", "Data de casamento"],
 ];
 const timelineLabels: Record<PersonTimelineEvent["type"], string> = {
-  cadastro: "Cadastro", vinculo: "Vínculo", admissao: "Admissão", transferencia: "Transferência",
-  ministerio: "Ministério", marco: "Datas da pessoa",
+  cadastro: "Origem do cadastro", vinculo: "Situação eclesiástica", admissao: "Admissão", transferencia: "Transferência",
+  ministerio: "Liderança / função", marco: "Marcos pessoais",
 };
 
 export type CredentialView =
@@ -114,6 +115,7 @@ export function Ficha360Dialog({
   const dialogRef = useRef<HTMLElement>(null);
   const timelineRef = useRef<HTMLElement>(null);
   const [timelineType, setTimelineType] = useState("");
+  const [activeTab, setActiveTab] = useState<FichaTab>("visao");
   const [newFamily, setNewFamily] = useState("");
   const [familyOpen, setFamilyOpen] = useState(false);
   const [creatingFamily, setCreatingFamily] = useState(false);
@@ -222,6 +224,28 @@ export function Ficha360Dialog({
 
         {form && person && dossier && (
           <>
+            <nav className={s.fichaTabs} role="tablist" aria-label="Seções da Ficha 360">
+              {([
+                ["visao","Visão geral"],
+                ["historico","Histórico eclesiástico"],
+                ["cadastro","Dados e edição"],
+                ["admissoes","Admissões e documentos"],
+              ] as const).map(([tab,label])=>(
+                <button type="button" key={tab} role="tab" aria-selected={activeTab===tab}
+                  aria-controls={titleId+"-"+tab} id={titleId+"-tab-"+tab}
+                  onClick={()=>setActiveTab(tab)}>
+                  {label}
+                  {tab==="historico" && <span>{dossier.timeline?.length??0}</span>}
+                  {tab==="admissoes" && <span>{dossier.admissionHistory.length}</span>}
+                </button>
+              ))}
+            </nav>
+            <div id={titleId+"-visao"} role="tabpanel" aria-labelledby={titleId+"-tab-visao"}
+              hidden={activeTab!=="visao"} className={s.fichaTabPanel}>
+              {activeTab==="visao" && <Ficha360Overview person={person} dossier={dossier}
+                canEdit={canEdit} onTab={setActiveTab}/>}
+            </div>
+            {activeTab === "cadastro" && <>
             <div className={s.profileTools}>
               <div className={s.completeness}>
                 <div className={s.completenessLabel}>
@@ -427,7 +451,6 @@ export function Ficha360Dialog({
                 </p>
               )}
             </form>
-
             <section className={s.locked} aria-label="Situação do cadastro">
               <h3>Situação do cadastro</h3>
               <dl className={s.statusGrid}>
@@ -483,8 +506,16 @@ export function Ficha360Dialog({
                 </div>
               </dl>
             </section>
+            </>}
 
-            <section ref={timelineRef} tabIndex={-1} className={s.context} aria-label="Histórico eclesiástico">
+            <section ref={timelineRef} tabIndex={-1} className={s.context} hidden={activeTab!=="historico" && activeTab!=="admissoes"}
+              aria-label={activeTab==="admissoes"?"Admissões e documentos":"Histórico eclesiástico"}>
+              {activeTab==="historico" && <>
+                <div className={s.historyLead}>
+                  <span>HISTÓRIA DA PESSOA</span>
+                  <h3>Uma vida contada em acontecimentos.</h3>
+                  <p>Registros efetivamente presentes no sistema, em ordem cronológica. Situações e funções são preservadas conforme os processos existentes.</p>
+                </div>
               <div className={s.timelineHeading}><h3>Linha do tempo</h3>
                 <label>Filtrar por tipo
                   <select value={timelineType} onChange={event => setTimelineType(event.target.value)}>
@@ -509,6 +540,13 @@ export function Ficha360Dialog({
                 <p className={s.hint}>Nenhum vínculo nesta congregação.</p>
               )}
               </>}
+              </>}
+              {activeTab==="admissoes" && <>
+              <div className={s.historyLead}>
+                <span>ADMISSÃO E DOCUMENTAÇÃO</span>
+                <h3>Protocolos e acompanhamento.</h3>
+                <p>Confira o andamento, as aprovações e os documentos autorizados desta pessoa.</p>
+              </div>
               <h3>Protocolos de admissão</h3>
               {dossier.admissionHistory.length ? (
                 dossier.admissionHistory.map((item) => (
@@ -554,6 +592,7 @@ export function Ficha360Dialog({
                   Documentos de admissão não são pedidos para este perfil.
                 </p>
               )}
+              </>}
             </section>
           </>
         )}
