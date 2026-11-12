@@ -244,6 +244,7 @@ export function TreasuryPanel() {
   const entries = data?.entries ?? [];
   const accounts = data?.accounts ?? [];
   const accountMap = new Map(accounts.map(account => [account.id, account]));
+  const demoAccounts = accounts.some(account => /\(demo\)/i.test(account.name));
   const scopeEntries = entries.filter(entry => !activeCenter || entry.costCenterId === activeCenter);
   const expenseRows = scopeEntries.filter(entry => entry.approvalFlow === "TREASURER_THEN_PASTOR");
   const summary = cards.kind === "ready" && cards.position.countedEntryIds && data?.entries && !data.accountsNote
@@ -446,6 +447,7 @@ export function TreasuryPanel() {
             </button>}
           </div>
           <p className={styles.approvalInfo}>Fluxo: <strong>Tesouraria registra → Pastor aprova → Despesa entra no saldo</strong>. Pedidos pendentes não reduzem o caixa.</p>
+          {demoAccounts && <p className={styles.unavailable} role="status">Este ambiente usa contas demonstrativas. Não registre despesas reais antes da configuração do plano de contas de produção.</p>}
           {!canWrite && access.kind === "ready" && <p className={styles.unavailable} role="status">
             Seu perfil pode consultar as despesas, mas somente quem tem permissão de Tesouraria pode cadastrar uma nova.
             A aprovação final pertence ao pastor da congregação.
@@ -516,6 +518,7 @@ export function TreasuryPanel() {
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
           {tab === "despesa" && <p className={styles.approvalInfo}>O tesoureiro registra a despesa e o pastor da congregação aprova. O saldo só é atualizado após a aprovação.</p>}
           {tab === "despesa" && data && (!expenses.length || !banks.length) && <p className={styles.unavailable} role="alert">Não há categorias de despesas ou contas de caixa/banco disponíveis. Configure o plano de contas antes de registrar a despesa.</p>}
+          {tab === "despesa" && demoAccounts && <p className={styles.unavailable} role="status">As categorias e contas bancárias deste ambiente são demonstrativas. Use apenas dados de teste até a homologação do financeiro de produção.</p>}
           {tab === "compromisso" && <p className={styles.approvalInfo}>A conta a pagar passa por conferência da Tesouraria e aprovação do pastor.</p>}
           <label className={styles.movementType}>Tipo de lançamento
             <select value={tab} disabled={busy} onChange={event => {
