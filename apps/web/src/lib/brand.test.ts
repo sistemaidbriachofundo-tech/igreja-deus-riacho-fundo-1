@@ -27,6 +27,8 @@ describe("web brand", () => {
       expect(component).not.toContain("idb-riacho-oficial-2026.webp");
       expect(component).not.toContain("logo-igreja-aprovada.webp");
     }
+    const rootLayout = readFileSync(join(__dirname, "../app/layout.tsx"), "utf8");
+    expect(rootLayout).toContain("icons: { icon: withBasePath(officialLogoAsset)");
     const shellCss = readFileSync(join(__dirname, "../components/app-shell.module.css"), "utf8");
     expect(shellCss).not.toMatch(/\\.brandEmblem\\s*\\{[^}]*background-size:\\s*cover/s);
     const loginCss = readFileSync(join(__dirname, "../components/login-screen.module.css"), "utf8");
