@@ -40,7 +40,7 @@ const privileged = {
 
 describe("MFA: bloqueio de login privilegiado no frontend DEV", () => {
   it("não tenta guardar JWT quando a senha retorna desafio e não token", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(respond(pending));
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(respond(pending)));
     vi.stubGlobal("fetch", fetchMock);
     await expect(beginLogin("admin@example.test", "senha-sintetica")).resolves.toEqual(pending);
     await expect(apiLogin("admin@example.test", "senha-sintetica")).rejects.toThrow("segundo fator");
