@@ -139,16 +139,24 @@ export function SecretaryDossier({
     await reload("after-save", started);
   }
 
-  const dirty =
+  const dirty = Boolean(
     state.form &&
     state.baseline &&
-    (state.form.displayName !== state.baseline.displayName ||
+    (
+      state.form.displayName !== state.baseline.displayName ||
       state.form.email !== state.baseline.email ||
       state.form.notes !== state.baseline.notes ||
+      state.form.address !== state.baseline.address ||
+      state.form.birthDate !== state.baseline.birthDate ||
+      state.form.firstAttendedOn !== state.baseline.firstAttendedOn ||
+      state.form.baptismDate !== state.baseline.baptismDate ||
+      state.form.weddingDate !== state.baseline.weddingDate ||
+      state.form.sex !== state.baseline.sex ||
       state.form.isMinor !== state.baseline.isMinor ||
-      state.form.legalGuardianPersonId !==
-        state.baseline.legalGuardianPersonId ||
-      state.form.householdId !== state.baseline.householdId);
+      state.form.legalGuardianPersonId !== state.baseline.legalGuardianPersonId ||
+      state.form.householdId !== state.baseline.householdId
+    ),
+  );
 
   async function requestClose() {
     if (state.phase === "saving" || state.phase === "reopening") return;
