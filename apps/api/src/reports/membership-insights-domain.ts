@@ -28,7 +28,7 @@ export type InsightTransfer = {
   toChurchId: string;
   completedAt: Date | null;
 };
-export type InsightRecent = { id: string; displayName: string; createdAt: Date; kind: string };
+export type InsightRecent = { id: string; displayName: string; createdAt: Date; kind: string; birthDate?: Date | null; isMinor?: boolean };
 export type InsightInput = {
   memberships: InsightMembership[];
   transfers: InsightTransfer[];
@@ -156,7 +156,7 @@ export function buildMembershipInsights(input: InsightInput) {
     } else firstAttendanceUnknown++;
     // Nomes de menores não saem em aniversários; dados pessoais completos
     // permanecem disponíveis somente na ficha autorizada.
-    if (p.isMinor) continue;
+    if (p.isMinor || (p.birthDate && yearsSince(p.birthDate, today) < 18)) continue;
     const dates = [
       { type: "birthday" as const, date: p.birthDate },
       { type: "baptism" as const, date: p.baptismDate },
@@ -173,7 +173,7 @@ export function buildMembershipInsights(input: InsightInput) {
   const transferFrom = input.transfers.filter(t => t.status === "COMPLETED" && t.fromChurchId === input.churchId && t.completedAt && t.completedAt >= input.period.from && t.completedAt <= input.period.to).length;
   const transferTo = input.transfers.filter(t => t.status === "COMPLETED" && t.toChurchId === input.churchId && t.completedAt && t.completedAt >= input.period.from && t.completedAt <= input.period.to).length;
   const recent = input.recentPeople
-    .filter(p => p.createdAt.getTime() <= nowMs && p.createdAt.getTime() >= nowMs - 30 * 86400000)
+    .filter(p => !p.isMinor && (!p.birthDate || yearsSince(p.birthDate, today) >= 18) && p.createdAt.getTime() <= nowMs && p.createdAt.getTime() >= nowMs - 30 * 86400000)
     .slice(0, 8)
     .map(p => ({ id: p.id, name: p.displayName, date: dateKey(p.createdAt), kind: p.kind }));
   return {
