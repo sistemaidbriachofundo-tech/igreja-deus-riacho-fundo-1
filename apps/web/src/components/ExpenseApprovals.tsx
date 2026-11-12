@@ -25,10 +25,19 @@ export function ExpenseApprovals({ embedded = false }: { embedded?: boolean }) {
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
   const [revision, setRevision] = useState(0);
-  const token = loadStoredToken();
-  const actorId = access.kind === "ready" ? access.userId : null;
+  const [token, setToken] = useState<string | null>(null);
+  const [actorId, setActorId] = useState<string | null>(null);
   const roles = access.kind === "ready" ? access.roles : [];
   const permitted = roles.includes("PASTOR") || roles.includes("TESOURARIA");
+  useEffect(() => { setToken(loadStoredToken()); }, []);
+  useEffect(() => {
+    if (!token || !permitted) return;
+    let active = true;
+    void apiGet<{ userId: string }>("/auth/me", token)
+      .then(data => { if (active) setActorId(data.userId); })
+      .catch(() => { if (active) setActorId(null); });
+    return () => { active = false; };
+  }, [token, permitted]);
 
   const load = useCallback(async () => {
     if (!token || !permitted) return;
