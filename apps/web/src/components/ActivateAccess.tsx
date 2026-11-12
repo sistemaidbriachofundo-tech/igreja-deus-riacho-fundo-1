@@ -31,7 +31,7 @@ export function ActivateAccess() {
     setLoading(true);
     setError("");
     try {
-      await apiPost("/auth/activate-invite", null, { token, password });
+      await apiPost("/auth/activate-invite", "", { token, password });
       setToken("");
       setPassword("");
       setConfirmation("");
