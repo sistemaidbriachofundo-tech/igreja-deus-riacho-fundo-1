@@ -1,11 +1,8 @@
 /* Portal institucional: composição sem vitrine de ministérios e ajustada para celulares. */
 .hero{position:relative;isolation:isolate;min-height:clamp(660px,90svh,940px);background:#091f22;color:#f8f3e8;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
 .visual{position:absolute;inset:0;z-index:-3;overflow:hidden;background:#0c2427;pointer-events:none}
-.backdrop,.stagePhoto,.worshipPhoto{position:absolute;object-fit:cover}
-.backdrop{inset:-2%;width:104%;height:104%;filter:brightness(.57) saturate(.91) blur(2px);opacity:.8}
-.stagePhoto{right:8%;top:0;width:65%;height:100%;object-position:center 50%;filter:brightness(.72) saturate(.85);opacity:.53;mask-image:radial-gradient(ellipse 72% 81% at 53% 46%,#000 35%,transparent 92%)}
-.worshipPhoto{right:-2%;top:0;width:53%;height:100%;object-position:54% 32%;filter:brightness(.9) saturate(.96);opacity:.94;mask-image:linear-gradient(90deg,transparent,#000 26%,#000)}
-.colorGrade{position:absolute;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(90deg,#051e21 0%,rgba(5,28,32,.96) 23%,rgba(5,27,31,.79) 45%,rgba(5,26,31,.18) 100%),linear-gradient(0deg,#071d21,transparent 36%),linear-gradient(180deg,#091b20ab,transparent 33%)}
+.coverPhoto{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 52%;filter:brightness(.88) saturate(1.04)}
+.colorGrade{position:absolute;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(90deg,rgba(5,27,27,.88) 0%,rgba(5,27,27,.72) 29%,rgba(5,27,27,.29) 56%,rgba(5,27,27,.04) 100%),linear-gradient(0deg,rgba(5,25,26,.82),transparent 38%),linear-gradient(180deg,rgba(6,26,28,.36),transparent 31%)}
 .content{position:relative;z-index:2;max-width:1500px;width:100%;margin:0 auto;padding:clamp(132px,15svh,175px) clamp(22px,5.8vw,86px) 114px}
 .kicker{display:flex;gap:12px;align-items:center;font:750 clamp(9px,.8vw,11px)/1.5 Inter,Arial,sans-serif;color:#eac78a;letter-spacing:.22em;margin-bottom:30px}
 .kickerLine{width:32px;height:2px;background:#d4ae72;flex:none}
@@ -30,9 +27,8 @@
 .hero{min-height:clamp(620px,82svh,840px)}
 .content{padding-top:148px}
 .headline{font-size:clamp(53px,7vw,74px)}
-.worshipPhoto{right:-19%;width:70%;opacity:.7}
-.stagePhoto{right:-5%;width:80%;opacity:.34}
-.colorGrade{background:linear-gradient(90deg,#051e21 0%,#061f23e8 40%,#061f2380),linear-gradient(0deg,#071d21 0%,transparent 48%)}
+.coverPhoto{object-position:44% center}
+.colorGrade{background:linear-gradient(90deg,rgba(5,27,27,.86),rgba(5,27,27,.58) 54%,rgba(5,27,27,.16)),linear-gradient(0deg,rgba(5,25,26,.77),transparent 45%)}
 }
 @media(max-width:640px){
 .hero{min-height:min(790px,100svh);min-height:clamp(640px,92svh,790px)}
@@ -44,10 +40,8 @@
 .content>p{font-size:14px;line-height:1.68;max-width:390px;margin-bottom:24px}
 .actions{gap:10px}
 .primaryAction,.secondaryAction{min-height:49px;padding:12px 17px;font-size:12px;gap:12px}
-.worshipPhoto{width:118%;right:-53%;opacity:.42;object-position:center 28%}
-.stagePhoto{width:108%;right:-33%;opacity:.21}
-.backdrop{filter:brightness(.44) saturate(.7)}
-.colorGrade{background:linear-gradient(90deg,#061e22ed,#061e22cb),linear-gradient(0deg,#061b20 1%,transparent 40%)}
+.coverPhoto{object-position:40% center;filter:brightness(.80) saturate(1.04)}
+.colorGrade{background:linear-gradient(90deg,rgba(6,30,30,.79),rgba(6,30,30,.48)),linear-gradient(0deg,rgba(6,24,26,.89),transparent 58%)}
 .heroFooter{padding:0 23px;bottom:24px;gap:12px;font-size:8px;letter-spacing:.08em}
 .heroFooter span{max-width:190px}
 .heroFooter a{font-size:10px;letter-spacing:0}

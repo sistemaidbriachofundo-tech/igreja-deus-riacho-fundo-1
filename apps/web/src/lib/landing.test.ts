@@ -74,7 +74,14 @@ describe("portal público da igreja", () => {
     for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
       expect(existsSync(join(images, image))).toBe(true);
     }
-    expect(read("components/PortalCinematicHero.tsx")).toContain("portalVisuals.hero");
+    // A capa pública utiliza a foto da fachada fornecida, sem mosaico de fotos ilustrativas.
+    const facade = "fachada-igreja-riacho-fundo.jpg";
+    expect(existsSync(join(images, facade))).toBe(true);
+    expect(read("lib/site-layout.ts")).toContain('/images/' + facade);
+    const hero = read("components/PortalCinematicHero.tsx");
+    expect(hero).toContain("className={s.coverPhoto}");
+    expect(hero).toContain("src={imageUrl}");
+    expect(hero).not.toContain("portalVisuals.hero");
     expect(shell).toContain("ministryJourneyItem");
     expect(css).toContain(".immersiveHero");
     expect(css).toContain(".ministryJourneyItem");
