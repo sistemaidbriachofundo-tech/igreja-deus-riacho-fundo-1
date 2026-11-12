@@ -22,6 +22,7 @@ export interface RegisterMembershipInput {
   email?: string;
   notes?: string;
   householdLabel?: string;
+  householdId?: string;
   address?: string;
   birthDate?: string;
   baptismDate?: string;
@@ -47,8 +48,9 @@ export function calendarDay(value: string | undefined, label: string): Date | un
 
 export function isUnder18(birthDate: Date, now = new Date()): boolean {
   const birth = birthDate.toISOString().slice(0,10);
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone:"America/Sao_Paulo", year:"numeric",month:"2-digit",day:"2-digit" }).format(now);
-  const [year,month,day] = today.split("-").map(Number);
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone:"America/Sao_Paulo", year:"numeric",month:"2-digit",day:"2-digit" }).formatToParts(now);
+  const get = (name: string) => Number(parts.find(item => item.type === name)?.value ?? 0);
+  const year = get("year"), month = get("month"), day = get("day");
   const [by,bm,bd] = birth.split("-").map(Number);
   return year - by - (month < bm || (month === bm && day < bd) ? 1 : 0) < 18;
 }
@@ -159,7 +161,17 @@ export class MembershipsService {
       }
     } else {
       let householdId: string | undefined;
-      if (input.householdLabel?.trim()) {
+      if (input.householdId && input.householdLabel) {
+        throw new BadRequestException("Selecione a família existente ou cadastre um novo núcleo.");
+      }
+      if (input.householdId?.trim()) {
+        const family = await this.prisma.household.findFirst({
+          where: { id: input.householdId, organizationId: pilot.organizationId, churchId: pilot.churchId },
+          select: { id: true },
+        });
+        if (!family) throw new BadRequestException("Família não encontrada nesta congregação.");
+        householdId = family.id;
+      } else if (input.householdLabel?.trim()) {
         const household = await this.prisma.household.create({
           data: {
             organizationId: pilot.organizationId,
