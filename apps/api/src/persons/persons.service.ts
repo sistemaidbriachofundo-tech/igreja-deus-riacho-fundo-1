@@ -404,13 +404,27 @@ export class PersonsService {
 
     const photoUrl = portraitDataUrl(person.photo?.jpeg);
     const timeline: PersonTimelineEvent[] = [];
-    if (person.createdAt) timeline.push({ id: "cadastro", type: "cadastro", date: person.createdAt.toISOString(), title: "Cadastro registrado no sistema" });
+    if (person.createdAt) timeline.push({
+      id: "cadastro", type: "cadastro", date: person.createdAt.toISOString(),
+      title: "Cadastro incluído na base da igreja",
+      detail: "Origem do cadastro: registro no sistema. O canal de origem não foi informado.",
+    });
     for (const membership of person.memberships) {
-      timeline.push({ id: membership.id, type: "vinculo", date: membership.joinedAt.toISOString(), title: "Início do vínculo na congregação" });
-      if (membership.leftAt) timeline.push({ id: `${membership.id}-saida`, type: "vinculo", date: membership.leftAt.toISOString(), title: "Encerramento do vínculo na congregação" });
+      const status = ({
+        ACTIVE: "ativo", INACTIVE: "inativo", TRANSFERRED: "transferido",
+        PENDING_ADMISSION: "em admissão",
+      } as Record<string,string>)[membership.status] ?? String(membership.status);
+      timeline.push({ id: membership.id, type: "vinculo", date: membership.joinedAt.toISOString(),
+        title: "Vínculo eclesiástico iniciado", detail: "Situação atual do vínculo: " + status + "." });
+      if (membership.leftAt) timeline.push({ id: `${membership.id}-saida`, type: "vinculo",
+        date: membership.leftAt.toISOString(), title: "Vínculo eclesiástico encerrado" });
     }
     for (const admission of person.admissions) {
-      timeline.push({ id: admission.id, type: "admissao", date: admission.createdAt.toISOString(), title: "Protocolo de admissão aberto" });
+      const modality = ({
+        BATISMO:"batismo", TRANSFERENCIA:"transferência", RECONCILIACAO:"reconciliação", OUTRO:"outro",
+      } as Record<string,string>)[admission.modality??""] ?? "não informada";
+      timeline.push({ id: admission.id, type: "admissao", date: admission.createdAt.toISOString(),
+        title: "Protocolo de admissão aberto", detail: "Modalidade: " + modality + "." });
       if (+admission.updatedAt > +admission.createdAt && ["APPROVED", "REJECTED", "CANCELLED"].includes(admission.status)) {
         const title = admission.status === "APPROVED" ? "Protocolo de admissão aprovado"
           : admission.status === "REJECTED" ? "Protocolo de admissão recusado" : "Protocolo de admissão cancelado";
@@ -425,7 +439,7 @@ export class PersonsService {
         detail: outgoing ? transfer.toChurch.name : transfer.fromChurch.name });
     }
     for (const membership of person.ministryMemberships ?? []) {
-      const detail = `${membership.ministry.name} · ${membership.role}`;
+      const detail = `${membership.ministry.name} · ${membership.role.replaceAll("_", " ")}`;
       timeline.push({ id: membership.id, type: "ministerio", date: membership.startedAt.toISOString(), title: "Início de função no ministério", detail });
       if (membership.endedAt) timeline.push({ id: `${membership.id}-fim`, type: "ministerio", date: membership.endedAt.toISOString(), title: "Encerramento de função no ministério", detail });
     }
