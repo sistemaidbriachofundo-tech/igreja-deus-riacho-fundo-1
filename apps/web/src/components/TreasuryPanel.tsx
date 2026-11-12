@@ -201,7 +201,9 @@ export function expenseWorkflowStatus(entry: Pick<EntryView, "status" | "firstAp
 export function TreasuryPanel() {
   const access = usePersonaAccess();
   const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
-  const isPastorOnly = access.kind === "ready" && access.roles.includes("PASTOR") && !canWrite;
+  const canCreateExpense = access.kind === "ready" &&
+    (access.roles.includes("TESOURARIA") || access.roles.includes("PLATFORM_ADMIN"));
+  const isPastorOnly = access.kind === "ready" && access.roles.includes("PASTOR") && !canCreateExpense;
   const { confirm, confirmation } = useActionConfirmation();
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
   const [token, setToken] = useState<string | null>(null);
@@ -229,12 +231,12 @@ export function TreasuryPanel() {
     const syncFromHash = () => {
       const section = treasurySectionFromHash(window.location.hash, roles);
       setView(section);
-      if (section === "lancar") setTab(treasuryMovementFromHash(window.location.hash));
+      if (section === "lancar") setTab(canWrite ? treasuryMovementFromHash(window.location.hash) : "despesa");
     };
     syncFromHash();
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
-  }, [treasuryRoles]);
+  }, [treasuryRoles, canWrite]);
 
   useEffect(() => {
     if (enabled) setToken(loadStoredToken());
@@ -287,6 +289,8 @@ export function TreasuryPanel() {
   }
 
   function openMovement(next: Tab) {
+    if (!canWrite && next !== "despesa") return;
+    if (!canCreateExpense && next === "despesa") return;
     setTab(next);
     intent.current = "";
     setMessage(null);
@@ -329,7 +333,7 @@ export function TreasuryPanel() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || busy || !canWrite) return;
+    if (!token || busy || (tab === "despesa" ? !canCreateExpense : !canWrite)) return;
     const form = event.currentTarget;
     const fields = new FormData(form);
     const entryDate = str(fields.get("date"));
@@ -406,6 +410,7 @@ export function TreasuryPanel() {
     ["despesa", "Despesa"], ["pix", "Entrada Pix"], ["cartao", "Entrada cartão"], ["dinheiro", "Dinheiro de culto"], ["deposito", "Depósito de dinheiro"],
     ["liquidacao", "Liquidação de cartão"], ["compromisso", "Nova conta a pagar"], ["pagar", "Pagamento"],
   ] as const;
+  const displayedTabConfig = canWrite ? tabConfig : tabConfig.filter(([id]) => id === "despesa");
   const disabled = !enabled || !token || busy || !accounts.length ||
     (tab === "despesa" && (!expenses.length || !banks.length)) ||
     (receiving && (!revenue || (tab !== "pix" && !waiting))) ||
@@ -418,8 +423,8 @@ export function TreasuryPanel() {
       {confirmation}
       <PageHeader appearance="workspace" heading="h1" title="Tesouraria"
         description={isSample ? "Dados de teste de novembro de 2026" : undefined}
-        actions={canWrite && view !== "lancar" ? <>
-          <button type="button" className={ui.workspaceSecondary} onClick={() => openMovement("pix")}>Novo lançamento</button>
+        actions={canCreateExpense && view !== "lancar" ? <>
+          {canWrite && <button type="button" className={ui.workspaceSecondary} onClick={() => openMovement("pix")}>Novo lançamento</button>}
           <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
             <UIIcon name="plus" size={17} /> Incluir despesa
           </button>
@@ -462,19 +467,19 @@ export function TreasuryPanel() {
               <h2>Despesas da congregação</h2>
               <p className={styles.note}>Registre pagamentos, acompanhe cada solicitação e consulte a decisão pastoral.</p>
             </div>
-            {canWrite && <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
+            {canCreateExpense && <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
               <UIIcon name="plus" size={17} /> Incluir despesa
             </button>}
           </div>
           <p className={styles.approvalInfo}>Fluxo: <strong>Tesouraria registra → Pastor aprova → Despesa entra no saldo</strong>. Pedidos pendentes não reduzem o caixa.</p>
           {demoAccounts && <p className={styles.unavailable} role="status">Este ambiente usa contas demonstrativas. Não registre despesas reais antes da configuração do plano de contas de produção.</p>}
-          {!canWrite && access.kind === "ready" && <p className={styles.unavailable} role="status">
+          {!canCreateExpense && access.kind === "ready" && <p className={styles.unavailable} role="status">
             Seu perfil pode consultar as despesas, mas somente quem tem permissão de Tesouraria pode cadastrar uma nova.
             A aprovação final pertence ao pastor da congregação.
           </p>}
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.entriesNote && <p className={styles.unavailable} role="alert">{data.entriesNote}</p>}
-          {data?.entries && expenseRows.length === 0 && <p className={styles.expenseEmpty}>Nenhuma despesa cadastrada neste centro de custo. {canWrite ? "Use Incluir despesa para registrar a primeira." : ""}</p>}
+          {data?.entries && expenseRows.length === 0 && <p className={styles.expenseEmpty}>Nenhuma despesa cadastrada neste centro de custo. {canCreateExpense ? "Use Incluir despesa para registrar a primeira." : ""}</p>}
           {expenseRows.map(entry => {
             const workflow = expenseWorkflowStatus(entry);
             const canApproveExpense = canWrite && approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []).canApprove;
@@ -534,9 +539,9 @@ export function TreasuryPanel() {
           </article>)}
         </section>}
 
-        {view === "lancar" && canWrite && <section className={styles.card} aria-label="Registrar lançamento">
+        {view === "lancar" && canCreateExpense && <section className={styles.card} aria-label="Registrar lançamento">
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
-          {tab === "despesa" && <p className={styles.approvalInfo}>O tesoureiro registra a despesa e o pastor da congregação aprova. O saldo só é atualizado após a aprovação.</p>}
+          {tab === "despesa" && <p className={styles.approvalInfo}>O administrador ou tesoureiro cadastra a despesa e o pastor da congregação aprova. O saldo só é atualizado após a aprovação.</p>}
           {tab === "despesa" && data && (!expenses.length || !banks.length) && <p className={styles.unavailable} role="alert">Não há categorias de despesas ou contas de caixa/banco disponíveis. Configure o plano de contas antes de registrar a despesa.</p>}
           {tab === "despesa" && demoAccounts && <p className={styles.unavailable} role="status">As categorias e contas bancárias deste ambiente são demonstrativas. Use apenas dados de teste até a homologação do financeiro de produção.</p>}
           {tab === "compromisso" && <p className={styles.approvalInfo}>A conta a pagar passa por conferência da Tesouraria e aprovação do pastor.</p>}
@@ -545,7 +550,7 @@ export function TreasuryPanel() {
               const next = tabConfig.find(([id]) => id === event.target.value);
               if (next) { setTab(next[0]); intent.current = ""; openView("lancar", next[0]); }
             }}>
-              {tabConfig.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              {displayedTabConfig.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </label>
           {transfer && pendingBalance !== undefined && <p className={styles.note}>Valor em aberto para baixa: <strong>{formatBRL(pendingBalance)}</strong></p>}
