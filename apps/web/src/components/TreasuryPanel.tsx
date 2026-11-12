@@ -186,6 +186,17 @@ export function TreasuryPositionCards({ state }: { state: TreasuryCardState }) {
   );
 }
 
+/** Despesas pendentes não integram o saldo até o pastor concluir a aprovação. */
+export function expenseWorkflowStatus(entry: Pick<EntryView, "status" | "firstApprovedByUserId">): string {
+  if (entry.status === "PENDING_APPROVAL") {
+    return entry.firstApprovedByUserId ? "Aguardando aprovação do pastor" : "Aguardando conferência da Tesouraria";
+  }
+  if (entry.status === "APPROVED") return "Aprovada pelo pastor";
+  if (entry.status === "REJECTED") return "Devolvida para correção";
+  if (entry.status === "REVERSED") return "Estornada";
+  return statusLabel(entry.status);
+}
+
 export function TreasuryPanel() {
   const access = usePersonaAccess();
   const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
@@ -196,7 +207,7 @@ export function TreasuryPanel() {
   const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
   const [failure, setFailure] = useState("");
   const [center, setCenter] = useState<string | null>(null);
-  const [view, setView] = useState<"visao" | "extrato" | "conciliacao" | "lancar" | "aprovacoes">("visao");
+  const [view, setView] = useState<"visao" | "despesas" | "extrato" | "conciliacao" | "lancar" | "aprovacoes">("visao");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [bankFilter, setBankFilter] = useState("");
@@ -220,11 +231,7 @@ export function TreasuryPanel() {
     setFailure("");
     void loadTreasury(token, center ?? "").then(result => {
       if (cancelled) return;
-      const sample = center === null ? result.centers.find(item => item.code === "QA-TESOURARIA") : undefined;
-      if (sample) {
-        setCenter(sample.id);
-        return;
-      }
+      // Em nenhuma congregação escolhemos automaticamente um centro de custo fictício.
       setData(result);
     }).catch(error => { if (!cancelled) setFailure(dasError(error)); });
     return () => { cancelled = true; };
@@ -238,6 +245,7 @@ export function TreasuryPanel() {
   const accounts = data?.accounts ?? [];
   const accountMap = new Map(accounts.map(account => [account.id, account]));
   const scopeEntries = entries.filter(entry => !activeCenter || entry.costCenterId === activeCenter);
+  const expenseRows = scopeEntries.filter(entry => entry.approvalFlow === "TREASURER_THEN_PASTOR");
   const summary = cards.kind === "ready" && cards.position.countedEntryIds && data?.entries && !data.accountsNote
     ? summarizeTreasury(accounts, entries, cards.position.countedEntryIds, { from, to })
     : null;
@@ -364,7 +372,7 @@ export function TreasuryPanel() {
       setQuery("");
       setFrom("");
       setTo("");
-      openView("extrato");
+      openView(tab === "despesa" ? "despesas" : "extrato");
       setRevision(value => value + 1);
     } catch (error) {
       setMessage({ text: dasError(error), error: true });
@@ -398,6 +406,7 @@ export function TreasuryPanel() {
       />
       <nav className={ui.workspaceTabs} aria-label="Áreas da Tesouraria">
         <button type="button" aria-current={view === "visao" ? "page" : undefined} onClick={() => openView("visao")}><UIIcon name="grid" size={17} /> Visão geral</button>
+        <button type="button" aria-current={view === "despesas" ? "page" : undefined} onClick={() => openView("despesas")}><UIIcon name="wallet" size={17} /> Despesas</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
         {canWrite && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
@@ -424,6 +433,40 @@ export function TreasuryPanel() {
             onDeposits={() => { setBankFilter(""); setChannelFilter("dinheiro"); setQuery(""); openView("extrato"); }}
             onReconciliation={() => openView("conciliacao")} />
         ) : <TreasuryPositionCards state={cards} />)}
+
+        {view === "despesas" && <section className={styles.card} aria-label="Despesas da congregação">
+          <div className={styles.expenseHeading}>
+            <div>
+              <span className={styles.kicker}>Controle financeiro</span>
+              <h2>Despesas da congregação</h2>
+              <p className={styles.note}>Registre pagamentos, acompanhe cada solicitação e consulte a decisão pastoral.</p>
+            </div>
+            {canWrite && <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
+              <UIIcon name="plus" size={17} /> Incluir despesa
+            </button>}
+          </div>
+          <p className={styles.approvalInfo}>Fluxo: <strong>Tesouraria registra → Pastor aprova → Despesa entra no saldo</strong>. Pedidos pendentes não reduzem o caixa.</p>
+          {!canWrite && access.kind === "ready" && <p className={styles.unavailable} role="status">
+            Seu perfil pode consultar as despesas, mas somente quem tem permissão de Tesouraria pode cadastrar uma nova.
+            A aprovação final pertence ao pastor da congregação.
+          </p>}
+          {!data && <TreasuryPositionCards state={cards} />}
+          {data?.entriesNote && <p className={styles.unavailable} role="alert">{data.entriesNote}</p>}
+          {data?.entries && expenseRows.length === 0 && <p className={styles.expenseEmpty}>Nenhuma despesa cadastrada neste centro de custo. {canWrite ? "Use Incluir despesa para registrar a primeira." : ""}</p>}
+          {expenseRows.map(entry => {
+            const workflow = expenseWorkflowStatus(entry);
+            const canApproveExpense = canWrite && approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []).canApprove;
+            return <article key={entry.id} className={styles.expenseItem}>
+              <div className={styles.expenseInfo}>
+                <strong>{entry.description}</strong>
+                <small>{displayDate(entry.entryDate)}</small>
+                <span className={styles.expenseState} data-status={entry.status}>{workflow}</span>
+              </div>
+              <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
+              {canApproveExpense && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
+            </article>;
+          })}
+        </section>}
 
         {view === "extrato" && <section className={styles.card} aria-label="Extrato e aprovações">
           <h2>Extrato e aprovações</h2>
@@ -471,7 +514,8 @@ export function TreasuryPanel() {
 
         {view === "lancar" && canWrite && <section className={styles.card} aria-label="Registrar lançamento">
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
-          {tab === "despesa" && <p className={styles.approvalInfo}>O tesoureiro registra a despesa e o pastor da congregação aprova. O saldo é atualizado após a aprovação.</p>}
+          {tab === "despesa" && <p className={styles.approvalInfo}>O tesoureiro registra a despesa e o pastor da congregação aprova. O saldo só é atualizado após a aprovação.</p>}
+          {tab === "despesa" && data && (!expenses.length || !banks.length) && <p className={styles.unavailable} role="alert">Não há categorias de despesas ou contas de caixa/banco disponíveis. Configure o plano de contas antes de registrar a despesa.</p>}
           {tab === "compromisso" && <p className={styles.approvalInfo}>A conta a pagar passa por conferência da Tesouraria e aprovação do pastor.</p>}
           <label className={styles.movementType}>Tipo de lançamento
             <select value={tab} disabled={busy} onChange={event => {
