@@ -65,21 +65,21 @@
 .deviceSwitch{display:flex;flex-wrap:wrap;border-radius:99px;border:1px solid #e0e7d9;padding:3px;gap:2px;background:#f5f8f2}
 .deviceSwitch button{border:0;border-radius:99px;background:transparent;color:#5c7669;font:800 10px Inter,sans-serif;padding:8px 13px;cursor:pointer;min-height:44px}
 .deviceSwitch button[aria-pressed=true]{background:#174b3e;color:#fff}
-.previewCanvas{margin:15px auto;background:#f9f8f2;border:1px solid #e6e7df;overflow:hidden;max-width:calc(100% - 28px);transition:max-width .22s}
+.previewCanvas{composes:palette from "./portal-design-system.module.css";margin:15px auto;background:var(--portal-paper);border:1px solid #e6e7df;overflow:hidden;max-width:calc(100% - 28px);transition:max-width .22s}
 .previewCanvas[data-device="mobile"]{max-width:min(325px,calc(100% - 24px))}
-.previewTop{display:flex;align-items:center;gap:7px;background:#fbfaf5;color:#162f25;padding:9px 12px}
+.previewTop{display:flex;align-items:center;gap:7px;background:var(--portal-green);color:var(--portal-on-green);padding:9px 12px}
 .previewTop img{border-radius:50%}
-.previewTop strong{font:650 11px Inter,Arial,sans-serif}.previewTop small{font:500 10px Inter,sans-serif;color:#53645a}
-.previewCover{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);align-items:center;gap:12px;padding:16px;background:#102b23;color:#fffaf0}
-.previewCover>img{display:block;width:100%;aspect-ratio:8/5;object-fit:cover;border-radius:5px}
-.previewCover>div{min-width:0}
-.previewCover small{font:500 10px Inter,sans-serif;color:#d4ddce}
+.previewTop strong{font:650 11px Inter,Arial,sans-serif}.previewTop small{font:500 10px Inter,sans-serif;color:var(--portal-on-green-muted)}
+.previewCover{display:grid;background:var(--portal-paper);color:var(--portal-ink)}
+.previewCover>img{display:block;grid-area:1/1;width:100%;height:100%;aspect-ratio:16/10;object-fit:cover;object-position:center 52%}
+.previewCover>div{grid-area:1/1;align-self:end;z-index:1;width:min(64%,230px);margin:11px;padding:12px;border-radius:5px;background:var(--portal-paper)}
+.previewCover small{font:500 10px Inter,sans-serif;color:var(--portal-muted)}
 .previewCover h2{font:650 clamp(17px,2.2vw,27px)/1.1 Inter,sans-serif;margin:9px 0;letter-spacing:-.045em;overflow-wrap:anywhere}
-.previewCover h2 em{display:block;color:#e9cd9c;font:italic 400 1em/1.12 Georgia,serif}
-.previewCanvas[data-appearance="verde"] .previewCover h2 em{color:#b6e9c7}
-.previewCanvas[data-appearance="marfim"] .previewCover h2 em{color:#f0e6d0}
-.previewCover p{font:500 11px/1.55 Inter,sans-serif;color:#e9f0ea;max-width:400px;margin:0 0 15px}
-.previewCover div>span{display:inline-flex;background:#e9cd9c;color:#17392f;border-radius:4px;padding:5px 8px;font:650 10px Inter,sans-serif}
+.previewCover h2 em{display:block;color:var(--portal-title-accent);font:italic 400 1em/1.12 Georgia,serif}
+.previewCover p{font:500 11px/1.55 Inter,sans-serif;color:var(--portal-muted);max-width:400px;margin:0 0 12px}
+.previewCover div>span{display:inline-flex;background:var(--portal-green);color:var(--portal-on-green);border-radius:4px;padding:5px 8px;font:650 10px Inter,sans-serif}
+.previewAgenda{background:var(--portal-green);color:var(--portal-on-green);padding:18px}
+.previewAgenda h3{margin:0 0 4px;font-size:16px}.previewAgenda p{margin:0;color:var(--portal-on-green-muted);font-size:13px}
 .previewGallery{padding:25px 18px;background:#f6f5ef}
 .previewCanvas[data-appearance="verde"] .previewGallery{background:#edf5ed}.previewCanvas[data-appearance="marfim"] .previewGallery{background:#fffaf1}
 .previewGallery h3{font:850 19px Montserrat,sans-serif;letter-spacing:-.03em;margin:0 0 7px;color:#153c30}
@@ -91,7 +91,8 @@
 .previewGallery figcaption{background:#1a322b;color:#fff;padding:6px 5px;font:700 9px Inter,sans-serif;text-align:center}
 .previewOther{font:800 12px Inter,sans-serif;color:#3b6657;padding:22px 18px;border-bottom:1px solid #dce6db}
 .previewOther small{display:block;font:500 10px Inter,sans-serif;color:#809189;margin-top:5px}
-.previewCanvas[data-device="mobile"] .previewCover{grid-template-columns:minmax(0,1fr);padding:13px}
+.previewCanvas[data-device="mobile"] .previewCover>img{aspect-ratio:16/9}
+.previewCanvas[data-device="mobile"] .previewCover>div{grid-area:2/1;width:auto;margin:0;padding:13px}
 .previewCanvas[data-device="mobile"] .previewCover h2{font-size:24px}
 .previewCanvas[data-device="mobile"] .previewGallery>div{grid-template-columns:repeat(2,minmax(0,1fr))}
 .previewNote,.readerEmpty{padding:0 18px;margin:12px 0}

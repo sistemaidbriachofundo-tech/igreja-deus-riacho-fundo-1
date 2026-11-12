@@ -3,7 +3,7 @@
   scroll-margin-top: var(--portal-header);
 }
 
-.identity { background: #fbfaf5; }
+.identity { background: var(--portal-paper); }
 
 .identityContent {
   display: grid;
@@ -45,7 +45,11 @@
   line-height: 1.7;
 }
 
-.agenda { background: #edf1e9; border-block: 1px solid var(--portal-line); }
+.agenda {
+  background: var(--portal-green);
+  color: var(--portal-on-green);
+}
+.agenda h2:focus-visible { outline-color: var(--portal-gold); }
 .agendaWrap { max-width: var(--portal-content); margin-inline: auto; }
 
 @media (max-width: 740px) {

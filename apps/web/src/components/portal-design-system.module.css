@@ -1,11 +1,24 @@
-.theme {
-  --portal-content: 1260px;
-  --portal-gutter: clamp(18px, 5.3vw, 72px);
-  --portal-header: 72px;
+.palette {
   --portal-paper: #fbfaf5;
   --portal-ink: #162f25;
   --portal-muted: #53645a;
-  --portal-line: #d9dfd5;
+  --portal-green: #102b23;
+  --portal-green-hover: #24473a;
+  --portal-on-green: #fbfaf5;
+  --portal-on-green-muted: #d2dfd6;
+  --portal-green-line: #637e70;
+  --portal-gold: #e9cd9c;
+  --portal-title-accent: #70552f;
+}
+
+.palette [data-appearance="verde"], .palette[data-appearance="verde"] { --portal-title-accent: #32644b; }
+.palette [data-appearance="marfim"], .palette[data-appearance="marfim"] { --portal-title-accent: #645849; }
+
+.theme {
+  composes: palette;
+  --portal-content: 1260px;
+  --portal-gutter: clamp(18px, 5.3vw, 72px);
+  --portal-header: 72px;
   background: var(--portal-paper);
   color: var(--portal-ink);
   font-family: Inter, Arial, sans-serif;
@@ -20,9 +33,9 @@
   position: sticky;
   inset-block-start: 0;
   z-index: 80;
-  color: var(--portal-ink);
-  background: var(--portal-paper);
-  border-bottom: 1px solid var(--portal-line);
+  color: var(--portal-on-green);
+  background: var(--portal-green);
+  border-bottom: 1px solid var(--portal-green-line);
 }
 
 .mastheadInner {
@@ -59,8 +72,9 @@
 
 .brand strong { font: 700 14px/1.3 Inter, Arial, sans-serif; }
 .brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 Inter, Arial, sans-serif; }
-.masthead .brand, .masthead .brand strong { color: var(--portal-ink); }
-.masthead .brand small { color: var(--portal-muted); }
+.masthead .brand, .masthead .brand strong { color: var(--portal-on-green); }
+.masthead .brand small { color: var(--portal-on-green-muted); }
+.masthead :is(a, summary):focus-visible { outline-color: var(--portal-gold); }
 
 .desktopNav {
   display: flex;
@@ -74,15 +88,15 @@
   display: inline-flex;
   align-items: center;
   border-bottom: 2px solid transparent;
-  color: var(--portal-muted);
+  color: var(--portal-on-green-muted);
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .desktopNav a:is(:hover, [aria-current="location"]) {
-  border-color: #9f7c45;
-  color: var(--portal-ink);
+  border-color: var(--portal-gold);
+  color: var(--portal-on-green);
 }
 
 .desktopNav a:focus-visible { outline-offset: -4px; }
@@ -95,13 +109,13 @@
   align-items: center;
   justify-content: center;
   padding-inline: 14px;
-  border: 1px solid #c7d0c4;
+  border: 1px solid var(--portal-green-line);
   border-radius: 6px;
-  color: var(--portal-ink);
+  color: var(--portal-on-green);
   font: 650 13px/1 Inter, Arial, sans-serif;
 }
 
-.headerLogin:hover, .mobileMenu > summary:hover { background: #edf0e8; }
+.headerLogin:hover, .mobileMenu > summary:hover { background: var(--portal-green-hover); }
 .mobileMenu { display: none; }
 .mobileMenu > summary { min-width: 44px; padding-inline: 0; cursor: pointer; list-style: none; }
 .mobileMenu > summary::-webkit-details-marker { display: none; }
@@ -114,9 +128,9 @@
   max-height: calc(100dvh - var(--portal-header) - 8px);
   overflow-y: auto;
   padding: 4px 13px;
-  border: 1px solid var(--portal-line);
+  border: 1px solid var(--portal-green-line);
   border-radius: 0 0 8px 8px;
-  background: var(--portal-paper);
+  background: var(--portal-green);
   box-shadow: 0 12px 24px #162f2520;
 }
 
@@ -127,16 +141,16 @@
   justify-content: space-between;
   gap: 10px;
   padding: 9px 4px;
-  color: var(--portal-ink);
+  color: var(--portal-on-green);
   font-size: 15px;
   font-weight: 600;
 }
 
-.mobileMenuPanel > a + a { border-top: 1px solid var(--portal-line); }
-.mobileMenuPanel > a[aria-current="location"] { color: #6d5126; }
+.mobileMenuPanel > a + a { border-top: 1px solid var(--portal-green-line); }
+.mobileMenuPanel > a:is(:hover, [aria-current="location"]) { color: var(--portal-gold); }
 
-.footer { background: #102b23 !important; }
-.footer .brand { color: #f7f2e7; }
+.footer { background: var(--portal-green) !important; }
+.footer .brand { color: var(--portal-on-green); }
 
 .systemButton {
   display: inline-flex;

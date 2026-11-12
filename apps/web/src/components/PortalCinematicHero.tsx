@@ -15,7 +15,7 @@ export function PortalCinematicHero() {
     <section id="inicio" className={s.hero} data-appearance={appearance} aria-labelledby="hero-title">
       <div className={s.layout}>
         <div className={s.content}>
-          <p className={s.location}>Riacho Fundo I, Brasília</p>
+          <p className={s.location}>Brasília, DF</p>
           <h1 id="hero-title" tabIndex={-1} className={s.headline}>
             <span>{hero.title}</span>
             <em>{hero.accent}</em>
