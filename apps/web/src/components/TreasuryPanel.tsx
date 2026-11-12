@@ -10,6 +10,7 @@ import { ApiRequestError, apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
+import { ExpenseApprovals } from "./ExpenseApprovals";
 import styles from "./treasury-panel.module.css";
 
 /**
@@ -18,7 +19,7 @@ import styles from "./treasury-panel.module.css";
  * Passe `kind: "ready"` somente com o objeto `position` de GET /treasury/position.
  * Em falha use `kind: "error"` — o componente não desenha R$ 0.
  */
-type Tab = "pix" | "cartao" | "dinheiro" | "deposito" | "liquidacao" | "compromisso" | "pagar";
+type Tab = "despesa" | "pix" | "cartao" | "dinheiro" | "deposito" | "liquidacao" | "compromisso" | "pagar";
 
 export type TreasuryPosition = {
   receivedRevenueCents: number;
@@ -98,7 +99,14 @@ function statusLabel(status: string): string {
   return status || "Estado não informado";
 }
 
-export function approvalCopy(actorUserId: string | null, entry: Pick<EntryView, "status" | "createdByUserId" | "firstApprovedByUserId">): { text: string; canApprove: boolean } {
+export function approvalCopy(actorUserId: string | null, entry: Pick<EntryView, "status" | "createdByUserId" | "firstApprovedByUserId" | "approvalFlow">, actorRoles: readonly string[] = ["TESOURARIA"]): { text: string; canApprove: boolean } {
+  if (entry.approvalFlow === "TREASURER_THEN_PASTOR") {
+    if (entry.status === "APPROVED") return { text: "Despesa aprovada por tesoureiro e pastor.", canApprove: false };
+    if (entry.status !== "PENDING_APPROVAL") return { text: statusLabel(entry.status), canApprove: false };
+    const required = entry.firstApprovedByUserId ? "PASTOR" : "TESOURARIA";
+    const blocked = !actorUserId || actorUserId === entry.createdByUserId || actorUserId === entry.firstApprovedByUserId;
+    return { text: entry.firstApprovedByUserId ? "Aguardando aprovação do pastor." : "Aguardando conferência do tesoureiro.", canApprove: !blocked && actorRoles.includes(required) };
+  }
   if (entry.status !== "PENDING_APPROVAL") return { text: statusLabel(entry.status), canApprove: false };
   if (!actorUserId) return { text: "Aguardando identificar quem aprova.", canApprove: false };
   const stage = nextDualApprovalStage({
@@ -179,6 +187,7 @@ export function TreasuryPositionCards({ state }: { state: TreasuryCardState }) {
 export function TreasuryPanel() {
   const access = usePersonaAccess();
   const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
+  const isPastorOnly = access.kind === "ready" && access.roles.includes("PASTOR") && !canWrite;
   const { confirm, confirmation } = useActionConfirmation();
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
   const [token, setToken] = useState<string | null>(null);
@@ -196,14 +205,14 @@ export function TreasuryPanel() {
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const intent = useRef("");
-  const [tab, setTab] = useState<Tab>("pix");
+  const [tab, setTab] = useState<Tab>("despesa");
 
   useEffect(() => {
     if (enabled) setToken(loadStoredToken());
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled || !token) return;
+    if (!enabled || !token || isPastorOnly) return;
     let cancelled = false;
     setData(null);
     setFailure("");
@@ -217,7 +226,7 @@ export function TreasuryPanel() {
       setData(result);
     }).catch(error => { if (!cancelled) setFailure(dasError(error)); });
     return () => { cancelled = true; };
-  }, [enabled, token, center, revision]);
+  }, [enabled, token, center, revision, isPastorOnly]);
 
   const cards: TreasuryCardState = data?.cards ?? (
     !enabled ? { kind: "disabled" } : failure ? { kind: "error", message: failure } : token ? { kind: "loading" } : { kind: "checking" }
@@ -305,7 +314,17 @@ export function TreasuryPanel() {
     setBusy(true);
     setMessage(null);
     try {
-      if (transfer && originAccount) {
+      if (tab === "despesa") {
+        if (!expenses.some(account => account.id === primary) || !banks.some(account => account.id === secondary)) {
+          throw new Error("Escolha uma categoria de despesa e uma conta bancária válidas.");
+        }
+        await apiPost("/ledger/entries", token, {
+          ...common, lines: [
+            { accountId: primary, side: "DEBIT", amountCents, memo: "treasury:expense" },
+            { accountId: secondary, side: "CREDIT", amountCents, memo: "treasury:cash" },
+          ],
+        });
+      } else if (transfer && originAccount) {
         const lines = [
           { accountId: primary, side: "DEBIT", amountCents: amountCents - feeCents, memo: "Tesouraria · crédito no banco" },
           { accountId: originAccount.id, side: "CREDIT", amountCents, memo: "Tesouraria · baixa da pendência" },
@@ -338,12 +357,14 @@ export function TreasuryPanel() {
   }
 
   const tabConfig = [
-    ["pix", "Entrada Pix"], ["cartao", "Entrada cartão"], ["dinheiro", "Dinheiro de culto"], ["deposito", "Depósito de dinheiro"],
-    ["liquidacao", "Liquidação de cartão"], ["compromisso", "Conta a pagar"], ["pagar", "Pagamento"],
+    ["despesa", "Nova despesa"], ["pix", "Entrada Pix"], ["cartao", "Entrada cartão"], ["dinheiro", "Dinheiro de culto"], ["deposito", "Depósito de dinheiro"],
+    ["liquidacao", "Liquidação de cartão"], ["compromisso", "Nova conta a pagar"], ["pagar", "Pagamento"],
   ] as const;
-  const disabled = !enabled || !token || busy || cards.kind !== "ready" ||
+  const disabled = !enabled || !token || busy || !accounts.length ||
     (receiving && (!revenue || (tab !== "pix" && !waiting))) ||
     (transfer && (!originAccount || pendingBalance === undefined || pendingBalance <= 0));
+
+  if (isPastorOnly) return <ExpenseApprovals />;
 
   return (
     <section className={styles.panel} aria-labelledby="treasury-title">
@@ -356,7 +377,9 @@ export function TreasuryPanel() {
         <button type="button" aria-current={view === "visao" ? "page" : undefined} onClick={() => openView("visao")}><UIIcon name="grid" size={17} /> Visão geral</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
-        {canWrite && <button type="button" aria-current={view === "lancar" ? "page" : undefined} onClick={() => openView("lancar")}><UIIcon name="plus" size={17} /> Lançar</button>}
+        {canWrite && <button type="button" aria-current={view === "lancar" && tab === "despesa" ? "page" : undefined} onClick={() => { setTab("despesa"); openView("lancar"); }}><UIIcon name="plus" size={17} /> Nova despesa</button>}
+        {canWrite && <button type="button" aria-current={view === "lancar" && tab === "compromisso" ? "page" : undefined} onClick={() => { setTab("compromisso"); openView("lancar"); }}><UIIcon name="calendar" size={17} /> Nova conta a pagar</button>}
+        {canWrite && <button type="button" aria-current={view === "lancar" && !["despesa","compromisso"].includes(tab) ? "page" : undefined} onClick={() => openView("lancar")}><UIIcon name="plus" size={17} /> Outros lançamentos</button>}
       </nav>
       <div className={styles.toolbar}>
         <label>Centro de custo
@@ -390,7 +413,7 @@ export function TreasuryPanel() {
           {data?.entriesNote && <p role="status">{data.entriesNote}</p>}
           {data?.entries && rows.length === 0 && <p>Nenhum movimento com estes filtros.</p>}
           {rows.slice((page - 1) * 15, page * 15).map(entry => {
-            const approval = approvalCopy(data?.actorId ?? null, entry);
+            const approval = approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []);
             const ledgerType = ledgerChannel(entry, accountMap);
             return <article key={entry.id} className={styles.movement}>
               <div className={styles.movementInfo}>
@@ -424,7 +447,8 @@ export function TreasuryPanel() {
         </section>}
 
         {view === "lancar" && canWrite && <section className={styles.card} aria-label="Registrar lançamento">
-          <h2>Novo lançamento</h2>
+          <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
+          <p className={styles.approvalInfo}>Despesas e contas precisam da conferência de um tesoureiro e da aprovação final do pastor. Até as duas confirmações, não entram no saldo aprovado.</p>
           <div className={styles.tabs} aria-label="Tipo de movimento">
             {tabConfig.map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} disabled={busy} onClick={() => { setTab(id); intent.current = ""; }}>{label}</button>)}
           </div>
@@ -434,10 +458,10 @@ export function TreasuryPanel() {
             <label>Valor (R$) <input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
             <label className={styles.wide}>Descrição ou referência do comprovante <input name="description" minLength={4} maxLength={180} required /></label>
             {tab === "pix" || transfer ? <AccountSelect label="Conta bancária" name="primary" accounts={banks} /> : null}
-            {tab === "compromisso" && <AccountSelect label="Categoria da despesa" name="primary" accounts={expenses} />}
+            {(tab === "compromisso" || tab === "despesa") && <AccountSelect label="Categoria da despesa" name="primary" accounts={expenses} />}
             {tab === "pagar" && <AccountSelect label="Conta a pagar" name="primary" accounts={payables} />}
             {tab === "compromisso" && <AccountSelect label="Conta a pagar" name="secondary" accounts={payables} />}
-            {tab === "pagar" && <AccountSelect label="Conta bancária" name="secondary" accounts={banks} />}
+            {(tab === "pagar" || tab === "despesa") && <AccountSelect label="Conta bancária" name="secondary" accounts={banks} />}
             {tab === "liquidacao" && <label>Taxa do cartão (R$) <input name="fee" inputMode="decimal" placeholder="0,00" /></label>}
             <button className={styles.wide} type="submit" disabled={disabled}>{busy ? "Salvando…" : "Gravar rascunho"}</button>
           </form>
@@ -529,6 +553,7 @@ function readEntries(payload: unknown): EntryView[] | null {
       amountCents: typeof amount === "number" ? amount : null,
       createdByUserId: str(row.createdByUserId),
       firstApprovedByUserId: str(row.firstApprovedByUserId) || null,
+      approvalFlow: row.approvalFlow === "TREASURER_THEN_PASTOR" ? "TREASURER_THEN_PASTOR" : "DUAL_APPROVAL",
       costCenterId: str(row.costCenterId) || null,
       reconciliationId: str(row.reconciliationId) || null,
       lines: Array.isArray(row.lines) ? row.lines.flatMap(raw => {
