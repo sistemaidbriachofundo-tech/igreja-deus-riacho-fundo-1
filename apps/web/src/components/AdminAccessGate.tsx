@@ -84,19 +84,21 @@ export function SessionGateNotice({
   onRetry?: () => void;
   onSignOut?: () => void;
 }) {
+  // Primeira validação: spinner acessível, sem expor estados técnicos de sessão.
+  if (mode === "checking") {
+    return <main className={styles.waiting} role="status" aria-label="Carregando painel" aria-live="polite">
+      <span className={styles.waitingSpinner} aria-hidden="true"/>
+      <h1 className={styles.srOnly}>Carregando painel</h1>
+    </main>;
+  }
   const copy = mode === "forbidden"
     ? {
       title: "Seu perfil não pode abrir esta área.",
       detail: "A sessão continua válida, mas o servidor não autorizou o painel. Nenhuma informação administrativa foi exibida.",
     }
-    : mode === "unavailable"
-      ? {
+    : {
         title: "Não conseguimos confirmar a sessão.",
         detail: "A conexão demorou ou falhou. Você não foi desconectado.",
-      }
-      : {
-        title: "Verificando seu acesso…",
-        detail: "Antes de abrir a área administrativa, confirmamos sua sessão.",
       };
   return <main className={styles.waiting} role={mode === "checking" ? "status" : "alert"} aria-live="polite">
     <span className={styles.waitingIcon} aria-hidden="true">✦</span>
