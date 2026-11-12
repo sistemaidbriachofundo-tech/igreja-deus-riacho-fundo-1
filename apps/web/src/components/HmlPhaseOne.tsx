@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
-import { ReportBars, ReportDashboard } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
@@ -575,20 +574,41 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             )}
             {view === "overview" && <PersonaBoard />}
             {view === "secretary" && secretary && secretarySection === "resumo" && (
-              <ReportDashboard>
+              <div className={s.secretaryOverview}>
+
                 <SecretaryDashboard token={token} revision={summaryRevision}
                   households={familiesLoaded ? households.length : null}
                   credentials={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null}
                   onOpenPerson={setFichaId} />
-                <ReportBars title="Admissões em andamento" description="Protocolos pendentes, por etapa." loading={checking}
-                  rows={loadedGroups.admissions ? [
-                    ["modality", "Em preparação"], ["documents", "Documentação"],
-                    ["secretaria", "Análise da Secretaria"], ["pastor", "Aprovação pastoral"],
-                  ].map(([step, label]) => ({
-                    label, value: admissions.filter(row => row.currentStep === step && !CLOSED_ADMISSIONS.includes(row.status)).length,
-                    href: `/app/secretaria/admissoes/?etapa=${step}`,
-                  })) : null} />
-              </ReportDashboard>
+                <section className={s.admissionPipeline} aria-labelledby="secretaria-pipeline-title">
+                  <header className={s.pipelineHead}>
+                    <div><span className={s.pipelineEyebrow}>PROCESSOS EM ANDAMENTO</span>
+                      <h2 id="secretaria-pipeline-title">Jornada de admissão</h2>
+                      <p>Acompanhe cada etapa até a aprovação pastoral.</p></div>
+                    <AppNavLink className={s.pipelineAll} href="/app/secretaria/admissoes/">
+                      Ver todos os protocolos <UIIcon name="arrow" size={16}/>
+                    </AppNavLink>
+                  </header>
+                  <div className={s.pipelineSteps}>
+                    {([
+                      ["modality", "Em preparação", "Modalidade e abertura"],
+                      ["documents", "Documentação", "Dados e anexos"],
+                      ["secretaria", "Análise da Secretaria", "Conferência de informações"],
+                      ["pastor", "Aprovação pastoral", "Decisão final"],
+                    ] as const).map(([step, label, detail], index) => (
+                      <AppNavLink key={step} className={s.pipelineStep} href={`/app/secretaria/admissoes/?etapa=${step}`}>
+                        <span className={s.pipelineNumber}>{String(index + 1).padStart(2, "0")}</span>
+                        <strong>{loadedGroups.admissions
+                          ? admissions.filter(row => row.currentStep === step && !CLOSED_ADMISSIONS.includes(row.status)).length.toLocaleString("pt-BR")
+                          : "—"}</strong>
+                        <span className={s.pipelineLabel}>{label}</span>
+                        <small>{detail}</small>
+                        <UIIcon name="arrow" size={16}/>
+                      </AppNavLink>
+                    ))}
+                  </div>
+                </section>
+              </div>
             )}
             {showsPeople && (
               <div className={s.peopleWorkspace}>
