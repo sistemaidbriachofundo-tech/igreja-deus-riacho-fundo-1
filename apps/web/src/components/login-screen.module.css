@@ -33,11 +33,11 @@
   min-width: 0;
   padding: clamp(24px, 3.4vw, 49px);
   color: #fffaf0;
-  /* Mesma superfície preta da marca oficial: sem quadrado visível ao redor. */
-  background: #000;
+  /* A marca é transparente: o fundo do painel é uma escolha visual, não um remendo. */
+  background: #101010;
 }
 .brand { display: flex; gap: 13px; align-items: center; }
-.brand img { width: 64px; height: 64px; object-fit: contain; background: #000; }
+.brand img { display: block; flex: none; width: 80px; height: 90px; max-width: 100%; object-fit: contain; object-position: center; background: transparent; border: 0; border-radius: 0; }
 .brand strong, .brand span { display: block; letter-spacing: .12em; }
 .brand strong { font-size: 13px; }
 .brand span { margin-top: 4px; color: #d9d2cb; font-size: 10px; }
@@ -79,7 +79,8 @@
 @media (max-width: 760px) {
   .page { padding: 16px; }
   .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; }
-  .story { padding: 19px 21px; }
+  .story { padding: 22px 21px; }
+  .brand img { width: 61px; height: 69px; }
   .facade { display: none; }
   .panel { padding: 26px 21px; }
 }
