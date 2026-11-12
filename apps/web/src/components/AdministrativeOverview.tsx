@@ -489,12 +489,14 @@ export function AdministrativeOverview({
           <Section
             title="Pessoas da congregação"
             action={
-              <AppNavLink
-                className={s.textLink}
-                href="/app/secretaria/pessoas/"
-              >
-                Ver cadastros <UIIcon name="arrow" size={15} />
-              </AppNavLink>
+              <div className={s.sectionActions}>
+                <AppNavLink className={s.textLink} href="/app/secretaria/indicadores/">
+                  Ver indicadores <UIIcon name="arrow" size={15} />
+                </AppNavLink>
+                <AppNavLink className={s.textLink} href="/app/secretaria/pessoas/">
+                  Ver cadastros <UIIcon name="arrow" size={15} />
+                </AppNavLink>
+              </div>
             }
           >
             <Congregation rows={distribution} loading={loading} />
