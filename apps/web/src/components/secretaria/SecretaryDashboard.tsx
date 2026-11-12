@@ -103,6 +103,7 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
   const scale = Math.max(1, ...series.map(([, value]) => Math.max(value.admissoes, value.transferenciasEntrada, value.transferenciasSaida)));
 
   return <div className={s.dashboard} aria-busy={loading}>
+    <div className={s.dashboardIntro}><div><span>SECRETARIA · PANORAMA</span><h2>Conheça nossa comunidade</h2><p>Cadastros, vínculos e indicadores reunidos para orientar o cuidado com pessoas.</p></div><a href="/app/secretaria/indicadores/">Ver painel detalhado de membresia <span aria-hidden="true">↗</span></a></div>
     <ReportHeadline label="Pessoas cadastradas" value={overview.total}>
       <ReportMetric label="Membros" value={overview.byCategory.membros} />
       <ReportMetric label="Famílias cadastradas" value={households} />

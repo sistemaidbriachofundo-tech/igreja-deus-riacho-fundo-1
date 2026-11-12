@@ -1472,3 +1472,7 @@
     flex-direction: column;
   }
 }
+
+/* Cadastro da Secretaria com largura confortável, sem alterar modais do restante do produto. */
+.workspaceDialogWide{width:min(920px,calc(100vw - 30px));max-width:min(920px,calc(100vw - 30px));max-height:calc(100dvh - 28px);padding:clamp(15px,2.2vw,25px);overflow:auto;border-radius:20px}
+@media(max-width:580px){.workspaceDialogWide{width:calc(100vw - 14px);max-width:calc(100vw - 14px);max-height:calc(100dvh - 12px);padding:13px;border-radius:14px}}

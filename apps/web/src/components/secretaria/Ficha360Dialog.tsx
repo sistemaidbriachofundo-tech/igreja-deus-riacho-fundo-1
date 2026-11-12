@@ -17,6 +17,7 @@ import {
   type PersonDossier,
 } from "../secretary-dossier";
 import s from "../secretary-dossier.module.css";
+import { Ficha360Overview, type FichaTab } from "./Ficha360Overview";
 
 type HouseholdOption = { id: string; label: string };
 
@@ -25,8 +26,8 @@ const dateFields: Array<[PersonProfileDates, string]> = [
   ["baptismDate", "Data de batismo"], ["weddingDate", "Data de casamento"],
 ];
 const timelineLabels: Record<PersonTimelineEvent["type"], string> = {
-  cadastro: "Cadastro", vinculo: "Vínculo", admissao: "Admissão", transferencia: "Transferência",
-  ministerio: "Ministério", marco: "Datas da pessoa",
+  cadastro: "Origem do cadastro", vinculo: "Situação eclesiástica", admissao: "Admissão", transferencia: "Transferência",
+  ministerio: "Liderança / função", marco: "Marcos pessoais",
 };
 
 export type CredentialView =
@@ -114,6 +115,7 @@ export function Ficha360Dialog({
   const dialogRef = useRef<HTMLElement>(null);
   const timelineRef = useRef<HTMLElement>(null);
   const [timelineType, setTimelineType] = useState("");
+  const [activeTab, setActiveTab] = useState<FichaTab>("visao");
   const [newFamily, setNewFamily] = useState("");
   const [familyOpen, setFamilyOpen] = useState(false);
   const [creatingFamily, setCreatingFamily] = useState(false);
@@ -177,6 +179,7 @@ export function Ficha360Dialog({
               size="large"
             />
             <div>
+              <span className={s.profileEyebrow}>FICHA 360 · HISTÓRIA E CUIDADO</span>
               <h2 id={titleId}>
                 {person?.displayName ?? "Cadastro de pessoa"}
               </h2>
@@ -221,11 +224,44 @@ export function Ficha360Dialog({
 
         {form && person && dossier && (
           <>
+            <nav className={s.fichaTabs} role="tablist" aria-label="Seções da Ficha 360">
+              {([
+                ["visao","Visão geral"],
+                ["historico","Histórico eclesiástico"],
+                ["cadastro","Dados e edição"],
+                ["admissoes","Admissões e documentos"],
+              ] as const).map(([tab,label])=>(
+                <button type="button" key={tab} role="tab" aria-selected={activeTab===tab}
+                  aria-controls={titleId+"-"+tab} id={titleId+"-tab-"+tab}
+                  onClick={()=>setActiveTab(tab)}>
+                  {label}
+                  {tab==="historico" && <span>{dossier.timeline?.length??0}</span>}
+                  {tab==="admissoes" && <span>{dossier.admissionHistory.length}</span>}
+                </button>
+              ))}
+            </nav>
+            <div id={titleId+"-visao"} role="tabpanel" aria-labelledby={titleId+"-tab-visao"}
+              hidden={activeTab!=="visao"} className={s.fichaTabPanel}>
+              {activeTab==="visao" && <Ficha360Overview person={person} dossier={dossier}
+                canEdit={canEdit} onTab={setActiveTab}/>}
+            </div>
+            {activeTab === "cadastro" && <div id={titleId+"-cadastro"} role="tabpanel" aria-labelledby={titleId+"-tab-cadastro"}>
             <div className={s.profileTools}>
-              <span title="Nome, e-mail, endereço e nascimento">
-                Dados essenciais preenchidos <strong>{[person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length}/4</strong>
-              </span>
-              <button className={s.secondary} type="button" onClick={() => { timelineRef.current?.scrollIntoView({ block: "start" }); timelineRef.current?.focus({ preventScroll: true }); }}>Ver linha do tempo</button>
+              <div className={s.completeness}>
+                <div className={s.completenessLabel}>
+                  <span title="Nome, e-mail, endereço e nascimento">
+                    Dados essenciais preenchidos <strong>{[person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length}/4</strong>
+                  </span>
+                  <strong>{Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100)}%</strong>
+                </div>
+                <div className={s.completenessTrack} role="progressbar"
+                  aria-label="Preenchimento dos dados essenciais"
+                  aria-valuemin={0} aria-valuemax={100}
+                  aria-valuenow={Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100)}>
+                  <i style={{ width: Math.round([person.displayName, person.email, person.address, person.birthDate].filter(Boolean).length / 4 * 100) + "%" }} />
+                </div>
+              </div>
+              <button className={s.secondary} type="button" onClick={() => setActiveTab("historico")}>Ver linha do tempo</button>
             </div>
             <form className={s.form} onSubmit={onSubmit}>
               <fieldset disabled={busy || !canEdit || creatingFamily}>
@@ -415,7 +451,6 @@ export function Ficha360Dialog({
                 </p>
               )}
             </form>
-
             <section className={s.locked} aria-label="Situação do cadastro">
               <h3>Situação do cadastro</h3>
               <dl className={s.statusGrid}>
@@ -471,8 +506,18 @@ export function Ficha360Dialog({
                 </div>
               </dl>
             </section>
+            </div>}
 
-            <section ref={timelineRef} tabIndex={-1} className={s.context} aria-label="Histórico eclesiástico">
+            <section id={titleId+(activeTab==="admissoes"?"-admissoes":"-historico")} role="tabpanel"
+              aria-labelledby={titleId+"-tab-"+(activeTab==="admissoes"?"admissoes":"historico")}
+              ref={timelineRef} tabIndex={-1} className={s.context} hidden={activeTab!=="historico" && activeTab!=="admissoes"}
+              aria-label={activeTab==="admissoes"?"Admissões e documentos":"Histórico eclesiástico"}>
+              {activeTab==="historico" && <>
+                <div className={s.historyLead}>
+                  <span>HISTÓRIA DA PESSOA</span>
+                  <h3>Uma vida contada em acontecimentos.</h3>
+                  <p>Registros efetivamente presentes no sistema, em ordem cronológica. Situações e funções são preservadas conforme os processos existentes.</p>
+                </div>
               <div className={s.timelineHeading}><h3>Linha do tempo</h3>
                 <label>Filtrar por tipo
                   <select value={timelineType} onChange={event => setTimelineType(event.target.value)}>
@@ -497,6 +542,13 @@ export function Ficha360Dialog({
                 <p className={s.hint}>Nenhum vínculo nesta congregação.</p>
               )}
               </>}
+              </>}
+              {activeTab==="admissoes" && <>
+              <div className={s.historyLead}>
+                <span>ADMISSÃO E DOCUMENTAÇÃO</span>
+                <h3>Protocolos e acompanhamento.</h3>
+                <p>Confira o andamento, as aprovações e os documentos autorizados desta pessoa.</p>
+              </div>
               <h3>Protocolos de admissão</h3>
               {dossier.admissionHistory.length ? (
                 dossier.admissionHistory.map((item) => (
@@ -542,6 +594,7 @@ export function Ficha360Dialog({
                   Documentos de admissão não são pedidos para este perfil.
                 </p>
               )}
+              </>}
             </section>
           </>
         )}
@@ -552,11 +605,22 @@ export function Ficha360Dialog({
 
 function Timeline({ events, filter }: { events: PersonTimelineEvent[]; filter: string }) {
   const visible = events.filter(event => !filter || event.type === filter);
-  if (!visible.length) return <p className={s.hint}>Nenhum registro neste filtro.</p>;
-  return <ol className={s.timeline}>{visible.map(event => <li key={event.id}>
-    <time dateTime={event.date}>{formatWhen(event.date)}</time>
-    <div><small>{timelineLabels[event.type]}</small><strong>{event.title}</strong>{event.detail && <span>{event.detail}</span>}</div>
-  </li>)}</ol>;
+  if (!visible.length) return <p className={s.timelineEmpty}>Nenhum acontecimento registrado neste filtro. Selecione outro tipo.</p>;
+  return <ol className={s.timeline} aria-label="Acontecimentos da vida eclesiástica">
+    {visible.map((event, index) => <li key={event.type+"-"+event.id+"-"+index} data-event-type={event.type}>
+      <span className={s.timelineMarker} data-event-type={event.type} aria-hidden="true">
+        {event.type==="ministerio"?"✦":event.type==="marco"?"♥":event.type==="cadastro"?"✓":event.type==="transferencia"?"↗":"●"}
+      </span>
+      <article className={s.timelineCard}>
+        <div className={s.timelineCardHeader}>
+          <span className={s.timelineCategory}>{timelineLabels[event.type]}</span>
+          <time dateTime={event.date}>{formatWhen(event.date)}</time>
+        </div>
+        <h4>{event.title}</h4>
+        {event.detail && <p>{event.detail}</p>}
+      </article>
+    </li>)}
+  </ol>;
 }
 
 function householdOptions(

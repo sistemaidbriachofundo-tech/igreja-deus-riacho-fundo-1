@@ -8,6 +8,7 @@ import { useDialogLifecycle } from "./dialog";
 type ModalProps = {
   open: boolean;
   appearance?: "default" | "workspace";
+  size?: "regular" | "wide";
   title: string;
   description?: string;
   onClose: () => void;
@@ -21,6 +22,7 @@ export function Modal({
   onClose,
   children,
   appearance = "default",
+  size = "regular",
 }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -42,7 +44,7 @@ export function Modal({
         ref={dialogRef}
         className={
           appearance === "workspace"
-            ? `${styles.dialog} ${styles.workspaceDialog}`
+            ? `${styles.dialog} ${styles.workspaceDialog} ${size === "wide" ? styles.workspaceDialogWide : ""}`
             : styles.dialog
         }
         role="dialog"

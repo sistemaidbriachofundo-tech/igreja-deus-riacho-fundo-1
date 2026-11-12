@@ -7,6 +7,8 @@ import { ReportBars, ReportDashboard } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
+import { NewPersonIntake } from "./secretaria/NewPersonIntake";
+import { personUnder18 } from "./secretaria/new-person-intake-model";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
@@ -191,6 +193,12 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const emptyNewProfile = () => ({
+    address: "", birthDate: "", baptismDate: "", firstAttendedOn: "",
+    weddingDate: "", sex: "", isMinor: false,
+    legalGuardianPersonId: "", householdId: "", householdLabel: "",
+  });
+  const [newProfile, setNewProfile] = useState(emptyNewProfile);
   const [modality, setModality] = useState("BATISMO");
 
   useEffect(() => {
@@ -337,6 +345,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setFormFeedback("");
     setNewName("");
     setNewEmail("");
+    setNewProfile(emptyNewProfile());
     setAdmissionPerson("");
     setModality("BATISMO");
     const url = new URL(window.location.href);
@@ -416,6 +425,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     if (!token || !secretary || busy || !admissionForm) return;
     const name = newName.trim();
     const email = newEmail.trim().toLowerCase();
+    const computedMinor = newProfile.birthDate ? personUnder18(newProfile.birthDate) : newProfile.isMinor;
     setFormFeedback("");
     if (admissionForm === "existing" && !admissionPerson) {
       setFormFeedback("Selecione a pessoa que vai iniciar a admissão.");
@@ -425,6 +435,15 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       setFormFeedback("Use um nome e um e-mail terminado em @example.test.");
       return;
     }
+    if (admissionForm === "new" && computedMinor && !newProfile.legalGuardianPersonId) {
+      setFormFeedback("Para uma pessoa menor de idade, selecione um responsável legal adulto.");
+      return;
+    }
+    if (admissionForm === "new" && newProfile.householdId && newProfile.householdLabel.trim()) {
+      setFormFeedback("Selecione uma família existente ou crie um novo núcleo.");
+      return;
+    }
+    let createdPersonId: string | null = null;
     const completed = admissionForm === "existing"
       ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.", setFormFeedback)
       : await run(async () => {
@@ -434,9 +453,26 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
           if (candidates.hits.some(hit => hit.person.email?.toLowerCase() === email)) {
             throw new Error("E-mail já cadastrado.");
           }
-          return apiPost("/memberships", token, { displayName: name, email });
-        }, "Pessoa cadastrada. Você já pode iniciar a admissão quando precisar.", setFormFeedback);
-    if (completed) resetSecretaryAction();
+          const created = await apiPost<{person:{id:string}}>("/memberships", token, {
+            displayName: name, email,
+            address: newProfile.address.trim() || undefined,
+            birthDate: newProfile.birthDate || undefined,
+            baptismDate: newProfile.baptismDate || undefined,
+            weddingDate: newProfile.weddingDate || undefined,
+            firstAttendedOn: newProfile.firstAttendedOn || undefined,
+            sex: newProfile.sex || undefined,
+            isMinor: computedMinor,
+            legalGuardianPersonId: newProfile.legalGuardianPersonId || undefined,
+            householdId: newProfile.householdId || undefined,
+            householdLabel: newProfile.householdLabel.trim() || undefined,
+          });
+          createdPersonId = created?.person?.id ?? null;
+          return created;
+        }, "Pessoa cadastrada. Abra a Ficha 360 para completar sua história.", setFormFeedback);
+    if (completed) {
+      resetSecretaryAction();
+      if (createdPersonId) setFichaId(createdPersonId);
+    }
   }
 
   function nextAdmission(admission: Admission) {
@@ -669,10 +705,11 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
               <Modal
                 open
                 appearance="workspace"
+                size={admissionForm === "new" ? "wide" : "regular"}
                 title={admissionForm === "existing" ? "Iniciar admissão" : "Cadastrar pessoa"}
                 description={admissionForm === "existing"
                   ? "Escolha uma pessoa cadastrada e a modalidade de admissão."
-                  : "Preencha os dados iniciais da pessoa. A admissão pode ser aberta depois."}
+                  : "Registre identificação, família e histórico. Ser membro exige aprovação pastoral."}
                 onClose={closeSecretaryAction}
               >
                 <form className={s.form} onSubmit={submitSecretariatForm} aria-busy={busy}>
@@ -690,10 +727,18 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       </label>
                     </>
                   ) : (
-                    <>
-                      <label>Nome<input value={newName} onChange={event => setNewName(event.target.value)} required minLength={3} maxLength={160} autoComplete="off" disabled={busy} /></label>
-                      <label>E-mail de homologação<input value={newEmail} onChange={event => setNewEmail(event.target.value)} required type="email" placeholder="nome@example.test" disabled={busy} /></label>
-                    </>
+                    <NewPersonIntake
+                      name={newName}
+                      email={newEmail}
+                      profile={newProfile}
+                      families={households}
+                      token={token}
+                      roles={user.grants.map(grant => grant.roleCode)}
+                      busy={busy}
+                      onName={setNewName}
+                      onEmail={setNewEmail}
+                      onProfile={setNewProfile}
+                    />
                   )}
                   <div className={s.formActions}>
                     <button type="button" className={ui.workspaceSecondary} onClick={closeSecretaryAction} disabled={busy}>Cancelar</button>

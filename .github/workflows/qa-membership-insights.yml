@@ -1,0 +1,71 @@
+name: QA isolada — Ficha 360 e Membresia
+
+on:
+  push:
+    branches: [chatgpt/eklesia-ficha-dashboard-20261111]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  membership-insights:
+    name: Compilar e testar Ficha 360 e indicadores
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://idbrf:idbrf_ci@localhost:5432/idbrf?schema=public
+      NEXT_PUBLIC_BASE_PATH: /igreja-deus-riacho-fundo-1
+      NEXT_PUBLIC_HML_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @idbrf/shared
+      - run: npx prisma generate --schema packages/db/prisma/schema.prisma
+      - run: npm run build -w @idbrf/db
+      - run: npm run typecheck -w @idbrf/api
+      - run: npm run typecheck -w @idbrf/web
+      - run: cd apps/web && ../../node_modules/.bin/vitest run src/components/membership-insights-model.test.ts src/components/secretaria/new-person-intake-model.test.ts src/components/secretary-dossier-ui.test.tsx
+      - run: cd apps/api && ../../node_modules/.bin/jest --runInBand membership-insights-domain.spec.ts membership-profile-registration.spec.ts
+      - run: node scripts/hml/write-pages-release.mjs
+      - run: npm run build -w @idbrf/web
+      - name: Entregar código-fonte da evolução em ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: riacho1-ficha360-dashboard-codigo
+          retention-days: 30
+          path: |
+            apps/api/src/reports/membership-insights-*
+            apps/api/src/reports/membership-insights.*
+            .github/workflows/qa-membership-insights.yml
+            apps/api/src/reports/reports.module.ts
+            apps/api/src/persons/persons.service.ts
+            apps/api/src/memberships/memberships.service.ts
+            apps/api/src/memberships/memberships.controller.ts
+            apps/api/src/memberships/membership-profile-registration.spec.ts
+            apps/web/src/components/ui/Modal.tsx
+            apps/web/src/components/ui/ui.module.css
+            apps/web/src/components/HmlPhaseOne.tsx
+            apps/web/src/components/secretaria/NewPersonIntake.tsx
+            apps/web/src/components/secretaria/new-person-intake*
+            apps/web/src/components/secretaria/Ficha360Overview.tsx
+            apps/web/src/components/secretaria/ficha360-overview.module.css
+            apps/web/src/components/MembershipInsights.tsx
+            apps/web/src/components/membership-insights-*
+            apps/web/src/components/secretaria/Ficha360Dialog.tsx
+            apps/web/src/components/secretary-dossier.module.css
+            apps/web/src/components/AdministrativeOverview.tsx
+            apps/web/src/components/administrative-overview.module.css
+            apps/web/src/components/reports/ManagementReports.tsx
+            apps/web/src/components/reports/management-reports.module.css
+            apps/web/src/app/app/secretaria/indicadores/page.tsx
+            docs/entrega-ficha360-membresia-20261111.md
+      - name: Entregar preview estático compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: riacho1-ficha360-dashboard-preview
+          retention-days: 14
+          path: apps/web/out
