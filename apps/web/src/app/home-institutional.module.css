@@ -59,3 +59,8 @@
   .identityContent { display: flex; flex-direction: column-reverse; align-items: stretch; gap: 16px; }
   .identityFigure { aspect-ratio: 5 / 4; }
 }
+
+/* Texto institucional com blocos editoriais, evitando cartões redundantes. */
+.identityCopy strong { color: #c44710; font-weight: 800; }
+.identityCopy .values { margin-top: 21px; padding-top: 18px; border-top: 1px solid #cdc5ba; }
+.identityCopy .values span { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 900; letter-spacing: .15em; color: #a63e13; }
