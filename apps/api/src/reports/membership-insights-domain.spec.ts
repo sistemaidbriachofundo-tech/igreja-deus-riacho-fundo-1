@@ -52,6 +52,16 @@ describe("Membership Insights RF1", () => {
     expect(report.movements.netTransfers).toBe(0);
     expect(report.growth.months.some(row=>row.label==="2026-09" && row.exits===1)).toBe(true);
     expect(report.recent.length).toBe(1);
+    const staleMinor = buildMembershipInsights({
+      churchId: "church-rf1", churchName: "Riacho 1", now,
+      period: parseInsightsPeriod("2026-01-01", "2026-11-11", now),
+      memberships: [{ id:"m4", status:"ACTIVE", joinedAt:date("2026-01-01"), leftAt:null,
+        person:person({ id:"p4",displayName:"CRIANÇA SEM FLAG",isMinor:false,birthDate:date("2015-11-12") }) }],
+      transfers:[],registeredPersons:1,visitorsActive:0,
+      recentPeople:[{id:"p4",displayName:"CRIANÇA SEM FLAG",createdAt:date("2026-11-09"),kind:"MEMBER",isMinor:false,birthDate:date("2015-11-12")}],
+    });
+    expect(staleMinor.occasions).toEqual([]);
+    expect(staleMinor.recent).toEqual([]);
   });
   it("expõe estado vazio sem inventar pessoas ou crescimento", () => {
     const now=date("2026-11-11");
