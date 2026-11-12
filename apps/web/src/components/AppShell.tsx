@@ -558,11 +558,11 @@ export function AppShell({
           </button>
           <div className={s.toolbarRight}>
             {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
-            <span className={s.profileCluster}>
+            {accessKind !== "pending" && <span className={s.profileCluster}>
               <span className={s.account} aria-hidden="true">{initials}</span>
               <span className={s.accountInfo} aria-label={`${accountEmail || accountName}, ${accountLabel}`} title={accountEmail || accountName}><strong>{accountName}</strong><small>{accountLabel}</small></span>
-            </span>
-            {renderLogout()}
+            </span>}
+            {accessKind !== "pending" && renderLogout()}
           </div>
         </header>
         <main className={s.content}>

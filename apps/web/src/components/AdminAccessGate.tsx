@@ -84,28 +84,30 @@ export function SessionGateNotice({
   onRetry?: () => void;
   onSignOut?: () => void;
 }) {
+  // Primeira validação: spinner acessível, sem expor estados técnicos de sessão.
+  if (mode === "checking") {
+    return <main className={styles.waiting} role="status" aria-label="Carregando painel" aria-live="polite">
+      <span className={styles.waitingSpinner} aria-hidden="true"/>
+      <h1 className={styles.srOnly}>Carregando painel</h1>
+    </main>;
+  }
   const copy = mode === "forbidden"
     ? {
       title: "Seu perfil não pode abrir esta área.",
       detail: "A sessão continua válida, mas o servidor não autorizou o painel. Nenhuma informação administrativa foi exibida.",
     }
-    : mode === "unavailable"
-      ? {
+    : {
         title: "Não conseguimos confirmar a sessão.",
         detail: "A conexão demorou ou falhou. Você não foi desconectado.",
-      }
-      : {
-        title: "Verificando seu acesso…",
-        detail: "Antes de abrir a área administrativa, confirmamos sua sessão.",
       };
-  return <main className={styles.waiting} role={mode === "checking" ? "status" : "alert"} aria-live="polite">
+  return <main className={styles.waiting} role="alert" aria-live="polite">
     <span className={styles.waitingIcon} aria-hidden="true">✦</span>
     <h1>{copy.title}</h1>
     <p>{copy.detail}</p>
-    {mode !== "checking" && <div className={styles.gateActions}>
+    <div className={styles.gateActions}>
       {mode === "unavailable" && onRetry && <button type="button" className={styles.retry} onClick={onRetry}>Tentar de novo</button>}
       <a className={styles.gateLink} href={withBasePath("/")}>Voltar ao site</a>
       {onSignOut && <button type="button" className={styles.gateLinkButton} onClick={onSignOut}>Sair da sessão</button>}
-    </div>}
+    </div>
   </main>;
 }
