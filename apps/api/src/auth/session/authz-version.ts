@@ -31,7 +31,7 @@ export function authzVersion(
         grant.ministryId ?? "",
       ].join(":"),
     )
-    .sort()
+    .sort((left, right) => left.localeCompare(right, "en", { sensitivity: "variant" }))
     .join("|");
   return createHash("sha256")
     .update(

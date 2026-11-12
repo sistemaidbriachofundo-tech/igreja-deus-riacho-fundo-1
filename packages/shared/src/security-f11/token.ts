@@ -99,7 +99,11 @@ function toHex(bytes: Uint8Array): string {
 function toBase64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  let encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_");
+  let end = encoded.length;
+  while (end > 0 && encoded.charCodeAt(end - 1) === 61) end -= 1;
+  if (end !== encoded.length) encoded = encoded.slice(0, end);
+  return encoded;
 }
 
 export function hashOpaqueToken(token: string): string {
