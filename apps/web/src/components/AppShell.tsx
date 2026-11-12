@@ -463,7 +463,7 @@ export function AppShell({
         </button>
         <div className={s.railHeader}>
           <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
-            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
+            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/idb-riacho-oficial-2026.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
             <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
           </AppNavLink>
           <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
@@ -546,7 +546,7 @@ export function AppShell({
             <button type="button" ref={menuButtonRef} className={s.hamburger} aria-expanded={menuExpanded} aria-controls="app-navigation-rail" aria-label={menuButtonLabel} onClick={toggleMenu}>
               <UIIcon name="menu" size={20}/>
             </button>
-            <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
+            <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/idb-riacho-oficial-2026.webp")}")` }} />
             <div>
               <strong>{shownMeta}</strong>
               <span className={s.toolbarEyebrow}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "Administração · Riacho Fundo I"}</span>
