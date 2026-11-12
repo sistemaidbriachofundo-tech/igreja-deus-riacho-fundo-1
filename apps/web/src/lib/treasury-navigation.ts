@@ -19,16 +19,16 @@ const SECTIONS: readonly TreasurySidebarItem[] = [
 /**
  * Este catálogo apenas controla a navegação; a API autoriza operações.
  * Pastor sem Tesouraria vê só suas aprovações, sem acesso ao extrato.
- * Administrador sem Tesouraria tem consulta, não pode criar/autorizar despesas.
+ * Administrador pode cadastrar uma despesa pendente, mas nunca autoriza pagamentos.
  */
 export function treasurySidebarItems(roles: readonly string[]): readonly TreasurySidebarItem[] {
   const treasurer = roles.includes("TESOURARIA");
   const pastor = roles.includes("PASTOR");
   const admin = roles.includes("PLATFORM_ADMIN");
   if (!treasurer && !pastor && !admin) return [];
-  if (pastor && !treasurer) return SECTIONS.filter(item => item.section === "aprovacoes");
+  if (pastor && !treasurer && !admin) return SECTIONS.filter(item => item.section === "aprovacoes");
   return SECTIONS.filter(item =>
-    (item.section !== "lancar" || treasurer) &&
+    (item.section !== "lancar" || treasurer || admin) &&
     (item.section !== "aprovacoes" || treasurer || pastor),
   );
 }
@@ -53,7 +53,7 @@ export function treasurySectionFromHash(hash: string, roles: readonly string[]):
   const raw = hash.startsWith("#") ? hash.slice(1) : hash;
   const section = raw.startsWith("lancar:") && TREASURY_MOVEMENT_TYPES.some(type => raw === `lancar:${type}`) ? "lancar" : raw;
   const found = items.find(item => item.section === section);
-  return found?.section ?? (roles.includes("PASTOR") && !roles.includes("TESOURARIA") ? "aprovacoes" : "visao");
+  return found?.section ?? (roles.includes("PASTOR") && !roles.includes("TESOURARIA") && !roles.includes("PLATFORM_ADMIN") ? "aprovacoes" : "visao");
 }
 
 export function treasurySectionHref(section: TreasurySection): string {
