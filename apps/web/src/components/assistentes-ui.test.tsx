@@ -42,7 +42,7 @@ describe("Riachinho e Vivi — escopo e honestidade", () => {
     expect(html).toContain("Olá! Eu sou o Riachinho");
     expect(html).toContain("Consultando disponibilidade");
     expect(html).toContain("Não analisa imagens");
-    expect(html).toContain("logo-igreja-aprovada.webp");
+    expect(html).toContain("idb-riacho-oficial-transparente.svg");
     expect(html).not.toContain("Modo de simulação");
     expect(html).not.toContain("IA disponível");
     expect(html).not.toContain("GEMINI_API_KEY");
