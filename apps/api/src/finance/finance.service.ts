@@ -211,6 +211,37 @@ export class FinanceService {
     });
   }
 
+  /** Uma despesa reconhecida requer aprovação de TESOURARIA seguida de PASTOR.
+   * Taxas técnicas 5.9 não são tratadas como despesa de fornecedor.
+   * A relação account é carregada pelo Prisma, nunca classificada por texto enviado pelo cliente.
+   */
+  private isExpenseForPastor(lines: Array<{
+    side: string; account?: { type: string; code: string } | null;
+  }>) {
+    return lines.some(line => line.side === "DEBIT" && line.account?.type === "EXPENSE"
+      && !/^5\\.9(\\.|$)/.test(line.account.code));
+  }
+
+  async listExpenseApprovals(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    if ((actor.churchId && actor.churchId !== scope.churchId)
+      || (actor.organizationId && actor.organizationId !== scope.organizationId)
+      || !hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA] })) {
+      throw new ForbiddenException("Somente tesoureiro e pastor da congregação consultam essas aprovações.");
+    }
+    const rows = await this.prisma.ledgerEntry.findMany({
+      where: {
+        ...scope, status: "PENDING_APPROVAL",
+        lines: { some: { side: "DEBIT", account: { type: "EXPENSE", code: { not: { startsWith: "5.9" } } } } },
+      },
+      orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }],
+      take: 100,
+      include: { lines: { include: { account: { select: { type: true, code: true } } } } },
+    });
+    return { entries: rows.map(row => this.toEntryDto(row)) };
+  }
+
   // —— Lançamentos ——
 
   async listEntries(actor: AuthUser, status?: string) {
@@ -222,7 +253,7 @@ export class FinanceService {
         ...(status ? { status: status as never } : {}),
       },
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { type: true, code: true } } } } },
     });
     return {
       churchId: pilot.churchId,
@@ -391,8 +422,22 @@ export class FinanceService {
   }
 
   async approveEntry(actor: AuthUser, entryId: string) {
-    const pilot = await this.requireFinance(actor);
-    const row = await this.requireEntryInPilot(pilot, entryId);
+    const pilot = await this.pilot.getPilotChurch();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const row = await this.requireEntryInPilot(scope, entryId);
+    const specialExpense = this.isExpenseForPastor(row.lines);
+    if (specialExpense) {
+      const requiredRole = row.firstApprovedByUserId ? ROLE_CODES.PASTOR : ROLE_CODES.TESOURARIA;
+      if ((actor.churchId && actor.churchId !== scope.churchId)
+        || (actor.organizationId && actor.organizationId !== scope.organizationId)
+        || !hasAccess(actor.grants, { ...scope, roleCodes: [requiredRole] })) {
+        throw new ForbiddenException(row.firstApprovedByUserId
+          ? "A aprovação final desta despesa pertence ao pastor da congregação."
+          : "A primeira aprovação desta despesa pertence à tesouraria.");
+      }
+    } else {
+      await this.requireFinance(actor);
+    }
     if (row.status !== "PENDING_APPROVAL") {
       throw new ConflictException({
         code: "LEDGER_ENTRY_NOT_PENDING",
@@ -1796,7 +1841,7 @@ export class FinanceService {
         churchId: pilot.churchId,
       },
       include: {
-        lines: true,
+        lines: { include: { account: { select: { type: true, code: true } } } },
         reversedBy: { select: { id: true } },
       },
     });
@@ -2012,9 +2057,11 @@ export class FinanceService {
       side: string;
       amountCents: number;
       memo: string | null;
+      account?: { type: string; code: string } | null;
     }>;
   }) {
     return {
+      approvalFlow: this.isExpenseForPastor(row.lines) ? "TREASURER_THEN_PASTOR" : "DUAL_APPROVAL",
       id: row.id,
       churchId: row.churchId,
       entryDate: row.entryDate.toISOString().slice(0, 10),
