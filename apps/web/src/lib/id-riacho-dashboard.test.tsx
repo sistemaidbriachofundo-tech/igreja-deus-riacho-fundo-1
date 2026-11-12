@@ -16,7 +16,7 @@ describe("ID Riacho 1 — dashboard administrativo", () => {
   it("mantém a marca e o aviso sem a faixa de atalhos", () => {
     const html = renderToStaticMarkup(<ChurchDashboard />);
     expect(html).toContain("Avisos");
-    expect(html).toContain("idb-riacho-oficial-2026.webp");
+    expect(html).toContain("idb-riacho-oficial-transparente.svg");
     expect(html).not.toContain("Acesso rápido");
     expect(html).not.toContain("hero-oficial.jpg");
     expect(html).not.toContain("ID Riacho 1<br/>");
