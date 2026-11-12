@@ -82,3 +82,19 @@
   .facade { display: none; }
   .panel { padding: 26px 21px; }
 }
+
+/* Configuração MFA: QR criado no próprio navegador, sem serviços externos. */
+.qrFrame {
+  display: grid;
+  place-items: center;
+  min-height: 230px;
+  padding: 12px;
+  border: 1px solid #d1dfd4;
+  border-radius: 12px;
+  background: #fff;
+}
+.qrImage { display: block; max-width: 100%; width: 220px; height: 220px; image-rendering: pixelated; }
+.qrPending { font-size: 13px; color: #4b6257; }
+.manualSetup { margin-top: 4px; font-size: 13px; color: #315346; }
+.manualSetup summary { min-height: 36px; padding: 6px 0; cursor: pointer; font-weight: 650; }
+.manualSetup code { display: block; margin-top: 6px; font-size: 13px; letter-spacing: .08em; word-break: break-all; }
