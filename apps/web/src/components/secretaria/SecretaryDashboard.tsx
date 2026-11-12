@@ -301,18 +301,18 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
       <p>Informações demográficas calculadas a partir dos registros existentes.</p></div></div>
     <div className={s.demographics}>
       <DemographicCard title="Faixa etária" description={`Base de ${counts.format(demographics.base)} cadastros ativos. ${counts.format(demographics.missingBirthDate)} sem nascimento.`}
-        rows={demographics.age.map(row => ({ label: row.label, value: row.count }))}/>
+        rows={demographics.age.map(row => ({ label: row.label, count: row.count }))}/>
       <DemographicCard title="Tempo de igreja" description={`Desde a primeira frequência. ${counts.format(demographics.missingChurchTime)} sem essa data.`}
-        rows={demographics.churchTime.map(row => ({ label: row.label, value: row.count }))}/>
+        rows={demographics.churchTime.map(row => ({ label: row.label, count: row.count }))}/>
       <DemographicCard title="Distribuição por sexo" description={`Base de ${counts.format(demographics.base)} pessoas com cadastro ativo.`}
         rows={[
-          { label: "Feminino", value: demographics.sex.FEMALE }, { label: "Masculino", value: demographics.sex.MALE },
-          { label: "Outro", value: demographics.sex.OTHER }, { label: "Não informado", value: demographics.sex.unknown },
+          { label: "Feminino", count: demographics.sex.FEMALE }, { label: "Masculino", count: demographics.sex.MALE },
+          { label: "Outro", count: demographics.sex.OTHER }, { label: "Não informado", count: demographics.sex.unknown },
         ]}/>
       <DemographicCard title="Idade no início da frequência" description={`${counts.format(demographics.missingAgeAtAttendance)} cadastros sem as datas necessárias.`}
-        rows={demographics.ageAtFirstAttendance.map(row => ({ label: row.label, value: row.count }))}/>
+        rows={demographics.ageAtFirstAttendance.map(row => ({ label: row.label, count: row.count }))}/>
       <DemographicCard title="Tempo de vínculo como membro" description="Desde o início do vínculo, para membros ativos."
-        rows={demographics.membershipTime.map(row => ({ label: row.label, value: row.count }))}/>
+        rows={demographics.membershipTime.map(row => ({ label: row.label, count: row.count }))}/>
     </div>
     <p className={s.dataNote}><UIIcon name="shield" size={16}/> Indicadores construídos a partir da API de homologação. Dados não informados são sinalizados; valores não são inventados.</p>
   </div>;
