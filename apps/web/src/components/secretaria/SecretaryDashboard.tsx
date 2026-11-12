@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AppNavLink, UIIcon } from "../AppShell";
 import { apiGet } from "../../lib/api";
 import { Alert } from "../ui/Alert";
-import { ReportBars } from "../ReportDashboard";
 import s from "./secretary-dashboard.module.css";
 
 /** Secretaria RF1: os indicadores vêm da API, nunca de números colocados na interface. */
@@ -67,6 +66,19 @@ function SummaryCard({ label, number, detail, icon, tone }: {
     <strong>{number === null ? "—" : counts.format(number)}</strong>
     <small>{detail}</small>
   </article>;
+}
+
+function DemographicCard({ title, description, rows }: { title: string; description: string; rows: Count[] }) {
+  const max = Math.max(1, ...rows.map(row => row.count));
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  return <section className={s.demographicCard} aria-label={title}>
+    <header><span className={s.overline}>PERFIL CADASTRAL</span><h3>{title}</h3><p>{description}</p></header>
+    {total ? <ul className={s.demographicBars}>{rows.map(row => <li key={row.label}>
+      <div><span>{row.label}</span><strong>{counts.format(row.count)}</strong></div>
+      <span className={s.demographicTrack} aria-hidden="true"><i style={{width: (row.count / max * 100) + "%"}}/></span>
+    </li>)}</ul> : <div className={s.emptyActivity}><UIIcon name="activity" size={24}/>
+      <strong>Sem dados suficientes</strong><p>Os indicadores aparecerão conforme as informações forem cadastradas.</p></div>}
+  </section>;
 }
 
 export function SecretaryDashboard({ token, revision, households, credentials, onOpenPerson }: {
@@ -288,18 +300,18 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
     <div className={s.sectionHeading}><div><span className={s.overline}>PERFIL DA COMUNIDADE</span><h2>Entenda nossa membresia</h2>
       <p>Informações demográficas calculadas a partir dos registros existentes.</p></div></div>
     <div className={s.demographics}>
-      <ReportBars title="Faixa etária" description={`Base de ${counts.format(demographics.base)} cadastros ativos. ${counts.format(demographics.missingBirthDate)} sem nascimento.`}
+      <DemographicCard title="Faixa etária" description={`Base de ${counts.format(demographics.base)} cadastros ativos. ${counts.format(demographics.missingBirthDate)} sem nascimento.`}
         rows={demographics.age.map(row => ({ label: row.label, value: row.count }))}/>
-      <ReportBars title="Tempo de igreja" description={`Desde a primeira frequência. ${counts.format(demographics.missingChurchTime)} sem essa data.`}
+      <DemographicCard title="Tempo de igreja" description={`Desde a primeira frequência. ${counts.format(demographics.missingChurchTime)} sem essa data.`}
         rows={demographics.churchTime.map(row => ({ label: row.label, value: row.count }))}/>
-      <ReportBars title="Distribuição por sexo" description={`Base de ${counts.format(demographics.base)} pessoas com cadastro ativo.`}
+      <DemographicCard title="Distribuição por sexo" description={`Base de ${counts.format(demographics.base)} pessoas com cadastro ativo.`}
         rows={[
           { label: "Feminino", value: demographics.sex.FEMALE }, { label: "Masculino", value: demographics.sex.MALE },
           { label: "Outro", value: demographics.sex.OTHER }, { label: "Não informado", value: demographics.sex.unknown },
         ]}/>
-      <ReportBars title="Idade no início da frequência" description={`${counts.format(demographics.missingAgeAtAttendance)} cadastros sem as datas necessárias.`}
+      <DemographicCard title="Idade no início da frequência" description={`${counts.format(demographics.missingAgeAtAttendance)} cadastros sem as datas necessárias.`}
         rows={demographics.ageAtFirstAttendance.map(row => ({ label: row.label, value: row.count }))}/>
-      <ReportBars title="Tempo de vínculo como membro" description="Desde o início do vínculo, para membros ativos."
+      <DemographicCard title="Tempo de vínculo como membro" description="Desde o início do vínculo, para membros ativos."
         rows={demographics.membershipTime.map(row => ({ label: row.label, value: row.count }))}/>
     </div>
     <p className={s.dataNote}><UIIcon name="shield" size={16}/> Indicadores construídos a partir da API de homologação. Dados não informados são sinalizados; valores não são inventados.</p>
