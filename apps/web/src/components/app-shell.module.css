@@ -213,6 +213,24 @@
   min-height: 37px;
   line-height: 1.3;
 }
+/* Tesouraria: os submenus seguem o mesmo padrão visual da Secretaria. */
+.treasuryBlock { min-width: 0; }
+.subSelected {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 39px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--shell-selected);
+  color: var(--shell-text);
+  font: 700 12px/1.3 Inter, sans-serif;
+  text-decoration: none;
+  border-left: 2px solid var(--shell-gold);
+}
+.subSelected svg { flex: none; }
+.subSelected:hover { color: var(--shell-text); }
+
 .menuWait {
   margin: 12px;
   color: var(--shell-muted);
