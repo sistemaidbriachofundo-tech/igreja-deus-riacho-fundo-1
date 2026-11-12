@@ -3,6 +3,7 @@
 import { UIIcon, usePersonaAccess } from "./AppShell";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
@@ -199,6 +200,7 @@ export function expenseWorkflowStatus(entry: Pick<EntryView, "status" | "firstAp
 }
 
 export function TreasuryPanel() {
+  const { showFeedback } = useFeedback();
   const access = usePersonaAccess();
   const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
   const canCreateExpense = access.kind === "ready" &&
@@ -220,7 +222,6 @@ export function TreasuryPanel() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
-  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const intent = useRef("");
   const [tab, setTab] = useState<Tab>("despesa");
@@ -295,7 +296,6 @@ export function TreasuryPanel() {
     if (!canCreateExpense && next === "despesa") return;
     setTab(next);
     intent.current = "";
-    setMessage(null);
     openView("lancar", next);
   }
 
@@ -310,10 +310,10 @@ export function TreasuryPanel() {
         action: action === "submit" ? "Enviar para aprovação" : "Registrar aprovação",
       }))) return;
       await apiPost("/ledger/entries/" + encodeURIComponent(entry.id) + "/" + action, token);
-      setMessage({ text: action === "submit" ? "Lançamento enviado para aprovação." : "Aprovação registrada." });
+      showFeedback({ tone: "success", title: action === "submit" ? "Enviado para aprovação" : "Aprovação registrada", message: action === "submit" ? "O lançamento seguirá o fluxo de aprovação." : "A decisão foi registrada no histórico." });
       setRevision(value => value + 1);
     } catch (error) {
-      setMessage({ text: dasError(error), error: true });
+      showFeedback({ tone: "error", title: "Operação não concluída", message: dasError(error) });
     } finally {
       setBusy(false);
     }
@@ -346,17 +346,16 @@ export function TreasuryPanel() {
     const feeInput = str(fields.get("fee"));
     const feeCents = feeInput && !/^0+(?:[,.]0{1,2})?$/.test(feeInput) ? parseAmountCents(feeInput) : 0;
     if (!amountCents || description.length < 4 || feeCents === null || feeCents >= amountCents) {
-      setMessage({ text: "Confira a descrição, o valor do lançamento e a taxa.", error: true });
+      showFeedback({ tone: "error", title: "Confira o lançamento", message: "Revise a descrição, o valor do lançamento e a taxa." });
       return;
     }
     if (transfer && (!originAccount || pendingBalance === undefined || amountCents > pendingBalance || (feeCents > 0 && !feeAccount))) {
-      setMessage({ text: "Confira a conta de origem e o valor em aberto antes de registrar a baixa.", error: true });
+      showFeedback({ tone: "error", title: "Confira o valor em aberto", message: "Revise a conta de origem e o valor em aberto antes de registrar a baixa." });
       return;
     }
     if (receiving && !revenue) return;
     const common = { entryDate, description, ...(activeCenter ? { costCenterId: activeCenter } : {}) };
     setBusy(true);
-    setMessage(null);
     try {
       let success = "Rascunho gravado. Use o extrato para enviar à aprovação.";
       if (tab === "despesa") {
@@ -393,7 +392,7 @@ export function TreasuryPanel() {
       }
       form.reset();
       intent.current = "";
-      setMessage({ text: success });
+      showFeedback({ tone: "success", title: "Lançamento registrado", message: success });
       setBankFilter("");
       setChannelFilter("");
       setQuery("");
@@ -402,7 +401,7 @@ export function TreasuryPanel() {
       openView(tab === "despesa" ? "despesas" : "extrato");
       setRevision(value => value + 1);
     } catch (error) {
-      setMessage({ text: dasError(error), error: true });
+      showFeedback({ tone: "error", title: "Operação não concluída", message: dasError(error) });
     } finally {
       setBusy(false);
     }
@@ -452,7 +451,6 @@ export function TreasuryPanel() {
         </>}
       </div>}
       {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
-      {message && <p className={styles.feedback} data-error={message.error ? "true" : undefined} role={message.error ? "alert" : "status"}>{message.text}</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
