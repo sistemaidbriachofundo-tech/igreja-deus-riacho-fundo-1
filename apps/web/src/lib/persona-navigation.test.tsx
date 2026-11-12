@@ -243,7 +243,7 @@ describe("shell sem flash de módulo restrito", () => {
     expect(pastor).not.toContain("/app/tesouraria/#lancar");
     expect(pastor).not.toContain("/app/tesouraria/#extrato");
     expect(admin).toContain("/app/tesouraria/#despesas");
-    expect(admin).not.toContain("/app/tesouraria/#lancar");
+    expect(admin).toContain("/app/tesouraria/#lancar");
     expect(admin).not.toContain("/app/tesouraria/#aprovacoes");
   });
 
