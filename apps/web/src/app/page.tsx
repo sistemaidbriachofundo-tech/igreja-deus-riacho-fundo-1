@@ -20,8 +20,8 @@ export default function HomePage() {
               </figure>
               <div className={s.identityCopy}>
                 <h2 id="identity-title" tabIndex={-1}>Quem somos</h2>
-                <p>Fazemos parte da Igreja de Deus no Brasil. Aqui no Riacho Fundo I, nos reunimos para orar, estudar a Bíblia e servir à comunidade.</p>
-                <p>Se você vem pela primeira vez, nossa equipe de recepção estará na entrada para acolher você e sua família.</p>
+                <p>Somos uma congregação da Igreja de Deus no Brasil. Aqui no Riacho Fundo I, a gente se reúne para orar, ler a Bíblia e servir ao bairro.</p>
+                <p>Se for sua primeira vez, pode chegar. Nossa equipe de recepção te espera na entrada.</p>
               </div>
             </div>
           </section>

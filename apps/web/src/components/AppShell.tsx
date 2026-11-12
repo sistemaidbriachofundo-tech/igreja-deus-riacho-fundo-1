@@ -344,10 +344,12 @@ export function AppShell({
     return () => query.removeEventListener("change", apply);
   }, []);
   useLayoutEffect(() => {
-    setCollapsed(readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY)) === "collapsed");
-    setMinistryOpen(false);
+    const rail = readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY));
+    const storedGroup = window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY);
+    setCollapsed(rail === "collapsed");
+    setMinistryOpen(childActive || (rail === "expanded" && readGroupPreference(storedGroup, false)));
     setRailReady(true);
-  }, []);
+  }, [childActive]);
   useEffect(() => {
     function onLost() {
       setLoaded({ kind: "anonymous" });

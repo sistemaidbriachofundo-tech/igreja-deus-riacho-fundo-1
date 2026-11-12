@@ -29,7 +29,7 @@ export const defaultSiteLayout: SiteLayout = {
   version: 1,
   hero: {
     title: "Igreja de Deus", accent: "Riacho Fundo I",
-    description: "Cultos aos domingos, às 10h e às 19h. Venha participar com a gente.",
+    description: "A gente se encontra aos domingos, às 10h e às 19h, no Riacho Fundo I.",
     imageUrl: PUBLIC_FACADE_IMAGE,
   },
   identity: SITE_IDENTITY_PHOTO,

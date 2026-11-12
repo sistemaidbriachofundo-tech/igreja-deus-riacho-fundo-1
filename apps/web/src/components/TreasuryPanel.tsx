@@ -103,11 +103,11 @@ function statusLabel(status: string): string {
 
 export function approvalCopy(actorUserId: string | null, entry: Pick<EntryView, "status" | "createdByUserId" | "firstApprovedByUserId" | "approvalFlow">, actorRoles: readonly string[] = ["TESOURARIA"]): { text: string; canApprove: boolean } {
   if (entry.approvalFlow === "TREASURER_THEN_PASTOR") {
-    if (entry.status === "APPROVED") return { text: "Despesa aprovada por tesoureiro e pastor.", canApprove: false };
+    if (entry.status === "APPROVED") return { text: "Aprovada pelo pastor", canApprove: false };
     if (entry.status !== "PENDING_APPROVAL") return { text: statusLabel(entry.status), canApprove: false };
     const required = entry.firstApprovedByUserId ? "PASTOR" : "TESOURARIA";
     const blocked = !actorUserId || actorUserId === entry.createdByUserId || actorUserId === entry.firstApprovedByUserId;
-    return { text: entry.firstApprovedByUserId ? "Aguardando aprovação do pastor." : "Aguardando conferência do tesoureiro.", canApprove: !blocked && actorRoles.includes(required) };
+    return { text: entry.firstApprovedByUserId ? "Aguardando aprovação do pastor" : "Aguardando conferência da Tesouraria", canApprove: !blocked && actorRoles.includes(required) };
   }
   if (entry.status !== "PENDING_APPROVAL") return { text: statusLabel(entry.status), canApprove: false };
   if (!actorUserId) return { text: "Aguardando identificar quem aprova.", canApprove: false };
@@ -196,7 +196,7 @@ export function TreasuryPanel() {
   const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
   const [failure, setFailure] = useState("");
   const [center, setCenter] = useState<string | null>(null);
-  const [view, setView] = useState<"visao" | "extrato" | "conciliacao" | "lancar">("visao");
+  const [view, setView] = useState<"visao" | "extrato" | "conciliacao" | "lancar" | "aprovacoes">("visao");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [bankFilter, setBankFilter] = useState("");
@@ -255,6 +255,13 @@ export function TreasuryPanel() {
   function openView(next: typeof view) {
     setView(next);
     setPage(1);
+  }
+
+  function openMovement(next: Tab) {
+    setTab(next);
+    intent.current = "";
+    setMessage(null);
+    openView("lancar");
   }
 
   async function runEntryAction(entry: EntryView, action: "submit" | "approve") {
@@ -316,16 +323,24 @@ export function TreasuryPanel() {
     setBusy(true);
     setMessage(null);
     try {
+      let success = "Rascunho gravado. Use o extrato para enviar à aprovação.";
       if (tab === "despesa") {
         if (!expenses.some(account => account.id === primary) || !banks.some(account => account.id === secondary)) {
           throw new Error("Escolha uma categoria de despesa e uma conta bancária válidas.");
         }
-        await apiPost("/ledger/entries", token, {
-          ...common, lines: [
-            { accountId: primary, side: "DEBIT", amountCents, memo: "treasury:expense" },
-            { accountId: secondary, side: "CREDIT", amountCents, memo: "treasury:cash" },
-          ],
+        if (!(await confirm({
+          title: "Enviar despesa ao pastor?",
+          subject: description,
+          description: `A despesa de ${formatBRL(amountCents)} ficará pendente até a aprovação do pastor.`,
+          action: "Enviar ao pastor",
+        }))) return;
+        if (!intent.current) intent.current = crypto.randomUUID();
+        const entry = await apiPost<{ status: string }>("/ledger/expenses", token, {
+          ...common, requestId: intent.current, expenseAccountId: primary, cashAccountId: secondary, amountCents,
         });
+        success = entry.status === "APPROVED"
+          ? "Esta despesa já foi aprovada pelo pastor."
+          : "Despesa registrada e encaminhada para aprovação do pastor.";
       } else if (transfer && originAccount) {
         const lines = [
           { accountId: primary, side: "DEBIT", amountCents: amountCents - feeCents, memo: "Tesouraria · crédito no banco" },
@@ -343,7 +358,7 @@ export function TreasuryPanel() {
       }
       form.reset();
       intent.current = "";
-      setMessage({ text: "Rascunho gravado. Use o extrato para enviar à aprovação." });
+      setMessage({ text: success });
       setBankFilter("");
       setChannelFilter("");
       setQuery("");
@@ -359,10 +374,11 @@ export function TreasuryPanel() {
   }
 
   const tabConfig = [
-    ["despesa", "Nova despesa"], ["pix", "Entrada Pix"], ["cartao", "Entrada cartão"], ["dinheiro", "Dinheiro de culto"], ["deposito", "Depósito de dinheiro"],
+    ["despesa", "Despesa"], ["pix", "Entrada Pix"], ["cartao", "Entrada cartão"], ["dinheiro", "Dinheiro de culto"], ["deposito", "Depósito de dinheiro"],
     ["liquidacao", "Liquidação de cartão"], ["compromisso", "Nova conta a pagar"], ["pagar", "Pagamento"],
   ] as const;
   const disabled = !enabled || !token || busy || !accounts.length ||
+    (tab === "despesa" && (!expenses.length || !banks.length)) ||
     (receiving && (!revenue || (tab !== "pix" && !waiting))) ||
     (transfer && (!originAccount || pendingBalance === undefined || pendingBalance <= 0));
 
@@ -373,30 +389,35 @@ export function TreasuryPanel() {
       {confirmation}
       <PageHeader appearance="workspace" heading="h1" title="Tesouraria"
         description={isSample ? "Dados de teste de novembro de 2026" : undefined}
-        actions={canWrite && view !== "lancar" ? (
-          <button type="button" className={ui.workspacePrimary} onClick={() => openView("lancar")}>
-            <UIIcon name="plus" size={17} /> Novo lançamento
+        actions={canWrite && view !== "lancar" ? <>
+          <button type="button" className={ui.workspaceSecondary} onClick={() => openMovement("pix")}>Novo lançamento</button>
+          <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
+            <UIIcon name="plus" size={17} /> Incluir despesa
           </button>
-        ) : undefined}
+        </> : undefined}
       />
       <nav className={ui.workspaceTabs} aria-label="Áreas da Tesouraria">
         <button type="button" aria-current={view === "visao" ? "page" : undefined} onClick={() => openView("visao")}><UIIcon name="grid" size={17} /> Visão geral</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
+        {canWrite && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      <div className={styles.toolbar}>
+      {view !== "aprovacoes" && <div className={styles.toolbar}>
         <label>Centro de custo
           <select value={activeCenter} onChange={event => { setCenter(event.target.value); setBankFilter(""); setPage(1); }} disabled={!data?.centers.length || busy}>
             <option value="">Toda a congregação</option>
             {data?.centers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>
-        <label>Movimentos de <input type="date" value={from} max={to || undefined} onChange={event => { setFrom(event.target.value); setPage(1); }} /></label>
-        <label>Até <input type="date" value={to} min={from || undefined} onChange={event => { setTo(event.target.value); setPage(1); }} /></label>
-      </div>
-      {!validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
+        {view !== "lancar" && <>
+          <label>Movimentos de <input type="date" value={from} max={to || undefined} onChange={event => { setFrom(event.target.value); setPage(1); }} /></label>
+          <label>Até <input type="date" value={to} min={from || undefined} onChange={event => { setTo(event.target.value); setPage(1); }} /></label>
+        </>}
+      </div>}
+      {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       {message && <p className={styles.feedback} data-error={message.error ? "true" : undefined} role={message.error ? "alert" : "status"}>{message.text}</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
+        {view === "aprovacoes" && canWrite && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
             onBank={id => { setBankFilter(id); setChannelFilter(""); setQuery(""); openView("extrato"); }}
@@ -420,12 +441,12 @@ export function TreasuryPanel() {
             return <article key={entry.id} className={styles.movement}>
               <div className={styles.movementInfo}>
                 <span className={styles.movementIcon}><UIIcon name={ledgerType === "movimentacao" ? "wallet" : "activity"} size={17} /></span>
-                <div><strong>{entry.description}</strong><small>{displayDate(entry.entryDate)} · {entry.reconciliationId ? "Conciliado" : statusLabel(entry.status)}</small></div>
+                <div><strong>{entry.description}</strong><small>{displayDate(entry.entryDate)} · {entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</small></div>
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
               <details className={styles.movementDetails}><summary>Detalhes</summary>
                 {entry.lines.map((line, index) => <p key={index}>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"} · {formatBRL(line.cents)}</p>)}
-                {canWrite && entry.status === "PENDING_APPROVAL" && <small>{approval.text}</small>}
+                {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
               </details>
               {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
               {canWrite && approval.canApprove && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
@@ -450,7 +471,8 @@ export function TreasuryPanel() {
 
         {view === "lancar" && canWrite && <section className={styles.card} aria-label="Registrar lançamento">
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
-          <p className={styles.approvalInfo}>Despesas e contas precisam da conferência de um tesoureiro e da aprovação final do pastor. Até as duas confirmações, não entram no saldo aprovado.</p>
+          {tab === "despesa" && <p className={styles.approvalInfo}>O tesoureiro registra a despesa e o pastor da congregação aprova. O saldo é atualizado após a aprovação.</p>}
+          {tab === "compromisso" && <p className={styles.approvalInfo}>A conta a pagar passa por conferência da Tesouraria e aprovação do pastor.</p>}
           <label className={styles.movementType}>Tipo de lançamento
             <select value={tab} disabled={busy} onChange={event => {
               const next = tabConfig.find(([id]) => id === event.target.value);
@@ -460,7 +482,7 @@ export function TreasuryPanel() {
             </select>
           </label>
           {transfer && pendingBalance !== undefined && <p className={styles.note}>Valor em aberto para baixa: <strong>{formatBRL(pendingBalance)}</strong></p>}
-          <form key={tab} className={styles.form} onSubmit={onSubmit}>
+          <form key={tab} className={styles.form} onSubmit={onSubmit} onChange={() => { if (tab === "despesa" && !busy) intent.current = ""; }}>
             <label>Data <input type="date" name="date" required /></label>
             <label>Valor (R$) <input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
             <label className={styles.wide}>Descrição ou referência do comprovante <input name="description" minLength={4} maxLength={180} required /></label>
@@ -470,7 +492,7 @@ export function TreasuryPanel() {
             {tab === "compromisso" && <AccountSelect label="Conta a pagar" name="secondary" accounts={payables} />}
             {(tab === "pagar" || tab === "despesa") && <AccountSelect label="Conta bancária" name="secondary" accounts={banks} />}
             {tab === "liquidacao" && <label>Taxa do cartão (R$) <input name="fee" inputMode="decimal" placeholder="0,00" /></label>}
-            <button className={styles.wide} type="submit" disabled={disabled}>{busy ? "Salvando…" : "Gravar rascunho"}</button>
+            <button className={styles.wide} type="submit" disabled={disabled}>{busy ? "Salvando…" : tab === "despesa" ? "Enviar para aprovação do pastor" : "Gravar rascunho"}</button>
           </form>
         </section>}
       </section>

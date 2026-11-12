@@ -32,9 +32,12 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
       <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={26} height={26} /><strong>Igreja de Deus</strong><small>Riacho Fundo I</small>
     </div>
     <div className={s.previewCover}>
-      <div><small>Brasília, DF</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2><p>{layout.hero.description}</p><span>Horários dos cultos</span></div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
+      <div className={s.previewIntro}>
+        <div><small>Brasília, DF</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2></div>
+        <div><p>{layout.hero.description}</p><span>Horários dos cultos</span></div>
+      </div>
     </div>
     <div className={s.previewGallery}>
       <h3>Quem somos</h3>

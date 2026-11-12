@@ -10,15 +10,13 @@ export function PortalFaithGallery() {
   return (
     <section id="galeria" className={s.gallery} data-appearance={site.appearance} aria-labelledby="faith-gallery-title">
       <div className={s.inner}>
-        <div className={s.head}>
-          <div className={s.heading}>
-            <h2 id="faith-gallery-title">{site.gallery.title} <em>{site.gallery.accent}</em></h2>
-            <p>{site.gallery.description}</p>
-          </div>
+        <div className={s.heading}>
+          <h2 id="faith-gallery-title">{site.gallery.title} <em>{site.gallery.accent}</em></h2>
+          <p>{site.gallery.description}</p>
         </div>
         <div className={s.moments}>
           {site.gallery.items.map((moment, index) => (
-            <figure className={s.card} key={index} data-crop={moment.imageUrl.startsWith("/images/riacho/") && index > 0}>
+            <figure className={s.moment} key={index}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className={s.image}
@@ -30,7 +28,7 @@ export function PortalFaithGallery() {
                 decoding="async"
               />
               <figcaption className={s.caption}>
-                <div><strong>{moment.title}</strong><small>{moment.subtitle}</small></div>
+                <strong>{moment.title}</strong><small>{moment.subtitle}</small>
               </figcaption>
             </figure>
           ))}

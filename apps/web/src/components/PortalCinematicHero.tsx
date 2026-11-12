@@ -13,21 +13,23 @@ export function PortalCinematicHero() {
 
   return (
     <section id="inicio" className={s.hero} data-appearance={appearance} aria-labelledby="hero-title">
+      <div className={s.photo}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt={[SITE_COVER_PHOTO, PUBLIC_FACADE_IMAGE].includes(hero.imageUrl) ? "Fachada da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
+      </div>
       <div className={s.layout}>
-        <div className={s.content}>
+        <div>
           <p className={s.location}>Brasília, DF</p>
           <h1 id="hero-title" tabIndex={-1} className={s.headline}>
             <span>{hero.title}</span>
             <em>{hero.accent}</em>
           </h1>
+        </div>
+        <div className={s.intro}>
           <p className={s.description}>{hero.description}</p>
           <PortalSectionLink sectionId="agenda" className={s.primaryAction}>
             Horários dos cultos <PortalGlyph name="down" width={17} />
           </PortalSectionLink>
-        </div>
-        <div className={s.photo}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt={[SITE_COVER_PHOTO, PUBLIC_FACADE_IMAGE].includes(hero.imageUrl) ? "Fachada da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
         </div>
       </div>
     </section>

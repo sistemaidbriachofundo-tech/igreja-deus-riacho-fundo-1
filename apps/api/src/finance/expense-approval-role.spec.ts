@@ -55,6 +55,49 @@ function setup(entry: ReturnType<typeof row>) {
 }
 
 describe("Governança de despesas — Tesoureiro seguido do Pastor", () => {
+  it("registra a despesa em uma transação e encaminha diretamente ao pastor", async () => {
+    const id = "expense-d47d43a5-5775-4c53-8ef3-113696ebc820";
+    const saved = { ...row(submitter.userId), id, entryDate: new Date("2026-11-12") };
+    const { service, prisma, tx } = setup(saved);
+    const create = jest.fn().mockResolvedValue(saved);
+    Object.assign(tx.ledgerEntry, { create });
+    Object.assign(prisma, {
+      accountingPeriod: { findFirst: jest.fn().mockResolvedValue(null) },
+      ledgerAccount: { findMany: jest.fn().mockResolvedValue([
+        { id: "energy", type: "EXPENSE", code: "5.1.10.01" },
+        { id: "bank", type: "ASSET", code: "1.1.10.01" },
+      ]) },
+    });
+    const input = {
+      requestId: id.replace("expense-", ""), entryDate: "2026-11-12", description: saved.description,
+      expenseAccountId: "energy", cashAccountId: "bank", amountCents: 27550,
+    };
+
+    await expect(service.createExpense(pastor, input)).rejects.toBeInstanceOf(ForbiddenException);
+    const expense = await service.createExpense(submitter, input);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      id, ...scope, status: "PENDING_APPROVAL", createdByUserId: submitter.userId,
+      firstApprovedByUserId: submitter.userId, submittedAt: expect.any(Date),
+    }) }));
+    expect(tx.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      action: "ledger.entry.submit", actorUserId: submitter.userId, resourceId: id,
+    }) }));
+    expect(expense.status).toBe("PENDING_APPROVAL");
+    expect(expense.approvalFlow).toBe("TREASURER_THEN_PASTOR");
+
+    create.mockRejectedValueOnce({ code: "P2002" });
+    await expect(service.createExpense(submitter, input)).resolves.toMatchObject({ id, status: "PENDING_APPROVAL" });
+    create.mockRejectedValueOnce({ code: "P2002" });
+    await expect(service.createExpense(submitter, { ...input, amountCents: 30000 })).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(service.approveEntry(treasurer, id)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.approveEntry({ ...submitter, grants: [...submitter.grants, ...pastor.grants] }, id))
+      .rejects.toBeInstanceOf(ConflictException);
+    await expect(service.approveEntry(pastor, id)).resolves.toMatchObject({
+      status: "APPROVED", secondApprovedByUserId: pastor.userId,
+    });
+  });
+
   it("bloqueia pastor na primeira etapa e criador na sua própria aprovação", async () => {
     const { service, prisma } = setup(row());
     await expect(service.approveEntry(pastor, "expense-test")).rejects.toBeInstanceOf(ForbiddenException);

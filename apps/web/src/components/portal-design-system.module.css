@@ -9,6 +9,7 @@
   --portal-green-line: #637e70;
   --portal-gold: #e9cd9c;
   --portal-title-accent: #70552f;
+  --portal-display: Georgia, "Times New Roman", serif;
 }
 
 .palette [data-appearance="verde"], .palette[data-appearance="verde"] { --portal-title-accent: #32644b; }
@@ -110,7 +111,7 @@
   justify-content: center;
   padding-inline: 14px;
   border: 1px solid var(--portal-green-line);
-  border-radius: 6px;
+  border-radius: 999px;
   color: var(--portal-on-green);
   font: 650 13px/1 Inter, Arial, sans-serif;
 }

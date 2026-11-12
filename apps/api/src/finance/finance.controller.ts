@@ -22,7 +22,9 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -137,6 +139,36 @@ class RejectEntryBody {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+class CreateExpenseBody {
+  @IsUUID("4")
+  requestId!: string;
+
+  @IsString()
+  entryDate!: string;
+
+  @IsString()
+  @MinLength(4)
+  @MaxLength(180)
+  description!: string;
+
+  @IsString()
+  @MinLength(1)
+  expenseAccountId!: string;
+
+  @IsString()
+  @MinLength(1)
+  cashAccountId!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  amountCents!: number;
+
+  @IsOptional()
+  @IsString()
+  costCenterId?: string;
 }
 
 class MatchBankLineBody {
@@ -360,6 +392,11 @@ export class FinanceController {
   @Post("entries")
   createEntry(@CurrentUser() user: AuthUser, @Body() body: CreateEntryBody) {
     return this.finance.createEntry(user, body);
+  }
+
+  @Post("expenses")
+  createExpense(@CurrentUser() user: AuthUser, @Body() body: CreateExpenseBody) {
+    return this.finance.createExpense(user, body);
   }
 
   /** Aprovações de despesas pendentes, sem abrir o extrato completo ao pastor. */

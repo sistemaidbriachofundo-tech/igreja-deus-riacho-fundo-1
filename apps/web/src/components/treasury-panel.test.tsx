@@ -26,6 +26,18 @@ afterEach(() => {
 });
 
 describe("TreasuryPanel", () => {
+  it("mostra aprovação pastoral diretamente após o registro pelo tesoureiro", () => {
+    const entry = {
+      status: "PENDING_APPROVAL", createdByUserId: "tesoureiro", firstApprovedByUserId: "tesoureiro",
+      approvalFlow: "TREASURER_THEN_PASTOR" as const,
+    };
+    expect(approvalCopy("tesoureiro", entry, ["TESOURARIA", "PASTOR"])).toEqual({
+      text: "Aguardando aprovação do pastor", canApprove: false,
+    });
+    expect(approvalCopy("pastor", entry, ["PASTOR"]).canApprove).toBe(true);
+    expect(approvalCopy("outro-tesoureiro", entry, ["TESOURARIA"]).canApprove).toBe(false);
+  });
+
   it("não publica saldo antes da consulta", () => {
     const html = renderToStaticMarkup(<TreasuryPanel />);
     expect(html).toContain("Consultando lançamentos");

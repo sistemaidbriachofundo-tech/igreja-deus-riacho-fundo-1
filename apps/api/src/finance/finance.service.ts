@@ -211,7 +211,7 @@ export class FinanceService {
     });
   }
 
-  /** Uma despesa reconhecida requer aprovação de TESOURARIA seguida de PASTOR.
+  /** Uma despesa reconhecida requer registro ou conferência de TESOURARIA e aprovação de PASTOR.
    * Taxas técnicas 5.9 não são tratadas como despesa de fornecedor.
    * A relação account é carregada pelo Prisma, nunca classificada por texto enviado pelo cliente.
    */
@@ -219,7 +219,7 @@ export class FinanceService {
     side: string; account?: { type: string; code: string } | null;
   }>) {
     return lines.some(line => line.side === "DEBIT" && line.account?.type === "EXPENSE"
-      && !/^5\\.9(\\.|$)/.test(line.account.code));
+      && !/^5\.9(\.|$)/.test(line.account.code));
   }
 
   async listExpenseApprovals(actor: AuthUser) {
@@ -243,6 +243,26 @@ export class FinanceService {
   }
 
   // —— Lançamentos ——
+
+  async createExpense(actor: AuthUser, input: {
+    requestId: string;
+    entryDate: string;
+    description: string;
+    expenseAccountId: string;
+    cashAccountId: string;
+    amountCents: number;
+    costCenterId?: string;
+  }) {
+    return this.createEntry(actor, {
+      entryDate: input.entryDate,
+      description: input.description,
+      costCenterId: input.costCenterId,
+      lines: [
+        { accountId: input.expenseAccountId, side: "DEBIT", amountCents: input.amountCents, memo: "treasury:expense" },
+        { accountId: input.cashAccountId, side: "CREDIT", amountCents: input.amountCents, memo: "treasury:cash" },
+      ],
+    }, `expense-${input.requestId}`);
+  }
 
   async listEntries(actor: AuthUser, status?: string) {
     const pilot = await this.requireFinance(actor, "read");
@@ -272,11 +292,15 @@ export class FinanceService {
       competenceYear?: number;
       competenceMonth?: number;
     },
+    expenseId?: string,
   ) {
     const pilot = await this.requireFinance(actor);
     const description = input.description?.trim();
     if (!description) {
       throw new BadRequestException("description é obrigatória");
+    }
+    if (expenseId && description.length < 4) {
+      throw new BadRequestException("Descreva a despesa com pelo menos quatro caracteres.");
     }
     const entryDate = this.parseDateOnly(input.entryDate, "entryDate");
     const competenceYear =
@@ -313,6 +337,16 @@ export class FinanceService {
     if (accounts.length !== accountIds.length) {
       throw new BadRequestException("Conta inválida ou inativa no escopo");
     }
+    if (expenseId) {
+      const debit = input.lines.find(line => line.side === "DEBIT");
+      const credit = input.lines.find(line => line.side === "CREDIT");
+      const expense = accounts.find(account => account.id === debit?.accountId);
+      const cash = accounts.find(account => account.id === credit?.accountId);
+      if (!this.isExpenseForPastor([{ side: "DEBIT", account: expense }])
+        || cash?.type !== "ASSET" || !/^1\.1(\.|$)/.test(cash.code)) {
+        throw new BadRequestException("Selecione uma categoria de despesa e uma conta bancária válidas.");
+      }
+    }
 
     let fundId: string | null = null;
     let costCenterId: string | null = null;
@@ -325,6 +359,7 @@ export class FinanceService {
       ).id;
     }
 
+    const submittedAt = expenseId ? new Date() : null;
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.ledgerEntry.create({
         data: {
@@ -333,6 +368,13 @@ export class FinanceService {
           entryDate,
           description,
           status: "DRAFT",
+          ...(expenseId ? {
+            id: expenseId,
+            status: "PENDING_APPROVAL" as const,
+            submittedAt,
+            firstApprovedByUserId: actor.userId,
+            firstApprovedAt: submittedAt,
+          } : {}),
           amountCents: balance.amountCents,
           createdByUserId: actor.userId,
           fundId,
@@ -348,7 +390,7 @@ export class FinanceService {
             })),
           },
         },
-        include: { lines: true },
+        include: { lines: { include: { account: { select: { type: true, code: true } } } } },
       });
 
       await tx.auditLog.create({
@@ -369,7 +411,29 @@ export class FinanceService {
         },
       });
 
+      if (expenseId) {
+        await tx.auditLog.create({ data: {
+          ...pilot,
+          actorUserId: actor.userId,
+          action: "ledger.entry.submit",
+          resourceType: "ledger_entry",
+          resourceId: row.id,
+          metadata: { approvalStage: "PASTOR", treasuryAction: "expense_registration" },
+        } });
+      }
+
       return this.toEntryDto(row);
+    }).catch(async (error: unknown) => {
+      if (!expenseId || !error || typeof error !== "object" || !("code" in error) || error.code !== "P2002") throw error;
+      const existing = await this.prisma.ledgerEntry.findFirst({
+        where: { ...pilot, id: expenseId, createdByUserId: actor.userId },
+        include: { lines: { include: { account: { select: { type: true, code: true } } } } },
+      });
+      if (existing && existing.description === description && existing.entryDate.getTime() === entryDate.getTime()
+        && existing.costCenterId === costCenterId && existing.lines.length === input.lines.length
+        && input.lines.every(line => existing.lines.some(saved => saved.accountId === line.accountId
+          && saved.side === line.side && saved.amountCents === line.amountCents))) return this.toEntryDto(existing);
+      throw new ConflictException("Este envio já foi usado. Atualize a Tesouraria e confira a despesa antes de tentar novamente.");
     });
   }
 
