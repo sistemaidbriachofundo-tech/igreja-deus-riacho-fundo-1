@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { instagramUrl, youtubeChannelUrl, ministries, type PortalEvent, type PortalMinistry } from "../lib/portal-content";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import s from "./public-portal.module.css";
 import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
@@ -15,7 +16,7 @@ function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
     <Link href="/" className={`${inverse ? s.brandInverse : s.brand} ${d.brand}`} aria-label="Igreja de Deus no Riacho Fundo I — página inicial">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={withBasePath("/images/idb-riacho-oficial-2026.webp")} alt="" width={48} height={48} className={s.logo} />
+      <img src={withBasePath(officialLogoAsset)} alt="" width={48} height={48} className={s.logo} />
       <span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></span>
     </Link>
   );
