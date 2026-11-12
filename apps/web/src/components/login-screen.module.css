@@ -127,3 +127,44 @@
   .sessionLoadingMark, .sessionLoadingNav, .sessionLoadingTop, .sessionLoadingTitle,
   .sessionLoadingCards > div, .sessionLoadingBody { animation: none; }
 }
+
+/* Estados explícitos: conexão, sessão e autorização não são escondidos. */
+.waiting {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: clamp(24px, 6vw, 60px);
+  background: #f7f7f5;
+  color: #25372e;
+  text-align: center;
+}
+.waitingIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  background: #fff0e8;
+  color: #b9572b;
+  font-size: 24px;
+}
+.waiting h1 { margin: 10px 0 0; font-size: clamp(23px, 4vw, 30px); letter-spacing: -.035em; }
+.waiting p { max-width: 480px; margin: 0; color: #5d685f; line-height: 1.55; }
+.gateActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; }
+.retry, .gateLink, .gateLinkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 17px;
+  border-radius: 9px;
+  font: 600 14px/1.4 Inter, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.retry { border: 1px solid #b9572b; background: #b9572b; color: #fff; }
+.gateLink, .gateLinkButton { border: 1px solid #d9dfd9; background: #fff; color: #294536; }
+.waiting :is(button, a):focus-visible { outline: 2px solid #b9572b; outline-offset: 3px; }
