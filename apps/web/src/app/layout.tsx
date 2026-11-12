@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { APP_NAME } from "@idbrf/shared";
+import { FeedbackProvider } from "../components/ui/FeedbackProvider";
 import "@fontsource/montserrat/500.css";
 import "@fontsource/montserrat/600.css";
 import "@fontsource/montserrat/700.css";
@@ -24,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body><FeedbackProvider>{children}</FeedbackProvider></body>
     </html>
   );
 }
