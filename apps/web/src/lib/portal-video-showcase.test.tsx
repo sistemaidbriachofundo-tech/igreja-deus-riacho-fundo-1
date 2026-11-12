@@ -16,8 +16,8 @@ describe("V7 — identidade institucional e canal", () => {
   it("conserva o menu de gestão e a marca comum no estúdio", () => {
     const html = renderToStaticMarkup(<AppShell active="editorial" meta="Estúdio editorial"><p>Editor</p></AppShell>);
     expect(html).toContain("Estúdio editorial");
-    expect(html).toContain("Histórias que edificam.");
-    expect(html).toContain("church-os-art.svg");
+    expect(html).toContain("Mídia e conteúdo");
+    expect(html).not.toContain("church-os-art.svg");
     expect(html).toContain("Canal da igreja");
     expect(html).toContain("Membros e famílias");
     expect(html).toContain("Editor");
