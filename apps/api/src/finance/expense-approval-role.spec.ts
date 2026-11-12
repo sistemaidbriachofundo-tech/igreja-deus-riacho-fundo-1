@@ -98,6 +98,45 @@ describe("Governança de despesas — Tesoureiro seguido do Pastor", () => {
     });
   });
 
+  it("administrador pode cadastrar despesa pendente, mas não aprovar a própria nem executar acesso financeiro geral", async () => {
+    const admin = actor("administrador", "PLATFORM_ADMIN");
+    const id = "expense-admin-1";
+    const saved = { ...row(admin.userId), id };
+    const { service, prisma, tx } = setup(saved);
+    const create = jest.fn().mockResolvedValue(saved);
+    Object.assign(tx.ledgerEntry, { create });
+    Object.assign(prisma, {
+      accountingPeriod: { findFirst: jest.fn().mockResolvedValue(null) },
+      ledgerAccount: { findMany: jest.fn().mockResolvedValue([
+        { id: "energy", type: "EXPENSE", code: "5.1.10.01" },
+        { id: "bank", type: "ASSET", code: "1.1.10.01" },
+      ]) },
+    });
+    const input = {
+      requestId: "admin-1", entryDate: "2026-11-12", description: saved.description,
+      expenseAccountId: "energy", cashAccountId: "bank", amountCents: 27550,
+    };
+
+    await expect(service.createExpense(admin, input)).resolves.toMatchObject({
+      status: "PENDING_APPROVAL", firstApprovedByUserId: admin.userId,
+      approvalFlow: "TREASURER_THEN_PASTOR",
+    });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      status: "PENDING_APPROVAL", createdByUserId: admin.userId,
+    }) }));
+    await expect(service.approveEntry(admin, id)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.approveEntry({ ...admin, grants: [...admin.grants, ...pastor.grants] }, id))
+      .rejects.toBeInstanceOf(ConflictException);
+    await expect(service.approveEntry(pastor, id)).resolves.toMatchObject({ status: "APPROVED" });
+    await expect(service.createExpense(actor("membro", "MEMBRO"), input)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.createEntry(admin, {
+      entryDate: input.entryDate, description: input.description, lines: [
+        { accountId: input.expenseAccountId, side: "DEBIT", amountCents: input.amountCents },
+        { accountId: input.cashAccountId, side: "CREDIT", amountCents: input.amountCents },
+      ],
+    })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it("bloqueia pastor na primeira etapa e criador na sua própria aprovação", async () => {
     const { service, prisma } = setup(row());
     await expect(service.approveEntry(pastor, "expense-test")).rejects.toBeInstanceOf(ForbiddenException);
