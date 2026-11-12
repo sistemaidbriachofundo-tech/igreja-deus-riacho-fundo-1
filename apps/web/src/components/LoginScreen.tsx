@@ -231,8 +231,10 @@ export function LoginScreen({ onAuthenticated }: Props) {
               </div>
               {error && <Alert appearance="workspace" tone="danger" title={error} />}
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
-              <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking||busy ? "Aguarde…" : "Entrar no painel"}
+              <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}
+                aria-label={checking||busy ? "Carregando acesso" : "Entrar no painel"}
+                aria-busy={checking||busy}>
+                {checking||busy ? <span className={styles.submitSpinner} aria-hidden="true"/> : "Entrar no painel"}
               </button>
             </form>}
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
