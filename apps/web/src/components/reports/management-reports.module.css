@@ -36,3 +36,5 @@
 .page :focus-visible{outline:2px solid var(--color-bronze);outline-offset:3px}
 @media(max-width:760px){.page{padding:16px 14px 36px}.lines,.filters,.chart li{grid-template-columns:1fr}.header{align-items:stretch}.filters{grid-template-columns:1fr}}
 @media(min-width:1440px){.page{max-width:1240px}}
+
+.reportLinks{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px}
