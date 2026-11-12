@@ -312,7 +312,8 @@ export function ReportsView(props: {
         <h1>Membresia e ministérios</h1>
         <p>As contagens vêm da API. Registros de menores não são listados. Integrante formal continua bloqueado enquanto não houver tabela.</p>
       </div>
-      <a className={s.link} href={withBasePath("/app/eventos-gestao/")}>Gestão de eventos</a>
+      <div className={s.reportLinks}><a className={s.link} href={withBasePath("/app/secretaria/indicadores/")}>Painel completo de membresia</a>
+      <a className={s.link} href={withBasePath("/app/eventos-gestao/")}>Gestão de eventos</a></div>
     </header>
     {props.phase === "disabled" && <p className={s.blocked} role="status">Homologação desabilitada. Nenhum total foi inventado.</p>}
     {props.phase === "signed-out" && <p className={s.notice} role="status">Entre na área administrativa para consultar os relatórios.</p>}
