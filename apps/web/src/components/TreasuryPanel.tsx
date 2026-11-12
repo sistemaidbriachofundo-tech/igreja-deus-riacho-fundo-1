@@ -204,6 +204,8 @@ export function TreasuryPanel() {
   const canCreateExpense = access.kind === "ready" &&
     (access.roles.includes("TESOURARIA") || access.roles.includes("PLATFORM_ADMIN"));
   const isPastorOnly = access.kind === "ready" && access.roles.includes("PASTOR") && !canCreateExpense;
+  const canReviewApprovals = access.kind === "ready" &&
+    (access.roles.includes("TESOURARIA") || access.roles.includes("PASTOR"));
   const { confirm, confirmation } = useActionConfirmation();
   const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
   const [token, setToken] = useState<string | null>(null);
@@ -435,7 +437,7 @@ export function TreasuryPanel() {
         <button type="button" aria-current={view === "despesas" ? "page" : undefined} onClick={() => openView("despesas")}><UIIcon name="wallet" size={17} /> Despesas</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
-        {canWrite && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
+        {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
       {view !== "aprovacoes" && <div className={styles.toolbar}>
         <label>Centro de custo
@@ -452,7 +454,7 @@ export function TreasuryPanel() {
       {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       {message && <p className={styles.feedback} data-error={message.error ? "true" : undefined} role={message.error ? "alert" : "status"}>{message.text}</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
-        {view === "aprovacoes" && canWrite && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
+        {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
             onBank={id => { setBankFilter(id); setChannelFilter(""); setQuery(""); openView("extrato"); }}
