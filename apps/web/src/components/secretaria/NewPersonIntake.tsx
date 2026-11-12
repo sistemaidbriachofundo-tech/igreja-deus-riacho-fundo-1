@@ -2,6 +2,7 @@
 
 import { PersonPicker } from "../PersonPicker";
 import s from "./new-person-intake.module.css";
+import { personUnder18 } from "./new-person-intake-model";
 
 export type NewPersonProfile = {
   address: string;
@@ -28,16 +29,6 @@ type Props = {
   onEmail: (value: string) => void;
   onProfile: (next: NewPersonProfile) => void;
 };
-
-export function personUnder18(birthDate: string, now = new Date()): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return false;
-  const [year,month,day] = birthDate.split("-").map(Number);
-  const reference = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit",
-  }).formatToParts(now);
-  const get = (key: string) => Number(reference.find(x=>x.type===key)?.value??0);
-  return get("year") - year - (get("month") < month || (get("month") === month && get("day") < day) ? 1 : 0) < 18;
-}
 
 export function NewPersonIntake({
   name,email,profile,families,token,roles,busy,onName,onEmail,onProfile,
