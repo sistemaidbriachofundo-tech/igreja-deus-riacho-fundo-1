@@ -204,13 +204,7 @@ export function Ficha360Dialog({
 
         {!form && (
           <div className={s.feedback}>
-            {busy && (
-              <Alert
-                appearance="workspace"
-                tone="info"
-                title="Abrindo ficha…"
-              />
-            )}
+            {busy && <div className={s.fichaLoading} role="status" aria-label="Carregando ficha"><span className={s.fichaSpinner} aria-hidden="true"/></div>}
             {!busy && loadFailure && (
               <FailureNotice
                 failure={loadFailure}
