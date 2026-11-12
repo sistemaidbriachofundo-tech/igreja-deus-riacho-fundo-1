@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import { withBasePath } from "../lib/paths";
-import { portalVisuals } from "../lib/portal-visuals";
 import { PortalGlyph } from "./PortalGlyph";
 import s from "./portal-cinematic-hero.module.css";
 
@@ -15,11 +14,7 @@ export function PortalCinematicHero() {
     <section id="inicio" className={s.hero} data-appearance={site.appearance} aria-labelledby="hero-title">
       <div className={s.visual} aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={portalVisuals.hero} className={s.backdrop} alt="" fetchPriority="high" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={withBasePath("/images/hero-oficial.jpg")} className={s.stagePhoto} alt="" fetchPriority="high" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} className={s.worshipPhoto} alt="" fetchPriority="high" />
+        <img src={imageUrl} className={s.coverPhoto} alt="" fetchPriority="high" />
       </div>
       <div className={s.colorGrade} aria-hidden="true" />
       <div className={s.content}>
