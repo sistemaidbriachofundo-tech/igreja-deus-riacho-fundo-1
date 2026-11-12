@@ -15,7 +15,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://idbrf:idbrf_ci@localhost:5432/idbrf?schema=public
       NEXT_PUBLIC_BASE_PATH: /igreja-deus-riacho-fundo-1
-      NEXT_PUBLIC_HML_ENABLED: "true"
+      NEXT_PUBLIC_HML_ENABLED: "false"
       NEXT_PUBLIC_API_URL: https://id-riacho1-api-qa.vercel.app
     steps:
       - uses: actions/checkout@v7
@@ -37,5 +37,7 @@ jobs:
           node --test qa/security-f11/src/eight-personas-e2e.test.mjs
       - name: Testes unitários da autenticação backend
         run: npm run test -w @idbrf/api -- --runInBand --testPathPatterns=auth
-      - name: Build frontend
+      - name: Build frontend em modo HML
+        env:
+          NEXT_PUBLIC_HML_ENABLED: "true"
         run: npm run build -w @idbrf/web
