@@ -306,3 +306,8 @@
 }
 .workspace { display: grid; gap: 18px; min-width: 0; }
 .workspace > :is(.notice, .error) { margin: 0; }
+
+/* Secretaria: dashboard principal em largura total; não comprimir em grid de Relatórios. */
+.secretaryOverview{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;min-width:0;width:100%}
+.secretaryOverview > *{min-width:0}
+.secretaryOverview > :last-child{max-width:100%}
