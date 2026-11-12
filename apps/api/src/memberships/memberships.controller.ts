@@ -39,6 +39,10 @@ class RegisterMembershipBody implements RegisterMembershipInput {
 
   @IsOptional()
   @IsString()
+  householdId?: string;
+
+  @IsOptional()
+  @IsString()
   personId?: string;
 
   @IsOptional()
