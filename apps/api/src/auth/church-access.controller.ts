@@ -1,10 +1,10 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Post, Query } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException, Optional, Post, Query, Param, ServiceUnavailableException } from "@nestjs/common";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { hashPassword } from "./auth.service";
-import { assertPasswordPolicy } from "./password-policy";
+import { AccessInvitationService, inviteEmailConfig } from "./access-invitation.service";
+import { Public } from "./decorators/public.decorator";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { Roles } from "./decorators/roles.decorator";
 import type { AuthUser } from "./types/auth-user";
@@ -24,11 +24,6 @@ class CreateChurchLogin {
   @MaxLength(254)
   email!: string;
 
-  @IsString()
-  @MinLength(14)
-  @MaxLength(128)
-  password!: string;
-
   @IsIn(assignableRoles)
   role!: typeof assignableRoles[number];
 
@@ -41,7 +36,7 @@ class CreateChurchLogin {
 @Controller("admin/access")
 @Roles(ROLE_CODES.PLATFORM_ADMIN)
 export class ChurchAccessController {
-  constructor(private readonly prisma: PrismaService, private readonly pilot: PilotService) {}
+  constructor(private readonly prisma: PrismaService, private readonly pilot: PilotService, @Optional() private readonly invitations?: AccessInvitationService) {}
 
   @Get()
   async list(@CurrentUser() actor: AuthUser, @Query("q") query = "", @Query("page") pageParam = "1") {
@@ -64,6 +59,7 @@ export class ChurchAccessController {
       take: 26,
       select: {
         id: true, email: true, status: true,
+        accessInvitations: { take: 1, orderBy: { createdAt: "desc" }, select: { sentAt: true, consumedAt: true, revokedAt: true, expiresAt: true } },
         person: { select: { id: true, displayName: true } },
         grants: {
           where: { AND: [{ OR: [{ organizationId }, { organizationId: null }] }, { OR: [{ churchId }, { churchId: null }] }] },
@@ -72,7 +68,9 @@ export class ChurchAccessController {
       },
     });
     return {
-      accounts: rows.slice(0, 25).map(({ grants, ...row }) => ({
+      accounts: rows.slice(0, 25).map(({ grants, accessInvitations, ...row }) => ({
+        invitationStatus: row.status === "DISABLED" && !accessInvitations[0]?.consumedAt
+          ? (accessInvitations[0]?.sentAt ? "INVITED" : "PENDING_EMAIL") : null,
         ...row, profiles: grants.map(grant => ({ role: grant.role.code, ministry: grant.ministry?.name ?? null })),
       })),
       hasMore: rows.length > 25,
@@ -100,21 +98,25 @@ export class ChurchAccessController {
   @Post()
   async create(@CurrentUser() actor: AuthUser, @Body() input: CreateChurchLogin) {
     const { organizationId, churchId } = await this.scope(actor);
+    if (!this.invitations) throw new ServiceUnavailableException("Envio de convites indisponível.");
+    // Falha fechada: evita contas órfãs quando a entrega por e-mail está desconfigurada.
+    inviteEmailConfig();
     if (!assignableRoles.includes(input.role)) throw new BadRequestException("Perfil inválido.");
     const isLeader = input.role === ROLE_CODES.LIDER_MINISTERIO;
     const ministryId = isLeader ? input.ministryId?.trim() : undefined;
     if (isLeader && !ministryId) throw new BadRequestException("Selecione o ministério que a pessoa lidera.");
-
     const email = input.email.trim().toLowerCase();
-    assertPasswordPolicy(input.password, email);
-    const passwordHash = await hashPassword(input.password);
+    const issued = this.invitations.newToken();
     try {
-      return await this.prisma.$transaction(async tx => {
+      const created = await this.prisma.$transaction(async tx => {
         const person = await tx.person.findFirst({
           where: { id: input.personId, organizationId, homeChurchId: churchId, status: "ACTIVE" },
-          select: { id: true, displayName: true },
+          select: { id: true, displayName: true, email: true },
         });
         if (!person) throw new NotFoundException("Pessoa ativa não encontrada nesta congregação.");
+        if (!person.email || person.email.trim().toLowerCase() !== email) {
+          throw new BadRequestException("O convite deve ser enviado ao e-mail validado na ficha da pessoa. Atualize o cadastro na Secretaria.");
+        }
         if (ministryId && !(await tx.ministry.findFirst({ where: { id: ministryId, organizationId, churchId }, select: { id: true } }))) {
           throw new NotFoundException("Ministério não encontrado nesta congregação.");
         }
@@ -122,23 +124,72 @@ export class ChurchAccessController {
         if (!role) throw new BadRequestException("Este perfil não está disponível.");
         const user = await tx.user.create({
           data: {
-            personId: person.id, email, passwordHash,
+            personId: person.id, email, passwordHash: null, status: "DISABLED",
             grants: { create: { roleId: role.id, organizationId, churchId, ministryId } },
           },
           select: { id: true, email: true, status: true },
         });
+        const invite = await tx.accessInvitation.create({
+          data: { userId: user.id, tokenHash: issued.tokenHash, email, expiresAt: issued.expiresAt },
+          select: { id: true },
+        });
         await tx.auditLog.create({ data: {
-          actorUserId: actor.userId, action: "access.create", resourceType: "user", resourceId: user.id,
-          organizationId, churchId, metadata: { role: input.role, ministryId: ministryId ?? null },
+          actorUserId: actor.userId, action: "access.invite.create", resourceType: "user", resourceId: user.id,
+          organizationId, churchId, metadata: { role: input.role, ministryId: ministryId ?? null, expiresAt: issued.expiresAt.toISOString() },
         } });
-        return { ...user, person, profiles: [{ role: input.role, ministryId }] };
+        return { user, invite, person };
       }, { isolationLevel: "Serializable" });
+      const delivery = await this.invitations.deliver({
+        inviteId: created.invite.id, token: issued.token, email, name: created.person.displayName,
+      });
+      return { ...created.user, person: { id: created.person.id, displayName: created.person.displayName }, invite: delivery, invitationStatus: "INVITED" };
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && (error.code === "P2002" || error.code === "P2034")) {
         throw new ConflictException("Esta pessoa ou e-mail já tem acesso, ou outro cadastro está sendo salvo. Atualize a lista.");
       }
       throw error;
     }
+  }
+
+  @Post(":userId/invite/resend")
+  async resend(@CurrentUser() actor: AuthUser, @Param("userId") userId: string) {
+    const { organizationId, churchId } = await this.scope(actor);
+    if (!this.invitations) throw new ServiceUnavailableException("Envio de convites indisponível.");
+    inviteEmailConfig();
+    const issued = this.invitations.newToken();
+    const created = await this.prisma.$transaction(async tx => {
+      const user = await tx.user.findFirst({
+        where: { id: userId, person: { organizationId, homeChurchId: churchId } },
+        select: { id: true, email: true, status: true, passwordHash: true, person: { select: { displayName: true, email: true } } },
+      });
+      if (!user || user.status !== "DISABLED" || user.passwordHash) {
+        throw new ConflictException("Este usuário não possui um convite pendente para ativação.");
+      }
+      if (user.person.email?.trim().toLowerCase() !== user.email) {
+        throw new BadRequestException("O endereço de e-mail mudou. Confira a ficha antes de reenviar o convite.");
+      }
+      const recent = await tx.accessInvitation.findFirst({
+        where: { userId, sentAt: { gte: new Date(Date.now() - 60000) } },
+        select: { id: true },
+      });
+      if (recent) throw new ConflictException("Aguarde ao menos um minuto antes de reenviar.");
+      await tx.accessInvitation.updateMany({
+        where: { userId, consumedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      const invite = await tx.accessInvitation.create({
+        data: { userId, tokenHash: issued.tokenHash, email: user.email, expiresAt: issued.expiresAt },
+        select: { id: true },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "access.invite.resend", resourceType: "user", resourceId: userId,
+        organizationId, churchId,
+      } });
+      return { user, invite };
+    }, { isolationLevel: "Serializable" });
+    return this.invitations.deliver({
+      inviteId: created.invite.id, token: issued.token, email: created.user.email, name: created.user.person.displayName,
+    });
   }
 
   private async scope(actor: AuthUser) {
