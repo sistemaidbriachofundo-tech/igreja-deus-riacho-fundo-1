@@ -1,4 +1,4 @@
-import { percentile, readApiTimings, summarizeApiTimings } from "./api";
+import { percentile, readApiTimings, summarizeApiTimings, summarizeEndpoints } from "./api";
 import { withBasePath } from "./paths";
 
 export type ClickModifiers = {
@@ -120,6 +120,7 @@ export function publishPerfProbe(): void {
       login: summarizeApiTimings("/auth/login"),
       session: summarizeApiTimings("/auth/me"),
       navigation: summarizeNavigationTimings(),
+      endpoints: summarizeEndpoints(),
     }),
   };
 }
@@ -132,6 +133,7 @@ type PerfProbe = {
     login: ReturnType<typeof summarizeApiTimings>;
     session: ReturnType<typeof summarizeApiTimings>;
     navigation: ReturnType<typeof summarizeNavigationTimings>;
+    endpoints: ReturnType<typeof summarizeEndpoints>;
   };
 };
 
