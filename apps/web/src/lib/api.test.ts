@@ -213,6 +213,20 @@ describe("API A1: sessão, timeout e medição", () => {
     expect(summarizeApiTimings("/auth/me").fromCache).toBe(1);
   });
 
+  it("compartilha /auth/me em voo entre componentes, sem repetir rede", async () => {
+    let release!: (value: Response) => void;
+    const wait = new Promise<Response>(resolve => { release = resolve; });
+    const mockFetch = vi.fn().mockReturnValue(wait);
+    vi.stubGlobal("fetch", mockFetch);
+    const first = apiGet("/auth/me", "two-components-jwt");
+    const second = apiGet("/auth/me", "two-components-jwt");
+    expect(mockFetch).toHaveBeenCalledOnce();
+    release(respond(sessionUser));
+    await expect(Promise.all([first, second])).resolves.toEqual([sessionUser, sessionUser]);
+    await expect(apiGet("/auth/me", "two-components-jwt")).resolves.toEqual(sessionUser);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
   it("consulta de novo quando o chamador pede sessão fresca", async () => {
     rememberValidatedSession("fake-jwt", sessionUser);
     const mockFetch = vi.fn().mockResolvedValue(respond({ ...sessionUser, email: "nova@example.test" }));

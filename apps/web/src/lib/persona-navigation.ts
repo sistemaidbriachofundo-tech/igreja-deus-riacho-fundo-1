@@ -21,6 +21,7 @@ export type AppNavKey =
   | "visao"
   | "membros"
   | "secretaria"
+  | "conexao"
   | "carteirinha"
   | "editorial"
   | "site"
@@ -122,6 +123,19 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     ribbon: { code: "Secretaria", title: "Etapas com cuidado.", detail: "Protocolos visíveis só para o papel que a API aceita." },
     roles: ADMISSIONS,
     probe: { method: "GET", path: "/admissions", source: "apps/api/src/admissions/admissions.controller.ts", marker: "return this.admissions.list" },
+    surface: "admin",
+  },
+  {
+    key: "conexao",
+    href: "/app/conexao/",
+    label: "Conexão e Trilhas",
+    short: "Conexão",
+    icon: "family",
+    hint: "Acolhimento, acompanhamento e Grupos de Amizade",
+    ribbon: { code: "Conexão", title: "Caminhos de pertencimento.", detail: "Trilhas e grupos são acessados apenas por líderes autorizados." },
+    roles: MINISTRY_LEAD,
+    probe: { method: "GET", path: "/discipleship/tracks", source: "apps/api/src/discipleship/discipleship.controller.ts", marker: '@Get("tracks")' },
+    additionalProbes: [{ method: "GET", path: "/small-groups", source: "apps/api/src/groups/groups.controller.ts", marker: '@Get()' }],
     surface: "admin",
   },
   {

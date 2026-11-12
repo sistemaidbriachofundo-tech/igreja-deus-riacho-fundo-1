@@ -463,7 +463,7 @@ export function AppShell({
         </button>
         <div className={s.railHeader}>
           <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
-            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
+            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/idb-riacho-oficial-2026.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
             <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
           </AppNavLink>
           <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
@@ -546,7 +546,7 @@ export function AppShell({
             <button type="button" ref={menuButtonRef} className={s.hamburger} aria-expanded={menuExpanded} aria-controls="app-navigation-rail" aria-label={menuButtonLabel} onClick={toggleMenu}>
               <UIIcon name="menu" size={20}/>
             </button>
-            <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
+            <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/idb-riacho-oficial-2026.webp")}")` }} />
             <div>
               <strong>{shownMeta}</strong>
               <span className={s.toolbarEyebrow}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "Administração · Riacho Fundo I"}</span>
@@ -567,7 +567,7 @@ export function AppShell({
         </header>
         <main className={s.content}>
           {showModule && children}
-          {accessKind === "pending" && <p className={s.holdNote} role="status">Verificando seu acesso…</p>}
+          {accessKind === "pending" && <div className={s.accessLoading} role="status" aria-label="Carregando painel"><span className={s.accessSpinner} aria-hidden="true" /><span className={s.screenReaderOnly}>Carregando painel</span></div>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
             <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
             <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>

@@ -168,6 +168,7 @@ export function readValidatedSession(token: string, at = Date.now(), allowStale 
 
 export function forgetValidatedSession(): void {
   cachedSession = null;
+  inflightSession = null;
 }
 
 export function isUnauthorized(error: unknown): boolean {
@@ -334,28 +335,38 @@ export function mfaFailureMessage(error: unknown): string {
   return loginFailureMessage(error);
 }
 
+/** Uma única consulta de /auth/me em voo por token; não cacheia falhas nem autorização fora do servidor. */
+let inflightSession: { token: string; promise: Promise<AuthUser> } | null = null;
+
 export async function apiGet<T>(path: string, token: string, options?: ApiCallOptions): Promise<T> {
-  if (path === "/auth/me" && options?.fresh !== true) {
+  if (path !== "/auth/me") return settle<T>("GET", path, token, undefined, options, true);
+  if (options?.fresh !== true) {
     const cached = readValidatedSession(token);
     if (cached) {
       noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
       return cached as T;
     }
   }
-  try {
-    const data = await settle<T>("GET", path, token, undefined, options, true);
-    if (path === "/auth/me" && isAuthUser(data)) rememberValidatedSession(token, data);
-    return data;
-  } catch (error) {
-    if (path === "/auth/me" && isTransientFailure(error)) {
-      const stale = readValidatedSession(token, Date.now(), true);
-      if (stale) {
-        noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
-        return stale as T;
+  if (inflightSession?.token === token) return await inflightSession.promise as T;
+  const promise: Promise<AuthUser> = (async () => {
+    try {
+      const data = await settle<AuthUser>("GET", path, token, undefined, options, true);
+      if (isAuthUser(data)) rememberValidatedSession(token, data);
+      return data;
+    } catch (error) {
+      if (isTransientFailure(error)) {
+        const stale = readValidatedSession(token, Date.now(), true);
+        if (stale) {
+          noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
+          return stale;
+        }
       }
+      throw error;
     }
-    throw error;
-  }
+  })();
+  inflightSession = { token, promise };
+  try { return await promise as T; }
+  finally { if (inflightSession?.promise === promise) inflightSession = null; }
 }
 
 export async function apiPost<T>(path: string, token: string, body?: unknown, options?: ApiCallOptions): Promise<T> {

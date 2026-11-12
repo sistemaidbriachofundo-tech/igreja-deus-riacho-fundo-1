@@ -18,7 +18,8 @@ describe("ficha da secretaria no primeiro render", () => {
         onSessionExpired={() => {}}
       />,
     );
-    expect(html).toContain("Abrindo ficha…");
+    expect(html).toContain('aria-label="Carregando ficha"');
+    expect(html).not.toContain("Abrindo ficha…");
     expect(html).not.toContain("p-ana");
     expect(html).toContain('data-can-edit="true"');
     expect(html).toContain("Cadastro de pessoa");
@@ -107,7 +108,7 @@ describe("ficha 360 pronta para edição", () => {
     expect(html).toContain("Admissões e documentos");
     expect(html).toContain("Família Demo");
     expect(html).toContain("Menor Demo");
-    expect(html).toContain("SITUAÇÃO ECLESIÁSTICA");
+    expect(html).toContain("Vínculo");
     expect(html).toContain("Ativo");
     // A ficha passa a abrir em modo leitura e não exige editar para consultar.
     expect(html).not.toContain('data-field="displayName"');
