@@ -167,7 +167,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
         <aside className={styles.story} aria-label="Identidade da Igreja de Deus">
           <div className={styles.brand}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="Igreja de Deus — Riacho Fundo I" width={64} height={64}/>
+            <img src={withBasePath("/images/idb-riacho-oficial-2026.webp")} alt="Igreja de Deus — Riacho Fundo I" width={64} height={64}/>
             <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -232,7 +232,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
               {error && <Alert appearance="workspace" tone="danger" title={error} />}
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
               <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking?"Validando sessão…":busy?"Entrando…":"Entrar no painel"}
+                {checking||busy ? "Aguarde…" : "Entrar no painel"}
               </button>
             </form>}
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
