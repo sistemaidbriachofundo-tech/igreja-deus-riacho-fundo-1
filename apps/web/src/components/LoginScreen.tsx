@@ -11,6 +11,7 @@ import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import { authenticatedLanding } from "../lib/auth-destination";
+import { generateAuthenticatorQr } from "../lib/authenticator-qr";
 import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
 
@@ -28,6 +29,8 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [error, setError] = useState("");
   const [challenge, setChallenge] = useState<LoginChallenge["mfa"] | null>(null);
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrUnavailable, setQrUnavailable] = useState(false);
   const [code, setCode] = useState("");
   const [expired, setExpired] = useState(false);
   const codeInput = useRef<HTMLInputElement>(null);
@@ -72,6 +75,18 @@ export function LoginScreen({ onAuthenticated }: Props) {
     return () => window.clearTimeout(expiry);
   }, [challenge]);
 
+  // O QR é criado no próprio dispositivo e não passa por API de terceiros.
+  useEffect(() => {
+    setQrDataUrl(null);
+    setQrUnavailable(false);
+    if (!enrollment) return;
+    let active = true;
+    void generateAuthenticatorQr(enrollment.otpauthUri)
+      .then(value => { if (active) setQrDataUrl(value); })
+      .catch(() => { if (active) setQrUnavailable(true); });
+    return () => { active = false; };
+  }, [enrollment]);
+
   useEffect(() => {
     if (challenge && !needsSetup && !expired) codeInput.current?.focus();
   }, [challenge, needsSetup, expired]);
@@ -96,7 +111,17 @@ export function LoginScreen({ onAuthenticated }: Props) {
       const login = await beginLogin(email.trim(), password);
       setPassword("");
       if ("accessToken" in login) acceptSession(login);
-      else setChallenge(login.mfa);
+      else {
+        setChallenge(login.mfa);
+        // Primeiro acesso privilegiado: abrir o QR automaticamente.
+        if (login.mfa.enrollmentRequired) {
+          try {
+            setEnrollment(await beginMfaEnrollment(login.mfa.challengeId));
+          } catch (setupError) {
+            setError(mfaFailureMessage(setupError));
+          }
+        }
+      }
     } catch (problem) {
       if (isInvalidSession(problem)) {
         clearToken();
@@ -130,6 +155,8 @@ export function LoginScreen({ onAuthenticated }: Props) {
     setCode("");
     setError("");
     setExpired(false);
+    setQrDataUrl(null);
+    setQrUnavailable(false);
   }
 
   return (
@@ -156,9 +183,21 @@ export function LoginScreen({ onAuthenticated }: Props) {
               {expired ? <Alert appearance="workspace" tone="warning" title="O tempo para verificar terminou. Entre novamente." /> : <>
                 {needsSetup && <p className={styles.mfaHelp}>Ative a verificação em um aplicativo autenticador antes de continuar.</p>}
                 {enrollment && <div className={styles.setup}>
-                  {enrollment.otpauthUri.startsWith("otpauth://totp/") && <a href={enrollment.otpauthUri}>Abrir no autenticador</a>}
-                  <p>Se estiver em outro aparelho, adicione uma conta baseada em tempo usando esta chave.</p>
-                  <code>{enrollment.secret}</code>
+                  <p>Abra o Google Authenticator, Microsoft Authenticator ou outro aplicativo e escolha <strong>Adicionar conta → Ler QR Code</strong>.</p>
+                  <div className={styles.qrFrame}>
+                    {qrDataUrl
+                      ? <img src={qrDataUrl} className={styles.qrImage} width={220} height={220}
+                          alt="QR Code para cadastrar a verificação em duas etapas no aplicativo autenticador." />
+                      : <span className={styles.qrPending} role="status">
+                          {qrUnavailable ? "Não foi possível gerar o QR Code neste navegador. Use a chave manual." : "Preparando QR Code…"}
+                        </span>}
+                  </div>
+                  <p>Depois de escanear, digite abaixo o código de 6 dígitos mostrado no aplicativo.</p>
+                  <details className={styles.manualSetup}>
+                    <summary>Não conseguiu escanear? Mostrar chave manual</summary>
+                    <p>Adicione uma conta baseada em tempo (TOTP) e use esta chave somente no seu aplicativo:</p>
+                    <code>{enrollment.secret}</code>
+                  </details>
                 </div>}
                 {!needsSetup && <>
                   <label htmlFor="church-mfa-code">Código de 6 dígitos</label>
@@ -168,7 +207,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 </>}
                 {error && <Alert appearance="workspace" tone="danger" title={error} />}
                 <button className={styles.submit} type="submit" disabled={busy || (!needsSetup && code.length !== 6)}>
-                  {busy ? "Verificando…" : needsSetup ? "Configurar autenticador" : "Confirmar acesso"}
+                  {busy ? "Verificando…" : needsSetup ? "Tentar configurar novamente" : "Confirmar acesso"}
                 </button>
               </>}
               <button type="button" className={styles.mfaBack} disabled={busy} onClick={restartLogin}>Voltar ao login</button>
