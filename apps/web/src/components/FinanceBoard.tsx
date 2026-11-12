@@ -26,8 +26,8 @@ export function financeApproval(actorUserId:string|null, entry:DasRecord):{text:
   return {text:stage.stage==="FIRST"?"Você pode registrar a primeira aprovação.":"Você pode registrar a segunda aprovação.",canApprove:true};
 }
 
-export function FinanceBoard(
-  const { showFeedback } = useFeedback();{tab,rows,token,refresh}:Props){
+export function FinanceBoard({tab,rows,token,refresh}:Props){
+  const { showFeedback } = useFeedback();
   const { confirm, confirmation } = useActionConfirmation();
   const [accounts,setAccounts]=useState<DasRecord[]>([]);
   const [accountsState,setAccountsState]=useState<"loading"|"ready"|"error">("loading");
