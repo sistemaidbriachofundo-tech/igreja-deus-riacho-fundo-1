@@ -134,7 +134,7 @@ function SessionGateLoading() {
           <div className={styles.sessionLoadingBody} />
         </div>
       </div>
-      <span className={styles.screenReaderOnly}>Carregando área administrativa</span>
+      <h1 className={styles.screenReaderOnly}>Carregando área administrativa</h1>
     </main>
   );
 }
