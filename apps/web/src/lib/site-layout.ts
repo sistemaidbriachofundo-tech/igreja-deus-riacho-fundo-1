@@ -23,7 +23,7 @@ export const defaultSiteLayout: SiteLayout = {
   hero: {
     title: "Sua jornada com Deus", accent: "pode começar aqui.",
     description: "Um lugar de acolhimento, fé e propósito para você e sua família. Venha nos conhecer e caminhe com uma comunidade que cresce e serve junta.",
-    imageUrl: "/images/fachada-igreja-riacho-fundo.avif",
+    imageUrl: "/images/fachada-igreja-riacho-fundo.jpg",
   },
   gallery: {
     title: "A fé tem muitas formas", accent: "de se expressar.",
@@ -75,7 +75,7 @@ export function parsePublicSiteLayout(value:unknown):{layout:SiteLayout|null}|nu
   return {layout:response.layout===null?null:parseSiteLayout(response.layout)};
 }
 export const siteMediaLibrary = [
-  { title:"Fachada da Igreja de Deus — capa pública",src:"/images/fachada-igreja-riacho-fundo.avif" },
+  { title:"Fachada da Igreja de Deus — capa pública",src:"/images/fachada-igreja-riacho-fundo.jpg" },
   { title:"Adoração — foto oficial",src:"/images/adoracao-oficial.jpg" },
   { title:"Culto — foto oficial",src:"/images/hero-oficial.jpg" },
   { title:"Louvor",src:"/images/galeria-louvor.webp" },
