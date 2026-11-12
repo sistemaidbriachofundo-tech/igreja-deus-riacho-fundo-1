@@ -32,6 +32,7 @@ import type { Response } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
+import { RequireAccess } from "../auth/decorators/require-access.decorator";
 import { FinanceService } from "./finance.service";
 
 class CreateAccountBody {
@@ -361,6 +362,14 @@ export class FinanceController {
     return this.finance.createEntry(user, body);
   }
 
+  /** Aprovações de despesas pendentes, sem abrir o extrato completo ao pastor. */
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
+  @RequireAccess({ resource: "ledger", action: "approve" })
+  @Get("expense-approvals")
+  listExpenseApprovals(@CurrentUser() user: AuthUser) {
+    return this.finance.listExpenseApprovals(user);
+  }
+
   @Get("entries/:entryId")
   getEntry(@CurrentUser() user: AuthUser, @Param("entryId") entryId: string) {
     return this.finance.getEntry(user, entryId);
@@ -374,6 +383,8 @@ export class FinanceController {
     return this.finance.submitEntry(user, entryId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
+  @RequireAccess({ resource: "ledger", action: "approve" })
   @Post("entries/:entryId/approve")
   approveEntry(
     @CurrentUser() user: AuthUser,
