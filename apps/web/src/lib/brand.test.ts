@@ -32,6 +32,13 @@ describe("web brand", () => {
     const loginCss = readFileSync(join(__dirname, "../components/login-screen.module.css"), "utf8");
     expect(loginCss).toMatch(/\\.brand img\\s*\\{[^}]*object-fit:\\s*contain/s);
     expect(loginCss).toMatch(/\\.brand img\\s*\\{[^}]*background:\\s*transparent/s);
+    const publicCss = readFileSync(join(__dirname, "../components/portal-design-system.module.css"), "utf8");
+    expect(publicCss).not.toMatch(/\\.brand img\\s*\\{[^}]*background:\\s*#0b0b0b/s);
+    expect(publicCss).not.toMatch(/\\.brand img\\s*\\{[^}]*border-radius:\\s*7px/s);
+    const editorCss = readFileSync(join(__dirname, "../components/site-manager.module.css"), "utf8");
+    expect(editorCss).not.toContain(".previewTop img{border-radius:50%}");
+    const assistantCss = readFileSync(join(__dirname, "../components/vivi-editorial-assistant.module.css"), "utf8");
+    expect(assistantCss).not.toMatch(/\\.icon img\\s*\\{[^}]*object-fit:\\s*cover/s);
   });
 
   it("uses shared slug", () => {
