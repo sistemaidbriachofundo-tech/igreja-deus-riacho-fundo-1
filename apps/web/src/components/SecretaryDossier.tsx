@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { usePersonaAccess } from "./AppShell";
 import { PersonPicker } from "./PersonPicker";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 import { apiGet, apiPatch, apiPost } from "../lib/api";
 import {
   Ficha360Dialog,
@@ -53,6 +54,7 @@ export function SecretaryDossier({
 }: Props) {
   const titleId = useId();
   const { confirm, confirmation } = useActionConfirmation();
+  const { showFeedback } = useFeedback();
   const { roles } = usePersonaAccess();
   const [state, dispatch] = useReducer(fichaReducer, initialFichaState);
   const [documents, setDocuments] = useState<AdmissionDocumentList[] | null>(
@@ -131,12 +133,17 @@ export function SecretaryDossier({
           person: saved.partialPerson,
           failure: saved.failure,
         });
-      } else dispatch({ type: "save-fail", failure: saved.failure });
+        showFeedback({ tone: "warning", title: "Salvamento parcial", message: "Algumas informações foram salvas, mas outras precisam de atenção: " + saved.failure.message });
+      } else {
+        dispatch({ type: "save-fail", failure: saved.failure });
+        showFeedback({ tone: "error", title: "Não foi possível salvar a ficha", message: saved.failure.message });
+      }
       return;
     }
     if (saved.person) onPersonSaved?.(saved.person);
     dispatch({ type: "save-ok", person: saved.person });
     await reload("after-save", started);
+    showFeedback({ tone: "success", title: "Ficha salva", message: "As informações foram registradas. Confira a ficha atualizada." });
   }
 
   const dirty = Boolean(
