@@ -394,6 +394,7 @@ export class FinanceController {
     return this.finance.createEntry(user, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Post("expenses")
   createExpense(@CurrentUser() user: AuthUser, @Body() body: CreateExpenseBody) {
     return this.finance.createExpense(user, body);
