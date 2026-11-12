@@ -170,6 +170,7 @@ jobs:
         id: portal_screen
         if: github.event_name == 'pull_request'
         continue-on-error: true
+        timeout-minutes: 12
         shell: bash
         run: |
           set -euo pipefail

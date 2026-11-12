@@ -14,7 +14,7 @@ describe("V1: separação entre portal público e administração", () => {
     expect(home).toContain("<PublicPage>");
     expect(home).not.toContain('href="/app/membros/"');
     expect(portal).toContain('href="/login/"');
-    expect(mobileMenu).toContain("Login");
+    expect(mobileMenu).not.toContain('href="/login/"');
     expect(overview).toContain("<ChurchDashboard />");
   });
 

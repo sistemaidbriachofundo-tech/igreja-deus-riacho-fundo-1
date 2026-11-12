@@ -33,6 +33,7 @@ const louvor: RosterView = {
           id: "a-ana",
           slotId: "s-voz",
           personId: "p-ana",
+          personName: "Ana",
           partnerPersonId: null,
           status: "CONFIRMED",
           substituteForId: null,
@@ -132,9 +133,10 @@ describe("telas de escala — o que a pessoa vê", () => {
         onClose={noop}
       />,
     );
-    expect(html).toContain("p-ana");
+    expect(html).toContain(">Ana<");
+    expect(html).not.toContain("p-ana");
     expect(html).toContain("Escala da recepção");
-    expect(html).toContain("ROSTER_SAME_DAY");
+    expect(html).toContain("posição neste dia");
     expect(html).toContain("data-blocked=\"rehearsal\"");
     expect(html).not.toContain("pessoa-alheia");
     expect(html).toContain("Pedir substituição");
@@ -168,7 +170,7 @@ describe("telas de escala — o que a pessoa vê", () => {
         onClose={noop}
       />,
     );
-    expect(html).toContain("CLOSED");
+    expect(html).toContain("Encerrada");
     expect(html).not.toContain("Designar");
     expect(html).not.toContain("Nova função neste horário");
     expect(html).not.toContain("Publicar escala");
@@ -252,35 +254,29 @@ describe("telas de escala — o que a pessoa vê", () => {
     };
     const html = renderToStaticMarkup(
       <MemberSpace
-        email="membro.demo@example.test"
-        personId="p-membro"
         assignments={[mine]}
         busy={false}
-        notice="Confirmação gravada. O estado exibido veio da API e nenhuma mensagem foi enviada."
-        probe="forbidden"
+        notice="Participação confirmada."
         onConfirm={noop}
         onDecline={noop}
-        onProbe={noop}
       />,
     );
     expect(html).toContain("Louvor domingo");
     expect(html).toContain("data-status=\"PENDING\"");
     expect(html).toContain("Confirmar");
     expect(html).toContain("data-persist=\"roster\"");
-    expect(html).toContain("ROSTER_SAME_DAY");
-    expect(html).toContain("data-probe=\"forbidden\"");
-    expect(html).toContain("p-membro");
-    expect(html).toContain("carteirinha");
+    expect(html).toContain("Você tem outra posição na escala deste dia.");
+    expect(html).not.toContain("Permissão de listagem");
+    expect(html).not.toContain("p-membro");
     expect(html).not.toContain("pessoa-alheia");
     expect(html).not.toContain("Pedir substituição");
   });
 
   it("sem homologação a página não consulta escala", () => {
     const html = renderToStaticMarkup(<ServingWorkspace surface="atmosfera" />);
-    expect(html).toContain("Homologação desabilitada");
-    expect(html).toContain("Integração bloqueada");
-    expect(html).toContain("#97");
-    expect(html).toContain("#133");
+    expect(html).toContain("Escalas indisponíveis neste endereço");
+    expect(html).not.toContain("Integração bloqueada");
+    expect(html).not.toContain("#133");
     expect(html).not.toContain("pessoa-alheia");
   });
 });

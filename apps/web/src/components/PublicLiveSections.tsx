@@ -80,9 +80,8 @@ export function PublishedAgenda() {
   return (
     <div className={s.visitAgenda}>
       <div>
-        <p className={s.visitLabel}>Agenda</p>
-        <h2 id="agenda-title" tabIndex={-1}>Cultos de <em>domingo.</em></h2>
-        <p className={s.visitIntro}>Venha adorar com a gente no Riacho Fundo I.</p>
+        <h2 id="agenda-title" tabIndex={-1}>Cultos de domingo</h2>
+        <p className={s.visitIntro}>Igreja de Deus · Riacho Fundo I</p>
       </div>
       <div className={s.visitSchedule}>
         <ul className={s.sundayTimes} aria-label="Horários dos cultos de domingo">

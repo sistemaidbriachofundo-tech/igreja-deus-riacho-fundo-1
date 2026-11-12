@@ -10,10 +10,9 @@ export function PortalFaithGallery() {
   return (
     <section id="galeria" className={s.gallery} data-appearance={site.appearance} aria-labelledby="faith-gallery-title">
       <div className={s.inner}>
-        <div className={s.head} data-portal-reveal>
+        <div className={s.head}>
           <div className={s.heading}>
-            <p className={s.eyebrow}>Galeria</p>
-            <h2 id="faith-gallery-title">{site.gallery.title}<br/><em>{site.gallery.accent}</em></h2>
+            <h2 id="faith-gallery-title">{site.gallery.title} <em>{site.gallery.accent}</em></h2>
             <p>{site.gallery.description}</p>
           </div>
         </div>

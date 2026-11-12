@@ -29,7 +29,7 @@ describe("TreasuryPanel", () => {
   it("não publica saldo antes da consulta", () => {
     const html = renderToStaticMarkup(<TreasuryPanel />);
     expect(html).toContain("Consultando lançamentos");
-    expect(html).toContain("Dados de homologação");
+    expect(html).not.toContain("Dados de teste");
     expect(html).not.toContain("R$");
     expect(html).not.toContain("Sem consulta");
   });

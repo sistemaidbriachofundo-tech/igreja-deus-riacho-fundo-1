@@ -263,3 +263,21 @@
 .views button{font-weight:760}
 .tabs button[aria-pressed="true"]{background:#215d43;color:#fff;border-color:#215d43}
 @media(max-width:680px){.views{display:flex;overflow-x:auto;scrollbar-width:thin;padding-bottom:5px}.views button{flex-shrink:0}.tabs{display:flex;overflow-x:auto}.tabs button{flex-shrink:0}}
+
+.movementType {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 360px);
+  color: var(--app-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.movementType select {
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-control-radius);
+  background: var(--app-surface);
+  color: var(--app-ink);
+  font: inherit;
+}

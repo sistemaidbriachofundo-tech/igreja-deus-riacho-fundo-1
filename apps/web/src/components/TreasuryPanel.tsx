@@ -11,6 +11,8 @@ import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } fr
 import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
 import { ExpenseApprovals } from "./ExpenseApprovals";
+import { PageHeader } from "./ui/PageHeader";
+import ui from "./ui/ui.module.css";
 import styles from "./treasury-panel.module.css";
 
 /**
@@ -367,19 +369,20 @@ export function TreasuryPanel() {
   if (isPastorOnly) return <ExpenseApprovals />;
 
   return (
-    <section className={styles.panel} aria-labelledby="treasury-title">
+    <section className={styles.panel} aria-label="Tesouraria">
       {confirmation}
-      <header className={styles.header}>
-        <div><p className={styles.kicker}>Finanças da congregação</p><h1 id="treasury-title">Tesouraria</h1><p className={styles.lede}>Saldos por conta, entradas e conferência de depósitos.</p></div>
-        <span className={styles.qaLabel}>Dados de homologação</span>
-      </header>
-      <nav className={styles.views} aria-label="Áreas da Tesouraria">
+      <PageHeader appearance="workspace" heading="h1" title="Tesouraria"
+        description={isSample ? "Dados de teste de novembro de 2026" : undefined}
+        actions={canWrite && view !== "lancar" ? (
+          <button type="button" className={ui.workspacePrimary} onClick={() => openView("lancar")}>
+            <UIIcon name="plus" size={17} /> Novo lançamento
+          </button>
+        ) : undefined}
+      />
+      <nav className={ui.workspaceTabs} aria-label="Áreas da Tesouraria">
         <button type="button" aria-current={view === "visao" ? "page" : undefined} onClick={() => openView("visao")}><UIIcon name="grid" size={17} /> Visão geral</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
-        {canWrite && <button type="button" aria-current={view === "lancar" && tab === "despesa" ? "page" : undefined} onClick={() => { setTab("despesa"); openView("lancar"); }}><UIIcon name="plus" size={17} /> Nova despesa</button>}
-        {canWrite && <button type="button" aria-current={view === "lancar" && tab === "compromisso" ? "page" : undefined} onClick={() => { setTab("compromisso"); openView("lancar"); }}><UIIcon name="calendar" size={17} /> Nova conta a pagar</button>}
-        {canWrite && <button type="button" aria-current={view === "lancar" && !["despesa","compromisso"].includes(tab) ? "page" : undefined} onClick={() => openView("lancar")}><UIIcon name="plus" size={17} /> Outros lançamentos</button>}
       </nav>
       <div className={styles.toolbar}>
         <label>Centro de custo
@@ -393,7 +396,6 @@ export function TreasuryPanel() {
       </div>
       {!validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       {message && <p className={styles.feedback} data-error={message.error ? "true" : undefined} role={message.error ? "alert" : "status"}>{message.text}</p>}
-      {isSample && view === "visao" && <p className={styles.scopeCaption}>Cenário simulado de novembro de 2026</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
@@ -449,9 +451,14 @@ export function TreasuryPanel() {
         {view === "lancar" && canWrite && <section className={styles.card} aria-label="Registrar lançamento">
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
           <p className={styles.approvalInfo}>Despesas e contas precisam da conferência de um tesoureiro e da aprovação final do pastor. Até as duas confirmações, não entram no saldo aprovado.</p>
-          <div className={styles.tabs} aria-label="Tipo de movimento">
-            {tabConfig.map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} disabled={busy} onClick={() => { setTab(id); intent.current = ""; }}>{label}</button>)}
-          </div>
+          <label className={styles.movementType}>Tipo de lançamento
+            <select value={tab} disabled={busy} onChange={event => {
+              const next = tabConfig.find(([id]) => id === event.target.value);
+              if (next) { setTab(next[0]); intent.current = ""; }
+            }}>
+              {tabConfig.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </label>
           {transfer && pendingBalance !== undefined && <p className={styles.note}>Valor em aberto para baixa: <strong>{formatBRL(pendingBalance)}</strong></p>}
           <form key={tab} className={styles.form} onSubmit={onSubmit}>
             <label>Data <input type="date" name="date" required /></label>

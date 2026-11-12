@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { AppShell } from "../components/AppShell";
+import { PortalFooter } from "../components/PublicPortal";
 
 describe("Identidade institucional e canal", () => {
   it("exibe gravações da igreja com links oficiais e carrega o player após interação", () => {
     const html = renderToStaticMarkup(<PortalVideoShowcase />);
     expect(html).toContain("https://www.youtube.com/c/IDBRiachoFundo1IDB");
-    expect(html).toContain("https://www.instagram.com/idbriacho_/");
+    expect(renderToStaticMarkup(<PortalFooter />)).toContain("https://www.instagram.com/idbriacho_/");
     expect(html).toContain("https://www.youtube.com/watch?v=lTjvE8G_YAE");
     expect(html).toContain("Culto de Santa Ceia");
     expect(html).toContain("Quinta do Encontro");

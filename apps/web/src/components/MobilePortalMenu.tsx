@@ -56,9 +56,6 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
           {link.label}<PortalGlyph name="arrow" width={18}/>
         </Link>;
       })}
-      <Link className={s.mobileStaff} href="/login/" onClick={close}>
-        Login <PortalGlyph name="arrow" width={18}/>
-      </Link>
     </nav>
   </details>;
 }

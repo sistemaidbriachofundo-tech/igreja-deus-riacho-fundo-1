@@ -94,9 +94,7 @@
 @media(prefers-reduced-motion:reduce){.ministryGallery img{transition:none}}
 
 .visitAgenda { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); gap: clamp(32px, 8vw, 108px); align-items: center; }
-.visitLabel { color: #4a6357; font: 650 11px/1.5 Inter, sans-serif; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 17px; }
-.visitAgenda h2 { margin: 0; font: 650 clamp(39px, 5.2vw, 72px)/1 Inter, sans-serif; letter-spacing: -.07em; }
-.visitAgenda h2 em { display: block; color: #386451; font: italic 400 1.08em/1 Georgia, serif; }
+.visitAgenda h2 { margin: 0; font: 650 clamp(32px, 4vw, 56px)/1.08 Inter, sans-serif; letter-spacing: -.05em; }
 .visitIntro { margin: 16px 0 0; color: #40574d; font: 400 16px/1.6 Inter, sans-serif; }
 .sundayTimes {
   display: grid;
@@ -104,8 +102,8 @@
   padding: clamp(17px, 3vw, 34px) 0;
   margin: 0;
   border: 1px solid #c0cec0;
-  border-radius: 16px;
-  background: #f8f7f0;
+  border-radius: 8px;
+  background: #fbfaf5;
   list-style: none;
 }
 .sundayTimes li { padding: 5px clamp(14px, 3vw, 38px); }

@@ -49,6 +49,7 @@ export type NavIcon =
 export type PersonaProbe = {
   method: "GET" | "POST";
   path: string;
+  roles?: readonly BuiltinRole[];
   /** Trecho estável do controller, usado para conferir os papéis declarados. */
   source: string;
   marker: string;
@@ -72,6 +73,7 @@ export type PersonaArea = {
   /** Papéis para os quais a leitura principal não é um 403 previsível. */
   roles: readonly BuiltinRole[];
   probe: PersonaProbe | null;
+  additionalProbes?: readonly PersonaProbe[];
   surface: NavSurface;
   limitation?: string;
 };
@@ -213,7 +215,10 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     hint: "Contas e lançamentos",
     ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Saldos, extrato e conciliações." },
     roles: ["TESOURARIA", "PASTOR", "PLATFORM_ADMIN"],
-    probe: { method: "GET", path: "/ledger/expense-approvals", source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("expense-approvals")' },
+    probe: { method: "GET", path: "/ledger/accounts", roles: ["TESOURARIA", "PLATFORM_ADMIN"], source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("accounts")' },
+    additionalProbes: [
+      { method: "GET", path: "/ledger/expense-approvals", roles: ["TESOURARIA", "PASTOR"], source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("expense-approvals")' },
+    ],
     surface: "admin",
   },
   {

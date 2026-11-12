@@ -1188,7 +1188,8 @@
 }
 
 .workspacePrimary,
-.workspaceSecondary {
+.workspaceSecondary,
+.workspaceQuiet {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1199,7 +1200,7 @@
   border-radius: var(--app-control-radius, 8px);
   background: var(--app-surface, #fff);
   color: var(--app-accent, #255742);
-  font: 600 13px/1.25 Inter, Arial, sans-serif;
+  font: 600 14px/1.25 Inter, Arial, sans-serif;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
@@ -1217,8 +1218,10 @@
 }
 
 .workspaceSecondary:hover:not(:disabled) { background: var(--app-subtle, #f5f8f5); }
-.workspacePrimary:disabled, .workspaceSecondary:disabled { opacity: 0.6; cursor: not-allowed; }
-.workspacePrimary svg, .workspaceSecondary svg { flex: none; }
+.workspaceQuiet { border-color: transparent; background: transparent; }
+.workspaceQuiet:hover:not(:disabled) { background: var(--app-subtle, #f5f8f5); text-decoration: underline; }
+:is(.workspacePrimary, .workspaceSecondary, .workspaceQuiet):disabled { opacity: 0.6; cursor: not-allowed; }
+:is(.workspacePrimary, .workspaceSecondary, .workspaceQuiet) svg { flex: none; }
 
 .workspaceSurface {
   min-width: 0;
@@ -1240,6 +1243,7 @@
 .workspaceTabs > :is(button, a) {
   display: inline-flex;
   align-items: center;
+  gap: 7px;
   position: relative;
   flex: none;
   min-height: 46px;
@@ -1265,7 +1269,6 @@
 @media (max-width: 620px) {
   .workspaceHeader .pageHeader { align-items: flex-start; flex-direction: column; }
   .workspaceHeader .pageActions { width: 100%; }
-  .workspaceHeader .pageActions > :is(a, button) { flex: 1 1 auto; }
   .workspaceTabs > :is(button, a) { padding-inline: 12px; }
 }
 
@@ -1294,7 +1297,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid #d9e3db;
-  border-radius: 16px;
+  border-radius: 10px;
   background: #fff;
   color: #20372d;
   box-shadow: 0 24px 72px #102f2a38;
@@ -1302,8 +1305,7 @@
 }
 
 .actionConfirmation::backdrop {
-  background: #18372e85;
-  backdrop-filter: blur(4px);
+  background: #0e211a89;
 }
 
 :global(body):has(.actionConfirmation[open]) {
@@ -1315,26 +1317,12 @@
   overflow-wrap: anywhere;
 }
 
-.confirmationIcon,
 .alertMark {
   display: grid;
   flex: none;
   place-items: center;
   border-radius: 50%;
   font: 700 15px/1 Inter, Arial, sans-serif;
-}
-
-.confirmationIcon {
-  width: 36px;
-  height: 36px;
-  margin-bottom: 16px;
-  background: #e6f1e9;
-  color: #255742;
-}
-
-.actionConfirmation[data-tone="danger"] .confirmationIcon {
-  background: #f9e8e3;
-  color: #8d392e;
 }
 
 .confirmationContent h2 {
@@ -1367,7 +1355,7 @@
   gap: 8px;
   padding: 16px 24px;
   border-top: 1px solid #e3ebe4;
-  background: #f7faf7;
+  background: #f7f9f6;
 }
 
 .actionConfirmation[data-tone="danger"] .workspacePrimary {

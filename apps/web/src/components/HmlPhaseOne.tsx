@@ -547,7 +547,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                   {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction(secretarySection === "admissoes" ? "existing" : "new")}>
                     <UIIcon name="plus" size={17} /> {secretarySection === "admissoes" ? "Iniciar admissão" : "Cadastrar pessoa"}
                   </button>}
-                  <button type="button" className={ui.workspaceSecondary} onClick={() => {
+                  <button type="button" className={ui.workspaceQuiet} onClick={() => {
                     setError("");
                     setNotice(null);
                     setChecking(true);

@@ -20,6 +20,7 @@ import {
   type AppNavKey, type MinistryNavItem, type PersonaArea,
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useDialogLifecycle } from "./ui/dialog";
 import { dsColor, dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
 
@@ -153,6 +154,7 @@ export function AppShell({
   const [railReady, setRailReady] = useState(false);
   const searchId = useId();
   const ministryListId = useId();
+  const paletteRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const deniedRef = useRef<HTMLHeadingElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -162,6 +164,7 @@ export function AppShell({
   const RouterBridge = useAppRouterBridge();
   viewportRef.current = viewport;
   drawerRef.current = drawerOpen;
+  useDialogLifecycle(paletteOpen, () => setPaletteOpen(false), paletteRef);
 
   useEffect(() => {
     finishClientNavigation(window.location.pathname);
@@ -385,8 +388,8 @@ export function AppShell({
   }, [preview, roleKey, showMinistries]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.target instanceof HTMLElement && event.target.closest("dialog[open]")) return;
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (event.defaultPrevented || event.target instanceof HTMLElement && event.target.closest('dialog[open], [role="dialog"]')) return;
+      if ((preview || accessKind === "ready") && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setPaletteOpen(open => !open);
       }
@@ -402,7 +405,7 @@ export function AppShell({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [paletteOpen, drawerOpen]);
+  }, [accessKind, preview, paletteOpen, drawerOpen]);
   useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
   useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
   useEffect(() => {
@@ -494,7 +497,6 @@ export function AppShell({
               </div>
             </div>;
           })}
-          {accessKind === "pending" && <p className={s.menuWait} role="status">Confirmando o perfil antes de mostrar o menu.</p>}
         </nav>
 
       </aside>
@@ -512,8 +514,8 @@ export function AppShell({
               
             </div>
           </div>
-          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Buscar no painel — Ctrl K" aria-keyshortcuts="Control+K" disabled={menu.length === 0}>
-            <UIIcon name="search" size={18}/><span>Buscar no sistema</span><kbd>Ctrl K</kbd>
+          <button type="button" className={s.commandButton} onClick={() => setPaletteOpen(true)} aria-label="Buscar no painel" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" disabled={menu.length === 0}>
+            <UIIcon name="search" size={18}/><span>Buscar no painel</span>
           </button>
           <div className={s.toolbarRight}>
             {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
@@ -526,17 +528,17 @@ export function AppShell({
         </header>
         <main className={s.content}>
           {showModule && children}
-          {accessKind === "pending" && <p className={s.holdNote} role="status">Confirmando seu perfil. As áreas restritas ficam ocultas até a sessão responder.</p>}
+          {accessKind === "pending" && <p className={s.holdNote} role="status">Verificando seu acesso…</p>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
-            <h1 tabIndex={-1} ref={deniedRef}>Este perfil não abre esta área</h1>
-            <p>O menu mostra só o que o servidor autoriza para {accessState.label}. O módulo não foi carregado.</p>
-            <AppNavLink href={landingForRoles(roles)}>Voltar ao início do perfil</AppNavLink>
+            <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
+            <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>
           </section>}
-          {(accessKind === "anonymous" || accessKind === "held") && <p className={s.holdNote} role="alert">Não confirmamos seu perfil. Nada restrito foi exibido.</p>}
+          {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p><AppNavLink href="/login/">Ir para o login</AppNavLink></div>}
+          {accessKind === "held" && <p className={s.holdNote} role="alert">Não foi possível verificar seu acesso. Atualize a página para tentar de novo.</p>}
         </main>
       </div>
 
-      <nav className={s.mobileNav} aria-label="Navegação principal no celular">
+      {menu.length > 0 && <nav className={s.mobileNav} aria-label="Navegação principal no celular">
         {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
@@ -545,20 +547,18 @@ export function AppShell({
           onClick={() => setPaletteOpen(true)}>
           <UIIcon name="more" size={20}/><span>Mais</span>
         </button>
-      </nav>
+      </nav>}
 
       {confirmation}
 
       {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
-        <section className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
-          <label htmlFor={searchId} className={s.commandSearch}><UIIcon name="search" size={22}/><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar módulo ou ministério" aria-label="Buscar módulo ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></label>
-          <span className={s.commandTitle}>NAVEGAÇÃO</span>
+        <section ref={paletteRef} tabIndex={-1} className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
+          <div className={s.commandSearch}><label htmlFor={searchId} aria-label="Buscar página ou ministério"><UIIcon name="search" size={20}/></label><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></div>
           <div className={s.commandList}>
             {filtered.map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong><small>Ministério autorizado</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
-          <div className={s.commandFooter}><kbd>Esc</kbd> para fechar <span>·</span> <kbd>Ctrl K</kbd> para abrir</div>
         </section>
       </div>}
     </div>

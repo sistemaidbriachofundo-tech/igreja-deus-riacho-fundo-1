@@ -62,11 +62,26 @@ const ROSTER_STATUSES = ["DRAFT", "PUBLISHED", "CLOSED"] as const;
 export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 export type RosterStatus = (typeof ROSTER_STATUSES)[number];
 
+export const assignmentStatusLabel: Record<AssignmentStatus, string> = {
+  PENDING: "A confirmar",
+  CONFIRMED: "Confirmada",
+  DECLINED: "Recusada",
+  SUBSTITUTED: "Substituída",
+};
+
+export const rosterStatusLabel: Record<RosterStatus, string> = {
+  DRAFT: "Rascunho",
+  PUBLISHED: "Publicada",
+  CLOSED: "Encerrada",
+};
+
 export type AssignmentView = {
   id: string;
   slotId: string;
   personId: string;
   partnerPersonId: string | null;
+  personName?: string | null;
+  partnerName?: string | null;
   status: AssignmentStatus;
   substituteForId: string | null;
 };
@@ -257,6 +272,8 @@ function parseAssignment(value: unknown): AssignmentView {
     slotId: requiredString(row.slotId, "função da atribuição"),
     personId: requiredString(row.personId, "pessoa da atribuição"),
     partnerPersonId: optionalString(row.partnerPersonId),
+    personName: optionalString(row.personName),
+    partnerName: optionalString(row.partnerName),
     status: oneOf(row.status, ASSIGNMENT_STATUSES, "estado da atribuição"),
     substituteForId: optionalString(row.substituteForId),
   };

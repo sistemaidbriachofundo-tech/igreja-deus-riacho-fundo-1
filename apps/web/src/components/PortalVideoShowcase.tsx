@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { instagramUrl, youtubeChannelUrl } from "../lib/portal-content";
+import { youtubeChannelUrl } from "../lib/portal-content";
+import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import s from "./portal-video-showcase.module.css";
 
 const videos = [
@@ -19,20 +20,20 @@ function VideoThumbnail({ id, featured = false }: { id: string; featured?: boole
 }
 
 export function PortalVideoShowcase() {
+  const layout = usePublishedSiteLayout();
   const [playingId, setPlayingId] = useState<string | null>(null);
   const featured = videos.find(video => video.id === playingId) ?? videos[0];
+  if (layout.hidden.includes("videos")) return null;
 
   return (
     <section className={s.section} id="videos" aria-labelledby="youtube-title">
       <div className={s.inner}>
         <div className={s.heading}>
           <div>
-            <p className={s.kicker}>Canal oficial</p>
-            <h2 id="youtube-title">Igreja <em>em vídeo.</em></h2>
-            <p>Assista aos cultos e às mensagens da Igreja de Deus no Riacho Fundo I.</p>
+            <h2 id="youtube-title">Cultos e mensagens</h2>
           </div>
           <a className={s.channelLink} href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">
-            Visitar canal no YouTube <span className={s.externalArrow} aria-hidden="true" />
+            Canal no YouTube <span className={s.externalArrow} aria-hidden="true" />
           </a>
         </div>
 
@@ -68,14 +69,13 @@ export function PortalVideoShowcase() {
           </div>
 
           <div className={s.library}>
-            <h3>Gravações do canal</h3>
+            <h3>Outras gravações</h3>
             <ul>
-              {videos.map(video => (
+              {videos.filter(video => video.id !== featured.id).map(video => (
                 <li key={video.id}>
                   <button
                     type="button"
                     className={s.videoOption}
-                    aria-current={video.id === featured.id ? "true" : undefined}
                     onClick={() => setPlayingId(video.id)}
                   >
                     <span className={s.thumbnail}><VideoThumbnail id={video.id} /></span>
@@ -88,20 +88,6 @@ export function PortalVideoShowcase() {
           </div>
         </div>
 
-        <div className={s.instagram}>
-          <div>
-            <h3>Acompanhe a igreja no Instagram</h3>
-            <p>Veja avisos, fotos e momentos da nossa comunidade.</p>
-          </div>
-          <a href={instagramUrl} target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="5" />
-              <circle cx="12" cy="12" r="4" />
-              <circle cx="17.5" cy="6.5" r=".8" fill="currentColor" stroke="none" />
-            </svg>
-            @idbriacho_ <span className={s.externalArrow} aria-hidden="true" />
-          </a>
-        </div>
       </div>
     </section>
   );

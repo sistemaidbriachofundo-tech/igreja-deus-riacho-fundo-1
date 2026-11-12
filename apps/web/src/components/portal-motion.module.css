@@ -1,8 +1,0 @@
-.progressTrack{position:fixed;left:0;right:0;top:0;height:3px;z-index:110;pointer-events:none;overflow:hidden}
-.progressFill{background:linear-gradient(90deg,#c39454,#f2db9d,#e0b877);height:100%;width:100%;transform-origin:left;will-change:transform;box-shadow:0 0 16px #eac4808a}
-.toTop,.toTopVisible{position:fixed;z-index:80;right:clamp(17px,3vw,38px);bottom:clamp(20px,3.5vw,40px);width:52px;height:52px;display:grid;place-items:center;border:1px solid #dbbc849e;border-radius:50%;background:#142a31e8;color:#f5d49c;box-shadow:0 12px 35px #0d273145;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);font-size:22px;cursor:pointer;opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .32s,transform .32s,background .32s}
-.toTopVisible{opacity:1;transform:translateY(0);pointer-events:auto}
-.toTopVisible:hover{background:#23464d;transform:translateY(-3px)}
-.toTopVisible:focus-visible{outline:3px solid #e3c080;outline-offset:3px}
-@media(max-width:600px){.toTop,.toTopVisible{width:44px;height:44px;right:17px;bottom:18px;font-size:20px}}
-@media(prefers-reduced-motion:reduce){.toTop,.toTopVisible{transition:none;transform:none}}

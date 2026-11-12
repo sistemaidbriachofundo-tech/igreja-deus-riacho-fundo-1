@@ -17,6 +17,7 @@ const PROBES: { key: string; path: string; roles: string[] }[] = [
   { key: "atmosfera", path: "/rosters", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "meu-espaco", path: "/rosters/:assignmentId/confirm", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "MEMBRO"] },
   { key: "tesouraria", path: "/ledger/accounts", roles: ["TESOURARIA", "PLATFORM_ADMIN"] },
+  { key: "tesouraria", path: "/ledger/expense-approvals", roles: ["TESOURARIA", "PASTOR"] },
   { key: "acessos", path: "/admin/access", roles: ["PLATFORM_ADMIN"] },
   { key: "editorial", path: "/cms/contents", roles: ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
   { key: "site", path: "/cms/site-layout", roles: ["EDITOR_SITE", "PUBLICADOR_SITE", "SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
@@ -42,7 +43,7 @@ function contextFor(user?: AuthUser) {
 }
 
 describe("navegação por persona — 403 direto no guard", () => {
-  it.each(PROBES.map(area => [area.key, area] as const))(
+  it.each(PROBES.map(area => [area.path, area] as const))(
     "%s recusa papel ausente e sessão ausente",
     (_key, area) => {
       const reflector = { getAllAndOverride: () => area.roles } as unknown as Reflector;
