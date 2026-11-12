@@ -375,6 +375,53 @@ async function main() {
     churchId: church.id,
   });
 
+  // Oito personas QA: o perfil Publicador não existia no seed original.
+  // Conta 100% fictícia, idempotente e sem permissão fora da congregação piloto.
+  const publisherRole = await prisma.role.findUniqueOrThrow({
+    where: { code: "PUBLICADOR_SITE" },
+  });
+  const publisherPerson = await prisma.person.upsert({
+    where: { id: "demoPersonPublicador01" },
+    update: {
+      displayName: "Pedro Demo Publicador",
+      email: "publicador.demo@example.test",
+      homeChurchId: church.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+    create: {
+      id: "demoPersonPublicador01",
+      organizationId: org.id,
+      homeChurchId: church.id,
+      displayName: "Pedro Demo Publicador",
+      email: "publicador.demo@example.test",
+      status: "ACTIVE",
+      kind: "MEMBER",
+    },
+  });
+  const publisherUser = await prisma.user.upsert({
+    where: { email: "publicador.demo@example.test" },
+    update: {
+      personId: publisherPerson.id,
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+    create: {
+      personId: publisherPerson.id,
+      email: "publicador.demo@example.test",
+      passwordHash: DEMO_PASSWORD_HASH,
+      status: "ACTIVE",
+    },
+  });
+  await upsertChurchGrant({
+    prisma,
+    userId: publisherUser.id,
+    roleId: publisherRole.id,
+    organizationId: org.id,
+    churchId: church.id,
+  });
+
   const anaMembership = await prisma.churchMembership.upsert({
     where: {
       personId_churchId: {
