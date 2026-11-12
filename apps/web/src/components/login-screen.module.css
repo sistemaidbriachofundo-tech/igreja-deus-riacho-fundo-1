@@ -33,13 +33,14 @@
   min-width: 0;
   padding: clamp(24px, 3.4vw, 49px);
   color: #fffaf0;
-  background: #102b23;
+  /* Mesma superfície preta da marca oficial: sem quadrado visível ao redor. */
+  background: #000;
 }
 .brand { display: flex; gap: 13px; align-items: center; }
-.brand img { width: 54px; height: 54px; object-fit: contain; }
+.brand img { width: 64px; height: 64px; object-fit: contain; background: #000; }
 .brand strong, .brand span { display: block; letter-spacing: .12em; }
 .brand strong { font-size: 13px; }
-.brand span { margin-top: 4px; color: #d3c7a8; font-size: 10px; }
+.brand span { margin-top: 4px; color: #d9d2cb; font-size: 10px; }
 .facade { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 6px; }
 .panel { display: grid; place-items: center; min-width: 0; padding: clamp(24px, 4vw, 60px); background: #fff; color: #173129; }
 .panelInner { width: 100%; max-width: 400px; }
@@ -64,8 +65,8 @@
 .passwordControl input { padding-right: 82px; }
 .reveal { position: absolute; inset: 3px 3px 3px auto; min-width: 70px; border: 0; border-radius: 6px; background: transparent; color: #244d3d; font-weight: 650; cursor: pointer; }
 .reveal:hover:not(:disabled) { background: #edf2ed; }
-.submit { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 8px; padding: 0 15px; border: 0; border-radius: 6px; background: #214e3c; color: #fff; font: 650 14px Inter, sans-serif; cursor: pointer; }
-.submit:hover:not(:disabled) { background: #15392b; }
+.submit { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 8px; padding: 0 15px; border: 0; border-radius: 6px; background: #c65320; color: #fff; font: 650 14px Inter, sans-serif; cursor: pointer; }
+.submit:hover:not(:disabled) { background: #a84319; }
 .form button:disabled { opacity: .62; cursor: not-allowed; }
 .page :is(a, button, input):focus-visible { outline: 2px solid #9a7540; outline-offset: 3px; }
 .warning { color: #634721; margin: 4px 0; font-size: 14px; }
