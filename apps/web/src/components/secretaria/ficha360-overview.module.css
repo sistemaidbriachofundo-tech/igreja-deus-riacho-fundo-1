@@ -66,3 +66,30 @@
 @media print{.introduction,.story,.detailCard,.factStat{box-shadow:none;break-inside:avoid}.storyButton,.textAction,.moreHistory,.introduction .completeness button{display:none}.storyItem{break-inside:avoid}}
 
 .dependentBlock{border-top:1px solid #e4ece4;margin-top:16px;padding-top:14px}.dependentBlock h4{font:800 .83rem Montserrat,Inter,Arial,sans-serif;color:#295a42;margin:0 0 11px}
+
+/* Ficha 360 v1.1: o nome, a foto, a situação e a matrícula já estão no cabeçalho do diálogo. */
+.introduction { grid-template-columns: minmax(0,1fr) minmax(210px,250px); gap: 12px; align-items: stretch; }
+.introCopy { padding: 21px 24px; border: 1px solid #e3e7e1; background: #fff; border-radius: 13px; color: #163b2d; }
+.introCopy::after { display: none; }
+.introCopy .eyebrow { color: #a96a2d; }
+.introCopy h3 { color: #173a2d; font-size: clamp(1.2rem,2vw,1.65rem); margin: 8px 0; }
+.introCopy p { color: #587263; }
+.introduction .completeness { padding: 17px 20px; gap: 8px; border-radius: 13px; }
+.completenessTop { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.completenessTop strong { font-size: 1.6rem; }
+.quickSummary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0; border-top: 1px solid #dfe8df; border-bottom: 1px solid #dfe8df; background: #fff; }
+.quickSummary > div { display: grid; gap: 6px; align-content: center; padding: 18px 20px; min-width: 0; }
+.quickSummary > div + div { border-left: 1px solid #e1e9e1; }
+.quickSummary span { font: 750 .71rem Inter,sans-serif; text-transform: uppercase; color: #6a7d6f; letter-spacing: .05em; }
+.quickSummary strong { font: 750 .9rem/1.4 Inter,sans-serif; color: #22523b; overflow-wrap: anywhere; }
+.facts { gap: 0 22px; }
+.facts > div { min-height: 0; border: 0; border-radius: 0; border-bottom: 1px solid #e5ebe5; background: transparent; padding: 13px 0; gap: 4px; }
+.facts dt { font-size: .71rem; }
+.facts dd { font-size: .87rem; font-weight: 700; }
+.facts small { font-size: .71rem; }
+@media (max-width: 720px) {
+  .introduction { grid-template-columns: minmax(0,1fr); }
+  .quickSummary { grid-template-columns: minmax(0,1fr); }
+  .quickSummary > div + div { border-left: 0; border-top: 1px solid #e1e9e1; }
+  .quickSummary > div { padding: 12px 15px; }
+}
