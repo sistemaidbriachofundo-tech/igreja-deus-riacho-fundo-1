@@ -51,19 +51,19 @@ class RegisterMembershipBody implements RegisterMembershipInput {
   address?: string;
 
   @IsOptional()
-  @Matches(/^\\d{4}-\\d{2}-\\d{2}$/)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   birthDate?: string;
 
   @IsOptional()
-  @Matches(/^\\d{4}-\\d{2}-\\d{2}$/)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   baptismDate?: string;
 
   @IsOptional()
-  @Matches(/^\\d{4}-\\d{2}-\\d{2}$/)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   firstAttendedOn?: string;
 
   @IsOptional()
-  @Matches(/^\\d{4}-\\d{2}-\\d{2}$/)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   weddingDate?: string;
 
   @IsOptional()
