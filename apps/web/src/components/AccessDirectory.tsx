@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { BUILTIN_ROLES, PERSONA_LABELS, parseMinistryNav, type BuiltinRole, type MinistryNavItem } from "../lib/persona-navigation";
-import { AppNavLink, UIIcon } from "./AppShell";
+import { UIIcon } from "./AppShell";
 import { PageHeader } from "./ui/PageHeader";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import ui from "./ui/ui.module.css";
@@ -12,7 +12,7 @@ import s from "./access-directory.module.css";
 
 type Person = { id: string; displayName: string; email?: string | null };
 type Account = {
-  id: string; email: string; status: string; person: Person;
+  id: string; email: string; status: string; person: Person; invitationStatus?: "INVITED" | "PENDING_EMAIL" | null;
   profiles: { role: BuiltinRole; ministry: string | null }[];
 };
 type AccountPage = { accounts: Account[]; hasMore: boolean };
@@ -28,6 +28,28 @@ export function AccessDirectory() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [resending, setResending] = useState("");
+  const { confirm: confirmResend, confirmation: resendConfirmation } = useActionConfirmation();
+  async function resendInvite(account: Account) {
+    if (!token || resending) return;
+    if (!(await confirmResend({
+      title: "Reenviar convite por e-mail?",
+      subject: account.person.displayName,
+      description: "Um novo link de uso único será enviado a " + account.email + ". O link anterior deixará de funcionar.",
+      action: "Reenviar convite",
+    }))) return;
+    setResending(account.id);
+    setError("");
+    try {
+      await apiPost("/admin/access/" + encodeURIComponent(account.id) + "/invite/resend", token);
+      setNotice("Convite reenviado ao e-mail cadastrado para " + account.person.displayName + ".");
+      setRevision(v => v + 1);
+    } catch {
+      setError("Não foi possível reenviar. Confira a configuração do e-mail e a situação do acesso.");
+    } finally {
+      setResending("");
+    }
+  }
   useEffect(() => setToken(loadStoredToken()), []);
 
   useEffect(() => {
@@ -44,16 +66,16 @@ export function AccessDirectory() {
 
   return (
     <section className={s.directory}>
-      <PageHeader appearance="workspace" heading="h1" title="Acessos" description="Consulte as contas da congregação e vincule novos acessos aos cadastros da Secretaria." />
+      {resendConfirmation}
+      <PageHeader appearance="workspace" heading="h1" title="Acessos" description="Libere o acesso de pessoas já cadastradas. A pessoa recebe um link de ativação e define sua própria senha." />
       <div className={s.actions}>
         <button type="button" className={ui.workspacePrimary} aria-expanded={creating} disabled={!token} onClick={() => setCreating(value => !value)}>
-          <UIIcon name="shield" size={17} /> {creating ? "Fechar cadastro de acesso" : "Novo acesso"}
+          <UIIcon name="shield" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
         </button>
-        <AppNavLink href="/app/secretaria/admissoes/?acao=cadastrar#cadastro" className={ui.workspaceSecondary}>Cadastrar pessoa</AppNavLink>
       </div>
       {creating && token && <AccessForm token={token} onCreated={name => {
         setCreating(false);
-        setNotice("Acesso criado para " + name + ".");
+        setNotice("Convite enviado para " + name + ". A senha será definida pela própria pessoa.");
         setPage(1);
         setRevision(value => value + 1);
       }} />}
@@ -73,7 +95,14 @@ export function AccessDirectory() {
               <div className={s.profiles}>{account.profiles.length ? account.profiles.map((profile, index) => (
                 <span key={index}>{PERSONA_LABELS[profile.role] ?? profile.role}{profile.ministry && " · " + profile.ministry}</span>
               )) : <span>Sem perfil nesta congregação</span>}</div>
-              <span className={s.state} data-active={account.status === "ACTIVE"}>{account.status === "ACTIVE" ? "Ativo" : "Desativado"}</span>
+              <div className={s.accessState}><span className={s.state} data-active={account.status === "ACTIVE"}>
+                {account.status === "ACTIVE" ? "Ativo" : account.invitationStatus === "INVITED" ? "Aguardando ativação" : account.invitationStatus === "PENDING_EMAIL" ? "E-mail não enviado" : "Desativado"}
+              </span>
+              {(account.invitationStatus === "INVITED" || account.invitationStatus === "PENDING_EMAIL") &&
+                <button type="button" className={s.resend} disabled={Boolean(resending)} onClick={() => void resendInvite(account)}>
+                  {resending === account.id ? "Enviando…" : "Reenviar convite"}
+                </button>}
+              </div>
             </li>)}
           </ul>
         )}
@@ -130,18 +159,16 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!person || busy) return;
-    const fields = new FormData(event.currentTarget);
-    const password = String(fields.get("password") ?? "");
     setBusy(true);
     setError("");
     try {
       if (!(await confirm({
         title: "Criar acesso para esta pessoa?",
         subject: person.displayName,
-        description: "A conta terá o perfil " + PERSONA_LABELS[role] + " nesta congregação.",
+        description: "A conta terá o perfil " + PERSONA_LABELS[role] + " nesta congregação. Um convite será enviado ao e-mail cadastrado para que a pessoa escolha a própria senha.",
         action: "Criar acesso",
       }))) return;
-      await apiPost("/admin/access", token, { personId: person.id, email, password, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
+      await apiPost("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
       onCreated(person.displayName);
     } catch (error) {
       setError(dasError(error));
@@ -167,15 +194,15 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
       ) : (
         <form className={s.form} onSubmit={create}>
           <div className={s.chosen}><strong>{person.displayName}</strong><button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => setPerson(null)}>Trocar pessoa</button></div>
-          <label>E-mail de acesso<input type="email" autoComplete="off" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required /></label>
+          <label>E-mail cadastrado<input type="email" autoComplete="off" value={email} readOnly required/><small>Para alterar o destinatário, atualize o e-mail da ficha na Secretaria.</small></label>
           <label>Perfil<select value={role} onChange={event => void pickRole(event.target.value as BuiltinRole)}>
             {BUILTIN_ROLES.filter(value => value !== "PLATFORM_ADMIN").map(value => <option key={value} value={value}>{PERSONA_LABELS[value]}</option>)}
           </select></label>
           {role === "LIDER_MINISTERIO" && <label>Ministério<select value={ministryId} onChange={event => setMinistryId(event.target.value)} required>
             <option value="">Selecione</option>{ministries.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select></label>}
-          <label>Senha inicial<input type="password" name="password" autoComplete="new-password" minLength={14} maxLength={128} required /><small>Use pelo menos 14 caracteres.</small></label>
-          <button type="submit" className={ui.workspacePrimary} disabled={busy}>{busy ? "Processando…" : "Criar acesso"}</button>
+          <p className={s.inviteInfo}>A senha não é definida pelo administrador. O sistema enviará um link individual, válido por 24 horas e utilizável apenas uma vez.</p>
+          <button type="submit" className={ui.workspacePrimary} disabled={busy || !email}>{busy ? "Enviando…" : "Criar acesso e enviar convite"}</button>
         </form>
       )}
       {error && <p className={s.error} role="alert">{error}</p>}
