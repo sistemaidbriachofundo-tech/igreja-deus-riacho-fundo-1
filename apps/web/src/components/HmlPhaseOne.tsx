@@ -7,6 +7,7 @@ import { ReportBars, ReportDashboard } from "./ReportDashboard";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
+import { NewPersonIntake } from "./secretaria/NewPersonIntake";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiLogin, apiPost, clearToken, isInvalidSession, loadStoredToken, loginFailureMessage, storeToken, type LoginResult } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
@@ -709,6 +710,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
               <Modal
                 open
                 appearance="workspace"
+                size={admissionForm === "new" ? "wide" : "regular"}
                 title={admissionForm === "existing" ? "Iniciar admissão" : "Cadastrar pessoa"}
                 description={admissionForm === "existing"
                   ? "Escolha uma pessoa cadastrada e a modalidade de admissão."
@@ -730,10 +732,18 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       </label>
                     </>
                   ) : (
-                    <>
-                      <label>Nome<input value={newName} onChange={event => setNewName(event.target.value)} required minLength={3} maxLength={160} autoComplete="off" disabled={busy} /></label>
-                      <label>E-mail de homologação<input value={newEmail} onChange={event => setNewEmail(event.target.value)} required type="email" placeholder="nome@example.test" disabled={busy} /></label>
-                    </>
+                    <NewPersonIntake
+                      name={newName}
+                      email={newEmail}
+                      profile={newProfile}
+                      families={households}
+                      token={token}
+                      roles={user.grants.map(grant => grant.roleCode)}
+                      busy={busy}
+                      onName={setNewName}
+                      onEmail={setNewEmail}
+                      onProfile={setNewProfile}
+                    />
                   )}
                   <div className={s.formActions}>
                     <button type="button" className={ui.workspaceSecondary} onClick={closeSecretaryAction} disabled={busy}>Cancelar</button>
