@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, previa/rf1-v1]
   pull_request:
-    branches: [main, previa/rf1-v1, qa/dashboard-address-20261111]
+    branches: [main, previa/rf1-v1, production, qa/dashboard-address-20261111]
 
 permissions:
   contents: read

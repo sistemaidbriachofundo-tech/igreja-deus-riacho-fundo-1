@@ -1,6 +1,9 @@
 # Liberação do ID Riacho 1
 
-A candidata é testada no portal e na API de homologação, com banco sintético. A publicação de `main` aciona o GitHub Pages, portanto o merge deve ocorrer somente na janela de liberação acordada. No fluxo atual, o build de `main` aponta o login à API HML. Para a liberação real, aponte o build para a API real validada e revise as restrições de cadastro e telas que ainda usam a configuração de homologação.
+**Trilho obrigatório antes do corte público:** branch `production` + workflow **Production** + Sonar com Quality Gate bloqueante. Detalhes operacionais em [`docs/prod-pipeline.md`](./prod-pipeline.md) e secrets em [`deploy/prod/secrets-checklist.md`](../deploy/prod/secrets-checklist.md).  
+`main` continua sendo HML/Pages — **não** é o canal de produção Hostinger.
+
+A candidata é testada no portal e na API de homologação, com banco sintético. A publicação de `main` aciona o GitHub Pages, portanto o merge deve ocorrer somente na janela de liberação acordada. No fluxo atual, o build de `main` aponta o login à API HML. Para a liberação real, promova via PR para `production` (pipeline dedicada), aponte o build para a API real validada e revise as restrições de cadastro e telas que ainda usam a configuração de homologação.
 
 ## Evidências da candidata
 
