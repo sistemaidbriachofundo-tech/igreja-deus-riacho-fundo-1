@@ -57,6 +57,10 @@ describe("portal V1: Início, Quem somos, Agenda e Login", () => {
     for (const image of ["logo-igreja-aprovada.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
       expect(existsSync(join(images, image)), image).toBe(true);
     }
+    // Capa real enviada para a homologação, mantendo o restante do cadastro do Work.
+    expect(existsSync(join(images, "fachada-igreja-riacho-fundo.jpg"))).toBe(true);
+    expect(read("lib/site-layout.ts")).toContain('"/images/fachada-igreja-riacho-fundo.jpg"');
+    expect(read("components/PortalCinematicHero.tsx")).toContain("PUBLIC_FACADE_IMAGE");
     expect(shell).toContain("logo-igreja-aprovada.webp");
     expect(css).toContain("prefers-reduced-motion");
     expect(shell).toContain("Pular para o conteúdo");
