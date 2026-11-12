@@ -347,7 +347,7 @@ export async function apiGet<T>(path: string, token: string, options?: ApiCallOp
       return cached as T;
     }
   }
-  if (inflightSession?.token === token) return inflightSession.promise as T;
+  if (inflightSession?.token === token) return await inflightSession.promise as T;
   const promise: Promise<AuthUser> = (async () => {
     try {
       const data = await settle<AuthUser>("GET", path, token, undefined, options, true);
