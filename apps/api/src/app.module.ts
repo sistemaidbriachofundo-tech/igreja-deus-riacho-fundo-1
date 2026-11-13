@@ -101,6 +101,7 @@ export class AppModule implements NestModule {
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
       { path: "public/volunteer-interests", method: RequestMethod.POST },
       { path: "public/events/:slug/registrations", method: RequestMethod.POST },
+      { path: "member-events/:slug/registrations", method: RequestMethod.POST },
       { path: "webhooks/event-payments/mock", method: RequestMethod.POST },
       // Camada extra além do ViviRateLimitService (IP + path)
       { path: "public/vivi/chat", method: RequestMethod.POST },

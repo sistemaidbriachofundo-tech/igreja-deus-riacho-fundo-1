@@ -29,6 +29,31 @@ describe("EventRegistrationsService", () => {
     ],
   };
 
+  it("busca ingresso e Pix somente para a pessoa da sessão e a congregação", async () => {
+    const actor: AuthUser = {
+      userId: "u-membro", personId: "p-membro", email: "membro@example.test",
+      grants: [{ roleCode: "MEMBRO", organizationId: pilot.organizationId, churchId: pilot.churchId }],
+    };
+    const db = {
+      person: { findFirst: jest.fn(async ({ where }: { where: { id: string } }) => ({ id: where.id })) },
+      eventRegistration: { findFirst: jest.fn().mockResolvedValue({
+        id: "r1", status: "PENDING_PAYMENT", checkInCode: "a".repeat(32),
+        event: { status: "PUBLISHED", name: "Encontro" },
+        paymentIntents: [{ amountCents: 1000, pixCopiaECola: "pix-da-inscricao", pixTxid: "ref" }],
+      }) },
+    };
+    const service = new EventRegistrationsService(db as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.getMyRegistration(actor, "r1")).resolves.toMatchObject({
+      eventName: "Encontro", paymentIntent: { mode: "CHURCH_PIX", pixCopiaECola: "pix-da-inscricao" },
+    });
+    expect(db.eventRegistration.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "r1", registrantPersonId: actor.personId, organizationId: pilot.organizationId, churchId: pilot.churchId },
+    }));
+    db.eventRegistration.findFirst.mockResolvedValueOnce(null);
+    await expect(service.getMyRegistration({ ...actor, personId: "outra-pessoa" }, "r1")).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getMyRegistration({ ...actor, churchId: "outra-igreja" }, "r1")).rejects.toMatchObject({ status: 403 });
+  });
+
   const now = new Date("2026-11-07T12:00:00Z");
   const event = {
     id: "e1",

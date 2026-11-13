@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
+import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
@@ -564,31 +566,88 @@ export class EventRegistrationsService {
     });
   }
 
-  /**
-   * Público — sem PII real: só rótulos sintéticos + modalidade/lote.
-   * Rejeita cpf/email/telefone/documento.
-   */
   async createPublicRegistration(eventSlug: string, input: RegistrationInput) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertNoRealPii(input as object);
-    const event = await this.prisma.portalEvent.findFirst({
-      where: {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        slug: eventSlug.trim().toLowerCase(),
-        status: "PUBLISHED",
+    const event = await this.findPublishedEvent(pilot, eventSlug);
+    return this.createRegistrationInternal({ pilot, event, input, actorUserId: null, source: "public" });
+  }
+
+  async createMemberRegistration(actor: AuthUser, eventSlug: string, input: RegistrationInput) {
+    const { pilot, person } = await this.requireMember(actor);
+    const event = await this.findPublishedEvent(pilot, eventSlug);
+    return this.createRegistrationInternal({
+      pilot, event, input: {
+        ...input,
+        ...(person.isMinor ? { isMinor: true } : {}),
+      },
+      actorUserId: actor.userId, source: "member", registrantPersonId: person.id,
+    });
+  }
+
+  async listMyRegistrations(actor: AuthUser) {
+    const { pilot, person } = await this.requireMember(actor);
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: { ...pilot, registrantPersonId: person.id },
+      select: {
+        id: true, status: true, paymentStatus: true, guardianAuthStatus: true, partySize: true,
+        event: { select: { name: true, slug: true, startsAt: true, status: true } },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return { profile: { name: person.displayName, email: actor.email, isMinor: person.isMinor }, registrations };
+  }
+
+  async getMyRegistration(actor: AuthUser, registrationId: string) {
+    const { pilot, person } = await this.requireMember(actor);
+    const row = await this.prisma.eventRegistration.findFirst({
+      where: { ...pilot, registrantPersonId: person.id, id: registrationId },
+      select: {
+        id: true, status: true, guardianAuthStatus: true, checkInCode: true,
+        event: { select: { name: true, status: true } },
+        paymentIntents: {
+          where: { status: "PENDING", receivingAccountId: { not: null } },
+          select: { amountCents: true, pixCopiaECola: true, pixTxid: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
     });
-    if (!event) {
-      throw new NotFoundException("Evento público não encontrado");
+    if (!row) throw new NotFoundException("Inscrição não encontrada");
+    const pending = row.status === "PENDING_PAYMENT" && row.event.status === "PUBLISHED" ? row.paymentIntents[0] : null;
+    const status = ["CANCELLED", "ARCHIVED"].includes(row.event.status) ? "CANCELLED" : row.status;
+    return {
+      id: row.id, status, guardianAuthStatus: row.guardianAuthStatus, checkInCode: row.checkInCode,
+      eventName: row.event.name,
+      paymentIntent: pending?.pixCopiaECola ? { ...pending, mode: "CHURCH_PIX" } : null,
+    };
+  }
+
+  private async requireMember(actor: AuthUser) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const pilot = { organizationId, churchId };
+    if (!hasAccess(actor.grants, { ...pilot, roleCodes: [ROLE_CODES.MEMBRO] }) ||
+        (actor.organizationId && actor.organizationId !== organizationId) ||
+        (actor.churchId && actor.churchId !== churchId)) {
+      throw new ForbiddenException("A área de eventos exige acesso de membro nesta congregação.");
     }
-    return this.createRegistrationInternal({
-      pilot,
-      event,
-      input,
-      actorUserId: null,
-      source: "public",
+    const person = await this.prisma.person.findFirst({
+      where: {
+        id: actor.personId, organizationId, status: "ACTIVE",
+        memberships: { some: { organizationId, churchId, status: "ACTIVE" } },
+      },
+      select: { id: true, displayName: true, isMinor: true },
     });
+    if (!person) throw new ForbiddenException("Cadastro de membro indisponível nesta congregação.");
+    return { pilot, person };
+  }
+
+  private async findPublishedEvent({ organizationId, churchId }: { organizationId: string; churchId: string }, slug: string) {
+    const event = await this.prisma.portalEvent.findFirst({
+      where: { organizationId, churchId, slug: slug.trim().toLowerCase(), status: "PUBLISHED" },
+    });
+    if (!event) throw new NotFoundException("Evento público não encontrado");
+    return event;
   }
 
   async getPublicRegistrationStatus(checkInCode: string) {
@@ -981,7 +1040,8 @@ export class EventRegistrationsService {
     };
     input: RegistrationInput;
     actorUserId: string | null;
-    source: "staff" | "public";
+    source: "staff" | "public" | "member";
+    registrantPersonId?: string;
   }) {
     const displayName = params.input.displayName?.trim();
     if (!displayName || displayName.length < 2 || displayName.length > 120) {
@@ -1136,7 +1196,7 @@ export class EventRegistrationsService {
 
     const priceCents = lot?.priceCents ?? 0;
     const needsPayment = priceCents > 0;
-    if (params.source === "public" && needsPayment && !lot?.receivingAccountId &&
+    if (params.source !== "staff" && needsPayment && !lot?.receivingAccountId &&
         process.env.IDBRF_EVENT_PIX_REQUIRED === "true") {
       throw new BadRequestException("O recebimento deste lote pago ainda não está configurado.");
     }
@@ -1208,6 +1268,7 @@ export class EventRegistrationsService {
           mealOptionId: meal?.id ?? null,
           transportOptionId: transport?.id ?? null,
           displayName,
+          registrantPersonId: params.registrantPersonId,
           notificationEmail,
           partySize,
           isMinor,
@@ -1258,6 +1319,7 @@ export class EventRegistrationsService {
             providerRef: pix ? null : `mock_${randomBytes(8).toString("hex")}`,
             receivingAccountId: pix?.accountId ?? null,
             pixTxid: pix?.txid ?? null,
+            pixCopiaECola: params.registrantPersonId ? pix?.copiaECola ?? null : null,
           },
         });
       }
@@ -1268,7 +1330,9 @@ export class EventRegistrationsService {
           action:
             params.source === "public"
               ? "event_registration.create_public"
-              : "event_registration.create_staff",
+              : params.source === "member"
+                ? "event_registration.create_member"
+                : "event_registration.create_staff",
           resourceType: "event_registration",
           resourceId: registration.id,
           organizationId: params.pilot.organizationId,

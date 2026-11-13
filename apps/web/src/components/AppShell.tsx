@@ -92,7 +92,8 @@ type LoadedAccess =
   | { kind: "held" }
   | { kind: "ready"; user: AuthUser };
 
-function mobileItems(menu: readonly PersonaArea[]): PersonaArea[] {
+function mobileItems(menu: readonly PersonaArea[], member: boolean): PersonaArea[] {
+  if (member) return menu.slice(0, 4);
   const preferred = MOBILE_PRIMARY.flatMap(key => {
     const item = menu.find(entry => entry.key === key);
     return item ? [item] : [];
@@ -219,7 +220,7 @@ export function AppShell({
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
   const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
-  const phone = mobileItems(menu);
+  const phone = mobileItems(menu, memberShell);
   const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
   const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
   const shownMeta = showModule ? meta : "Área administrativa";

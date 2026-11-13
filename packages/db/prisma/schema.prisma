@@ -228,6 +228,7 @@ model Person {
   user          User?
   memberships   ChurchMembership[]
   credentials   MemberCredential[]
+  eventRegistrations EventRegistration[]
   admissions    AdmissionProtocol[]
   transfers     MembershipTransfer[]
   churchLetters ChurchLetter[]
@@ -1085,6 +1086,7 @@ model EventRegistration {
   id                   String                   @id @default(cuid())
   organizationId       String                   @map("organization_id")
   churchId             String                   @map("church_id")
+  registrantPersonId   String?                  @map("registrant_person_id")
   eventId              String                   @map("event_id")
   modalityId           String                   @map("modality_id")
   lotId                String?                  @map("lot_id")
@@ -1111,6 +1113,7 @@ model EventRegistration {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
+  registrant   Person?      @relation(fields: [registrantPersonId], references: [id], onDelete: SetNull)
   event        PortalEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   modality     EventModality @relation(fields: [modalityId], references: [id])
   lot          EventLot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
@@ -1122,6 +1125,7 @@ model EventRegistration {
 
   @@index([organizationId, churchId])
   @@index([eventId, status])
+  @@index([registrantPersonId, churchId])
   @@index([modalityId])
   @@index([lotId])
   @@index([lodgingOptionId])
@@ -1170,6 +1174,7 @@ model EventPaymentIntent {
   receivingAccountId String?          @map("receiving_account_id")
   ledgerEntryId    String?            @unique @map("ledger_entry_id")
   pixTxid          String?            @map("pix_txid")
+  pixCopiaECola    String?            @map("pix_copia_e_cola")
   confirmedAt      DateTime?          @map("confirmed_at")
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")

@@ -32,6 +32,7 @@ export type AppNavKey =
   | "escalas"
   | "atmosfera"
   | "meu-espaco"
+  | "eventos-membro"
   | "demo";
 
 export type NavIcon =
@@ -221,6 +222,18 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     surface: "member",
   },
   {
+    key: "eventos-membro",
+    href: "/app/eventos/",
+    label: "Eventos",
+    short: "Eventos",
+    icon: "calendar",
+    hint: "Agenda e minhas inscrições",
+    ribbon: { code: "Eventos", title: "Eventos", detail: "Agenda e minhas inscrições" },
+    roles: ["MEMBRO"],
+    probe: { method: "GET", path: "/member-events/registrations", source: "apps/api/src/events/member-events.controller.ts", marker: '@Get("registrations")' },
+    surface: "member",
+  },
+  {
     key: "tesouraria",
     href: "/app/tesouraria/",
     label: "Tesouraria",
@@ -398,7 +411,7 @@ const ADMIN_SHELL_ROLES = [
   "PUBLICADOR_SITE",
 ] as const satisfies readonly BuiltinRole[];
 
-const MEMBER_SHELL_KEYS = ["visao", "carteirinha", "meu-espaco"] as const;
+const MEMBER_SHELL_KEYS = ["visao", "carteirinha", "meu-espaco", "eventos-membro"] as const;
 
 /** Membro sem papel administrativo usa outra navegação. A rota de escala continua existindo. */
 export function isMemberOnly(roles: readonly string[]): boolean {
@@ -415,7 +428,7 @@ export function shellAreasForRoles(roles: readonly string[], preview = false): P
   if (isMemberOnly(roles)) {
     return allowed.filter(area => (MEMBER_SHELL_KEYS as readonly string[]).includes(area.key));
   }
-  return allowed.filter(area => area.surface === "admin");
+  return allowed.filter(area => area.surface === "admin" || area.key === "eventos-membro");
 }
 
 export function landingForRoles(roles: readonly string[]): AppDestination {

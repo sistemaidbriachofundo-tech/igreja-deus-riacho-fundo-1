@@ -1,4 +1,4 @@
-import { apiGetPublic, apiPostPublic } from "./api";
+import { apiGet, apiGetPublic, apiPost, apiPostPublic } from "./api";
 import { parsePublishedEvent } from "./portal-live-data";
 
 type Choice = { id: string; name: string; remaining: number | null };
@@ -21,6 +21,24 @@ export type RegistrationReceipt = {
   guardianAuthStatus?: string;
   paymentIntent: null | { mode: string; amountCents: number; pixCopiaECola?: string; pixTxid?: string };
 };
+
+export type MemberEventProfile = { name: string; email: string; isMinor: boolean };
+export type MemberRegistrationSummary = {
+  id: string; status: string; paymentStatus: string; guardianAuthStatus: string; partySize: number;
+  event: { name: string; slug: string; startsAt: string; status: string };
+};
+
+export function memberEventsHref(slug?: string) {
+  return "/app/eventos/" + (slug ? "?" + new URLSearchParams({ evento: slug }) : "");
+}
+
+export function loadMemberRegistrations(token: string) {
+  return apiGet<{ profile: MemberEventProfile; registrations: MemberRegistrationSummary[] }>("/member-events/registrations", token);
+}
+
+export function loadMemberReceipt(token: string, id: string) {
+  return apiGet<RegistrationReceipt & { eventName: string }>("/member-events/registrations/" + encodeURIComponent(id), token);
+}
 
 export const validEventSlug = (slug: string) => /^[a-z0-9][a-z0-9-]{1,79}$/.test(slug);
 export const validRegistrationCode = (code: string) => /^[a-f0-9]{32}$/i.test(code);
@@ -70,13 +88,17 @@ export async function loadEventRegistration(slug: string) {
   return parseRegistrationCatalog(await apiGetPublic<unknown>("/public/events/" + slug));
 }
 
-export async function registerForEvent(slug: string, fields: {
+export type EventRegistrationFields = {
   displayName: string; notificationEmail: string; modalityId: string; lotId: string; partySize: number;
   isMinor: boolean; guardianDisplayName?: string; guardianAcknowledged?: boolean;
   lodgingOptionId?: string; mealOptionId?: string; transportOptionId?: string;
-}) {
+};
+
+export async function registerForEvent(slug: string, fields: EventRegistrationFields, memberToken?: string) {
   if (!validEventSlug(slug)) throw new Error("Evento inválido.");
-  const result = await apiPostPublic<RegistrationReceipt>("/public/events/" + slug + "/registrations", fields);
+  const result = memberToken
+    ? await apiPost<RegistrationReceipt>("/member-events/" + slug + "/registrations", memberToken, fields)
+    : await apiPostPublic<RegistrationReceipt>("/public/events/" + slug + "/registrations", fields);
   if (!result || typeof result.id !== "string" || !validRegistrationCode(result.checkInCode)) throw new Error("Resposta de inscrição inválida.");
   return result;
 }

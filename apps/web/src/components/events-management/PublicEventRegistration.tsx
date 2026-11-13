@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { ApiRequestError } from "../../lib/api";
 import {
-  availableEventLots, loadEventRegistration, loadRegistrationStatus, registerForEvent, type RegistrationReceipt,
+  availableEventLots, loadEventRegistration, loadMemberReceipt, loadRegistrationStatus, memberEventsHref, registerForEvent,
+  type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
 import { formatPortalDate } from "../../lib/portal-live-data";
 import { withBasePath } from "../../lib/paths";
@@ -21,13 +23,13 @@ function message(error: unknown): string {
   return "Não foi possível concluir agora. Tente novamente em instantes.";
 }
 
-function Receipt({ receipt }: { receipt: RegistrationReceipt }) {
+export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationReceipt; memberToken?: string }) {
   const [status, setStatus] = useState(receipt.status);
   const [guardianStatus, setGuardianStatus] = useState(receipt.guardianAuthStatus);
+  const [pix, setPix] = useState(receipt.paymentIntent);
   const [notice, setNotice] = useState("");
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
-  const pix = receipt.paymentIntent;
   const confirmed = status === "CONFIRMED" || status === "CHECKED_IN";
   useEffect(() => {
     if (!confirmed) return;
@@ -41,7 +43,12 @@ function Receipt({ receipt }: { receipt: RegistrationReceipt }) {
     setBusy(true);
     setNotice("");
     try {
-      const updated = await loadRegistrationStatus(receipt.checkInCode);
+      const updated = memberToken
+        ? await loadMemberReceipt(memberToken, receipt.id).then(result => {
+          setPix(result.paymentIntent);
+          return result;
+        })
+        : await loadRegistrationStatus(receipt.checkInCode);
       setStatus(updated.status);
       setGuardianStatus(updated.guardianAuthStatus);
     }
@@ -74,7 +81,7 @@ function Receipt({ receipt }: { receipt: RegistrationReceipt }) {
       {pix.pixTxid && <p>Referência do pagamento <strong className={s.code}>{pix.pixTxid}</strong></p>}
       <label className={s.copyField}>Pix copia e cola<textarea readOnly value={pix.pixCopiaECola} rows={3} /></label>
       <Button onClick={async () => {
-        try { await navigator.clipboard.writeText(pix.pixCopiaECola!); setNotice("Código Pix copiado."); }
+        try { await navigator.clipboard.writeText(pix.pixCopiaECola ?? ""); setNotice("Código Pix copiado."); }
         catch { setNotice("Selecione e copie o código Pix acima."); }
       }}>Copiar código Pix</Button>
     </>}
@@ -83,11 +90,14 @@ function Receipt({ receipt }: { receipt: RegistrationReceipt }) {
   </section>;
 }
 
-function RegistrationForm({ catalog }: { catalog: Catalog }) {
+export function EventRegistrationForm({ catalog, member }: {
+  catalog: Catalog;
+  member?: { token: string; profile: MemberEventProfile };
+}) {
   const [modalityId, setModalityId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [lotId, setLotId] = useState("");
-  const [minor, setMinor] = useState(false);
+  const [minor, setMinor] = useState(member?.profile.isMinor ?? false);
   const [receipt, setReceipt] = useState<RegistrationReceipt | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -103,7 +113,7 @@ function RegistrationForm({ catalog }: { catalog: Catalog }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!lot || !modality || submitting.current) return;
+    if (!lot || !modality || submitting.current || (member && !member.token)) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -115,12 +125,12 @@ function RegistrationForm({ catalog }: { catalog: Catalog }) {
         displayName: read("name"), notificationEmail: read("email"), modalityId, lotId, partySize: quantity, isMinor: minor,
         ...(minor ? { guardianDisplayName: read("guardian"), guardianAcknowledged: form.get("consent") === "on" } : {}),
         ...resources,
-      }));
+      }, member?.token));
     } catch (error) { setError(message(error)); }
     finally { submitting.current = false; setBusy(false); }
   }
 
-  if (receipt) return <Receipt receipt={receipt} />;
+  if (receipt) return <EventReceipt receipt={receipt} memberToken={member?.token} />;
   if (catalog.modalities.length === 0 || catalog.lots.length === 0) {
     return <Alert appearance="workspace" tone="info" title="Inscrições indisponíveis neste momento" />;
   }
@@ -140,13 +150,13 @@ function RegistrationForm({ catalog }: { catalog: Catalog }) {
         options={[{ label: lots.length ? "Selecione" : "Sem vagas para esta opção", value: "" }, ...lots.map(choice => ({
           label: choice.name + " · " + (choice.priceCents ? formatEventPrice(choice.priceCents) : "Gratuito"), value: choice.id,
         }))]} />}
-      <Input name="name" label="Nome do participante" autoComplete="name" minLength={2} maxLength={120} required />
-      <Input name="email" label="E-mail para receber a confirmação" type="email" autoComplete="email" maxLength={254} required />
+      <Input name="name" label="Nome do participante" autoComplete="name" defaultValue={member?.profile.name} minLength={2} maxLength={120} required />
+      <Input name="email" label="E-mail para receber a confirmação" type="email" autoComplete="email" defaultValue={member?.profile.email} maxLength={254} required />
       {resourceFields.map(item => item.choices.length > 0 && <Select key={item.name} name={item.name} label={item.label} required
         options={[{ label: "Selecione", value: "" }, ...item.choices.filter(choice => choice.remaining === null || choice.remaining >= quantity)
           .map(choice => ({ label: choice.name, value: choice.id }))]} />)}
     </div>
-    <label className={s.check}><input type="checkbox" checked={minor} onChange={event => setMinor(event.target.checked)} /> Participante menor de idade</label>
+    <label className={s.check}><input type="checkbox" checked={minor} disabled={member?.profile.isMinor} onChange={event => setMinor(event.target.checked)} /> Participante menor de idade</label>
     {minor && <>
       <Input name="guardian" label="Nome do responsável" minLength={2} maxLength={120} required />
       <label className={s.check}><input name="consent" type="checkbox" required /> Sou responsável pelo participante e autorizo a inscrição.</label>
@@ -180,6 +190,13 @@ export function PublicEventRegistration() {
       </>}
     </header>
     {error ? <Alert appearance="workspace" tone="danger" title={error} /> :
-      catalog ? <RegistrationForm catalog={catalog} /> : <Loading label="Carregando evento" />}
+      catalog ? <>
+        <section className={s.panel}>
+          <Link href={memberEventsHref(catalog.event.slug)}>Entrar como membro</Link>
+          <p>Com sua conta da igreja, acompanhe o pagamento e consulte seu ingresso em Minhas inscrições.</p>
+          <a href="#inscricao-visitante">Continuar como visitante</a>
+        </section>
+        <div id="inscricao-visitante"><EventRegistrationForm catalog={catalog} /></div>
+      </> : <Loading label="Carregando evento" />}
   </main>;
 }

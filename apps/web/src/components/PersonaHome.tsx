@@ -80,6 +80,7 @@ const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
   escalas: "Louvor",
   atmosfera: "Atmosfera",
   "meu-espaco": "Minha escala",
+  "eventos-membro": "Ver eventos",
   tesouraria: "Abrir tesouraria",
   editorial: "Ver conteúdos",
   site: "Abrir o site",
@@ -93,7 +94,7 @@ const PRIMARY_TASKS: Record<DeskKey, readonly AppNavKey[]> = {
   LIDER_MINISTERIO: ["ministerios"],
   EDITOR_SITE: ["site"],
   PUBLICADOR_SITE: ["site"],
-  MEMBRO: ["carteirinha", "meu-espaco"],
+  MEMBRO: ["carteirinha", "meu-espaco", "eventos-membro"],
 };
 
 const STATUS_LABEL: Record<string, string> = {

@@ -42,7 +42,7 @@ const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
   PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "editorial", "site"],
   TESOURARIA: ["visao", "operacao", "tesouraria"],
   LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco"],
-  MEMBRO: ["visao", "carteirinha", "meu-espaco"],
+  MEMBRO: ["visao", "carteirinha", "meu-espaco", "eventos-membro"],
   EDITOR_SITE: ["visao", "site"],
   PUBLICADOR_SITE: ["visao", "site"],
 };
@@ -66,7 +66,7 @@ describe("menu por persona", () => {
     expect(keys).toContain("tesouraria");
     expect(keys).toContain("secretaria");
     expect(areasForRoles(["MEMBRO", "EDITOR_SITE"]).map(area => area.key)).toEqual(
-      ["visao", "carteirinha", "meu-espaco", "site"],
+      ["visao", "carteirinha", "meu-espaco", "eventos-membro", "site"],
     );
   });
 
@@ -75,7 +75,7 @@ describe("menu por persona", () => {
     expect(isMemberOnly(["MEMBRO", "SECRETARIA"])).toBe(false);
     expect(shellAreasForRoles(["SECRETARIA"]).map(area => area.key)).not.toContain("operacao");
     expect(shellAreasForRoles(["SECRETARIA"]).map(area => area.key)).not.toContain("meu-espaco");
-    expect(shellAreasForRoles(["MEMBRO"]).map(area => area.key)).toEqual(["visao", "carteirinha", "meu-espaco"]);
+    expect(shellAreasForRoles(["MEMBRO"]).map(area => area.key)).toEqual(["visao", "carteirinha", "meu-espaco", "eventos-membro"]);
     expect(areaAllowed(["SECRETARIA"], "operacao")).toBe(true);
     expect(areaAllowed(["MEMBRO"], "meu-espaco")).toBe(true);
     expect(shellAreasForRoles([], true).map(area => area.key)).not.toContain("operacao");

@@ -10,6 +10,7 @@ import {
   EventsController,
   RegistrationsController,
 } from "./events.controller";
+import { MemberEventsController } from "./member-events.controller";
 import { EventsService } from "./events.service";
 
 @Module({
@@ -17,6 +18,7 @@ import { EventsService } from "./events.service";
   controllers: [
     EventsController,
     RegistrationsController,
+    MemberEventsController,
     EventPaymentWebhookController,
   ],
   providers: [EventsService, EventRegistrationsService, EventChurchPaymentService],
