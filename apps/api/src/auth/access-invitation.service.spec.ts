@@ -109,8 +109,38 @@ describe("Convite de ativação de uso único", () => {
 
   it("falha fechado quando não existe provedor de e-mail configurado", () => {
     const old = process.env.ACCESS_INVITE_RESEND_API_KEY;
+    const transport = process.env.EMAIL_TRANSPORT;
     delete process.env.ACCESS_INVITE_RESEND_API_KEY;
+    delete process.env.EMAIL_TRANSPORT;
     try { expect(() => inviteEmailConfig()).toThrow(ServiceUnavailableException); }
-    finally { if (old !== undefined) process.env.ACCESS_INVITE_RESEND_API_KEY = old; }
+    finally {
+      if (old !== undefined) process.env.ACCESS_INVITE_RESEND_API_KEY = old;
+      if (transport !== undefined) process.env.EMAIL_TRANSPORT = transport;
+    }
+  });
+
+  it("entrega convite pelo transporte de teste sem chamar a rede", async () => {
+    const previous = process.env.EMAIL_TRANSPORT;
+    process.env.EMAIL_TRANSPORT = "test";
+    delete process.env.ACCESS_INVITE_RESEND_API_KEY;
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockRejectedValue(new Error("rede"));
+    const mail = { deliverOnce: jest.fn().mockResolvedValue({ status: "SENT", idempotentReplay: false }) };
+    try {
+      const { db } = setup();
+      const service = new AccessInvitationService(db as never, mail as never);
+      await expect(service.deliver({
+        inviteId: "inv-1", token, email: user.email, name: "Teste",
+      })).resolves.toMatchObject({ sent: true, transport: "test" });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(mail.deliverOnce).toHaveBeenCalledWith(expect.objectContaining({
+        idempotencyKey: "access-invite:inv-1",
+        to: user.email,
+      }));
+      expect(db.accessInvitation.update).toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+      if (previous === undefined) delete process.env.EMAIL_TRANSPORT;
+      else process.env.EMAIL_TRANSPORT = previous;
+    }
   });
 });

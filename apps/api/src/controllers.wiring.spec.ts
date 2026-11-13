@@ -567,7 +567,13 @@ describe("controller wiring (delegates to services)", () => {
       setGuardianAuthorization: jest.fn(),
       handleMockPaymentWebhook: jest.fn(),
     };
-    const c = new EventsController(events as never, registrations as never);
+    const c = new EventsController(
+      events as never,
+      registrations as never,
+      { participation: jest.fn() } as never,
+      { reconcile: jest.fn() } as never,
+      { listForEvents: jest.fn() } as never,
+    );
     await c.create(user, {
       name: "Encontro",
       slug: "encontro",

@@ -98,6 +98,7 @@ model Organization {
   eventRegistrations EventRegistration[]
   eventPaymentIntents EventPaymentIntent[]
   eventPaymentWebhookReceipts EventPaymentWebhookReceipt[]
+  churchReceivingAccounts ChurchReceivingAccount[]
   costCenters    CostCenter[]
   funds          Fund[]
   budgets        Budget[]
@@ -155,6 +156,7 @@ model Church {
   eventRegistrations EventRegistration[]
   eventPaymentIntents EventPaymentIntent[]
   eventPaymentWebhookReceipts EventPaymentWebhookReceipt[]
+  churchReceivingAccounts ChurchReceivingAccount[]
   costCenters    CostCenter[]
   funds          Fund[]
   budgets        Budget[]
@@ -200,6 +202,8 @@ model Person {
   householdId          String?      @map("household_id")
   displayName          String       @map("display_name")
   email                String?
+  /// Telefone da própria pessoa. Quem grava é Minha Conta; o PATCH da Secretaria continua recusando o campo.
+  phone                String?      @map("phone")
   address              String?
   birthDate            DateTime?    @db.Date @map("birth_date")
   baptismDate          DateTime?    @db.Date @map("baptism_date")
@@ -334,6 +338,23 @@ model AccessInvitation {
 enum AccessLinkPurpose {
   ACTIVATION
   PASSWORD_RESET
+}
+
+/// Estado do envio. O corpo da mensagem não é gravado: convite carrega token de uso único.
+model MailDelivery {
+  id                String    @id @default(cuid())
+  idempotencyKey    String    @unique @map("idempotency_key")
+  toAddress         String    @map("to_address")
+  subject           String
+  status            String
+  providerMessageId String?   @map("provider_message_id")
+  attemptCount      Int       @default(0) @map("attempt_count")
+  lastError         String?   @map("last_error")
+  sentAt            DateTime? @map("sent_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@map("mail_deliveries")
 }
 
 /// Bytes privados para ambientes com armazenamento local efêmero.
@@ -902,12 +923,14 @@ enum EventRegistrationStatus {
   CANCELLED
 }
 
-/// Pagamento apenas simulado — sem gateway live.
+/// Pagamento simulado ou crédito conferido na conta da igreja. Sem gateway live.
 enum EventPaymentStatus {
   PENDING
   CONFIRMED_MOCK
   FAILED_MOCK
   CANCELLED
+  /// Tesouraria conferiu o crédito na conta escolhida. Não passa por Mercado Pago.
+  CONFIRMED_PIX
 }
 
 /// Modalidade / trilha do evento (capacidade própria opcional).
@@ -946,12 +969,15 @@ model EventLot {
   opensAt        DateTime?      @map("opens_at")
   closesAt       DateTime?      @map("closes_at")
   status         EventLotStatus @default(DRAFT)
+  /// Conta ativa da igreja que recebe o Pix quando o lote é pago.
+  receivingAccountId String?    @map("receiving_account_id")
   sortOrder      Int            @default(0) @map("sort_order")
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
   event          PortalEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   modality       EventModality? @relation(fields: [modalityId], references: [id], onDelete: SetNull)
+  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
   registrations  EventRegistration[]
   paymentIntents EventPaymentIntent[]
 
@@ -1066,6 +1092,8 @@ model EventRegistration {
   mealOptionId         String?                  @map("meal_option_id")
   transportOptionId    String?                  @map("transport_option_id")
   displayName          String                   @map("display_name")
+  /// Caixa fictícia do aviso de check-in. Fora das respostas públicas.
+  notificationEmail    String?                  @map("notification_email")
   partySize            Int                      @default(1) @map("party_size")
   isMinor              Boolean                  @default(false) @map("is_minor")
   guardianDisplayName  String?                  @map("guardian_display_name")
@@ -1139,6 +1167,9 @@ model EventPaymentIntent {
   status           EventPaymentStatus @default(PENDING)
   /// Referência sintética do provedor mock — nunca gateway live.
   providerRef      String?            @map("provider_ref")
+  receivingAccountId String?          @map("receiving_account_id")
+  ledgerEntryId    String?            @unique @map("ledger_entry_id")
+  pixTxid          String?            @map("pix_txid")
   confirmedAt      DateTime?          @map("confirmed_at")
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
@@ -1148,6 +1179,8 @@ model EventPaymentIntent {
   event        PortalEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   lot          EventLot?         @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
+  ledgerEntry  LedgerEntry?      @relation(fields: [ledgerEntryId], references: [id])
   webhookReceipts EventPaymentWebhookReceipt[]
 
   @@index([organizationId, churchId])
@@ -1832,12 +1865,37 @@ model LedgerAccount {
   costCenterRef CostCenter?      @relation(fields: [costCenterId], references: [id])
   lines        LedgerEntryLine[]
   budgetLines  BudgetLine[]
+  receivingAccount ChurchReceivingAccount?
 
   @@unique([churchId, code])
   @@index([organizationId, churchId])
   @@index([churchId, type, active])
   @@index([costCenterId])
   @@map("ledger_accounts")
+}
+
+/// Vínculo Pix de uma conta bancária que já existe no plano da igreja.
+/// A chave não é senha e não entra em trilha de auditoria.
+model ChurchReceivingAccount {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  churchId        String   @map("church_id")
+  ledgerAccountId String   @unique @map("ledger_account_id")
+  displayName     String   @map("display_name")
+  pixKey          String   @map("pix_key")
+  merchantCity    String   @default("Brasilia") @map("merchant_city")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  church         Church             @relation(fields: [churchId], references: [id])
+  ledgerAccount  LedgerAccount      @relation(fields: [ledgerAccountId], references: [id])
+  lots           EventLot[]
+  paymentIntents EventPaymentIntent[]
+
+  @@index([organizationId, churchId, active])
+  @@map("church_receiving_accounts")
 }
 
 /// Lançamento contábil (cabeçalho) — partidas dobradas via linhas.
@@ -1884,6 +1942,7 @@ model LedgerEntry {
   lines         LedgerEntryLine[]
   matchedBankLines BankStatementLine[]
   attachments   LedgerEntryAttachment[]
+  eventPayment  EventPaymentIntent?
 
   @@index([organizationId, churchId, status])
   @@index([churchId, entryDate])
