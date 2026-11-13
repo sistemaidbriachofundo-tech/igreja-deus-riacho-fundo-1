@@ -249,7 +249,8 @@ function canonical(value: unknown): string {
   }
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
-    const keys = Object.keys(record).sort();
+    // A ordem de código UTF-16 preserva o hash de registros já gravados.
+    const keys = Object.keys(record).sort((left, right) => (left < right ? -1 : Number(left > right)));
     return `{${keys
       .map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`)
       .join(",")}}`;

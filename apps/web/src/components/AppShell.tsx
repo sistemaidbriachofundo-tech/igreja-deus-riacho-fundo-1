@@ -343,7 +343,7 @@ export function AppShell({
       action: "Sair da conta",
       cancel: "Continuar no painel",
     });
-    if (accepted) signOut();
+    if (accepted) await signOut();
   }
   function onRailKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     const key = event.key;

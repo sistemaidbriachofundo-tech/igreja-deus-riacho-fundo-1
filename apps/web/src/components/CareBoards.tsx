@@ -86,7 +86,7 @@ export function PastoralBoard({rows,token,roles,refresh}:Shared){
             </select></label>
             <form onSubmit={e=>{e.preventDefault();if(assignee.trim())void execute(()=>apiPatch("/pastoral-cases/"+code(id)+"/assign",token,{assignedToUserId:assignee.trim()}),()=>setAssignee(""));}}>
               <label>ID do responsável autorizado<input value={assignee} onChange={e=>setAssignee(e.target.value)} required maxLength={100}/></label>
-              <button disabled={busy||!assignee.trim()}>Atribuir</button>
+              <button type="submit" disabled={busy||!assignee.trim()}>Atribuir</button>
             </form>
             <h3>Tarefas de acompanhamento</h3>
             {items(detail.tasks).map((entry,i)=>{
@@ -101,7 +101,7 @@ export function PastoralBoard({rows,token,roles,refresh}:Shared){
             })}
             <form onSubmit={e=>{e.preventDefault();if(task.trim().length>2)void execute(()=>apiPost("/pastoral-cases/"+code(id)+"/tasks",token,{title:task.trim()}),()=>setTask(""));}}>
               <label>Nova tarefa genérica<input required value={task} onChange={e=>setTask(e.target.value)} maxLength={140}/></label>
-              <button disabled={busy||task.trim().length<3}>Criar tarefa</button>
+              <button type="submit" disabled={busy||task.trim().length<3}>Criar tarefa</button>
             </form>
           </div>}
         </article>;
@@ -137,7 +137,7 @@ export function DiscipleshipBoard({rows,token,roles,refresh}:Shared){
         <h3>Nova trilha</h3>
         <label>Nome da trilha<input required value={newName} onChange={e=>setNewName(e.target.value)} maxLength={100}/></label>
         <label>Descrição institucional curta<textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={600} rows={2}/></label>
-        <button disabled={busy||newName.trim().length<3}>Criar trilha fictícia</button>
+        <button type="submit" disabled={busy||newName.trim().length<3}>Criar trilha fictícia</button>
       </form>
       <form className={styles.form} onSubmit={e=>{e.preventDefault();if(trackId&&personId.trim())void submit(
         ()=>apiPost("/discipleship/enrollments",token,{trackId,personId:personId.trim(),...(mentorId.trim()?{mentorPersonId:mentorId.trim()}:{})}),
@@ -149,7 +149,7 @@ export function DiscipleshipBoard({rows,token,roles,refresh}:Shared){
         </select></label>
         <PersonPicker token={token} roles={roles} label="Pessoa fictícia" value={personId} onChange={setPersonId} required/>
         <PersonPicker token={token} roles={roles} label="Mentor (opcional)" value={mentorId} onChange={setMentorId}/>
-        <button disabled={busy||!trackId||!personId.trim()}>Registrar matrícula</button>
+        <button type="submit" disabled={busy||!trackId||!personId.trim()}>Registrar matrícula</button>
       </form>
     </div>
     <div className={styles.stack}>
@@ -200,7 +200,7 @@ export function GroupsBoard({rows,token,roles,refresh}:Shared){
         <h3>Vincular pessoa ao grupo</h3>
         <label>ID da pessoa fictícia<input required value={personId} onChange={e=>setPersonId(e.target.value)}/></label>
         <label>Papel<select value={role} onChange={e=>setRole(e.target.value)}><option value="MEMBER">Participante</option><option value="LEADER">Líder</option></select></label>
-        <button disabled={busy||!personId.trim()}>Adicionar ao grupo</button>
+        <button type="submit" disabled={busy||!personId.trim()}>Adicionar ao grupo</button>
       </form>
       <form className={styles.form} onSubmit={e=>{e.preventDefault();if(!meeting)return;
         const iso=churchLocalToISO(meeting);if(!iso){setNotice("Data inválida para o fuso de Brasília.");return;}
@@ -213,7 +213,7 @@ export function GroupsBoard({rows,token,roles,refresh}:Shared){
         <h3>Registrar encontro</h3>
         <label>Data e horário do encontro<input type="datetime-local" required value={meeting} onChange={e=>setMeeting(e.target.value)}/></label>
         <label>IDs dos presentes (opcional, separados por vírgula)<textarea rows={2} value={attendance} onChange={e=>setAttendance(e.target.value)} placeholder="ID-pessoa-1, ID-pessoa-2"/></label>
-        <button disabled={busy||!meeting}>Registrar encontro de teste</button>
+        <button type="submit" disabled={busy||!meeting}>Registrar encontro de teste</button>
       </form>
     </div>}
   </section>;

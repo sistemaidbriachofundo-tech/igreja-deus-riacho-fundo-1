@@ -733,8 +733,8 @@ export function PersonaBoard() {
   }
   if (treasury) {
     metrics.push(
-      { label: "Contas", value: mesa.accounts ? mesa.accounts.length : loading ? null : null, href: "/app/tesouraria/", hint: "Plano registrado" },
-      { label: "Lançamentos", value: mesa.entries ? mesa.entries.length : loading ? null : null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
+      { label: "Contas", value: mesa.accounts?.length ?? null, href: "/app/tesouraria/", hint: "Plano registrado" },
+      { label: "Lançamentos", value: mesa.entries?.length ?? null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
     );
   }
   const visibleMetrics = metrics.filter(item => item.value !== null || loading);

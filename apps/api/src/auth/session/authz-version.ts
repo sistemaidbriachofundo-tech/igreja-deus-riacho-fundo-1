@@ -31,7 +31,8 @@ export function authzVersion(
         grant.ministryId ?? "",
       ].join(":"),
     )
-    .sort()
+    // Preserve a ordem do fingerprint já emitido para sessões existentes.
+    .sort((left, right) => (left < right ? -1 : Number(left > right)))
     .join("|");
   return createHash("sha256")
     .update(
