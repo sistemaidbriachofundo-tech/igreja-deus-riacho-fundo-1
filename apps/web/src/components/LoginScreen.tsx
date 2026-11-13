@@ -28,6 +28,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const [error, setError] = useState("");
   const [challenge, setChallenge] = useState<LoginChallenge["mfa"] | null>(null);
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
@@ -38,7 +39,10 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const codeInput = useRef<HTMLInputElement>(null);
   const needsSetup = Boolean(challenge?.enrollmentRequired && !enrollment);
 
-  useEffect(() => { publishPerfProbe(); }, []);
+  useEffect(() => {
+    publishPerfProbe();
+    setPasswordChanged(!onAuthenticated && new URLSearchParams(window.location.search).get("senha") === "alterada");
+  }, [onAuthenticated]);
 
   // Na rota /login, uma sessão já confirmada entra sem novo /auth/me.
   // Quando usado pelo gate, essa validação já ocorreu no componente pai.
@@ -181,6 +185,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
               <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
               <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Acesso ao ID Riacho 1"}</p>
             </div>
+            {passwordChanged && !challenge && <Alert appearance="workspace" tone="success" title="Senha alterada. Entre com a nova senha." />}
             {challenge ? <form onSubmit={submitChallenge} className={styles.form}>
               {expired ? <Alert appearance="workspace" tone="warning" title="O tempo para verificar terminou. Entre novamente." /> : <>
                 {needsSetup && <p className={styles.mfaHelp}>Ative a verificação em um aplicativo autenticador antes de continuar.</p>}
@@ -213,7 +218,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 </button>
               </>}
               <button type="button" className={styles.mfaBack} disabled={busy} onClick={restartLogin}>Voltar ao login</button>
-            </form> : <form onSubmit={submit} className={styles.form}>
+            </form> : <form method="post" onSubmit={submit} className={styles.form}>
               <label htmlFor="church-email">E-mail</label>
               <input id="church-email" type="email" name="email" required
                 autoComplete="username" inputMode="email"

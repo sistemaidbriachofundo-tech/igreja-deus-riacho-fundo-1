@@ -32,6 +32,8 @@ export type AppNavKey =
   | "escalas"
   | "atmosfera"
   | "meu-espaco"
+  | "eventos-gestao"
+  | "eventos-membro"
   | "demo";
 
 export type NavIcon =
@@ -221,6 +223,39 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     surface: "member",
   },
   {
+    key: "eventos-gestao",
+    href: "/app/eventos-gestao/",
+    label: "Gestão de eventos",
+    short: "Gestão de eventos",
+    icon: "calendar",
+    hint: "Cadastro, inscrições e presença",
+    ribbon: { code: "Eventos", title: "Gestão de eventos", detail: "Cadastro, inscrições e presença." },
+    roles: OPERATION,
+    probe: {
+      method: "GET",
+      path: "/events",
+      roles: MINISTRY_LEAD,
+      source: "apps/api/src/events/events.controller.ts",
+      marker: "return this.events.list",
+    },
+    additionalProbes: [
+      { method: "GET", path: "/events/conciliacao", roles: ["TESOURARIA"], source: "apps/api/src/events/events.controller.ts", marker: "return this.churchPayments.eventsForTreasury" },
+    ],
+    surface: "admin",
+  },
+  {
+    key: "eventos-membro",
+    href: "/app/eventos/",
+    label: "Eventos",
+    short: "Eventos",
+    icon: "calendar",
+    hint: "Agenda e minhas inscrições",
+    ribbon: { code: "Eventos", title: "Eventos", detail: "Agenda e minhas inscrições" },
+    roles: ["MEMBRO"],
+    probe: { method: "GET", path: "/member-events/registrations", source: "apps/api/src/events/member-events.controller.ts", marker: '@Get("registrations")' },
+    surface: "member",
+  },
+  {
     key: "tesouraria",
     href: "/app/tesouraria/",
     label: "Tesouraria",
@@ -398,7 +433,7 @@ const ADMIN_SHELL_ROLES = [
   "PUBLICADOR_SITE",
 ] as const satisfies readonly BuiltinRole[];
 
-const MEMBER_SHELL_KEYS = ["visao", "carteirinha", "meu-espaco"] as const;
+const MEMBER_SHELL_KEYS = ["visao", "carteirinha", "meu-espaco", "eventos-membro"] as const;
 
 /** Membro sem papel administrativo usa outra navegação. A rota de escala continua existindo. */
 export function isMemberOnly(roles: readonly string[]): boolean {
@@ -415,7 +450,7 @@ export function shellAreasForRoles(roles: readonly string[], preview = false): P
   if (isMemberOnly(roles)) {
     return allowed.filter(area => (MEMBER_SHELL_KEYS as readonly string[]).includes(area.key));
   }
-  return allowed.filter(area => area.surface === "admin");
+  return allowed.filter(area => area.surface === "admin" || area.key === "eventos-membro");
 }
 
 export function landingForRoles(roles: readonly string[]): AppDestination {

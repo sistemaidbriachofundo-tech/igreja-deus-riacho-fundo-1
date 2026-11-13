@@ -94,6 +94,7 @@ export function PublishedAgenda() {
                 <h4>{event.name}</h4>
                 {event.locationText && <p>{event.locationText}</p>}
                 {event.description && <p>{event.description}</p>}
+                <Link href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)}>Ver inscrições</Link>
               </article>
             ))}
           </section>

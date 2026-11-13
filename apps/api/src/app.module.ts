@@ -4,6 +4,7 @@ import {
   NestModule,
   RequestMethod,
 } from "@nestjs/common";
+import { AccountModule } from "./account/account.module";
 import { AdmissionsModule } from "./admissions/admissions.module";
 import { AssetsModule } from "./assets/assets.module";
 import { AuditModule } from "./audit/audit.module";
@@ -29,6 +30,7 @@ import { HealthService } from "./health.service";
 import { HouseholdsModule } from "./households/households.module";
 import { IndicatorsModule } from "./indicators/indicators.module";
 import { LettersModule } from "./letters/letters.module";
+import { MailModule } from "./mail/mail.module";
 import { MembershipsModule } from "./memberships/memberships.module";
 import { MetaController } from "./meta/meta.controller";
 import { MinistriesModule } from "./ministries/ministries.module";
@@ -48,11 +50,13 @@ import { ViviModule } from "./vivi/vivi.module";
 @Module({
   imports: [
     PrismaModule,
+    MailModule,
     PlatformSecurityModule,
     ObservabilityModule.forRoot({ env: observabilityEnv() }),
     StorageModule,
     PilotModule,
     AuthModule,
+    AccountModule,
     MfaModule,
     OidcModule,
     ChurchesModule,
@@ -97,6 +101,7 @@ export class AppModule implements NestModule {
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
       { path: "public/volunteer-interests", method: RequestMethod.POST },
       { path: "public/events/:slug/registrations", method: RequestMethod.POST },
+      { path: "member-events/:slug/registrations", method: RequestMethod.POST },
       { path: "webhooks/event-payments/mock", method: RequestMethod.POST },
       // Camada extra além do ViviRateLimitService (IP + path)
       { path: "public/vivi/chat", method: RequestMethod.POST },
