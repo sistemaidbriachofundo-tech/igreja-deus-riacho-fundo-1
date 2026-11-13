@@ -1,1 +1,454 @@
-aW1wb3J0IHsgQmFkUmVxdWVzdEV4Y2VwdGlvbiwgRm9yYmlkZGVuRXhjZXB0aW9uIH0gZnJvbSAiQG5lc3Rqcy9jb21tb24iOwppbXBvcnQgeyBFdmVudFJlZ2lzdHJhdGlvbnNTZXJ2aWNlIH0gZnJvbSAiLi4vZXZlbnRzL2V2ZW50LXJlZ2lzdHJhdGlvbnMuc2VydmljZSI7CmltcG9ydCB7IEV2ZW50c1NlcnZpY2UgfSBmcm9tICIuLi9ldmVudHMvZXZlbnRzLnNlcnZpY2UiOwppbXBvcnQgdHlwZSB7IEF1dGhVc2VyIH0gZnJvbSAiLi4vYXV0aC90eXBlcy9hdXRoLXVzZXIiOwppbXBvcnQgeyBjb3VudHNBcmVCYWxhbmNlZCB9IGZyb20gIi4vcGFydGljaXBhdGlvbiI7CmltcG9ydCB7IFJlcG9ydHNTZXJ2aWNlIH0gZnJvbSAiLi9yZXBvcnRzLnNlcnZpY2UiOwoKY29uc3QgcGlsb3QgPSB7CiAgb3JnYW5pemF0aW9uSWQ6ICJvcmcxIiwKICBjaHVyY2hJZDogImNodXJjaC1yZjEiLAogIG9yZ2FuaXphdGlvblNsdWc6ICJpZ3JlamEtZGUtZGV1cyIsCiAgY2h1cmNoU2x1ZzogInJpYWNoby1mdW5kby0xIiwKICBjaHVyY2hOYW1lOiAiUmlhY2hvIEZ1bmRvIEkgKGRlbW8pIiwKfTsKCmNvbnN0IHNlY3JldGFyaWE6IEF1dGhVc2VyID0gewogIHVzZXJJZDogInUtc2VjIiwKICBwZXJzb25JZDogInAtc2VjIiwKICBlbWFpbDogInNlY0BleGFtcGxlLnRlc3QiLAogIGdyYW50czogWwogICAgewogICAgICByb2xlQ29kZTogIlNFQ1JFVEFSSUEiLAogICAgICBvcmdhbml6YXRpb25JZDogcGlsb3Qub3JnYW5pemF0aW9uSWQsCiAgICAgIGNodXJjaElkOiBwaWxvdC5jaHVyY2hJZCwKICAgIH0sCiAgXSwKfTsKCmNvbnN0IGxpZGVyOiBBdXRoVXNlciA9IHsKICB1c2VySWQ6ICJ1LWxpZGVyIiwKICBwZXJzb25JZDogInAtbGlkZXIiLAogIGVtYWlsOiAibGlkZXJAZXhhbXBsZS50ZXN0IiwKICBncmFudHM6IFsKICAgIHsKICAgICAgcm9sZUNvZGU6ICJMSURFUl9NSU5JU1RFUklPIiwKICAgICAgb3JnYW5pemF0aW9uSWQ6IHBpbG90Lm9yZ2FuaXphdGlvbklkLAogICAgICBjaHVyY2hJZDogcGlsb3QuY2h1cmNoSWQsCiAgICAgIG1pbmlzdHJ5SWQ6ICJtLWpvdmVucyIsCiAgICB9LAogIF0sCn07Cgpjb25zdCBvdXRyb0xpZGVyOiBBdXRoVXNlciA9IHsKICB1c2VySWQ6ICJ1LW91dHJvIiwKICBwZXJzb25JZDogInAtb3V0cm8iLAogIGVtYWlsOiAib3V0cm9AZXhhbXBsZS50ZXN0IiwKICBncmFudHM6IFsKICAgIHsKICAgICAgcm9sZUNvZGU6ICJMSURFUl9NSU5JU1RFUklPIiwKICAgICAgb3JnYW5pemF0aW9uSWQ6IHBpbG90Lm9yZ2FuaXphdGlvbklkLAogICAgICBjaHVyY2hJZDogcGlsb3QuY2h1cmNoSWQsCiAgICAgIG1pbmlzdHJ5SWQ6ICJtLWhvbWVucyIsCiAgICB9LAogIF0sCn07Cgpjb25zdCBtZW1icm86IEF1dGhVc2VyID0gewogIHVzZXJJZDogInUtbWVtYnJvIiwKICBwZXJzb25JZDogInAtbWVtYnJvIiwKICBlbWFpbDogIm1lbWJyb0BleGFtcGxlLnRlc3QiLAogIGdyYW50czogWwogICAgewogICAgICByb2xlQ29kZTogIk1FTUJSTyIsCiAgICAgIG9yZ2FuaXphdGlvbklkOiBwaWxvdC5vcmdhbml6YXRpb25JZCwKICAgICAgY2h1cmNoSWQ6IHBpbG90LmNodXJjaElkLAogICAgfSwKICBdLAp9OwoKdHlwZSBSb3cgPSBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiAmIHsgaWQ6IHN0cmluZyB9OwoKLyoqCiAqIFBlcnNpc3TDqm5jaWEgZW0gbWVtw7NyaWEgZG8gbWVzbW8gcHJvY2Vzc286IGNyZWF0ZS91cGRhdGUvZmluZCBjb21wYXJ0aWxoYW0gYXMgdGFiZWxhcy4KICogTsOjbyBzdWJzdGl0dWkgbyBQb3N0Z3JlcyBkYSBITUw7IHByb3ZhIG8gZmx1eG8gZXZlbnRvIOKGkiBwcmVzZW7Dp2Eg4oaSIHJlbGF0w7NyaW8gc2VtIGR1cGxpY2FyIGNvbnRhZ2VtLgogKi8KZnVuY3Rpb24gY3JlYXRlTWVtb3J5UHJpc21hKCkgewogIGNvbnN0IHRhYmxlcyA9IG5ldyBNYXA8c3RyaW5nLCBSb3dbXT4oKTsKICBsZXQgc2VxID0gMTsKICBjb25zdCB0YWJsZSA9IChuYW1lOiBzdHJpbmcpID0+IHsKICAgIGxldCByb3dzID0gdGFibGVzLmdldChuYW1lKTsKICAgIGlmICghcm93cykgewogICAgICByb3dzID0gW107CiAgICAgIHRhYmxlcy5zZXQobmFtZSwgcm93cyk7CiAgICB9CiAgICByZXR1cm4gcm93czsKICB9OwogIGNvbnN0IGh5ZHJhdGUgPSAobmFtZTogc3RyaW5nLCByb3c6IFJvdyk6IFJvdyA9PiB7CiAgICBpZiAobmFtZSA9PT0gImV2ZW50UmVnaXN0cmF0aW9uIikgewogICAgICBjb25zdCBldmVudCA9IHRhYmxlKCJwb3J0YWxFdmVudCIpLmZpbmQoKGl0ZW0pID0+IGl0ZW0uaWQgPT09IHJvdy5ldmVudElkKTsKICAgICAgcmV0dXJuIHsgLi4ucm93LCBldmVudDogZXZlbnQgPyB7IC4uLmV2ZW50IH0gOiBudWxsIH07CiAgICB9CiAgICBpZiAobmFtZSA9PT0gImNodXJjaE1lbWJlcnNoaXAiKSB7CiAgICAgIGNvbnN0IHBlcnNvbiA9IHRhYmxlKCJwZXJzb24iKS5maW5kKChpdGVtKSA9PiBpdGVtLmlkID09PSByb3cucGVyc29uSWQpOwogICAgICByZXR1cm4geyAuLi5yb3csIHBlcnNvbjogcGVyc29uID8geyAuLi5wZXJzb24gfSA6IG51bGwgfTsKICAgIH0KICAgIHJldHVybiB7IC4uLnJvdyB9OwogIH07CiAgY29uc3QgbWF0Y2hlcyA9IChyb3c6IFJvdywgd2hlcmU/OiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPik6IGJvb2xlYW4gPT4gewogICAgaWYgKCF3aGVyZSkgcmV0dXJuIHRydWU7CiAgICByZXR1cm4gT2JqZWN0LmVudHJpZXMod2hlcmUpLmV2ZXJ5KChba2V5LCBleHBlY3RlZF0pID0+IHsKICAgICAgaWYgKGtleSA9PT0gIkFORCIgJiYgQXJyYXkuaXNBcnJheShleHBlY3RlZCkpIHsKICAgICAgICByZXR1cm4gZXhwZWN0ZWQuZXZlcnkoKGl0ZW0pID0+CiAgICAgICAgICBtYXRjaGVzKHJvdywgaXRlbSBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiksCiAgICAgICAgKTsKICAgICAgfQogICAgICBpZiAoa2V5ID09PSAiT1IiICYmIEFycmF5LmlzQXJyYXkoZXhwZWN0ZWQpKSB7CiAgICAgICAgcmV0dXJuIGV4cGVjdGVkLnNvbWUoKGl0ZW0pID0+CiAgICAgICAgICBtYXRjaGVzKHJvdywgaXRlbSBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiksCiAgICAgICAgKTsKICAgICAgfQogICAgICBjb25zdCB2YWx1ZSA9IHJvd1trZXldOwogICAgICBpZiAoCiAgICAgICAgZXhwZWN0ZWQgJiYKICAgICAgICB0eXBlb2YgZXhwZWN0ZWQgPT09ICJvYmplY3QiICYmCiAgICAgICAgIShleHBlY3RlZCBpbnN0YW5jZW9mIERhdGUpICYmCiAgICAgICAgIUFycmF5LmlzQXJyYXkoZXhwZWN0ZWQpCiAgICAgICkgewogICAgICAgIGNvbnN0IGNvbmQgPSBleHBlY3RlZCBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPjsKICAgICAgICBpZiAoImluIiBpbiBjb25kKSByZXR1cm4gKGNvbmQuaW4gYXMgdW5rbm93bltdKS5pbmNsdWRlcyh2YWx1ZSk7CiAgICAgICAgaWYgKCJub3QiIGluIGNvbmQpIHsKICAgICAgICAgIHJldHVybiBjb25kLm5vdCA9PT0gbnVsbCA/IHZhbHVlICE9IG51bGwgOiB2YWx1ZSAhPT0gY29uZC5ub3Q7CiAgICAgICAgfQogICAgICAgIGlmICgiZ3RlIiBpbiBjb25kIHx8ICJsdGUiIGluIGNvbmQpIHsKICAgICAgICAgIGNvbnN0IHRpbWUgPQogICAgICAgICAgICB2YWx1ZSBpbnN0YW5jZW9mIERhdGUgPyB2YWx1ZS5nZXRUaW1lKCkgOiBuZXcgRGF0ZShTdHJpbmcodmFsdWUpKS5nZXRUaW1lKCk7CiAgICAgICAgICBpZiAoImd0ZSIgaW4gY29uZCAmJiB0aW1lIDwgbmV3IERhdGUoU3RyaW5nKGNvbmQuZ3RlKSkuZ2V0VGltZSgpKSByZXR1cm4gZmFsc2U7CiAgICAgICAgICBpZiAoImx0ZSIgaW4gY29uZCAmJiB0aW1lID4gbmV3IERhdGUoU3RyaW5nKGNvbmQubHRlKSkuZ2V0VGltZSgpKSByZXR1cm4gZmFsc2U7CiAgICAgICAgICByZXR1cm4gdHJ1ZTsKICAgICAgICB9CiAgICAgICAgaWYgKHZhbHVlICYmIHR5cGVvZiB2YWx1ZSA9PT0gIm9iamVjdCIpIHsKICAgICAgICAgIHJldHVybiBtYXRjaGVzKHZhbHVlIGFzIFJvdywgY29uZCk7CiAgICAgICAgfQogICAgICAgIHJldHVybiBmYWxzZTsKICAgICAgfQogICAgICByZXR1cm4gdmFsdWUgPT09IGV4cGVjdGVkOwogICAgfSk7CiAgfTsKICBjb25zdCBzb3J0Um93cyA9IChyb3dzOiBSb3dbXSwgb3JkZXJCeT86IHVua25vd24pID0+IHsKICAgIGNvbnN0IHNwZWNzID0gIW9yZGVyQnkKICAgICAgPyBbXQogICAgICA6IEFycmF5LmlzQXJyYXkob3JkZXJCeSkKICAgICAgICA/IChvcmRlckJ5IGFzIEFycmF5PFJlY29yZDxzdHJpbmcsIHN0cmluZz4+KQogICAgICAgIDogW29yZGVyQnkgYXMgUmVjb3JkPHN0cmluZywgc3RyaW5nPl07CiAgICByZXR1cm4gWy4uLnJvd3NdLnNvcnQoKGxlZnQsIHJpZ2h0KSA9PiB7CiAgICAgIGZvciAoY29uc3Qgc3BlYyBvZiBzcGVjcykgewogICAgICAgIGNvbnN0IGtleSA9IE9iamVjdC5rZXlzKHNwZWMpWzBdOwogICAgICAgIGlmICgha2V5KSBjb250aW51ZTsKICAgICAgICBjb25zdCBkaXIgPSBzcGVjW2tleV0gPT09ICJkZXNjIiA/IC0xIDogMTsKICAgICAgICBjb25zdCBhID0gbGVmdFtrZXldOwogICAgICAgIGNvbnN0IGIgPSByaWdodFtrZXldOwogICAgICAgIGlmIChhID09PSBiKSBjb250aW51ZTsKICAgICAgICBpZiAoYSA9PSBudWxsKSByZXR1cm4gLTEgKiBkaXI7CiAgICAgICAgaWYgKGIgPT0gbnVsbCkgcmV0dXJuIDEgKiBkaXI7CiAgICAgICAgaWYgKGEgaW5zdGFuY2VvZiBEYXRlICYmIGIgaW5zdGFuY2VvZiBEYXRlKSB7CiAgICAgICAgICByZXR1cm4gKGEuZ2V0VGltZSgpIC0gYi5nZXRUaW1lKCkpICogZGlyOwogICAgICAgIH0KICAgICAgICByZXR1cm4gU3RyaW5nKGEpLmxvY2FsZUNvbXBhcmUoU3RyaW5nKGIpKSAqIGRpcjsKICAgICAgfQogICAgICByZXR1cm4gMDsKICAgIH0pOwogIH07CiAgY29uc3QgYXBpRm9yID0gKG5hbWU6IHN0cmluZykgPT4gKHsKICAgIGFzeW5jIGNyZWF0ZSh7IGRhdGEgfTogeyBkYXRhOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiB9KSB7CiAgICAgIGNvbnN0IHJvdyA9IHsKICAgICAgICAuLi5kYXRhLAogICAgICAgIGlkOiAoZGF0YS5pZCBhcyBzdHJpbmcpID8/IGAke25hbWV9XyR7c2VxKyt9YCwKICAgICAgICBjcmVhdGVkQXQ6IChkYXRhLmNyZWF0ZWRBdCBhcyBEYXRlKSA/PyBuZXcgRGF0ZSgpLAogICAgICAgIHVwZGF0ZWRBdDogbmV3IERhdGUoKSwKICAgICAgfSBhcyBSb3c7CiAgICAgIHRhYmxlKG5hbWUpLnB1c2gocm93KTsKICAgICAgcmV0dXJuIHsgLi4ucm93IH07CiAgICB9LAogICAgYXN5bmMgZmluZEZpcnN0KGFyZ3M/OiB7IHdoZXJlPzogUmVjb3JkPHN0cmluZywgdW5rbm93bj4gfSkgewogICAgICBjb25zdCBmb3VuZCA9IHRhYmxlKG5hbWUpLmZpbmQoKHJvdykgPT4gbWF0Y2hlcyhoeWRyYXRlKG5hbWUsIHJvdyksIGFyZ3M/LndoZXJlKSk7CiAgICAgIHJldHVybiBmb3VuZCA/IHsgLi4uaHlkcmF0ZShuYW1lLCBmb3VuZCkgfSA6IG51bGw7CiAgICB9LAogICAgYXN5bmMgZmluZFVuaXF1ZU9yVGhyb3coeyB3aGVyZSB9OiB7IHdoZXJlOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiB9KSB7CiAgICAgIGNvbnN0IGZvdW5kID0gdGFibGUobmFtZSkuZmluZCgocm93KSA9PiBtYXRjaGVzKHJvdywgd2hlcmUpKTsKICAgICAgaWYgKCFmb3VuZCkgdGhyb3cgbmV3IEVycm9yKGBtaXNzaW5nICR7bmFtZX1gKTsKICAgICAgcmV0dXJuIHsgLi4uaHlkcmF0ZShuYW1lLCBmb3VuZCkgfTsKICAgIH0sCiAgICBhc3luYyBmaW5kTWFueShhcmdzPzogewogICAgICB3aGVyZT86IFJlY29yZDxzdHJpbmcsIHVua25vd24+OwogICAgICBvcmRlckJ5PzogdW5rbm93bjsKICAgICAgdGFrZT86IG51bWJlcjsKICAgICAgc2VsZWN0PzogUmVjb3JkPHN0cmluZywgYm9vbGVhbj47CiAgICB9KSB7CiAgICAgIGxldCByb3dzID0gc29ydFJvd3MoCiAgICAgICAgdGFibGUobmFtZSkKICAgICAgICAgIC5tYXAoKHJvdykgPT4gaHlkcmF0ZShuYW1lLCByb3cpKQogICAgICAgICAgLmZpbHRlcigocm93KSA9PiBtYXRjaGVzKHJvdywgYXJncz8ud2hlcmUpKSwKICAgICAgICBhcmdzPy5vcmRlckJ5LAogICAgICApOwogICAgICBpZiAoYXJncz8udGFrZSkgcm93cyA9IHJvd3Muc2xpY2UoMCwgYXJncy50YWtlKTsKICAgICAgaWYgKCFhcmdzPy5zZWxlY3QpIHJldHVybiByb3dzLm1hcCgocm93KSA9PiAoeyAuLi5yb3cgfSkpOwogICAgICByZXR1cm4gcm93cy5tYXAoKHJvdykgPT4gewogICAgICAgIGNvbnN0IHBpY2tlZDogUm93ID0geyBpZDogcm93LmlkIH07CiAgICAgICAgZm9yIChjb25zdCBrZXkgb2YgT2JqZWN0LmtleXMoYXJncy5zZWxlY3QgPz8ge30pKSB7CiAgICAgICAgICBpZiAoYXJncy5zZWxlY3Q/LltrZXldKSBwaWNrZWRba2V5XSA9IHJvd1trZXldOwogICAgICAgIH0KICAgICAgICByZXR1cm4gcGlja2VkOwogICAgICB9KTsKICAgIH0sCiAgICBhc3luYyB1cGRhdGUoewogICAgICB3aGVyZSwKICAgICAgZGF0YSwKICAgIH06IHsKICAgICAgd2hlcmU6IFJlY29yZDxzdHJpbmcsIHVua25vd24+OwogICAgICBkYXRhOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPjsKICAgIH0pIHsKICAgICAgY29uc3QgZm91bmQgPSB0YWJsZShuYW1lKS5maW5kKChyb3cpID0+IG1hdGNoZXMocm93LCB3aGVyZSkpOwogICAgICBpZiAoIWZvdW5kKSB0aHJvdyBuZXcgRXJyb3IoYG1pc3NpbmcgJHtuYW1lfWApOwogICAgICBPYmplY3QuYXNzaWduKGZvdW5kLCBkYXRhLCB7IHVwZGF0ZWRBdDogbmV3IERhdGUoKSB9KTsKICAgICAgcmV0dXJuIHsgLi4uaHlkcmF0ZShuYW1lLCBmb3VuZCkgfTsKICAgIH0sCiAgICBhc3luYyB1cGRhdGVNYW55KHsKICAgICAgd2hlcmUsCiAgICAgIGRhdGEsCiAgICB9OiB7CiAgICAgIHdoZXJlOiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPjsKICAgICAgZGF0YTogUmVjb3JkPHN0cmluZywgdW5rbm93bj47CiAgICB9KSB7CiAgICAgIGNvbnN0IHJvd3MgPSB0YWJsZShuYW1lKS5maWx0ZXIoKHJvdykgPT4gbWF0Y2hlcyhyb3csIHdoZXJlKSk7CiAgICAgIGZvciAoY29uc3Qgcm93IG9mIHJvd3MpIHsKICAgICAgICBPYmplY3QuYXNzaWduKHJvdywgZGF0YSwgeyB1cGRhdGVkQXQ6IG5ldyBEYXRlKCkgfSk7CiAgICAgIH0KICAgICAgcmV0dXJuIHsgY291bnQ6IHJvd3MubGVuZ3RoIH07CiAgICB9LAogICAgYXN5bmMgY291bnQoYXJncz86IHsgd2hlcmU/OiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiB9KSB7CiAgICAgIHJldHVybiB0YWJsZShuYW1lKS5maWx0ZXIoKHJvdykgPT4gbWF0Y2hlcyhoeWRyYXRlKG5hbWUsIHJvdyksIGFyZ3M/LndoZXJlKSkubGVuZ3RoOwogICAgfSwKICAgIGFzeW5jIGFnZ3JlZ2F0ZShhcmdzOiB7CiAgICAgIHdoZXJlPzogUmVjb3JkPHN0cmluZywgdW5rbm93bj47CiAgICAgIF9zdW0/OiB7IHBhcnR5U2l6ZT86IGJvb2xlYW4gfTsKICAgIH0pIHsKICAgICAgY29uc3Qgcm93cyA9IHRhYmxlKG5hbWUpLmZpbHRlcigocm93KSA9PiBtYXRjaGVzKGh5ZHJhdGUobmFtZSwgcm93KSwgYXJncy53aGVyZSkpOwogICAgICBjb25zdCBwYXJ0eVNpemUgPSByb3dzLnJlZHVjZSgKICAgICAgICAodG90YWwsIHJvdykgPT4gdG90YWwgKyAodHlwZW9mIHJvdy5wYXJ0eVNpemUgPT09ICJudW1iZXIiID8gcm93LnBhcnR5U2l6ZSA6IDApLAogICAgICAgIDAsCiAgICAgICk7CiAgICAgIHJldHVybiB7IF9zdW06IHsgcGFydHlTaXplOiByb3dzLmxlbmd0aCA9PT0gMCA/IG51bGwgOiBwYXJ0eVNpemUgfSB9OwogICAgfSwKICAgIGFzeW5jIGdyb3VwQnkoYXJnczogewogICAgICBieTogc3RyaW5nW107CiAgICAgIHdoZXJlPzogUmVjb3JkPHN0cmluZywgdW5rbm93bj47CiAgICAgIF9jb3VudD86IHsgX2FsbD86IGJvb2xlYW4gfTsKICAgICAgX3N1bT86IHsgcGFydHlTaXplPzogYm9vbGVhbiB9OwogICAgfSkgewogICAgICBjb25zdCBncm91cHMgPSBuZXcgTWFwPHN0cmluZywgeyBrZXk6IFJvdzsgcm93czogUm93W10gfT4oKTsKICAgICAgZm9yIChjb25zdCByb3cgb2YgdGFibGUobmFtZSkuZmlsdGVyKChpdGVtKSA9PgogICAgICAgIG1hdGNoZXMoaHlkcmF0ZShuYW1lLCBpdGVtKSwgYXJncy53aGVyZSksCiAgICAgICkpIHsKICAgICAgICBjb25zdCBrZXk6IFJvdyA9IHsgaWQ6ICIiIH07CiAgICAgICAgZm9yIChjb25zdCBmaWVsZCBvZiBhcmdzLmJ5KSBrZXlbZmllbGRdID0gcm93W2ZpZWxkXSA/PyBudWxsOwogICAgICAgIGNvbnN0IHNpZyA9IEpTT04uc3RyaW5naWZ5KGFyZ3MuYnkubWFwKChmaWVsZCkgPT4ga2V5W2ZpZWxkXSkpOwogICAgICAgIGNvbnN0IGJ1Y2tldCA9IGdyb3Vwcy5nZXQoc2lnKSA/PyB7IGtleSwgcm93czogW10gfTsKICAgICAgICBidWNrZXQucm93cy5wdXNoKHJvdyk7CiAgICAgICAgZ3JvdXBzLnNldChzaWcsIGJ1Y2tldCk7CiAgICAgIH0KICAgICAgcmV0dXJuIFsuLi5ncm91cHMudmFsdWVzKCldLm1hcCgoYnVja2V0KSA9PiAoewogICAgICAgIC4uLmJ1Y2tldC5rZXksCiAgICAgICAgLi4uKGFyZ3MuX2NvdW50ID8geyBfY291bnQ6IHsgX2FsbDogYnVja2V0LnJvd3MubGVuZ3RoIH0gfSA6IHt9KSwKICAgICAgICAuLi4oYXJncy5fc3VtCiAgICAgICAgICA/IHsKICAgICAgICAgICAgICBfc3VtOiB7CiAgICAgICAgICAgICAgICBwYXJ0eVNpemU6IGJ1Y2tldC5yb3dzLnJlZHVjZSgKICAgICAgICAgICAgICAgICAgKHRvdGFsLCByb3cpID0+CiAgICAgICAgICAgICAgICAgICAgdG90YWwgKyAodHlwZW9mIHJvdy5wYXJ0eVNpemUgPT09ICJudW1iZXIiID8gcm93LnBhcnR5U2l6ZSA6IDApLAogICAgICAgICAgICAgICAgICAwLAogICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICB9LAogICAgICAgICAgICB9CiAgICAgICAgICA6IHt9KSwKICAgICAgfSkpOwogICAgfSwKICB9KTsKICBjb25zdCBjbGllbnQgPSBuZXcgUHJveHkoCiAgICB7fSwKICAgIHsKICAgICAgZ2V0KF90YXJnZXQsIHByb3ApIHsKICAgICAgICBpZiAocHJvcCA9PT0gIiR0cmFuc2FjdGlvbiIpIHsKICAgICAgICAgIHJldHVybiBhc3luYyAoZm46ICh0eDogdW5rbm93bikgPT4gUHJvbWlzZTx1bmtub3duPikgPT4gZm4oY2xpZW50KTsKICAgICAgICB9CiAgICAgICAgaWYgKHByb3AgPT09ICJ0aGVuIikgcmV0dXJuIHVuZGVmaW5lZDsKICAgICAgICByZXR1cm4gYXBpRm9yKFN0cmluZyhwcm9wKSk7CiAgICAgIH0sCiAgICB9LAogICk7CiAgdGFibGUoIm1pbmlzdHJ5IikucHVzaCh7CiAgICBpZDogIm0tam92ZW5zIiwKICAgIG9yZ2FuaXphdGlvbklkOiBwaWxvdC5vcmdhbml6YXRpb25JZCwKICAgIGNodXJjaElkOiBwaWxvdC5jaHVyY2hJZCwKICAgIG5hbWU6ICJKb3ZlbnMiLAogICAgc2x1ZzogImpvdmVucyIsCiAgICBwdWJsaXNoU3RhdHVzOiAiUFVCTElTSEVEIiwKICB9KTsKICByZXR1cm4geyBjbGllbnQsIHRhYmxlIH07Cn0KCmZ1bmN0aW9uIHZpc2libGVQZGZUZXh0KGJ5dGVzOiBCdWZmZXIpOiBzdHJpbmcgewogIGNvbnN0IHJhdyA9IGJ5dGVzLnRvU3RyaW5nKCJsYXRpbjEiKTsKICBjb25zdCBkZWNvZGVkID0gWy4uLnJhdy5tYXRjaEFsbCgvPChbMC05QS1GYS1mXSspPi9nKV0ubWFwKChtYXRjaCkgPT4KICAgIEJ1ZmZlci5mcm9tKG1hdGNoWzFdLCAiaGV4IikudG9TdHJpbmcoImxhdGluMSIpLAogICk7CiAgcmV0dXJuIGAke3Jhd31cbiR7ZGVjb2RlZC5qb2luKCJcbiIpfWA7Cn0KCmRlc2NyaWJlKCJldmVudG8g4oaSIHByZXNlbsOnYSDihpIgcmVsYXTDs3JpbyIsICgpID0+IHsKICBpdCgicGVyc2lzdHMgYSBkcmFmdCwgcHVibGlzaCwgY2hlY2staW4gYW5kIGF1ZGl0YWJsZSBjb3VudHMgd2l0aG91dCBkdXBsaWNhdGluZyBvciBleHBvc2luZyBhIG1pbm9yIiwgYXN5bmMgKCkgPT4gewogICAgY29uc3QgZGIgPSBjcmVhdGVNZW1vcnlQcmlzbWEoKTsKICAgIGNvbnN0IHBpbG90U2VydmljZSA9IHsgZ2V0UGlsb3RDaHVyY2g6IGFzeW5jICgpID0+IHBpbG90IH07CiAgICBjb25zdCBldmVudHMgPSBuZXcgRXZlbnRzU2VydmljZShkYi5jbGllbnQgYXMgbmV2ZXIsIHBpbG90U2VydmljZSBhcyBuZXZlcik7CiAgICBjb25zdCByZWdpc3RyYXRpb25zID0gbmV3IEV2ZW50UmVnaXN0cmF0aW9uc1NlcnZpY2UoCiAgICAgIGRiLmNsaWVudCBhcyBuZXZlciwKICAgICAgcGlsb3RTZXJ2aWNlIGFzIG5ldmVyLAogICAgKTsKICAgIGNvbnN0IHJlcG9ydHMgPSBuZXcgUmVwb3J0c1NlcnZpY2UoZGIuY2xpZW50IGFzIG5ldmVyLCBwaWxvdFNlcnZpY2UgYXMgbmV2ZXIpOwoKICAgIGNvbnN0IGNyZWF0ZWQgPSBhd2FpdCBldmVudHMuY3JlYXRlKHNlY3JldGFyaWEsIHsKICAgICAgbmFtZTogIkVuY29udHJvIHRlc3RlIiwKICAgICAgc2x1ZzogImVuY29udHJvLXRlc3RlIiwKICAgICAgc3RhcnRzQXQ6ICIyMDI2LTEyLTAxVDE5OjAwOjAwLjAwMFoiLAogICAgICBkZXNjcmlwdGlvbjogIkV2ZW50byBzaW50w6l0aWNvIGRlIGhvbW9sb2dhw6fDo28iLAogICAgICBsb2NhdGlvblRleHQ6ICJTYWzDo28gZGUgdGVzdGVzIiwKICAgICAgbWluaXN0cnlJZDogIm0tam92ZW5zIiwKICAgIH0pOwogICAgZXhwZWN0KGNyZWF0ZWQuc3RhdHVzKS50b0JlKCJEUkFGVCIpOwogICAgY29uc3QgZWRpdGVkID0gYXdhaXQgZXZlbnRzLnBhdGNoKHNlY3JldGFyaWEsIGNyZWF0ZWQuaWQsIHsKICAgICAgZGVzY3JpcHRpb246ICJFdmVudG8gc2ludMOpdGljbyByZXZpc2FkbyIsCiAgICB9KTsKICAgIGV4cGVjdChlZGl0ZWQuZGVzY3JpcHRpb24pLnRvQmUoIkV2ZW50byBzaW50w6l0aWNvIHJldmlzYWRvIik7CiAgICBjb25zdCBwdWJsaXNoZWQgPSBhd2FpdCBldmVudHMucHVibGlzaChzZWNyZXRhcmlhLCBjcmVhdGVkLmlkKTsKICAgIGV4cGVjdChwdWJsaXNoZWQuc3RhdHVzKS50b0JlKCJQVUJMSVNIRUQiKTsKICAgIGV4cGVjdChkYi50YWJsZSgicG9ydGFsRXZlbnQiKSkudG9IYXZlTGVuZ3RoKDEpOwoKICAgIGNvbnN0IG1vZGFsaXR5ID0gYXdhaXQgcmVnaXN0cmF0aW9ucy5jcmVhdGVNb2RhbGl0eShzZWNyZXRhcmlhLCBjcmVhdGVkLmlkLCB7CiAgICAgIGNvZGU6ICJpbmRpdmlkdWFsIiwKICAgICAgbmFtZTogIkluZGl2aWR1YWwiLAogICAgICBraW5kOiAiQ1VTVE9NIiwKICAgICAgbWluUGFydHlTaXplOiAxLAogICAgICBtYXhQYXJ0eVNpemU6IDgsCiAgICB9KTsKICAgIGNvbnN0IGFkdWx0ID0gYXdhaXQgcmVnaXN0cmF0aW9ucy5jcmVhdGVTdGFmZlJlZ2lzdHJhdGlvbihzZWNyZXRhcmlhLCBjcmVhdGVkLmlkLCB7CiAgICAgIGRpc3BsYXlOYW1lOiAiVEVTVEUgQWR1bHRvIiwKICAgICAgbW9kYWxpdHlJZDogbW9kYWxpdHkuaWQsCiAgICAgIHBhcnR5U2l6ZTogMiwKICAgICAgaXNNaW5vcjogZmFsc2UsCiAgICB9KTsKICAgIGNvbnN0IG1pbm9yID0gYXdhaXQgcmVnaXN0cmF0aW9ucy5jcmVhdGVTdGFmZlJlZ2lzdHJhdGlvbihzZWNyZXRhcmlhLCBjcmVhdGVkLmlkLCB7CiAgICAgIGRpc3BsYXlOYW1lOiAiVEVTVEUgTWVub3IiLAogICAgICBtb2RhbGl0eUlkOiBtb2RhbGl0eS5pZCwKICAgICAgcGFydHlTaXplOiAxLAogICAgICBpc01pbm9yOiB0cnVlLAogICAgICBndWFyZGlhbkRpc3BsYXlOYW1lOiAiVEVTVEUgUmVzcG9uc2F2ZWwiLAogICAgICBndWFyZGlhbkFja25vd2xlZGdlZDogdHJ1ZSwKICAgIH0pOwogICAgZXhwZWN0KG1pbm9yLnN0YXR1cykudG9CZSgiQ09ORklSTUVEIik7CiAgICBhd2FpdCBleHBlY3QocmVnaXN0cmF0aW9ucy5jaGVja0luKHNlY3JldGFyaWEsIG1pbm9yLmlkKSkucmVqZWN0cy50b0JlSW5zdGFuY2VPZigKICAgICAgQmFkUmVxdWVzdEV4Y2VwdGlvbiwKICAgICk7CiAgICBjb25zdCBjaGVja2VkID0gYXdhaXQgcmVnaXN0cmF0aW9ucy5jaGVja0luKAogICAgICBzZWNyZXRhcmlhLAogICAgICBhZHVsdC5pZCwKICAgICAgYWR1bHQuY2hlY2tJbkNvZGUsCiAgICApOwogICAgZXhwZWN0KGNoZWNrZWQuc3RhdHVzKS50b0JlKCJDSEVDS0VEX0lOIik7CiAgICBjb25zdCBhZ2FpbiA9IGF3YWl0IHJlZ2lzdHJhdGlvbnMuY2hlY2tJbigKICAgICAgc2VjcmV0YXJpYSwKICAgICAgYWR1bHQuaWQsCiAgICAgIGFkdWx0LmNoZWNrSW5Db2RlLAogICAgKTsKICAgIGV4cGVjdChhZ2Fpbi5zdGF0dXMpLnRvQmUoIkNIRUNLRURfSU4iKTsKICAgIGV4cGVjdChkYi50YWJsZSgiZXZlbnRSZWdpc3RyYXRpb24iKSkudG9IYXZlTGVuZ3RoKDIpOwogICAgZXhwZWN0KAogICAgICBkYi50YWJsZSgiZXZlbnRSZWdpc3RyYXRpb24iKS5maWx0ZXIoKHJvdykgPT4gcm93LnN0YXR1cyA9PT0gIkNIRUNLRURfSU4iKSwKICAgICkudG9IYXZlTGVuZ3RoKDEpOwoKICAgIGNvbnN0IHJlcG9ydCA9IGF3YWl0IHJlcG9ydHMucGFydGljaXBhdGlvbihzZWNyZXRhcmlhLCB7IGV2ZW50SWQ6IGNyZWF0ZWQuaWQgfSk7CiAgICBleHBlY3QoY291bnRzQXJlQmFsYW5jZWQocmVwb3J0LmNvdW50cykpLnRvQmUodHJ1ZSk7CiAgICBleHBlY3QocmVwb3J0LmNvdW50cykudG9NYXRjaE9iamVjdCh7CiAgICAgIHJlZ2lzdHJhdGlvbnM6IDIsCiAgICAgIGNoZWNrZWRJbjogMSwKICAgICAgY29uZmlybWVkQXdhaXRpbmdQcmVzZW5jZTogMSwKICAgICAgcGFydGljaXBhbnRzOiAzLAogICAgICBwcmVzZW50UGFydGljaXBhbnRzOiAyLAogICAgICBtaW5vcnNPbWl0dGVkOiAxLAogICAgfSk7CiAgICBleHBlY3QocmVwb3J0LnJvd3MubWFwKChyb3cpID0+IHJvdy5zeW50aGV0aWNMYWJlbCkpLnRvRXF1YWwoWyJURVNURSBBZHVsdG8iXSk7CiAgICBleHBlY3QoSlNPTi5zdHJpbmdpZnkocmVwb3J0KSkubm90LnRvQ29udGFpbigiVEVTVEUgTWVub3IiKTsKICAgIGV4cGVjdChKU09OLnN0cmluZ2lmeShyZXBvcnQpKS5ub3QudG9Db250YWluKCJURVNURSBSZXNwb25zYXZlbCIpOwogICAgZXhwZWN0KEpTT04uc3RyaW5naWZ5KHJlcG9ydCkpLm5vdC50b0NvbnRhaW4oYWR1bHQuY2hlY2tJbkNvZGUpOwoKICAgIGNvbnN0IHJlcGVhdGVkID0gYXdhaXQgcmVwb3J0cy5wYXJ0aWNpcGF0aW9uKHNlY3JldGFyaWEsIHsgZXZlbnRJZDogY3JlYXRlZC5pZCB9KTsKICAgIGV4cGVjdChyZXBlYXRlZC5jb3VudHMpLnRvRXF1YWwocmVwb3J0LmNvdW50cyk7CiAgICBleHBlY3QoZGIudGFibGUoImV2ZW50UmVnaXN0cmF0aW9uIikpLnRvSGF2ZUxlbmd0aCgyKTsKCiAgICBjb25zdCBjc3YgPSBhd2FpdCByZXBvcnRzLnBhcnRpY2lwYXRpb25GaWxlKAogICAgICBzZWNyZXRhcmlhLAogICAgICB7IGV2ZW50SWQ6IGNyZWF0ZWQuaWQsIHN0YXR1czogIkNIRUNLRURfSU4iIH0sCiAgICAgICJjc3YiLAogICAgKTsKICAgIGNvbnN0IGNzdlRleHQgPSBjc3YuYnl0ZXMudG9TdHJpbmcoInV0ZjgiKTsKICAgIGV4cGVjdChjc3ZUZXh0KS50b0NvbnRhaW4oIlRFU1RFIEFkdWx0byIpOwogICAgZXhwZWN0KGNzdlRleHQpLnRvQ29udGFpbigiQ0hFQ0tFRF9JTiIpOwogICAgZXhwZWN0KGNzdlRleHQpLm5vdC50b0NvbnRhaW4oIlRFU1RFIE1lbm9yIik7CiAgICBleHBlY3QoY3N2VGV4dC5tYXRjaCgvVEVTVEUgQWR1bHRvL2cpKS50b0hhdmVMZW5ndGgoMSk7CgogICAgY29uc3QgcGRmID0gYXdhaXQgcmVwb3J0cy5wYXJ0aWNpcGF0aW9uRmlsZShzZWNyZXRhcmlhLCB7IGV2ZW50SWQ6IGNyZWF0ZWQuaWQgfSwgInBkZiIpOwogICAgY29uc3QgcGRmVGV4dCA9IHZpc2libGVQZGZUZXh0KHBkZi5ieXRlcyk7CiAgICBleHBlY3QocGRmLmJ5dGVzLnN1YmFycmF5KDAsIDQpLnRvU3RyaW5nKCJhc2NpaSIpKS50b0JlKCIlUERGIik7CiAgICBleHBlY3QocGRmVGV4dCkudG9Db250YWluKCJURVNURSBBZHVsdG8iKTsKICAgIGV4cGVjdChwZGZUZXh0KS50b0NvbnRhaW4oIk1lbm9yZXMgb21pdGlkb3MgMSIpOwogICAgZXhwZWN0KHBkZlRleHQpLm5vdC50b0NvbnRhaW4oIlRFU1RFIE1lbm9yIik7CiAgICBleHBlY3QocGRmVGV4dCkubm90LnRvQ29udGFpbihhZHVsdC5jaGVja0luQ29kZSk7CgogICAgY29uc3QgZmlsdGVyZWQgPSBhd2FpdCByZXBvcnRzLnBhcnRpY2lwYXRpb24oc2VjcmV0YXJpYSwgewogICAgICBldmVudElkOiBjcmVhdGVkLmlkLAogICAgICBmcm9tOiAiMjAyNi0xMi0wMVQwMDowMDowMC4wMDBaIiwKICAgICAgdG86ICIyMDI2LTEyLTAyVDAwOjAwOjAwLjAwMFoiLAogICAgfSk7CiAgICBleHBlY3QoZmlsdGVyZWQuY291bnRzLnJlZ2lzdHJhdGlvbnMpLnRvQmUoMik7CiAgICBjb25zdCBvdXRzaWRlID0gYXdhaXQgcmVwb3J0cy5wYXJ0aWNpcGF0aW9uKHNlY3JldGFyaWEsIHsKICAgICAgZXZlbnRJZDogY3JlYXRlZC5pZCwKICAgICAgZnJvbTogIjIwMjYtMDEtMDFUMDA6MDA6MDAuMDAwWiIsCiAgICAgIHRvOiAiMjAyNi0wMS0wMlQwMDowMDowMC4wMDBaIiwKICAgIH0pOwogICAgZXhwZWN0KG91dHNpZGUuY291bnRzLnJlZ2lzdHJhdGlvbnMpLnRvQmUoMCk7CgogICAgYXdhaXQgZXhwZWN0KAogICAgICByZXBvcnRzLnBhcnRpY2lwYXRpb24ob3V0cm9MaWRlciwgeyBldmVudElkOiBjcmVhdGVkLmlkIH0pLAogICAgKS5yZWplY3RzLnRvQmVJbnN0YW5jZU9mKEZvcmJpZGRlbkV4Y2VwdGlvbik7CiAgICBjb25zdCBvd24gPSBhd2FpdCByZXBvcnRzLnBhcnRpY2lwYXRpb24obGlkZXIsIHsgZXZlbnRJZDogY3JlYXRlZC5pZCB9KTsKICAgIGV4cGVjdChvd24uY291bnRzLmNoZWNrZWRJbikudG9CZSgxKTsKICAgIGF3YWl0IGV4cGVjdChyZXBvcnRzLnBhcnRpY2lwYXRpb24obWVtYnJvLCB7fSkpLnJlamVjdHMudG9CZUluc3RhbmNlT2YoCiAgICAgIEZvcmJpZGRlbkV4Y2VwdGlvbiwKICAgICk7CgogICAgY29uc3QgYXVkaXRzID0gZGIudGFibGUoImF1ZGl0TG9nIikubWFwKChyb3cpID0+IHJvdy5hY3Rpb24pOwogICAgZXhwZWN0KGF1ZGl0cykudG9FcXVhbCgKICAgICAgZXhwZWN0LmFycmF5Q29udGFpbmluZyhbCiAgICAgICAgInBvcnRhbF9ldmVudC5jcmVhdGUiLAogICAgICAgICJwb3J0YWxfZXZlbnQucGF0Y2giLAogICAgICAgICJldmVudF9yZWdpc3RyYXRpb24uY2hlY2tfaW4iLAogICAgICAgICJyZXBvcnQucGFydGljaXBhdGlvbi5yZWFkIiwKICAgICAgICAicmVwb3J0LnBhcnRpY2lwYXRpb24uY3N2IiwKICAgICAgICAicmVwb3J0LnBhcnRpY2lwYXRpb24ucGRmIiwKICAgICAgXSksCiAgICApOwogICAgZXhwZWN0KEpTT04uc3RyaW5naWZ5KGRiLnRhYmxlKCJhdWRpdExvZyIpKSkubm90LnRvQ29udGFpbigiVEVTVEUgTWVub3IiKTsKICAgIGV4cGVjdCgKICAgICAgZGIudGFibGUoImF1ZGl0TG9nIikuZmlsdGVyKChyb3cpID0+IHJvdy5hY3Rpb24gPT09ICJldmVudF9yZWdpc3RyYXRpb24uY2hlY2tfaW4iKSwKICAgICkudG9IYXZlTGVuZ3RoKDEpOwogIH0pOwp9KTsK
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { EventRegistrationsService } from "../events/event-registrations.service";
+import { EventsService } from "../events/events.service";
+import type { AuthUser } from "../auth/types/auth-user";
+import { countsAreBalanced } from "./participation";
+import { ReportsService } from "./reports.service";
+
+const pilot = {
+  organizationId: "org1",
+  churchId: "church-rf1",
+  organizationSlug: "igreja-de-deus",
+  churchSlug: "riacho-fundo-1",
+  churchName: "Riacho Fundo I (demo)",
+};
+
+const secretaria: AuthUser = {
+  userId: "u-sec",
+  personId: "p-sec",
+  email: "sec@example.test",
+  grants: [
+    {
+      roleCode: "SECRETARIA",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    },
+  ],
+};
+
+const lider: AuthUser = {
+  userId: "u-lider",
+  personId: "p-lider",
+  email: "lider@example.test",
+  grants: [
+    {
+      roleCode: "LIDER_MINISTERIO",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      ministryId: "m-jovens",
+    },
+  ],
+};
+
+const outroLider: AuthUser = {
+  userId: "u-outro",
+  personId: "p-outro",
+  email: "outro@example.test",
+  grants: [
+    {
+      roleCode: "LIDER_MINISTERIO",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      ministryId: "m-homens",
+    },
+  ],
+};
+
+const membro: AuthUser = {
+  userId: "u-membro",
+  personId: "p-membro",
+  email: "membro@example.test",
+  grants: [
+    {
+      roleCode: "MEMBRO",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+    },
+  ],
+};
+
+type Row = Record<string, unknown> & { id: string };
+
+/**
+ * Persistência em memória do mesmo processo: create/update/find compartilham as tabelas.
+ * Não substitui o Postgres da HML; prova o fluxo evento → presença → relatório sem duplicar contagem.
+ */
+function createMemoryPrisma() {
+  const tables = new Map<string, Row[]>();
+  let seq = 1;
+  const table = (name: string) => {
+    let rows = tables.get(name);
+    if (!rows) {
+      rows = [];
+      tables.set(name, rows);
+    }
+    return rows;
+  };
+  const hydrate = (name: string, row: Row): Row => {
+    if (name === "eventRegistration") {
+      const event = table("portalEvent").find((item) => item.id === row.eventId);
+      return { ...row, event: event ? { ...event } : null };
+    }
+    if (name === "churchMembership") {
+      const person = table("person").find((item) => item.id === row.personId);
+      return { ...row, person: person ? { ...person } : null };
+    }
+    return { ...row };
+  };
+  const matches = (row: Row, where?: Record<string, unknown>): boolean => {
+    if (!where) return true;
+    return Object.entries(where).every(([key, expected]) => {
+      if (key === "AND" && Array.isArray(expected)) {
+        return expected.every((item) =>
+          matches(row, item as Record<string, unknown>),
+        );
+      }
+      if (key === "OR" && Array.isArray(expected)) {
+        return expected.some((item) =>
+          matches(row, item as Record<string, unknown>),
+        );
+      }
+      const value = row[key];
+      if (
+        expected &&
+        typeof expected === "object" &&
+        !(expected instanceof Date) &&
+        !Array.isArray(expected)
+      ) {
+        const cond = expected as Record<string, unknown>;
+        if ("in" in cond) return (cond.in as unknown[]).includes(value);
+        if ("not" in cond) {
+          return cond.not === null ? value != null : value !== cond.not;
+        }
+        if ("gte" in cond || "lte" in cond) {
+          const time =
+            value instanceof Date ? value.getTime() : new Date(String(value)).getTime();
+          if ("gte" in cond && time < new Date(String(cond.gte)).getTime()) return false;
+          if ("lte" in cond && time > new Date(String(cond.lte)).getTime()) return false;
+          return true;
+        }
+        if (value && typeof value === "object") {
+          return matches(value as Row, cond);
+        }
+        return false;
+      }
+      return value === expected;
+    });
+  };
+  const sortRows = (rows: Row[], orderBy?: unknown) => {
+    const specs = !orderBy
+      ? []
+      : Array.isArray(orderBy)
+        ? (orderBy as Array<Record<string, string>>)
+        : [orderBy as Record<string, string>];
+    return [...rows].sort((left, right) => {
+      for (const spec of specs) {
+        const key = Object.keys(spec)[0];
+        if (!key) continue;
+        const dir = spec[key] === "desc" ? -1 : 1;
+        const a = left[key];
+        const b = right[key];
+        if (a === b) continue;
+        if (a == null) return -1 * dir;
+        if (b == null) return 1 * dir;
+        if (a instanceof Date && b instanceof Date) {
+          return (a.getTime() - b.getTime()) * dir;
+        }
+        return String(a).localeCompare(String(b)) * dir;
+      }
+      return 0;
+    });
+  };
+  const apiFor = (name: string) => ({
+    async create({ data }: { data: Record<string, unknown> }) {
+      const row = {
+        ...data,
+        id: (data.id as string) ?? `${name}_${seq++}`,
+        createdAt: (data.createdAt as Date) ?? new Date(),
+        updatedAt: new Date(),
+      } as Row;
+      table(name).push(row);
+      return { ...row };
+    },
+    async findFirst(args?: { where?: Record<string, unknown> }) {
+      const found = table(name).find((row) => matches(hydrate(name, row), args?.where));
+      return found ? { ...hydrate(name, found) } : null;
+    },
+    async findUniqueOrThrow({ where }: { where: Record<string, unknown> }) {
+      const found = table(name).find((row) => matches(row, where));
+      if (!found) throw new Error(`missing ${name}`);
+      return { ...hydrate(name, found) };
+    },
+    async findMany(args?: {
+      where?: Record<string, unknown>;
+      orderBy?: unknown;
+      take?: number;
+      select?: Record<string, boolean>;
+    }) {
+      let rows = sortRows(
+        table(name)
+          .map((row) => hydrate(name, row))
+          .filter((row) => matches(row, args?.where)),
+        args?.orderBy,
+      );
+      if (args?.take) rows = rows.slice(0, args.take);
+      if (!args?.select) return rows.map((row) => ({ ...row }));
+      return rows.map((row) => {
+        const picked: Row = { id: row.id };
+        for (const key of Object.keys(args.select ?? {})) {
+          if (args.select?.[key]) picked[key] = row[key];
+        }
+        return picked;
+      });
+    },
+    async update({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) {
+      const found = table(name).find((row) => matches(row, where));
+      if (!found) throw new Error(`missing ${name}`);
+      Object.assign(found, data, { updatedAt: new Date() });
+      return { ...hydrate(name, found) };
+    },
+    async updateMany({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) {
+      const rows = table(name).filter((row) => matches(row, where));
+      for (const row of rows) {
+        Object.assign(row, data, { updatedAt: new Date() });
+      }
+      return { count: rows.length };
+    },
+    async count(args?: { where?: Record<string, unknown> }) {
+      return table(name).filter((row) => matches(hydrate(name, row), args?.where)).length;
+    },
+    async aggregate(args: {
+      where?: Record<string, unknown>;
+      _sum?: { partySize?: boolean };
+    }) {
+      const rows = table(name).filter((row) => matches(hydrate(name, row), args.where));
+      const partySize = rows.reduce(
+        (total, row) => total + (typeof row.partySize === "number" ? row.partySize : 0),
+        0,
+      );
+      return { _sum: { partySize: rows.length === 0 ? null : partySize } };
+    },
+    async groupBy(args: {
+      by: string[];
+      where?: Record<string, unknown>;
+      _count?: { _all?: boolean };
+      _sum?: { partySize?: boolean };
+    }) {
+      const groups = new Map<string, { key: Row; rows: Row[] }>();
+      for (const row of table(name).filter((item) =>
+        matches(hydrate(name, item), args.where),
+      )) {
+        const key: Row = { id: "" };
+        for (const field of args.by) key[field] = row[field] ?? null;
+        const sig = JSON.stringify(args.by.map((field) => key[field]));
+        const bucket = groups.get(sig) ?? { key, rows: [] };
+        bucket.rows.push(row);
+        groups.set(sig, bucket);
+      }
+      return [...groups.values()].map((bucket) => ({
+        ...bucket.key,
+        ...(args._count ? { _count: { _all: bucket.rows.length } } : {}),
+        ...(args._sum
+          ? {
+              _sum: {
+                partySize: bucket.rows.reduce(
+                  (total, row) =>
+                    total + (typeof row.partySize === "number" ? row.partySize : 0),
+                  0,
+                ),
+              },
+            }
+          : {}),
+      }));
+    },
+  });
+  const client = new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === "$transaction") {
+          return async (fn: (tx: unknown) => Promise<unknown>) => fn(client);
+        }
+        if (prop === "then") return undefined;
+        return apiFor(String(prop));
+      },
+    },
+  );
+  table("ministry").push({
+    id: "m-jovens",
+    organizationId: pilot.organizationId,
+    churchId: pilot.churchId,
+    name: "Jovens",
+    slug: "jovens",
+    publishStatus: "PUBLISHED",
+  });
+  return { client, table };
+}
+
+function visiblePdfText(bytes: Buffer): string {
+  const raw = bytes.toString("latin1");
+  const decoded = [...raw.matchAll(/<([0-9A-Fa-f]+)>/g)].map((match) =>
+    Buffer.from(match[1], "hex").toString("latin1"),
+  );
+  return `${raw}\n${decoded.join("\n")}`;
+}
+
+describe("evento → presença → relatório", () => {
+  it("persists a draft, publish, check-in and auditable counts without duplicating or exposing a minor", async () => {
+    const db = createMemoryPrisma();
+    const pilotService = { getPilotChurch: async () => pilot };
+    const events = new EventsService(db.client as never, pilotService as never);
+    const registrations = new EventRegistrationsService(
+      db.client as never,
+      pilotService as never,
+    );
+    const reports = new ReportsService(db.client as never, pilotService as never);
+
+    const created = await events.create(secretaria, {
+      name: "Encontro teste",
+      slug: "encontro-teste",
+      startsAt: "2026-12-01T19:00:00.000Z",
+      description: "Evento sintético de homologação",
+      locationText: "Salão de testes",
+      ministryId: "m-jovens",
+    });
+    expect(created.status).toBe("DRAFT");
+    const edited = await events.patch(secretaria, created.id, {
+      description: "Evento sintético revisado",
+    });
+    expect(edited.description).toBe("Evento sintético revisado");
+    const published = await events.publish(secretaria, created.id);
+    expect(published.status).toBe("PUBLISHED");
+    expect(db.table("portalEvent")).toHaveLength(1);
+
+    const modality = await registrations.createModality(secretaria, created.id, {
+      code: "individual",
+      name: "Individual",
+      kind: "CUSTOM",
+      minPartySize: 1,
+      maxPartySize: 8,
+    });
+    const adult = await registrations.createStaffRegistration(secretaria, created.id, {
+      displayName: "TESTE Adulto",
+      modalityId: modality.id,
+      partySize: 2,
+      isMinor: false,
+    });
+    const minor = await registrations.createStaffRegistration(secretaria, created.id, {
+      displayName: "TESTE Menor",
+      modalityId: modality.id,
+      partySize: 1,
+      isMinor: true,
+      guardianDisplayName: "TESTE Responsavel",
+      guardianAcknowledged: true,
+    });
+    expect(minor.status).toBe("CONFIRMED");
+    await expect(registrations.checkIn(secretaria, minor.id)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    const checked = await registrations.checkIn(
+      secretaria,
+      adult.id,
+      adult.checkInCode,
+    );
+    expect(checked.status).toBe("CHECKED_IN");
+    const again = await registrations.checkIn(
+      secretaria,
+      adult.id,
+      adult.checkInCode,
+    );
+    expect(again.status).toBe("CHECKED_IN");
+    expect(db.table("eventRegistration")).toHaveLength(2);
+    expect(
+      db.table("eventRegistration").filter((row) => row.status === "CHECKED_IN"),
+    ).toHaveLength(1);
+
+    const report = await reports.participation(secretaria, { eventId: created.id });
+    expect(countsAreBalanced(report.counts)).toBe(true);
+    expect(report.counts).toMatchObject({
+      registrations: 2,
+      checkedIn: 1,
+      confirmedAwaitingPresence: 1,
+      participants: 3,
+      presentParticipants: 2,
+      minorsOmitted: 1,
+    });
+    expect(report.rows.map((row) => row.syntheticLabel)).toEqual(["TESTE Adulto"]);
+    expect(JSON.stringify(report)).not.toContain("TESTE Menor");
+    expect(JSON.stringify(report)).not.toContain("TESTE Responsavel");
+    expect(JSON.stringify(report)).not.toContain(adult.checkInCode);
+
+    const repeated = await reports.participation(secretaria, { eventId: created.id });
+    expect(repeated.counts).toEqual(report.counts);
+    expect(db.table("eventRegistration")).toHaveLength(2);
+
+    const csv = await reports.participationFile(
+      secretaria,
+      { eventId: created.id, status: "CHECKED_IN" },
+      "csv",
+    );
+    const csvText = csv.bytes.toString("utf8");
+    expect(csvText).toContain("TESTE Adulto");
+    expect(csvText).toContain("CHECKED_IN");
+    expect(csvText).not.toContain("TESTE Menor");
+    expect(csvText.match(/TESTE Adulto/g)).toHaveLength(1);
+
+    const pdf = await reports.participationFile(secretaria, { eventId: created.id }, "pdf");
+    const pdfText = visiblePdfText(pdf.bytes);
+    expect(pdf.bytes.subarray(0, 4).toString("ascii")).toBe("%PDF");
+    expect(pdfText).toContain("TESTE Adulto");
+    expect(pdfText).toContain("Menores omitidos 1");
+    expect(pdfText).not.toContain("TESTE Menor");
+    expect(pdfText).not.toContain(adult.checkInCode);
+
+    const filtered = await reports.participation(secretaria, {
+      eventId: created.id,
+      from: "2026-12-01T00:00:00.000Z",
+      to: "2026-12-02T00:00:00.000Z",
+    });
+    expect(filtered.counts.registrations).toBe(2);
+    const outside = await reports.participation(secretaria, {
+      eventId: created.id,
+      from: "2026-01-01T00:00:00.000Z",
+      to: "2026-01-02T00:00:00.000Z",
+    });
+    expect(outside.counts.registrations).toBe(0);
+
+    await expect(
+      reports.participation(outroLider, { eventId: created.id }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    const own = await reports.participation(lider, { eventId: created.id });
+    expect(own.counts.checkedIn).toBe(1);
+    await expect(reports.participation(membro, {})).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+
+    const audits = db.table("auditLog").map((row) => row.action);
+    expect(audits).toEqual(
+      expect.arrayContaining([
+        "portal_event.create",
+        "portal_event.patch",
+        "event_registration.check_in",
+        "report.participation.read",
+        "report.participation.csv",
+        "report.participation.pdf",
+      ]),
+    );
+    expect(JSON.stringify(db.table("auditLog"))).not.toContain("TESTE Menor");
+    expect(
+      db.table("auditLog").filter((row) => row.action === "event_registration.check_in"),
+    ).toHaveLength(1);
+  });
+});
