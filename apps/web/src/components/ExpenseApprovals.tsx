@@ -5,6 +5,7 @@ import { UIIcon, usePersonaAccess } from "./AppShell";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { formatBRL } from "../lib/das-operations";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
 import s from "./expense-approvals.module.css";
 
@@ -19,11 +20,11 @@ function expenseStep(row: PendingExpense) {
 
 /** A página do pastor mostra apenas despesas para aprovação, nunca o extrato ou contas bancárias. */
 export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: boolean; onApproved?: () => void }) {
+  const { showFeedback } = useFeedback();
   const access = usePersonaAccess();
   const { confirm, confirmation } = useActionConfirmation();
   const [rows, setRows] = useState<PendingExpense[] | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
   const [revision, setRevision] = useState(0);
   const [token, setToken] = useState<string | null>(null);
@@ -69,15 +70,12 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
           : `O lançamento de ${formatBRL(row.amountCents)} seguirá para aprovação do pastor.`,
         action: required === "PASTOR" ? "Aprovar despesa" : "Confirmar conferência",
       }))) return;
-      setNotice("");
       await apiPost("/ledger/entries/" + encodeURIComponent(row.id) + "/approve", token);
-      setNotice(required === "PASTOR"
-        ? "Despesa aprovada e registrada no saldo."
-        : "Conferência da Tesouraria registrada. Aguardando aprovação pastoral.");
+      showFeedback({ tone: "success", title: required === "PASTOR" ? "Despesa aprovada" : "Conferência registrada", message: required === "PASTOR" ? "A despesa foi registrada no saldo e no histórico." : "A conferência da Tesouraria foi registrada. Agora a despesa aguarda aprovação pastoral." });
       setRevision(v => v + 1);
       onApproved?.();
     } catch {
-      setError("Não foi possível registrar a aprovação. Verifique sua permissão e atualize a lista.");
+      showFeedback({ tone: "error", title: "Aprovação não registrada", message: "Verifique sua permissão e atualize a lista antes de tentar novamente." });
     } finally {
       setBusyId("");
     }
@@ -89,7 +87,6 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     {confirmation}
     <PageHeader appearance="workspace" heading={embedded ? "h2" : "h1"} title="Despesas para aprovação"
       description="Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa." />
-    {notice && <p className={s.notice} role="status">{notice}</p>}
     {error && <p className={s.error} role="alert">{error}</p>}
     <div className={s.actions}>
       <strong>{rows === null ? (error ? "Consulta indisponível" : "Consultando…") : `${rows.length} ${rows.length === 1 ? "despesa pendente" : "despesas pendentes"}`}</strong>

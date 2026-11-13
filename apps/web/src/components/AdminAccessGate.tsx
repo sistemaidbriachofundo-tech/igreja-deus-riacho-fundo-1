@@ -63,7 +63,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
   }, [attempt, enabled]);
 
   if (access === "checking") {
-    return <SessionGateNotice mode="checking" />;
+    return <SessionGateLoading />;
   }
   if (access === "forbidden") {
     return <SessionGateNotice mode="forbidden" onSignOut={() => { clearToken(); setAccess("unauthorized"); }} />;
@@ -108,4 +108,33 @@ export function SessionGateNotice({
       {onSignOut && <button type="button" className={styles.gateLinkButton} onClick={onSignOut}>Sair da sessão</button>}
     </div>}
   </main>;
+}
+
+/**
+ * Estado neutro durante a conferência inicial da sessão.
+ * Não revela conteúdo protegido antes da resposta da API.
+ * Os estados de erro e sessão expirada seguem explícitos.
+ */
+function SessionGateLoading() {
+  return (
+    <main className={styles.sessionLoading} role="status" aria-label="Carregando área administrativa" aria-busy="true">
+      <div className={styles.sessionLoadingShell} aria-hidden="true">
+        <div className={styles.sessionLoadingSide}>
+          <div className={styles.sessionLoadingMark} />
+          <div className={styles.sessionLoadingNav} />
+          <div className={styles.sessionLoadingNav} />
+          <div className={styles.sessionLoadingNav} />
+        </div>
+        <div className={styles.sessionLoadingContent}>
+          <div className={styles.sessionLoadingTop} />
+          <div className={styles.sessionLoadingTitle} />
+          <div className={styles.sessionLoadingCards}>
+            <div /><div /><div />
+          </div>
+          <div className={styles.sessionLoadingBody} />
+        </div>
+      </div>
+      <h1 className={styles.screenReaderOnly}>Carregando área administrativa</h1>
+    </main>
+  );
 }

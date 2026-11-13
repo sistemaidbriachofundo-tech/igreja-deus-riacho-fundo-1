@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../lib/api";
@@ -56,13 +57,13 @@ function priceLabel(cents:unknown):string {
 }
 
 export function EventRegistrations({events,token}:{events:DasRecord[];token:string}) {
+  const { showFeedback } = useFeedback();
   const { confirm, confirmation } = useActionConfirmation();
   const [eventId,setEventId]=useState("");
   const [pane,setPane]=useState<Pane>("modalities");
   const [reload,setReload]=useState(0);
   const [data,setData]=useState<ResourceState>(empty);
   const [busy,setBusy]=useState(false);
-  const [message,setMessage]=useState("");
   const [issuedCode,setIssuedCode]=useState("");
 
   const [modalityName,setModalityName]=useState("");
@@ -110,7 +111,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
 
   async function perform(path:string,body?:unknown,after?:()=>void):Promise<boolean> {
     if(busy||data.kind!=="ready")return false;
-    setBusy(true);setMessage("");setIssuedCode("");
+    setBusy(true);setIssuedCode("");
     try {
       const response=await apiPost<unknown>(path,token,body);
       after?.();
@@ -120,18 +121,18 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       if(path.endsWith("/registrations")&&typeof registration?.checkInCode==="string"&&registration.isMinor!==true){
         setIssuedCode(registration.checkInCode);
       }
-      setMessage("Registro atualizado neste ambiente de homologação.");
+      showFeedback({ tone: "success", title: "Registro atualizado", message: "A alteração foi salva na homologação. Confira os dados atualizados." });
       setReload(v=>v+1);
       return true;
-    } catch(err){setMessage(dasError(err));return false;}
+    } catch(err){showFeedback({ tone: "error", title: "Operação não concluída", message: dasError(err) });return false;}
     finally{setBusy(false);}
   }
 
   function createModality(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
-    if(!isValidSlug(modalityCode)||modalityName.trim().length<3){setMessage("Informe nome e código válido com letras minúsculas.");return;}
+    if(!isValidSlug(modalityCode)||modalityName.trim().length<3){showFeedback({ tone: "error", title: "Confira a modalidade", message: "Informe o nome e um código válido com letras minúsculas." });return;}
     const capacity=modalityCapacity.trim()?Number(modalityCapacity):null;
-    if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1)){setMessage("A capacidade deve ser um número inteiro positivo.");return;}
+    if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1)){showFeedback({ tone: "error", title: "Capacidade inválida", message: "A capacidade precisa ser um número inteiro positivo." });return;}
     const [minPartySize,maxPartySize]=partyDefaults[modalityKind];
     void perform(base+"/modalities",{
       code:modalityCode,name:modalityName.trim(),kind:modalityKind,minPartySize,maxPartySize,
@@ -140,11 +141,11 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
   }
   function createLot(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
-    if(!isValidSlug(lotCode)||lotName.trim().length<3){setMessage("Informe código e nome do lote.");return;}
+    if(!isValidSlug(lotCode)||lotName.trim().length<3){showFeedback({ tone: "error", title: "Confira o lote", message: "Informe o nome e o código do lote." });return;}
     const price=lotPrice.trim()==="0"||lotPrice.trim()==="0,00"?0:parseAmountCents(lotPrice);
-    if(price===null){setMessage("O valor deve ser zero ou um preço válido com até duas casas decimais.");return;}
+    if(price===null){showFeedback({ tone: "error", title: "Valor inválido", message: "Informe zero ou um valor com até duas casas decimais." });return;}
     const capacity=lotCapacity.trim()?Number(lotCapacity):null;
-    if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1)){setMessage("Capacidade inválida.");return;}
+    if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1)){showFeedback({ tone: "error", title: "Capacidade inválida", message: "Informe uma capacidade inteira maior que zero." });return;}
     void perform(base+"/lots",{
       name:lotName.trim(),code:lotCode,priceCents:price,status:"DRAFT",currency:"BRL",
       ...(lotModality?{modalityId:lotModality}:{}),...(capacity!==null?{capacity}:{}),
@@ -156,7 +157,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
     const input={displayName:registrationName,modalityId:registrationModality,
       lotId:registrationLot,partySize,isMinor:minor,guardianDisplayName:guardian};
     const error=validateRegistration(input,data.modalities,data.lots);
-    if(error){setMessage(error);return;}
+    if(error){showFeedback({ tone: "error", title: "Confira a inscrição", message: error });return;}
     void perform(base+"/registrations",toRegistrationPayload(input),()=>{
       setRegistrationName("");setGuardian("");setMinor(false);
     });
@@ -164,7 +165,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
   async function checkIn(row:DasRecord){
     const id=keyOf(row.id),provided=(checkInCodes[id]??"").trim(),actual=keyOf(row.checkInCode);
     if(!id||!canCheckInRegistration(row))return;
-    if(!actual||!provided||provided!==actual){setMessage("O código digitado não corresponde à inscrição.");return;}
+    if(!actual||!provided||provided!==actual){showFeedback({ tone: "error", title: "Código de presença incorreto", message: "O código digitado não corresponde à inscrição. Confira o comprovante." });return;}
     if (!(await confirm({
       title: "Registrar presença?",
       subject: row.isMinor === true ? "Inscrição de menor de idade" : registrationTitle(row),
@@ -197,7 +198,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       </div><span className={s.note}>Sem cobrança real</span>
     </div>
     <label className={s.eventSelect}>Escolha o evento
-      <select value={eventId} onChange={e=>{setEventId(e.target.value);setMessage("");setIssuedCode("");setPane("modalities");}}>
+      <select value={eventId} onChange={e=>{setEventId(e.target.value);setIssuedCode("");setPane("modalities");}}>
         <option value="">Selecione um evento</option>
         {events.filter(e=>keyOf(e.id)).map(x=><option key={keyOf(x.id)} value={keyOf(x.id)}>
           {nameOf(x.name)} · {nameOf(x.status,"DRAFT")}
@@ -222,9 +223,8 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       <nav className={s.tabs} aria-label="Etapas de operação do evento">
         {panes.map(t=><button key={t.id} type="button" className={pane===t.id?s.activeTab:s.tab}
           aria-current={pane===t.id?"page":undefined}
-          onClick={()=>{setPane(t.id);setMessage("");setIssuedCode("");}}>{t.label}</button>)}
+          onClick={()=>{setPane(t.id);setIssuedCode("");}}>{t.label}</button>)}
       </nav>
-      {message&&<p className={s.notice} role="status">{message}</p>}
       {issuedCode&&<div className={s.receipt} role="status">
         <strong>Comprovante da inscrição</strong>
         <p>Guarde o código para confirmar a presença. Ele não é exibido quando a inscrição é de menor.</p>

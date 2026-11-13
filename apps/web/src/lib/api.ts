@@ -135,6 +135,41 @@ export function summarizeApiTimings(path?: string): {
   };
 }
 
+/** Resumo por endpoint, sem registrar parâmetros, credenciais ou respostas. */
+export type EndpointTimingSummary = {
+  method: string;
+  path: string;
+  requests: number;
+  failures: number;
+  cacheHits: number;
+  p50Ms: number | null;
+  p95Ms: number | null;
+};
+
+export function summarizeEndpoints(): EndpointTimingSummary[] {
+  const groups = new Map<string, ApiTiming[]>();
+  for (const sample of timings) {
+    // O caminho registrado é a rota, nunca um token ou corpo de requisição.
+    const key = `${sample.method} ${sample.path}`;
+    const group = groups.get(key) ?? [];
+    group.push(sample);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map(group => {
+    const network = group.filter(item => !item.fromCache);
+    const durations = network.map(item => item.durationMs);
+    return {
+      method: group[0].method,
+      path: group[0].path,
+      requests: group.length,
+      failures: network.filter(item => !item.ok).length,
+      cacheHits: group.length - network.length,
+      p50Ms: percentile(durations, 50),
+      p95Ms: percentile(durations, 95),
+    };
+  }).sort((left, right) => (right.p95Ms ?? -1) - (left.p95Ms ?? -1));
+}
+
 type CachedSession = { token: string; user: AuthUser; at: number };
 let cachedSession: CachedSession | null = null;
 

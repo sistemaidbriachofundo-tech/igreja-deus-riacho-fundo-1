@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { APP_SLUG } from "@idbrf/shared";
-import { brandColors, brandCssVars, brandFonts } from "./brand";
+import { brandColors, brandCssVars, brandFonts, officialLogoAsset } from "./brand";
 
 const globalsCss = readFileSync(
   join(__dirname, "../app/globals.css"),
@@ -10,6 +10,39 @@ const globalsCss = readFileSync(
 );
 
 describe("web brand", () => {
+  it("uses the approved SVG without rasterized checkerboard or clipping surfaces", () => {
+    expect(officialLogoAsset).toBe("/images/idb-riacho-oficial-transparente.svg");
+    const svg = readFileSync(join(__dirname, "../../public", officialLogoAsset.slice(1)), "utf8");
+    expect(svg).toContain('viewBox="286 96 1664 1832"');
+    expect(svg).toContain('fill="#ff5700"');
+    expect(svg).toMatch(/<path\b/);
+    expect(svg).not.toMatch(/<(?:rect|image|pattern|foreignObject)\b/i);
+    expect(svg).not.toMatch(/<(?:script|style)\b/i);
+    for (const filename of [
+      "LoginScreen.tsx", "AppShell.tsx", "PublicPortal.tsx",
+      "SiteManager.tsx", "ViviEditorialAssistant.tsx",
+    ]) {
+      const component = readFileSync(join(__dirname, "../components", filename), "utf8");
+      expect(component).toContain("officialLogoAsset");
+      expect(component).not.toContain("idb-riacho-oficial-2026.webp");
+      expect(component).not.toContain("logo-igreja-aprovada.webp");
+    }
+    const rootLayout = readFileSync(join(__dirname, "../app/layout.tsx"), "utf8");
+    expect(rootLayout).toContain("icons: { icon: withBasePath(officialLogoAsset)");
+    const shellCss = readFileSync(join(__dirname, "../components/app-shell.module.css"), "utf8");
+    expect(shellCss).not.toMatch(/\.brandEmblem\s*\{[^}]*background-size:\s*cover/s);
+    const loginCss = readFileSync(join(__dirname, "../components/login-screen.module.css"), "utf8");
+    expect(loginCss).toMatch(/\.brand img\s*\{[^}]*object-fit:\s*contain/s);
+    expect(loginCss).toMatch(/\.brand img\s*\{[^}]*background:\s*transparent/s);
+    const publicCss = readFileSync(join(__dirname, "../components/portal-design-system.module.css"), "utf8");
+    expect(publicCss).not.toMatch(/\.brand img\s*\{[^}]*background:\s*#0b0b0b/s);
+    expect(publicCss).not.toMatch(/\.brand img\s*\{[^}]*border-radius:\s*7px/s);
+    const editorCss = readFileSync(join(__dirname, "../components/site-manager.module.css"), "utf8");
+    expect(editorCss).not.toContain(".previewTop img{border-radius:50%}");
+    const assistantCss = readFileSync(join(__dirname, "../components/vivi-editorial-assistant.module.css"), "utf8");
+    expect(assistantCss).not.toMatch(/\.icon img\s*\{[^}]*object-fit:\s*cover/s);
+  });
+
   it("uses shared slug", () => {
     expect(APP_SLUG).toBe("igreja-deus-riacho-fundo-1");
   });
@@ -21,6 +54,8 @@ describe("web brand", () => {
       creme: "#F7EDE0",
       bronze: "#B8742D",
       terracota: "#C6583E",
+      laranja: "#FF5700",
+      preto: "#000000",
     });
   });
 

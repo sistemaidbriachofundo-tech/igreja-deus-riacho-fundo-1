@@ -5,6 +5,7 @@ import { apiPatch } from "../lib/api";
 import { churchLocalToISO, dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import { eventStatusLabel } from "./events-management/calendar";
 import { EventAgenda } from "./events-management/EventAgenda";
+import { useFeedback } from "./ui/FeedbackProvider";
 import styles from "./events-board.module.css";
 
 type Props={rows:DasRecord[];token:string;refresh:()=>void};
@@ -29,17 +30,17 @@ function patch(d:EventDraft,source:DasRecord):Record<string,unknown>{
   return body;
 }
 export function EventsBoard({rows,token,refresh}:Props){
+  const { showFeedback } = useFeedback();
   const [selected,setSelected]=useState<string|null>(null);
   const [draft,setDraft]=useState<EventDraft>(EMPTY);
   const [busy,setBusy]=useState(false);
-  const [notice,setNotice]=useState("");
   const selectedRow=rows.find(row=>getId(row.id)===selected);
   const agenda=rows.flatMap(row=>{
     const id=getId(row.id);
     return id?[{id,name:asText(row.name)||"Evento",status:asText(row.status)||"DRAFT",startsAt:asText(row.startsAt)}]:[];
   });
   function begin(row:DasRecord){
-    setSelected(getId(row.id));setDraft(fromRecord(row));setNotice("");
+    setSelected(getId(row.id));setDraft(fromRecord(row));
   }
   function update<K extends keyof EventDraft>(key:K,value:EventDraft[K]){
     setDraft(state=>({...state,[key]:value}));
@@ -48,21 +49,21 @@ export function EventsBoard({rows,token,refresh}:Props){
     event.preventDefault();
     if(!selected||!selectedRow||busy)return;
     const status=asText(selectedRow.status);
-    if(status!=="DRAFT"){setNotice("Somente eventos em rascunho podem ser alterados nesta tela.");return;}
+    if(status!=="DRAFT"){showFeedback({ tone: "warning", title: "Edição indisponível", message: "Somente eventos em rascunho podem ser alterados nesta tela." });return;}
     if(draft.name.trim().length<3||!/^[a-z0-9-]{3,80}$/.test(draft.slug)){
-      setNotice("Nome e identificador inválidos.");return;
+      showFeedback({ tone: "error", title: "Confira o evento", message: "Informe um nome e um identificador válido com letras minúsculas, números e hífens." });return;
     }
-    if(draft.startsAt&&!churchLocalToISO(draft.startsAt)){setNotice("Data inicial inválida.");return;}
-    if(draft.endsAt&&!churchLocalToISO(draft.endsAt)){setNotice("Data final inválida.");return;}
+    if(draft.startsAt&&!churchLocalToISO(draft.startsAt)){showFeedback({ tone: "error", title: "Confira a data", message: "Informe uma data inicial válida." });return;}
+    if(draft.endsAt&&!churchLocalToISO(draft.endsAt)){showFeedback({ tone: "error", title: "Confira a data", message: "Informe uma data final válida." });return;}
     const start=draft.startsAt?Date.parse(churchLocalToISO(draft.startsAt)!):Date.parse(asText(selectedRow.startsAt));
     const end=draft.endsAt?Date.parse(churchLocalToISO(draft.endsAt)!):Date.parse(asText(selectedRow.endsAt));
-    if(Number.isFinite(end)&&Number.isFinite(start)&&end<start){setNotice("O encerramento precisa acontecer após o início.");return;}
+    if(Number.isFinite(end)&&Number.isFinite(start)&&end<start){showFeedback({ tone: "error", title: "Confira as datas", message: "O encerramento precisa acontecer após o início do evento." });return;}
     const body=patch(draft,selectedRow);
-    if(Object.keys(body).length===0){setNotice("Nenhuma alteração identificada.");return;}
-    setBusy(true);setNotice("");
+    if(Object.keys(body).length===0){showFeedback({ tone: "info", title: "Nenhuma alteração", message: "Não há mudanças para salvar neste rascunho." });return;}
+    setBusy(true);
     try{await apiPatch("/events/"+encodeURIComponent(selected),token,body);
-      refresh();setSelected(null);setDraft(EMPTY);setNotice("Rascunho atualizado.");
-    }catch(e){setNotice(dasError(e));}
+      refresh();setSelected(null);setDraft(EMPTY);showFeedback({ tone: "success", title: "Rascunho atualizado", message: "As alterações do evento foram salvas. Ele não foi publicado." });
+    }catch(e){showFeedback({ tone: "error", title: "Não foi possível salvar", message: dasError(e) });}
     finally{setBusy(false);}
   }
   return <section className={styles.board} aria-labelledby="eventos-heading">
@@ -73,7 +74,6 @@ export function EventsBoard({rows,token,refresh}:Props){
       const row=rows.find(item=>getId(item.id)===id);
       if(row&&asText(row.status)==="DRAFT") begin(row);
     }}/>
-    {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <div className={styles.stack}>
       {rows.length===0&&<p className={styles.empty}>Nenhum evento nesta agenda.</p>}
       {rows.map((row,i)=>{

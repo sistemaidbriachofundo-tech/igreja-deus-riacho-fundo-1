@@ -10,6 +10,7 @@ import {
 import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import { authenticatedLanding } from "../lib/auth-destination";
 import { generateAuthenticatorQr } from "../lib/authenticator-qr";
 import { Alert } from "./ui/Alert";
@@ -167,7 +168,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
         <aside className={styles.story} aria-label="Identidade da Igreja de Deus">
           <div className={styles.brand}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={withBasePath("/images/idb-riacho-oficial-2026.webp")} alt="Igreja de Deus — Riacho Fundo I" width={64} height={64}/>
+            <img src={withBasePath(officialLogoAsset)} alt="Igreja de Deus — Riacho Fundo I" width={80} height={90}/>
             <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}

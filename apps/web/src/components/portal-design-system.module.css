@@ -69,9 +69,10 @@
   width: 44px;
   height: 44px;
   flex: none;
-  border-radius: 7px;
-  background: #0b0b0b;
+  border-radius: 0;
+  background: transparent;
   object-fit: contain;
+  object-position: center;
 }
 
 .brand strong, .brand small {
@@ -198,7 +199,7 @@
 .theme .headerLogin:hover { background: #d64a11; }
 .theme .masthead { box-shadow: 0 5px 24px #07070816; }
 .theme .brand strong { letter-spacing: .035em; }
-.theme .brand img { border-radius: 7px; }
+.theme .brand img { border-radius: 0; }
 @media (prefers-reduced-motion: reduce) {
   .theme *, .theme *::before, .theme *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }

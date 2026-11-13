@@ -54,14 +54,14 @@ describe("portal V1: Início, Quem somos, Agenda e Login", () => {
 
   it("preserva a identidade visual e a navegação acessível", () => {
     const images = join(__dirname, "../../public/images");
-    for (const image of ["idb-riacho-oficial-2026.webp", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
+    for (const image of ["idb-riacho-oficial-transparente.svg", "hero-oficial.jpg", "adoracao-oficial.jpg", "comunidade-oficial.jpg"]) {
       expect(existsSync(join(images, image)), image).toBe(true);
     }
     // Capa real enviada para a homologação, mantendo o restante do cadastro do Work.
     expect(existsSync(join(images, "fachada-igreja-riacho-fundo.jpg"))).toBe(true);
     expect(read("lib/site-layout.ts")).toContain('"/images/fachada-igreja-riacho-fundo.jpg"');
     expect(read("components/PortalCinematicHero.tsx")).toContain("PUBLIC_FACADE_IMAGE");
-    expect(shell).toContain("idb-riacho-oficial-2026.webp");
+    expect(shell).toContain("officialLogoAsset");
     expect(css).toContain("prefers-reduced-motion");
     expect(shell).toContain("Pular para o conteúdo");
     expect(read("components/PortalDesktopNavigation.tsx")).toContain('aria-label="Navegação do site público"');

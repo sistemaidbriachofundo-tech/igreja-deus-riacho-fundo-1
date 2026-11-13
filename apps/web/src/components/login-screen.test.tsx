@@ -37,7 +37,7 @@ describe("Acesso institucional antes do painel", () => {
         <div>INFORMAÇÕES ADMINISTRATIVAS PRIVADAS</div>
       </AdminAccessGate>,
     );
-    expect(html).toContain("Verificando seu acesso");
+    expect(html).toContain("Carregando área administrativa");
     expect(html).not.toContain("INFORMAÇÕES ADMINISTRATIVAS PRIVADAS");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
   });
