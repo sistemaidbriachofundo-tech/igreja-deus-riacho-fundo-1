@@ -14,7 +14,7 @@ Regras:
 
 1. Ninguém faz commit direto em `production` (só PR com review).
 2. PR para `production` só depois de verde em HML (`main` / Pages + API HML).
-3. Merge em `production` dispara o workflow **Production** (lint → typecheck → test → build → segurança → **Sonar hard gate**).
+3. Merge em `production` dispara o workflow **Production** (lint → typecheck → test → build → segurança → **Quality Gate do SonarCloud obrigatório**).
 4. O job `promote-ready` usa o Environment GitHub **`production`** (aprovação manual). **Não** altera DNS.
 
 ## Sonar de produção
@@ -24,7 +24,7 @@ Regras:
 | Workflow | `.github/workflows/ci.yml` | `.github/workflows/production.yml` |
 | Token | Environment `SONAR_TOKEN` | Environment `SONAR_TOKEN` |
 | Gate | Soft / skip se token ausente | **Obrigatório** — falha sem token |
-| Quality Gate | Não espera | `sonar.qualitygate.wait=true` |
+| Quality Gate | Envia análise de `main` | Exige árvore idêntica a `main` e Quality Gate OK da análise do commit exato |
 
 Config base: `sonar-project.properties` (mesmo projeto SonarCloud).  
 No SonarCloud, mantenha o Quality Gate padrão (ou um gate “Production”) associado ao projeto `sistemaidbriachofundo-tech_igreja-deus-riacho-fundo-1`.
