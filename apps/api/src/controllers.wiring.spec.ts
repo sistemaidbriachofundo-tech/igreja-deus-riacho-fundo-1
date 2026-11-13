@@ -566,13 +566,17 @@ describe("controller wiring (delegates to services)", () => {
       cancel: jest.fn(),
       setGuardianAuthorization: jest.fn(),
       handleMockPaymentWebhook: jest.fn(),
+      checkInOnEvent: jest.fn(),
     };
+    const reports = { participation: jest.fn() };
+    const churchPayments = { reconcile: jest.fn() };
+    const receivingAccounts = { listForEvents: jest.fn() };
     const c = new EventsController(
       events as never,
       registrations as never,
-      { participation: jest.fn() } as never,
-      { reconcile: jest.fn() } as never,
-      { listForEvents: jest.fn() } as never,
+      reports as never,
+      churchPayments as never,
+      receivingAccounts as never,
     );
     await c.create(user, {
       name: "Encontro",
@@ -612,6 +616,14 @@ describe("controller wiring (delegates to services)", () => {
       displayName: "Demo",
       modalityId: "mod1",
     });
+    await c.receivingAccountsList(user);
+    await c.reconcile(user, "pi1", { bankCreditConfirmed: true });
+    await c.attendance(user, "e1");
+    await c.checkInOnEvent(user, "e1", { checkInCode: "abc123def4567890" });
+    expect(receivingAccounts.listForEvents).toHaveBeenCalledWith(user);
+    expect(churchPayments.reconcile).toHaveBeenCalledWith(user, "pi1", true);
+    expect(reports.participation).toHaveBeenCalledWith(user, { eventId: "e1" });
+    expect(registrations.checkInOnEvent).toHaveBeenCalledWith(user, "e1", "abc123def4567890");
     expect(events.archive).toHaveBeenCalledWith(user, "e1");
     expect(registrations.createStaffRegistration).toHaveBeenCalled();
     expect(registrations.createLodgingOption).toHaveBeenCalled();

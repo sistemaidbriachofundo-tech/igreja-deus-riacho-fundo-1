@@ -14,6 +14,13 @@ describe("foto de perfil", () => {
     await expect(normalizeProfilePhoto(huge)).rejects.toMatchObject({
       response: { code: "ACCOUNT_PHOTO_TOO_LARGE" },
     });
+    await expect(normalizeProfilePhoto(Buffer.alloc(0))).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PHOTO_REQUIRED" },
+    });
+    const broken = Buffer.from([0xff, 0xd8, 0xff, 0x00, 1, 2, 3, 4, 5, 6, 7, 8]);
+    await expect(normalizeProfilePhoto(broken)).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PHOTO_INVALID" },
+    });
   });
 
   it("normaliza PNG e WebP para o JPEG que a carteirinha já sabe ler", async () => {

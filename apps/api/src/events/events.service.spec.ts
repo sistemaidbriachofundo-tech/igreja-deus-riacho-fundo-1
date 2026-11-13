@@ -359,4 +359,41 @@ describe("EventsService", () => {
       eventPublicationBlockReason({ description: "CPF 123.456.789-00" }),
     ).toMatch(/Publicação bloqueada/);
   });
+
+  it("recusa publicar lote pago quando a conta da igreja está inativa", async () => {
+    const prisma = {
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(eventRow) },
+      eventLot: {
+        findMany: jest.fn().mockResolvedValue([{ receivingAccountId: "acc-1" }]),
+      },
+      churchReceivingAccount: {
+        findMany: jest.fn().mockResolvedValue([{ id: "acc-1", active: false }]),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new EventsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.publish(secretaria, "e1")).rejects.toThrow(/não está ativa/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("publica quando a conta de recebimento continua ativa", async () => {
+    const tx = {
+      portalEvent: { update: jest.fn().mockResolvedValue({ ...eventRow, status: "PUBLISHED" }) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(eventRow) },
+      eventLot: { findMany: jest.fn().mockResolvedValue([]) },
+      churchReceivingAccount: { findMany: jest.fn() },
+      $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
+    };
+    const service = new EventsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.publish(secretaria, "e1")).resolves.toMatchObject({ status: "PUBLISHED" });
+  });
 });

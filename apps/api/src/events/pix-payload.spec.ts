@@ -15,5 +15,12 @@ describe("Pix da conta da igreja", () => {
     expect(payload).toContain("Brasilia");
     expect(payload.slice(-4)).toBe(pixCrc16(payload.slice(0, -4)));
     expect(payload).not.toMatch(/mercado ?pago|gateway/i);
+    expect(() => buildPixCopiaECola({
+      pixKey: "evento.teste@example.test",
+      merchantName: "Igreja",
+      merchantCity: "Brasilia",
+      amountCents: 0,
+      txid: "abc",
+    })).toThrow(/Valor Pix/);
   });
 });
