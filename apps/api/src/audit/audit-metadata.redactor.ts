@@ -220,7 +220,7 @@ const ISO_DATE =
 const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const JWT = /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const SECRET_MATERIAL =
-  /^(?:sk|pk|rk)_[A-Za-z0-9]|bearer\s+\S|-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
+  /(?:^(?:sk|pk|rk)_[A-Za-z0-9])|(?:bearer\s+\S)|(?:-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
 const LABEL_NARRATIVE =
   /pix|senha|oracao|menor|aconselh|testemunh|chave|cpf|token|secret|documento|saldo|iban|confiss/;
 

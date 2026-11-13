@@ -51,7 +51,7 @@ export function CommunicationsBoard({templates,token}:Props){
 
   const outgoing=useMemo(()=>load.outbox.filter(row=>
     (channel==="ALL"||row.channel===channel)&&(status==="ALL"||row.status===status)),[load.outbox,channel,status]);
-  const statuses=useMemo(()=>[...new Set(load.outbox.map(x=>str(x.status)).filter(Boolean))].sort(),[load.outbox]);
+  const statuses=useMemo(()=>[...new Set(load.outbox.map(x=>str(x.status)).filter(Boolean))].sort((left, right) => left.localeCompare(right, "pt-BR")),[load.outbox]);
   const unsafeProvider=load.state==="ready"&&(
     !providerIsSafeMock(load.providers.whatsapp)||
     !providerIsSafeMock(load.providers.email)||

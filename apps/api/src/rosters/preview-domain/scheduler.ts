@@ -26,7 +26,7 @@ export function rankCandidates(slot: SlotDemand, candidates: readonly Candidate[
   for(const candidate of candidates){
     const decision=evaluateCandidate(candidate,slot,candidates,history,rules);
     if(!decision.eligible) continue;
-    const key=[...decision.personIds].sort().join('|');
+    const key=[...decision.personIds].sort((left, right) => (left < right ? -1 : Number(left > right))).join('|');
     if(alreadySeen.has(key)) continue;
     alreadySeen.add(key);
     result.push({candidate,personIds:decision.personIds,score:pairScore(decision.personIds,slot,history,rules)});
