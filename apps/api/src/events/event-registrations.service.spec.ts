@@ -340,7 +340,10 @@ describe("EventRegistrationsService", () => {
       checkedInAt: now,
     };
     const tx = {
-      eventRegistration: { update: jest.fn().mockResolvedValue(checked) },
+      eventRegistration: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(checked),
+      },
       auditLog: { create: jest.fn() },
     };
     const prisma = {
@@ -686,6 +689,34 @@ describe("EventRegistrationsService", () => {
     await expect(
       service.checkIn(secretaria, "reg1", "wrong-code"),
     ).rejects.toThrow(/não confere/);
+  });
+
+  it("returns the first committed check-in and skips a duplicate audit on concurrent requests", async () => {
+    const confirmed = { ...registration, status: "CONFIRMED" };
+    const checkedIn = { ...confirmed, status: "CHECKED_IN", checkedInAt: now };
+    const tx = {
+      eventRegistration: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(checkedIn),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new EventRegistrationsService(
+      {
+        eventRegistration: { findFirst: jest.fn().mockResolvedValue(confirmed) },
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        ...withTx(tx),
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const result = await service.checkIn(secretaria, "reg1", confirmed.checkInCode);
+
+    expect(result.checkedInAt).toBe(now.toISOString());
+    expect(tx.eventRegistration.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: "CONFIRMED" }) }),
+    );
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("cancel is idempotent when already cancelled", async () => {
@@ -1506,7 +1537,8 @@ describe("EventRegistrationsService", () => {
 
       const txCheck = {
         eventRegistration: {
-          update: jest.fn().mockResolvedValue(checkedIn),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue(checkedIn),
         },
         auditLog: { create: jest.fn() },
       };

@@ -75,6 +75,8 @@ export function isInvalidSession(error: unknown): boolean {
 
 /** Alinhado ao timeout das leituras públicas. Não é um 401. */
 export const API_TIMEOUT_MS = 8_000;
+/** Login e MFA precisam tolerar a inicialização da API antes de cancelar a requisição. */
+const AUTH_TIMEOUT_MS = 20_000;
 /** Evita repetir /auth/me a cada troca de página. O servidor continua autorizando os dados. */
 export const SESSION_FRESH_MS = 120_000;
 export const SESSION_UNAUTHORIZED_EVENT = "idbrf:session-unauthorized";
@@ -345,7 +347,10 @@ async function settle<T>(
 }
 
 export function beginLogin(email: string, password: string, options?: ApiCallOptions) {
-  return settle<LoginResult | LoginChallenge>("POST", "/auth/login", null, { email, password }, options, false);
+  return settle<LoginResult | LoginChallenge>(
+    "POST", "/auth/login", null, { email, password },
+    { ...options, timeoutMs: options?.timeoutMs ?? AUTH_TIMEOUT_MS }, false,
+  );
 }
 
 export async function apiLogin(email: string, password: string, options?: ApiCallOptions): Promise<LoginResult> {
@@ -357,12 +362,15 @@ export async function apiLogin(email: string, password: string, options?: ApiCal
 }
 
 export function beginMfaEnrollment(challengeId: string) {
-  return settle<MfaEnrollment>("POST", "/auth/mfa/enroll", null, { challengeId }, undefined, false);
+  return settle<MfaEnrollment>("POST", "/auth/mfa/enroll", null, { challengeId }, { timeoutMs: AUTH_TIMEOUT_MS }, false);
 }
 
 export function verifyLoginChallenge(challenge: LoginChallenge["mfa"], code: string) {
   const path = challenge.enrollmentRequired ? "/auth/mfa/enroll/confirm" : "/auth/mfa/challenge";
-  return settle<LoginResult>("POST", path, null, { challengeId: challenge.challengeId, code }, undefined, false);
+  return settle<LoginResult>(
+    "POST", path, null, { challengeId: challenge.challengeId, code },
+    { timeoutMs: AUTH_TIMEOUT_MS }, false,
+  );
 }
 
 export function mfaFailureMessage(error: unknown): string {

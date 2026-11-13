@@ -174,6 +174,11 @@ function createMemoryPrisma() {
       const found = table(name).find((row) => matches(hydrate(name, row), args?.where));
       return found ? { ...hydrate(name, found) } : null;
     },
+    async findUniqueOrThrow({ where }: { where: Record<string, unknown> }) {
+      const found = table(name).find((row) => matches(row, where));
+      if (!found) throw new Error(`missing ${name}`);
+      return { ...hydrate(name, found) };
+    },
     async findMany(args?: {
       where?: Record<string, unknown>;
       orderBy?: unknown;
@@ -207,6 +212,19 @@ function createMemoryPrisma() {
       if (!found) throw new Error(`missing ${name}`);
       Object.assign(found, data, { updatedAt: new Date() });
       return { ...hydrate(name, found) };
+    },
+    async updateMany({
+      where,
+      data,
+    }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) {
+      const rows = table(name).filter((row) => matches(row, where));
+      for (const row of rows) {
+        Object.assign(row, data, { updatedAt: new Date() });
+      }
+      return { count: rows.length };
     },
     async count(args?: { where?: Record<string, unknown> }) {
       return table(name).filter((row) => matches(hydrate(name, row), args?.where)).length;

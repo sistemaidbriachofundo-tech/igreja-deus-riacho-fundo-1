@@ -59,7 +59,7 @@ export class ChurchAccessController {
       take: 26,
       select: {
         id: true, email: true, status: true,
-        accessInvitations: { take: 1, orderBy: { createdAt: "desc" }, select: { sentAt: true, consumedAt: true, revokedAt: true, expiresAt: true } },
+        accessInvitations: { where: { purpose: "ACTIVATION" }, take: 1, orderBy: { createdAt: "desc" }, select: { sentAt: true, consumedAt: true, revokedAt: true, expiresAt: true } },
         person: { select: { id: true, displayName: true } },
         grants: {
           where: { AND: [{ OR: [{ organizationId }, { organizationId: null }] }, { OR: [{ churchId }, { churchId: null }] }] },
@@ -69,8 +69,8 @@ export class ChurchAccessController {
     });
     return {
       accounts: rows.slice(0, 25).map(({ grants, accessInvitations, ...row }) => ({
-        invitationStatus: row.status === "DISABLED" && !accessInvitations[0]?.consumedAt
-          ? (accessInvitations[0]?.sentAt ? "INVITED" : "PENDING_EMAIL") : null,
+        invitationStatus: row.status === "DISABLED" && accessInvitations[0] && !accessInvitations[0].consumedAt
+          ? (accessInvitations[0].sentAt ? "INVITED" : "PENDING_EMAIL") : null,
         ...row, profiles: grants.map(grant => ({ role: grant.role.code, ministry: grant.ministry?.name ?? null })),
       })),
       hasMore: rows.length > 25,
@@ -100,12 +100,13 @@ export class ChurchAccessController {
     const { organizationId, churchId } = await this.scope(actor);
     if (!this.invitations) throw new ServiceUnavailableException("Envio de convites indisponível.");
     // Falha fechada: evita contas órfãs quando a entrega por e-mail está desconfigurada.
-    inviteEmailConfig();
+    const deliveryConfig = inviteEmailConfig();
     if (!assignableRoles.includes(input.role)) throw new BadRequestException("Perfil inválido.");
     const isLeader = input.role === ROLE_CODES.LIDER_MINISTERIO;
     const ministryId = isLeader ? input.ministryId?.trim() : undefined;
     if (isLeader && !ministryId) throw new BadRequestException("Selecione o ministério que a pessoa lidera.");
     const email = input.email.trim().toLowerCase();
+    assertTestRecipient(email, deliveryConfig.preview);
     const issued = this.invitations.newToken();
     try {
       const created = await this.prisma.$transaction(async tx => {
@@ -142,7 +143,7 @@ export class ChurchAccessController {
       const delivery = await this.invitations.deliver({
         inviteId: created.invite.id, token: issued.token, email, name: created.person.displayName,
       });
-      return { ...created.user, person: { id: created.person.id, displayName: created.person.displayName }, invite: delivery, invitationStatus: "INVITED" };
+      return { ...created.user, person: { id: created.person.id, displayName: created.person.displayName }, invite: delivery, invitationStatus: delivery.sent ? "INVITED" : "PENDING_EMAIL" };
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && (error.code === "P2002" || error.code === "P2034")) {
         throw new ConflictException("Esta pessoa ou e-mail já tem acesso, ou outro cadastro está sendo salvo. Atualize a lista.");
@@ -153,43 +154,67 @@ export class ChurchAccessController {
 
   @Post(":userId/invite/resend")
   async resend(@CurrentUser() actor: AuthUser, @Param("userId") userId: string) {
+    return this.issueExistingAccountLink(actor, userId, "ACTIVATION");
+  }
+
+  @Post(":userId/password/reset")
+  resetPassword(@CurrentUser() actor: AuthUser, @Param("userId") userId: string) {
+    return this.issueExistingAccountLink(actor, userId, "PASSWORD_RESET");
+  }
+
+  private async issueExistingAccountLink(
+    actor: AuthUser,
+    userId: string,
+    purpose: "ACTIVATION" | "PASSWORD_RESET",
+  ) {
     const { organizationId, churchId } = await this.scope(actor);
+    const reset = purpose === "PASSWORD_RESET";
     if (!this.invitations) throw new ServiceUnavailableException("Envio de convites indisponível.");
-    inviteEmailConfig();
-    const issued = this.invitations.newToken();
+    const deliveryConfig = inviteEmailConfig();
+    const issued = this.invitations.newToken(purpose);
     const created = await this.prisma.$transaction(async tx => {
       const user = await tx.user.findFirst({
         where: { id: userId, person: { organizationId, homeChurchId: churchId } },
         select: { id: true, email: true, status: true, passwordHash: true, person: { select: { displayName: true, email: true } } },
       });
-      if (!user || user.status !== "DISABLED" || user.passwordHash) {
-        throw new ConflictException("Este usuário não possui um convite pendente para ativação.");
+      if (!user || (reset ? user.status !== "ACTIVE" || !user.passwordHash
+        : user.status !== "DISABLED" || Boolean(user.passwordHash))) {
+        throw new ConflictException(reset ? "Somente uma conta ativa pode recuperar a senha."
+          : "Este usuário não possui um convite pendente para ativação.");
       }
       if (user.person.email?.trim().toLowerCase() !== user.email) {
         throw new BadRequestException("O endereço de e-mail mudou. Confira a ficha antes de reenviar o convite.");
       }
+      assertTestRecipient(user.email, deliveryConfig.preview);
       const recent = await tx.accessInvitation.findFirst({
-        where: { userId, sentAt: { gte: new Date(Date.now() - 60000) } },
+        where: { userId, purpose, revokedAt: null, createdAt: { gte: new Date(Date.now() - 60000) } },
         select: { id: true },
       });
-      if (recent) throw new ConflictException("Aguarde ao menos um minuto antes de reenviar.");
-      await tx.accessInvitation.updateMany({
-        where: { userId, consumedAt: null, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      if (recent) throw new ConflictException("Aguarde ao menos um minuto antes de solicitar outro link.");
       const invite = await tx.accessInvitation.create({
-        data: { userId, tokenHash: issued.tokenHash, email: user.email, expiresAt: issued.expiresAt },
+        data: { userId, purpose, tokenHash: issued.tokenHash, email: user.email, expiresAt: issued.expiresAt },
         select: { id: true },
       });
       await tx.auditLog.create({ data: {
-        actorUserId: actor.userId, action: "access.invite.resend", resourceType: "user", resourceId: userId,
+        actorUserId: actor.userId, action: reset ? "access.password.reset.request" : "access.invite.resend", resourceType: "user", resourceId: userId,
         organizationId, churchId,
       } });
       return { user, invite };
-    }, { isolationLevel: "Serializable" });
-    return this.invitations.deliver({
-      inviteId: created.invite.id, token: issued.token, email: created.user.email, name: created.user.person.displayName,
+    }, { isolationLevel: "Serializable" }).catch(error => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("Outro link está sendo criado para esta conta.");
+      }
+      throw error;
     });
+    const delivery = await this.invitations.deliver({
+      inviteId: created.invite.id, token: issued.token, email: created.user.email, name: created.user.person.displayName, purpose,
+    });
+    await this.prisma.accessInvitation.updateMany({
+      where: { userId, purpose, id: { not: created.invite.id }, consumedAt: null, revokedAt: null,
+        expiresAt: { lt: issued.expiresAt } },
+      data: { revokedAt: new Date() },
+    });
+    return delivery;
   }
 
   private async scope(actor: AuthUser) {
@@ -200,6 +225,12 @@ export class ChurchAccessController {
       throw new ForbiddenException("Sem permissão para administrar acessos nesta congregação.");
     }
     return pilot;
+  }
+}
+
+function assertTestRecipient(email: string, preview: boolean) {
+  if (preview && !email.endsWith("@example.test")) {
+    throw new BadRequestException("A entrega de teste é restrita a contas fictícias.");
   }
 }
 
@@ -225,5 +256,12 @@ export class AccessActivationController {
   @Post("activate-invite")
   activate(@Body() body: ActivateInviteBody) {
     return this.invitations.accept(body);
+  }
+
+  @Public()
+  @Header("Cache-Control", "no-store")
+  @Post("reset-password")
+  reset(@Body() body: ActivateInviteBody) {
+    return this.invitations.accept(body, "PASSWORD_RESET");
   }
 }
