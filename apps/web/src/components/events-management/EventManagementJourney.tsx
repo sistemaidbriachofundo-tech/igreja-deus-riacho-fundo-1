@@ -10,16 +10,19 @@ import {
   canRecordPresence,
   participationQuery,
   publicationBlockReason,
+  readEventPaymentAccounts,
   readParticipation,
   registrationLabel,
   toManagedEvent,
   toManagedRegistration,
+  type EventPaymentAccount,
   type ManagedEvent,
   type ManagedRegistration,
   type ParticipationView,
 } from "../../lib/event-management";
 import { withBasePath } from "../../lib/paths";
 import { eventStatusLabel } from "./calendar";
+import { EventRegistrationDesk } from "./EventRegistrationDesk";
 import { EventAgenda } from "./EventAgenda";
 import s from "./event-management.module.css";
 
@@ -34,6 +37,9 @@ export function EventManagementJourney() {
   const [token, setToken] = useState("");
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [canReconcile, setCanReconcile] = useState(false);
+  const [treasuryOnly, setTreasuryOnly] = useState(false);
+  const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);
   const [creating, setCreating] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<Draft>(EMPTY);
   const [registrations, setRegistrations] = useState<ManagedRegistration[]>([]);
@@ -54,10 +60,14 @@ export function EventManagementJourney() {
     if (!stored) { setPhase("signed-out"); return; }
     let cancelled = false;
     void apiGet<LoginResult["user"]>("/auth/me", stored)
-      .then(async () => {
+      .then(async user => {
         if (cancelled) return;
         setToken(stored);
-        const body = await apiGet<unknown>("/events", stored);
+        const treasury = user.grants.some(grant => grant.roleCode === "TESOURARIA");
+        const staff = user.grants.some(grant => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"].includes(grant.roleCode));
+        setCanReconcile(treasury);
+        setTreasuryOnly(treasury && !staff);
+        const body = await apiGet<unknown>(treasury && !staff ? "/events/conciliacao" : "/events", stored);
         if (cancelled) return;
         setEvents(readDasRows(body, "events").flatMap((row) => {
           const event = toManagedEvent(row);
@@ -73,6 +83,15 @@ export function EventManagementJourney() {
       });
     return () => { cancelled = true; };
   }, [enabled]);
+
+  useEffect(() => {
+    if (!token || phase !== "ready") return;
+    let cancelled = false;
+    void apiGet<unknown>("/events/receiving-accounts", token)
+      .then(body => { if (!cancelled) setPaymentAccounts(readEventPaymentAccounts(body)); })
+      .catch(() => { if (!cancelled) setPaymentAccounts(null); });
+    return () => { cancelled = true; };
+  }, [token, phase]);
 
   const selected = events.find((event) => event.id === selectedId) ?? null;
   const blockReason = selected ? publicationBlockReason(selected) : null;
@@ -112,7 +131,7 @@ export function EventManagementJourney() {
       return;
     }
     void run(async () => {
-      await apiPost("/events", token, {
+      const created = await apiPost<{ id: string }>("/events", token, {
         name: creating.name.trim(),
         slug: creating.slug.trim(),
         startsAt,
@@ -120,8 +139,15 @@ export function EventManagementJourney() {
         locationText: creating.locationText.trim() || null,
       });
       setCreating(EMPTY);
-      setNotice("Rascunho gravado. A agenda pública continua sem este encontro.");
-      await reloadEvents();
+      setNotice("Rascunho gravado. Configure as modalidades e os lotes antes de publicar.");
+      const updated = await reloadEvents();
+      const draft = updated.find(item => item.id === created.id);
+      if (draft) {
+        setSelectedId(draft.id);
+        setEditing({ name: draft.name, slug: draft.slug, description: draft.description, locationText: draft.locationText, startsAt: "" });
+        setRegistrations([]);
+        setReport(null);
+      }
     });
   }
 
@@ -167,7 +193,7 @@ export function EventManagementJourney() {
       startsAt: "",
     });
     if (event.status === "PUBLISHED" || event.status === "CANCELLED") {
-      void run(() => reloadRegistrations(eventId));
+      if (!treasuryOnly) void run(() => reloadRegistrations(eventId));
     }
   }
 
@@ -269,10 +295,16 @@ export function EventManagementJourney() {
       <EventManagementView
         phase={phase}
         production={production}
+        treasuryOnly={treasuryOnly}
         notice={notice}
         events={events}
         selected={selected}
         creating={creating}
+        registrationDesk={selected && token && paymentAccounts !== null ? (
+          <EventRegistrationDesk key={selected.id} event={selected} token={token}
+            accounts={paymentAccounts} canReconcile={canReconcile} canManage={!treasuryOnly}
+            onAccountsChanged={async () => setPaymentAccounts(readEventPaymentAccounts(await apiGet("/events/receiving-accounts", token)))} />
+        ) : null}
         editing={editing}
         registrations={registrations}
         report={report}
@@ -312,11 +344,13 @@ function textId(value: unknown) {
 
 export function EventManagementView(props: {
   production?: boolean;
+  treasuryOnly?: boolean;
   phase: Phase;
   notice: string;
   events: ManagedEvent[];
   selected: ManagedEvent | null;
   creating: Draft;
+  registrationDesk?: React.ReactNode;
   editing: Draft;
   registrations: ManagedRegistration[];
   report: ParticipationView | null;
@@ -367,7 +401,7 @@ export function EventManagementView(props: {
         <h2>Agenda</h2>
         <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
       </section>
-      <form className={s.panel} onSubmit={props.onCreate}>
+      {!props.treasuryOnly && <form className={s.panel} onSubmit={props.onCreate}>
         <h2>Novo rascunho</h2>
         <div className={s.grid}>
           <label>Nome<input value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
@@ -377,8 +411,8 @@ export function EventManagementView(props: {
           <label className={s.wide}>Descrição sem dados pessoais<textarea value={props.creating.description} onChange={(event) => props.onCreating({ ...props.creating, description: event.target.value })} maxLength={1200}/></label>
         </div>
         <button type="submit" disabled={props.busy}>Gravar rascunho</button>
-      </form>
-      {props.selected && <section className={s.panel}>
+      </form>}
+      {!props.treasuryOnly && props.selected && <section className={s.panel}>
         <h2>Revisar e publicar</h2>
         <p className={s.lede}>{props.selected.name} · {eventStatusLabel(props.selected.status)}</p>
         {props.selected.status === "DRAFT" && <form className={s.grid} onSubmit={props.onSave}>
@@ -394,7 +428,8 @@ export function EventManagementView(props: {
           {props.production ? "Publicar evento" : "Publicar na homologação"}
         </button>
       </section>}
-      {published && props.selected && <section className={s.panel}>
+      {props.registrationDesk}
+      {published && props.selected && !props.registrationDesk && !props.treasuryOnly && <section className={s.panel}>
         <h2>Inscrições e presença</h2>
         {!props.production && <form className={s.grid} onSubmit={props.onRegister}>
           <label>Rótulo fictício<input value={props.participant} onChange={(event) => props.onParticipant(event.target.value)} required/></label>
@@ -411,7 +446,7 @@ export function EventManagementView(props: {
           </article>)}
         </div>
       </section>}
-      {props.selected && <form className={s.panel} onSubmit={props.onReport}>
+      {!props.treasuryOnly && props.selected && <form className={s.panel} onSubmit={props.onReport}>
         <h2>Filtrar e exportar participação</h2>
         <div className={s.grid}>
           <label>Situação<select value={props.statusFilter} onChange={(event) => props.onStatus(event.target.value)}>

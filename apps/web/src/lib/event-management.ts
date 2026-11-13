@@ -14,6 +14,18 @@ export type ManagedEvent = {
   startsAt: string;
 };
 
+export type EventPaymentAccount = { id: string; name: string };
+
+export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] | null {
+  if (!value || typeof value !== "object" || !("accounts" in value) || !Array.isArray(value.accounts)) return null;
+  return value.accounts.flatMap((account: unknown) => {
+    if (!account || typeof account !== "object" || !("id" in account)) return [];
+    const id = text(account.id);
+    const name = text("displayName" in account ? account.displayName : "name" in account ? account.name : null);
+    return id && name ? [{ id, name }] : [];
+  });
+}
+
 export type ManagedRegistration = {
   id: string;
   status: string;

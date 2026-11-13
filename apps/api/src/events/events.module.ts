@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { FinanceModule } from "../finance/finance.module";
 import { PilotModule } from "../pilot/pilot.module";
+import { ReportsModule } from "../reports/reports.module";
+import { EventChurchPaymentService } from "./event-church-payment.service";
 import { EventRegistrationsService } from "./event-registrations.service";
 import {
   EventPaymentWebhookController,
@@ -10,13 +13,13 @@ import {
 import { EventsService } from "./events.service";
 
 @Module({
-  imports: [AuthModule, PilotModule],
+  imports: [AuthModule, PilotModule, FinanceModule, ReportsModule],
   controllers: [
     EventsController,
     RegistrationsController,
     EventPaymentWebhookController,
   ],
-  providers: [EventsService, EventRegistrationsService],
-  exports: [EventsService, EventRegistrationsService],
+  providers: [EventsService, EventRegistrationsService, EventChurchPaymentService],
+  exports: [EventsService, EventRegistrationsService, EventChurchPaymentService],
 })
 export class EventsModule {}

@@ -7,6 +7,7 @@ vi.mock("../AppShell", () => ({
 }));
 
 import { EventManagementView } from "./EventManagementJourney";
+import { EventPaymentField } from "./EventRegistrationDesk";
 import { ReportsView } from "../reports/ManagementReports";
 
 const noop = () => undefined;
@@ -55,6 +56,18 @@ describe("telas de eventos e relatórios", () => {
     expect(html).not.toContain("Registrar presença");
     expect(html).not.toMatch(/\bAPI\b|\bendpoint\b|\bdemo\b|501/);
     expect(html).toContain("disabled");
+  });
+
+  it("seleciona uma conta cadastrada e mantém visível a conta vinculada indisponível", () => {
+    const field = renderToStaticMarkup(<EventPaymentField
+      accounts={[{ id: "a1", name: "Conta de eventos" }]} value="a1" onChange={noop} />);
+    expect(field).toContain("Conta da igreja para receber o Pix");
+    expect(field).toContain('value="a1" selected=""');
+    expect(field).toContain("Selecione a conta");
+    const unavailable = renderToStaticMarkup(<EventPaymentField
+      accounts={[]} value="a2" onChange={noop} />);
+    expect(unavailable).toContain("Conta vinculada indisponível");
+    expect(unavailable).toContain("Procure a Tesouraria");
   });
 
   it("estado sem homologação não finge contagem", () => {
