@@ -1,19 +1,19 @@
 # Pipeline de produção (Hostinger)
 
-Este documento define o **trilho** antes de qualquer corte de DNS em `igrejadeusrf1.com.br`.  
-Não publica o site sozinho. Complementa `docs/liberacao-producao.md`.
+Este documento descreve como gerar e liberar uma candidata para `igrejadeusrf1.com.br`. Consulte o [fluxo DEV → HML → Produção](ambientes.md) e os [critérios de liberação](liberacao-producao.md).
 
 ## Branches
 
 | Branch | Papel |
 |--------|--------|
-| `main` | Integração + preview GitHub Pages + API HML |
+| Branch da tarefa | Candidata de DEV no preview Vercel com API QA |
+| `main` | Integração e publicação automática do frontend em HML (GitHub Pages) |
 | `production` | **Única** branch autorizada a gerar candidato de produção |
 
 Regras:
 
 1. Ninguém faz commit direto em `production` (só PR com review).
-2. PR para `production` só depois de verde em HML (`main` / Pages + API HML).
+2. Aceite em DEV antes do merge em `main`. PR para `production` após aceite da candidata em HML (Pages + API HML).
 3. Merge em `production` dispara o workflow **Production** (lint → typecheck → test → build → segurança → **Sonar hard gate**).
 4. O job `promote-ready` usa o Environment GitHub **`production`** (aprovação manual). **Não** altera DNS.
 
@@ -66,14 +66,14 @@ PR → production
 ## Como promover um release
 
 1. Validar candidata em HML (Pages + API HML) — ver `docs/liberacao-producao.md`.
-2. Abrir PR: `main` (ou tag) → `production` com SHA conhecido.
+2. Abrir PR com a versão aprovada em HML como candidata a `production` e conferir o diff com a branch de destino. Registrar os SHAs de origem do frontend e da API.
 3. Esperar workflow **Production** verde + Sonar OK.
 4. Merge; no Environment `production`, **aprovar** o job `promote-ready`.
 5. Baixar artefato `production-candidate-<sha>`.
 6. Preencher `deploy/prod/secrets-checklist.md` na VPS (sem colar secrets no chat).
-7. Deploy controlado (Docker/Traefik) **sem** apontar apex até smoke interno OK.
-8. Rodar `npm run release:preflight` com as três env vars de origem/SHA.
-9. Só então DNS / CDN — com autorização explícita.
+7. Fazer deploy controlado na Hostinger e executar o smoke com a configuração de produção.
+8. Rodar `npm run release:preflight` com as origens de produção e o SHA completo da API publicada. Conferir também `/release.json` no frontend.
+9. Alterar DNS ou CDN somente se a publicação exigir um novo apontamento e houver autorização. Registrar a versão publicada e o resultado do smoke.
 
 ## O que este trilho NÃO faz
 

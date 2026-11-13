@@ -1,11 +1,10 @@
 # Liberação do ID Riacho 1
 
-**Trilho obrigatório antes do corte público:** branch `production` + workflow **Production** + Sonar com Quality Gate bloqueante. Detalhes operacionais em [`docs/prod-pipeline.md`](./prod-pipeline.md) e secrets em [`deploy/prod/secrets-checklist.md`](../deploy/prod/secrets-checklist.md).  
-`main` continua sendo HML/Pages — **não** é o canal de produção Hostinger.
+Siga o [fluxo DEV → HML → Produção](ambientes.md). O aceite em DEV autoriza o merge em `main`, que publica o frontend de homologação no GitHub Pages. Valide em HML com a API Vercel e o banco sintético. Após o aceite de HML, promova a candidata por PR para `production` seguindo o [pipeline de produção](prod-pipeline.md), incluindo o Quality Gate do Sonar e a aprovação do Environment `production`.
 
-A candidata é testada no portal e na API de homologação, com banco sintético. A publicação de `main` aciona o GitHub Pages, portanto o merge deve ocorrer somente na janela de liberação acordada. No fluxo atual, o build de `main` aponta o login à API HML. Para a liberação real, promova via PR para `production` (pipeline dedicada), aponte o build para a API real validada e revise as restrições de cadastro e telas que ainda usam a configuração de homologação.
+Ao preparar a candidata, configure o build para a API de produção validada, revise as restrições de cadastro e confira quais telas a versão libera. As configurações de VPS estão em [deploy/prod/secrets-checklist.md](../deploy/prod/secrets-checklist.md).
 
-## Evidências da candidata
+## Evidências históricas da candidata
 
 - Navegação do portal em cinco larguras, login com credenciais válidas e inválidas, Secretaria, equipe e caixa do Ministério de Homens e Carteirinhas foram verificados no Chromium com API e PostgreSQL isolados.
 - O banco de QA tem 21 migrações concluídas e 750 cadastros sintéticos, sendo 400 ativos, 250 inativos e 100 em admissão.
@@ -28,9 +27,9 @@ A candidata é testada no portal e na API de homologação, com banco sintético
 
 Referências oficiais do provedor: [Vercel Blob privado](https://vercel.com/docs/vercel-blob/private-storage) e [Neon, pooling](https://neon.com/docs/connect/connection-pooling).
 
-## Preparação Hostinger — sem implantação
+## Preparação Hostinger
 
-Esta seção prepara a futura VPS. Ela não implanta nada na Hostinger, não altera DNS e não move o site ou a API que hoje estão em GitHub Pages e Vercel. O comando `npm run release:f11-preflight` não abre rede e não aplica migração. O status de GO da QA está em `docs/f11-integracao-status.md`.
+Use esta seção como referência para a configuração da API na VPS. O comando `npm run release:f11-preflight` verifica a configuração local. Consulte o [status histórico da integração F1.1](f11-integracao-status.md) e o [estado dos ambientes ativos](ambientes.md).
 
 - Publique a API atrás de um reverse proxy com TLS. O proxy termina HTTPS e encaminha um único salto para o processo Node. Defina `TRUST_PROXY` com esse número de saltos. Sem esse valor, a API de produção não sobe. O limitador usa o IP que o Express calcula depois dessa confiança e ignora um `X-Forwarded-For` forjado pelo cliente.
 - O banco de produção usa usuário de aplicação distinto do usuário de migração, conexão com `sslmode=require` ou `verify-full`, e host/nome conferidos por `PRODUCTION_DATABASE_HOST` e `PRODUCTION_DATABASE_NAME`. A migração F1.1 é aditiva e tem `down.sql`. Ela não foi aplicada em produção nem no Neon de QA. O CI só migra `localhost`.
