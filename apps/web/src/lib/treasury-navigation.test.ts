@@ -11,10 +11,10 @@ describe("submenu lateral da Tesouraria", () => {
     expect(treasurySidebarItems(["PASTOR"]).map(item => item.section)).toEqual(["aprovacoes"]);
     expect(treasurySectionFromHash("#despesas", ["PASTOR"])).toBe("aprovacoes");
   });
-  it("mostra consultas ao admin, sem fingir permissão para lançar ou aprovar", () => {
+  it("permite somente inclusão de despesa ao administrador, sem aprovações ou outros lançamentos", () => {
     expect(treasurySidebarItems(["PLATFORM_ADMIN"]).map(item => item.section))
-      .toEqual(["visao", "despesas", "extrato", "conciliacao"]);
-    expect(treasurySectionFromHash("#lancar", ["PLATFORM_ADMIN"])).toBe("visao");
+      .toEqual(["visao", "despesas", "lancar", "extrato", "conciliacao"]);
+    expect(treasurySectionFromHash("#lancar", ["PLATFORM_ADMIN"])).toBe("lancar");
   });
   it("não oferece nada a usuários sem perfil financeiro", () => {
     expect(treasurySidebarItems(["MEMBRO"])).toEqual([]);
@@ -28,7 +28,7 @@ describe("submenu lateral da Tesouraria", () => {
     expect(treasuryMovementFromHash("#lancar:cartao")).toBe("cartao");
     expect(treasuryMovementFromHash("#lancar")).toBe("despesa");
     expect(treasurySectionFromHash("#lancar:pix", ["TESOURARIA"])).toBe("lancar");
-    expect(treasurySectionFromHash("#lancar:pix", ["PLATFORM_ADMIN"])).toBe("visao");
+    expect(treasurySectionFromHash("#lancar:pix", ["PLATFORM_ADMIN"])).toBe("lancar");
   });
 
   it("respeita deep links para seções válidas e volta à visão padrão para hashes desconhecidos", () => {

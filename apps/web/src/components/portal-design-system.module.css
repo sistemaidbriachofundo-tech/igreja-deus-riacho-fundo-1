@@ -1,18 +1,18 @@
 .palette {
-  --portal-paper: #fbfaf5;
-  --portal-ivory: #f2e7d6;
-  --portal-sage: #e1e9df;
-  --portal-gallery-ground: #ebdfca;
-  --portal-ink: #162f25;
-  --portal-muted: #53645a;
-  --portal-green: #102b23;
-  --portal-green-hover: #24473a;
-  --portal-on-green: #fbfaf5;
-  --portal-on-green-muted: #d2dfd6;
-  --portal-green-line: #637e70;
-  --portal-gold: #e9cd9c;
-  --portal-title-accent: #70552f;
-  --portal-display: Georgia, "Times New Roman", serif;
+  --portal-paper: #faf7f1;
+  --portal-ivory: #f5eee4;
+  --portal-sage: #eee7dd;
+  --portal-gallery-ground: #e9dfd4;
+  --portal-ink: #191a1d;
+  --portal-muted: #57565a;
+  --portal-green: #101113;
+  --portal-green-hover: #28292d;
+  --portal-on-green: #fff7ed;
+  --portal-on-green-muted: #eee4d9;
+  --portal-green-line: #464347;
+  --portal-gold: #f36b20;
+  --portal-title-accent: #dc4c0d;
+  --portal-display: Montserrat, Inter, Arial, sans-serif;
 }
 
 .palette [data-appearance="verde"], .palette[data-appearance="verde"] {
@@ -35,7 +35,7 @@
 }
 
 .theme :is(a, button, summary, h1, h2):focus-visible {
-  outline: 2px solid #846128;
+  outline: 2px solid #ee6216;
   outline-offset: 4px;
 }
 
@@ -69,8 +69,10 @@
   width: 44px;
   height: 44px;
   flex: none;
-  border-radius: 50%;
+  border-radius: 0;
+  background: transparent;
   object-fit: contain;
+  object-position: center;
 }
 
 .brand strong, .brand small {
@@ -190,4 +192,14 @@
   .brand strong { font-size: 12px; }
   .brand small { font-size: 10px; }
   .headerLogin { padding-inline: 10px; }
+}
+
+/* Identidade IDB Riacho 2026. Branding público somente; não altera o verde do painel. */
+.theme .headerLogin { border-color: #ed641f; color: #fffaf3; background: #b53a0c; border-radius: 8px; }
+.theme .headerLogin:hover { background: #d64a11; }
+.theme .masthead { box-shadow: 0 5px 24px #07070816; }
+.theme .brand strong { letter-spacing: .035em; }
+.theme .brand img { border-radius: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .theme *, .theme *::before, .theme *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }

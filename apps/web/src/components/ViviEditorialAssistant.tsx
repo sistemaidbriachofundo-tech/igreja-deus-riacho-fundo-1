@@ -12,6 +12,7 @@ import {
 } from "../lib/riachinho-suggestion";
 import { assistantScopeRefusal } from "../lib/assistant-scope";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import s from "./vivi-editorial-assistant.module.css";
 
 type Status = ViviStatusResponse;
@@ -306,7 +307,7 @@ export function ViviEditorialAssistant({
       <div className={s.intro}>
         <span className={s.icon} aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={46} height={46} />
+          <img src={withBasePath(officialLogoAsset)} alt="" width={46} height={46} />
         </span>
         <div>
           <h2>Riachinho — Assistente editorial</h2>

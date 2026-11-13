@@ -33,14 +33,6 @@ function initials(name: string) {
   return (parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "");
 }
 
-function Stat({label, value, caption, featured=false}: {
-  label: string; value: string; caption: string; featured?: boolean;
-}) {
-  return <div className={s.factStat} data-featured={featured || undefined}>
-    <span>{label}</span><strong>{value}</strong><small>{caption}</small>
-  </div>;
-}
-
 function TimelinePreview({ events, onTab }: { events: PersonTimelineEvent[]; onTab: (tab: FichaTab)=>void }) {
   const recent = [...events].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 6);
   return <section className={s.story} aria-labelledby="ficha-story-title">
@@ -84,7 +76,6 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
   const filled = fields.filter(([,v]) => Boolean(v)).length;
   const completion = Math.round(filled / fields.length * 100);
   const facts = [
-    { label: "Nome completo", value: person.displayName, helper:"Nome de identificação no cadastro" },
     { label: "Nascimento", value: dateLabel(person.birthDate), helper: person.sex === "FEMALE" ? "Feminino" : person.sex === "MALE" ? "Masculino" : person.sex === "OTHER" ? "Outro" : "Sexo não informado" },
     { label: "Primeira frequência", value: dateLabel(person.firstAttendedOn), helper: "Início da história com a congregação" },
     { label: "Batismo", value: dateLabel(person.baptismDate), helper: "Marco eclesiástico" },
@@ -96,9 +87,9 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
   return <div className={s.overview}>
     <div className={s.introduction}>
       <div className={s.introCopy}>
-        <span className={s.eyebrow}>SECRETARIA · FICHA INDIVIDUAL</span>
-        <h3>Uma pessoa. Uma história. Um lugar de pertencimento.</h3>
-        <p>Informações eclesiásticas, vínculos e marcos da vida organizados para acompanhar pessoas com cuidado. Sem preenchimento fictício.</p>
+        <span className={s.eyebrow}>VISÃO GERAL</span>
+        <h3>Contato e caminhada</h3>
+        <p>Os dados essenciais e o histórico da pessoa em um só lugar.</p>
       </div>
       <div className={s.completeness} aria-label="Qualidade do cadastro">
         <div className={s.completenessTop}><strong>{completion}%</strong><span>Preenchimento da ficha</span></div>
@@ -110,11 +101,10 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
       </div>
     </div>
 
-    <section className={s.stats} aria-label="Identificação e vínculo">
-      <Stat featured label="SITUAÇÃO ECLESIÁSTICA" value={membership ? dossierLabel(membership.status) : "Sem vínculo"} caption={membership ? "Vínculo desde "+dateLabel(membership.joinedAt) : "Aguardando registro na congregação"}/>
-      <Stat label="Tipo de pessoa" value={dossierLabel(person.kind)} caption={dossierLabel(person.status)}/>
-      <Stat label="Matrícula" value={membership ? registrationLabel(membership.id) : "Não emitida"} caption="Identificador do vínculo eclesiástico"/>
-      <Stat label="Família" value={dossier.household?.label || "Não vinculada"} caption={(dossier.household?.members.length ?? 0) + " pessoa(s) no núcleo familiar"}/>
+    <section className={s.quickSummary} aria-label="Resumo do vínculo">
+      <div><span>Vínculo</span><strong>{membership ? dossierLabel(membership.status) : "Sem vínculo"}</strong></div>
+      <div><span>Família</span><strong>{dossier.household?.label || "Não vinculada"}</strong></div>
+      <div><span>Primeira frequência</span><strong>{dateLabel(person.firstAttendedOn)}</strong></div>
     </section>
 
     <TimelinePreview events={dossier.timeline ?? []} onTab={onTab}/>

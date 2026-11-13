@@ -33,13 +33,14 @@
   min-width: 0;
   padding: clamp(24px, 3.4vw, 49px);
   color: #fffaf0;
-  background: #102b23;
+  /* A marca é transparente: o fundo do painel é uma escolha visual, não um remendo. */
+  background: #101010;
 }
 .brand { display: flex; gap: 13px; align-items: center; }
-.brand img { width: 54px; height: 54px; object-fit: contain; }
+.brand img { display: block; flex: none; width: 80px; height: 90px; max-width: 100%; object-fit: contain; object-position: center; background: transparent; border: 0; border-radius: 0; }
 .brand strong, .brand span { display: block; letter-spacing: .12em; }
 .brand strong { font-size: 13px; }
-.brand span { margin-top: 4px; color: #d3c7a8; font-size: 10px; }
+.brand span { margin-top: 4px; color: #d9d2cb; font-size: 10px; }
 .facade { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 6px; }
 .panel { display: grid; place-items: center; min-width: 0; padding: clamp(24px, 4vw, 60px); background: #fff; color: #173129; }
 .panelInner { width: 100%; max-width: 400px; }
@@ -64,8 +65,8 @@
 .passwordControl input { padding-right: 82px; }
 .reveal { position: absolute; inset: 3px 3px 3px auto; min-width: 70px; border: 0; border-radius: 6px; background: transparent; color: #244d3d; font-weight: 650; cursor: pointer; }
 .reveal:hover:not(:disabled) { background: #edf2ed; }
-.submit { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 8px; padding: 0 15px; border: 0; border-radius: 6px; background: #214e3c; color: #fff; font: 650 14px Inter, sans-serif; cursor: pointer; }
-.submit:hover:not(:disabled) { background: #15392b; }
+.submit { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 8px; padding: 0 15px; border: 0; border-radius: 6px; background: #c65320; color: #fff; font: 650 14px Inter, sans-serif; cursor: pointer; }
+.submit:hover:not(:disabled) { background: #a84319; }
 .form button:disabled { opacity: .62; cursor: not-allowed; }
 .page :is(a, button, input):focus-visible { outline: 2px solid #9a7540; outline-offset: 3px; }
 .warning { color: #634721; margin: 4px 0; font-size: 14px; }
@@ -78,7 +79,8 @@
 @media (max-width: 760px) {
   .page { padding: 16px; }
   .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; }
-  .story { padding: 19px 21px; }
+  .story { padding: 22px 21px; }
+  .brand img { width: 61px; height: 69px; }
   .facade { display: none; }
   .panel { padding: 26px 21px; }
 }
@@ -98,3 +100,73 @@
 .manualSetup { margin-top: 4px; font-size: 13px; color: #315346; }
 .manualSetup summary { min-height: 36px; padding: 6px 0; cursor: pointer; font-weight: 650; }
 .manualSetup code { display: block; margin-top: 6px; font-size: 13px; letter-spacing: .08em; word-break: break-all; }
+
+/* Carregamento da sessão: estrutura estável, sem texto técnico ao visitante. */
+.sessionLoading { min-height: 100dvh; background: #f7f7f5; color: #25372e; }
+.sessionLoadingShell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100dvh; }
+.sessionLoadingSide { padding: 28px 22px; background: #fff; border-right: 1px solid #e7e9e5; }
+.sessionLoadingContent { min-width: 0; padding: clamp(20px, 3vw, 48px); }
+.sessionLoadingMark, .sessionLoadingNav, .sessionLoadingTop, .sessionLoadingTitle,
+.sessionLoadingCards > div, .sessionLoadingBody { background: #e6e9e5; border-radius: 10px; animation: sessionSkeleton 1.55s ease-in-out infinite alternate; }
+.sessionLoadingMark { width: 126px; height: 44px; margin-bottom: 42px; }
+.sessionLoadingNav { width: 85%; height: 15px; margin: 23px 0; }
+.sessionLoadingNav:nth-child(3) { width: 68%; }
+.sessionLoadingNav:nth-child(4) { width: 76%; }
+.sessionLoadingTop { width: 100%; height: 44px; margin-bottom: 36px; background: #eff0ed; }
+.sessionLoadingTitle { width: min(310px, 70%); height: 31px; margin-bottom: 30px; }
+.sessionLoadingCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
+.sessionLoadingCards > div { height: 118px; }
+.sessionLoadingBody { width: 100%; height: min(37vh, 290px); }
+.screenReaderOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@keyframes sessionSkeleton { from { opacity: .54; } to { opacity: 1; } }
+@media (max-width: 760px) {
+  .sessionLoadingShell { grid-template-columns: minmax(0, 1fr); }
+  .sessionLoadingSide { display: none; }
+  .sessionLoadingCards { grid-template-columns: 1fr 1fr; }
+  .sessionLoadingCards > div:last-child { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sessionLoadingMark, .sessionLoadingNav, .sessionLoadingTop, .sessionLoadingTitle,
+  .sessionLoadingCards > div, .sessionLoadingBody { animation: none; }
+}
+
+/* Estados explícitos: conexão, sessão e autorização não são escondidos. */
+.waiting {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: clamp(24px, 6vw, 60px);
+  background: #f7f7f5;
+  color: #25372e;
+  text-align: center;
+}
+.waitingIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  background: #fff0e8;
+  color: #b9572b;
+  font-size: 24px;
+}
+.waiting h1 { margin: 10px 0 0; font-size: clamp(23px, 4vw, 30px); letter-spacing: -.035em; }
+.waiting p { max-width: 480px; margin: 0; color: #5d685f; line-height: 1.55; }
+.gateActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; }
+.retry, .gateLink, .gateLinkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 17px;
+  border-radius: 9px;
+  font: 600 14px/1.4 Inter, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.retry { border: 1px solid #b9572b; background: #b9572b; color: #fff; }
+.gateLink, .gateLinkButton { border: 1px solid #d9dfd9; background: #fff; color: #294536; }
+.waiting :is(button, a):focus-visible { outline: 2px solid #b9572b; outline-offset: 3px; }

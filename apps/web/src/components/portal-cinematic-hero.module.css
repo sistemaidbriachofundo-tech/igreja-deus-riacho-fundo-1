@@ -80,3 +80,8 @@
   .layout { grid-template-columns: minmax(0, 1fr); gap: 17px; }
   .headline { font-size: clamp(40px, 9.2vw, 62px); }
 }
+
+/* Missão institucional permanente, independente de campanhas publicadas. */
+.missionLabel { margin: 0 0 8px; color: #bf4b14; font-size: 11px; font-weight: 850; letter-spacing: .16em; }
+.missionStatement { margin: 0 0 22px; max-width: 32ch; font: 500 clamp(20px, 2.2vw, 29px)/1.23 Montserrat, Inter, sans-serif; letter-spacing: -.03em; color: #222126; }
+.missionStatement strong { color: #d64b0d; font-style: italic; font-weight: 850; }

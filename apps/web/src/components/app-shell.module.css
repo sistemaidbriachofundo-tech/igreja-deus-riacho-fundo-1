@@ -67,11 +67,12 @@
 }
 .brandEmblem {
   flex: none;
-  width: 36px;
-  height: 36px;
-  background-position: center;
-  background-size: cover;
-  border-radius: 50%;
+  width: 43px;
+  height: 48px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0;
+  background: transparent;
 }
 .brandText {
   display: flex;
@@ -328,11 +329,12 @@
 }
 .smallLogo {
   display: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background-size: cover;
-  background-position: center;
+  width: 36px;
+  height: 40px;
+  border-radius: 0;
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
   flex: none;
 }
 .commandButton {
@@ -933,7 +935,7 @@
 
 @media (max-width: 970px) {
   .toolbar .hamburger, .toolbar .commandButton { display: none; }
-  .toolbar .smallLogo { display: block; flex: none; width: 31px; height: 31px; }
+  .toolbar .smallLogo { display: block; flex: none; width: 32px; height: 36px; }
   .mobileNav { gap: 4px; min-height: 61px; background: #fff; backdrop-filter: none; }
   .mobileItem, .mobileActive { min-height: 46px; border-radius: 6px; font-size: 11px; }
   .mobileActive { color: #214f39; background: #e7efe6; }
@@ -944,3 +946,10 @@
   .commandList > a + a { border-top: 1px solid var(--app-border); }
   .commandList a small { display: none; }
 }
+
+/* Carregamento discreto: não exibir textos técnicos de autorização ao usuário. */
+.accessLoading { min-height: 210px; display: flex; align-items: center; justify-content: center; padding: 32px; }
+.accessSpinner { display: block; width: 28px; height: 28px; border: 3px solid #d6e1d9; border-top-color: #285f43; border-radius: 50%; animation: access-rotate .68s linear infinite; }
+.screenReaderOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@keyframes access-rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .accessSpinner { animation: none; border-top-color: #285f43; } }

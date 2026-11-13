@@ -5,6 +5,7 @@ import { apiPost } from "../lib/api";
 import { dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import styles from "./roster-board.module.css";
 import { PersonPicker } from "./PersonPicker";
+import { useFeedback } from "./ui/FeedbackProvider";
 
 type Props={rows:DasRecord[];token:string;personId:string;roles:readonly string[];refresh:()=>void};
 
@@ -14,6 +15,7 @@ const records=(v:unknown):DasRecord[]=>Array.isArray(v)?v.map(record).filter((x)
 const text=(v:unknown,fallback:string)=>typeof v==="string"&&v.trim()?v.trim():fallback;
 
 export function RosterBoard({rows,token,personId,roles,refresh}:Props){
+  const { showFeedback } = useFeedback();
   const [active,setActive]=useState<string|null>(null);
   const [roleLabel,setRoleLabel]=useState("");
   const [requiresCouple,setRequiresCouple]=useState(false);
@@ -22,17 +24,16 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
   const [partner,setPartner]=useState("");
   const [replacement,setReplacement]=useState<Record<string,string>>({});
   const [saving,setSaving]=useState(false);
-  const [notice,setNotice]=useState("");
   const leader=roles.some(role=>["LIDER_MINISTERIO","PASTOR","SECRETARIA","PLATFORM_ADMIN"].includes(role));
 
   async function execute(path:string,payload?:unknown):Promise<boolean>{
     if(saving)return false;
-    setSaving(true);setNotice("");
+    setSaving(true);
     try{await apiPost(path,token,payload);
-      setNotice("Alteração registrada na API de homologação. Estado recarregado.");
+      showFeedback({ tone: "success", title: "Escala atualizada", message: "A alteração foi registrada e os dados foram solicitados novamente à homologação." });
       refresh();
       return true;
-    }catch(err){setNotice(dasError(err));return false;}
+    }catch(err){showFeedback({ tone: "error", title: "Não foi possível atualizar a escala", message: dasError(err) });return false;}
     finally{setSaving(false);}
   }
   function addSlot(e:FormEvent<HTMLFormElement>,rosterId:string){
@@ -56,7 +57,6 @@ export function RosterBoard({rows,token,personId,roles,refresh}:Props){
         <p>Consulte escalas da API, abra funções e registre decisões no servidor. Somente dados de homologação.</p>
       </div>
     </div>
-    {notice&&<div role="status" className={styles.notice}>{notice}</div>}
     {rows.length===0?<p className={styles.empty}>Ainda não existem escalas na base de testes.</p>:
       <div className={styles.rosters}>
         {rows.map((row,index)=>{

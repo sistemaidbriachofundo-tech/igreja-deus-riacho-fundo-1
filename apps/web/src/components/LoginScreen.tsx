@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -10,6 +11,7 @@ import {
 import { openAuthenticatedArea, publishPerfProbe } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import { authenticatedLanding } from "../lib/auth-destination";
 import { generateAuthenticatorQr } from "../lib/authenticator-qr";
 import { Alert } from "./ui/Alert";
@@ -19,7 +21,7 @@ type Props = { onAuthenticated?: () => void };
 type Me = LoginResult["user"];
 
 export function LoginScreen({ onAuthenticated }: Props) {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const RouterBridge = useAppRouterBridge();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -167,7 +169,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
         <aside className={styles.story} aria-label="Identidade da Igreja de Deus">
           <div className={styles.brand}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="Igreja de Deus — Riacho Fundo I" width={64} height={64}/>
+            <img src={withBasePath(officialLogoAsset)} alt="Igreja de Deus — Riacho Fundo I" width={80} height={90}/>
             <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -232,7 +234,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
               {error && <Alert appearance="workspace" tone="danger" title={error} />}
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
               <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking?"Validando sessão…":busy?"Entrando…":"Entrar no painel"}
+                {checking||busy ? "Aguarde…" : "Entrar no painel"}
               </button>
             </form>}
             <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>

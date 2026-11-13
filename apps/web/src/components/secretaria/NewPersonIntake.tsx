@@ -47,10 +47,10 @@ export function NewPersonIntake({
         <legend><b>01</b> Identificação e contato</legend>
         <div className={s.fields}>
           <label>Nome completo <small>Obrigatório</small>
-            <input value={name} onChange={e=>onName(e.target.value)} required minLength={3} maxLength={160} autoComplete="off" placeholder="Nome e sobrenome"/>
+            <input id="intake-person-name" value={name} onChange={e=>onName(e.target.value)} required minLength={3} maxLength={160} autoComplete="off" placeholder="Nome e sobrenome"/>
           </label>
           <label>E-mail de homologação <small>Obrigatório</small>
-            <input type="email" required value={email} onChange={e=>onEmail(e.target.value)} maxLength={254} placeholder="pessoa@example.test" autoComplete="off"/>
+            <input id="intake-person-email" type="email" required value={email} onChange={e=>onEmail(e.target.value)} maxLength={254} placeholder="pessoa@example.test" autoComplete="off"/>
           </label>
           <label>Data de nascimento
             <input type="date" value={profile.birthDate} onChange={e=>update({birthDate:e.target.value,isMinor:personUnder18(e.target.value)})}/>

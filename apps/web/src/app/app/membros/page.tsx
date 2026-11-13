@@ -1,8 +1,9 @@
+import { isAdminEnabled } from "../../../lib/admin-environment";
 import { HmlPhaseOne } from "../../../components/HmlPhaseOne";
 import { MemberDirectory } from "../../../components/MemberDirectory";
 
 export default function MembrosPage() {
-  return process.env.NEXT_PUBLIC_HML_ENABLED === "true"
+  return isAdminEnabled()
     ? <HmlPhaseOne view="members" />
     : <MemberDirectory />;
 }

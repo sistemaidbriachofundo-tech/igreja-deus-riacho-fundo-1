@@ -7,6 +7,7 @@ import { BUILTIN_ROLES, PERSONA_LABELS, parseMinistryNav, type BuiltinRole, type
 import { UIIcon } from "./AppShell";
 import { PageHeader } from "./ui/PageHeader";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 import ui from "./ui/ui.module.css";
 import s from "./access-directory.module.css";
 
@@ -18,6 +19,7 @@ type Account = {
 type AccountPage = { accounts: Account[]; hasMore: boolean };
 
 export function AccessDirectory() {
+  const { showFeedback } = useFeedback();
   const [token, setToken] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountPage | null>(null);
   const [page, setPage] = useState(1);
@@ -27,7 +29,6 @@ export function AccessDirectory() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [resending, setResending] = useState("");
   const { confirm: confirmResend, confirmation: resendConfirmation } = useActionConfirmation();
   async function resendInvite(account: Account) {
@@ -42,10 +43,10 @@ export function AccessDirectory() {
     setError("");
     try {
       await apiPost("/admin/access/" + encodeURIComponent(account.id) + "/invite/resend", token);
-      setNotice("Convite reenviado ao e-mail cadastrado para " + account.person.displayName + ".");
+      showFeedback({ tone: "success", title: "Convite reenviado", message: "O link de ativação foi enviado para " + account.email + ".", actionLabel: "Continuar" });
       setRevision(v => v + 1);
     } catch {
-      setError("Não foi possível reenviar. Confira a configuração do e-mail e a situação do acesso.");
+      showFeedback({ tone: "error", title: "Não foi possível reenviar", message: "Confira a configuração do e-mail e a situação do acesso antes de tentar novamente." });
     } finally {
       setResending("");
     }
@@ -75,11 +76,10 @@ export function AccessDirectory() {
       </div>
       {creating && token && <AccessForm token={token} onCreated={name => {
         setCreating(false);
-        setNotice("Convite enviado para " + name + ". A senha será definida pela própria pessoa.");
+        showFeedback({ tone: "success", title: "Convite enviado", message: "O convite para " + name + " foi enviado. A senha será definida pela própria pessoa.", actionLabel: "Continuar" });
         setPage(1);
         setRevision(value => value + 1);
       }} />}
-      {notice && <p className={s.notice} role="status">{notice}</p>}
       <div className={s.panel}>
         <form className={s.filter} onSubmit={event => { event.preventDefault(); setPage(1); setFilter(search.trim()); }}>
           <label>Buscar conta<input type="search" maxLength={100} placeholder="Nome ou e-mail" value={search} onChange={event => setSearch(event.target.value)} /></label>
@@ -117,6 +117,7 @@ export function AccessDirectory() {
 }
 
 function AccessForm({ token, onCreated }: { token: string; onCreated: (name: string) => void }) {
+  const { showFeedback } = useFeedback();
   const [term, setTerm] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [person, setPerson] = useState<Person | null>(null);
@@ -126,20 +127,18 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
   const [ministryId, setMinistryId] = useState("");
   const [ministries, setMinistries] = useState<MinistryNavItem[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const { confirm, confirmation } = useActionConfirmation();
 
   async function find(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    setError("");
     setSearched(false);
     try {
       const result = await apiGet<{ people: Person[] }>("/admin/access/people?q=" + encodeURIComponent(term.trim()), token);
       setPeople(result.people);
       setSearched(true);
     } catch (error) {
-      setError(dasError(error));
+      showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });
     } finally {
       setBusy(false);
     }
@@ -152,7 +151,7 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
     try {
       setMinistries(parseMinistryNav(await apiGet("/ministries", token)));
     } catch (error) {
-      setError(dasError(error));
+      showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });
     }
   }
 
@@ -160,7 +159,6 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
     event.preventDefault();
     if (!person || busy) return;
     setBusy(true);
-    setError("");
     try {
       if (!(await confirm({
         title: "Criar acesso para esta pessoa?",
@@ -171,7 +169,7 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
       await apiPost("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
       onCreated(person.displayName);
     } catch (error) {
-      setError(dasError(error));
+      showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });
     } finally {
       setBusy(false);
     }
@@ -205,7 +203,6 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
           <button type="submit" className={ui.workspacePrimary} disabled={busy || !email}>{busy ? "Enviando…" : "Criar acesso e enviar convite"}</button>
         </form>
       )}
-      {error && <p className={s.error} role="alert">{error}</p>}
     </div>
   );
 }

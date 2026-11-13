@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
@@ -12,6 +13,7 @@ import type { RiachinhoParsedSuggestion } from "../lib/riachinho-suggestion";
 import { defaultSiteLayout, parseSiteLayout, resolveSitePhoto, sectionNames, validSiteImage, type SiteLayout } from "../lib/site-layout";
 import { SITE_IDENTITY_PHOTO } from "@idbrf/shared";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import ui from "./ui/ui.module.css";
 import s from "./site-manager.module.css";
 
@@ -29,7 +31,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
   return <div className={s.previewCanvas} data-device={device} data-appearance={layout.appearance}>
     <div className={s.previewTop}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={withBasePath("/images/logo-igreja-aprovada.webp")} alt="" width={26} height={26} /><strong>Igreja de Deus</strong><small>Riacho Fundo I</small>
+      <img src={withBasePath(officialLogoAsset)} alt="" width={26} height={26} /><strong>Igreja de Deus</strong><small>Riacho Fundo I</small>
     </div>
     <div className={s.previewCover}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -80,6 +82,7 @@ async function siteRequest<T>(token:string,path:string,method:"GET"|"PATCH"|"POS
 }
 
 export function SiteManager() {
+  const { showFeedback } = useFeedback();
   const { confirm, confirmation } = useActionConfirmation();
   const [token,setToken]=useState<string|null>(null);
   const [checking,setChecking]=useState(true),[busy,setBusy]=useState(false);
@@ -131,7 +134,7 @@ export function SiteManager() {
     update({...layout,gallery:{...layout.gallery,[field]:value}});
   }
   function setPhoto(value:string){
-    if(!validSiteImage(value)){setError("Escolha uma foto da biblioteca ou uma imagem enviada ao armazenamento da igreja.");return;}
+    if(!validSiteImage(value)){showFeedback({ tone: "error", title: "Foto não selecionada", message: "Escolha uma foto aprovada da biblioteca ou uma imagem enviada ao armazenamento da igreja." });return;}
     if(imageSlot==="hero")setHero("imageUrl",value);
     else if(imageSlot==="identity")update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),imageUrl:value}});
     else {
@@ -156,7 +159,7 @@ export function SiteManager() {
       action: "Recarregar rascunho",
     })) return;
     if (!token) return;
-    void work(async()=>{await refresh(token);setNotice("Rascunho salvo carregado.");});
+    void work(async()=>{await refresh(token);showFeedback({ tone: "info", title: "Rascunho recarregado", message: "A última versão salva foi carregada." });});
   }
   async function login(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);setError("");
@@ -169,17 +172,17 @@ export function SiteManager() {
   }
   async function work(fn:()=>Promise<void>){
     setBusy(true);setError("");setNotice("");
-    try{await fn();}catch(err){setError(err instanceof Error?err.message:"Operação não concluída.");}
+    try{await fn();}catch(err){showFeedback({ tone: "error", title: "Operação não concluída", message: err instanceof Error?err.message:"Não foi possível concluir. Tente novamente." });}
     finally{setBusy(false);}
   }
   function save(){
     if(!token)return;
     const validated=parseSiteLayout(layout);
-    if(!validated){setError("Revise os campos obrigatórios, imagens e limites antes de salvar.");return;}
+    if(!validated){showFeedback({ tone: "error", title: "Confira a página", message: "Revise os campos obrigatórios, imagens e limites antes de salvar." });return;}
     void work(async()=>{
       const result=await siteRequest<{draftUpdatedAt:string}>(token,"/cms/site-layout/draft","PATCH",{layout:validated,expectedUpdatedAt:draftUpdatedAt});
       setDraftUpdatedAt(result.draftUpdatedAt);setDirty(false);
-      setNotice("Rascunho salvo. Você pode conferir a prévia antes de publicar.");
+      showFeedback({ tone: "success", title: "Rascunho salvo", message: "Você pode conferir a prévia antes de publicar." });
     });
   }
   async function publish(){
@@ -193,7 +196,7 @@ export function SiteManager() {
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/publish","POST",{expectedUpdatedAt:draftUpdatedAt});
       await refresh(token);
-      setNotice("Versão publicada. Sites com leitura dinâmica habilitada recebem a atualização automaticamente.");
+      showFeedback({ tone: "success", title: "Página publicada", message: "A versão foi publicada. Sites com leitura dinâmica habilitada recebem a atualização automaticamente." });
     });
   }
   async function restore(id:string){
@@ -207,7 +210,7 @@ export function SiteManager() {
     }))) return;
     void work(async()=>{
       await siteRequest(token,"/cms/site-layout/restore/"+id,"POST");
-      await refresh(token);setNotice("Versão recuperada no rascunho. Confira e publique quando estiver pronta.");
+      await refresh(token);showFeedback({ tone: "success", title: "Versão recuperada", message: "O rascunho foi restaurado. Confira as informações antes de publicar." });
     });
   }
   function applyRiachinhoSuggestion(suggestion:RiachinhoParsedSuggestion){

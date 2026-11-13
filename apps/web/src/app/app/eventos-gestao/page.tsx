@@ -3,7 +3,7 @@ import { EventManagementJourney } from "../../../components/events-management/Ev
 
 export const metadata: Metadata = {
   title: "Gestão de eventos",
-  description: "Rascunho, publicação, presença sintética e relatório de participação.",
+  description: "Rascunho, publicação, presença e relatório de participação.",
   robots: { index: false, follow: false },
 };
 

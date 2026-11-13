@@ -1,3 +1,4 @@
+import { isProductionAdmin, PRODUCTION_API_ORIGIN } from "./admin-environment";
 import { publicApiBase } from "./portal-live-data";
 
 /**
@@ -6,6 +7,9 @@ import { publicApiBase } from "./portal-live-data";
  */
 export function getApiBaseUrl(): string {
   const configured = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
+  if (isProductionAdmin() && configured !== PRODUCTION_API_ORIGIN) {
+    throw new Error("API de produção não configurada.");
+  }
   if (configured) {
     const url = new URL(configured);
     const local = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
@@ -135,6 +139,41 @@ export function summarizeApiTimings(path?: string): {
   };
 }
 
+/** Resumo por endpoint, sem registrar parâmetros, credenciais ou respostas. */
+export type EndpointTimingSummary = {
+  method: string;
+  path: string;
+  requests: number;
+  failures: number;
+  cacheHits: number;
+  p50Ms: number | null;
+  p95Ms: number | null;
+};
+
+export function summarizeEndpoints(): EndpointTimingSummary[] {
+  const groups = new Map<string, ApiTiming[]>();
+  for (const sample of timings) {
+    // O caminho registrado é a rota, nunca um token ou corpo de requisição.
+    const key = `${sample.method} ${sample.path}`;
+    const group = groups.get(key) ?? [];
+    group.push(sample);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map(group => {
+    const network = group.filter(item => !item.fromCache);
+    const durations = network.map(item => item.durationMs);
+    return {
+      method: group[0].method,
+      path: group[0].path,
+      requests: group.length,
+      failures: network.filter(item => !item.ok).length,
+      cacheHits: group.length - network.length,
+      p50Ms: percentile(durations, 50),
+      p95Ms: percentile(durations, 95),
+    };
+  }).sort((left, right) => (right.p95Ms ?? -1) - (left.p95Ms ?? -1));
+}
+
 type CachedSession = { token: string; user: AuthUser; at: number };
 let cachedSession: CachedSession | null = null;
 
@@ -168,6 +207,7 @@ export function readValidatedSession(token: string, at = Date.now(), allowStale 
 
 export function forgetValidatedSession(): void {
   cachedSession = null;
+  inflightSession = null;
 }
 
 export function isUnauthorized(error: unknown): boolean {
@@ -334,28 +374,38 @@ export function mfaFailureMessage(error: unknown): string {
   return loginFailureMessage(error);
 }
 
+/** Uma única consulta de /auth/me em voo por token; não cacheia falhas nem autorização fora do servidor. */
+let inflightSession: { token: string; promise: Promise<AuthUser> } | null = null;
+
 export async function apiGet<T>(path: string, token: string, options?: ApiCallOptions): Promise<T> {
-  if (path === "/auth/me" && options?.fresh !== true) {
+  if (path !== "/auth/me") return settle<T>("GET", path, token, undefined, options, true);
+  if (options?.fresh !== true) {
     const cached = readValidatedSession(token);
     if (cached) {
       noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
       return cached as T;
     }
   }
-  try {
-    const data = await settle<T>("GET", path, token, undefined, options, true);
-    if (path === "/auth/me" && isAuthUser(data)) rememberValidatedSession(token, data);
-    return data;
-  } catch (error) {
-    if (path === "/auth/me" && isTransientFailure(error)) {
-      const stale = readValidatedSession(token, Date.now(), true);
-      if (stale) {
-        noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
-        return stale as T;
+  if (inflightSession?.token === token) return await inflightSession.promise as T;
+  const promise: Promise<AuthUser> = (async () => {
+    try {
+      const data = await settle<AuthUser>("GET", path, token, undefined, options, true);
+      if (isAuthUser(data)) rememberValidatedSession(token, data);
+      return data;
+    } catch (error) {
+      if (isTransientFailure(error)) {
+        const stale = readValidatedSession(token, Date.now(), true);
+        if (stale) {
+          noteTiming({ method: "GET", path, durationMs: 0, ok: true, status: 200, fromCache: true });
+          return stale;
+        }
       }
+      throw error;
     }
-    throw error;
-  }
+  })();
+  inflightSession = { token, promise };
+  try { return await promise as T; }
+  finally { if (inflightSession?.promise === promise) inflightSession = null; }
 }
 
 export async function apiPost<T>(path: string, token: string, body?: unknown, options?: ApiCallOptions): Promise<T> {

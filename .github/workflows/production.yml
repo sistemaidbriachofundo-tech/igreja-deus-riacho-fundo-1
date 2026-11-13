@@ -2,7 +2,7 @@ name: Production
 
 # Trilho de produção — NÃO publica DNS nem corta tráfego sozinho.
 # Fluxo: PR → production (CI+Sonar hard) → push em production → Environment "production"
-# (aprovação manual) → artefatos + preflight. Deploy real no Hostinger só após checklist.
+# (aprovação manual) → artefatos. Deploy Hostinger e preflight seguem o checklist.
 
 on:
   push:
@@ -127,12 +127,14 @@ jobs:
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ env.NEXT_PUBLIC_BASE_PATH }}
           NEXT_PUBLIC_HML_ENABLED: "false"
+          NEXT_PUBLIC_ADMIN_PRODUCTION: "true"
           NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: "true"
           NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
-          NEXT_PUBLIC_API_URL: ${{ vars.PRODUCTION_API_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.PRODUCTION_API_URL || 'https://api.igrejadeusrf1.com.br' }}
         run: |
-          if [ -z "${NEXT_PUBLIC_API_URL}" ]; then
-            echo "::warning::PRODUCTION_API_URL (repo/org variable) vazia — build web sem API URL. Defina antes do corte."
+          if [ "${NEXT_PUBLIC_API_URL}" != "https://api.igrejadeusrf1.com.br" ]; then
+            echo "::error::O painel de produção exige a API oficial https://api.igrejadeusrf1.com.br."
+            exit 1
           fi
           for attempt in 1 2 3; do
             if npm run build -w @idbrf/web; then
@@ -144,6 +146,8 @@ jobs:
           echo "Web build failed after 3 attempts"
           exit 1
       - name: Manifesto do candidato
+        env:
+          PRODUCTION_API_ORIGIN: ${{ vars.PRODUCTION_API_URL || 'https://api.igrejadeusrf1.com.br' }}
         run: |
           mkdir -p dist/prod
           printf '%s\n' "{
@@ -155,6 +159,13 @@ jobs:
             \"dnsCutover\": false
           }" > dist/prod/release.json
           cp -a apps/web/out dist/prod/web-out
+          printf '%s\n' "{
+            \"channel\": \"production\",
+            \"sourceSha\": \"${GITHUB_SHA}\",
+            \"phase\": \"EM_EXECUCAO\",
+            \"officialUrl\": \"https://igrejadeusrf1.com.br\",
+            \"apiOrigin\": \"${PRODUCTION_API_ORIGIN}\"
+          }" > dist/prod/web-out/release.json
           mkdir -p dist/prod/api
           cp -a apps/api/dist dist/prod/api/dist
           cp -a apps/api/package.json dist/prod/api/package.json
@@ -257,15 +268,5 @@ jobs:
           echo "Este job NÃO altera DNS, Traefik nem Unlimited."
           test -f dist/prod/release.json
           cat dist/prod/release.json
-      - name: Preflight remoto (opcional)
-        env:
-          IDBRF_PRODUCTION_API_ORIGIN: ${{ vars.PRODUCTION_API_URL }}
-          IDBRF_PRODUCTION_WEB_ORIGIN: ${{ vars.PRODUCTION_WEB_URL }}
-          IDBRF_PRODUCTION_API_SHA: ${{ github.sha }}
-        run: |
-          if [ -z "${IDBRF_PRODUCTION_API_ORIGIN}" ] || [ -z "${IDBRF_PRODUCTION_WEB_ORIGIN}" ]; then
-            echo "::warning::Vars PRODUCTION_API_URL / PRODUCTION_WEB_URL ausentes — preflight remoto pulado."
-            exit 0
-          fi
-          npm ci
-          npm run release:preflight
+      - name: Registrar verificação pós-deploy
+        run: echo "Após publicar a API candidata, execute npm run release:preflight com o SHA publicado."

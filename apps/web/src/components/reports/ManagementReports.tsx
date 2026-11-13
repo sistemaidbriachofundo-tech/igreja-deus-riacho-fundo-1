@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "../AppShell";
 import { ApiRequestError, apiGet, getApiBaseUrl, loadStoredToken } from "../../lib/api";
@@ -21,7 +22,7 @@ type ReportName = "membership" | "ministries" | "participation" | "ministry-cost
 const idle = <T,>(): Slot<T> => ({ state: "loading" });
 
 export function ManagementReports() {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -127,6 +128,7 @@ export function ManagementReports() {
   return <AppShell active={null} meta="Relatórios">
     {notice && <p className={s.blocked} role="alert">{notice}</p>}
     <OperationalReports
+      production={isProductionAdmin()}
       membership={membership}
       ministries={ministries}
       participation={participation}

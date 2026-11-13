@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
@@ -26,6 +27,7 @@ export function financeApproval(actorUserId:string|null, entry:DasRecord):{text:
 }
 
 export function FinanceBoard({tab,rows,token,refresh}:Props){
+  const { showFeedback } = useFeedback();
   const { confirm, confirmation } = useActionConfirmation();
   const [accounts,setAccounts]=useState<DasRecord[]>([]);
   const [accountsState,setAccountsState]=useState<"loading"|"ready"|"error">("loading");
@@ -38,7 +40,6 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
   const [start,setStart]=useState("");
   const [end,setEnd]=useState("");
   const [busy,setBusy]=useState(false);
-  const [message,setMessage]=useState("");
   const [rejectionReasons,setRejectionReasons]=useState<Record<string,string>>({});
   const [actorId,setActorId]=useState<string|null>(null);
 
@@ -62,20 +63,20 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
 
   async function action(path:string,body?:unknown):Promise<boolean>{
     if(busy)return false;
-    setBusy(true);setMessage("");
+    setBusy(true);
     try{
       await apiPost(path,token,body);
       refresh();
-      setMessage("Alteração registrada. Consulte o histórico para acompanhar o lançamento.");
+      showFeedback({ tone: "success", title: "Alteração registrada", message: "Consulte o histórico para acompanhar o lançamento." });
       return true;
-    }catch(err){setMessage(dasError(err));return false;}
+    }catch(err){showFeedback({ tone: "error", title: "Operação não concluída", message: dasError(err) });return false;}
     finally{setBusy(false);}
   }
   function createEntry(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
     const amountCents=parseAmountCents(amount);
     if(!amountCents||!debit||!credit||debit===credit||!entryDate||description.trim().length<4){
-      setMessage("Informe descrição, data, contas diferentes e valor positivo com até duas casas decimais.");return;
+      showFeedback({ tone: "error", title: "Confira o lançamento", message: "Informe descrição, data, contas diferentes e valor positivo com até duas casas decimais." });return;
     }
     void action("/ledger/entries",{
       entryDate,description:description.trim(),
@@ -84,7 +85,7 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
   }
   function createReconciliation(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
-    if(!title.trim()||!start||!end||start>end){setMessage("Confira o título e o intervalo de competência.");return;}
+    if(!title.trim()||!start||!end||start>end){showFeedback({ tone: "error", title: "Confira a competência", message: "Informe um título e um intervalo de datas válido." });return;}
     void action("/ledger/reconciliations",{title:title.trim(),periodStart:start,periodEnd:end})
       .then(ok=>{if(ok){setTitle("");setStart("");setEnd("");}});
   }
@@ -122,7 +123,6 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
       <h2 id="finance-heading">Lançamentos e conciliação</h2>
       <p>Os valores vêm da API. Quem lança não aprova a própria peça, e a segunda aprovação é de outra pessoa. Nada aqui movimenta Pix ou banco.</p>
     </header>
-    {message&&<p role="status" className={styles.notice}>{message}</p>}
     {tab==="accounts"&&<p className={styles.info}>As contas são mantidas na API. O cadastro de novas contas está disponível no formulário desta página. Nenhuma conta é criada automaticamente.</p>}
     {tab==="imports"&&<p className={styles.warning}>
       O contrato da API identifica a importação como <strong>stub</strong>, sem parser OFX real. Esta interface não importa ou concilia extratos bancários automaticamente.
@@ -164,7 +164,7 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
               {entryId&&approval.canApprove&&<button disabled={busy} onClick={()=>transition("entries",entryId,"approve")}>Registrar aprovação</button>}
               {entryId&&status==="PENDING_APPROVAL"&&<form className={styles.rejectForm}
                 onSubmit={async e=>{e.preventDefault();const reason=(rejectionReasons[entryId]??"").trim();
-                  if(reason.length<6){setMessage("Informe o motivo da rejeição com pelo menos seis caracteres.");return;}
+                  if(reason.length<6){showFeedback({ tone: "error", title: "Informe o motivo", message: "A rejeição exige um motivo com pelo menos seis caracteres." });return;}
                   if (!(await confirm({
                     title: "Rejeitar lançamento?",
                     subject: str(entry.description) || undefined,
