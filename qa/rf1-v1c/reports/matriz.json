@@ -1,0 +1,657 @@
+{
+  "executedAt": "2026-11-10T16:38:19.232Z",
+  "baseline": "6c43aea96ad3fe24ec1ed2c09f717963fb289c62",
+  "pagesUrl": "https://sistemaidbriachofundo-tech.github.io/igreja-deus-riacho-fundo-1",
+  "apiUrl": "https://id-riacho1-api-hml.vercel.app",
+  "pagesSha": "6c43aea96ad3fe24ec1ed2c09f717963fb289c62",
+  "apiSha": "6c43aea96ad3fe24ec1ed2c09f717963fb289c62",
+  "preview": {
+    "url": "https://id-riacho1-web-hml.vercel.app/",
+    "status": 503,
+    "marker": "DEPLOYMENT_PAUSED"
+  },
+  "summary": {
+    "pass": 8,
+    "fail": 13,
+    "blocked": 9,
+    "total": 30
+  },
+  "rows": [
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-SHA",
+      "window": "—",
+      "priority": "P0",
+      "item": "O Pages oficial desta rodada é o SHA 6c43aea.",
+      "result": "PASS",
+      "cause": "release.json do Pages declara o SHA da baseline.",
+      "criterion": "sourceSha igual a 6c43aea96ad3fe24ec1ed2c09f717963fb289c62.",
+      "evidence": "Pages sourceSha=6c43aea96ad3fe24ec1ed2c09f717963fb289c62."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-API-SHA",
+      "window": "—",
+      "priority": "P1",
+      "item": "A API HML identifica o mesmo commit do Pages.",
+      "result": "PASS",
+      "cause": "GET /meta devolve o mesmo sourceSha.",
+      "criterion": "GET /health 200 e sourceSha da API igual ao Pages.",
+      "evidence": "health=200; apiSha=6c43aea96ad3fe24ec1ed2c09f717963fb289c62."
+    },
+    {
+      "needsSession": false,
+      "origin": "diretriz #144 e alias id-riacho1-web-hml",
+      "id": "RF1-PREVIEW",
+      "window": "—",
+      "priority": "P0",
+      "item": "Prévia real do projeto id-riacho1-web-hml disponível para regressão.",
+      "result": "BLOCKED",
+      "cause": "O alias não está READY. A regressão visual desta rodada usa o Pages oficial do mesmo SHA.",
+      "criterion": "HTTP 200 sem DEPLOYMENT_PAUSED, DEPLOYMENT_BLOCKED ou indisponibilidade.",
+      "evidence": "GET https://id-riacho1-web-hml.vercel.app/ → 503 DEPLOYMENT_PAUSED"
+    },
+    {
+      "needsSession": false,
+      "origin": "áudio 00:13–01:27 e menu público",
+      "id": "RF1-HOME-PAGINA",
+      "window": "00:13–01:27",
+      "priority": "P0",
+      "item": "Início, Quem somos e Agenda numa página só, com âncoras. Login fica à parte.",
+      "result": "FAIL",
+      "cause": "A home tem seções, mas o menu abre documentos separados.",
+      "criterion": "O menu público aponta para âncoras de uma única página e o login permanece em /login/.",
+      "evidence": "HTTP 200. Menu: /igreja-deus-riacho-fundo-1/, /igreja-deus-riacho-fundo-1/, /igreja-deus-riacho-fundo-1/a-igreja/, /igreja-deus-riacho-fundo-1/eventos/, /igreja-deus-riacho-fundo-1/login/, /igreja-deus-riacho-fundo-1/, /igreja-deus-riacho-fundo-1/a-igreja/, /igreja-deus-riacho-fundo-1/eventos/, /igreja-deus-riacho-fundo-1/login/. Âncoras na home: quem-somos=true agenda=true."
+    },
+    {
+      "needsSession": false,
+      "origin": "PublicPortal + flag de main no CI",
+      "id": "RF1-HOME-IA",
+      "window": "00:13–01:27",
+      "priority": "P0",
+      "item": "Remover a IA pública e o código morto desse assistente. Preservar o assistente interno.",
+      "result": "FAIL",
+      "cause": "O lançador do Riachinho está no DOM do Pages oficial.",
+      "criterion": "Home, Quem somos e Agenda sem lançador nem painel do Riachinho.",
+      "evidence": "home=true a-igreja=true agenda=true. Flag de main no CI=true. Componente ainda importado=true."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-HOME-EXTRA",
+      "window": "00:13–01:27",
+      "priority": "P1",
+      "item": "O site público do piloto não publica superfícies fora de Início, Quem somos, Agenda e login.",
+      "result": "FAIL",
+      "cause": "Há rotas públicas 200 além do roteiro.",
+      "criterion": "Somente a página única e o login respondem como superfície pública do piloto.",
+      "evidence": "ministerios HTTP 200; novidades HTTP 200; visita HTTP 200; contato HTTP 200; w1-estudio HTTP 200; design-system HTTP 200"
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-HOME-CONTRASTE",
+      "window": "00:13–01:27",
+      "priority": "P1",
+      "item": "Contraste do texto comum na home pelo menos 4,5:1.",
+      "result": "FAIL",
+      "cause": "A pior amostra ficou abaixo do mínimo WCAG para o tamanho lido.",
+      "criterion": "Texto comum ≥ 4,5:1; texto grande ≥ 3:1.",
+      "evidence": "1.48:1 (mínimo 4.5) em “IMAGEM ILUSTRATIVA”."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-TOQUE",
+      "window": "00:13–01:27",
+      "priority": "P2",
+      "item": "Alvos de toque com pelo menos 44 px.",
+      "result": "FAIL",
+      "cause": "Há botão visível abaixo de 44 px.",
+      "criterion": "Botões e links visíveis com altura ou largura útil abaixo de 44 px são falha.",
+      "evidence": "Mostrar senha 60×32 em login-1440; Mostrar senha 60×32 em login-390"
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-HOME-SCROLL",
+      "window": "00:13–01:27",
+      "priority": "P1",
+      "item": "Home sem rolagem horizontal em 320, 390, 768 e 1440.",
+      "result": "PASS",
+      "cause": "scrollWidth permaneceu dentro da janela.",
+      "criterion": "scrollWidth ≤ clientWidth + 1 px nas quatro larguras.",
+      "evidence": "Sem excesso nas larguras medidas."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-LOGIN-ESTRUTURA",
+      "window": "01:40–02:06",
+      "priority": "P1",
+      "item": "A tela de login aprovada continua no ar, com e-mail e senha.",
+      "result": "PASS",
+      "cause": "O formulário publicado tem e-mail e senha.",
+      "criterion": "HTTP 200, campo de e-mail e campo de senha visíveis.",
+      "evidence": "HTTP 200; e-mail=true; senha=true; título=Login — ID Riacho 1 · Igreja de Deus — Riacho Fundo I."
+    },
+    {
+      "needsSession": false,
+      "origin": "LoginScreen.tsx e DOM de /login/",
+      "id": "RF1-LOGIN-TEXTO",
+      "window": "01:40–02:06",
+      "priority": "P0",
+      "item": "Remover somente o texto “Seu acesso é individual”.",
+      "result": "FAIL",
+      "cause": "A frase continua visível na tela publicada.",
+      "criterion": "O texto visível de /login/ não contém “Seu acesso é individual”.",
+      "evidence": "DOM=true; fonte=true."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-LOGIN-ECO",
+      "window": "01:40–02:06",
+      "priority": "P1",
+      "item": "Erro de credencial não devolve a senha.",
+      "result": "PASS",
+      "cause": "O alerta não contém a senha. A senha não entra no relatório.",
+      "criterion": "O alerta visível depois de uma tentativa não inclui a senha.",
+      "evidence": "eco=false; httpDoLogin=401; alerta=E-mail ou senha não autorizados. Confira seus dados.."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-LOGIN-SAIDA",
+      "window": "01:40–02:06",
+      "priority": "P1",
+      "item": "Sair encerra a sessão e volta ao destino aprovado.",
+      "result": "BLOCKED",
+      "cause": "A fala não nomeia a tela de destino e a sessão não abriu para clicar em Sair.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-ADM-VISUAL",
+      "window": "02:06–03:23",
+      "priority": "P0",
+      "item": "Dashboard administrativo sem cartão de QA, jargão, duplicação ou texto de planejamento.",
+      "result": "BLOCKED",
+      "cause": "PersonaHome só renderiza a mesa com sessão. Não houve captura autenticada.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-ADM-LENTIDAO",
+      "window": "02:06–03:23",
+      "priority": "P1",
+      "item": "A lentidão perceptível do painel administrativo.",
+      "result": "BLOCKED",
+      "cause": "O tempo do painel autenticado não foi medido.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-ADM-BARRA",
+      "window": "02:06–03:23",
+      "priority": "P1",
+      "item": "Barra com perfil, busca, avisos e uma única ação Sair.",
+      "result": "FAIL",
+      "cause": "O shell publicado mostra mais de um botão Sair antes mesmo da sessão confirmada.",
+      "criterion": "Há busca, há avisos e há um único controle Sair.",
+      "evidence": "/status/ exibiu 2 botões Sair. Busca=true. Avisos=false. Captura qa/rf1-v1c/evidence/status-1440.jpg."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-PES-FICHA",
+      "window": "03:23–04:38",
+      "priority": "P0",
+      "item": "Ficha editável, persistente e localizável, distinta da secretaria.",
+      "result": "BLOCKED",
+      "cause": "Não houve leitura nem recarga da ficha. Nenhum dado foi alterado.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": true,
+      "origin": "HmlPhaseOne, ramo montado quando NEXT_PUBLIC_HML_ENABLED=true",
+      "id": "RF1-PES-CTA",
+      "window": "03:23–04:38",
+      "priority": "P0",
+      "item": "Secretaria com ações separadas “Cadastrar pessoa” e “Iniciar admissão”.",
+      "result": "FAIL",
+      "cause": "O componente montado no build oficial junta as duas ações num botão só.",
+      "criterion": "Dois controles visíveis, com esses rótulos, e a ficha não é uma segunda cópia da mesma lista.",
+      "evidence": "Fonte: HmlPhaseOne usa “Cadastrar e iniciar admissão”. ChurchSecretary tem os rótulos separados, mas é o ramo descartado no build de main."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-CRD-ABRIR",
+      "window": "04:38–05:10",
+      "priority": "P0",
+      "item": "Abrir credencial com frente, verso, QR, PDF e revogação.",
+      "result": "BLOCKED",
+      "cause": "A rota caiu no gate de login. Nenhum PDF foi baixado e nenhuma credencial foi revogada.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-CRD-409",
+      "window": "04:38–05:10",
+      "priority": "P1",
+      "item": "O 409 ambíguo deixa de ser uma resposta única para conflitos diferentes.",
+      "result": "BLOCKED",
+      "cause": "Não houve reprodução autenticada de um 409.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-MIN-CONTEXTO",
+      "window": "05:10–06:26",
+      "priority": "P0",
+      "item": "Cada ministério abre o próprio contexto, integrantes, famílias, escalas e caixa quando permitido.",
+      "result": "BLOCKED",
+      "cause": "O catálogo autenticado não foi percorrido.",
+      "criterion": "PASS somente com a tela autenticada exercitada. Sem sessão, o resultado não vira PASS.",
+      "evidence": "Login sintético não abriu sessão. Senha não impressa e não resetada."
+    },
+    {
+      "needsSession": false,
+      "origin": "persona-navigation.ts e /app/operacao/",
+      "id": "RF1-MIN-SUPERFICIE",
+      "window": "05:10–06:26",
+      "priority": "P0",
+      "item": "Eliminar a superfície genérica “Ministérios e operação”.",
+      "result": "FAIL",
+      "cause": "O rótulo ou o título DAS continuam no código publicado.",
+      "criterion": "Não existe item “Ministérios e operação” nem página de fases F2–F6 no menu.",
+      "evidence": "título do documento=Operação integrada — DAS · ID Riacho 1; rótulo na fonte=true; fases no DasOperations=true; menu autenticado=não aberto."
+    },
+    {
+      "needsSession": false,
+      "origin": "OWN_ASSIGNMENT inclui PLATFORM_ADMIN, SECRETARIA, PASTOR e LIDER",
+      "id": "RF1-MBR-MENU",
+      "window": "06:26–06:45",
+      "priority": "P0",
+      "item": "A visão do membro fica fora do menu administrativo. “Meu Espaço” não aparece para a administração.",
+      "result": "FAIL",
+      "cause": "Meu Espaço entra no menu de quem administra, não só no menu do membro.",
+      "criterion": "Conta administrativa sem o item Meu Espaço. Conta de membro sem os módulos de secretaria, tesouraria e gestão.",
+      "evidence": "Fonte: a área meu-espaco usa OWN_ASSIGNMENT, que inclui os papéis administrativos. Captura do menu não existe nesta rodada."
+    },
+    {
+      "needsSession": false,
+      "origin": "/w1-estudio/ e W1PortalStudio",
+      "id": "RF1-EDI-SIMULADO",
+      "window": "06:45–07:22",
+      "priority": "P0",
+      "item": "O editor simulado não fica publicado no site oficial.",
+      "result": "FAIL",
+      "cause": "A página pública mostra papel simulado.",
+      "criterion": "/w1-estudio/ não responde 200 com “Papel simulado” ou “Publicar simulado”.",
+      "evidence": "HTTP 200; papelSimulado=true; título=Prévia isolada do portal · Igreja de Deus — Riacho Fundo I."
+    },
+    {
+      "needsSession": false,
+      "origin": "/design-system/, /status/ e título de /app/editorial/",
+      "id": "RF1-EDI-TECNICO",
+      "window": "06:45–07:22",
+      "priority": "P0",
+      "item": "Tirar da interface comum ferramentas técnicas, fases, RFC, QA, endpoints e detalhe de implementação.",
+      "result": "FAIL",
+      "cause": "Ainda há superfície técnica no host oficial.",
+      "criterion": "Sem vitrine de design system, sem página de bootstrap e sem Church OS no título.",
+      "evidence": "design-system HTTP 200, kit visual público; título do documento em /app/editorial/ contém Church OS"
+    },
+    {
+      "needsSession": false,
+      "origin": "SiteManager.tsx",
+      "id": "RF1-EDI-INTERNO",
+      "window": "06:45–07:22",
+      "priority": "P1",
+      "item": "O assistente interno autorizado permanece no editor do site.",
+      "result": "PASS",
+      "cause": "ViviEditorialAssistant continua ligado à gestão do site, separado do chat público.",
+      "criterion": "SiteManager importa o assistente editorial e o chat público é outro componente.",
+      "evidence": "import interno=true; chat público=true."
+    },
+    {
+      "needsSession": true,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-AUTH",
+      "window": "01:40–02:06",
+      "priority": "P0",
+      "item": "Personas sintéticas autenticam na API HML.",
+      "result": "BLOCKED",
+      "cause": "Nenhuma conta do seed versionado abriu sessão. O segredo HML não está neste agente e a senha não foi resetada.",
+      "criterion": "Uma tentativa por conta do seed versionado. PASS só com as sete abertas. PUBLICADOR_SITE não é tentado: não está nesse seed.",
+      "evidence": "ADMIN não abriu HTTP 401; SECRETARIA não abriu HTTP 401; PASTOR não abriu HTTP 401; TESOURARIA não abriu HTTP 401; LIDER não abriu HTTP 401; MEMBRO não abriu HTTP 401; EDITOR não abriu HTTP 401. PUBLICADOR_SITE sem tentativa."
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-401",
+      "window": "—",
+      "priority": "P1",
+      "item": "Rotas protegidas sem sessão respondem 401.",
+      "result": "PASS",
+      "cause": "Os GET anônimos amostrados responderam 401.",
+      "criterion": "GET anônimo de /auth/me, /persons/search, /credentials/me e /ledger/accounts responde 401.",
+      "evidence": "/auth/me 401; /persons/search 401; /credentials/me 401; /ledger/accounts 401"
+    },
+    {
+      "needsSession": false,
+      "origin": "baseline 6c43aea publicada",
+      "id": "RF1-PERF-PUBLICA",
+      "window": "00:13–01:27",
+      "priority": "P1",
+      "item": "TTFB e carregamento das páginas públicas da baseline.",
+      "result": "PASS",
+      "cause": "A amostra pública ficou dentro desses limites.",
+      "criterion": "TTFB ≤ 800 ms e load ≤ 3000 ms em home, login, quem somos e agenda.",
+      "evidence": "/ ttfb=49 load=321 req=24; /a-igreja/ ttfb=17 load=58 req=20; /eventos/ ttfb=15 load=33 req=21; /login/ ttfb=24 load=54 req=17"
+    },
+    {
+      "needsSession": false,
+      "origin": "inventário estático do SHA 6c43aea",
+      "id": "RF1-LIMPEZA",
+      "window": "06:45–07:22",
+      "priority": "P1",
+      "item": "Limpeza segura só depois do inventário. O código legado ainda não sai nesta frente.",
+      "result": "FAIL",
+      "cause": "O inventário encontrou rotas que a diretriz manda retirar. Esta frente não apaga arquivo de produto.",
+      "criterion": "Inventário versionado antes de qualquer exclusão. Exclusão fica com o integrador.",
+      "evidence": "10 rotas classificadas como legado ou fora do roteiro. Ver docs/qa/rf1-v1c/inventario.md."
+    }
+  ],
+  "timings": [
+    {
+      "path": "/",
+      "http": 200,
+      "ttfbMs": 48.59999999997672,
+      "dclMs": 186.5,
+      "loadMs": 321.30000000004657,
+      "requests": 24
+    },
+    {
+      "path": "/a-igreja/",
+      "http": 200,
+      "ttfbMs": 17.199999999953434,
+      "dclMs": 55.90000000002328,
+      "loadMs": 58.40000000002328,
+      "requests": 20
+    },
+    {
+      "path": "/eventos/",
+      "http": 200,
+      "ttfbMs": 15.29999999993015,
+      "dclMs": 30.29999999993015,
+      "loadMs": 32.5,
+      "requests": 21
+    },
+    {
+      "path": "/ministerios/",
+      "http": 200,
+      "ttfbMs": 22,
+      "dclMs": 51.199999999953434,
+      "loadMs": 67.69999999995343,
+      "requests": 21
+    },
+    {
+      "path": "/novidades/",
+      "http": 200,
+      "ttfbMs": 21.099999999976717,
+      "dclMs": 44.79999999993015,
+      "loadMs": 58.79999999993015,
+      "requests": 21
+    },
+    {
+      "path": "/visita/",
+      "http": 200,
+      "ttfbMs": 25.699999999953434,
+      "dclMs": 51.300000000046566,
+      "loadMs": 92.59999999997672,
+      "requests": 24
+    },
+    {
+      "path": "/contato/",
+      "http": 200,
+      "ttfbMs": 13.599999999976717,
+      "dclMs": 38.699999999953434,
+      "loadMs": 52.09999999997672,
+      "requests": 20
+    },
+    {
+      "path": "/login/",
+      "http": 200,
+      "ttfbMs": 23.900000000023283,
+      "dclMs": 37.59999999997672,
+      "loadMs": 53.79999999993015,
+      "requests": 17
+    },
+    {
+      "path": "/w1-estudio/",
+      "http": 200,
+      "ttfbMs": 41.5,
+      "dclMs": 71,
+      "loadMs": 93.5,
+      "requests": 16
+    },
+    {
+      "path": "/design-system/",
+      "http": 200,
+      "ttfbMs": 26.099999999976717,
+      "dclMs": 48.5,
+      "loadMs": 77.69999999995343,
+      "requests": 15
+    },
+    {
+      "path": "/status/",
+      "http": 200,
+      "ttfbMs": 17,
+      "dclMs": 58.79999999993015,
+      "loadMs": 64.29999999993015,
+      "requests": 20
+    },
+    {
+      "path": "/app/",
+      "http": 200,
+      "ttfbMs": 17.699999999953434,
+      "dclMs": 30.5,
+      "loadMs": 73.90000000002328,
+      "requests": 24
+    },
+    {
+      "path": "/app/operacao/",
+      "http": 200,
+      "ttfbMs": 18.400000000023283,
+      "dclMs": 31.099999999976717,
+      "loadMs": 88.19999999995343,
+      "requests": 33
+    },
+    {
+      "path": "/app/editorial/",
+      "http": 200,
+      "ttfbMs": 16,
+      "dclMs": 31.29999999993015,
+      "loadMs": 43.29999999993015,
+      "requests": 24
+    }
+  ],
+  "waterfalls": [
+    {
+      "path": "/",
+      "slowest": [
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "image",
+          "path": "/igreja-deus-riacho-fundo-1/images/hero-oficial.jpg"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/main-app-7f14eaaa767d2178.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/87c73c54-24122e7b92478d00.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/18-2b396aa2b0a3c0be.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "font",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/media/inter-latin-400-normal.ef6d3f52.woff2"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "font",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/media/montserrat-latin-700-normal.d4df281b.woff2"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "document",
+          "path": "/igreja-deus-riacho-fundo-1/"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/0b22205558187e77.css"
+        }
+      ]
+    },
+    {
+      "path": "/login/",
+      "slowest": [
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "document",
+          "path": "/igreja-deus-riacho-fundo-1/login/"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "font",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/media/montserrat-latin-700-normal.d4df281b.woff2"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/478d5fbb9d047eb6.css"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/webpack-572da1343c1384bd.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/98900a9a42c129d6.css"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "font",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/media/inter-latin-400-normal.ef6d3f52.woff2"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "font",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/media/inter-latin-500-normal.b7b43ace.woff2"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "font",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/media/inter-latin-600-normal.8fb1a964.woff2"
+        }
+      ]
+    },
+    {
+      "path": "/app/",
+      "slowest": [
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/app/app/layout-f1ac457951eaa02b.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "document",
+          "path": "/igreja-deus-riacho-fundo-1/app/"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/e53b5bfbb6c519aa.css"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/5355-571c65de8a16bf04.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "script",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/chunks/app/app/page-131a165b18e98994.js"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/b0918701ee41ff22.css"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/478d5fbb9d047eb6.css"
+        },
+        {
+          "method": "GET",
+          "status": 200,
+          "type": "stylesheet",
+          "path": "/igreja-deus-riacho-fundo-1/_next/static/css/98900a9a42c129d6.css"
+        }
+      ]
+    }
+  ],
+  "authenticatedTiming": null
+}
