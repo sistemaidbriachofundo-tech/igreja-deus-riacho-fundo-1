@@ -11,6 +11,8 @@ import type { AuthUser } from "../types/auth-user";
 const PROBES: { key: string; path: string; roles: string[] }[] = [
   { key: "membros", path: "/persons/search", roles: ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
   { key: "secretaria", path: "/admissions", roles: ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
+  { key: "conexao", path: "/discipleship/tracks", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
+  { key: "conexao", path: "/small-groups", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "carteirinha", path: "/credentials/me", roles: ["MEMBRO", "SECRETARIA", "PLATFORM_ADMIN"] },
   { key: "ministerios", path: "/ministry-scope/:id/formal-memberships", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "escalas", path: "/rosters", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },

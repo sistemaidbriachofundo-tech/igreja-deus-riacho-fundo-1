@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AnchorHTMLAttributes, CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -8,6 +9,7 @@ import {
 } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
+import { officialLogoAsset } from "../lib/brand";
 import { treasurySectionFromHash, treasurySectionHref, treasurySidebarItems, type TreasurySection } from "../lib/treasury-navigation";
 import {
   SESSION_UNAUTHORIZED_EVENT, apiGet, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, signOutSession, type AuthUser,
@@ -139,7 +141,7 @@ export function AppShell({
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
-  const personaMode = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const personaMode = isAdminEnabled();
   const preview = !personaMode && !viewer;
   const childActive = active === "ministerios" || active === "escalas" || active === "atmosfera";
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -341,7 +343,7 @@ export function AppShell({
       action: "Sair da conta",
       cancel: "Continuar no painel",
     });
-    if (accepted) signOut();
+    if (accepted) await signOut();
   }
   function onRailKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     const key = event.key;
@@ -463,7 +465,9 @@ export function AppShell({
         </button>
         <div className={s.railHeader}>
           <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
-            <span className={s.brandEmblem} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} role="img" aria-label="Logotipo da Igreja de Deus"/>
+            {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />
             <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
           </AppNavLink>
           <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
@@ -546,7 +550,9 @@ export function AppShell({
             <button type="button" ref={menuButtonRef} className={s.hamburger} aria-expanded={menuExpanded} aria-controls="app-navigation-rail" aria-label={menuButtonLabel} onClick={toggleMenu}>
               <UIIcon name="menu" size={20}/>
             </button>
-            <span className={s.smallLogo} style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }} />
+            {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={s.smallLogo} src={withBasePath(officialLogoAsset)} width={36} height={40} alt="" loading="eager" />
             <div>
               <strong>{shownMeta}</strong>
               <span className={s.toolbarEyebrow}>{memberShell ? "Igreja de Deus · Riacho Fundo I" : "Administração · Riacho Fundo I"}</span>
@@ -567,7 +573,7 @@ export function AppShell({
         </header>
         <main className={s.content}>
           {showModule && children}
-          {accessKind === "pending" && <p className={s.holdNote} role="status">Verificando seu acesso…</p>}
+          {accessKind === "pending" && <div className={s.accessLoading} role="status" aria-label="Carregando painel"><span className={s.accessSpinner} aria-hidden="true" /><span className={s.screenReaderOnly}>Carregando painel</span></div>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
             <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
             <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>

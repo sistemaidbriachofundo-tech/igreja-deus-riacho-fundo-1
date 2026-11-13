@@ -13,7 +13,7 @@
 .headerInner{max-width:1450px;margin:auto;min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:30px;padding:0 clamp(22px,5vw,72px)}
 .brand,.brandInverse{display:inline-flex;align-items:center;gap:12px;flex-shrink:0;color:#33271e}
 .brandInverse{color:#fff8ef}
-.logo{width:45px;height:45px;object-fit:contain;border-radius:50%}
+.logo{display:block;width:45px;height:50px;object-fit:contain;object-position:center;border-radius:0;background:transparent;flex:none}
 .brand strong,.brandInverse strong{display:block;font-family:Montserrat,Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:.12em;line-height:1.35}
 .brand small,.brandInverse small{display:block;font-size:9px;font-weight:700;letter-spacing:.28em;margin-top:2px;opacity:.7}
 .desktopNav{display:flex;align-items:center;gap:clamp(18px,2.8vw,40px);margin-left:auto}

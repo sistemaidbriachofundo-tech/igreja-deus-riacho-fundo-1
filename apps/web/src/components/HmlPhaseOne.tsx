@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
@@ -14,6 +15,7 @@ import { LoginScreen } from "./LoginScreen";
 import { readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
 import { Modal } from "./ui/Modal";
+import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
 import s from "./hml-phase-one.module.css";
@@ -164,6 +166,7 @@ export function CredentialCards({
 }
 
 export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection = "resumo" }: HmlPhaseOneProps) {
+  const { showFeedback } = useFeedback();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(true);
@@ -184,7 +187,6 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [admissionStage, setAdmissionStage] = useState("");
   const [admissionProtocol, setAdmissionProtocol] = useState("");
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
-  const [formFeedback, setFormFeedback] = useState("");
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [summaryRevision, setSummaryRevision] = useState(0);
@@ -330,7 +332,6 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
 
   function startSecretaryAction(next: "new" | "existing") {
     setAdmissionForm(next);
-    setFormFeedback("");
   }
 
   function closeSecretaryAction() {
@@ -340,7 +341,6 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
 
   function resetSecretaryAction() {
     setAdmissionForm(null);
-    setFormFeedback("");
     setNewName("");
     setNewEmail("");
     setNewProfile(emptyNewProfile());
@@ -395,7 +395,22 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     }
   }
 
-  async function run(action: () => Promise<unknown>, message: string, reportError = setError): Promise<boolean> {
+  function showFormIssue(message: string, focusId?: string) {
+    showFeedback({
+      tone: "error",
+      title: "Confira o formulário",
+      message,
+      ...(focusId ? { focusId, actionLabel: "Corrigir campo" } : {}),
+    });
+  }
+
+  async function run(
+    action: () => Promise<unknown>,
+    message: string,
+    reportError: (detail: string) => void = (detail) => showFeedback({
+      tone: "error", title: "Não foi possível concluir", message: detail,
+    }),
+  ): Promise<boolean> {
     if (!token) return false;
     setBusy(true);
     setError("");
@@ -403,10 +418,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     try {
       await action();
       const updated = await refresh(token, true).catch(() => false);
-      setNotice({
+      showFeedback({
         tone: updated ? "success" : "warning",
         title: message,
-        detail: updated ? undefined : "A lista ainda precisa ser atualizada. Use Atualizar para conferir.",
+        message: updated
+          ? "A operação foi salva. Você pode continuar."
+          : "A operação foi salva, mas não conseguimos atualizar a lista. Use Atualizar para conferir.",
+        actionLabel: "Continuar",
       });
       return true;
     } catch (err) {
@@ -423,26 +441,32 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     const name = newName.trim();
     const email = newEmail.trim().toLowerCase();
     const computedMinor = newProfile.birthDate ? personUnder18(newProfile.birthDate) : newProfile.isMinor;
-    setFormFeedback("");
     if (admissionForm === "existing" && !admissionPerson) {
-      setFormFeedback("Selecione a pessoa que vai iniciar a admissão.");
+      showFormIssue("Selecione uma pessoa cadastrada para iniciar a admissão.");
       return;
     }
-    if (admissionForm === "new" && (name.length < 3 || !email.endsWith("@example.test"))) {
-      setFormFeedback("Use um nome e um e-mail terminado em @example.test.");
+    if (admissionForm === "new" && name.length < 3) {
+      showFormIssue("Informe o nome completo com pelo menos 3 caracteres.", "intake-person-name");
+      return;
+    }
+    if (admissionForm === "new" && !/^[^\s@]+@example\.test$/i.test(email)) {
+      showFormIssue(
+        "Este é um ambiente de testes. Informe um e-mail fictício terminado em @example.test (por exemplo: pessoa@example.test). E-mails reais não são permitidos nesta base.",
+        "intake-person-email",
+      );
       return;
     }
     if (admissionForm === "new" && computedMinor && !newProfile.legalGuardianPersonId) {
-      setFormFeedback("Para uma pessoa menor de idade, selecione um responsável legal adulto.");
+      showFormIssue("Para cadastrar uma pessoa menor de idade, selecione um responsável legal adulto.");
       return;
     }
     if (admissionForm === "new" && newProfile.householdId && newProfile.householdLabel.trim()) {
-      setFormFeedback("Selecione uma família existente ou crie um novo núcleo.");
+      showFormIssue("Escolha uma família existente ou informe uma nova, não as duas opções ao mesmo tempo.");
       return;
     }
     let createdPersonId: string | null = null;
     const completed = admissionForm === "existing"
-      ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.", setFormFeedback)
+      ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.", showFormIssue)
       : await run(async () => {
           const candidates = await apiPost<{ hits: Array<{ person: { email: string | null } }> }>(
             "/persons/candidates", token, { displayName: name, email },
@@ -465,7 +489,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
           });
           createdPersonId = created?.person?.id ?? null;
           return created;
-        }, "Pessoa cadastrada. Abra a Ficha 360 para completar sua história.", setFormFeedback);
+        }, "Pessoa cadastrada. Abra a Ficha 360 para completar sua história.", showFormIssue);
     if (completed) {
       resetSecretaryAction();
       if (createdPersonId) setFichaId(createdPersonId);
@@ -506,7 +530,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   };
   const activeNav = view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
 
-  if (process.env.NEXT_PUBLIC_HML_ENABLED !== "true") {
+  if (!isAdminEnabled()) {
     return (
       <AppShell active={activeNav} meta="Área administrativa">
         <section className={s.loginPanel}>
@@ -518,7 +542,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   }
 
   // A versão anterior exibia uma tela de senha própria e ignorava o desafio MFA.
-  // Todos os acessos HML devem passar pelo mesmo fluxo seguro da rota /login.
+  // Todos os acessos devem passar pelo mesmo fluxo seguro da rota /login.
   if (!token || !user) {
     if (checking) {
       return <main className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></main>;
@@ -729,8 +753,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                   : "Registre identificação, família e histórico. Ser membro exige aprovação pastoral."}
                 onClose={closeSecretaryAction}
               >
-                <form className={s.form} onSubmit={submitSecretariatForm} aria-busy={busy}>
-                  {formFeedback && <Alert appearance="workspace" tone="danger" title="Confira o formulário">{formFeedback}</Alert>}
+                <form className={s.form} onSubmit={submitSecretariatForm} noValidate aria-busy={busy}>
                   {admissionForm === "existing" ? (
                     <>
                       <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Pessoa para admissão" value={admissionPerson} onChange={setAdmissionPerson} selectedPerson={membershipByPerson.get(admissionPerson)?.person} placeholder="Buscar pelo nome" required disabled={busy} />
@@ -759,7 +782,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                   )}
                   <div className={s.formActions}>
                     <button type="button" className={ui.workspaceSecondary} onClick={closeSecretaryAction} disabled={busy}>Cancelar</button>
-                    <button type="submit" disabled={busy || (admissionForm === "existing" && !admissionPerson)}>
+                    <button type="submit" disabled={busy}>
                       {busy ? "Salvando…" : admissionForm === "existing" ? "Abrir protocolo" : "Salvar cadastro"}
                     </button>
                   </div>
@@ -804,7 +827,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 onSessionExpired={logout}
               />
             )}
-            <p className={s.footerNote}>Ambiente de homologação. Não cadastre dados de pessoas reais.</p>
+            {!isProductionAdmin() && <p className={s.footerNote}>Ambiente de homologação. Não cadastre dados de pessoas reais.</p>}
           </div>
       </div>
     </AppShell>

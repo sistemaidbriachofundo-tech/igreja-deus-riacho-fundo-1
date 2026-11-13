@@ -32,7 +32,7 @@ describe("Church OS: experiência institucional", () => {
   it("preserva a identidade visual exclusiva da Igreja de Deus", () => {
     expect(brand).toContain("#4A2612");
     expect(brand).toContain("#D4AF37");
-    expect(shell).toContain("logo-igreja-aprovada.webp");
+    expect(shell).toContain("officialLogoAsset");
     expect(directory).not.toContain("pessoas-sinteticas.webp");
     expect(directory).toContain("Avatar fictício");
     expect(dashboard).toContain("ID Riacho 1");

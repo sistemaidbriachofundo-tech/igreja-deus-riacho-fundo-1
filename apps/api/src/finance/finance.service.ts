@@ -294,7 +294,7 @@ export class FinanceService {
     },
     expenseId?: string,
   ) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, expenseId ? "expense-create" : "write");
     const description = input.description?.trim();
     if (!description) {
       throw new BadRequestException("description é obrigatória");
@@ -1841,11 +1841,12 @@ export class FinanceService {
 
   // —— helpers ——
 
-  private async requireFinance(actor: AuthUser, action: "read" | "write" = "write"): Promise<PilotScope> {
+  private async requireFinance(actor: AuthUser, action: "read" | "write" | "expense-create" = "write"): Promise<PilotScope> {
     const pilot = await this.pilot.getPilotChurch();
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
-    const adminRead = action === "read" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
-    if (!adminRead && !canAccessFinance(actor.grants, scope)) {
+    // Admin pode cadastrar uma despesa pendente, mas nunca recebe aprovação ou operações gerais.
+    const adminAllowed = action !== "write" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
+    if (!adminAllowed && !canAccessFinance(actor.grants, scope)) {
       throw new ForbiddenException(
         "Sem permissão de tesouraria nesta congregação",
       );

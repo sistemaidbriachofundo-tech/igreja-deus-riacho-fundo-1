@@ -1,7 +1,7 @@
 "use client";
 
 import { PersonPortrait } from "./PersonPortrait";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
 import { AdministrativeOverview } from "./AdministrativeOverview";
 import { readTreasuryPosition, type TreasuryPosition } from "./TreasuryPanel";
@@ -607,6 +607,7 @@ function applyPath(current: Mesa, path: MesaPath, slot: Slot<unknown>): Mesa {
 function useMesa(roles: readonly string[], reload: number): Mesa {
   const [mesa, setMesa] = useState<Mesa>(IDLE);
   const signature = roles.join(",");
+  const priorRoles = useRef("");
   useEffect(() => {
     const token = loadStoredToken();
     if (!token) {
@@ -617,7 +618,13 @@ function useMesa(roles: readonly string[], reload: number): Mesa {
     const paths = dashboardPaths(roleList).filter((path): path is MesaPath => path in PARSERS);
     let cancelled = false;
     let left = paths.length;
-    setMesa({ ...IDLE, phase: paths.length === 0 ? "ready" : "loading" });
+    // Atualizar indicadores em segundo plano sem desmontar valores já exibidos
+    // para o MESMO perfil. Uma mudança de sessão/papel sempre limpa os dados.
+    const sameRoles = priorRoles.current === signature;
+    priorRoles.current = signature;
+    setMesa(current => sameRoles && current.phase === "ready"
+      ? { ...current, phase: paths.length === 0 ? "ready" : "loading" }
+      : { ...IDLE, phase: paths.length === 0 ? "ready" : "loading" });
     for (const path of paths) {
       const parse = PARSERS[path] as (value: unknown) => unknown;
       void loadSlot(token, path, parse, reload > 0).then(slot => {
@@ -726,8 +733,8 @@ export function PersonaBoard() {
   }
   if (treasury) {
     metrics.push(
-      { label: "Contas", value: mesa.accounts ? mesa.accounts.length : loading ? null : null, href: "/app/tesouraria/", hint: "Plano registrado" },
-      { label: "Lançamentos", value: mesa.entries ? mesa.entries.length : loading ? null : null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
+      { label: "Contas", value: mesa.accounts?.length ?? null, href: "/app/tesouraria/", hint: "Plano registrado" },
+      { label: "Lançamentos", value: mesa.entries?.length ?? null, href: "/app/tesouraria/", hint: "Movimentos registrados" },
     );
   }
   const visibleMetrics = metrics.filter(item => item.value !== null || loading);

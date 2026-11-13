@@ -71,7 +71,7 @@ export function initialMonth(events: readonly AgendaItem[], today = new Date()):
   const dated = events
     .map((event) => eventDayKey(event.startsAt))
     .filter((day): day is string => Boolean(day))
-    .sort();
+    .sort((left, right) => left.localeCompare(right, "en"));
   return dated[0]?.slice(0, 7) ?? monthKey(today);
 }
 

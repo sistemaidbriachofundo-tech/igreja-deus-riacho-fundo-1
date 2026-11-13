@@ -1,5 +1,10 @@
+/** Identidade oficial de 2026: arquivo vetorial derivado da arte aprovada, com transparência real. */
+export const officialLogoAsset = "/images/idb-riacho-oficial-transparente.svg" as const;
+
 /** Tokens oficiais da identidade visual (docs/identidade-visual.md). */
 export const brandColors = {
+  laranja: "#FF5700",
+  preto: "#000000",
   dourado: "#D4AF37",
   marrom: "#4A2612",
   creme: "#F7EDE0",

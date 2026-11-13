@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
 import { useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "../AppShell";
 import { apiGet, apiPatch, apiPost, getApiBaseUrl, loadStoredToken, type LoginResult } from "../../lib/api";
@@ -27,7 +28,8 @@ type Draft = { name: string; slug: string; description: string; locationText: st
 const EMPTY: Draft = { name: "", slug: "", description: "", locationText: "", startsAt: "" };
 
 export function EventManagementJourney() {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
+  const production = isProductionAdmin();
   const [phase, setPhase] = useState<Phase>(enabled ? "loading" : "disabled");
   const [token, setToken] = useState("");
   const [events, setEvents] = useState<ManagedEvent[]>([]);
@@ -171,7 +173,7 @@ export function EventManagementJourney() {
 
   function registerSynthetic(event: FormEvent) {
     event.preventDefault();
-    if (!selected || selected.status !== "PUBLISHED") return;
+    if (production || !selected || selected.status !== "PUBLISHED") return;
     if (!isSyntheticLabel(participant) || !Number.isInteger(partySize) || partySize < 1 || partySize > 20) {
       setNotice("Use um rótulo fictício começando por TESTE e uma quantidade inteira.");
       return;
@@ -207,7 +209,7 @@ export function EventManagementJourney() {
 
   function recordPresence(row: ManagedRegistration) {
     if (!canRecordPresence(row) || checkCode.trim() !== row.checkInCode) {
-      setNotice("O código não confere com a inscrição sintética.");
+      setNotice("O código não confere com a inscrição.");
       return;
     }
     void run(async () => {
@@ -266,6 +268,7 @@ export function EventManagementJourney() {
     <AppShell active={null} meta="Eventos e presença">
       <EventManagementView
         phase={phase}
+        production={production}
         notice={notice}
         events={events}
         selected={selected}
@@ -308,6 +311,7 @@ function textId(value: unknown) {
 }
 
 export function EventManagementView(props: {
+  production?: boolean;
   phase: Phase;
   notice: string;
   events: ManagedEvent[];
@@ -346,7 +350,7 @@ export function EventManagementView(props: {
   return <main className={s.page}>
     <header className={s.header}>
       <div>
-        <div className={s.kicker}>HOMOLOGAÇÃO</div>
+        {!props.production && <div className={s.kicker}>HOMOLOGAÇÃO</div>}
         <h1>Agenda, presença e participação</h1>
         <p>Rascunho, revisão, publicação e presença ficam gravados neste ambiente. Menores não aparecem nesta tela.</p>
       </div>
@@ -387,16 +391,16 @@ export function EventManagementView(props: {
         </form>}
         {props.blockReason && <p className={s.blocked} role="alert">{props.blockReason}</p>}
         <button type="button" disabled={props.busy || props.selected.status !== "DRAFT" || Boolean(props.blockReason)} onClick={props.onPublish}>
-          Publicar na homologação
+          {props.production ? "Publicar evento" : "Publicar na homologação"}
         </button>
       </section>}
       {published && props.selected && <section className={s.panel}>
         <h2>Inscrições e presença</h2>
-        <form className={s.grid} onSubmit={props.onRegister}>
+        {!props.production && <form className={s.grid} onSubmit={props.onRegister}>
           <label>Rótulo fictício<input value={props.participant} onChange={(event) => props.onParticipant(event.target.value)} required/></label>
           <label>Pessoas na inscrição<input type="number" min={1} max={20} value={props.partySize} onChange={(event) => props.onPartySize(Number(event.target.value))}/></label>
           <button type="submit" disabled={props.busy}>Inscrever rótulo TESTE</button>
-        </form>
+        </form>}
         {props.issuedCode && <p className={s.notice}>Código de check-in desta inscrição adulta: <strong>{props.issuedCode}</strong></p>}
         <div className={s.cards}>
           {props.registrations.map((row) => <article className={s.card} key={row.id}>

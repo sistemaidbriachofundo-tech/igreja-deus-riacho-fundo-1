@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { getApiBaseUrl } from "../lib/api";
@@ -12,10 +13,11 @@ type MediaAsset = { url:string; pathname:string; name:string; size:number; uploa
 type MediaList = { configured:boolean; assets:MediaAsset[]; hasMore?:boolean; message?:string|null };
 
 export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:string)=>void}){
+  const { showFeedback } = useFeedback();
   const { confirm, confirmation } = useActionConfirmation();
   const [media,setMedia]=useState<MediaAsset[]>([]);
   const [ready,setReady]=useState(false),[configured,setConfigured]=useState(false);
-  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
+  const [busy,setBusy]=useState(false),[error,setError]=useState("");
   const [message,setMessage]=useState("");
   const refresh=useCallback(async()=>{
     const response=await fetch(getApiBaseUrl()+"/cms/site-media",{
@@ -34,10 +36,10 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
   async function upload(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];event.target.value="";
     if(!file)return;
-    setError("");setNotice("");
+    setError("");
     const allowed=["image/jpeg","image/png","image/webp","image/avif"];
     if(file.size===0||file.size>3*1024*1024||!allowed.includes(file.type)){
-      setError("Escolha JPG, PNG, WebP ou AVIF de até 3 MB.");return;
+      showFeedback({ tone: "error", title: "Arquivo incompatível", message: "Escolha uma foto JPG, PNG, WebP ou AVIF de até 3 MB." });return;
     }
     if (!(await confirm({
       title: "Enviar foto à biblioteca pública?",
@@ -58,9 +60,9 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
       if(!response.ok)throw new Error(response.status===413?"Arquivo acima do limite de 3 MB.":"Falha no envio ("+response.status+").");
       const data=await response.json() as {asset:MediaAsset};
       onChoose(data.asset.url);
-      setNotice("Foto enviada e selecionada. Salve o rascunho para guardar a mudança.");
+      showFeedback({ tone: "success", title: "Foto enviada", message: "A imagem foi selecionada. Salve o rascunho para guardar a mudança." });
       await refresh();
-    }catch(err){setError(err instanceof Error?err.message:"Não foi possível enviar a foto.");}
+    }catch(err){showFeedback({ tone: "error", title: "Envio não concluído", message: err instanceof Error?err.message:"Não foi possível enviar a foto." });}
     finally{setBusy(false);}
   }
   return <div className={s.section}>
@@ -76,7 +78,6 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
     {ready&&!configured&&<p className={s.warning}>O armazenamento ainda não está habilitado para este ambiente. Você pode usar as fotos já incluídas no site.</p>}
     {message&&<p className={s.warning}>{message}</p>}
     {error&&<p className={s.error} role="alert">{error}</p>}
-    {notice&&<p className={s.notice} role="status">{notice}</p>}
     {media.length>0&&<>
       <h3>Fotos enviadas pela equipe <span>({media.length})</span></h3>
       <div className={s.assets}>

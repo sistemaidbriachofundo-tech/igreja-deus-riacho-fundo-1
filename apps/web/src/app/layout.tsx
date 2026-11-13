@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { APP_NAME } from "@idbrf/shared";
+import { FeedbackProvider } from "../components/ui/FeedbackProvider";
+import { officialLogoAsset } from "../lib/brand";
+import { withBasePath } from "../lib/paths";
 import "@fontsource/montserrat/500.css";
 import "@fontsource/montserrat/600.css";
 import "@fontsource/montserrat/700.css";
@@ -15,6 +18,7 @@ export const metadata: Metadata = {
   },
   description:
     "Igreja de Deus no Riacho Fundo I, em Brasília. Conheça a igreja e confira os horários dos cultos.",
+  icons: { icon: withBasePath(officialLogoAsset), shortcut: withBasePath(officialLogoAsset) },
 };
 
 export default function RootLayout({
@@ -24,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body><FeedbackProvider>{children}</FeedbackProvider></body>
     </html>
   );
 }

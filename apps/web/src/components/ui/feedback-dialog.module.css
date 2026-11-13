@@ -1,0 +1,69 @@
+.dialog {
+  box-sizing: border-box;
+  width: min(480px, calc(100% - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  margin: auto;
+  border: 1px solid #e4e5e1;
+  border-radius: 22px;
+  color: #222824;
+  background: #fffdfb;
+  box-shadow: 0 34px 90px #111c1966;
+  overflow: auto;
+  font-family: Inter, Arial, sans-serif;
+}
+.dialog::backdrop { background: #0d1513aa; backdrop-filter: blur(4px); }
+.content { padding: clamp(24px, 5vw, 36px) clamp(22px, 5vw, 36px) 28px; overflow-wrap: anywhere; }
+.symbol {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  background: #fff0e8;
+  color: #ba4b23;
+  font: 750 26px/1 Inter, sans-serif;
+}
+.dialog[data-tone="success"] .symbol { background: #e8f3eb; color: #206946; }
+.dialog[data-tone="info"] .symbol { background: #e9eef5; color: #3e648d; }
+.dialog[data-tone="warning"] .symbol { background: #fff3d9; color: #9a5b17; }
+.eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: #8c6250;
+  text-transform: uppercase;
+  letter-spacing: .105em;
+  font: 700 11px/1.5 Inter, sans-serif;
+}
+.content h2 {
+  margin: 0;
+  font: 750 clamp(22px, 4vw, 28px)/1.2 Montserrat, Inter, sans-serif;
+  letter-spacing: -.035em;
+}
+.content p {
+  margin: 12px 0 0;
+  color: #58605b;
+  font: 400 15px/1.65 Inter, sans-serif;
+}
+.actions { display: flex; justify-content: flex-end; padding: 16px clamp(22px, 5vw, 36px); background: #f6f6f3; border-top: 1px solid #e9e9e4; }
+.actions button {
+  min-height: 46px;
+  min-width: 138px;
+  padding: 11px 22px;
+  border: 1px solid #202923;
+  border-radius: 11px;
+  background: #202923;
+  color: white;
+  font: 650 14px/1.3 Inter, sans-serif;
+  cursor: pointer;
+}
+.actions button:hover { background: #303c34; }
+.actions button:focus-visible { outline: 3px solid #f08a49; outline-offset: 3px; }
+@media (max-width: 520px) {
+  .dialog { border-radius: 18px; }
+  .actions button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog::backdrop { backdrop-filter: none; }
+}

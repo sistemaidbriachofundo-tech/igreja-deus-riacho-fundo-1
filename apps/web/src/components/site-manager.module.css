@@ -68,7 +68,7 @@
 .previewCanvas{composes:palette from "./portal-design-system.module.css";margin:15px auto;background:var(--portal-paper);border:1px solid #e6e7df;overflow:hidden;max-width:calc(100% - 28px);transition:max-width .22s}
 .previewCanvas[data-device="mobile"]{max-width:min(325px,calc(100% - 24px))}
 .previewTop{display:flex;align-items:center;gap:7px;background:var(--portal-green);color:var(--portal-on-green);padding:9px 12px}
-.previewTop img{border-radius:50%}
+.previewTop img{border-radius:0;object-fit:contain;object-position:center;background:transparent;flex:none}
 .previewTop strong{font:650 11px Inter,Arial,sans-serif}.previewTop small{font:500 10px Inter,sans-serif;color:var(--portal-on-green-muted)}
 .previewCover{background:var(--portal-ivory);color:var(--portal-ink)}
 .previewCover>img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover;object-position:center 52%}

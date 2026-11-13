@@ -26,7 +26,9 @@ export function PortalCinematicHero() {
           </h1>
         </div>
         <div className={s.intro}>
-          <p className={s.description}>{hero.description}</p>
+          <p className={s.missionLabel}>NOSSA MISSÃO</p>
+          <p className={s.missionStatement}>Uma igreja <strong>para Deus</strong>, pelas <strong>famílias</strong> e enviada ao <strong>mundo.</strong></p>
+          {hero.description !== "Uma igreja para Deus, pelas famílias e enviada ao mundo." && <p className={s.description}>{hero.description}</p>}
           <PortalSectionLink sectionId="agenda" className={s.primaryAction}>
             Horários dos cultos <PortalGlyph name="down" width={17} />
           </PortalSectionLink>

@@ -37,11 +37,11 @@ function hrefs(html: string): string[] {
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
-  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "acessos", "editorial", "site"],
-  SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
-  PASTOR: ["visao", "membros", "secretaria", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "editorial", "site"],
+  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "acessos", "editorial", "site"],
+  SECRETARIA: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
+  PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "editorial", "site"],
   TESOURARIA: ["visao", "operacao", "tesouraria"],
-  LIDER_MINISTERIO: ["visao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco"],
+  LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco"],
   MEMBRO: ["visao", "carteirinha", "meu-espaco"],
   EDITOR_SITE: ["visao", "site"],
   PUBLICADOR_SITE: ["visao", "site"],
@@ -166,7 +166,8 @@ describe("shell sem flash de módulo restrito", () => {
     expect(html).toContain('data-nav-state="pending"');
     expect(html).not.toContain("SALDO-QUE-NAO-PODE-APARECER");
     expect(html).not.toContain("/app/tesouraria/");
-    expect(html).toContain("Verificando seu acesso");
+    expect(html).toContain('aria-label="Carregando painel"');
+    expect(html).not.toContain("Verificando seu acesso");
     expect(html).toContain("Sair");
   });
 
@@ -243,7 +244,7 @@ describe("shell sem flash de módulo restrito", () => {
     expect(pastor).not.toContain("/app/tesouraria/#lancar");
     expect(pastor).not.toContain("/app/tesouraria/#extrato");
     expect(admin).toContain("/app/tesouraria/#despesas");
-    expect(admin).not.toContain("/app/tesouraria/#lancar");
+    expect(admin).toContain("/app/tesouraria/#lancar");
     expect(admin).not.toContain("/app/tesouraria/#aprovacoes");
   });
 
