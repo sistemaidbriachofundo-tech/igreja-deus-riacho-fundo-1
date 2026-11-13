@@ -612,35 +612,34 @@ export class EventRegistrationsService {
   async checkIn(actor: AuthUser, registrationId: string, checkInCode?: string) {
     const { pilot, registration, event } =
       await this.requireRegistrationWrite(actor, registrationId);
-    if (registration.status === "CANCELLED") {
-      throw new BadRequestException("Inscrição cancelada");
-    }
-    if (registration.status === "CHECKED_IN") {
-      return this.toRegistrationDto(registration);
-    }
-    if (registration.status === "PENDING_PAYMENT") {
-      throw new BadRequestException("Pagamento pendente — check-in bloqueado");
-    }
-    if (
-      registration.isMinor &&
-      registration.guardianAuthStatus !== "AUTHORIZED"
-    ) {
-      throw new BadRequestException(
-        "Autorização de responsável pendente — check-in bloqueado",
-      );
-    }
     if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
       throw new BadRequestException("checkInCode não confere");
     }
+    this.assertCheckInAllowed(registration);
+
+    if (registration.status === "CHECKED_IN") {
+      return this.toRegistrationDto(registration);
+    }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.eventRegistration.update({
-        where: { id: registration.id },
+      const transition = await tx.eventRegistration.updateMany({
+        where: {
+          id: registration.id,
+          status: "CONFIRMED",
+          OR: [{ isMinor: false }, { guardianAuthStatus: "AUTHORIZED" }],
+        },
         data: {
           status: "CHECKED_IN",
           checkedInAt: new Date(),
         },
       });
+      const updated = await tx.eventRegistration.findUniqueOrThrow({
+        where: { id: registration.id },
+      });
+      if (transition.count === 0) {
+        this.assertCheckInAllowed(updated);
+        return this.toRegistrationDto(updated);
+      }
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -654,6 +653,25 @@ export class EventRegistrationsService {
       });
       return this.toRegistrationDto(updated);
     });
+  }
+
+  private assertCheckInAllowed(registration: {
+    status: string;
+    isMinor: boolean;
+    guardianAuthStatus: string;
+  }): void {
+    if (registration.status === "CANCELLED") {
+      throw new BadRequestException("Inscrição cancelada");
+    }
+    if (registration.status === "CHECKED_IN") return;
+    if (registration.status === "PENDING_PAYMENT") {
+      throw new BadRequestException("Pagamento pendente — check-in bloqueado");
+    }
+    if (registration.isMinor && registration.guardianAuthStatus !== "AUTHORIZED") {
+      throw new BadRequestException(
+        "Autorização de responsável pendente — check-in bloqueado",
+      );
+    }
   }
 
   async cancel(actor: AuthUser, registrationId: string) {

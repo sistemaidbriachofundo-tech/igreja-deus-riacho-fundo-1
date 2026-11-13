@@ -237,7 +237,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 {checking||busy ? "Aguarde…" : "Entrar no painel"}
               </button>
             </form>}
-            <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
+            <p className={styles.bottom}>Não possui acesso ou esqueceu a senha? Procure a administração da igreja.</p>
           </div>
         </section>
       </div>
