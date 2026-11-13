@@ -5,7 +5,7 @@ import {
   TestMailTransport,
   createMailTransport,
 } from "./mail.service";
-import { readPublicSmtpConfig } from "./smtp-config";
+import { assertLiveSmtpRecipient, readPublicSmtpConfig } from "./smtp-config";
 import { queueEventCheckInNotice } from "./check-in-notice";
 
 jest.mock("nodemailer", () => ({
@@ -153,30 +153,53 @@ describe("e-mail do piloto", () => {
     })).rejects.toBe("quebra");
   });
 
-  it("envia por SMTP só quando o ambiente autorizado liga o envio", async () => {
+  it("envia por SMTP só no DEV e só para a caixa de teste", async () => {
     const env = {
       EMAIL_TRANSPORT: "smtp",
+      IDBRF_RUNTIME_STAGE: "qa",
       SMTP_HOST: "smtp.hostinger.com",
       SMTP_PORT: "465",
       SMTP_USER: "igreja",
       SMTP_FROM: "nao-responda@example.test",
       SMTP_PASSWORD: "segredo-da-igreja",
       SMTP_SEND_ENABLED: "1",
+      SMTP_ALLOWED_RECIPIENTS: " Caixa.Teste@example.test ",
     };
     const transport = new SmtpMailTransport(env);
+    const nodemailer = await import("nodemailer");
+    const sendMail = jest.fn().mockResolvedValue({ messageId: "smtp-1" });
+    (nodemailer.createTransport as jest.Mock).mockReturnValue({ sendMail });
     await expect(transport.send({
       idempotencyKey: "convite",
-      to: "pessoa@example.test",
+      to: "caixa.teste@example.test",
       subject: "Ative",
       text: "link",
     })).resolves.toEqual({ providerMessageId: "smtp-1" });
-    const nodemailer = await import("nodemailer");
-    (nodemailer.createTransport as jest.Mock).mockReturnValueOnce({
-      sendMail: jest.fn().mockResolvedValue({}),
-    });
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    sendMail.mockResolvedValueOnce({});
     await expect(transport.send({
-      idempotencyKey: "sem-id", to: "pessoa@example.test", subject: "Ative", text: "link",
+      idempotencyKey: "sem-id", to: "caixa.teste@example.test", subject: "Ative", text: "link",
     })).resolves.toEqual({ providerMessageId: "smtp:sem-id" });
+
+    (nodemailer.createTransport as jest.Mock).mockClear();
+    await expect(transport.send({
+      idempotencyKey: "fora", to: "pessoa@example.test", subject: "Ative", text: "link",
+    })).rejects.toThrow(/caixa de teste/);
+    await expect(new SmtpMailTransport({ ...env, IDBRF_RUNTIME_STAGE: "hml" }).send({
+      idempotencyKey: "hml", to: "caixa.teste@example.test", subject: "Ative", text: "link",
+    })).rejects.toThrow(/HML e produção/);
+    await expect(new SmtpMailTransport({ ...env, IDBRF_RUNTIME_STAGE: "production" }).send({
+      idempotencyKey: "prod", to: "caixa.teste@example.test", subject: "Ative", text: "link",
+    })).rejects.toThrow(/HML e produção/);
+    await expect(new SmtpMailTransport({ ...env, SMTP_ALLOWED_RECIPIENTS: "" }).send({
+      idempotencyKey: "vazio", to: "caixa.teste@example.test", subject: "Ative", text: "link",
+    })).rejects.toThrow(/SMTP_ALLOWED_RECIPIENTS/);
+    await expect(new SmtpMailTransport({ ...env, SMTP_ALLOWED_RECIPIENTS: "Nome <caixa.teste@example.test>" }).send({
+      idempotencyKey: "nome", to: "caixa.teste@example.test", subject: "Ative", text: "link",
+    })).rejects.toThrow(/SMTP_ALLOWED_RECIPIENTS/);
+    expect(nodemailer.createTransport).not.toHaveBeenCalled();
+    expect(() => assertLiveSmtpRecipient({ ...env, IDBRF_RUNTIME_STAGE: "dev" }, "caixa.teste@example.test"))
+      .toThrow(/IDBRF_RUNTIME_STAGE=qa/);
   });
 
   it("não enfileira aviso sem destino e monta o QR quando há e-mail de teste", async () => {
