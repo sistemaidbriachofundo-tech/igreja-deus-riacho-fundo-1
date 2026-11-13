@@ -92,6 +92,8 @@ export class AppModule implements NestModule {
     }
     consumer.apply(SimpleRateLimitMiddleware).forRoutes(
       { path: "auth/login", method: RequestMethod.POST },
+      { path: "auth/activate-invite", method: RequestMethod.POST },
+      { path: "auth/reset-password", method: RequestMethod.POST },
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
       { path: "public/volunteer-interests", method: RequestMethod.POST },
       { path: "public/events/:slug/registrations", method: RequestMethod.POST },

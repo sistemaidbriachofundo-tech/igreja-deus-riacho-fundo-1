@@ -313,11 +313,12 @@ model User {
   @@map("users")
 }
 
-/// Convite de ativação: só o hash do segredo fica persistido, validade limitada e uso único.
+/// Link de ativação ou recuperação: somente o hash, com validade e uso único.
 model AccessInvitation {
   id         String    @id @default(cuid())
   userId     String    @map("user_id")
   tokenHash  String    @unique @map("token_hash")
+  purpose    AccessLinkPurpose @default(ACTIVATION)
   email      String
   expiresAt  DateTime  @map("expires_at")
   sentAt     DateTime? @map("sent_at")
@@ -328,6 +329,19 @@ model AccessInvitation {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, expiresAt])
   @@map("access_invitations")
+}
+
+enum AccessLinkPurpose {
+  ACTIVATION
+  PASSWORD_RESET
+}
+
+/// Bytes privados para ambientes com armazenamento local efêmero.
+model PrivateFile {
+  key   String @id
+  bytes Bytes
+
+  @@map("private_files")
 }
 
 model Role {

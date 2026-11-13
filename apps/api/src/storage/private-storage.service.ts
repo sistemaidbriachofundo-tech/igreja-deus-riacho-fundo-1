@@ -2,15 +2,26 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import { del, get, put } from "@vercel/blob";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import { dirname, normalize, resolve, sep } from "node:path";
+import { PrismaService } from "../prisma/prisma.service";
 
 /** Storage privado, com chaves estáveis e acesso mediado pela API. */
 @Injectable()
 export class PrivateStorageService {
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
+
+  private databaseStorage() {
+    if (process.env.PRIVATE_STORAGE_DRIVER !== "postgres") return null;
+    if (!this.prisma) throw new ServiceUnavailableException("Armazenamento privado indisponível");
+    return this.prisma.privateFile;
+  }
+
   private root(): string {
     const configured = process.env.STORAGE_ROOT?.trim();
     if (configured) {
@@ -154,6 +165,16 @@ export class PrivateStorageService {
       await put(storageKey, bytes, { access: "private", token, addRandomSuffix: false });
       return;
     }
+    const database = this.databaseStorage();
+    if (database) {
+      const value = new Uint8Array(bytes);
+      await database.upsert({
+        where: { key: storageKey },
+        create: { key: storageKey, bytes: value },
+        update: { bytes: value },
+      });
+      return;
+    }
     await mkdir(dirname(full), { recursive: true });
     await writeFile(full, bytes, { mode: 0o600 });
   }
@@ -165,6 +186,12 @@ export class PrivateStorageService {
       const blob = await get(storageKey, { access: "private", token, useCache: false });
       if (!blob || blob.statusCode !== 200) throw new NotFoundException("Arquivo não encontrado no storage");
       return Buffer.from(await new Response(blob.stream).arrayBuffer());
+    }
+    const database = this.databaseStorage();
+    if (database) {
+      const row = await database.findUnique({ where: { key: storageKey } });
+      if (!row) throw new NotFoundException("Arquivo não encontrado no storage");
+      return Buffer.from(row.bytes);
     }
     try {
       return await readFile(full);
@@ -181,6 +208,11 @@ export class PrivateStorageService {
     const token = this.blobToken();
     if (token) {
       await del(storageKey, { token });
+      return;
+    }
+    const database = this.databaseStorage();
+    if (database) {
+      await database.deleteMany({ where: { key: storageKey } });
       return;
     }
     try {
