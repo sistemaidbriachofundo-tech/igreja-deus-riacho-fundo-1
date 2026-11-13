@@ -169,7 +169,7 @@ jobs:
           mkdir -p dist/prod/api
           cp -a apps/api/dist dist/prod/api/dist
           cp -a apps/api/package.json dist/prod/api/package.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: production-candidate-${{ github.sha }}
           path: dist/prod
