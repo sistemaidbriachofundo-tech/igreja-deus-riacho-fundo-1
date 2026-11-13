@@ -97,6 +97,7 @@ function sumRecord(record: Record<string, number>): number {
 }
 
 export function OperationalReports(props: {
+  production?: boolean;
   membership: Slot<MembershipReport>;
   ministries: Slot<MinistryReport>;
   participation: Slot<ParticipationReport>;
@@ -118,7 +119,7 @@ export function OperationalReports(props: {
     <main className={s.page}>
       <header className={s.header}>
         <div>
-          <p className={s.kicker}>Relatórios · homologação</p>
+          <p className={s.kicker}>{props.production ? "Relatórios" : "Relatórios · homologação"}</p>
           <h1>Pessoas, ministérios e eventos</h1>
           <p>Contagens e custos saem da API no período escolhido. Menores não são listados. Nada aqui é Pix ou banco.</p>
         </div>

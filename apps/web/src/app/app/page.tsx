@@ -1,9 +1,10 @@
+import { isAdminEnabled } from "../../lib/admin-environment";
 import type { Metadata } from "next";
 import { ChurchDashboard } from "../../components/ChurchDashboard";
 import { PersonaHome } from "../../components/PersonaHome";
 
 export default function VisaoGeralPage() {
-  return process.env.NEXT_PUBLIC_HML_ENABLED === "true"
+  return isAdminEnabled()
     ? <PersonaHome />
     : <ChurchDashboard />;
 }

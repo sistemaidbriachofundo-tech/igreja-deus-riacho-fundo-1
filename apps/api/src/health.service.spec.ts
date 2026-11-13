@@ -46,6 +46,17 @@ describe("HealthService", () => {
     }
   });
 
+  it("reports the deployed source SHA on Hostinger", async () => {
+    const previous = process.env.SOURCE_SHA;
+    process.env.SOURCE_SHA = "75d47a5793c2a59fae5eb795dab388ff3713f95f";
+    query.mockResolvedValueOnce([{ "?column?": 1 }]);
+    try {
+      await expect(service.getReadiness()).resolves.toMatchObject({ commit: "75d47a5793c2" });
+    } finally {
+      restoreEnv("SOURCE_SHA", previous);
+    }
+  });
+
   it("returns 503 readiness when Postgres is unavailable", async () => {
     query.mockRejectedValueOnce(new Error("DB unreachable"));
     await expect(service.getReadiness()).rejects.toBeInstanceOf(ServiceUnavailableException);

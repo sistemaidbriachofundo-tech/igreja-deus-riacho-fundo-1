@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -20,7 +21,7 @@ type Props = { onAuthenticated?: () => void };
 type Me = LoginResult["user"];
 
 export function LoginScreen({ onAuthenticated }: Props) {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const RouterBridge = useAppRouterBridge();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

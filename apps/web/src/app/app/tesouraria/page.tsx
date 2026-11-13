@@ -4,7 +4,7 @@ import { TreasuryPanel } from "../../../components/TreasuryPanel";
 
 export const metadata: Metadata = {
   title: "Tesouraria",
-  description: "Posição, extrato e conciliação do ledger de homologação.",
+  description: "Posição, extrato e conciliação do livro de lançamentos.",
   robots: { index: false, follow: false },
 };
 

@@ -4,7 +4,7 @@ import { ServingWorkspace } from "../../../../components/serving/ServingWorkspac
 
 export const metadata: Metadata = {
   title: "Atmosfera — escalas",
-  description: "Escalas de Atmosfera por função e horário, somente com dados de homologação.",
+  description: "Escalas de Atmosfera por função e horário.",
   robots: { index: false, follow: false },
 };
 

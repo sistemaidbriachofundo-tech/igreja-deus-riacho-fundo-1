@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   apiGet, clearToken, isForbidden, isUnauthorized,
@@ -16,7 +17,7 @@ type Access = "checking" | "authorized" | "unauthorized" | "forbidden" | "unavai
  * Segurança de dados e permissões continua obrigatória no backend.
  */
 export function AdminAccessGate({ children }: { children: ReactNode }) {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const [access, setAccess] = useState<Access>("checking");
   const [attempt, setAttempt] = useState(0);
 

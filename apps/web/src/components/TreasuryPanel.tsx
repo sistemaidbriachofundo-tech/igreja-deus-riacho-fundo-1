@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import { UIIcon, usePersonaAccess } from "./AppShell";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
@@ -209,7 +210,7 @@ export function TreasuryPanel() {
   const canReviewApprovals = access.kind === "ready" &&
     (access.roles.includes("TESOURARIA") || access.roles.includes("PASTOR"));
   const { confirm, confirmation } = useActionConfirmation();
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const [token, setToken] = useState<string | null>(null);
   const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
   const [failure, setFailure] = useState("");
