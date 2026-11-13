@@ -5,7 +5,7 @@ const user = { id: "user-test", status: "DISABLED", passwordHash: null, email: "
 const token = "x".repeat(43);
 const valid = () => ({
   id: "inv-1", userId: user.id, tokenHash: inviteTokenHash(token),
-  email: user.email, user, expiresAt: new Date(Date.now() + 3600000),
+  email: user.email, user, purpose: "ACTIVATION", expiresAt: new Date(Date.now() + 3600000),
   sentAt: new Date(), consumedAt: null, revokedAt: null,
 });
 function setup(overrides: Record<string, unknown> = {}) {
@@ -14,6 +14,8 @@ function setup(overrides: Record<string, unknown> = {}) {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     user: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    authSession: { updateMany: jest.fn() },
+    mfaChallenge: { updateMany: jest.fn() },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
   };
   const db = {
@@ -64,6 +66,26 @@ describe("Convite de ativação de uso único", () => {
     }));
     expect(tx.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ action: "access.activate" }),
+    }));
+  });
+
+  it("redefine a senha, revoga sessões e desafios e preserva o segundo fator", async () => {
+    const { db, service, tx } = setup({
+      purpose: "PASSWORD_RESET",
+      user: { ...user, status: "ACTIVE", passwordHash: "hash-anterior" },
+    });
+    const input = { token, password: "GardeRio-9931_Forte" };
+    await expect(service.accept(input)).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.$transaction).not.toHaveBeenCalled();
+    await expect(service.accept(input, "PASSWORD_RESET")).resolves.toMatchObject({ activated: true });
+    expect(tx.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: "ACTIVE", passwordHash: "hash-anterior" }),
+    }));
+    expect(tx.authSession.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "REVOKED" }),
+    }));
+    expect(tx.mfaChallenge.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: { status: "REVOKED" },
     }));
   });
 

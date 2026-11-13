@@ -16,6 +16,7 @@ type Account = {
   id: string; email: string; status: string; person: Person; invitationStatus?: "INVITED" | "PENDING_EMAIL" | null;
   profiles: { role: BuiltinRole; ministry: string | null }[];
 };
+type AccessLinkDelivery = { sent: boolean; previewUrl?: string };
 type AccountPage = { accounts: Account[]; hasMore: boolean };
 
 export function AccessDirectory() {
@@ -29,26 +30,35 @@ export function AccessDirectory() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [resending, setResending] = useState("");
+  const [sending, setSending] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
   const { confirm: confirmResend, confirmation: resendConfirmation } = useActionConfirmation();
-  async function resendInvite(account: Account) {
-    if (!token || resending) return;
+  async function sendLink(account: Account, recovery: boolean) {
+    if (!token || sending) return;
+    const action = recovery ? "Enviar recuperação" : "Reenviar convite";
     if (!(await confirmResend({
-      title: "Reenviar convite por e-mail?",
+      title: recovery ? "Enviar link de recuperação?" : "Reenviar convite por e-mail?",
       subject: account.person.displayName,
-      description: "Um novo link de uso único será enviado a " + account.email + ". O link anterior deixará de funcionar.",
-      action: "Reenviar convite",
+      description: "Um novo link de uso único será criado para " + account.email + ".",
+      action,
     }))) return;
-    setResending(account.id);
+    setSending(account.id);
+    setPreviewUrl("");
     setError("");
     try {
-      await apiPost("/admin/access/" + encodeURIComponent(account.id) + "/invite/resend", token);
-      showFeedback({ tone: "success", title: "Convite reenviado", message: "O link de ativação foi enviado para " + account.email + ".", actionLabel: "Continuar" });
+      const path = recovery ? "/password/reset" : "/invite/resend";
+      const delivery = await apiPost<AccessLinkDelivery>("/admin/access/" + encodeURIComponent(account.id) + path, token);
+      setPreviewUrl(delivery.previewUrl ?? "");
+      showFeedback({
+        tone: "success",
+        title: delivery.sent ? "Link enviado" : "Link de teste criado",
+        message: delivery.sent ? "O link foi enviado para " + account.email + "." : "Use o link de teste exibido em Acessos.",
+      });
       setRevision(v => v + 1);
-    } catch {
-      showFeedback({ tone: "error", title: "Não foi possível reenviar", message: "Confira a configuração do e-mail e a situação do acesso antes de tentar novamente." });
+    } catch (error) {
+      showFeedback({ tone: "error", title: "Não foi possível gerar o link", message: dasError(error) });
     } finally {
-      setResending("");
+      setSending("");
     }
   }
   useEffect(() => setToken(loadStoredToken()), []);
@@ -68,15 +78,22 @@ export function AccessDirectory() {
   return (
     <section className={s.directory}>
       {resendConfirmation}
+      {previewUrl && <p role="status">
+        <a href={previewUrl} target="_blank" rel="noreferrer">Abrir link de teste</a>
+        {" · "}
+        <button type="button" className={s.resend} onClick={() => setPreviewUrl("")}>Ocultar</button>
+      </p>}
       <PageHeader appearance="workspace" heading="h1" title="Acessos" description="Libere o acesso de pessoas já cadastradas. A pessoa recebe um link de ativação e define sua própria senha." />
       <div className={s.actions}>
         <button type="button" className={ui.workspacePrimary} aria-expanded={creating} disabled={!token} onClick={() => setCreating(value => !value)}>
           <UIIcon name="shield" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
         </button>
       </div>
-      {creating && token && <AccessForm token={token} onCreated={name => {
+      {creating && token && <AccessForm token={token} onCreated={(name, delivery) => {
         setCreating(false);
-        showFeedback({ tone: "success", title: "Convite enviado", message: "O convite para " + name + " foi enviado. A senha será definida pela própria pessoa.", actionLabel: "Continuar" });
+        setPreviewUrl(delivery.previewUrl ?? "");
+        showFeedback({ tone: "success", title: delivery.sent ? "Convite enviado" : "Convite de teste criado",
+          message: "A senha de " + name + " será definida no link individual.", actionLabel: "Continuar" });
         setPage(1);
         setRevision(value => value + 1);
       }} />}
@@ -99,8 +116,12 @@ export function AccessDirectory() {
                 {account.status === "ACTIVE" ? "Ativo" : account.invitationStatus === "INVITED" ? "Aguardando ativação" : account.invitationStatus === "PENDING_EMAIL" ? "E-mail não enviado" : "Desativado"}
               </span>
               {(account.invitationStatus === "INVITED" || account.invitationStatus === "PENDING_EMAIL") &&
-                <button type="button" className={s.resend} disabled={Boolean(resending)} onClick={() => void resendInvite(account)}>
-                  {resending === account.id ? "Enviando…" : "Reenviar convite"}
+                <button type="button" className={s.resend} disabled={Boolean(sending)} onClick={() => void sendLink(account, false)}>
+                  {sending === account.id ? "Preparando…" : "Reenviar convite"}
+                </button>}
+                {account.status === "ACTIVE" && <button type="button" className={s.resend}
+                  disabled={Boolean(sending)} onClick={() => void sendLink(account, true)}>
+                  {sending === account.id ? "Preparando…" : "Recuperar senha"}
                 </button>}
               </div>
             </li>)}
@@ -116,7 +137,7 @@ export function AccessDirectory() {
   );
 }
 
-function AccessForm({ token, onCreated }: { token: string; onCreated: (name: string) => void }) {
+function AccessForm({ token, onCreated }: { token: string; onCreated: (name: string, delivery: AccessLinkDelivery) => void }) {
   const { showFeedback } = useFeedback();
   const [term, setTerm] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
@@ -166,8 +187,8 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
         description: "A conta terá o perfil " + PERSONA_LABELS[role] + " nesta congregação. Um convite será enviado ao e-mail cadastrado para que a pessoa escolha a própria senha.",
         action: "Criar acesso",
       }))) return;
-      await apiPost("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
-      onCreated(person.displayName);
+      const result = await apiPost<{ invite: AccessLinkDelivery }>("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
+      onCreated(person.displayName, result.invite);
     } catch (error) {
       showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });
     } finally {
