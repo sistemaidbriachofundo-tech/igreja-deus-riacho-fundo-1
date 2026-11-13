@@ -12,7 +12,20 @@ export type ManagedEvent = {
   description: string;
   locationText: string;
   startsAt: string;
+  paymentAccountId?: string | null;
 };
+
+export type EventPaymentAccount = { id: string; name: string };
+
+export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] | null {
+  if (!value || typeof value !== "object" || !("accounts" in value) || !Array.isArray(value.accounts)) return null;
+  return value.accounts.flatMap((account: unknown) => {
+    if (!account || typeof account !== "object" || !("id" in account) || !("name" in account)) return [];
+    const id = text(account.id);
+    const name = text(account.name);
+    return id && name ? [{ id, name }] : [];
+  });
+}
 
 export type ManagedRegistration = {
   id: string;
@@ -72,6 +85,9 @@ export function toManagedEvent(row: DasRecord): ManagedEvent | null {
     description: text(row.description),
     locationText: text(row.locationText),
     startsAt: text(row.startsAt),
+    ...(row.paymentAccountId === null || typeof row.paymentAccountId === "string"
+      ? { paymentAccountId: row.paymentAccountId }
+      : {}),
   };
 }
 

@@ -10,10 +10,12 @@ import {
   canRecordPresence,
   participationQuery,
   publicationBlockReason,
+  readEventPaymentAccounts,
   readParticipation,
   registrationLabel,
   toManagedEvent,
   toManagedRegistration,
+  type EventPaymentAccount,
   type ManagedEvent,
   type ManagedRegistration,
   type ParticipationView,
@@ -24,7 +26,7 @@ import { EventAgenda } from "./EventAgenda";
 import s from "./event-management.module.css";
 
 type Phase = "disabled" | "signed-out" | "loading" | "forbidden" | "error" | "ready";
-type Draft = { name: string; slug: string; description: string; locationText: string; startsAt: string };
+type Draft = { name: string; slug: string; description: string; locationText: string; startsAt: string; paymentAccountId?: string | null };
 const EMPTY: Draft = { name: "", slug: "", description: "", locationText: "", startsAt: "" };
 
 export function EventManagementJourney() {
@@ -34,6 +36,7 @@ export function EventManagementJourney() {
   const [token, setToken] = useState("");
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);
   const [creating, setCreating] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<Draft>(EMPTY);
   const [registrations, setRegistrations] = useState<ManagedRegistration[]>([]);
@@ -73,6 +76,15 @@ export function EventManagementJourney() {
       });
     return () => { cancelled = true; };
   }, [enabled]);
+
+  useEffect(() => {
+    if (!token || phase !== "ready") return;
+    let cancelled = false;
+    void apiGet<unknown>("/events/payment-accounts", token)
+      .then(body => { if (!cancelled) setPaymentAccounts(readEventPaymentAccounts(body)); })
+      .catch(() => { if (!cancelled) setPaymentAccounts(null); });
+    return () => { cancelled = true; };
+  }, [token, phase]);
 
   const selected = events.find((event) => event.id === selectedId) ?? null;
   const blockReason = selected ? publicationBlockReason(selected) : null;
@@ -118,6 +130,7 @@ export function EventManagementJourney() {
         startsAt,
         description: creating.description.trim() || null,
         locationText: creating.locationText.trim() || null,
+        ...(creating.paymentAccountId !== undefined ? { paymentAccountId: creating.paymentAccountId } : {}),
       });
       setCreating(EMPTY);
       setNotice("Rascunho gravado. A agenda pública continua sem este encontro.");
@@ -136,6 +149,8 @@ export function EventManagementJourney() {
         slug: editing.slug.trim(),
         description: editing.description.trim() || null,
         locationText: editing.locationText.trim() || null,
+        ...(editing.paymentAccountId !== undefined && editing.paymentAccountId !== selected.paymentAccountId
+          ? { paymentAccountId: editing.paymentAccountId } : {}),
         ...(startsAt ? { startsAt } : {}),
       });
       setNotice("Rascunho atualizado.");
@@ -165,6 +180,7 @@ export function EventManagementJourney() {
       description: event.description,
       locationText: event.locationText,
       startsAt: "",
+      paymentAccountId: event.paymentAccountId,
     });
     if (event.status === "PUBLISHED" || event.status === "CANCELLED") {
       void run(() => reloadRegistrations(eventId));
@@ -273,6 +289,7 @@ export function EventManagementJourney() {
         events={events}
         selected={selected}
         creating={creating}
+        paymentAccounts={paymentAccounts}
         editing={editing}
         registrations={registrations}
         report={report}
@@ -317,6 +334,7 @@ export function EventManagementView(props: {
   events: ManagedEvent[];
   selected: ManagedEvent | null;
   creating: Draft;
+  paymentAccounts?: EventPaymentAccount[] | null;
   editing: Draft;
   registrations: ManagedRegistration[];
   report: ParticipationView | null;
@@ -374,6 +392,8 @@ export function EventManagementView(props: {
           <label>Identificador<input value={props.creating.slug} onChange={(event) => props.onCreating({ ...props.creating, slug: event.target.value })} required pattern="[a-z0-9-]{3,80}"/></label>
           <label>Início<input type="datetime-local" value={props.creating.startsAt} onChange={(event) => props.onCreating({ ...props.creating, startsAt: event.target.value })} required/></label>
           <label>Local público<input value={props.creating.locationText} onChange={(event) => props.onCreating({ ...props.creating, locationText: event.target.value })} maxLength={180}/></label>
+          {props.paymentAccounts && <EventPaymentField accounts={props.paymentAccounts} value={props.creating.paymentAccountId}
+            onChange={paymentAccountId => props.onCreating({ ...props.creating, paymentAccountId })} />}
           <label className={s.wide}>Descrição sem dados pessoais<textarea value={props.creating.description} onChange={(event) => props.onCreating({ ...props.creating, description: event.target.value })} maxLength={1200}/></label>
         </div>
         <button type="submit" disabled={props.busy}>Gravar rascunho</button>
@@ -386,6 +406,8 @@ export function EventManagementView(props: {
           <label>Identificador<input value={props.editing.slug} onChange={(event) => props.onEditing({ ...props.editing, slug: event.target.value })} required pattern="[a-z0-9-]{3,80}"/></label>
           <label>Novo início, se precisar<input type="datetime-local" value={props.editing.startsAt} onChange={(event) => props.onEditing({ ...props.editing, startsAt: event.target.value })}/></label>
           <label>Local<input value={props.editing.locationText} onChange={(event) => props.onEditing({ ...props.editing, locationText: event.target.value })}/></label>
+          {props.paymentAccounts && <EventPaymentField accounts={props.paymentAccounts} value={props.editing.paymentAccountId}
+            onChange={paymentAccountId => props.onEditing({ ...props.editing, paymentAccountId })} />}
           <label className={s.wide}>Descrição<textarea value={props.editing.description} onChange={(event) => props.onEditing({ ...props.editing, description: event.target.value })}/></label>
           <button type="submit" disabled={props.busy}>Salvar rascunho</button>
         </form>}
@@ -445,4 +467,24 @@ export function EventManagementView(props: {
       </form>}
     </>}
   </main>;
+}
+
+export function EventPaymentField({ accounts, value, onChange }: {
+  accounts: EventPaymentAccount[];
+  value?: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const existingAccountUnavailable = Boolean(value && !accounts.some(account => account.id === value));
+  return (
+    <label>Conta da igreja para receber o Pix
+      <select value={value ?? ""} onChange={event => onChange(event.target.value || null)}>
+        <option value="">Evento gratuito</option>
+        {existingAccountUnavailable && <option value={value ?? ""} disabled>Conta vinculada indisponível</option>}
+        {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+      </select>
+      <span className={s.paymentHint}>{accounts.length
+        ? "Para eventos pagos, selecione a conta que receberá as inscrições."
+        : "Nenhuma conta de recebimento está disponível. Procure a Tesouraria."}</span>
+    </label>
+  );
 }
