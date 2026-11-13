@@ -42,8 +42,10 @@ O token segue descartável: só o SHA-256 é gravado, com prazo e uso único. Re
 | `SMTP_PASSWORD` | só no ambiente; nunca no git |
 | `SMTP_FROM` | remetente oficial da igreja |
 | `SMTP_SEND_ENABLED` | `1` para abrir a conexão |
+| `SMTP_ALLOWED_RECIPIENTS` | caixas de teste do DEV, separadas por vírgula |
+| `IDBRF_RUNTIME_STAGE` | `qa` na API isolada do DEV |
 
-Sem `SMTP_SEND_ENABLED=1`, o código valida a forma e não envia. Esta execução não define senha nem liga o envio. TLS mínimo 1.2. O corpo da mensagem, inclusive o link com o token, não é persistido. `mail_deliveries` guarda chave, destino, assunto e estado (`PENDING`, `SENT`, `FAILED`).
+Sem `SMTP_SEND_ENABLED=1`, o código valida a forma e não envia. Com o envio ligado, a conexão só abre se o estágio for `qa` e o destino for uma caixa listada em `SMTP_ALLOWED_RECIPIENTS`. HML, produção e qualquer outro destinatário — inclusive e-mail sintético e inscrição pública — não saem por SMTP. A lista fica só no ambiente. TLS mínimo 1.2. O corpo da mensagem, inclusive o link com o token, não é persistido. `mail_deliveries` guarda chave, destino, assunto e estado (`PENDING`, `SENT`, `FAILED`).
 
 ## Evento pago, presença e tesouraria
 

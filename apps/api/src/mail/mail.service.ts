@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { readPublicSmtpConfig, smtpSendEnabled } from "./smtp-config";
+import { assertLiveSmtpRecipient, readPublicSmtpConfig, smtpSendEnabled } from "./smtp-config";
 
 export interface OutboundMessage {
   idempotencyKey: string;
@@ -54,6 +54,7 @@ export class SmtpMailTransport implements MailTransport {
         "O SMTP da igreja está configurado na forma, mas o envio live permanece desligado. Use o transporte de teste neste DEV.",
       );
     }
+    assertLiveSmtpRecipient(this.env, message.to);
     const password = this.env.SMTP_PASSWORD ?? "";
     const nodemailer = (await import("nodemailer")) as unknown as {
       createTransport: (options: Record<string, unknown>) => {
