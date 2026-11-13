@@ -5,6 +5,7 @@ import {
   participationQuery,
   publicationBlockReason,
   readParticipation,
+  readEventPaymentAccounts,
   registrationLabel,
   toManagedRegistration,
 } from "./event-management";
@@ -23,6 +24,15 @@ describe("gestão de eventos", () => {
       description: "escreva para ana@example.test",
       locationText: "",
     })).toMatch(/Publicação bloqueada/);
+  });
+
+  it("aceita somente identificador e nome da conta no seletor de recebimento", () => {
+    expect(readEventPaymentAccounts({ data: [] })).toBeNull();
+    expect(readEventPaymentAccounts({ accounts: [] })).toEqual([]);
+    expect(readEventPaymentAccounts({ accounts: [
+      { id: "a1", name: "Conta da igreja", pixKey: "dado extra", balance: 2000 },
+      { id: "a2" },
+    ] })).toEqual([{ id: "a1", name: "Conta da igreja" }]);
   });
 
   it("omite nome e código de menor e não oferece presença", () => {

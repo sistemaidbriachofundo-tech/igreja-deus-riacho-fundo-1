@@ -68,7 +68,8 @@ describe("mesa de carteirinhas", () => {
     );
     expect(html).toContain("Revogada");
     expect(html).toContain("QR revogado. Esta credencial não é válida.");
-    expect(html).toContain("<svg");
+    expect(html).toContain("Preparando QR…");
+    expect(html).not.toContain(qr);
     expect(html).not.toContain("Homens");
   });
 });
