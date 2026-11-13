@@ -9,7 +9,9 @@ Monorepo do sistema de gestão eclesiástica (piloto). Skeleton **F1-SEC** + **F
 | Dados | PostgreSQL + Prisma (`packages/db`) — opção A (local + CI) |
 | Shared | IAM, pilot RF1, token opaco da carteirinha |
 
-Preview Pages **não** hospeda API nem banco. Produção HML/PRD prevista: Hostinger VPS (depois desta pista).
+## Ambientes e publicação
+
+O fluxo é **DEV → homologação → produção**, com aceite de DEV antes do merge em `main` e aceite de HML antes da promoção para `production`. Veja os [endereços, o roteiro de promoção e a última conferência](docs/ambientes.md).
 
 ## Pré-requisitos
 
@@ -60,7 +62,7 @@ Pipeline em `.github/workflows/ci.yml`:
 
 1. **lint** → **typecheck** → **test** (Postgres efêmero) → **build**
 2. **SonarCloud** — soft-fail / skip se `SONAR_TOKEN` não estiver configurado
-3. **Deploy Pages** — só em push para `main` (artefato estático de `apps/web/out`)
+3. **Deploy HML no GitHub Pages** — push para `main` (artefato estático de `apps/web/out`)
 
 ### Produção (Hostinger)
 
@@ -125,7 +127,7 @@ Produto **default** Riacho Fundo I (`PILOT_CHURCH_SLUG=riacho-fundo-1`). F6 BE: 
 | `church_memberships` | Vínculo pessoa ↔ congregação piloto |
 | `member_credentials` | Carteirinha; `opaque_token` = único conteúdo do QR |
 
-### API (Nest — local / Hostinger; **não** no GitHub Pages)
+### API Nest — local, Vercel (QA/HML) e Hostinger (produção)
 
 | Método | Rota | Quem |
 |---|---|---|
@@ -142,10 +144,10 @@ QR **nunca** carrega CPF/telefone/e-mail — só token base64url opaco.
 
 | Superfície | O que roda |
 |---|---|
-| **GitHub Pages** (`/`) | Landing/status estático + links para `/app/*` |
-| **GitHub Pages** (`/app/secretaria`, `/app/membros/carteirinha`) | HTML/JS estático; login **falha** sem API |
-| **Local** `dev:api` + `dev:web` | Demo completa (login seed → listar/emitir/ver carteirinha) |
-| **Hostinger** (futuro) | Alvo para API+DB dinâmicos atrás do mesmo front |
+| **DEV Vercel** | Preview da branch da tarefa com API QA. |
+| **HML GitHub Pages** | Site e painel integrados à API HML da Vercel. |
+| **Local** `dev:api` + `dev:web` | Demo completa (login seed → listar/emitir/ver carteirinha). |
+| **Produção Hostinger** | Site público com API de produção. Consulte o [estado do painel](docs/ambientes.md#conferência-de-13112026). |
 
 Contas seed (senha `admin`): `ana.demo@example.test` (secretaria), `bruno.demo@example.test` (membro com carteirinha).
 
