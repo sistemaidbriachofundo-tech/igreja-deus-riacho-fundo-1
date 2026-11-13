@@ -32,6 +32,7 @@ export type AppNavKey =
   | "escalas"
   | "atmosfera"
   | "meu-espaco"
+  | "eventos-gestao"
   | "eventos-membro"
   | "demo";
 
@@ -220,6 +221,27 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
       marker: '":assignmentId/confirm"',
     },
     surface: "member",
+  },
+  {
+    key: "eventos-gestao",
+    href: "/app/eventos-gestao/",
+    label: "Gestão de eventos",
+    short: "Gestão de eventos",
+    icon: "calendar",
+    hint: "Cadastro, inscrições e presença",
+    ribbon: { code: "Eventos", title: "Gestão de eventos", detail: "Cadastro, inscrições e presença." },
+    roles: OPERATION,
+    probe: {
+      method: "GET",
+      path: "/events",
+      roles: MINISTRY_LEAD,
+      source: "apps/api/src/events/events.controller.ts",
+      marker: "return this.events.list",
+    },
+    additionalProbes: [
+      { method: "GET", path: "/events/conciliacao", roles: ["TESOURARIA"], source: "apps/api/src/events/events.controller.ts", marker: "return this.churchPayments.eventsForTreasury" },
+    ],
+    surface: "admin",
   },
   {
     key: "eventos-membro",

@@ -18,6 +18,8 @@ const PROBES: { key: string; path: string; roles: string[] }[] = [
   { key: "escalas", path: "/rosters", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "atmosfera", path: "/rosters", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "meu-espaco", path: "/rosters/:assignmentId/confirm", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "MEMBRO"] },
+  { key: "eventos-gestao", path: "/events", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
+  { key: "eventos-gestao", path: "/events/conciliacao", roles: ["TESOURARIA"] },
   { key: "eventos-membro", path: "/member-events/registrations", roles: ["MEMBRO"] },
   { key: "tesouraria", path: "/ledger/accounts", roles: ["TESOURARIA", "PLATFORM_ADMIN"] },
   { key: "tesouraria", path: "/ledger/expense-approvals", roles: ["TESOURARIA", "PASTOR"] },

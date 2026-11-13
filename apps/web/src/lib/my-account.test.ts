@@ -68,6 +68,27 @@ describe("Minha conta", () => {
     await expect(readMyPhoto("test-session", profile.photoPath)).resolves.toMatchObject({ type: "image/jpeg" });
   });
 
+  it("reduz uma imagem aceita antes que ultrapasse o limite do servidor", async () => {
+    const close = vi.fn();
+    const drawImage = vi.fn();
+    const canvas = {
+      width: 0, height: 0,
+      getContext: () => ({ fillRect: vi.fn(), drawImage }),
+      toBlob: (done: (blob: Blob) => void) => done(image),
+    };
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({ width: 3200, height: 2400, close }));
+    vi.stubGlobal("document", { createElement: () => canvas });
+    fetch.mockResolvedValue(new Response(null, { status: 204 }));
+    const largePhoto = new File([new Uint8Array(4_850_000)], "camera.png", { type: "image/png" });
+    await saveMyPhoto("test-session", largePhoto);
+    expect([canvas.width, canvas.height]).toEqual([1600, 1200]);
+    expect(drawImage).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+    const sent = (fetch.mock.calls[0][1]?.body as FormData).get("photo") as File;
+    expect(sent.type).toBe("image/jpeg");
+    expect(sent.size).toBe(image.size);
+  });
+
   it("bloqueia imagens vazias, grandes ou em formatos que não são aceitos", async () => {
     expect(profilePhotoProblem(new Blob([], { type: "image/jpeg" }))).toContain("vazia");
     expect(profilePhotoProblem(new Blob([new Uint8Array(PROFILE_PHOTO_LIMIT + 1)], { type: "image/png" }))).toContain("5 MB");

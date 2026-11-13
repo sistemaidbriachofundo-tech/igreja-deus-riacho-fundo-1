@@ -48,6 +48,8 @@ describe("telas de eventos e relatórios", () => {
     expect(html).toContain("Publicação bloqueada");
     expect(html).toContain("Registro de menor omitido");
     expect(html).toContain("Menores omitidos");
+    expect(html).toContain('href="#novo-evento"');
+    expect(html).toContain("Cadastrar evento");
     expect(html).toContain("Calendário");
     expect(html).toContain("Lista");
     expect(html).toContain("Encontro");

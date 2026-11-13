@@ -4,6 +4,9 @@ const ACCOUNT_PATH = "/account/me";
 export const MY_PROFILE_PHOTO_PATH = `${ACCOUNT_PATH}/photo`;
 export const PROFILE_PHOTO_TYPES = "image/jpeg,image/png,image/webp";
 export const PROFILE_PHOTO_LIMIT = 5 * 1024 * 1024;
+// Leave room for multipart overhead in the hosted API's 4.5 MB request limit.
+const PROFILE_PHOTO_UPLOAD_LIMIT = 4 * 1024 * 1024;
+const PROFILE_PHOTO_MAX_SIDE = 1600;
 
 export type MyAccount = {
   name: string | null;
@@ -35,12 +38,35 @@ export async function readMyPhoto(token: string, path: string) {
   return photo;
 }
 
-export function saveMyPhoto(token: string, photo: File) {
+export async function saveMyPhoto(token: string, photo: File) {
   const error = profilePhotoProblem(photo);
-  if (error) return Promise.reject(new Error(error));
+  if (error) throw new Error(error);
+  const upload = photo.size > PROFILE_PHOTO_UPLOAD_LIMIT ? await resizePhotoForUpload(photo) : photo;
   const form = new FormData();
-  form.set("photo", photo);
+  form.set("photo", upload);
   return apiPutForm(MY_PROFILE_PHOTO_PATH, token, form);
+}
+
+async function resizePhotoForUpload(photo: File): Promise<File> {
+  const bitmap = await createImageBitmap(photo);
+  try {
+    const scale = Math.min(1, PROFILE_PHOTO_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Não foi possível preparar a foto.");
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const resized = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.88));
+    if (!resized || resized.type !== "image/jpeg" || resized.size > PROFILE_PHOTO_UPLOAD_LIMIT) {
+      throw new Error("Não foi possível reduzir a foto.");
+    }
+    return new File([resized], "foto-de-perfil.jpg", { type: "image/jpeg" });
+  } finally {
+    bitmap.close();
+  }
 }
 
 export function profilePhotoProblem(photo: Blob): string | null {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canRecordPresence,
   countLines,
+  eventSlugFromName,
   participationQuery,
   publicationBlockReason,
   readParticipation,
@@ -11,6 +12,11 @@ import {
 } from "./event-management";
 
 describe("gestão de eventos", () => {
+  it("gera um endereço válido a partir do nome do evento", () => {
+    expect(eventSlugFromName("  Celebração & Comunhão ")).toBe("celebracao-comunhao");
+    expect(eventSlugFromName("palavra ".repeat(20))).toMatch(/^[a-z0-9-]{3,80}$/);
+  });
+
   it("bloqueia publicação com contato e aceita data comum", () => {
     expect(publicationBlockReason({
       name: "Encontro",

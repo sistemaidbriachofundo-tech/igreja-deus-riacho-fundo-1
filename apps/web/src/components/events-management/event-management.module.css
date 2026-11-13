@@ -84,3 +84,17 @@
 .panel details > summary { padding: 8px 0; cursor: pointer; font-weight: 650; }
 .panel details > form { padding: 8px 0 14px; }
 .panel input[type="checkbox"] { width: 24px; min-height: 24px; }
+
+.primaryLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 9px;
+  color: #fff;
+  background: #285c46;
+  font-weight: 700;
+  text-decoration: none;
+}
+.primaryLink:hover { background: #204d3b; }
+.panel[id="novo-evento"] { scroll-margin-top: 88px; }

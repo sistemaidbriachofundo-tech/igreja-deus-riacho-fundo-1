@@ -218,7 +218,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 </button>
               </>}
               <button type="button" className={styles.mfaBack} disabled={busy} onClick={restartLogin}>Voltar ao login</button>
-            </form> : <form onSubmit={submit} className={styles.form}>
+            </form> : <form method="post" onSubmit={submit} className={styles.form}>
               <label htmlFor="church-email">E-mail</label>
               <input id="church-email" type="email" name="email" required
                 autoComplete="username" inputMode="email"

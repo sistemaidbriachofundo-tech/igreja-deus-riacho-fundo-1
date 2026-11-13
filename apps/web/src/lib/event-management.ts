@@ -60,6 +60,11 @@ export type ParticipationView = {
 
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
+export function eventSlugFromName(name: string): string {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80).replace(/-$/, "");
+}
+
 export function publicationBlockReason(event: {
   name: string;
   slug: string;
