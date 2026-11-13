@@ -74,6 +74,11 @@ for (const page of findHtml(outDir)) {
     if (!/<input[^>]+type="email"/.test(html) || !/<input[^>]+type="password"/.test(html)) {
       failures.push("Login must display email and password inputs before opening the dashboard.");
     }
+    if (process.env.NEXT_PUBLIC_ADMIN_PRODUCTION === "true" &&
+        (html.includes("O acesso ao painel está indisponível") ||
+          !/<button\b(?=[^>]*\btype="submit")(?![^>]*\bdisabled\b)[^>]*>/.test(html))) {
+      failures.push("O login da candidata de produção precisa estar habilitado.");
+    }
   }
   if (relative(outDir, page) === "app/index.html" &&
       (!html.includes("Carregando área administrativa") || !html.includes('aria-busy="true"'))) {

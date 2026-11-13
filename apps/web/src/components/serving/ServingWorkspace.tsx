@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../../lib/admin-environment";
 import { useEffect, useMemo, useState } from "react";
 import { ApiRequestError, apiGet, apiPost, loadStoredToken, type LoginResult } from "../../lib/api";
 import { churchLocalToISO, dasError } from "../../lib/das-operations";
@@ -40,7 +41,7 @@ const COPY: Record<Surface, { title: string; lead: string }> = {
 };
 
 export function ServingWorkspace({ surface }: { surface: Surface }) {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const [phase, setPhase] = useState<Phase>(enabled ? "loading" : "disabled");
   const [token, setToken] = useState("");
   const [user, setUser] = useState<LoginResult["user"] | null>(null);

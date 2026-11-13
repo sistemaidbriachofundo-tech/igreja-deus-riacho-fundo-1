@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import { useCallback, useEffect, useState } from "react";
 import { AppNavLink, AppShell } from "./AppShell";
 import { ApiRequestError, apiGet, loadStoredToken } from "../lib/api";
@@ -109,7 +110,7 @@ function Trend({ months, years }: { months: GrowthPoint[]; years: GrowthPoint[] 
 }
 
 export function MembershipInsights() {
-  const enabled = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const enabled = isAdminEnabled();
   const [phase, setPhase] = useState<Phase>(enabled ? "checking" : "disabled");
   const [data, setData] = useState<MembershipInsightsData | null>(null);
   const [draftFrom, setDraftFrom] = useState("");

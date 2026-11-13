@@ -31,6 +31,23 @@ describe("Acesso institucional antes do painel", () => {
     expect(html).not.toContain('value="fake-token"');
   });
 
+  it("libera o formulário de produção somente com a API oficial", () => {
+    vi.stubEnv("NEXT_PUBLIC_HML_ENABLED", "false");
+    vi.stubEnv("NEXT_PUBLIC_ADMIN_PRODUCTION", "true");
+    try {
+      vi.stubEnv("NEXT_PUBLIC_API_URL", "https://id-riacho1-api-hml.vercel.app");
+      const rejected = renderToStaticMarkup(<LoginScreen />);
+      expect(rejected).toMatch(/<button[^>]*type="submit"[^>]*disabled/);
+
+      vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.igrejadeusrf1.com.br");
+      const official = renderToStaticMarkup(<LoginScreen />);
+      expect(official).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/);
+      expect(official).not.toContain("O acesso ao painel está indisponível");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("mantém o painel escondido até a sessão ser confirmada", () => {
     const html = renderToStaticMarkup(
       <AdminAccessGate>

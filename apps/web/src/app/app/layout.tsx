@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s · ID Riacho 1",
   },
   description: "Área administrativa da Igreja de Deus — Riacho Fundo I.",
-  // O painel HML é acessível no domínio do GitHub Pages, mas não deve ser indexado.
+  // As páginas administrativas não devem ser indexadas.
   robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 

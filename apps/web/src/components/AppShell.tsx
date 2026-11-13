@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled } from "../lib/admin-environment";
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AnchorHTMLAttributes, CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -140,7 +141,7 @@ export function AppShell({
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
-  const personaMode = process.env.NEXT_PUBLIC_HML_ENABLED === "true";
+  const personaMode = isAdminEnabled();
   const preview = !personaMode && !viewer;
   const childActive = active === "ministerios" || active === "escalas" || active === "atmosfera";
   const [paletteOpen, setPaletteOpen] = useState(false);

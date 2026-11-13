@@ -8,6 +8,7 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 
 | Variável | Regra |
 |----------|-------|
+| `SOURCE_SHA` | SHA completo do commit da API publicada, configurado no processo ou no build da imagem |
 | `IDBRF_RUNTIME_STAGE` | `production` |
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | Postgres prod, `sslmode=require` ou `verify-full` |
@@ -38,13 +39,14 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 |------|------|
 | `SONAR_TOKEN` | Environment `SONAR_TOKEN` |
 | Environment `production` + reviewers | Settings → Environments |
-| `PRODUCTION_API_URL` | Variables |
+| `PRODUCTION_API_URL` | Variables, `https://api.igrejadeusrf1.com.br` |
 | `PRODUCTION_WEB_URL` | Variables |
 
 ## Antes do DNS
 
 - [ ] Backup / ensaio de restore do Postgres prod (vazio ou sintético isolado)
 - [ ] `/health` e `/ready` OK na API interna
-- [ ] `npm run release:preflight` com SHA do artefato
-- [ ] FE build do artefato `production-candidate-*` (apex, sem basePath Pages)
+- [ ] Após publicar a API, rodar `npm run release:preflight` com o SHA do artefato e confirmar `/meta` e `/ready`
+- [ ] Frontend do artefato `production-candidate-*` com `NEXT_PUBLIC_ADMIN_PRODUCTION=true`, `NEXT_PUBLIC_HML_ENABLED=false` e a API oficial
+- [ ] Conferir login, MFA e acesso por função com uma conta autorizada de produção
 - [ ] Autorização explícita para corte de DNS

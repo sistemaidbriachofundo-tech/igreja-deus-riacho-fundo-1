@@ -1,3 +1,4 @@
+import { isProductionAdmin, PRODUCTION_API_ORIGIN } from "./admin-environment";
 import { publicApiBase } from "./portal-live-data";
 
 /**
@@ -6,6 +7,9 @@ import { publicApiBase } from "./portal-live-data";
  */
 export function getApiBaseUrl(): string {
   const configured = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
+  if (isProductionAdmin() && configured !== PRODUCTION_API_ORIGIN) {
+    throw new Error("API de produção não configurada.");
+  }
   if (configured) {
     const url = new URL(configured);
     const local = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);

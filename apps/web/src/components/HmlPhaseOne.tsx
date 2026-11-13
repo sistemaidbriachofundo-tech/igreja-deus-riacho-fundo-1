@@ -1,5 +1,6 @@
 "use client";
 
+import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
@@ -529,7 +530,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   };
   const activeNav = view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
 
-  if (process.env.NEXT_PUBLIC_HML_ENABLED !== "true") {
+  if (!isAdminEnabled()) {
     return (
       <AppShell active={activeNav} meta="Área administrativa">
         <section className={s.loginPanel}>
@@ -541,7 +542,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   }
 
   // A versão anterior exibia uma tela de senha própria e ignorava o desafio MFA.
-  // Todos os acessos HML devem passar pelo mesmo fluxo seguro da rota /login.
+  // Todos os acessos devem passar pelo mesmo fluxo seguro da rota /login.
   if (!token || !user) {
     if (checking) {
       return <main className={s.loginPanel} role="status"><h1>Verificando sessão…</h1></main>;
@@ -826,7 +827,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 onSessionExpired={logout}
               />
             )}
-            <p className={s.footerNote}>Ambiente de homologação. Não cadastre dados de pessoas reais.</p>
+            {!isProductionAdmin() && <p className={s.footerNote}>Ambiente de homologação. Não cadastre dados de pessoas reais.</p>}
           </div>
       </div>
     </AppShell>
