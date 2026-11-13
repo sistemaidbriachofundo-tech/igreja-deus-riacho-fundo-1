@@ -9,6 +9,9 @@ import { CurrentUser } from "./decorators/current-user.decorator";
 import { Roles } from "./decorators/roles.decorator";
 import type { AuthUser } from "./types/auth-user";
 
+/** Perfil administrativo da igreja, escolhido entre os papéis que já existem. */
+export const CHURCH_ADMINISTRATIVE_ROLE = ROLE_CODES.SECRETARIA;
+
 const assignableRoles = [
   ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA, ROLE_CODES.LIDER_MINISTERIO,
   ROLE_CODES.MEMBRO, ROLE_CODES.EDITOR_SITE, ROLE_CODES.PUBLICADOR_SITE,

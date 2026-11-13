@@ -1,5 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
+import { MailService } from "../mail/mail.service";
+import { readPublicSmtpConfig } from "../mail/smtp-config";
 import { PrismaService } from "../prisma/prisma.service";
 import { hashPassword } from "./auth.service";
 import { assertPasswordPolicy } from "./password-policy";
@@ -14,12 +16,17 @@ export function inviteTokenHash(token: string) {
 
 export function inviteEmailConfig() {
   const stage = process.env.IDBRF_RUNTIME_STAGE;
-  const preview = (stage === "qa" || stage === "hml")
+  const transport = (process.env.EMAIL_TRANSPORT ?? "").trim().toLowerCase();
+  const preview = transport !== "test" && transport !== "smtp"
+    && (stage === "qa" || stage === "hml")
     && process.env.ACCESS_INVITE_DELIVERY === "preview";
   const key = process.env.ACCESS_INVITE_RESEND_API_KEY?.trim();
-  const from = process.env.ACCESS_INVITE_FROM_EMAIL?.trim();
-  const base = process.env.ACCESS_INVITE_WEB_ORIGIN?.trim();
-  if (!base || (!preview && (!key || !from))) {
+  const from = process.env.ACCESS_INVITE_FROM_EMAIL?.trim()
+    || (transport === "test" ? "nao-responda@example.test" : undefined);
+  const base = process.env.ACCESS_INVITE_WEB_ORIGIN?.trim()
+    || (transport === "test" ? "https://dev.example.test" : undefined);
+  if (transport === "smtp") readPublicSmtpConfig(process.env);
+  if (!base || (!preview && transport !== "test" && transport !== "smtp" && (!key || !from))) {
     throw new ServiceUnavailableException(
       "O envio de convites ainda não está configurado. Nenhuma conta será criada sem o e-mail de ativação.",
     );
@@ -34,7 +41,14 @@ export function inviteEmailConfig() {
   if (basePath && !/^(?:\/[a-zA-Z0-9_-]+)+$/.test(basePath)) {
     throw new ServiceUnavailableException("Caminho base do portal de acesso inválido.");
   }
-  return { key, from, origin: origin.origin, basePath, preview };
+  return {
+    key,
+    from,
+    origin: origin.origin,
+    basePath,
+    preview,
+    transport: transport === "test" || transport === "smtp" ? transport : "resend",
+  };
 }
 
 function escapeHtml(value: string) {
@@ -49,7 +63,10 @@ function escapeHtml(value: string) {
  */
 @Injectable()
 export class AccessInvitationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly mail?: MailService,
+  ) {}
 
   newToken(purpose: "ACTIVATION" | "PASSWORD_RESET" = "ACTIVATION") {
     const token = randomBytes(32).toString("base64url");
@@ -76,6 +93,26 @@ export class AccessInvitationService {
       }
       await this.markDelivered(input.inviteId);
       return { sent: false, email: input.email, expiresInHours, previewUrl: link.toString() };
+    }
+    if (config.transport === "test" || config.transport === "smtp") {
+      if (config.transport === "test" && !input.email.endsWith("@example.test")) {
+        throw new BadRequestException("A entrega de teste é restrita a contas fictícias.");
+      }
+      if (!this.mail) {
+        throw new ServiceUnavailableException("Transporte de e-mail indisponível.");
+      }
+      const title = reset ? "Redefina sua senha do Sistema Riacho 1" : "Ative seu acesso ao Sistema Riacho 1";
+      const instruction = reset
+        ? "Foi solicitada a recuperação de acesso à sua conta."
+        : "Foi criado um acesso para você no Sistema Igreja de Deus — Riacho Fundo I.";
+      await this.mail.deliverOnce({
+        idempotencyKey: `access-invite:${input.inviteId}`,
+        to: input.email,
+        subject: title,
+        text: `Defina a senha pelo link de uso único, válido por ${expiresInHours} h.\n${link.toString()}\n\n${instruction}`,
+      });
+      await this.markDelivered(input.inviteId);
+      return { sent: true, email: input.email, expiresInHours, transport: config.transport };
     }
     const title = reset ? "Redefina sua senha do Sistema Riacho 1" : "Ative seu acesso ao Sistema Riacho 1";
     const instruction = reset

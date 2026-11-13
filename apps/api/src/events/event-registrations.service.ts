@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
@@ -10,8 +11,11 @@ import {
   assertMinistryScopedWrite,
   filterRowsForMinistryLeader,
 } from "../common/ministry-access";
+import { queueEventCheckInNotice } from "../mail/check-in-notice";
+import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { buildPixCopiaECola } from "./pix-payload";
 
 const OCCUPYING_STATUSES = ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] as const;
 
@@ -36,6 +40,7 @@ export type LotInput = {
   closesAt?: string | null;
   status?: "DRAFT" | "OPEN" | "CLOSED";
   sortOrder?: number;
+  receivingAccountId?: string | null;
 };
 
 export type RegistrationInput = {
@@ -50,6 +55,8 @@ export type RegistrationInput = {
   guardianDisplayName?: string | null;
   /** Ciência sintética do responsável — obrigatória quando isMinor=true. */
   guardianAcknowledged?: boolean;
+  /** Caixa fictícia @example.test para o QR de check-in. Não entra na resposta. */
+  notificationEmail?: string | null;
 };
 
 export type LodgingOptionInput = {
@@ -107,6 +114,7 @@ export class EventRegistrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    @Optional() private readonly mail?: MailService,
   ) {}
 
   async createModality(actor: AuthUser, eventId: string, input: ModalityInput) {
@@ -199,6 +207,11 @@ export class EventRegistrationsService {
     if (!["DRAFT", "OPEN", "CLOSED"].includes(status)) {
       throw new BadRequestException("status inválido");
     }
+    const receivingAccountId = await this.resolveReceivingAccount(
+      pilot,
+      input.receivingAccountId,
+      priceCents,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.eventLot.create({
@@ -220,6 +233,7 @@ export class EventRegistrationsService {
               : parseDate(input.closesAt, "closesAt"),
           status,
           sortOrder: input.sortOrder ?? 0,
+          receivingAccountId,
         },
       });
       await tx.auditLog.create({
@@ -621,6 +635,41 @@ export class EventRegistrationsService {
       return this.toRegistrationDto(registration);
     }
 
+    return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  /** Check-in pelo código, restrito ao evento informado. Repetir devolve o mesmo registro. */
+  async checkInOnEvent(actor: AuthUser, eventId: string, checkInCode: string) {
+    const { pilot, event } = await this.requireEventWrite(actor, eventId);
+    const code = checkInCode?.trim();
+    if (!code || code.length < 8) {
+      throw new BadRequestException("checkInCode inválido");
+    }
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        checkInCode: code,
+        eventId: event.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!registration) {
+      throw new NotFoundException("Inscrição não encontrada neste evento");
+    }
+    if (registration.status === "CHECKED_IN") {
+      return this.toRegistrationDto(registration);
+    }
+    this.assertCheckInAllowed(registration);
+    return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  private async persistCheckIn(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    registration: { id: string; status: string; isMinor: boolean; guardianAuthStatus: string },
+    eventId: string,
+  ) {
+
     return this.prisma.$transaction(async (tx) => {
       const transition = await tx.eventRegistration.updateMany({
         where: {
@@ -648,7 +697,7 @@ export class EventRegistrationsService {
           resourceId: registration.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { eventId: event.id },
+          metadata: { eventId },
         },
       });
       return this.toRegistrationDto(updated);
@@ -908,7 +957,9 @@ export class EventRegistrationsService {
       transportOptions: transportOptions.map((o) =>
         this.toResourceOptionDto(o, occTransport.get(o.id) ?? 0),
       ),
-      paymentMode: "MOCK_ONLY" as const,
+      paymentMode: openLots.some((lot) => Boolean(lot.receivingAccountId))
+        ? ("CHURCH_PIX" as const)
+        : ("MOCK_ONLY" as const),
       /** RF-022 entregue nesta fatia — opções podem estar vazias se staff não configurou. */
       rf022LodgingPending: false,
       requiresLodgingOption: lodgingOptions.length > 0,
@@ -924,6 +975,7 @@ export class EventRegistrationsService {
       id: string;
       ministryId: string | null;
       status: string;
+      name?: string;
     };
     input: RegistrationInput;
     actorUserId: string | null;
@@ -986,6 +1038,7 @@ export class EventRegistrationsService {
       modalityId: string | null;
       opensAt: Date | null;
       closesAt: Date | null;
+      receivingAccountId?: string | null;
     } | null = null;
     const lotId = params.input.lotId?.trim() || null;
     if (lotId) {
@@ -1081,10 +1134,14 @@ export class EventRegistrationsService {
 
     const priceCents = lot?.priceCents ?? 0;
     const needsPayment = priceCents > 0;
+    const notificationEmail = pilotMailbox(params.input.notificationEmail);
+    const pix = needsPayment && lot?.receivingAccountId
+      ? await this.pixInstruction(params.pilot, lot.receivingAccountId, priceCents)
+      : null;
     const checkInCode = randomBytes(16).toString("hex");
     const guardianAuthStatus = isMinor ? "PENDING" : "NOT_REQUIRED";
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       // Re-validate capacity inside transaction (best-effort).
       const occModTx = await tx.eventRegistration.aggregate({
         where: {
@@ -1145,6 +1202,7 @@ export class EventRegistrationsService {
           mealOptionId: meal?.id ?? null,
           transportOptionId: transport?.id ?? null,
           displayName,
+          notificationEmail,
           partySize,
           isMinor,
           guardianDisplayName,
@@ -1191,7 +1249,9 @@ export class EventRegistrationsService {
             amountCents: priceCents,
             currency: lot.currency,
             status: "PENDING",
-            providerRef: `mock_${randomBytes(8).toString("hex")}`,
+            providerRef: pix ? null : `mock_${randomBytes(8).toString("hex")}`,
+            receivingAccountId: pix?.accountId ?? null,
+            pixTxid: pix?.txid ?? null,
           },
         });
       }
@@ -1222,8 +1282,10 @@ export class EventRegistrationsService {
         },
       });
 
+      const dto = this.toRegistrationDto(registration);
       return {
-        ...this.toRegistrationDto(registration),
+        ...dto,
+        paymentMode: pix ? ("CHURCH_PIX" as const) : dto.paymentMode,
         guardianAuthorization: guardianAuthorization
           ? this.toGuardianAuthDto(guardianAuthorization)
           : null,
@@ -1232,11 +1294,21 @@ export class EventRegistrationsService {
               id: paymentIntent.id,
               status: paymentIntent.status,
               amountCents: paymentIntent.amountCents,
-              mode: "MOCK_ONLY" as const,
+              mode: pix ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
+              ...(pix ? { pixCopiaECola: pix.copiaECola } : {}),
             }
           : null,
       };
     });
+    if (created.status === "CONFIRMED" && notificationEmail) {
+      await queueEventCheckInNotice(this.mail, {
+        registrationId: created.id,
+        to: notificationEmail,
+        eventName: params.event.name || "evento",
+        checkInCode: created.checkInCode,
+      });
+    }
+    return created;
   }
 
   private assertNoRealPii(input: object): void {
@@ -1494,6 +1566,7 @@ export class EventRegistrationsService {
       closesAt: Date | null;
       status: string;
       sortOrder: number;
+      receivingAccountId?: string | null;
     },
     occupied = 0,
   ) {
@@ -1513,7 +1586,8 @@ export class EventRegistrationsService {
       closesAt: row.closesAt?.toISOString() ?? null,
       status: row.status,
       sortOrder: row.sortOrder,
-      paymentMode: "MOCK_ONLY" as const,
+      receivingAccountId: row.receivingAccountId ?? null,
+      paymentMode: row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
     };
   }
 
@@ -1611,6 +1685,73 @@ export class EventRegistrationsService {
       paymentMode: "MOCK_ONLY" as const,
     };
   }
+
+  private async resolveReceivingAccount(
+    pilot: { organizationId: string; churchId: string },
+    receivingAccountId: string | null | undefined,
+    priceCents: number,
+  ): Promise<string | null> {
+    const id = receivingAccountId?.trim() || null;
+    if (!id) return null;
+    if (priceCents <= 0) {
+      throw new BadRequestException("Conta de recebimento só vale para lote pago.");
+    }
+    const account = await this.prisma.churchReceivingAccount.findFirst({
+      where: {
+        id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        active: true,
+        ledgerAccount: { active: true, type: "ASSET" },
+      },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new BadRequestException("Conta ativa da igreja não encontrada.");
+    }
+    return account.id;
+  }
+
+  private async pixInstruction(
+    pilot: { organizationId: string; churchId: string },
+    receivingAccountId: string,
+    amountCents: number,
+  ) {
+    const account = await this.prisma.churchReceivingAccount.findFirst({
+      where: {
+        id: receivingAccountId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        active: true,
+      },
+    });
+    if (!account) {
+      throw new BadRequestException("A conta Pix do lote não está ativa.");
+    }
+    const txid = randomBytes(8).toString("hex");
+    return {
+      accountId: account.id,
+      txid,
+      copiaECola: buildPixCopiaECola({
+        pixKey: account.pixKey,
+        merchantName: account.displayName,
+        merchantCity: account.merchantCity,
+        amountCents,
+        txid,
+      }),
+    };
+  }
+}
+
+function pilotMailbox(value: string | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  const email = value.trim().toLowerCase();
+  if (!/^[a-z0-9._+-]{1,64}@example\.test$/.test(email)) {
+    throw new BadRequestException(
+      "No piloto, o aviso de inscrição usa apenas um e-mail fictício @example.test.",
+    );
+  }
+  return email;
 }
 
 function resourceLabel(
