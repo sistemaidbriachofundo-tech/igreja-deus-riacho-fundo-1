@@ -10,6 +10,8 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { BusinessException } from "../common/business.exception";
+import { baptismWaived, CONNECTION_STAGES, isConnectionTrack } from "./connection-rules";
 
 const ENROLLMENT_STATUSES = [
   "ACTIVE",
@@ -300,9 +302,19 @@ export class DiscipleshipService {
     const next = this.requireEnrollmentStatus(status);
     const enrollment = await this.requireEnrollment(enrollmentId, pilot);
 
-    const completedAt = next === "COMPLETED" ? new Date() : null;
-
     return this.prisma.$transaction(async (tx) => {
+      const completedAt = next === "COMPLETED" ? new Date() : null;
+      if (isConnectionTrack(enrollment.track.name)) {
+        const current = await this.lockConnectionEnrollment(tx, enrollment.id);
+        if (next === "COMPLETED") {
+          const progress = await this.connectionProgress(tx, current, pilot);
+          this.requireOfficialStages(progress.configured);
+          if (progress.pending) {
+            throw new BusinessException("Conclua a etapa pendente: " + progress.pending.title + ".", "CONNECTION_STAGES_PENDING");
+          }
+          if (current.status === "COMPLETED" && current.completedAt) return this.toEnrollmentDto(current);
+        }
+      }
       const updated = await tx.discipleshipEnrollment.update({
         where: { id: enrollment.id },
         data: {
@@ -351,6 +363,27 @@ export class DiscipleshipService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (isConnectionTrack(enrollment.track.name)) {
+        const current = await this.lockConnectionEnrollment(tx, enrollment.id);
+        if (current.status !== "ACTIVE") {
+          throw new BusinessException("Coloque a matrícula em andamento para registrar progresso.", "CONNECTION_NOT_ACTIVE");
+        }
+        const progress = await this.connectionProgress(tx, current, pilot);
+        this.requireOfficialStages(progress.configured);
+        const target = progress.stages.find(item => item.id === stage.id);
+        if (!target || target.waived) {
+          throw new BusinessException("Esta etapa não se aplica ao percurso da pessoa.", "CONNECTION_STAGE_NOT_APPLICABLE");
+        }
+        if (kind !== "REOPENED" && progress.pending?.id !== stage.id) {
+          throw new BusinessException(
+            progress.pending ? "Registre primeiro a etapa " + progress.pending.title + "." : "Todas as etapas já foram registradas.",
+            "CONNECTION_STAGE_OUT_OF_ORDER",
+          );
+        }
+        if (kind === "REOPENED" && !target.completed) {
+          throw new BusinessException("Só é possível reabrir uma etapa concluída.", "CONNECTION_STAGE_NOT_COMPLETED");
+        }
+      }
       const event = await tx.discipleshipProgressEvent.create({
         data: {
           enrollmentId: enrollment.id,
@@ -391,10 +424,10 @@ export class DiscipleshipService {
       orderBy: [{ startedAt: "desc" }, { id: "asc" }],
       select: {
         id: true, status: true, mentor: { select: { displayName: true } },
-        track: { select: { name: true, stages: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, description: true } } } },
+        track: { select: { name: true, stages: { orderBy: { sortOrder: "asc" }, select: { id: true, code: true, title: true, description: true } } } },
       },
     });
-    const journey = enrollments.find(row => /conex[aã]o/i.test(row.track.name));
+    const journey = enrollments.find(row => isConnectionTrack(row.track.name));
     if (!journey) return { journey: null };
 
     const track = await this.prisma.discipleshipProgressEvent.findMany({
@@ -402,9 +435,14 @@ export class DiscipleshipService {
       select: { stageId: true, kind: true },
     });
     const latest = new Map(track.map(event => [event.stageId, event.kind]));
-    const stages = journey.track.stages.map(stage => ({ ...stage, completed: latest.get(stage.id) === "COMPLETED" }));
+    const modality = journey.track.stages.some(stage => baptismWaived(stage.code, "TRANSFERENCIA"))
+      ? await this.approvedModality(this.prisma, actor.personId, { organizationId, churchId })
+      : null;
+    const stages = journey.track.stages.map(({ code, ...stage }) => ({
+      ...stage, completed: latest.get(stage.id) === "COMPLETED", waived: baptismWaived(code, modality),
+    }));
     return { journey: { name: journey.track.name, status: journey.status, mentorName: journey.mentor?.displayName ?? null,
-      stages, currentStageId: journey.status === "COMPLETED" ? null : stages.find(stage => !stage.completed)?.id ?? null } };
+      stages, currentStageId: journey.status === "COMPLETED" ? null : stages.find(stage => !stage.completed && !stage.waived)?.id ?? null } };
   }
 
   async getProgress(actor: AuthUser, enrollmentId: string) {
@@ -426,6 +464,10 @@ export class DiscipleshipService {
       latestByStage.set(event.stageId, event);
     }
 
+    const official = isConnectionTrack(enrollment.track.name);
+    const modality = official && stages.some(stage => baptismWaived(stage.code, "TRANSFERENCIA"))
+      ? await this.approvedModality(this.prisma, enrollment.personId, pilot)
+      : null;
     const stageSummaries = stages.map((stage) => {
       const latest = latestByStage.get(stage.id) ?? null;
       return {
@@ -433,20 +475,74 @@ export class DiscipleshipService {
         latestKind: latest?.kind ?? null,
         latestRecordedAt: latest?.recordedAt.toISOString() ?? null,
         completed: latest?.kind === "COMPLETED",
+        waived: baptismWaived(stage.code, modality),
       };
     });
 
-    const currentStage = enrollment.status === "COMPLETED" ? null : stageSummaries.find((stage) => !stage.completed);
+    const pending = stageSummaries.find(stage => !stage.completed && !stage.waived);
+    const configured = !official || CONNECTION_STAGES.every(({ code }) => stages.some(stage => stage.code === code));
+    const currentStage = enrollment.status === "COMPLETED" ? null : pending;
 
     return {
       enrollment: this.toEnrollmentDto(enrollment),
       spiritualScoreExcluded: true as const,
       stages: stageSummaries,
       currentStageId: currentStage?.id ?? null,
+      ...(official ? { enforceOrder: true, canComplete: configured && !pending } : {}),
       completedStageCount: stageSummaries.filter((s) => s.completed).length,
       totalStageCount: stageSummaries.length,
       history: events.map((e) => this.toProgressEventDto(e)),
     };
+  }
+
+  private async lockConnectionEnrollment(tx: Prisma.TransactionClient, enrollmentId: string) {
+    await tx.$queryRaw`SELECT id FROM discipleship_enrollments WHERE id = ${enrollmentId} FOR UPDATE`;
+    return tx.discipleshipEnrollment.findUniqueOrThrow({ where: { id: enrollmentId } });
+  }
+
+  private async approvedModality(
+    db: Prisma.TransactionClient, personId: string, pilot: { organizationId: string; churchId: string },
+  ) {
+    const protocol = await db.admissionProtocol.findFirst({
+      where: {
+        personId, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        status: "APPROVED", pastorApproved: true,
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      select: { modality: true },
+    });
+    return protocol?.modality ?? null;
+  }
+
+  private async connectionProgress(
+    tx: Prisma.TransactionClient,
+    enrollment: { id: string; trackId: string; personId: string },
+    pilot: { organizationId: string; churchId: string },
+  ) {
+    const [stages, events, modality] = await Promise.all([
+      tx.discipleshipTrackStage.findMany({ where: { trackId: enrollment.trackId }, orderBy: { sortOrder: "asc" } }),
+      tx.discipleshipProgressEvent.findMany({
+        where: { enrollmentId: enrollment.id },
+        orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+        select: { stageId: true, kind: true },
+      }),
+      this.approvedModality(tx, enrollment.personId, pilot),
+    ]);
+    const latest = new Map(events.map(event => [event.stageId, event.kind]));
+    const progress = stages.map(stage => ({
+      ...stage, completed: latest.get(stage.id) === "COMPLETED", waived: baptismWaived(stage.code, modality),
+    }));
+    return {
+      configured: CONNECTION_STAGES.every(({ code }) => stages.some(stage => stage.code === code)),
+      stages: progress,
+      pending: progress.find(stage => !stage.completed && !stage.waived),
+    };
+  }
+
+  private requireOfficialStages(configured: boolean) {
+    if (!configured) {
+      throw new BusinessException("Cadastre as nove etapas oficiais antes de registrar o progresso da Trilha da Conexão.", "CONNECTION_STAGES_NOT_CONFIGURED");
+    }
   }
 
   private async requireMentor(id: string, participantId: string, pilot: { organizationId: string; churchId: string }) {
@@ -499,6 +595,7 @@ export class DiscipleshipService {
             id: true,
             organizationId: true,
             churchId: true,
+            name: true,
           },
         },
       },

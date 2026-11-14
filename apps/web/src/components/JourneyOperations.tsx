@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { apiGet, apiPatch, apiPost } from "../lib/api";
+import { ApiRequestError, apiGet, apiPatch, apiPost } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { clearPanelReads } from "../lib/panel-read";
 import s from "./connection-desk.module.css";
@@ -9,7 +9,7 @@ import s from "./connection-desk.module.css";
 type Person = { id: string; displayName: string };
 type Enrollment = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
 type Stage = { id: string; title: string; sortOrder: number };
-type Progress = { stages: Array<Stage & { completed: boolean }> };
+type Progress = { stages: Array<Stage & { completed: boolean; waived?: boolean }>; currentStageId?: string | null; canComplete?: boolean; enforceOrder?: boolean };
 const statusLabels: Record<string, string> = { ACTIVE: "Em andamento", PAUSED: "Pausada", COMPLETED: "Concluída", CANCELLED: "Cancelada" };
 
 function PeopleSearch({ token, label, onSelect }: { token: string; label: string; onSelect: (person: Person) => void }) {
@@ -68,7 +68,16 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
     try {
       await action();
       if (success) { clearPanelReads(); setMessage(success); }
-    } catch (error) { setFault(dasError(error)); }
+    } catch (error) {
+      let message = dasError(error);
+      if (error instanceof ApiRequestError && error.status === 409) {
+        try {
+          const details = JSON.parse(error.message);
+          if (typeof details.code === "string" && details.code.startsWith("CONNECTION_") && typeof details.message === "string") message = details.message;
+        } catch { /* Keep the general conflict message. */ }
+      }
+      setFault(message);
+    }
     finally { setBusy(false); }
   }
 
@@ -130,12 +139,13 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
         }, "Mentor atualizado.")}>Salvar mentor</button>
       </div>}
       {stages.length > 0 && progress && <ul className={s.operationList}>{progress.stages.map(stage => <li key={stage.id}>
-        <div><strong>{stage.title}</strong><span>{stage.completed ? "Concluída" : "Em aberto"}</span></div>
-        <button type="button" className={s.retry} disabled={busy || current.status !== "ACTIVE"}
+        <div><strong>{stage.title}</strong><span>{stage.completed ? "Concluída" : stage.waived ? "Não se aplica à modalidade de ingresso" : stage.id === progress.currentStageId ? "Próxima etapa" : "Em aberto"}</span></div>
+        {!stage.waived && <button type="button" className={s.retry} disabled={busy || current.status !== "ACTIVE" ||
+          (progress.enforceOrder && !stage.completed && stage.id !== progress.currentStageId)}
           onClick={() => void operate(async () => {
             await apiPost(progressPath, token, { stageId: stage.id, kind: stage.completed ? "REOPENED" : "COMPLETED" });
             setProgress(await apiGet<Progress>(progressPath, token));
-          }, "Progresso atualizado.")}>{stage.completed ? "Reabrir etapa" : "Concluir etapa"}<span className={s.srOnly}> {stage.title}</span></button>
+          }, "Progresso atualizado.")}>{stage.completed ? "Reabrir etapa" : "Concluir etapa"}<span className={s.srOnly}> {stage.title}</span></button>}
       </li>)}</ul>}
       <form className={s.operationForm} onSubmit={event => {
         event.preventDefault();
@@ -146,7 +156,8 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
         }, "Situação atualizada.");
       }}>
         <label>Situação da matrícula<select name="status" key={current.id + current.status} defaultValue={current.status}>
-          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}
+            disabled={value === "COMPLETED" && current.status !== "COMPLETED" && progress?.canComplete === false}>{label}</option>)}
         </select></label>
         <button type="submit" className={s.retry} disabled={busy}>Salvar situação</button>
       </form>

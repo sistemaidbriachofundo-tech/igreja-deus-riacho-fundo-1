@@ -6,7 +6,7 @@ import { withBasePath } from "../../lib/paths";
 import { readPanel } from "../../lib/panel-read";
 import styles from "./connection-journey.module.css";
 
-type Stage = { id: string; title: string; description: string | null; completed: boolean };
+type Stage = { id: string; title: string; description: string | null; completed: boolean; waived?: boolean };
 type Journey = { name: string; status: string; mentorName: string | null; stages: Stage[]; currentStageId: string | null };
 const path = "/discipleship/me/connection";
 
@@ -49,7 +49,7 @@ export function ConnectionJourney({ compact = false }: { compact?: boolean }) {
         {data.status === "ACTIVE" && !stage && <p>A equipe da Conexão vai orientar o próximo passo.</p>}
         <p><strong>Acompanhamento</strong> {data.mentorName ?? "Responsável a definir"}</p>
         {!compact && data.stages.length > 0 && <ol>{data.stages.map(item => <li key={item.id} aria-current={stage?.id === item.id ? "step" : undefined}>
-          <strong>{item.title}</strong><span>{item.completed ? "Concluída" : stage?.id === item.id ? "Etapa atual" : "A iniciar"}</span>
+          <strong>{item.title}</strong><span>{item.completed ? "Concluída" : item.waived ? "Não se aplica ao seu percurso" : stage?.id === item.id ? "Etapa atual" : "A iniciar"}</span>
         </li>)}</ol>}
       </>}
   </section>;

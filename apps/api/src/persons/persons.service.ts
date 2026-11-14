@@ -421,7 +421,7 @@ export class PersonsService {
     }
     for (const admission of person.admissions) {
       const modality = ({
-        BATISMO:"batismo", TRANSFERENCIA:"transferência", RECONCILIACAO:"reconciliação", OUTRO:"outro",
+        BATISMO:"batismo", TRANSFERENCIA:"transferência", RECONCILIACAO:"reconciliação", ACLAMACAO:"aclamação", OUTRO:"outro",
       } as Record<string,string>)[admission.modality??""] ?? "não informada";
       timeline.push({ id: admission.id, type: "admissao", date: admission.createdAt.toISOString(),
         title: "Protocolo de admissão aberto", detail: "Modalidade: " + modality + "." });

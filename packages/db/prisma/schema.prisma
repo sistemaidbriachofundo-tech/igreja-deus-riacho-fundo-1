@@ -53,6 +53,7 @@ enum AdmissionModality {
   TRANSFERENCIA
   RECONCILIACAO
   OUTRO
+  ACLAMACAO
 }
 
 enum AdmissionStep {

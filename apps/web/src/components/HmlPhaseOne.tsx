@@ -81,6 +81,7 @@ const statusLabels: Record<string, string> = {
   BATISMO: "Batismo",
   TRANSFERENCIA: "Transferência",
   RECONCILIACAO: "Reconciliação",
+  ACLAMACAO: "Aclamação",
   OUTRO: "Outro",
 };
 
@@ -762,6 +763,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                           <option value="BATISMO">Batismo</option>
                           <option value="TRANSFERENCIA">Transferência</option>
                           <option value="RECONCILIACAO">Reconciliação</option>
+                          <option value="ACLAMACAO">Aclamação</option>
                           <option value="OUTRO">Outro</option>
                         </select>
                       </label>
