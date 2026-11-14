@@ -74,33 +74,61 @@ export function PublishedHomeSpotlight() {
 }
 
 export function PublishedAgenda() {
-  const { data } = usePublishedResource("/public/events", parsePublishedEvents);
+  const { status, data } = usePublishedResource("/public/events", parsePublishedEvents);
   const events = useMemo(() => currentPublishedEvents(data ?? []), [data]);
 
   return (
     <div className={s.visitAgenda}>
-      <h2 id="agenda-title" tabIndex={-1}>Cultos de domingo</h2>
-      <div className={s.visitSchedule}>
-        <ul className={s.sundayTimes} aria-label="Horários dos cultos de domingo">
+      <h2 id="agenda-title" tabIndex={-1}>Agenda</h2>
+      <section className={s.visitSchedule} aria-labelledby="sunday-title">
+        <h3 id="sunday-title">Cultos de domingo</h3>
+        <ul className={s.sundayTimes}>
           <li><span>Manhã</span><time dateTime="10:00">10h</time></li>
           <li><span>Noite</span><time dateTime="19:00">19h</time></li>
         </ul>
-        {events.length > 0 && (
-          <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
-            <h3 id="upcoming-events-title">Próximos eventos</h3>
-            {events.map(event => (
-              <article key={event.id} className={s.visitEvent}>
-                <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
-                <h4>{event.name}</h4>
-                {event.locationText && <p>{event.locationText}</p>}
-                {event.description && <p>{event.description}</p>}
-                <Link href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)}>Ver inscrições</Link>
-              </article>
-            ))}
-          </section>
-        )}
-      </div>
+      </section>
+      {status !== "unavailable" && (
+        <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
+          <h3 id="upcoming-events-title">Próximos eventos</h3>
+          {status === "loading" && <p className={s.agendaStatus} role="status">Carregando eventos…</p>}
+          {status === "ready" && events.length === 0 && <p className={s.agendaStatus}>Nenhum evento previsto no momento.</p>}
+          {events.length > 0 && (
+            <ul className={s.eventGrid}>
+              {events.map(event => <li key={event.id}><AgendaEvent event={event} /></li>)}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
+  );
+}
+
+function AgendaEvent({ event }: { event: PublishedEvent }) {
+  const date = formatPortalDate(event.startsAt);
+  const titleId = "agenda-event-" + encodeURIComponent(event.id);
+
+  return (
+    <article className={s.visitEvent} aria-labelledby={titleId}>
+      {event.imageUrl && (
+        <div className={s.agendaEventImage}>
+          {/* A arte pode vir de qualquer origem HTTPS aprovada na publicação. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+        </div>
+      )}
+      <div className={s.agendaEventContent}>
+        <time className={s.agendaEventDate} dateTime={event.startsAt}>
+          <span className={s.agendaDateBlock} aria-hidden="true"><strong>{date.day}</strong><span>{date.month}</span></span>
+          <span className={s.agendaDateText}>{date.dayAndTime}</span>
+        </time>
+        <h4 id={titleId}>{event.name}</h4>
+        {event.locationText && <p className={s.agendaEventLocation}>{event.locationText}</p>}
+        {event.description && <p className={s.agendaEventDescription}>{event.description}</p>}
+        <Link className={s.agendaEventAction} href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)} aria-label={"Ver inscrições para " + event.name}>
+          Ver inscrições <span aria-hidden="true">↗</span>
+        </Link>
+      </div>
+    </article>
   );
 }
 
