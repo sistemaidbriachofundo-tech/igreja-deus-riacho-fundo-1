@@ -907,9 +907,10 @@ describe("EventRegistrationsService", () => {
     );
     const catalog = await service.publicCatalogForEvent("e1");
     expect(catalog.paymentMode).toBe("MOCK_ONLY");
+    expect(catalog.settlementPolicy?.kind).toBe("EXTERNAL_MANUAL");
     expect(catalog.rf022LodgingPending).toBe(false);
     expect(catalog.requiresGuardianAuthorizationForMinors).toBe(true);
-    expect(catalog.lots.map((l) => l.id)).toEqual(["lot1"]);
+    expect(catalog.lots.map((l: { id: string }) => l.id)).toEqual(["lot1"]);
     expect(catalog.modalities[0].remaining).toBe(10);
   });
 

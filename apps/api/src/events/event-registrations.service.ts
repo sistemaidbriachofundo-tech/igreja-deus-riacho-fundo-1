@@ -1511,7 +1511,12 @@ export class EventRegistrationsService {
       },
       _sum: { partySize: true },
     });
-    return new Map(rows.map((r) => [r.modalityId, r._sum.partySize ?? 0]));
+    return new Map(
+      rows.map((r: { modalityId: string; _sum: { partySize: number | null } }) => [
+        r.modalityId,
+        r._sum.partySize ?? 0,
+      ]),
+    );
   }
 
   private async occupiedByLot(eventId: string) {
@@ -1526,8 +1531,11 @@ export class EventRegistrationsService {
     });
     return new Map(
       rows
-        .filter((r) => r.lotId)
-        .map((r) => [r.lotId as string, r._sum.partySize ?? 0]),
+        .filter((r: { lotId: string | null }) => r.lotId)
+        .map((r: { lotId: string | null; _sum: { partySize: number | null } }) => [
+          r.lotId as string,
+          r._sum.partySize ?? 0,
+        ]),
     );
   }
 
@@ -1546,8 +1554,11 @@ export class EventRegistrationsService {
     });
     return new Map(
       rows
-        .filter((r) => r[field])
-        .map((r) => [r[field] as string, r._sum.partySize ?? 0]),
+        .filter((r: Record<string, unknown>) => Boolean(r[field]))
+        .map((r: Record<string, unknown> & { _sum: { partySize: number | null } }) => [
+          r[field] as string,
+          r._sum.partySize ?? 0,
+        ]),
     );
   }
 
