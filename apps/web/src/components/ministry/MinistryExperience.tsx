@@ -214,6 +214,7 @@ function ReadyExperience({
           id={`ministry-panel-${tab}`}
           aria-labelledby={`ministry-tab-${tab}`}
           className={styles.tabPanel}
+          data-tab={tab}
           tabIndex={0}
         >
           {tab === "visao" ? (

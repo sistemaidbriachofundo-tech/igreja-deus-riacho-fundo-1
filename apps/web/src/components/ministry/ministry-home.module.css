@@ -203,3 +203,21 @@
   .tabs > button { display: flex; flex-direction: column; gap: 4px; justify-content: center; min-height: 54px; }
   .tabIcon { display: inline-flex; }
 }
+
+.tabs > button[aria-selected="true"] { border-bottom-color: #df7038; color: #18372b; }
+.tabPanel[data-tab="escalas"] { padding-inline: 0; }
+
+@media (max-width: 620px) {
+  .tabs:has(+ .tabPanel[data-tab="escalas"]) {
+    display: flex;
+    overflow-x: auto;
+    padding-inline: 0;
+  }
+  .tabs:has(+ .tabPanel[data-tab="escalas"]) > button {
+    flex-direction: row;
+    min-height: 44px;
+    padding-inline: 11px;
+    white-space: nowrap;
+  }
+  .tabs:has(+ .tabPanel[data-tab="escalas"]) .tabIcon { display: none; }
+}

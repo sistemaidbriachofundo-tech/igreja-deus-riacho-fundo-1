@@ -75,3 +75,5 @@
   gap: 0.5rem;
   padding-block: 0.45rem;
 }
+
+.position, .person details { scroll-margin-top: 95px; }

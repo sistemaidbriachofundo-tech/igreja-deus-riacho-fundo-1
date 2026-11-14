@@ -11,6 +11,7 @@
   color: inherit;
   cursor: pointer;
 }
+.bell { color: var(--shell-text, #f5f1e6); }
 .bell:hover { background: #ffffff18; }
 .badge {
   position: absolute;

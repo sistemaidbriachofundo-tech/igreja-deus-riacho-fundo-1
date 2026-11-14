@@ -207,7 +207,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
                 {assignment.substituteForId && <small>Substituição</small>}
               </div>
               <span className={s.assignmentStatus} data-status={assignment.status}>{assignmentStatusLabel[assignment.status]}</span>
-              {open && (current.includes(assignment) || replacing?.id === assignment.id) && eligible.some(member => member.personId !== assignment.personId) && <details>
+              {open && (current.includes(assignment) || replacing?.id === assignment.id) && eligible.some(member => member.personId !== assignment.personId) && <details id={current[0]?.id === assignment.id ? `trocar-${position.id}` : undefined} tabIndex={-1}>
                 <summary>{assignment.status === "DECLINED" ? "Escalar substituto" : "Substituir"}</summary>
                 <PersonForm members={eligible.filter(member => member.personId !== assignment.personId)} busy={busy} couple={position.requiresCouple}
                   pairs={roster.moduleId ? rules?.couples ?? [] : undefined}
