@@ -73,7 +73,7 @@ function rosterOf(slotId: string) {
     ministryId: "min-louvor",
     title: "Louvor encerrado",
     serviceAt: new Date("2026-11-22T21:00:00.000Z"),
-    status: "CLOSED",
+    status: slotId === "slot-rascunho" ? "DRAFT" : "CLOSED",
     ministry: louvorMinistry,
   };
 }
@@ -265,6 +265,17 @@ describe("agenda pessoal e escopo de escala", () => {
     audits.splice(0, audits.length);
     seq = 1;
     ministryReads = 0;
+  });
+
+  it("só mostra a designação ao voluntário depois da publicação", async () => {
+    const slotId = "slot-rascunho";
+    const slot = slotOf(slotId);
+    prisma.rosterSlot.findFirst.mockResolvedValueOnce(slot).mockResolvedValueOnce(slot);
+    const assignment = await service.assign(liderLouvor, slotId, { personId: membro.personId! });
+
+    expect((await service.listMine(membro)).assignments).toEqual([]);
+    await expect(service.confirm(membro, assignment.id)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(assignments[0]?.status).toBe("PENDING");
   });
 
   it("grava a designação, devolve só a agenda do JWT e confirma com persistência", async () => {
@@ -487,6 +498,8 @@ function matchesAssignment(row: Assignment, where: Record<string, unknown>): boo
     if (slot.roster.churchId && slot.roster.churchId !== roster.churchId) {
       return false;
     }
+    const statuses = slot.roster.status as { in?: string[] } | undefined;
+    if (statuses?.in && !statuses.in.includes(roster.status)) return false;
     const serviceAt = slot.roster.serviceAt as { gte?: Date; lt?: Date } | undefined;
     if (serviceAt?.gte && roster.serviceAt < serviceAt.gte) return false;
     if (serviceAt?.lt && roster.serviceAt >= serviceAt.lt) return false;

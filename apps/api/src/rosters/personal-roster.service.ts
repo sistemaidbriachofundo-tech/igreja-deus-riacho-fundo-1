@@ -93,6 +93,7 @@ export class PersonalRosterService {
           roster: {
             organizationId: pilot.organizationId,
             churchId: pilot.churchId,
+            status: { in: ["PUBLISHED", "CLOSED"] },
           },
         },
       },
@@ -524,7 +525,7 @@ export class PersonalRosterService {
       Boolean(actor.personId) &&
       (actor.personId === assignment.personId ||
         actor.personId === assignment.partnerPersonId);
-    if (own) return;
+    if (own && assignment.slot?.roster.status !== "DRAFT") return;
     this.assertCanOperateMinistry(
       actor,
       assignment.slot?.roster.ministry ?? null,

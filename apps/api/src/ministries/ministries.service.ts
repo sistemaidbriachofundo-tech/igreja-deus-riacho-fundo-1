@@ -724,7 +724,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
     this.assertRosterNotClosed(loaded.roster);
-    const isOwn = actor.personId === loaded.assignment.personId &&
+    const isOwn = loaded.roster.status !== "DRAFT" && actor.personId === loaded.assignment.personId &&
       hasAccess(actor.grants, {
         roleCodes: [ROLE_CODES.MEMBRO],
         organizationId: pilot.organizationId,
@@ -736,6 +736,7 @@ export class MinistriesService {
     const dto = await writeRosterAssignment(this.prisma, async (tx) => {
       const current = await this.requireAssignmentInChurch(assignmentId, pilot, tx);
       this.assertRosterNotClosed(current.roster);
+      if (isOwn && current.roster.status === "DRAFT") throw new ForbiddenException("A escala ainda não foi publicada.");
       this.assertNotSubstituted(current.assignment);
       if (status === "CONFIRMED") {
         await assertNoRosterDayConflict(tx, {
