@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
 
 export interface PublicSmtpConfig {
   host: string;
@@ -35,4 +35,47 @@ export function readPublicSmtpConfig(env: NodeJS.ProcessEnv = process.env): Publ
 
 export function smtpSendEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.SMTP_SEND_ENABLED === "1";
+}
+
+const SINGLE_RECIPIENT = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
+
+/** Caixas autorizadas a receber o SMTP live. Comparação exata, sem nome de exibição. */
+export function smtpAllowedRecipients(env: NodeJS.ProcessEnv = process.env): Set<string> {
+  return new Set(
+    (env.SMTP_ALLOWED_RECIPIENTS ?? "")
+      .split(",")
+      .map(item => item.trim().toLowerCase())
+      .filter(item => SINGLE_RECIPIENT.test(item)),
+  );
+}
+
+/**
+ * O SMTP live do piloto só abre conexão no DEV (`IDBRF_RUNTIME_STAGE=qa`)
+ * e só para a caixa de teste listada no ambiente. HML, produção e qualquer
+ * outro destino ficam fora do envio externo.
+ */
+export function assertLiveSmtpRecipient(env: NodeJS.ProcessEnv, to: string): void {
+  const stage = (env.IDBRF_RUNTIME_STAGE ?? "").trim().toLowerCase();
+  if (stage === "production" || stage === "hml") {
+    throw new ServiceUnavailableException(
+      "O SMTP live do piloto permanece desligado em HML e produção.",
+    );
+  }
+  if (stage !== "qa") {
+    throw new ServiceUnavailableException(
+      "O SMTP live exige IDBRF_RUNTIME_STAGE=qa na API isolada do DEV.",
+    );
+  }
+  const allowed = smtpAllowedRecipients(env);
+  if (allowed.size === 0) {
+    throw new ServiceUnavailableException(
+      "SMTP_ALLOWED_RECIPIENTS vazio. O DEV não envia para fora da caixa de teste.",
+    );
+  }
+  const recipient = to.trim().toLowerCase();
+  if (!SINGLE_RECIPIENT.test(recipient) || !allowed.has(recipient)) {
+    throw new BadRequestException(
+      "Este DEV só entrega na caixa de teste autorizada. A mensagem não sai por SMTP.",
+    );
+  }
 }
