@@ -90,16 +90,19 @@
 
 .desktopNav {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   align-self: stretch;
-  gap: clamp(16px, 2.4vw, 32px);
+  gap: clamp(4px, 1vw, 15px);
   margin-left: auto;
 }
 
 .desktopNav a {
   display: inline-flex;
   align-items: center;
-  border-bottom: 2px solid transparent;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
   color: var(--portal-on-green-muted);
   font-size: 14px;
   font-weight: 600;
@@ -107,7 +110,7 @@
 }
 
 .desktopNav a:is(:hover, [aria-current="location"]) {
-  border-color: var(--portal-gold);
+  background: #fff2df20;
   color: var(--portal-on-green);
 }
 
@@ -134,14 +137,14 @@
 
 .mobileMenuPanel {
   position: absolute;
-  inset: 100% var(--portal-gutter) auto auto;
+  inset: calc(100% + 8px) var(--portal-gutter) auto auto;
   display: grid;
   width: min(290px, calc(100vw - var(--portal-gutter) * 2));
   max-height: calc(100dvh - var(--portal-header) - 8px);
   overflow-y: auto;
-  padding: 4px 13px;
+  padding: 7px;
   border: 1px solid var(--portal-green-line);
-  border-radius: 0 0 8px 8px;
+  border-radius: 19px;
   background: var(--portal-green);
   box-shadow: 0 12px 24px #162f2520;
 }
@@ -152,14 +155,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 4px;
+  padding: 9px 12px;
+  border-radius: 13px;
   color: var(--portal-on-green);
   font-size: 15px;
   font-weight: 600;
 }
 
-.mobileMenuPanel > a + a { border-top: 1px solid var(--portal-green-line); }
-.mobileMenuPanel > a:is(:hover, [aria-current="location"]) { color: var(--portal-gold); }
+.mobileItemLabel { display: inline-flex; align-items: center; gap: 10px; }
+.mobileItemLabel svg { color: #ffac78; flex: none; }
+.mobileMenuPanel > a:is(:hover, [aria-current="location"]) { color: #ffd8bc; background: #fff2df20; }
 
 .footer { background: var(--portal-green) !important; }
 .footer .brand { color: var(--portal-on-green); }
@@ -195,7 +200,7 @@
 }
 
 /* Identidade IDB Riacho 2026. Branding público somente; não altera o verde do painel. */
-.theme .headerLogin { border-color: #ed641f; color: #fffaf3; background: #b53a0c; border-radius: 8px; }
+.theme .headerLogin { border-color: #ed641f; color: #fffaf3; background: #b53a0c; border-radius: 999px; gap: 6px; }
 .theme .headerLogin:hover { background: #d64a11; }
 .theme .masthead { box-shadow: 0 5px 24px #07070816; }
 .theme .brand strong { letter-spacing: .035em; }
@@ -211,3 +216,5 @@
   backdrop-filter: blur(10px);
   box-shadow: none;
 }
+
+@media (max-width: 340px) { .headerLogin svg { display: none; } }

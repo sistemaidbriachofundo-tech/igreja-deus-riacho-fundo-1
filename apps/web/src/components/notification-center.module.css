@@ -51,8 +51,7 @@
 .header p { margin: 4px 0 0; color: #546b5e; font-size: .85rem; }
 .close { background: #eaf0eb; color: #234537; }
 .controls { flex-wrap: wrap; }
-.controls > div { display: flex; gap: 5px; }
-.controls button, .rowActions button, .failure button {
+.controls .mark, .rowActions button, .failure button {
   min-height: 44px;
   padding: 6px 10px;
   border: 0;
@@ -62,7 +61,6 @@
   font: 650 .77rem Inter, sans-serif;
   cursor: pointer;
 }
-.controls button[aria-pressed="true"] { color: white; background: #28543f; }
 .controls .mark, .rowActions button { background: transparent; }
 .controls button:disabled, .rowActions button:disabled { opacity: .65; cursor: wait; }
 .body { overflow: auto; overscroll-behavior: contain; }

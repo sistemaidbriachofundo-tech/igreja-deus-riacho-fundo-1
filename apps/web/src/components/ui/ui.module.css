@@ -1196,7 +1196,7 @@
   min-height: 44px;
   padding: 10px 14px;
   border: 1px solid var(--app-border, #dce6de);
-  border-radius: var(--app-control-radius, 8px);
+  border-radius: 999px;
   background: var(--app-surface, #fff);
   color: var(--app-accent, #255742);
   font: 600 14px/1.25 Inter, Arial, sans-serif;
@@ -1231,9 +1231,10 @@
 
 .workspaceTabs {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
+  gap: 5px;
   max-width: 100%;
+  padding-block: 4px 8px;
   overflow-x: auto;
   border-bottom: 1px solid var(--app-border, #dce6de);
   scrollbar-width: thin;
@@ -1242,28 +1243,69 @@
 .workspaceTabs > :is(button, a) {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  position: relative;
   flex: none;
-  min-height: 46px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 8px 13px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   background: transparent;
-  color: var(--app-muted, #5f7368);
-  font: 600 13px/1.35 Inter, Arial, sans-serif;
+  color: #496557;
+  font: 600 13px/1.25 Inter, Arial, sans-serif;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
 }
 
-.workspaceTabs > :is(button, a):hover { background: var(--app-subtle, #f5f8f5); }
+.workspaceTabs > :is(button, a) svg,
+.workspaceChoices > :is(button, a) svg { flex: none; }
+.workspaceTabs > :is(button, a):hover,
+.workspaceChoices > :is(button, a):hover { background: #e7eee8; color: #234e3c; }
 .workspaceTabs > :is(button, a)[aria-current="page"],
 .workspaceTabs > button[aria-selected="true"] {
-  border-bottom-color: var(--app-accent, #255742);
-  color: var(--app-accent, #255742);
+  background: #dceae0;
+  color: #164933;
+  font-weight: 700;
 }
-.workspaceTabs > :is(button, a):focus-visible { outline-offset: -4px; }
+.workspaceTabs > :is(button, a):focus-visible,
+.workspaceChoices > :is(button, a):focus-visible { outline: 2px solid #a8491b; outline-offset: -3px; }
+
+.workspaceChoices {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  width: fit-content;
+  padding: 4px;
+  border-radius: 24px;
+  background: #e8efe9;
+}
+.workspaceChoices > :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px clamp(8px, 2vw, 14px);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #3c5b4d;
+  font: 650 .8125rem/1.2 Inter, Arial, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.workspaceChoices > button[aria-pressed="true"] {
+  background: #24513e;
+  color: #fff;
+}
+.workspaceChoices > button[aria-pressed="true"]:focus-visible { outline-color: #ffd0a5; }
+@media (max-width: 420px) {
+  .workspaceChoices > :is(button, a) { padding-inline: 8px; font-size: .75rem; }
+}
 
 @media (max-width: 620px) {
   .workspaceHeader .pageHeader { align-items: flex-start; flex-direction: column; }

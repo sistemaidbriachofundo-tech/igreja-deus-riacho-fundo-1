@@ -6,6 +6,7 @@ import { officialLogoAsset } from "../lib/brand";
 import s from "./public-portal.module.css";
 import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
+import { UIIcon } from "./ui/UIIcon";
 import { PortalButton } from "./PortalButton";
 import { PublicHashFocus, PortalSectionLink } from "./PublicSectionLink";
 import d from "./portal-design-system.module.css";
@@ -35,7 +36,7 @@ export function PortalHeader({ light = false, overlay = false }: { light?: boole
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
-          <Link href="/login/" className={d.headerLogin}>Login</Link>
+          <Link href="/login/" className={d.headerLogin}><UIIcon name="badge" size={17} />Login</Link>
           <MobilePortalMenu links={navigation} />
         </div>
       </div>

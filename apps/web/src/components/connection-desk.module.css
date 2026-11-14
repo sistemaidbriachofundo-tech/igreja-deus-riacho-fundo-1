@@ -24,7 +24,7 @@
 .group div{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;color:#536e5b;font-size:.8rem}
 .group small{color:#966133;font-size:.76rem}
 .back{display:inline-flex;align-items:center;gap:9px;color:#285f43;font-weight:750;width:fit-content}
-.retry{min-height:44px;justify-self:start;border:1px solid #b9ccbf;border-radius:7px;background:#fff;color:#285f43;padding:6px 13px;font:650 .86rem Inter,sans-serif;cursor:pointer}
+.retry{min-height:44px;justify-self:start;border:1px solid #b9ccbf;border-radius:999px;background:transparent;color:#285f43;padding:6px 13px;font:650 .86rem Inter,sans-serif;cursor:pointer}
 .load{height:110px;display:grid;place-items:center}.load span{height:26px;width:26px;border:3px solid #d5e6dc;border-top-color:#337557;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:850px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -49,7 +49,7 @@ a.retry { display:inline-flex; align-items:center; text-decoration:none; }
 .srOnly { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 
 .page :is(:global(#trilha), :global(#grupos), :global(#pedidos)) { scroll-margin-top: 80px; }
-.primaryAction { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; min-height: 44px; background: #23503e; color: #fff; border: 1px solid #23503e; border-radius: 8px; font: 650 13px Inter, sans-serif; cursor: pointer; }
+.primaryAction { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; min-height: 44px; background: #23503e; color: #fff; border: 1px solid #23503e; border-radius: 999px; font: 650 13px Inter, sans-serif; cursor: pointer; }
 .primaryAction:hover { background: #17392d; }
 .primaryAction:disabled { opacity: .6; cursor: wait; }
 .sectionTitle { align-items: center; flex-wrap: wrap; }
@@ -57,9 +57,5 @@ a.retry { display:inline-flex; align-items:center; text-decoration:none; }
 .group > button { margin-top: 10px; }
 
 .sectionTitle:has(.primaryAction) { display: flex; justify-content: space-between; }
-.birthdayGreeting { display: grid; gap: 12px; justify-items: start; }
-.birthdayGreeting label { display: grid; width: 100%; gap: 6px; font-weight: 650; }
-.birthdayGreeting textarea { min-height: 130px; width: 100%; padding: 10px; resize: vertical; border: 1px solid #b9ccbf; border-radius: 8px; background: white; color: #1c3228; font: inherit; }
-.birthdayGreeting p { margin: 0; color: #486155; font-size: .875rem; }
 .groupEdit { width: 100%; padding: 14px 0; border-block: 1px solid #d5e2da; }
 .groupEdit h3 { margin: 0; }

@@ -7,6 +7,8 @@ import { beginClientNavigation, hasAppRouter, pushAppRoute, shouldInterceptAppNa
 import { formatChurchWhen } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
 import { useDialogLifecycle } from "./ui/dialog";
+import { UIIcon } from "./ui/UIIcon";
+import ui from "./ui/ui.module.css";
 import s from "./notification-center.module.css";
 
 type Notice = {
@@ -101,9 +103,9 @@ export function NotificationCenter({ userId, icon, closeIcon, categoryIcons }: {
           <button type="button" className={s.close} aria-label="Fechar notificações" onClick={() => setOpen(false)}>{closeIcon}</button>
         </header>
         <div className={s.controls}>
-          <div role="group" aria-label="Filtrar notificações">
-            <button type="button" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>Todas</button>
-            <button type="button" aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>Não lidas</button>
+          <div className={ui.workspaceChoices} role="group" aria-label="Filtrar notificações">
+            <button type="button" aria-pressed={filter === "all"} onClick={() => setFilter("all")}><UIIcon name="layers" size={16} />Todas</button>
+            <button type="button" aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}><UIIcon name="bell" size={16} />Não lidas</button>
           </div>
           {unread > 0 && <button className={s.mark} type="button" disabled={busy} onClick={() => void mark(feed?.items.filter(item => !item.readAt).map(item => item.id) ?? [])}>Marcar todas como lidas</button>}
         </div>

@@ -104,7 +104,7 @@
 .toolbar input,
 .toolbar select,
 .tabs button,
-.card button,
+.card :where(button),
 .form button {
   font: inherit;
   min-height: 44px;
@@ -220,11 +220,19 @@
 .card{border-color:#e0eae2;border-radius:15px;padding:clamp(18px,2vw,25px);box-shadow:0 5px 22px #1a42240d;}
 .panel :is(input,select,textarea){border-color:#d9e6dd;border-radius:10px;background:#fbfdfb;}
 .panel :is(input,select,textarea):focus-visible{outline:3px solid #bfa36d;outline-offset:2px;}
-.panel button{border-radius:9px;font-weight:650;}
 @media(max-width:760px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.header{padding:22px;}.toolbar{grid-template-columns:1fr;}}
 @media(max-width:460px){.metrics{grid-template-columns:1fr;}.card{padding:16px;}}
 
 .panel { gap: 15px; }
+@media (max-width: 620px) {
+  .sectionNavigation { gap: 3px; flex-wrap: wrap; }
+  .sectionNavigation > button {
+    flex: 1 0 auto;
+    flex-direction: column;
+    padding: 8px 5px;
+    font-size: 0.7rem;
+  }
+}
 .header { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; }
 .qaLabel { padding: 7px 10px; border-radius: 7px; background: #e8efe4; color: #35584a; font-size: 12px; font-weight: 650; }
 .views { display: flex; flex-wrap: wrap; gap: 8px; }

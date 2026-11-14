@@ -484,14 +484,18 @@ export function TreasuryPanel() {
       <PageHeader appearance="workspace" heading="h1" title="Tesouraria"
         description={isSample ? "Dados de teste de novembro de 2026" : undefined}
         actions={canCreateExpense && view !== "lancar" ? <>
-          {canWrite && <AppNavLink className={ui.workspaceSecondary} href="/app/eventos-gestao/">Pix de eventos</AppNavLink>}
-          {canWrite && <button type="button" className={ui.workspaceSecondary} onClick={() => openMovement("pix")}>Novo lançamento</button>}
           <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
             <UIIcon name="plus" size={17} /> Incluir despesa
           </button>
+          {canWrite && <button type="button" className={ui.workspaceQuiet} onClick={() => openMovement("pix")}>
+            <UIIcon name="wallet" size={17} /> Novo lançamento
+          </button>}
+          {canWrite && <AppNavLink className={ui.workspaceQuiet} href="/app/eventos-gestao/">
+            <UIIcon name="calendar" size={17} /> Pix de eventos
+          </AppNavLink>}
         </> : undefined}
       />
-      <nav className={ui.workspaceTabs} aria-label="Áreas da Tesouraria">
+      <nav className={`${ui.workspaceTabs} ${styles.sectionNavigation}`} aria-label="Áreas da Tesouraria">
         <button type="button" aria-current={view === "visao" ? "page" : undefined} onClick={() => openView("visao")}><UIIcon name="grid" size={17} /> Visão geral</button>
         <button type="button" aria-current={view === "despesas" ? "page" : undefined} onClick={() => openView("despesas")}><UIIcon name="wallet" size={17} /> Despesas</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>

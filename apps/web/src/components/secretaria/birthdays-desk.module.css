@@ -1,0 +1,106 @@
+.page {
+  display: grid;
+  gap: clamp(22px, 3.4vw, 40px);
+  min-width: 0;
+}
+
+.heading { display: flex; align-items: center; gap: 14px; }
+.headingIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 51px;
+  aspect-ratio: 1;
+  border-radius: 17px;
+  color: #843711;
+  background: #f5e3d1;
+}
+.heading h1 {
+  margin: 0;
+  font: 800 clamp(1.7rem, 3.4vw, 2.6rem)/1.08 Montserrat, Inter, sans-serif;
+  letter-spacing: -.045em;
+  color: #173c2c;
+}
+.heading p { margin: 6px 0 0; color: #4a6255; font-size: .92rem; line-height: 1.48; }
+
+.directory { min-width: 0; }
+.directoryBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #d6e1d8;
+}
+.resultCount, .contactNote { color: #4a6255; font-size: .79rem; }
+.people { display: grid; list-style: none; margin: 0; padding: 0; }
+.person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-block: 14px;
+  border-bottom: 1px solid #d6e1d8;
+}
+.personIdentity, .personActions, .person time { display: flex; align-items: center; gap: 9px; }
+.personIdentity { min-width: 0; overflow-wrap: anywhere; }
+.personIdentity strong { color: #1c3d30; font-weight: 700; }
+.person time { margin-top: 4px; color: #4a6255; font-size: .8rem; }
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 43px;
+  height: 43px;
+  border-radius: 50%;
+  background: #e0ebe0;
+  color: #254f3c;
+  font: 750 .79rem/1 Montserrat, Inter, sans-serif;
+}
+.personActions { flex-wrap: wrap; gap: 5px; }
+.whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #e0eee0;
+  color: #165231;
+  font: 700 .82rem/1.2 Inter, sans-serif;
+  text-align: center;
+  cursor: pointer;
+}
+.whatsapp:hover { background: #cce5d0; }
+.whatsapp svg { flex: none; }
+.whatsapp:focus-visible { outline: 2px solid #a8491b; outline-offset: 2px; }
+.empty, .notice { color: #4a6255; margin: 0; padding: 20px 0; font-size: .92rem; }
+.empty { display: flex; gap: 10px; align-items: center; }
+.empty p { margin: 0; }
+.birthdayGreeting { display: grid; gap: 12px; justify-items: start; }
+.birthdayGreeting label { display: grid; width: 100%; gap: 6px; font-weight: 650; }
+.birthdayGreeting textarea {
+  min-height: 130px;
+  width: 100%;
+  padding: 10px;
+  resize: vertical;
+  border: 1px solid #b9ccbf;
+  border-radius: 12px;
+  background: white;
+  color: #1c3228;
+  font: inherit;
+}
+.birthdayGreeting p { margin: 0; color: #486155; font-size: .875rem; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .heading { align-items: flex-start; gap: 10px; }
+  .headingIcon { width: 42px; border-radius: 14px; }
+  .headingIcon svg { width: 23px; height: 23px; }
+  .personActions { width: 100%; }
+  .personActions :is(a, button) { min-width: min(100%, 120px); }
+}
