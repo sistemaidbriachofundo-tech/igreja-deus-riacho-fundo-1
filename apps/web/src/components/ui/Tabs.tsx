@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import styles from "./ui.module.css";
-import { nextTabIndex } from "./tabs";
+import { nextTabIndex } from "./nextTabIndex";
 
 export type TabItem = {
   id: string;

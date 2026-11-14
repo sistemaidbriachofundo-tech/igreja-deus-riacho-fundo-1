@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../lib/api";
 import { dasError, formatChurchDate, readDasRows, type DasRecord } from "../lib/das-operations";
+import { OpenWhatsAppLink } from "./OpenWhatsAppLink";
 import s from "./operations-expansion.module.css";
 
 type Props={templates:DasRecord[];token:string};
@@ -61,8 +62,15 @@ export function CommunicationsBoard({templates,token}:Props){
   return <section className={s.board} aria-labelledby="communications-heading">
     <header className={s.heading}><div><span>RF-024–025 · COMUNICAÇÃO RESPONSÁVEL</span>
       <h2 id="communications-heading">Central de comunicação</h2>
-      <p>Visibilidade sobre modelos e mensagens registradas, sem disparar notificações ou contornar consentimentos.</p>
-    </div><span className={s.pill}>Somente consulta · sem disparos</span></header>
+      <p>Outbox e modelos ficam em consulta. Para falar com alguém agora, abra o WhatsApp no celular ou no computador — a plataforma não dispara mensagem sozinha.</p>
+    </div><span className={s.pill}>Consulta + WhatsApp no app</span></header>
+    <div className={s.panel} style={{ marginBottom: "1rem" }}>
+      <div className={s.panelTop}><h3>Abrir WhatsApp</h3></div>
+      <p className={s.help}>Abre o aplicativo (ou WhatsApp Web). Sem número, você escolhe o contato na lista.</p>
+      <OpenWhatsAppLink text={"Olá! Mensagem da equipe da Igreja de Deus Riacho Fundo I."}>
+        Abrir WhatsApp
+      </OpenWhatsAppLink>
+    </div>
     <div className={s.statGrid}>
       <div><strong>{templates.length}</strong><span>Modelos na API</span></div>
       <div><strong>{load.state==="ready"?load.outbox.length:"—"}</strong><span>Registros no outbox</span></div>

@@ -22,6 +22,8 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 | `RATE_LIMIT_STORE` | **não** `memory` (usar store compartilhado) |
 | `PRIVATE_BLOB_READ_WRITE_TOKEN` | bucket privado ≠ token público |
 | `STORAGE_ROOT` | path privado no volume (não exposto na web) |
+| `EVENT_PAYMENT_WEBHOOK_SECRET` | ≥32 chars — sem segredo de demo |
+| `EVENT_MANUAL_PIX_KEY` | chave Pix da igreja (pagamento externo de eventos) |
 
 ## Proibidos em produção
 

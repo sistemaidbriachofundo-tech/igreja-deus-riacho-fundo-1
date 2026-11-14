@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { PersonPicker, canSearchPersons } from "../PersonPicker";
+import { OpenWhatsAppLink } from "../OpenWhatsAppLink";
 import { RosterPreviewPanel } from "./RosterPreviewPanel";
 import { formatChurchDate } from "../../lib/das-operations";
 import {
@@ -169,6 +170,22 @@ export function MinistryRosterDesk({
                               <button type="button" className={styles.danger} disabled={busy} onClick={() => onDecline(assignment.id)}>
                                 Recusar
                               </button>
+                            </div>
+                          )}
+                          {lead && assignment.status !== "SUBSTITUTED" && (
+                            <div className={styles.actions}>
+                              <OpenWhatsAppLink
+                                className={styles.ghost}
+                                appearance="button"
+                                invite={{
+                                  personName: assignment.personName,
+                                  ministryName: ministry.name,
+                                  serviceLabel: `${roster.title} · ${formatChurchDate(roster.serviceAt)}`,
+                                  roleLabel: slot.roleLabel,
+                                }}
+                              >
+                                WhatsApp
+                              </OpenWhatsAppLink>
                             </div>
                           )}
                           {canSubstituteAssignment(roles) &&

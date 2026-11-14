@@ -45,7 +45,7 @@ export const BLOCKED_INTEGRATIONS = [
   {
     id: "messages",
     issue: "#128",
-    text: "Confirmar, recusar, designar e substituir por esta tela não envia WhatsApp, e-mail ou push. A substituição fica pendente até a pessoa aceitar em Meu Espaço. Publicar ainda pode gravar outbox mock no endpoint legado.",
+    text: "Confirmar, recusar, designar e substituir não disparam mensagem pela plataforma. O botão WhatsApp abre o aplicativo (ou WhatsApp Web) com texto pronto — o líder envia. A substituição fica pendente até a pessoa aceitar em Meu Espaço.",
   },
   {
     id: "design-system",

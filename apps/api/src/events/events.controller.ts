@@ -511,6 +511,16 @@ export class RegistrationsController {
       body,
     );
   }
+
+  /** Confirma pagamento externo (Pix/transferência) sem gateway — staff only. */
+  @Roles(...EVENT_STAFF)
+  @Post(":registrationId/confirm-manual-payment")
+  confirmManualPayment(
+    @CurrentUser() user: AuthUser,
+    @Param("registrationId") registrationId: string,
+  ) {
+    return this.registrations.confirmManualPayment(user, registrationId);
+  }
 }
 
 @Controller("webhooks/event-payments")

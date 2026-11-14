@@ -307,6 +307,7 @@ export const API_ENDPOINT_STATUS = {
   "POST /channels/outbox/:outboxId/dispatch": "implemented",
   "POST /channels/outbox/dispatch-pending": "implemented",
   "POST /channels/outbox/resend": "implemented",
+  "POST /registrations/:registrationId/confirm-manual-payment": "implemented",
   "GET /vivi/status": "implemented",
   "POST /public/vivi/chat": "implemented",
   "POST /vivi/chat": "implemented",

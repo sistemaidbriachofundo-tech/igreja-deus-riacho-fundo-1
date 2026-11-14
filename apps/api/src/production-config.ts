@@ -21,7 +21,12 @@ export function assertProductionConfiguration(env: NodeJS.ProcessEnv): void {
     !env.PRODUCTION_DATABASE_HOST || database.hostname !== env.PRODUCTION_DATABASE_HOST ||
     !env.PRODUCTION_DATABASE_NAME || name !== env.PRODUCTION_DATABASE_NAME ||
     testTarget.test(name) || testTarget.test(database.hostname) ||
-    !["require", "verify-full"].includes(database.searchParams.get("sslmode") ?? "")
+    // Mesma VPS / rede Docker: IDBRF_DOCKER_INTERNAL_DB=1 dispensa TLS entre containers.
+    // Tráfego externo ao host continua exigindo sslmode=require|verify-full.
+    !(
+      env.IDBRF_DOCKER_INTERNAL_DB === "1" ||
+      ["require", "verify-full"].includes(database.searchParams.get("sslmode") ?? "")
+    )
   ) {
     throw new Error("O banco de produção deve usar o destino autorizado e conexão TLS");
   }

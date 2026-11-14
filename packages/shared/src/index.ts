@@ -330,3 +330,11 @@ export {
   type AuditWriteInput,
 } from "./security-f11/audit-write";
 export type { RosterPreviewDto, RosterPreviewPosition } from "./roster-preview";
+export {
+  normalizeWhatsAppDigits,
+  buildWhatsAppUrl,
+  buildMailtoUrl,
+  rosterInviteWhatsAppText,
+  type WhatsAppLinkInput,
+  type MailtoLinkInput,
+} from "./contact-deep-links";

@@ -7,6 +7,7 @@ import {
   Optional,
   UnauthorizedException,
 } from "@nestjs/common";
+import { buildWhatsAppUrl } from "@idbrf/shared";
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -1021,6 +1022,12 @@ export class EventRegistrationsService {
       paymentMode: openLots.some((lot) => Boolean(lot.receivingAccountId))
         ? ("CHURCH_PIX" as const)
         : ("MOCK_ONLY" as const),
+      settlementPolicy: {
+        kind: "EXTERNAL_MANUAL" as const,
+        pixKeyConfigured: Boolean(process.env.EVENT_MANUAL_PIX_KEY?.trim()),
+        staffConfirmPath: "POST /registrations/:registrationId/confirm-manual-payment",
+        note: "Pagamento fora da plataforma (Pix/transferência). Staff confirma no painel.",
+      },
       /** RF-022 entregue nesta fatia — opções podem estar vazias se staff não configurou. */
       rf022LodgingPending: false,
       requiresLodgingOption: lodgingOptions.length > 0,
@@ -1365,7 +1372,10 @@ export class EventRegistrationsService {
               status: paymentIntent.status,
               amountCents: paymentIntent.amountCents,
               mode: pix ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
-              ...(pix ? { pixCopiaECola: pix.copiaECola, pixTxid: pix.txid } : {}),
+              ...(pix
+                ? { pixCopiaECola: pix.copiaECola, pixTxid: pix.txid }
+                : { settlement: this.manualSettlementHint(paymentIntent.amountCents) }),
+
             }
           : null,
       };
@@ -1384,6 +1394,76 @@ export class EventRegistrationsService {
       });
     }
     return created;
+  }
+
+  /**
+   * Instruções de pagamento externo (Pix/transferência da igreja).
+   * Sem gateway: a pessoa paga fora; staff confirma no painel.
+   */
+  manualSettlementHint(amountCents: number) {
+    const pixKey = process.env.EVENT_MANUAL_PIX_KEY?.trim() || null;
+    const amount = (amountCents / 100).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+    return {
+      kind: "EXTERNAL_MANUAL" as const,
+      amountLabel: amount,
+      pixKey,
+      copyText: pixKey
+        ? `Pagamento do evento (${amount})\nChave Pix: ${pixKey}\nApós pagar, a secretaria confirma a inscrição.`
+        : `Pagamento do evento (${amount}). Use a chave Pix da igreja informada pela secretaria. Após pagar, a inscrição é confirmada manualmente.`,
+      whatsappUrl: buildWhatsAppUrl({
+        text: pixKey
+          ? `Olá! Segue o Pix do evento (${amount}): ${pixKey}`
+          : `Olá! Preciso da chave Pix para o evento (${amount}).`,
+      }),
+      confirmation: "STAFF_CONFIRM_OR_MOCK_WEBHOOK" as const,
+    };
+  }
+
+  /** Staff confirma pagamento já recebido fora da plataforma (sem PSP). */
+  async confirmManualPayment(actor: AuthUser, registrationId: string) {
+    const { pilot, registration } = await this.requireRegistrationWrite(
+      actor,
+      registrationId,
+    );
+    const intent = await this.prisma.eventPaymentIntent.findFirst({
+      where: {
+        registrationId: registration.id,
+        organizationId: pilot.organizationId,
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!intent) {
+      throw new BadRequestException("Nenhum pagamento pendente para esta inscrição");
+    }
+    const idempotencyKey = `manual_${actor.userId}_${intent.id}_${Date.now()}`;
+    const status = "CONFIRMED_MOCK" as const;
+    const canonical = `${idempotencyKey}:${intent.id}:${status}`;
+    const signature = createHmac("sha256", webhookSecret())
+      .update(canonical)
+      .digest("hex");
+    const result = await this.handleMockPaymentWebhook({
+      signatureHeader: signature,
+      idempotencyKey,
+      paymentIntentId: intent.id,
+      status,
+      providerRef: `manual_staff_${actor.userId.slice(0, 8)}`,
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: "event_payment.manual_confirm",
+        resourceType: "event_payment_intent",
+        resourceId: intent.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        metadata: { registrationId: registration.id, mode: "EXTERNAL_MANUAL" },
+      },
+    });
+    return result;
   }
 
   private assertNoRealPii(input: object): void {
