@@ -1,4 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Header, NotFoundException, Optional, Post, Query, Param, ServiceUnavailableException } from "@nestjs/common";
+import { AuthService } from "./auth.service";
+import { Prisma } from "@prisma/client";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { PilotService } from "../pilot/pilot.service";
@@ -47,7 +49,12 @@ class CreateChurchLogin {
 @Controller("admin/access")
 @Roles(ROLE_CODES.PLATFORM_ADMIN)
 export class ChurchAccessController {
-  constructor(private readonly prisma: PrismaService, private readonly pilot: PilotService, @Optional() private readonly invitations?: AccessInvitationService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pilot: PilotService,
+    @Optional() private readonly invitations?: AccessInvitationService,
+    @Optional() private readonly auth?: AuthService,
+  ) {}
 
   @Get()
   async list(@CurrentUser() actor: AuthUser, @Query("q") query = "", @Query("page") pageParam = "1", @Query("status") status = "") {
@@ -115,8 +122,12 @@ export class ChurchAccessController {
     // Falha fechada: evita contas órfãs quando a entrega por e-mail está desconfigurada.
     const deliveryConfig = inviteEmailConfig();
     if (!assignableRoles.includes(input.role)) throw new BadRequestException("Perfil inválido.");
-    if (input.role === CHURCH_ADMINISTRATIVE_ROLE && !canDelegateChurchAdministration(actor, organizationId)) {
-      throw new ForbiddenException("Somente a administração da organização pode conceder este perfil.");
+    if (input.role === CHURCH_ADMINISTRATIVE_ROLE) {
+      if (!canDelegateChurchAdministration(actor, organizationId)) {
+        throw new ForbiddenException("Somente a administração da organização pode conceder este perfil.");
+      }
+      if (!this.auth) throw new ServiceUnavailableException("A verificação do autenticador está indisponível.");
+      await this.auth.requireRecentMfa(actor);
     }
     const isLeader = input.role === ROLE_CODES.LIDER_MINISTERIO;
     const ministryId = isLeader ? input.ministryId?.trim() : undefined;
@@ -165,6 +176,41 @@ export class ChurchAccessController {
         throw new ConflictException("Esta pessoa ou e-mail já tem acesso, ou outro cadastro está sendo salvo. Atualize a lista.");
       }
       throw error;
+    }
+  }
+
+  @Post(":userId/administrator")
+  async grantAdministrator(@CurrentUser() actor: AuthUser, @Param("userId") userId: string) {
+    const { organizationId, churchId } = await this.scope(actor);
+    if (actor.userId === userId || !canDelegateChurchAdministration(actor, organizationId)) {
+      throw new ForbiddenException("Somente a administração da organização pode conceder este perfil a outra pessoa.");
+    }
+    if (!this.auth) throw new ServiceUnavailableException("A verificação do autenticador está indisponível.");
+    await this.auth.requireRecentMfa(actor);
+    const grant = async (tx: Prisma.TransactionClient) => {
+      const target = await tx.user.findFirst({
+        where: { id: userId, status: "ACTIVE", person: { organizationId, homeChurchId: churchId, status: "ACTIVE" } },
+        select: { id: true },
+      });
+      if (!target) throw new NotFoundException("Conta ativa não encontrada nesta congregação.");
+      const role = await tx.role.findUnique({ where: { code: CHURCH_ADMINISTRATIVE_ROLE }, select: { id: true } });
+      if (!role) throw new ServiceUnavailableException("Perfil de administrador indisponível.");
+      const scope = { userId, roleId: role.id, organizationId, churchId, ministryId: null };
+      if (await tx.grant.findFirst({ where: scope, select: { id: true } })) return { granted: false };
+      await tx.grant.create({ data: scope });
+      await tx.authSession.updateMany({ where: { userId, revokedAt: null }, data: { status: "REVOKED", revokedAt: new Date(), revokeReason: "ROLE_CHANGED" } });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "access.administrator.grant", resourceType: "user",
+        resourceId: userId, organizationId, churchId,
+      } });
+      return { granted: true };
+    };
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.prisma.$transaction(grant, { isolationLevel: "Serializable" });
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2034" || attempt >= 2) throw error;
+      }
     }
   }
 

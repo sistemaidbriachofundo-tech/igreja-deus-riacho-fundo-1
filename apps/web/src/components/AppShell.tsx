@@ -40,6 +40,7 @@ const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "tesouraria
 export type PersonaAccessState = {
   kind: "preview" | "pending" | "anonymous" | "held" | "ready";
   roles: string[];
+  canManageConnection?: boolean;
   email: string;
   label: string;
 };
@@ -200,11 +201,11 @@ export function AppShell({
       return;
     }
     const cached = readValidatedSession(token);
-    if (cached) {
+    if (cached && typeof cached.canManageConnection === "boolean") {
       setLoaded({ kind: "ready", user: cached });
       return;
     }
-    void apiGet<AuthUser>("/auth/me", token)
+    void apiGet<AuthUser>("/auth/me", token, { fresh: true })
       .then(user => { if (mounted) setLoaded({ kind: "ready", user }); })
       .catch((error: unknown) => {
         if (!mounted) return;
@@ -228,9 +229,10 @@ export function AppShell({
   const menu = preview
     ? shellAreasForRoles(roles, true)
     : accessKind === "ready"
-      ? shellAreasForRoles(roles)
+      ? shellAreasForRoles(roles).filter(item => item.key !== "conexao" || readyUser?.canManageConnection === true)
       : [];
-  const allowed = areaAllowed(roles, active, preview);
+  const allowed = areaAllowed(roles, active, preview) &&
+    (preview || active !== "conexao" || readyUser?.canManageConnection === true);
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
   const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
@@ -251,6 +253,7 @@ export function AppShell({
   const accessState: PersonaAccessState = {
     kind: accessKind,
     roles,
+    canManageConnection: readyUser?.canManageConnection,
     email: accountEmail,
     label: accessKind === "ready" ? personaLabel(roles) : accountLabel,
   };

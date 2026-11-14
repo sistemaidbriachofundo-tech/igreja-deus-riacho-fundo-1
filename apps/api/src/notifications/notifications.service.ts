@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { canApprovePastoralAdmission, canLeadMinistry, canManageAdmissions, canManageSpecificMinistry, hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
+import { canManageConnection } from "../discipleship/connection-access";
 import { GroupRequestsService } from "../groups/group-requests.service";
 import { PilotService, type PilotChurch } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -196,10 +197,13 @@ export class NotificationsService {
 
   private async groupRequests(actor: AuthUser, since: Date): Promise<Notice[]> {
     const requests = await this.groups.inbox(actor, since);
+    if (!requests.length) return [];
+    const scope = await this.pilot.getPilotChurch();
+    const inbox = await canManageConnection(this.db, actor, scope) ? "/app/conexao/" : "/app/servir/meu-espaco/";
     return requests.map(row => ({
       id: `group-request:${row.id}`, category: "Grupos de Amizade", title: "Pedido de entrada em grupo",
       detail: row.person.displayName + " · " + row.group.name, action: "Abrir pedido",
-      href: "/app/conexao/#pedido-" + encodeURIComponent(row.id), createdAt: row.createdAt,
+      href: inbox + "#pedido-" + encodeURIComponent(row.id), createdAt: row.createdAt,
       state: row.status === "PENDING" ? "Aguardando resposta" : row.status === "APPROVED" ? "Pedido aceito" : "Pedido recusado",
     }));
   }

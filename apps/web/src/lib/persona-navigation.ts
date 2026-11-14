@@ -136,7 +136,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     icon: "family",
     hint: "Acolhimento, acompanhamento e Grupos de Amizade",
     ribbon: { code: "Conexão", title: "Caminhos de pertencimento.", detail: "Trilhas e grupos são acessados apenas por líderes autorizados." },
-    roles: MINISTRY_LEAD,
+    roles: ["PLATFORM_ADMIN", "PASTOR", "LIDER_MINISTERIO"],
     probe: { method: "GET", path: "/discipleship/tracks", source: "apps/api/src/discipleship/discipleship.controller.ts", marker: '@Get("tracks")' },
     additionalProbes: [{ method: "GET", path: "/small-groups", source: "apps/api/src/groups/groups.controller.ts", marker: '@Get()' }],
     surface: "admin",

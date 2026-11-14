@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { AppShell, AppNavLink, usePersonaAccess, UIIcon } from "./AppShell";
+import { Button, PageHeader } from "./ui";
 import { GroupRequests } from "./GroupRequests";
 import { apiGet, apiPatch, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
@@ -15,7 +16,6 @@ type Stage = { id: string; title: string; sortOrder: number; description?: strin
 type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
 type Read<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 type Journey = { track: Track; stages: Stage[] | null; enrollments: Walk[] | null };
-export const CONNECTION_ROLES = ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"] as const;
 
 /**
  * Exibe somente dados retornados pela API autenticada; não fabrica responsável,
@@ -28,7 +28,7 @@ export function ConnectionDesk() {
 function ConnectionContent() {
   const access = usePersonaAccess();
   const roles = access.kind === "ready" ? access.roles : [];
-  const permitted = roles.some(role => CONNECTION_ROLES.includes(role as typeof CONNECTION_ROLES[number]));
+  const permitted = access.canManageConnection === true;
   const [token, setToken] = useState("");
   const [journey, setJourney] = useState<Read<Journey | null>>({ status: "loading" });
   const [groups, setGroups] = useState<Read<Group[]>>({ status: "loading" });
@@ -131,18 +131,11 @@ function ConnectionContent() {
   }
 
   return <div className={s.page}>
-    <header className={s.heading}>
-      <h1>Conexão e caminhada</h1>
-      <p>Acompanhe a integração e consulte os Grupos de Amizade da congregação.</p>
-      {canRetry && <button type="button" className={s.retry} onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button>}
-    </header>
-
-    <div className={s.leaderNote}>
-      <UIIcon name="people" size={23}/>
-      <div><strong>Liderança da Trilha Conexão</strong>
-        <p>A igreja vai indicar quem coordena a trilha. Os mentores acompanham cada pessoa inscrita.</p>
-      </div>
-    </div>
+    <PageHeader appearance="workspace" heading="h1" title="Conexão e caminhada"
+      description="Acompanhe a integração e organize os Grupos de Amizade."
+      actions={canRetry ? <Button variant="secondary" onClick={() => setAttempt(value => value + 1)}>
+        Tentar novamente
+      </Button> : undefined} />
 
     <section id="trilha" className={s.section} aria-labelledby="trilha-conexao">
       <div className={s.sectionTitle}>

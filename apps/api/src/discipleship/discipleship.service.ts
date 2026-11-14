@@ -5,8 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canLeadMinistry, grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
+import { grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
 import type { Prisma } from "@prisma/client";
+import { requireConnectionManagement } from "./connection-access";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -46,7 +47,7 @@ export class DiscipleshipService {
     input: { name: string; description?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const name = input.name?.trim();
     if (!name) {
@@ -79,7 +80,7 @@ export class DiscipleshipService {
 
   async listTracks(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const rows = await this.prisma.discipleshipTrack.findMany({
       where: {
@@ -97,7 +98,7 @@ export class DiscipleshipService {
 
   async searchPeople(actor: AuthUser, search: string) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     const query = search.trim().slice(0, 100);
     if (query.length < 2) return { people: [] };
     const people = await this.prisma.person.findMany({
@@ -123,7 +124,7 @@ export class DiscipleshipService {
     },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     const track = await this.requireTrack(trackId, pilot);
 
     const title = input.title?.trim();
@@ -170,7 +171,7 @@ export class DiscipleshipService {
 
   async editStage(actor: AuthUser, trackId: string, stageId: string, input: { title: string; description: string }) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     const track = await this.requireTrack(trackId, pilot);
     const title = input.title.trim();
     if (!title) throw new BadRequestException("Informe o nome da etapa.");
@@ -191,7 +192,7 @@ export class DiscipleshipService {
 
   async listStages(actor: AuthUser, trackId: string) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     const track = await this.requireTrack(trackId, pilot);
 
     const rows = await this.prisma.discipleshipTrackStage.findMany({
@@ -210,7 +211,7 @@ export class DiscipleshipService {
     input: { trackId: string; personId: string; mentorPersonId?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     if (!input.trackId?.trim() || !input.personId?.trim()) {
       throw new BadRequestException("trackId e personId são obrigatórios");
@@ -265,7 +266,7 @@ export class DiscipleshipService {
     filters: { trackId?: string; personId?: string; status?: string } = {},
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const status = filters.status
       ? this.requireEnrollmentStatus(filters.status)
@@ -295,7 +296,7 @@ export class DiscipleshipService {
 
   async updateMentor(actor: AuthUser, enrollmentId: string, mentorPersonId: string | null) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     const enrollment = await this.requireEnrollment(enrollmentId, pilot);
     if (mentorPersonId !== null) await this.requireMentor(mentorPersonId, enrollment.personId, pilot);
     if (enrollment.mentorPersonId === mentorPersonId) return this.toEnrollmentDto(enrollment);
@@ -318,7 +319,7 @@ export class DiscipleshipService {
     status: string,
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const next = this.requireEnrollmentStatus(status);
     const enrollment = await this.requireEnrollment(enrollmentId, pilot);
@@ -364,7 +365,7 @@ export class DiscipleshipService {
     input: { stageId: string; kind: string; note?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const kind = this.requireProgressKind(input.kind);
     if (!input.stageId?.trim()) {
@@ -468,7 +469,7 @@ export class DiscipleshipService {
 
   async getProgress(actor: AuthUser, enrollmentId: string) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const enrollment = await this.requireEnrollment(enrollmentId, pilot);
     const stages = await this.prisma.discipleshipTrackStage.findMany({
@@ -575,17 +576,6 @@ export class DiscipleshipService {
     if (!mentor) throw new BadRequestException("Mentor não encontrado neste escopo");
   }
 
-  private assertLead(
-    actor: AuthUser,
-    organizationId: string,
-    churchId: string,
-  ): void {
-    if (!canLeadMinistry(actor.grants, { organizationId, churchId })) {
-      throw new ForbiddenException(
-        "Sem permissão de liderança nesta congregação",
-      );
-    }
-  }
 
   private async requireTrack(
     trackId: string,

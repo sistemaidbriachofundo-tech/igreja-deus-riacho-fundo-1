@@ -222,6 +222,8 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
         />
         <ConnectionJourney />
         <GroupRequests token={token} />
+        {user.canManageConnection !== true && roles.some(role => ["LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
+          <GroupRequests manage hideEmpty token={token} />}
         </>
       )}
       {phase === "ready" && user && surface !== "membro" && scopeDenied && (

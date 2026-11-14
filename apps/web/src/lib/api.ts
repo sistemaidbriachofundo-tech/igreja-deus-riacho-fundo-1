@@ -46,6 +46,7 @@ export interface AuthUser {
   userId: string;
   personId: string;
   email: string;
+  canManageConnection?: boolean;
   grants: Array<{
     roleCode: string;
     organizationId?: string | null;
@@ -188,6 +189,7 @@ function cloneUser(user: AuthUser): AuthUser {
     userId: user.userId,
     personId: user.personId,
     email: user.email,
+    canManageConnection: user.canManageConnection,
     grants: user.grants.map(grant => ({ ...grant })),
   };
 }

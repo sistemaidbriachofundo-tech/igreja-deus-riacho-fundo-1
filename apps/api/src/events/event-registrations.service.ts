@@ -604,6 +604,7 @@ export class EventRegistrationsService {
       where: { ...pilot, registrantPersonId: person.id, id: registrationId },
       select: {
         id: true, status: true, guardianAuthStatus: true, checkInCode: true,
+        tickets: { orderBy: { position: "asc" }, select: { position: true, code: true, checkedInAt: true } },
         event: { select: { name: true, status: true } },
         paymentIntents: {
           where: { status: "PENDING", receivingAccountId: { not: null } },
@@ -618,7 +619,7 @@ export class EventRegistrationsService {
     const status = ["CANCELLED", "ARCHIVED"].includes(row.event.status) ? "CANCELLED" : row.status;
     return {
       id: row.id, status, guardianAuthStatus: row.guardianAuthStatus, checkInCode: row.checkInCode,
-      eventName: row.event.name,
+      eventName: row.event.name, tickets: ["CONFIRMED", "CHECKED_IN"].includes(status) ? row.tickets : [],
       paymentIntent: pending?.pixCopiaECola ? { ...pending, mode: "CHURCH_PIX" } : null,
     };
   }
@@ -662,7 +663,9 @@ export class EventRegistrationsService {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
       },
-      include: { event: true },
+      include: { event: true,
+        tickets: { orderBy: { position: "asc" }, select: { position: true, code: true, checkedInAt: true } },
+      },
     });
     if (!row) {
       throw new NotFoundException("Inscrição não encontrada");
@@ -681,6 +684,7 @@ export class EventRegistrationsService {
       transportOptionId: row.transportOptionId,
       // sem displayName/guardian no status público — só operacional
       checkInCode: row.checkInCode,
+      tickets: ["CONFIRMED", "CHECKED_IN"].includes(row.status) ? row.tickets : [],
     };
   }
 
@@ -690,6 +694,7 @@ export class EventRegistrationsService {
     if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
       throw new BadRequestException("checkInCode não confere");
     }
+    await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
     this.assertCheckInAllowed(registration);
 
     if (registration.status === "CHECKED_IN") {
@@ -706,6 +711,14 @@ export class EventRegistrationsService {
     if (!code || code.length < 8) {
       throw new BadRequestException("checkInCode inválido");
     }
+    if (event.status === "CANCELLED" || event.status === "ARCHIVED") {
+      throw new BadRequestException("O evento está encerrado para check-in.");
+    }
+    const ticket = await this.prisma.eventParticipantTicket?.findFirst({
+      where: { code, registration: { eventId: event.id, organizationId: pilot.organizationId, churchId: pilot.churchId } },
+      select: { id: true, position: true, registrationId: true },
+    });
+    if (ticket) return this.checkInParticipant(actor, pilot, event.id, ticket);
     const registration = await this.prisma.eventRegistration.findFirst({
       where: {
         checkInCode: code,
@@ -720,8 +733,43 @@ export class EventRegistrationsService {
     if (registration.status === "CHECKED_IN") {
       return this.toRegistrationDto(registration);
     }
+    await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
     this.assertCheckInAllowed(registration);
     return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  private async assertIndividualTicketIfRequired(registrationId: string, partySize: number) {
+    if (partySize > 1 && await this.prisma.eventParticipantTicket?.count({ where: { registrationId } })) {
+      throw new BadRequestException("Use o QR individual de cada participante.");
+    }
+  }
+
+  private async checkInParticipant(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    eventId: string,
+    ticket: { id: string; position: number; registrationId: string },
+  ) {
+    return this.prisma.$transaction(async tx => {
+      // Serializa a chegada de participantes e as mudanças de estado da inscrição.
+      await tx.$queryRaw`SELECT id FROM event_registrations WHERE id = ${ticket.registrationId} FOR UPDATE`;
+      const row = await tx.eventRegistration.findUniqueOrThrow({ where: { id: ticket.registrationId } });
+      this.assertCheckInAllowed(row);
+      const now = new Date();
+      const updated = await tx.eventParticipantTicket.updateMany({
+        where: { id: ticket.id, checkedInAt: null }, data: { checkedInAt: now },
+      });
+      const remaining = await tx.eventParticipantTicket.count({ where: { registrationId: row.id, checkedInAt: null } });
+      const registration = remaining === 0 && row.status !== "CHECKED_IN"
+        ? await tx.eventRegistration.update({ where: { id: row.id }, data: { status: "CHECKED_IN", checkedInAt: now } })
+        : row;
+      if (updated.count) await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "event_registration.participant_check_in",
+        resourceType: "event_registration", resourceId: row.id,
+        organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { eventId, position: ticket.position },
+      } });
+      return { ...this.toRegistrationDto(registration), participantPosition: ticket.position, remaining, alreadyCheckedIn: updated.count === 0 };
+    });
   }
 
   private async persistCheckIn(
@@ -1334,6 +1382,12 @@ export class EventRegistrationsService {
         },
       });
 
+      const tickets = partySize > 1 ? Array.from({ length: partySize }, (_, index) => ({
+        position: index + 1, code: randomBytes(16).toString("hex"),
+      })) : [];
+      if (tickets.length) await tx.eventParticipantTicket.createMany({
+        data: tickets.map(ticket => ({ ...ticket, registrationId: registration.id })),
+      });
       let guardianAuthorization: {
         id: string;
         status: string;
@@ -1409,6 +1463,7 @@ export class EventRegistrationsService {
       const dto = this.toRegistrationDto(registration);
       return {
         ...dto,
+        tickets: needsPayment ? [] : tickets,
         paymentMode: pix ? ("CHURCH_PIX" as const) : dto.paymentMode,
         guardianAuthorization: guardianAuthorization
           ? this.toGuardianAuthDto(guardianAuthorization)
@@ -1435,6 +1490,7 @@ export class EventRegistrationsService {
         to: notificationEmail,
         eventName: params.event.name || "evento",
         checkInCode: created.checkInCode,
+        tickets: created.tickets,
       });
     }
     return created;

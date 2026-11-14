@@ -100,3 +100,9 @@ export function accountProblem(error: unknown, action: "load" | "phone" | "photo
   }
   return action === "load" ? "Não foi possível carregar sua conta. Tente novamente." : "Não foi possível salvar. Tente novamente.";
 }
+
+export function savePersonPhoto(token: string, personId: string, photo: File): Promise<void> {
+  const form = new FormData();
+  form.append("photo", photo);
+  return apiPutForm("/persons/" + encodeURIComponent(personId) + "/photo", token, form);
+}

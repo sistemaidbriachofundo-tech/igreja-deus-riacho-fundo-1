@@ -38,6 +38,27 @@ export function AccessDirectory() {
   const [sending, setSending] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const { confirm: confirmResend, confirmation: resendConfirmation } = useActionConfirmation();
+  async function grantAdministrator(account: Account) {
+    if (!token || sending) return;
+    if (!(await confirmResend({
+      title: "Conceder perfil de administrador?",
+      subject: account.person.displayName,
+      description: "O acesso vale para esta congregação. A pessoa precisará entrar novamente e usar o autenticador.",
+      action: "Conceder perfil",
+    }))) return;
+    setSending(account.id);
+    setError("");
+    try {
+      await apiPost("/admin/access/" + encodeURIComponent(account.id) + "/administrator", token);
+      showFeedback({ tone: "success", title: "Perfil de administrador concedido", message: "A pessoa precisa entrar novamente com o autenticador.", actionLabel: "Continuar" });
+      setRevision(value => value + 1);
+    } catch (error) {
+      setError(dasError(error));
+    } finally {
+      setSending("");
+    }
+  }
+
   async function sendLink(account: Account, recovery: boolean) {
     if (!token || sending) return;
     const action = recovery ? "Enviar recuperação" : "Reenviar convite";
@@ -127,6 +148,10 @@ export function AccessDirectory() {
                 <button type="button" className={s.resend} disabled={Boolean(sending)} onClick={() => void sendLink(account, false)}>
                   {sending === account.id ? "Preparando…" : "Reenviar convite"}
                 </button>}
+                {accounts?.canInviteAdministrator && account.status === "ACTIVE" &&
+                  !account.profiles.some(profile => profile.role === "PLATFORM_ADMIN") &&
+                  <button type="button" className={s.resend} disabled={Boolean(sending)}
+                    onClick={() => void grantAdministrator(account)}>Conceder administração</button>}
                 {account.status === "ACTIVE" && <button type="button" className={s.resend}
                   disabled={Boolean(sending)} onClick={() => void sendLink(account, true)}>
                   {sending === account.id ? "Preparando…" : "Recuperar senha"}

@@ -74,7 +74,6 @@ export class GroupsController {
   constructor(private readonly groups: GroupsService) {}
 
   @Roles(
-    ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
@@ -84,14 +83,13 @@ export class GroupsController {
     return this.groups.create(user, body);
   }
 
-  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PLATFORM_ADMIN)
   @Patch(":groupId")
   edit(@CurrentUser() user: AuthUser, @Param("groupId") groupId: string, @Body() body: CreateGroupBody) {
     return this.groups.edit(user, groupId, body);
   }
 
   @Roles(
-    ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
@@ -102,7 +100,6 @@ export class GroupsController {
   }
 
   @Roles(
-    ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
@@ -118,7 +115,6 @@ export class GroupsController {
   }
 
   @Roles(
-    ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,
@@ -133,7 +129,6 @@ export class GroupsController {
   }
 
   @Roles(
-    ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,
     ROLE_CODES.LIDER_MINISTERIO,
     ROLE_CODES.PLATFORM_ADMIN,

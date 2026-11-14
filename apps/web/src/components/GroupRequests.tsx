@@ -13,7 +13,7 @@ const statusLabel: Record<RequestStatus, string> = {
   PENDING: "Aguardando resposta", APPROVED: "Pedido aceito", DECLINED: "Pedido recusado", MEMBER: "Você participa",
 };
 
-export function GroupRequests({ token, manage = false }: { token: string; manage?: boolean }) {
+export function GroupRequests({ token, manage = false, hideEmpty = false }: { token: string; manage?: boolean; hideEmpty?: boolean }) {
   const { confirm, confirmation } = useActionConfirmation();
   const [groups, setGroups] = useState<Group[]>();
   const [requests, setRequests] = useState<Request[]>();
@@ -76,6 +76,8 @@ export function GroupRequests({ token, manage = false }: { token: string; manage
       setBusy("");
     }
   }
+
+  if (hideEmpty && manage && !fault && !requests?.length) return null;
 
   return <section className={s.section} aria-label={manage ? "Pedidos de entrada em grupos" : "Grupos de Amizade"}>
     {confirmation}

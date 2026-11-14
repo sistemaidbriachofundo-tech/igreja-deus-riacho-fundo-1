@@ -86,14 +86,14 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
     return () => { live = false; };
   }, [path, token, revision, canReconcile, canManage, published]);
 
-  async function perform(request: () => Promise<unknown>, success: string, onDone?: () => void) {
+  async function perform<T>(request: () => Promise<T>, success: string | ((value: T) => string), onDone?: () => void) {
     if (busy) return;
     setBusy(true);
     setNotice(null);
     try {
-      await request();
+      const result = await request();
       onDone?.();
-      setNotice({ text: success });
+      setNotice({ text: typeof success === "function" ? success(result) : success });
       reload(value => value + 1);
     } catch (error) {
       setNotice({ text: dasError(error), error: true });
@@ -157,7 +157,16 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
 
   function registerPresence(checkInCode: string) {
     if (!checkInCode) return;
-    void perform(() => apiPost(path + "/check-in", token, { checkInCode }), "Presença registrada.", () => {
+    void perform(() => apiPost<{ participantPosition?: number; remaining?: number; alreadyCheckedIn?: boolean }>(
+      path + "/check-in", token, { checkInCode },
+    ), result => {
+      if (result.alreadyCheckedIn) return "A presença deste participante já estava registrada.";
+      if (!result.participantPosition) return "Presença registrada.";
+      const remaining = result.remaining ?? 0;
+      return remaining > 0
+        ? "Presença registrada. Ainda faltam " + remaining + " da mesma inscrição."
+        : "Presença registrada. Todos os participantes desta inscrição chegaram.";
+    }, () => {
       if (code.current) { code.current.value = ""; code.current.focus(); }
     });
   }
@@ -252,9 +261,18 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
       {pending && <form className={s.grid} onSubmit={submit => {
         submit.preventDefault();
         const confirmation = pending;
+        const data = new FormData(submit.currentTarget);
+        const statementAmount = Math.round(Number(field(data, "creditAmount").replace(",", ".")) * 100);
         void perform(() => apiPost("/events/payments/" + encodeURIComponent(confirmation.id) + "/reconcile", token,
-          { bankCreditConfirmed: true }), "Crédito conciliado e inscrição confirmada.", () => setPending(null));
+          { bankCreditConfirmed: true, bankCreditReference: field(data, "creditReference"),
+            bankCreditAmountCents: statementAmount }), "Crédito conciliado e inscrição confirmada.", () => setPending(null));
       }}>
+        <label>Identificador do crédito no extrato
+          <input name="creditReference" minLength={6} maxLength={80} autoComplete="off" required />
+        </label>
+        <label>Valor creditado em reais
+          <input name="creditAmount" type="number" min="0.01" step="0.01" inputMode="decimal" required />
+        </label>
         <label className={s.wide}>
           <span>Confirmei no extrato o crédito de {formatEventPrice(pending.amountCents)}.</span>
           <input type="checkbox" required />

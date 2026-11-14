@@ -507,6 +507,7 @@ model MemberCredential {
   pdfContentType String?          @map("pdf_content_type")
   pdfByteSize    Int?             @map("pdf_byte_size")
   pdfGeneratedAt DateTime?        @map("pdf_generated_at")
+  pdfPortraitHash String?         @map("pdf_portrait_hash")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -1135,6 +1136,7 @@ model EventRegistration {
   transportOption EventTransportOption? @relation(fields: [transportOptionId], references: [id], onDelete: SetNull)
   paymentIntents EventPaymentIntent[]
   guardianAuthorization EventGuardianAuthorization?
+  tickets EventParticipantTicket[]
 
   @@index([organizationId, churchId])
   @@index([eventId, status])
@@ -1145,6 +1147,19 @@ model EventRegistration {
   @@index([mealOptionId])
   @@index([transportOptionId])
   @@map("event_registrations")
+}
+
+model EventParticipantTicket {
+  id             String   @id @default(cuid())
+  registrationId String   @map("registration_id")
+  position       Int
+  code           String   @unique
+  checkedInAt    DateTime? @map("checked_in_at")
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, position])
+  @@map("event_participant_tickets")
 }
 
 /// Autorização formal de responsável para menor em evento (rótulo sintético; sem PII real).
@@ -1187,6 +1202,7 @@ model EventPaymentIntent {
   receivingAccountId String?          @map("receiving_account_id")
   ledgerEntryId    String?            @unique @map("ledger_entry_id")
   pixTxid          String?            @map("pix_txid")
+  bankCreditReference String?         @map("bank_credit_reference")
   pixCopiaECola    String?            @map("pix_copia_e_cola")
   confirmedAt      DateTime?          @map("confirmed_at")
   createdAt        DateTime           @default(now()) @map("created_at")
@@ -1201,6 +1217,7 @@ model EventPaymentIntent {
   ledgerEntry  LedgerEntry?      @relation(fields: [ledgerEntryId], references: [id])
   webhookReceipts EventPaymentWebhookReceipt[]
 
+  @@unique([churchId, bankCreditReference], map: "event_payment_credit_reference_key")
   @@index([organizationId, churchId])
   @@index([registrationId])
   @@index([eventId, status])
@@ -1691,6 +1708,7 @@ model AuthSession {
   /// Fingerprint da frente A. O sid em claro não é gravado.
   authzFingerprint String?           @map("authz_fingerprint")
   mfaSatisfied     Boolean           @default(false) @map("mfa_satisfied")
+  mfaVerifiedAt    DateTime?         @map("mfa_verified_at")
   issuedAt         DateTime          @default(now()) @map("issued_at")
   expiresAt        DateTime          @map("expires_at")
   revokedAt        DateTime?         @map("revoked_at")

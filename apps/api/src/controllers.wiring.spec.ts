@@ -63,12 +63,13 @@ describe("controller wiring (delegates to services)", () => {
   it("AuthController", async () => {
     const auth = {
       login: jest.fn().mockResolvedValue({ accessToken: "t" }),
+      describeSession: jest.fn().mockResolvedValue({ ...user, canManageConnection: false }),
     };
     const c = new AuthController(auth as never);
     await expect(c.login({ email: "a", password: "b" })).resolves.toEqual({
       accessToken: "t",
     });
-    expect(c.me(user)).toBe(user);
+    await expect(c.me(user)).resolves.toEqual({ ...user, canManageConnection: false });
     expect(c.rbacSmoke(user)).toMatchObject({ ok: true, personId: "p1" });
   });
 
@@ -84,7 +85,7 @@ describe("controller wiring (delegates to services)", () => {
       getDossier: jest.fn().mockResolvedValue({ person: { id: "p1" } }),
       patch: jest.fn().mockResolvedValue({ id: "p1" }),
     };
-    const c = new PersonsController(persons as never);
+    const c = new PersonsController(persons as never, {} as never);
     await c.search(user, "an", "5");
     expect(persons.search).toHaveBeenCalledWith(user, "an", 5);
     await c.candidates(user, { displayName: "Ana Demo", email: "a@example.test" });

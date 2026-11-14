@@ -17,6 +17,7 @@ import {
   Max,
   Min,
   MinLength,
+  MaxLength,
 } from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
@@ -207,6 +208,16 @@ class EventCheckInBody {
 class ReconcileChurchPaymentBody {
   @IsBoolean()
   bankCreditConfirmed!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  bankCreditReference?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  bankCreditAmountCents?: number;
 }
 
 class CheckInBody {
@@ -282,7 +293,7 @@ export class EventsController {
     @Param("paymentIntentId") paymentIntentId: string,
     @Body() body: ReconcileChurchPaymentBody,
   ) {
-    return this.churchPayments.reconcile(user, paymentIntentId, body.bankCreditConfirmed);
+    return this.churchPayments.reconcile(user, paymentIntentId, body.bankCreditConfirmed, body.bankCreditReference, body.bankCreditAmountCents);
   }
 
   @Roles(...EVENT_STAFF)

@@ -1197,6 +1197,7 @@ describe("EventRegistrationsService", () => {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
         create: jest.fn().mockResolvedValue(confirmed),
       },
+      eventParticipantTicket: { createMany: jest.fn() },
       auditLog: { create: jest.fn() },
     };
     const prismaReg = {
@@ -1221,6 +1222,9 @@ describe("EventRegistrationsService", () => {
     });
     expect(result.status).toBe("CONFIRMED");
     expect(result.paymentIntent).toBeNull();
+    expect(result.tickets.map(ticket => ticket.position)).toEqual([1, 2]);
+    expect(new Set(result.tickets.map(ticket => ticket.code)).size).toBe(2);
+    expect(txReg.eventParticipantTicket.createMany).toHaveBeenCalledTimes(1);
   });
 
   describe("RF-022 lodging/meal/transport + guardian authorization", () => {

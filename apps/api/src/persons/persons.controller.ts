@@ -1,4 +1,8 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpCode, Param, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { AccountService } from "../account/account.service";
+import { PROFILE_PHOTO_MAX_INPUT_BYTES } from "../account/account-photo";
+import { BusinessException } from "../common/business.exception";
 import { ROLE_CODES, type PatchPersonRequest, type PersonSex } from "@idbrf/shared";
 import {
   IsBoolean,
@@ -112,7 +116,7 @@ class PersonCandidatesBody {
 
 @Controller("persons")
 export class PersonsController {
-  constructor(private readonly persons: PersonsService) {}
+  constructor(private readonly persons: PersonsService, private readonly account: AccountService) {}
 
   @Roles(
     ROLE_CODES.SECRETARIA,
@@ -173,6 +177,19 @@ export class PersonsController {
   @Get(":personId")
   get(@CurrentUser() user: AuthUser, @Param("personId") personId: string) {
     return this.persons.getById(user, personId);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Put(":personId/photo")
+  @HttpCode(204)
+  @UseInterceptors(FileInterceptor("photo", { limits: { fileSize: PROFILE_PHOTO_MAX_INPUT_BYTES } }))
+  async replacePhoto(
+    @CurrentUser() user: AuthUser,
+    @Param("personId") personId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<void> {
+    if (!file?.buffer?.length) throw new BusinessException("Selecione a foto do cadastro.", "ACCOUNT_PHOTO_REQUIRED", 400);
+    await this.account.replacePersonPhoto(user, personId, file.buffer);
   }
 
   @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)

@@ -28,17 +28,20 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
   const [guardianStatus, setGuardianStatus] = useState(receipt.guardianAuthStatus);
   const [pix, setPix] = useState(receipt.paymentIntent);
   const [notice, setNotice] = useState("");
-  const [qr, setQr] = useState("");
+  const [tickets, setTickets] = useState(receipt.tickets);
+  const [qr, setQr] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const confirmed = status === "CONFIRMED" || status === "CHECKED_IN";
   useEffect(() => {
     if (!confirmed) return;
     let live = true;
-    void import("qrcode").then(lib => lib.toDataURL(receipt.checkInCode, {
-      margin: 4, width: 256, errorCorrectionLevel: "M",
-    })).then(url => { if (live) setQr(url); }).catch(() => {});
+    const codes = tickets?.length ? tickets.map(ticket => ticket.code) : [receipt.checkInCode];
+    void import("qrcode").then(lib => Promise.all(codes.map(async code => [
+      code,
+      await lib.toDataURL(code, { margin: 4, width: 192, errorCorrectionLevel: "M" }),
+    ] as const))).then(entries => { if (live) setQr(Object.fromEntries(entries)); }).catch(() => {});
     return () => { live = false; };
-  }, [confirmed, receipt.checkInCode]);
+  }, [confirmed, receipt.checkInCode, tickets]);
   async function refresh() {
     setBusy(true);
     setNotice("");
@@ -51,17 +54,24 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
         : await loadRegistrationStatus(receipt.checkInCode);
       setStatus(updated.status);
       setGuardianStatus(updated.guardianAuthStatus);
+      setTickets(updated.tickets);
     }
     catch (error) { setNotice(message(error)); }
     finally { setBusy(false); }
   }
   if (confirmed) return <section className={s.panel}>
     <Alert appearance="workspace" tone="success" title={status === "CHECKED_IN" ? "Presença registrada" : "Inscrição confirmada"}>
-      Apresente o QR ou o código na entrada do evento.
+      {tickets?.length ? "Apresente o ingresso de cada participante na entrada." : "Apresente o QR ou o código na entrada do evento."}
     </Alert>
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    {qr && <img src={qr} alt="QR para o check-in do evento" width={256} height={256} />}
-    <p className={s.code}>{receipt.checkInCode}</p>
+    <ul className={s.tickets}>
+      {(tickets?.length ? tickets : [{ position: 0, code: receipt.checkInCode }]).map(ticket => <li key={ticket.code}>
+        {ticket.position > 0 && <h3>Ingresso {ticket.position}</h3>}
+        {ticket.checkedInAt && <p>Presença registrada</p>}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {qr[ticket.code] && <img src={qr[ticket.code]} alt={ticket.position ? "QR do ingresso " + ticket.position : "QR para o check-in do evento"} width={192} height={192} />}
+        <p className={s.code}>{ticket.code}</p>
+      </li>)}
+    </ul>
     {guardianStatus === "PENDING" && <>
       <p>Para a entrada, a equipe do evento ainda precisa conferir a autorização do responsável.</p>
       <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>Atualizar situação</Button>

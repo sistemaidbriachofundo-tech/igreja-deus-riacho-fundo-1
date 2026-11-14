@@ -47,7 +47,7 @@ describe("PatchPersonBody", () => {
 
   it("encaminha o corpo ao service", async () => {
     const persons = { patch: jest.fn().mockResolvedValue({ id: "p1" }) };
-    const controller = new PersonsController(persons as never);
+    const controller = new PersonsController(persons as never, {} as never);
     await controller.patch(
       { userId: "u1", personId: "p1", email: "a@example.test", grants: [] },
       "p1",

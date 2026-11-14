@@ -7,6 +7,8 @@ import { PersonaBoard } from "./PersonaHome";
 import { PersonPicker } from "./PersonPicker";
 import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
+import { PersonPhotoInput } from "./secretaria/PersonPhotoInput";
+import { savePersonPhoto } from "../lib/my-account";
 import { NewPersonIntake } from "./secretaria/NewPersonIntake";
 import { personUnder18 } from "./secretaria/new-person-intake-model";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
@@ -190,6 +192,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
+  const [intakePhoto, setIntakePhoto] = useState<File | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
   const [summaryRevision, setSummaryRevision] = useState(0);
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
@@ -344,6 +348,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setAdmissionForm(null);
     setNewName("");
     setNewEmail("");
+    setIntakePhoto(null);
     setNewProfile(emptyNewProfile());
     setAdmissionPerson("");
     setModality("BATISMO");
@@ -466,6 +471,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       return;
     }
     let createdPersonId: string | null = null;
+    let photoPending = false;
     const completed = admissionForm === "existing"
       ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.", showFormIssue)
       : await run(async () => {
@@ -489,11 +495,21 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             householdLabel: newProfile.householdLabel.trim() || undefined,
           });
           createdPersonId = created?.person?.id ?? null;
+          if (intakePhoto && createdPersonId) {
+            try {
+              await savePersonPhoto(token, createdPersonId, intakePhoto);
+            } catch {
+              photoPending = true;
+            }
+          }
           return created;
         }, "Pessoa cadastrada. Abra a Ficha 360 para completar sua história.", showFormIssue);
     if (completed) {
       resetSecretaryAction();
-      if (createdPersonId) setFichaId(createdPersonId);
+      if (createdPersonId) {
+        setPendingPhoto(photoPending ? intakePhoto : null);
+        setFichaId(createdPersonId);
+      }
     }
   }
 
@@ -769,6 +785,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       </label>
                     </>
                   ) : (
+                    <>
                     <NewPersonIntake
                       name={newName}
                       email={newEmail}
@@ -781,6 +798,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       onEmail={setNewEmail}
                       onProfile={setNewProfile}
                     />
+                    <PersonPhotoInput photo={intakePhoto} onChange={setIntakePhoto} disabled={busy} />
+                    </>
                   )}
                   <div className={s.formActions}>
                     <button type="button" className={ui.workspaceSecondary} onClick={closeSecretaryAction} disabled={busy}>Cancelar</button>
@@ -809,12 +828,14 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
               <SecretaryDossier
                 token={token}
                 personId={fichaId}
+                pendingPhoto={pendingPhoto}
                 households={households}
                 canEdit={secretary}
                 canReadDocuments={staff}
                 credential={credentialFromMemberships(secretary, memberships, fichaId)}
                 onClose={() => {
                   setFichaId(null);
+                  setPendingPhoto(null);
                   const url = new URL(window.location.href);
                   if (url.searchParams.has("pessoa")) {
                     url.searchParams.delete("pessoa");

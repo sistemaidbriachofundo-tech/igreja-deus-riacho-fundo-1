@@ -22,7 +22,7 @@ describe("DiscipleshipService", () => {
     email: "lider.demo@example.test",
     grants: [
       {
-        roleCode: "LIDER_MINISTERIO",
+        roleCode: "PASTOR",
         organizationId: "org1",
         churchId: "church-rf1",
       },
@@ -163,7 +163,7 @@ describe("DiscipleshipService", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("creates track for líder and audits", async () => {
+  it("creates track for pastor and audits", async () => {
     const tx = {
       discipleshipTrack: {
         create: jest.fn().mockResolvedValue({ ...trackRow, description: null }),

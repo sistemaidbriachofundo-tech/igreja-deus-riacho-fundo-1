@@ -14,11 +14,15 @@ type Catalog = {
   transportOptions: Choice[];
 };
 
-export type RegistrationReceipt = {
+type RegistrationStatus = {
   status: string;
+  guardianAuthStatus?: string;
+  tickets?: { position: number; code: string; checkedInAt?: string | null }[];
+};
+
+export type RegistrationReceipt = RegistrationStatus & {
   id: string;
   checkInCode: string;
-  guardianAuthStatus?: string;
   paymentIntent: null | { mode: string; amountCents: number; pixCopiaECola?: string; pixTxid?: string };
 };
 
@@ -116,5 +120,5 @@ export async function registerForEvent(slug: string, fields: EventRegistrationFi
 
 export function loadRegistrationStatus(code: string) {
   if (!validRegistrationCode(code)) throw new Error("Código de inscrição inválido.");
-  return apiGetPublic<{ status: string; guardianAuthStatus?: string }>("/public/registrations/" + code);
+  return apiGetPublic<RegistrationStatus>("/public/registrations/" + code);
 }

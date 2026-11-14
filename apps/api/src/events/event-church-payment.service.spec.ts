@@ -94,8 +94,8 @@ describe("conciliação Pix do evento", () => {
     };
     const mail = { deliverOnce: jest.fn().mockResolvedValue({ status: "SENT", idempotentReplay: false }) };
     const service = new EventChurchPaymentService(db as never, { getPilotChurch: async () => pilot } as never, mail as never);
-    const first = await service.reconcile(treasury, "pi1", true);
-    const second = await service.reconcile(treasury, "pi1", true);
+    const first = await service.reconcile(treasury, "pi1", true, "PIX-TESTE-001", 2500);
+    const second = await service.reconcile(treasury, "pi1", true, "PIX-TESTE-001", 2500);
     expect(first.ledgerEntryId).toBe("entry-1");
     expect(second).toMatchObject({ idempotentReplay: true, ledgerEntryId: "entry-1" });
     expect(created).toHaveLength(1);

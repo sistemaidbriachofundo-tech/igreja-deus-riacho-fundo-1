@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AppNavLink, AppShell, usePersonaAccess, UIIcon } from "../AppShell";
 import { apiGet, loadStoredToken } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
+import { PageHeader } from "../ui/PageHeader";
 import { Modal } from "../ui/Modal";
 import ui from "../ui/ui.module.css";
 import s from "./birthdays-desk.module.css";
@@ -39,10 +40,8 @@ function BirthdayList() {
   if (!permitted) return null;
 
   return <div className={s.page}>
-    <header className={s.heading}>
-      <span className={s.headingIcon}><UIIcon name="birthday" size={27} /></span>
-      <div><h1>Aniversariantes</h1><p>Veja quem faz aniversário e prepare uma mensagem em nome da igreja.</p></div>
-    </header>
+    <PageHeader appearance="workspace" heading="h1" title="Aniversariantes"
+      description="Veja quem faz aniversário e prepare uma mensagem em nome da igreja." />
     <Modal open={Boolean(greeting)} appearance="workspace" title={greeting ? "Mensagem para " + greeting.name : "Mensagem de aniversário"} onClose={() => setGreeting(null)}>
       {greeting && <div className={s.birthdayGreeting}>
         <label>Mensagem de aniversário<textarea value={greeting.text} rows={5} maxLength={1200}
