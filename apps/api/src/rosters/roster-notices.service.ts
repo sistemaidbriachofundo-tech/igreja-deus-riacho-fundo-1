@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
 import webPush from "web-push";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PilotService } from "../pilot/pilot.service";
@@ -271,7 +272,11 @@ export class RosterNoticesService {
   private async personScope(actor: AuthUser) {
     const { churchId, organizationId } = await this.pilot.getPilotChurch();
     const personId = actor.personId;
-    if (!personId || !actor.grants.some(grant => grant.organizationId === organizationId && grant.churchId === churchId)) throw new ForbiddenException();
+    const allowedRoles = [ROLE_CODES.MEMBRO, ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN];
+    if (!personId || (actor.churchId && actor.churchId !== churchId) || (actor.organizationId && actor.organizationId !== organizationId) ||
+        !actor.grants.some(grant => grantMatchesScope(grant, { roleCodes: allowedRoles, organizationId, churchId }))) {
+      throw new ForbiddenException();
+    }
     return { churchId, personId };
   }
 }

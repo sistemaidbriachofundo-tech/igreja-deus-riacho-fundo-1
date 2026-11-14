@@ -9,7 +9,7 @@ import * as invites from "./roster-substitution-invites";
 const now = new Date("2026-11-25T13:00:00Z");
 const churchId = "riacho";
 const organizationId = "igreja";
-const actor = { personId: "p1", userId: "u1", grants: [{ churchId, organizationId }] } as AuthUser;
+const actor = { personId: "p1", userId: "u1", grants: [{ churchId, organizationId, roleCode: "MEMBRO" }] } as AuthUser;
 
 function fixture() {
   const history: { personId: string; expiresAt: Date }[] = [];
@@ -92,4 +92,14 @@ it("envia push de teste somente à inscrição do próprio voluntário", async (
   } finally {
     process.env = saved;
   }
+});
+
+
+it("aceita um administrador da organização na igreja ativa e recusa outro escopo", async () => {
+  const { service } = fixture();
+  const admin = { ...actor, churchId, organizationId, grants: [{
+    roleCode: "PLATFORM_ADMIN", organizationId, churchId: null,
+  }] } as AuthUser;
+  await expect(service.list(admin, now)).resolves.toMatchObject({ notices: [] });
+  await expect(service.list({ ...admin, churchId: "outra-igreja" }, now)).rejects.toMatchObject({ status: 403 });
 });
