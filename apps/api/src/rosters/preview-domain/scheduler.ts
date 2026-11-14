@@ -20,7 +20,7 @@ function pairScore(ids: readonly string[], slot: SlotDemand, history: readonly E
   return score;
 }
 /** Sugestão determinística; nunca publica nem atribui no banco. */
-export function rankCandidates(slot: SlotDemand, candidates: readonly Candidate[], history: readonly ExistingAssignment[], rules: Rules): RankedCandidate[] {
+export function rankCandidates(slot: SlotDemand, candidates: readonly Candidate[], history: readonly ExistingAssignment[], rules: Rules, tieKey = (id: string) => id): RankedCandidate[] {
   const result: RankedCandidate[]=[];
   const alreadySeen=new Set<string>();
   for(const candidate of candidates){
@@ -31,17 +31,17 @@ export function rankCandidates(slot: SlotDemand, candidates: readonly Candidate[
     alreadySeen.add(key);
     result.push({candidate,personIds:decision.personIds,score:pairScore(decision.personIds,slot,history,rules)});
   }
-  return result.sort((a,b)=>a.score-b.score || a.candidate.personId.localeCompare(b.candidate.personId));
+  return result.sort((a,b)=>a.score-b.score || tieKey(a.candidate.personId).localeCompare(tieKey(b.candidate.personId)));
 }
 export interface DraftAssignment {slotId:string; rosterId:string; personId:string; partnerPersonId:string|null; score:number}
 export interface PreviewResult {drafts:DraftAssignment[]; unfilled: Array<{slotId:string; reasons:string[]}>}
 /** Gera rascunho em memória. Persistência transacional e verificação de concorrência ficam no NestJS. */
-export function previewSlots(slots: readonly SlotDemand[], candidates: readonly Candidate[], existing: readonly ExistingAssignment[], rules: Rules): PreviewResult {
+export function previewSlots(slots: readonly SlotDemand[], candidates: readonly Candidate[], existing: readonly ExistingAssignment[], rules: Rules, tieKey?: (id: string) => string): PreviewResult {
   const temporary:ExistingAssignment[]=[...existing];
   const drafts:DraftAssignment[]=[];
   const unfilled:PreviewResult['unfilled']=[];
-  for(const slot of [...slots].sort((a,b)=>a.serviceAt.localeCompare(b.serviceAt)||a.slotId.localeCompare(b.slotId))){
-    const eligible=rankCandidates(slot,candidates,temporary,rules);
+  for(const slot of [...slots].sort((a,b)=>a.serviceAt.localeCompare(b.serviceAt) || (a.priority ?? 0) - (b.priority ?? 0) || a.slotId.localeCompare(b.slotId))){
+    const eligible=rankCandidates(slot,candidates,temporary,rules,tieKey);
     if(!eligible.length){
       const failures=new Map<RejectionCode,number>();
       for(const p of candidates) for(const reason of evaluateCandidate(p,slot,candidates,temporary,rules).reasons) failures.set(reason,(failures.get(reason)??0)+1);

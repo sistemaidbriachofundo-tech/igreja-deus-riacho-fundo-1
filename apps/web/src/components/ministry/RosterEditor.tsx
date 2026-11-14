@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
-import type { EscalaAssignment, EscalaModule, EscalaPosition, MinistryEscala } from "../../lib/ministry-presentation";
+import { ROSTER_SERVICE_TYPES, type EscalaAssignment, type EscalaModule, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
 import { UIIcon } from "../AppShell";
 import { RosterPreviewPanel } from "../serving/RosterPreviewPanel";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
@@ -39,6 +39,7 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
     const title = String(fields.get("title") ?? "").trim();
     const localTime = String(fields.get("when") ?? "");
     const selectedModule = fields.get("moduleId");
+    const serviceType = fields.get("serviceType");
     setBusy(true);
     setError("");
     try {
@@ -51,6 +52,7 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
         })
         : await apiPost<{ id: string }>("/rosters", token, {
           title, serviceAt, ministryId, ...(selectedModule ? { moduleId: selectedModule } : {}),
+          ...(serviceType ? { serviceType } : {}),
         });
       setEditing(false);
       onOpen(result.id);
@@ -77,6 +79,10 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
               {modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
             </select></label>
           )}
+          {!roster && modules.length > 0 && <label>Tipo de culto<select name="serviceType">
+            <option value="">Identificar pelo dia e horário</option>
+            {Object.entries(ROSTER_SERVICE_TYPES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select></label>}
           <button className={ui.workspacePrimary} type="submit" disabled={busy}>{busy ? "Salvando…" : roster ? "Salvar alterações" : "Criar escala"}</button>
           {error && <p role="alert">{error}</p>}
         </form>

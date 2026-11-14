@@ -2,6 +2,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
+import { MonthlyRosterPreview } from "./MonthlyRosterPreview";
 import { RosterModuleCatalog } from "./RosterModuleCatalog";
 import { withBasePath } from "../../lib/paths";
 import type {
@@ -434,6 +435,7 @@ function EscalaList({
       {(actions || modules.length > 0) && (
         <RosterModuleCatalog actions={actions} modules={modules} selectedId={selectedModule?.id ?? ""} onSelect={setModuleFilter} />
       )}
+      {editor && modules.length > 0 && <MonthlyRosterPreview token={editor.token} ministryId={ministryId} onRefresh={editor.onRefresh} />}
       {editor && <RosterEditor key={selectedModule?.id ?? "general"} {...editor} />}
       {shortcut && (
         <div className={styles.shortcuts}>

@@ -26,6 +26,7 @@ import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
+import { CULT_TYPES, type CultType } from "../rosters/roster-operating-rules";
 import { MinistriesService } from "./ministries.service";
 
 const LEAD_ROLES = [
@@ -127,6 +128,10 @@ class CreateRosterBody {
   @IsString()
   @MinLength(1)
   moduleId?: string;
+
+  @IsOptional()
+  @IsIn(CULT_TYPES)
+  serviceType?: CultType;
 }
 
 class RosterModuleBody {
@@ -283,6 +288,17 @@ class ResendAlertBody {
 @Controller("ministries")
 export class MinistriesController {
   constructor(private readonly ministries: MinistriesService) {}
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/roster-modules/:moduleId/rules")
+  saveRosterModuleRules(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.ministries.saveRosterModuleRules(user, ministryId, moduleId, body);
+  }
 
   @Roles(...LEAD_ROLES)
   @Post(":ministryId/roster-modules")

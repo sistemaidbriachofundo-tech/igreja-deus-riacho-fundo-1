@@ -8,7 +8,20 @@ import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
 
 export type EscalaAssignment = { id: string; personId: string; partnerPersonId: string; status: string; personName: string; partnerName: string };
 export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; assignments: EscalaAssignment[] };
-export type EscalaModule = { id: string; name: string };
+export const ROSTER_SERVICE_TYPES = {
+  thursday_evening: "Quinta à noite", sunday_morning: "Domingo de manhã",
+  sunday_evening: "Domingo à noite", special_event: "Evento especial",
+} as const;
+export type RosterServiceType = keyof typeof ROSTER_SERVICE_TYPES;
+export type ModulePosition = { label: string; count: number; couple: boolean; qualification?: string };
+export type EscalaModuleRules = {
+  positions: Partial<Record<RosterServiceType, ModulePosition[]>>;
+  qualifications: Record<string, string[]>;
+  couples: [string, string][];
+  minIntervalDays: number;
+  maxMonthlyAssignments: number; substituteInviteLimit: number;
+};
+export type EscalaModule = { id: string; name: string; rules?: EscalaModuleRules };
 
 export type MinistryEscala = {
   id: string;
@@ -138,7 +151,7 @@ function readEscalaModules(body: unknown, ministryId: string): EscalaModule[] {
     const row = asRecord(value);
     const id = textOf(row?.id);
     const name = textOf(row?.name);
-    return id && name ? [{ id, name }] : [];
+    return id && name ? [{ id, name, ...(asRecord(row?.rules) ? { rules: row?.rules as EscalaModuleRules } : {}) }] : [];
   });
 }
 

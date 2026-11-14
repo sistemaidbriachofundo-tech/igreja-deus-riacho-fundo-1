@@ -18,3 +18,4 @@
   .form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .form button { justify-self: start; min-height: 44px; }
 }
+.ruleForm { display: grid; gap: 12px; justify-items: start; }

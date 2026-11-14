@@ -6,6 +6,7 @@ import { dasError } from "../../lib/das-operations";
 import type { EscalaModule } from "../../lib/ministry-presentation";
 import ui from "../ui/ui.module.css";
 import type { RosterActionsProps } from "./RosterEditor";
+import { RosterModuleRulesEditor } from "./RosterModuleRulesEditor";
 import s from "./roster-editor.module.css";
 
 export function RosterModuleCatalog({ actions, modules, selectedId, onSelect }: {
@@ -59,6 +60,7 @@ export function RosterModuleCatalog({ actions, modules, selectedId, onSelect }: 
         <button className={ui.workspacePrimary} type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar módulo"}</button>
         <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => setEditing(null)}>Cancelar</button>
       </form>}
+      {actions && selected && <RosterModuleRulesEditor key={selected.id} module={selected} actions={actions} />}
       {error && <p className={s.error} role="alert">{error}</p>}
     </section>
   );
