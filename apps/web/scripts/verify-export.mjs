@@ -10,9 +10,10 @@ const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ?
 // V1: public content stays on the homepage; institutional deep links may
 // redirect to sections. QA/engineering/demo routes are intentionally absent.
 const requiredPages = [
-  "index.html", "a-igreja/index.html", "eventos/index.html", "login/index.html",
+  "index.html", "a-igreja/index.html", "eventos/index.html", "eventos/inscricao/index.html", "login/index.html",
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
-  "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/site/index.html",
+  "app/membros/carteirinha/index.html", "app/minha-conta/index.html", "app/eventos/index.html", "validar-carteirinha/index.html",
+  "app/editorial/index.html", "app/site/index.html",
 ];
 const forbiddenPages = [
   "contato/index.html", "visita/index.html", "ministerios/index.html",

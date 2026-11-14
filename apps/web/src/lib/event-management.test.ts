@@ -2,14 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   canRecordPresence,
   countLines,
+  eventSlugFromName,
   participationQuery,
   publicationBlockReason,
   readParticipation,
+  readEventPaymentAccounts,
   registrationLabel,
   toManagedRegistration,
 } from "./event-management";
 
 describe("gestão de eventos", () => {
+  it("gera um endereço válido a partir do nome do evento", () => {
+    expect(eventSlugFromName("  Celebração & Comunhão ")).toBe("celebracao-comunhao");
+    expect(eventSlugFromName("palavra ".repeat(20))).toMatch(/^[a-z0-9-]{3,80}$/);
+  });
+
   it("bloqueia publicação com contato e aceita data comum", () => {
     expect(publicationBlockReason({
       name: "Encontro",
@@ -23,6 +30,15 @@ describe("gestão de eventos", () => {
       description: "escreva para ana@example.test",
       locationText: "",
     })).toMatch(/Publicação bloqueada/);
+  });
+
+  it("aceita somente identificador e nome da conta no seletor de recebimento", () => {
+    expect(readEventPaymentAccounts({ data: [] })).toBeNull();
+    expect(readEventPaymentAccounts({ accounts: [] })).toEqual([]);
+    expect(readEventPaymentAccounts({ accounts: [
+      { id: "a1", name: "Conta da igreja", pixKey: "dado extra", balance: 2000 },
+      { id: "a2" },
+    ] })).toEqual([{ id: "a1", name: "Conta da igreja" }]);
   });
 
   it("omite nome e código de menor e não oferece presença", () => {

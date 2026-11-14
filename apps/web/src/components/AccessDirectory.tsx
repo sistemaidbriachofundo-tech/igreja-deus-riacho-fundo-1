@@ -17,7 +17,11 @@ type Account = {
   profiles: { role: BuiltinRole; ministry: string | null }[];
 };
 type AccessLinkDelivery = { sent: boolean; previewUrl?: string };
-type AccountPage = { accounts: Account[]; hasMore: boolean };
+type AccountPage = { accounts: Account[]; hasMore: boolean; canInviteAdministrator?: boolean };
+
+export function accessInviteRoles(canInviteAdministrator: boolean): readonly BuiltinRole[] {
+  return canInviteAdministrator ? BUILTIN_ROLES : BUILTIN_ROLES.filter(role => role !== "PLATFORM_ADMIN");
+}
 
 export function AccessDirectory() {
   const { showFeedback } = useFeedback();
@@ -89,7 +93,7 @@ export function AccessDirectory() {
           <UIIcon name="shield" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
         </button>
       </div>
-      {creating && token && <AccessForm token={token} onCreated={(name, delivery) => {
+      {creating && token && <AccessForm token={token} canInviteAdministrator={accounts?.canInviteAdministrator === true} onCreated={(name, delivery) => {
         setCreating(false);
         setPreviewUrl(delivery.previewUrl ?? "");
         showFeedback({ tone: "success", title: delivery.sent ? "Convite enviado" : "Convite de teste criado",
@@ -137,14 +141,24 @@ export function AccessDirectory() {
   );
 }
 
-function AccessForm({ token, onCreated }: { token: string; onCreated: (name: string, delivery: AccessLinkDelivery) => void }) {
+function AccessForm({ token, canInviteAdministrator = false, onCreated }: {
+  token: string;
+  canInviteAdministrator?: boolean;
+  onCreated: (name: string, delivery: AccessLinkDelivery) => void;
+}) {
   const { showFeedback } = useFeedback();
   const [term, setTerm] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [person, setPerson] = useState<Person | null>(null);
   const [searched, setSearched] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<BuiltinRole>("MEMBRO");
+  const [selectedRole, setRole] = useState<BuiltinRole>("MEMBRO");
+  const availableRoles = accessInviteRoles(canInviteAdministrator);
+  const role = availableRoles.includes(selectedRole) ? selectedRole : "MEMBRO";
+  const isChurchAdministrator = role === "PLATFORM_ADMIN";
+  const roleLabel = (value: BuiltinRole) => value === "PLATFORM_ADMIN"
+    ? "Administrador da igreja"
+    : PERSONA_LABELS[value];
   const [ministryId, setMinistryId] = useState("");
   const [ministries, setMinistries] = useState<MinistryNavItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -182,9 +196,9 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
     setBusy(true);
     try {
       if (!(await confirm({
-        title: "Criar acesso para esta pessoa?",
+        title: isChurchAdministrator ? "Convidar para a administração da igreja?" : "Criar acesso para esta pessoa?",
         subject: person.displayName,
-        description: "A conta terá o perfil " + PERSONA_LABELS[role] + " nesta congregação. Um convite será enviado ao e-mail cadastrado para que a pessoa escolha a própria senha.",
+        description: "A conta terá o perfil " + roleLabel(role) + " nesta congregação. Um convite será enviado ao e-mail cadastrado para que a pessoa escolha a própria senha.",
         action: "Criar acesso",
       }))) return;
       const result = await apiPost<{ invite: AccessLinkDelivery }>("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
@@ -215,8 +229,9 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
           <div className={s.chosen}><strong>{person.displayName}</strong><button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => setPerson(null)}>Trocar pessoa</button></div>
           <label>E-mail cadastrado<input type="email" autoComplete="off" value={email} readOnly required/><small>Para alterar o destinatário, atualize o e-mail da ficha na Secretaria.</small></label>
           <label>Perfil<select value={role} onChange={event => void pickRole(event.target.value as BuiltinRole)}>
-            {BUILTIN_ROLES.filter(value => value !== "PLATFORM_ADMIN").map(value => <option key={value} value={value}>{PERSONA_LABELS[value]}</option>)}
+            {availableRoles.map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}
           </select></label>
+          {isChurchAdministrator && <p className={s.inviteInfo}>Este perfil administra os acessos e as rotinas desta congregação.</p>}
           {role === "LIDER_MINISTERIO" && <label>Ministério<select value={ministryId} onChange={event => setMinistryId(event.target.value)} required>
             <option value="">Selecione</option>{ministries.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select></label>}

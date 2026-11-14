@@ -1,4 +1,5 @@
-import { ApiRequestError, apiGet, apiPost, getApiBaseUrl } from "../../lib/api";
+import { isOpaqueCredentialToken } from "@idbrf/shared";
+import { ApiRequestError, apiGet, apiGetPublic, apiPost, getApiBaseUrl } from "../../lib/api";
 import type { CredentialCard, QrCheck } from "./credential-model";
 import { interpretQr } from "./credential-model";
 
@@ -22,11 +23,13 @@ export function revokeCredential(token: string, credentialId: string): Promise<C
 }
 
 export async function verifyCredentialQr(qrPayload: string): Promise<QrCheck> {
-  const data = await apiGet<{ status: string; valid?: boolean }>(
+  if (!isOpaqueCredentialToken(qrPayload)) return interpretQr("");
+  const data = await apiGetPublic<{ status: string; valid?: boolean }>(
     `/credentials/verify/${encodeURIComponent(qrPayload)}`,
-    "",
   );
-  return interpretQr(data.status, data.valid);
+  if (data.status === "ACTIVE" && data.valid === true) return interpretQr("ACTIVE");
+  if (data.status === "REVOKED" && data.valid === false) return interpretQr("REVOKED");
+  return interpretQr("");
 }
 
 /** Gera o PDF na API e só então baixa os bytes. Falha de storage permanece erro. */

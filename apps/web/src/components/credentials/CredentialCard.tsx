@@ -1,10 +1,13 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { credentialScanUrl } from "../../lib/credential-scan";
 import { withBasePath } from "../../lib/paths";
 import { PersonPortrait } from "../PersonPortrait";
 import {
   credentialStatusLabel,
   formatCredentialDate,
   registrationLabel,
-  safeQrSvg,
   type CredentialCard,
   type QrCheck,
 } from "./credential-model";
@@ -18,7 +21,26 @@ export function CredentialFaces({
   verification: QrCheck | null;
 }) {
   const revoked = card.status === "REVOKED" || verification?.state === "revoked";
-  const qr = safeQrSvg(card.qrSvg);
+  const [scanQr, setScanQr] = useState<{ token: string; image: string } | null>(null);
+
+  useEffect(() => {
+    const scanUrl = credentialScanUrl(window.location.origin, card.qrPayload);
+    if (!scanUrl) {
+      setScanQr({ token: card.qrPayload, image: "" });
+      return;
+    }
+    let live = true;
+    void import("qrcode").then(qr => qr.toDataURL(scanUrl, {
+      errorCorrectionLevel: "M", margin: 4, width: 352,
+    })).then(image => {
+      if (live) setScanQr({ token: card.qrPayload, image });
+    }).catch(() => {
+      if (live) setScanQr({ token: card.qrPayload, image: "" });
+    });
+    return () => { live = false; };
+  }, [card.qrPayload]);
+
+  const qr = scanQr?.token === card.qrPayload ? scanQr.image : null;
   const ministry = card.ministryName?.trim();
   return (
     <div className={s.faces}>
@@ -67,15 +89,9 @@ export function CredentialFaces({
         </header>
         <div className={s.qrBlock}>
           {qr ? (
-            <div
-              className={s.qr}
-              role="img"
-              aria-label="QR de verificação da credencial"
-              dangerouslySetInnerHTML={{ __html: qr }}
-            />
-          ) : (
-            <p className={s.qrMissing}>QR indisponível nesta resposta.</p>
-          )}
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className={s.qr} src={qr} width={176} height={176} alt="QR de verificação da credencial" />
+          ) : <p className={s.qrMissing}>{qr === "" ? "QR indisponível." : "Preparando QR…"}</p>}
           {revoked ? <span className={s.stamp}>Revogada</span> : null}
         </div>
         <p className={s.qrHint}>

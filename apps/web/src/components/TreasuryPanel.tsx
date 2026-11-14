@@ -1,7 +1,7 @@
 "use client";
 
 import { isAdminEnabled } from "../lib/admin-environment";
-import { UIIcon, usePersonaAccess } from "./AppShell";
+import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
@@ -426,6 +426,7 @@ export function TreasuryPanel() {
       <PageHeader appearance="workspace" heading="h1" title="Tesouraria"
         description={isSample ? "Dados de teste de novembro de 2026" : undefined}
         actions={canCreateExpense && view !== "lancar" ? <>
+          {canWrite && <AppNavLink className={ui.workspaceSecondary} href="/app/eventos-gestao/">Pix de eventos</AppNavLink>}
           {canWrite && <button type="button" className={ui.workspaceSecondary} onClick={() => openMovement("pix")}>Novo lançamento</button>}
           <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
             <UIIcon name="plus" size={17} /> Incluir despesa

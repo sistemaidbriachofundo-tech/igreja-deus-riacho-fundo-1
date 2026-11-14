@@ -2,9 +2,16 @@ import {
   generateOpaqueCredentialToken,
   containsSensitiveCredentialPayload,
 } from "@idbrf/shared";
-import { renderCredentialPdf } from "./credential-pdf.renderer";
+import { credentialPdfQrPayload, renderCredentialPdf } from "./credential-pdf.renderer";
 
 describe("renderCredentialPdf", () => {
+  it("monta URL escaneável usando o prefixo web e um fragmento opaco", () => {
+    const token = generateOpaqueCredentialToken();
+    expect(credentialPdfQrPayload(token, "https://dev.example.test/igreja"))
+      .toBe(`https://dev.example.test/igreja/validar-carteirinha/#${token}`);
+    expect(() => credentialPdfQrPayload(token, "http://dev.example.test")).toThrow();
+  });
+
   it("produces a real PDF with %PDF header and opaque QR only", async () => {
     const opaqueToken = generateOpaqueCredentialToken();
     const pdf = await renderCredentialPdf({

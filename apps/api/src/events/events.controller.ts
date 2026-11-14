@@ -22,6 +22,9 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
+import { ReceivingAccountService } from "../finance/receiving-account.service";
+import { ReportsService } from "../reports/reports.service";
+import { EventChurchPaymentService } from "./event-church-payment.service";
 import { EventRegistrationsService } from "./event-registrations.service";
 import { EventsService } from "./events.service";
 import {
@@ -189,6 +192,21 @@ class CreateLotBody {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  receivingAccountId?: string | null;
+}
+
+class EventCheckInBody {
+  @IsString()
+  @MinLength(8)
+  checkInCode!: string;
+}
+
+class ReconcileChurchPaymentBody {
+  @IsBoolean()
+  bankCreditConfirmed!: boolean;
 }
 
 class CheckInBody {
@@ -222,6 +240,9 @@ export class EventsController {
   constructor(
     private readonly events: EventsService,
     private readonly registrations: EventRegistrationsService,
+    private readonly reports: ReportsService,
+    private readonly churchPayments: EventChurchPaymentService,
+    private readonly receivingAccounts: ReceivingAccountService,
   ) {}
 
   @Roles(...EVENT_STAFF)
@@ -234,6 +255,50 @@ export class EventsController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.events.list(user);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA)
+  @Get("conciliacao")
+  treasuryEvents(@CurrentUser() user: AuthUser) {
+    return this.churchPayments.eventsForTreasury(user);
+  }
+
+  @Roles(...EVENT_STAFF, ROLE_CODES.TESOURARIA)
+  @Get("receiving-accounts")
+  receivingAccountsList(@CurrentUser() user: AuthUser) {
+    return this.receivingAccounts.listForEvents(user);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA)
+  @Get(":eventId/pix-pendentes")
+  pendingPix(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.churchPayments.pending(user, eventId);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA)
+  @Post("payments/:paymentIntentId/reconcile")
+  reconcile(
+    @CurrentUser() user: AuthUser,
+    @Param("paymentIntentId") paymentIntentId: string,
+    @Body() body: ReconcileChurchPaymentBody,
+  ) {
+    return this.churchPayments.reconcile(user, paymentIntentId, body.bankCreditConfirmed);
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Get(":eventId/attendance")
+  attendance(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.reports.participation(user, { eventId });
+  }
+
+  @Roles(...EVENT_STAFF)
+  @Post(":eventId/check-in")
+  checkInOnEvent(
+    @CurrentUser() user: AuthUser,
+    @Param("eventId") eventId: string,
+    @Body() body: EventCheckInBody,
+  ) {
+    return this.registrations.checkInOnEvent(user, eventId, body.checkInCode);
   }
 
   @Roles(...EVENT_STAFF)
