@@ -17,6 +17,10 @@ import {
   type RosterView,
   type ServingSurfaceId,
 } from "../../lib/serving-rosters";
+import { ConnectionJourney } from "./ConnectionJourney";
+import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
+import { RosterNotifications } from "./RosterNotifications";
+import { GroupRequests } from "../GroupRequests";
 import { MemberSpace } from "./MemberSpace";
 import { MinistryRosterDesk } from "./MinistryRosterDesk";
 import { ServingFrame } from "./ServingFrame";
@@ -64,16 +68,17 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
       return;
     }
     let cancelled = false;
-    setPhase("loading");
+    setPhase(current => current === "ready" && surface === "membro" ? current : "loading");
     void (async () => {
       try {
-        const me = await apiGet<LoginResult["user"]>("/auth/me", stored);
+        const profile = apiGet<LoginResult["user"]>("/auth/me", stored);
+        const [me, agendaBody] = surface === "membro"
+          ? await Promise.all([profile, apiGet<unknown>("/rosters/me", stored)])
+          : [await profile, null];
         if (cancelled) return;
         setScopeDenied(false);
         if (surface === "membro") {
-          const body = await apiGet<unknown>("/rosters/me", stored);
-          if (cancelled) return;
-          const parsed = parseMyAgenda(body);
+          const parsed = parseMyAgenda(agendaBody);
           if (parsed.personId !== me.personId) {
             throw new Error("Formato inesperado: a agenda não é da pessoa autenticada.");
           }
@@ -152,8 +157,16 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
     setNotice("");
     try {
       await action();
+      if (surface === "membro") {
+        const parsed = parseMyAgenda(await apiGet<unknown>("/rosters/me", token));
+        if (parsed.personId !== user?.personId) {
+          throw new Error("A sessão mudou. Abra a agenda novamente.");
+        }
+        setAgenda(parsed.assignments);
+      } else {
+        setReload((value) => value + 1);
+      }
       setNotice(success);
-      setReload((value) => value + 1);
     } catch (error) {
       setNotice(servingError(error));
     } finally {
@@ -187,6 +200,9 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
         </p>
       )}
       {phase === "ready" && user && surface === "membro" && (
+        <>
+          <MonthlyServiceSurvey token={token} />
+          <RosterNotifications token={token} onAccepted={() => setReload(value => value + 1)} />
         <MemberSpace
           assignments={agenda}
           busy={busy}
@@ -204,6 +220,9 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
             )
           }
         />
+        <ConnectionJourney />
+        <GroupRequests token={token} />
+        </>
       )}
       {phase === "ready" && user && surface !== "membro" && scopeDenied && (
         <section className={styles.blocked} role="alert" data-scope="forbidden">

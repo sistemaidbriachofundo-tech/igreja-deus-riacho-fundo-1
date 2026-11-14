@@ -475,7 +475,7 @@ components:
         modality:
           type: string
           nullable: true
-          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO, ACLAMACAO]
         currentStep:
           type: string
           enum: [modality, documents, secretaria, pastor]
@@ -495,7 +495,7 @@ components:
         householdId: { type: string }
         modality:
           type: string
-          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO, ACLAMACAO]
         notes: { type: string }
     AdvanceAdmissionRequest:
       type: object
@@ -506,7 +506,7 @@ components:
           enum: [modality, documents, secretaria, pastor]
         modality:
           type: string
-          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO, ACLAMACAO]
         notes: { type: string }
         decision:
           type: string

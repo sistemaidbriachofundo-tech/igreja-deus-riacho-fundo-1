@@ -30,6 +30,7 @@ export function AccessDirectory() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -72,12 +73,12 @@ export function AccessDirectory() {
     let current = true;
     setLoading(true);
     setError("");
-    void apiGet<AccountPage>("/admin/access?" + new URLSearchParams({ q: filter, page: String(page) }), token)
+    void apiGet<AccountPage>("/admin/access?" + new URLSearchParams({ q: filter, page: String(page), status }), token)
       .then(result => { if (current) setAccounts(result); })
       .catch(error => { if (current) { setAccounts(null); setError(dasError(error)); } })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [token, filter, page, revision]);
+  }, [token, filter, page, revision, status]);
 
   return (
     <section className={s.directory}>
@@ -87,12 +88,12 @@ export function AccessDirectory() {
         {" · "}
         <button type="button" className={s.resend} onClick={() => setPreviewUrl("")}>Ocultar</button>
       </p>}
-      <PageHeader appearance="workspace" heading="h1" title="Acessos" description="Libere o acesso de pessoas já cadastradas. A pessoa recebe um link de ativação e define sua própria senha." />
-      <div className={s.actions}>
-        <button type="button" className={ui.workspacePrimary} aria-expanded={creating} disabled={!token} onClick={() => setCreating(value => !value)}>
+      <PageHeader appearance="workspace" heading="h1" title="Acessos"
+        description="Envie convites e acompanhe a ativação das contas."
+        actions={<button type="button" className={ui.workspacePrimary} aria-expanded={creating} disabled={!token} onClick={() => setCreating(value => !value)}>
           <UIIcon name="shield" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
-        </button>
-      </div>
+        </button>}
+      />
       {creating && token && <AccessForm token={token} canInviteAdministrator={accounts?.canInviteAdministrator === true} onCreated={(name, delivery) => {
         setCreating(false);
         setPreviewUrl(delivery.previewUrl ?? "");
@@ -104,10 +105,13 @@ export function AccessDirectory() {
       <div className={s.panel}>
         <form className={s.filter} onSubmit={event => { event.preventDefault(); setPage(1); setFilter(search.trim()); }}>
           <label>Buscar conta<input type="search" maxLength={100} placeholder="Nome ou e-mail" value={search} onChange={event => setSearch(event.target.value)} /></label>
+          <label>Situação<select value={status} onChange={event => { setPage(1); setStatus(event.target.value); }}>
+            <option value="">Todas</option><option value="ACTIVE">Ativas</option><option value="DISABLED">Sem acesso ativo</option>
+          </select></label>
           <button className={ui.workspaceSecondary} type="submit"><UIIcon name="search" size={16} /> Buscar</button>
         </form>
         {loading && <p role="status">Consultando contas…</p>}
-        {error && <p className={s.error} role="alert">{error}</p>}
+        {error && <p className={s.error} role="alert">{error} <button className={s.resend} type="button" onClick={() => setRevision(value => value + 1)}>Tentar novamente</button></p>}
         {!loading && accounts?.accounts.length === 0 && <p>Nenhuma conta encontrada.</p>}
         {!loading && Boolean(accounts?.accounts.length) && (
           <ul className={s.list} aria-label="Contas da congregação">

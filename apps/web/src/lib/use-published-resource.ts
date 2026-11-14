@@ -9,8 +9,8 @@ export type PublishedState<T> =
   | { status:"unavailable"; data:null };
 
 /** No published records are manufactured if a public API is unavailable. */
-export function usePublishedResource<T>(path:string, parser:(value:unknown)=>T|null): PublishedState<T> {
-  const active = process.env.NEXT_PUBLIC_PORTAL_LIVE_ENABLED === "true" && Boolean(publicApiBase(process.env.NEXT_PUBLIC_API_URL));
+export function usePublishedResource<T>(path:string, parser:(value:unknown)=>T|null, enabled = true): PublishedState<T> {
+  const active = enabled && process.env.NEXT_PUBLIC_PORTAL_LIVE_ENABLED === "true" && Boolean(publicApiBase(process.env.NEXT_PUBLIC_API_URL));
   const [state, setState] = useState<PublishedState<T>>(active ? { status:"loading", data:null } : { status:"unavailable", data:null });
   useEffect(() => {
     if (!active) { setState({ status:"unavailable", data:null }); return; }

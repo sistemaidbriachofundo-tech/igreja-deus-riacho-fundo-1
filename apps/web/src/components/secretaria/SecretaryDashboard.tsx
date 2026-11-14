@@ -148,16 +148,14 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
   return <div className={s.dashboard} aria-busy={loading} data-secretary-dashboard="v2">
     <section className={s.hero} aria-labelledby="secretary-panorama-title">
       <div className={s.heroCopy}>
-        <span className={s.kicker}><i aria-hidden="true"/> SECRETARIA · RIA­CHO FUNDO I</span>
-        <h2 id="secretary-panorama-title">Cada pessoa conta.<br/><em>Cada história importa.</em></h2>
-        <p>Uma visão da comunidade para acompanhar vínculos, celebrar histórias e tomar decisões com cuidado.</p>
+        <h2 id="secretary-panorama-title">Panorama da <em>congregação</em></h2>
+        <p>Acompanhe cadastros, admissões e movimentações de membros.</p>
         <div className={s.heroActions}>
           <AppNavLink href="/app/secretaria/pessoas/">Consultar fichas <UIIcon name="arrow" size={16}/></AppNavLink>
-          <AppNavLink href="/app/secretaria/indicadores/">Indicadores detalhados <UIIcon name="arrow" size={16}/></AppNavLink>
+          <AppNavLink href="/app/secretaria/admissoes/">Ver admissões <UIIcon name="arrow" size={16}/></AppNavLink>
         </div>
       </div>
       <div className={s.heroAside} aria-label="Informações do painel">
-        <span className={s.heroAsideLabel}>PANORAMA DA COMUNIDADE</span>
         <strong>{counts.format(overview.total)}</strong>
         <span>Pessoas cadastradas</span>
         <div className={s.heroMeta}><UIIcon name="calendar" size={15}/> Dados até {updatedLabel}</div>
@@ -169,7 +167,6 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
     </Alert>}
 
     <section className={s.summary} aria-label="Indicadores principais">
-      <SummaryCard tone="featured" label="Pessoas cadastradas" number={overview.total} detail="Registros da congregação" icon="people"/>
       <SummaryCard tone="green" label="Membros" number={overview.byCategory.membros} detail="Vínculos registrados" icon="check"/>
       <SummaryCard tone="neutral" label="Famílias cadastradas" number={households} detail="Núcleos familiares" icon="family"/>
       <SummaryCard tone="gold" label="Em admissão" number={overview.byCategory.em_admissao} detail="Pessoas em acompanhamento" icon="clock"/>

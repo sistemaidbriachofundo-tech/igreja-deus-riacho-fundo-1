@@ -1,0 +1,18 @@
+.journey {
+  scroll-margin-top: 100px;
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid #d9e5dd;
+  border-radius: 14px;
+  background: #fff;
+  color: #1c392c;
+}
+.journey header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+.journey h2 { margin: 0; font: 700 clamp(1.15rem, 3vw, 1.5rem)/1.2 Montserrat, Inter, sans-serif; }
+.journey p { margin: 10px 0 0; line-height: 1.55; }
+.journey a, .journey button { color: #235541; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.current { display: grid; gap: 4px; margin: 14px 0 0; padding: 12px; border-left: 3px solid #e76631; background: #faf1e8; overflow-wrap: anywhere; }
+.current > span { font-size: .78rem; font-weight: 750; color: #844021; }
+.current p { margin: 0; }
+.journey ol { margin: 14px 0 0; padding-left: 23px; }
+.journey li { padding: 9px 0; border-bottom: 1px solid #dde8df; }
+.journey li span { display: block; margin-top: 3px; font-size: .85rem; }

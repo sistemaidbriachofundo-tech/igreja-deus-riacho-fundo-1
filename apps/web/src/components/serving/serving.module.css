@@ -158,8 +158,26 @@
   gap: 0.9rem;
 }
 
-.agenda .roster {
-  padding: 0.9rem 1rem;
+.memberAgenda { border-block: 1px solid var(--color-line); padding-block: 1rem; }
+.memberAgenda > header h2 { margin: 0; font-family: var(--font-title); font-size: 1.35rem; }
+.memberAgenda .agenda { gap: 0; }
+.agendaItem { min-width: 0; padding-block: 1rem; }
+.agendaItem + .agendaItem { border-top: 1px solid var(--color-line); }
+.agendaItem .rosterHeader { align-items: flex-start; }
+.agendaItem h3 { margin: 0 0 0.2rem; font: 700 1.08rem var(--font-title); }
+.agendaTime { display: flex; align-items: center; gap: 0.45rem; color: #3d5f50; margin: 0.6rem 0 0; font-size: 0.9rem; }
+.agendaItem .actions { justify-content: flex-start; margin-top: 0.8rem; }
+.agendaItem .primary { background: #204738; color: white; }
+.agendaDecline { min-height: 2.75rem; padding-inline: 0.8rem; border: 1px solid #d0b8b1; border-radius: var(--radius-sm); color: #7c3a30; background: transparent; font: inherit; font-size: 0.92rem; font-weight: 650; cursor: pointer; }
+.agendaDecline:focus-visible { outline: 3px solid var(--color-dourado); outline-offset: 2px; }
+.agendaDecline:disabled { opacity: 0.55; cursor: not-allowed; }
+.agendaItem .badge { background: #e8eeea; color: #385244; }
+.agendaItem .badge[data-status="PENDING"] { background: #f8e9cb; color: #66430f; }
+.agendaItem .badge[data-status="CONFIRMED"] { background: #dceee1; color: #20523a; }
+.agendaItem .badge[data-status="DECLINED"] { background: #f6e4df; color: #813d31; }
+@media (max-width: 480px) {
+  .agendaItem .rosterHeader { display: grid; justify-items: start; }
+  .agendaItem .actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 }
 
 .rosterHeader,

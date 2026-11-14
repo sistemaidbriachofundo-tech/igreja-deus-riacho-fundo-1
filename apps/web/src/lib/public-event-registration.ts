@@ -83,6 +83,17 @@ export function availableEventLots(lots: Lot[], modalityId: string, partySize: n
     (lot.remaining === null || lot.remaining >= partySize));
 }
 
+export function eventRegistrationChoices(catalog: Catalog) {
+  const hasRoom = (choice: Choice, count: number) => choice.remaining === null || choice.remaining >= count;
+  return catalog.modalities.filter(modality => {
+    const size = modality.minPartySize;
+    return hasRoom(modality, size)
+      && availableEventLots(catalog.lots, modality.id, size).length > 0
+      && [catalog.lodgingOptions, catalog.mealOptions, catalog.transportOptions].every(list =>
+        !list.length || list.some(choice => hasRoom(choice, size)));
+  });
+}
+
 export async function loadEventRegistration(slug: string) {
   if (!validEventSlug(slug)) return null;
   return parseRegistrationCatalog(await apiGetPublic<unknown>("/public/events/" + slug));

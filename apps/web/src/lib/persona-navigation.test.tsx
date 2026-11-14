@@ -305,6 +305,19 @@ describe("grupo Ministérios e ferramentas", () => {
     expect(entries.filter(entry => entry.href === "/app/ministerios/?ministry=m-louvor")).toHaveLength(1);
   });
 
+  it("oferece Escalas como submenu do Atmosfera autorizado", () => {
+    const areas = areasForRoles(["LIDER_MINISTERIO"]);
+    const entries = ministrySubmenu(areas, [
+      { id: "m-atm", name: "Atmosfera", slug: "atmosfera" },
+      { id: "m-louvor", name: "Louvor", slug: "louvor" },
+    ]);
+    expect(entries.find(entry => entry.label === "Atmosfera")?.scales).toEqual({
+      ministryId: "m-atm",
+      href: "/app/ministerios/?ministry=m-atm&aba=escalas",
+    });
+    expect(entries.find(entry => entry.label === "Louvor")?.scales).toBeUndefined();
+  });
+
   it.each(BUILTIN_ROLES)("decide o grupo de ministérios e o canal conforme o papel %s", role => {
     const allowed = (MINISTRY_ROLES as readonly string[]).includes(role);
     expect(canListMinistries([role])).toBe(allowed);

@@ -16,7 +16,7 @@ export const ACCESS_POLICY_MODE_ENV = "ACCESS_POLICY_MODE" as const;
 export const ACCESS_RESOURCES = [
   "persons",
   "pastoral",
-  "ledger",
+  "ledger", "expense_attachments",
   "ministries",
   "cms",
   "admin",
@@ -153,6 +153,7 @@ export const ACCESS_MATRIX: readonly AccessRule[] = [
   ...rule("pastoral", "approve", "church", [ROLE_CODES.PASTOR]),
   ...rule("pastoral", "approve", "church", [ROLE_CODES.PLATFORM_ADMIN], true),
 
+  ...rule("expense_attachments", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN]),
   ...rule("ledger", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN]),
   ...rule("ledger", "write", "church", [ROLE_CODES.TESOURARIA]),
   // Aprovação de despesas: serviço valida a sequência tesoureiro → pastor e impede acesso a outros lançamentos.

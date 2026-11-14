@@ -81,6 +81,7 @@ const statusLabels: Record<string, string> = {
   BATISMO: "Batismo",
   TRANSFERENCIA: "Transferência",
   RECONCILIACAO: "Reconciliação",
+  ACLAMACAO: "Aclamação",
   OUTRO: "Outro",
 };
 
@@ -587,10 +588,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             {error && <Alert appearance="workspace" tone="danger" title={error} />}
             {view === "secretary" && staff && (
               <nav className={`${ui.workspaceTabs} ${s.secretaryTabs}`} aria-label="Áreas da secretaria">
-                {secretary && <AppNavLink aria-current={secretarySection === "resumo" ? "page" : undefined} href="/app/secretaria/">Visão geral</AppNavLink>}
-                {secretary && <AppNavLink aria-current={secretarySection === "pessoas" ? "page" : undefined} href="/app/secretaria/pessoas/">Pessoas</AppNavLink>}
-                <AppNavLink aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} href="/app/secretaria/admissoes/">Admissões</AppNavLink>
-                {secretary && <AppNavLink href="/app/membros/carteirinha/">Carteirinhas</AppNavLink>}
+                {secretary && <AppNavLink aria-current={secretarySection === "resumo" ? "page" : undefined} href="/app/secretaria/"><UIIcon name="grid" size={17} />Visão geral</AppNavLink>}
+                {secretary && <AppNavLink aria-current={secretarySection === "pessoas" ? "page" : undefined} href="/app/secretaria/pessoas/"><UIIcon name="people" size={17} />Pessoas</AppNavLink>}
+                <AppNavLink aria-current={!secretary || secretarySection === "admissoes" ? "page" : undefined} href="/app/secretaria/admissoes/"><UIIcon name="layers" size={17} />Admissões</AppNavLink>
+                {secretary && <AppNavLink href="/app/membros/carteirinha/"><UIIcon name="badge" size={17} />Carteirinhas</AppNavLink>}
               </nav>
             )}
             {view === "overview" && <PersonaBoard />}
@@ -640,10 +641,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                   </div>
 
                   {secretary && <div className={s.peopleFilters}>
-                    <div className={s.viewFilter} role="group" aria-label="Situação das pessoas">
+                    <div className={ui.workspaceChoices} role="group" aria-label="Situação das pessoas">
                       {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"], ["TRANSFERRED", "Transferidos"]].map(([status, title]) =>
                         <button key={status} type="button" aria-pressed={membershipStatus === status}
-                          onClick={() => { setMembershipStatus(status); setListPage(0); }}>{title}</button>
+                          onClick={() => { setMembershipStatus(status); setListPage(0); }}><UIIcon name={status === "ACTIVE" ? "check" : status === "PENDING_ADMISSION" ? "clock" : status === "TRANSFERRED" ? "arrow" : status === "INACTIVE" ? "close" : "people"} size={15} />{title}</button>
                       )}
                     </div>
                     <label className={s.familySelect}>Família
@@ -702,10 +703,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <div className={s.panelHeadingCopy}><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Processos da secretaria"}</span></div>
                     <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
-                  <div className={s.viewFilter} role="group" aria-label="Filtrar protocolos">
+                  <div className={ui.workspaceChoices} role="group" aria-label="Filtrar protocolos">
                     {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href="/app/secretaria/admissoes/">Limpar seleção</AppNavLink>}
-                    <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}>Em andamento</button>
-                    <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}>Todos</button>
+                    <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}><UIIcon name="clock" size={15} />Em andamento</button>
+                    <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}><UIIcon name="layers" size={15} />Todos</button>
                   </div>
                   {!staff ? <p className={s.empty}>Seu perfil não consulta os processos.</p> : !loadedGroups.admissions ? (
                     <p className={s.empty} role="status">{checking ? "Carregando admissões…" : "Não foi possível carregar as admissões. Use Atualizar para tentar novamente."}</p>
@@ -762,6 +763,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                           <option value="BATISMO">Batismo</option>
                           <option value="TRANSFERENCIA">Transferência</option>
                           <option value="RECONCILIACAO">Reconciliação</option>
+                          <option value="ACLAMACAO">Aclamação</option>
                           <option value="OUTRO">Outro</option>
                         </select>
                       </label>

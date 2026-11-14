@@ -70,3 +70,12 @@
 @media (max-width: 440px) {
   .itemBottom button { width: 100%; }
 }
+
+.item[data-target="true"] { border-color: #b76633; box-shadow: 0 0 0 2px #f5e4d8; }
+.receipts { display: grid; justify-items: start; gap: 8px; }
+.receipts button { border: 1px solid #cadbd0; background: #fff; border-radius: 8px; padding: 8px 10px; color: #1c5039; cursor: pointer; overflow-wrap: anywhere; }
+
+.itemActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.itemActions button:first-child { color: #28513d; background: #fff; border-color: #bbd0c2; }
+.reason { display: grid; gap: 6px; margin-top: 12px; }
+.reason textarea { border: 1px solid #bbd0c2; border-radius: 8px; padding: 8px; min-height: 65px; font: inherit; }

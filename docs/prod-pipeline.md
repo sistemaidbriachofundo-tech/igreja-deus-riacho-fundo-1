@@ -72,8 +72,10 @@ PR → production
 5. Baixar artefato `production-candidate-<sha>`.
 6. Preencher `deploy/prod/secrets-checklist.md` na VPS (sem colar secrets no chat).
 7. Deploy controlado (Docker/Traefik) **sem** apontar apex até smoke interno OK.
-8. Rodar `npm run release:preflight` com as três env vars de origem/SHA.
+8. Publicar `web-out/` do mesmo candidato e rodar `npm run release:preflight` com `IDBRF_PRODUCTION_WEB_ORIGIN`, `IDBRF_PRODUCTION_API_ORIGIN` e `IDBRF_PRODUCTION_API_SHA`. A checagem confirma o formulário de login e identifica o mesmo SHA no portal e na API.
 9. Só então DNS / CDN — com autorização explícita.
+
+Para reconstruir o portal do commit do candidato, use `npm run build:production -w @idbrf/web`. Publique o conteúdo de `apps/web/out/` junto com o `release.json` gerado pelo comando.
 
 ## O que este trilho NÃO faz
 

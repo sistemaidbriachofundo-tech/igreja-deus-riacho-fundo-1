@@ -1,13 +1,17 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canLeadMinistry } from "@idbrf/shared";
+import { canLeadMinistry, grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { BusinessException } from "../common/business.exception";
+import { baptismWaived, CONNECTION_STAGES, isConnectionTrack } from "./connection-rules";
 
 const ENROLLMENT_STATUSES = [
   "ACTIVE",
@@ -22,6 +26,13 @@ const PROGRESS_KINDS = ["STARTED", "COMPLETED", "REOPENED"] as const;
 type ProgressKind = (typeof PROGRESS_KINDS)[number];
 
 const MAX_PROGRESS_NOTE = 280;
+
+function congregationPeople(organizationId: string, churchId: string): Prisma.PersonWhereInput {
+  return {
+    organizationId,
+    OR: [{ homeChurchId: churchId }, { memberships: { some: { churchId, status: { in: ["ACTIVE", "PENDING_ADMISSION"] } } } }],
+  };
+}
 
 @Injectable()
 export class DiscipleshipService {
@@ -84,6 +95,23 @@ export class DiscipleshipService {
     };
   }
 
+  async searchPeople(actor: AuthUser, search: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const query = search.trim().slice(0, 100);
+    if (query.length < 2) return { people: [] };
+    const people = await this.prisma.person.findMany({
+      where: {
+        ...congregationPeople(pilot.organizationId, pilot.churchId),
+        status: "ACTIVE", displayName: { contains: query, mode: "insensitive" },
+      },
+      orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      select: { id: true, displayName: true },
+      take: 15,
+    });
+    return { people };
+  }
+
   async createStage(
     actor: AuthUser,
     trackId: string,
@@ -140,6 +168,27 @@ export class DiscipleshipService {
     });
   }
 
+  async editStage(actor: AuthUser, trackId: string, stageId: string, input: { title: string; description: string }) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const track = await this.requireTrack(trackId, pilot);
+    const title = input.title.trim();
+    if (!title) throw new BadRequestException("Informe o nome da etapa.");
+    return this.prisma.$transaction(async tx => {
+      const updated = await tx.discipleshipTrackStage.updateMany({
+        where: { id: stageId, trackId: track.id },
+        data: { title, description: input.description.trim() || null },
+      });
+      if (!updated.count) throw new NotFoundException("Etapa não encontrada nesta trilha.");
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "discipleship.stage.update", resourceType: "discipleship_track_stage",
+        resourceId: stageId, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { trackId, title },
+      } });
+      return this.toStageDto(await tx.discipleshipTrackStage.findUniqueOrThrow({ where: { id: stageId } }));
+    });
+  }
+
   async listStages(actor: AuthUser, trackId: string) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
@@ -172,7 +221,8 @@ export class DiscipleshipService {
     const person = await this.prisma.person.findFirst({
       where: {
         id: input.personId,
-        organizationId: pilot.organizationId,
+        ...congregationPeople(pilot.organizationId, pilot.churchId),
+        status: "ACTIVE",
       },
       select: { id: true },
     });
@@ -180,18 +230,7 @@ export class DiscipleshipService {
       throw new BadRequestException("Pessoa não encontrada neste escopo");
     }
 
-    if (input.mentorPersonId) {
-      const mentor = await this.prisma.person.findFirst({
-        where: {
-          id: input.mentorPersonId,
-          organizationId: pilot.organizationId,
-        },
-        select: { id: true },
-      });
-      if (!mentor) {
-        throw new BadRequestException("Mentor não encontrado neste escopo");
-      }
-    }
+    if (input.mentorPersonId) await this.requireMentor(input.mentorPersonId, person.id, pilot);
 
     return this.prisma.$transaction(async (tx) => {
       const enrollment = await tx.discipleshipEnrollment.create({
@@ -213,6 +252,11 @@ export class DiscipleshipService {
         },
       });
       return this.toEnrollmentDto(enrollment);
+    }).catch((error: unknown) => {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        throw new ConflictException("Esta pessoa já está matriculada na trilha.");
+      }
+      throw error;
     });
   }
 
@@ -237,13 +281,35 @@ export class DiscipleshipService {
           churchId: pilot.churchId,
         },
       },
+      include: { person: { select: { displayName: true } }, mentor: { select: { displayName: true } } },
       orderBy: { startedAt: "desc" },
     });
 
     return {
       churchId: pilot.churchId,
-      enrollments: rows.map((row) => this.toEnrollmentDto(row)),
+      enrollments: rows.map((row) => ({
+        ...this.toEnrollmentDto(row), personName: row.person?.displayName ?? null, mentorName: row.mentor?.displayName ?? null,
+      })),
     };
+  }
+
+  async updateMentor(actor: AuthUser, enrollmentId: string, mentorPersonId: string | null) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const enrollment = await this.requireEnrollment(enrollmentId, pilot);
+    if (mentorPersonId !== null) await this.requireMentor(mentorPersonId, enrollment.personId, pilot);
+    if (enrollment.mentorPersonId === mentorPersonId) return this.toEnrollmentDto(enrollment);
+    return this.prisma.$transaction(async tx => {
+      const updated = await tx.discipleshipEnrollment.update({
+        where: { id: enrollment.id }, data: { mentorPersonId },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "discipleship.enrollment.mentor", resourceType: "discipleship_enrollment",
+        resourceId: enrollment.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { mentorAssigned: Boolean(mentorPersonId) },
+      } });
+      return this.toEnrollmentDto(updated);
+    });
   }
 
   async updateEnrollmentStatus(
@@ -257,9 +323,19 @@ export class DiscipleshipService {
     const next = this.requireEnrollmentStatus(status);
     const enrollment = await this.requireEnrollment(enrollmentId, pilot);
 
-    const completedAt = next === "COMPLETED" ? new Date() : null;
-
     return this.prisma.$transaction(async (tx) => {
+      const completedAt = next === "COMPLETED" ? new Date() : null;
+      if (isConnectionTrack(enrollment.track.name)) {
+        const current = await this.lockConnectionEnrollment(tx, enrollment.id);
+        if (next === "COMPLETED") {
+          const progress = await this.connectionProgress(tx, current, pilot);
+          this.requireOfficialStages(progress.configured);
+          if (progress.pending) {
+            throw new BusinessException("Conclua a etapa pendente: " + progress.pending.title + ".", "CONNECTION_STAGES_PENDING");
+          }
+          if (current.status === "COMPLETED" && current.completedAt) return this.toEnrollmentDto(current);
+        }
+      }
       const updated = await tx.discipleshipEnrollment.update({
         where: { id: enrollment.id },
         data: {
@@ -308,6 +384,27 @@ export class DiscipleshipService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (isConnectionTrack(enrollment.track.name)) {
+        const current = await this.lockConnectionEnrollment(tx, enrollment.id);
+        if (current.status !== "ACTIVE") {
+          throw new BusinessException("Coloque a matrícula em andamento para registrar progresso.", "CONNECTION_NOT_ACTIVE");
+        }
+        const progress = await this.connectionProgress(tx, current, pilot);
+        this.requireOfficialStages(progress.configured);
+        const target = progress.stages.find(item => item.id === stage.id);
+        if (!target || target.waived) {
+          throw new BusinessException("Esta etapa não se aplica ao percurso da pessoa.", "CONNECTION_STAGE_NOT_APPLICABLE");
+        }
+        if (kind !== "REOPENED" && progress.pending?.id !== stage.id) {
+          throw new BusinessException(
+            progress.pending ? "Registre primeiro a etapa " + progress.pending.title + "." : "Todas as etapas já foram registradas.",
+            "CONNECTION_STAGE_OUT_OF_ORDER",
+          );
+        }
+        if (kind === "REOPENED" && !target.completed) {
+          throw new BusinessException("Só é possível reabrir uma etapa concluída.", "CONNECTION_STAGE_NOT_COMPLETED");
+        }
+      }
       const event = await tx.discipleshipProgressEvent.create({
         data: {
           enrollmentId: enrollment.id,
@@ -336,6 +433,39 @@ export class DiscipleshipService {
     });
   }
 
+  async myConnectionJourney(actor: AuthUser) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const scope = { organizationId, churchId, roleCodes: Object.values(ROLE_CODES) };
+    if (!actor.personId || (actor.organizationId && actor.organizationId !== organizationId) ||
+        (actor.churchId && actor.churchId !== churchId) ||
+        !actor.grants.some(grant => grantMatchesScope(grant, scope))) throw new ForbiddenException();
+
+    const enrollments = await this.prisma.discipleshipEnrollment.findMany({
+      where: { personId: actor.personId, status: { not: "CANCELLED" }, track: { organizationId, churchId } },
+      orderBy: [{ startedAt: "desc" }, { id: "asc" }],
+      select: {
+        id: true, status: true, mentor: { select: { displayName: true } },
+        track: { select: { name: true, stages: { orderBy: { sortOrder: "asc" }, select: { id: true, code: true, title: true, description: true } } } },
+      },
+    });
+    const journey = enrollments.find(row => isConnectionTrack(row.track.name));
+    if (!journey) return { journey: null };
+
+    const track = await this.prisma.discipleshipProgressEvent.findMany({
+      where: { enrollmentId: journey.id }, orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      select: { stageId: true, kind: true },
+    });
+    const latest = new Map(track.map(event => [event.stageId, event.kind]));
+    const modality = journey.track.stages.some(stage => baptismWaived(stage.code, "TRANSFERENCIA"))
+      ? await this.approvedModality(this.prisma, actor.personId, { organizationId, churchId })
+      : null;
+    const stages = journey.track.stages.map(({ code, ...stage }) => ({
+      ...stage, completed: latest.get(stage.id) === "COMPLETED", waived: baptismWaived(code, modality),
+    }));
+    return { journey: { name: journey.track.name, status: journey.status, mentorName: journey.mentor?.displayName ?? null,
+      stages, currentStageId: journey.status === "COMPLETED" ? null : stages.find(stage => !stage.completed && !stage.waived)?.id ?? null } };
+  }
+
   async getProgress(actor: AuthUser, enrollmentId: string) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
@@ -347,7 +477,7 @@ export class DiscipleshipService {
     });
     const events = await this.prisma.discipleshipProgressEvent.findMany({
       where: { enrollmentId: enrollment.id },
-      orderBy: { recordedAt: "asc" },
+      orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
 
     const latestByStage = new Map<string, (typeof events)[number]>();
@@ -355,6 +485,10 @@ export class DiscipleshipService {
       latestByStage.set(event.stageId, event);
     }
 
+    const official = isConnectionTrack(enrollment.track.name);
+    const modality = official && stages.some(stage => baptismWaived(stage.code, "TRANSFERENCIA"))
+      ? await this.approvedModality(this.prisma, enrollment.personId, pilot)
+      : null;
     const stageSummaries = stages.map((stage) => {
       const latest = latestByStage.get(stage.id) ?? null;
       return {
@@ -362,23 +496,83 @@ export class DiscipleshipService {
         latestKind: latest?.kind ?? null,
         latestRecordedAt: latest?.recordedAt.toISOString() ?? null,
         completed: latest?.kind === "COMPLETED",
+        waived: baptismWaived(stage.code, modality),
       };
     });
 
-    const currentStage =
-      stageSummaries.find((s) => !s.completed) ??
-      stageSummaries[stageSummaries.length - 1] ??
-      null;
+    const pending = stageSummaries.find(stage => !stage.completed && !stage.waived);
+    const configured = !official || CONNECTION_STAGES.every(({ code }) => stages.some(stage => stage.code === code));
+    const currentStage = enrollment.status === "COMPLETED" ? null : pending;
 
     return {
       enrollment: this.toEnrollmentDto(enrollment),
       spiritualScoreExcluded: true as const,
       stages: stageSummaries,
       currentStageId: currentStage?.id ?? null,
+      ...(official ? { enforceOrder: true, canComplete: configured && !pending } : {}),
       completedStageCount: stageSummaries.filter((s) => s.completed).length,
       totalStageCount: stageSummaries.length,
       history: events.map((e) => this.toProgressEventDto(e)),
     };
+  }
+
+  private async lockConnectionEnrollment(tx: Prisma.TransactionClient, enrollmentId: string) {
+    await tx.$queryRaw`SELECT id FROM discipleship_enrollments WHERE id = ${enrollmentId} FOR UPDATE`;
+    return tx.discipleshipEnrollment.findUniqueOrThrow({ where: { id: enrollmentId } });
+  }
+
+  private async approvedModality(
+    db: Prisma.TransactionClient, personId: string, pilot: { organizationId: string; churchId: string },
+  ) {
+    const protocol = await db.admissionProtocol.findFirst({
+      where: {
+        personId, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        status: "APPROVED", pastorApproved: true,
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      select: { modality: true },
+    });
+    return protocol?.modality ?? null;
+  }
+
+  private async connectionProgress(
+    tx: Prisma.TransactionClient,
+    enrollment: { id: string; trackId: string; personId: string },
+    pilot: { organizationId: string; churchId: string },
+  ) {
+    const [stages, events, modality] = await Promise.all([
+      tx.discipleshipTrackStage.findMany({ where: { trackId: enrollment.trackId }, orderBy: { sortOrder: "asc" } }),
+      tx.discipleshipProgressEvent.findMany({
+        where: { enrollmentId: enrollment.id },
+        orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+        select: { stageId: true, kind: true },
+      }),
+      this.approvedModality(tx, enrollment.personId, pilot),
+    ]);
+    const latest = new Map(events.map(event => [event.stageId, event.kind]));
+    const progress = stages.map(stage => ({
+      ...stage, completed: latest.get(stage.id) === "COMPLETED", waived: baptismWaived(stage.code, modality),
+    }));
+    return {
+      configured: CONNECTION_STAGES.every(({ code }) => stages.some(stage => stage.code === code)),
+      stages: progress,
+      pending: progress.find(stage => !stage.completed && !stage.waived),
+    };
+  }
+
+  private requireOfficialStages(configured: boolean) {
+    if (!configured) {
+      throw new BusinessException("Cadastre as nove etapas oficiais antes de registrar o progresso da Trilha da Conexão.", "CONNECTION_STAGES_NOT_CONFIGURED");
+    }
+  }
+
+  private async requireMentor(id: string, participantId: string, pilot: { organizationId: string; churchId: string }) {
+    if (!id?.trim() || id === participantId) throw new BadRequestException("Selecione um mentor diferente do participante.");
+    const mentor = await this.prisma.person.findFirst({
+      where: { id, ...congregationPeople(pilot.organizationId, pilot.churchId), status: "ACTIVE", isMinor: false },
+      select: { id: true },
+    });
+    if (!mentor) throw new BadRequestException("Mentor não encontrado neste escopo");
   }
 
   private assertLead(
@@ -422,6 +616,7 @@ export class DiscipleshipService {
             id: true,
             organizationId: true,
             churchId: true,
+            name: true,
           },
         },
       },

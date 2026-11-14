@@ -19,13 +19,19 @@ describe("PilotService", () => {
       },
     };
     const service = new PilotService(prisma as never);
-    await expect(service.getPilotChurch()).resolves.toEqual({
+    const [first, second] = await Promise.all([service.getPilotChurch(), service.getPilotChurch()]);
+    expect(first).toEqual({
       organizationId: "org1",
       churchId: "church-rf1",
       organizationSlug: "igreja-de-deus",
       churchSlug: "riacho-fundo-1",
       churchName: "Riacho Fundo I (demo)",
     });
+    first.churchName = "alterado pelo chamador";
+    expect(second.churchName).toBe("Riacho Fundo I (demo)");
+    expect(await service.getPilotChurch()).toEqual(second);
+    expect(prisma.organization.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.church.findUnique).toHaveBeenCalledTimes(1);
   });
 
   it("throws when org missing", async () => {

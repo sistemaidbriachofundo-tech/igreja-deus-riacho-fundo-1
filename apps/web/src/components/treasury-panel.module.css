@@ -104,7 +104,7 @@
 .toolbar input,
 .toolbar select,
 .tabs button,
-.card button,
+.card :where(button),
 .form button {
   font: inherit;
   min-height: 44px;
@@ -220,11 +220,19 @@
 .card{border-color:#e0eae2;border-radius:15px;padding:clamp(18px,2vw,25px);box-shadow:0 5px 22px #1a42240d;}
 .panel :is(input,select,textarea){border-color:#d9e6dd;border-radius:10px;background:#fbfdfb;}
 .panel :is(input,select,textarea):focus-visible{outline:3px solid #bfa36d;outline-offset:2px;}
-.panel button{border-radius:9px;font-weight:650;}
 @media(max-width:760px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.header{padding:22px;}.toolbar{grid-template-columns:1fr;}}
 @media(max-width:460px){.metrics{grid-template-columns:1fr;}.card{padding:16px;}}
 
 .panel { gap: 15px; }
+@media (max-width: 620px) {
+  .sectionNavigation { gap: 3px; flex-wrap: wrap; }
+  .sectionNavigation > button {
+    flex: 1 0 auto;
+    flex-direction: column;
+    padding: 8px 5px;
+    font-size: 0.7rem;
+  }
+}
 .header { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; }
 .qaLabel { padding: 7px 10px; border-radius: 7px; background: #e8efe4; color: #35584a; font-size: 12px; font-weight: 650; }
 .views { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -325,3 +333,26 @@
   .expenseItem { grid-template-columns: minmax(0, 1fr); }
   .expenseItem .amount { justify-self: start; }
 }
+
+.expenseItem[data-target="true"] { outline: 2px solid #b76633; outline-offset: 2px; }
+
+.expenseQueue { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding: 13px 16px; border-left: 3px solid #df773b; border-radius: 9px; background: #f8eee2; }
+.expenseQueue > div, .receiptUpload label { display: grid; gap: 4px; }
+.expenseQueue span { font-size: .85rem; color: #5c655b; }
+.receiptUpload { grid-column: 1 / -1; }
+.receiptUpload summary { cursor: pointer; color: #215943; font-weight: 700; }
+.receiptUpload form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 8px; }
+.receiptUpload input { max-width: 100%; }
+
+.statementHeader { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; }
+.statementHeader p { margin: 4px 0 0; color: #4b6358; }
+.statementHeader > span { font-size: .82rem; font-weight: 650; color: #4b6358; }
+.statementDay { margin-top: 14px; }
+.statementDay h3 { margin: 0; padding: 8px 0; border-bottom: 1px solid #becfc5; color: #36564a; font-size: .82rem; font-weight: 700; }
+.statementState { display: inline-block; width: fit-content; padding: 3px 7px; border-radius: 6px; background: #edf1ef; color: #3e5c4f; }
+.statementState[data-status="PENDING_APPROVAL"] { background: #faeed8; color: #65440d; }
+.statementState:is([data-status="APPROVED"],[data-status="reconciled"]) { background: #e5f0e7; color: #21513b; }
+.statementState[data-status="REJECTED"] { background: #fae9e5; color: #813c32; }
+.expenseReview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; padding: 12px 0 0; border-top: 1px solid #d5e1d9; }
+.expenseReview dt { font-size: .75rem; color: #4b6358; }
+.expenseReview dd { margin: 3px 0 0; font-size: .88rem; font-weight: 700; overflow-wrap: anywhere; }

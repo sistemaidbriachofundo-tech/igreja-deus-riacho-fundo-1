@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
   IsArray,
@@ -6,6 +6,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from "class-validator";
@@ -18,14 +19,16 @@ import { GroupsService } from "./groups.service";
 class CreateGroupBody {
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   name!: string;
 
   @IsOptional()
   @IsString()
-  leaderPersonId?: string;
+  leaderPersonId?: string | null;
 
   @IsOptional()
   @IsString()
+  @MaxLength(180)
   meetsAtHint?: string;
 }
 
@@ -79,6 +82,12 @@ export class GroupsController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() body: CreateGroupBody) {
     return this.groups.create(user, body);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PLATFORM_ADMIN)
+  @Patch(":groupId")
+  edit(@CurrentUser() user: AuthUser, @Param("groupId") groupId: string, @Body() body: CreateGroupBody) {
+    return this.groups.edit(user, groupId, body);
   }
 
   @Roles(

@@ -7,8 +7,15 @@ export interface LocalWindow { weekday: number; startMinute: number; endMinute: 
  * Intervalos que atravessam a meia-noite local são divididos, não descartados.
  */
 export function utcWeeklyWindowsToRiachoLocal(windows: readonly UtcWindow[]): LocalWindow[] {
+  return shiftWeeklyWindows(windows, -180);
+}
+
+export function riachoWeeklyWindowToUtc(window: LocalWindow): UtcWindow[] {
+  return shiftWeeklyWindows([window], 180);
+}
+
+function shiftWeeklyWindows(windows: readonly UtcWindow[], offset: number): LocalWindow[] {
   const WEEK = 7 * 1440;
-  const offset = 180;
   const result: LocalWindow[] = [];
   for (const window of windows) {
     if (!Number.isInteger(window.weekday) || window.weekday < 0 || window.weekday > 6 ||
@@ -16,7 +23,7 @@ export function utcWeeklyWindowsToRiachoLocal(windows: readonly UtcWindow[]): Lo
         window.startMinute < 0 || window.endMinute > 1440 || window.startMinute >= window.endMinute) {
       throw new Error('INVALID_UTC_AVAILABILITY_WINDOW');
     }
-    let absoluteStart = window.weekday * 1440 + window.startMinute - offset;
+    let absoluteStart = window.weekday * 1440 + window.startMinute + offset;
     let remaining = window.endMinute - window.startMinute;
     while (remaining > 0) {
       const wrapped = ((absoluteStart % WEEK) + WEEK) % WEEK;

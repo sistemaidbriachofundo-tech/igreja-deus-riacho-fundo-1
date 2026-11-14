@@ -8,6 +8,7 @@ COPY packages/db/package.json packages/db/
 RUN npm ci
 
 FROM deps AS build
+ARG SOURCE_SHA
 COPY . .
 RUN npm run build -w @idbrf/shared \
   && npx prisma generate --schema packages/db/prisma/schema.prisma \

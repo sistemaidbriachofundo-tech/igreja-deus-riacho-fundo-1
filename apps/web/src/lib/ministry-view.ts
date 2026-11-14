@@ -104,9 +104,6 @@ export function servingShortcut(slug: string | undefined): { href: string; label
   if (slug === "louvor" || slug === "louvor-demo") {
     return { href: "/app/servir/louvor/", label: "Abrir escalas de Louvor" };
   }
-  if (slug === "atmosfera") {
-    return { href: "/app/servir/atmosfera/", label: "Abrir escalas de Atmosfera" };
-  }
   return null;
 }
 

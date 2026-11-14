@@ -958,6 +958,60 @@ export class EventRegistrationsService {
     });
   }
 
+  /** Consulta em lote para a agenda pública, sem carregar inscrições ou contas individuais. */
+  async openPublicRegistrationEvents(eventIds: string[], now = new Date()) {
+    if (!eventIds.length) return new Set<string>();
+    const [catalogs, occupancy] = await Promise.all([
+      this.prisma.portalEvent.findMany({
+        where: { id: { in: eventIds }, status: "PUBLISHED" },
+        select: {
+          id: true,
+          modalities: { select: { id: true, minPartySize: true, capacity: true } },
+          lots: {
+            where: {
+              status: "OPEN",
+              AND: [
+                { OR: [{ opensAt: null }, { opensAt: { lte: now } }] },
+                { OR: [{ closesAt: null }, { closesAt: { gte: now } }] },
+              ],
+            },
+            select: { id: true, modalityId: true, capacity: true, priceCents: true, receivingAccount: { select: { active: true } } },
+          },
+          lodgingOptions: { select: { id: true, capacity: true } },
+          mealOptions: { select: { id: true, capacity: true } },
+          transportOptions: { select: { id: true, capacity: true } },
+        },
+      }),
+      this.prisma.eventRegistration.groupBy({
+        by: ["modalityId", "lotId", "lodgingOptionId", "mealOptionId", "transportOptionId"],
+        where: { eventId: { in: eventIds }, status: { in: [...OCCUPYING_STATUSES] } },
+        _sum: { partySize: true },
+      }),
+    ]);
+    const resources = ["lodgingOptionId", "mealOptionId", "transportOptionId"] as const;
+    const fields = ["modalityId", "lotId", ...resources] as const;
+    const occupied = new Map<string, number>();
+    for (const row of occupancy) {
+      for (const field of fields) {
+        const id = row[field];
+        if (!id) continue;
+        const key = field + ":" + id;
+        occupied.set(key, (occupied.get(key) ?? 0) + (row._sum.partySize ?? 0));
+      }
+    }
+    const hasRoom = (field: typeof fields[number], { id, capacity }: { id: string; capacity: number | null }, size: number) =>
+      capacity === null || capacity - (occupied.get(field + ":" + id) ?? 0) >= size;
+    return new Set(catalogs.filter(event => event.modalities.some(modality => {
+      const size = modality.minPartySize;
+      return hasRoom("modalityId", modality, size)
+        && [event.lodgingOptions, event.mealOptions, event.transportOptions].every((options, index) =>
+          !options.length || options.some(option => hasRoom(resources[index], option, size)))
+        && event.lots.some(lot => (!lot.modalityId || lot.modalityId === modality.id)
+          && (lot.priceCents === 0 || lot.receivingAccount?.active === true)
+          && hasRoom("lotId", lot, size));
+    })).map(event => event.id));
+  }
+
   /** Catálogo público (modalidades + lotes OPEN + RF-022 opções) — sem PII. */
   async publicCatalogForEvent(eventId: string) {
     const [
@@ -977,7 +1031,7 @@ export class EventRegistrationsService {
         orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
       }),
       this.prisma.eventLot.findMany({
-        where: { eventId, status: "OPEN" },
+        where: { eventId, status: "OPEN", OR: [{ priceCents: 0 }, { receivingAccount: { active: true } }] },
         orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
       }),
       this.prisma.eventLodgingOption.findMany({

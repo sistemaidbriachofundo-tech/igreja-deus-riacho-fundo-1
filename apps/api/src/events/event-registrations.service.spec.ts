@@ -913,6 +913,28 @@ describe("EventRegistrationsService", () => {
     expect(catalog.modalities[0].remaining).toBe(10);
   });
 
+  it("só indica inscrição aberta quando existe uma combinação disponível para o tamanho mínimo", async () => {
+    const free = { ...lot, priceCents: 0, receivingAccount: null };
+    const catalog = { modalities: [modality], lodgingOptions: [], mealOptions: [], transportOptions: [] };
+    const prisma = {
+      portalEvent: { findMany: jest.fn().mockResolvedValue([
+        { ...catalog, id: "open", lots: [free] },
+        { ...catalog, id: "no-lot", lots: [] },
+        { ...catalog, id: "no-pix", lots: [{ ...lot, id: "paid", receivingAccount: { active: false } }] },
+        { ...catalog, id: "full", lots: [{ ...free, id: "full-lot", capacity: 1 }] },
+        { ...catalog, id: "no-resource", lots: [free], mealOptions: [{ id: "meal", capacity: 1 }] },
+        { ...catalog, id: "no-pair", lots: [{ ...free, capacity: 1 }], modalities: [{ ...modality, minPartySize: 2 }] },
+      ]) },
+      eventRegistration: { groupBy: jest.fn().mockResolvedValue([
+        { modalityId: "mod1", lotId: "full-lot", mealOptionId: "meal", _sum: { partySize: 1 } },
+      ]) },
+    };
+    const service = new EventRegistrationsService(prisma as never, {} as never);
+    expect(await service.openPublicRegistrationEvents(["open", "no-lot", "no-pix", "full", "no-resource", "no-pair"], now))
+      .toEqual(new Set(["open"]));
+    expect(prisma.eventRegistration.groupBy).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects guardian on adult and partySize out of range", async () => {
     const prisma = basePrisma();
     const service = new EventRegistrationsService(

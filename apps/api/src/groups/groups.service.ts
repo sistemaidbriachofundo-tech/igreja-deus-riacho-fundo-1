@@ -23,7 +23,7 @@ export class GroupsService {
     actor: AuthUser,
     input: {
       name: string;
-      leaderPersonId?: string;
+      leaderPersonId?: string | null;
       meetsAtHint?: string;
     },
   ) {
@@ -36,7 +36,7 @@ export class GroupsService {
     }
 
     if (input.leaderPersonId) {
-      await this.requirePerson(input.leaderPersonId, pilot.organizationId);
+      await this.requireEligibleLeader(input.leaderPersonId, pilot);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -64,6 +64,31 @@ export class GroupsService {
     });
   }
 
+  async edit(actor: AuthUser, groupId: string, input: { name: string; meetsAtHint?: string; leaderPersonId?: string | null }) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const group = await this.requireGroup(groupId, pilot);
+    const name = input.name.trim();
+    if (!name) throw new BadRequestException("Informe o nome do grupo.");
+    if (input.leaderPersonId) await this.requireEligibleLeader(input.leaderPersonId, pilot);
+    return this.prisma.$transaction(async tx => {
+      const row = await tx.smallGroup.update({
+        where: { id: group.id },
+        data: {
+          name,
+          ...(input.meetsAtHint === undefined ? {} : { meetsAtHint: input.meetsAtHint?.trim() || null }),
+          ...(input.leaderPersonId === undefined ? {} : { leaderPersonId: input.leaderPersonId }),
+        },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "small_group.update", resourceType: "small_group",
+        resourceId: row.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { name },
+      } });
+      return this.toGroupDto(row);
+    });
+  }
+
   async list(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
@@ -75,6 +100,7 @@ export class GroupsService {
       },
       orderBy: { createdAt: "desc" },
       include: {
+        leader: { select: { displayName: true } },
         members: {
           select: { id: true, personId: true, role: true, joinedAt: true },
         },
@@ -85,6 +111,7 @@ export class GroupsService {
       churchId: pilot.churchId,
       groups: rows.map((row) => ({
         ...this.toGroupDto(row),
+        leaderName: row.leader?.displayName ?? null,
         members: row.members.map((m) => ({
           id: m.id,
           personId: m.personId,
@@ -349,6 +376,16 @@ export class GroupsService {
         "Sem permissão de liderança nesta congregação",
       );
     }
+  }
+
+  private async requireEligibleLeader(personId: string, pilot: { organizationId: string; churchId: string }) {
+    const person = await this.prisma.person.findFirst({
+      where: { id: personId, organizationId: pilot.organizationId, status: "ACTIVE", isMinor: false,
+        OR: [{ homeChurchId: pilot.churchId }, { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } }],
+        user: { status: "ACTIVE" } },
+      select: { id: true },
+    });
+    if (!person) throw new BadRequestException("Escolha um responsável adulto com acesso ativo nesta congregação.");
   }
 
   private async requirePerson(personId: string, organizationId: string) {

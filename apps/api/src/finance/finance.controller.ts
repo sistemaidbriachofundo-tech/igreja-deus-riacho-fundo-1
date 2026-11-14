@@ -138,6 +138,7 @@ class CreateEntryBody {
 class RejectEntryBody {
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   reason?: string;
 }
 
@@ -431,6 +432,8 @@ export class FinanceController {
     return this.finance.approveEntry(user, entryId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
+  @RequireAccess({ resource: "ledger", action: "approve" })
   @Post("entries/:entryId/reject")
   rejectEntry(
     @CurrentUser() user: AuthUser,
@@ -448,6 +451,8 @@ export class FinanceController {
     return this.finance.reverseEntry(user, entryId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @RequireAccess({ resource: "expense_attachments", action: "read" })
   @Get("entries/:entryId/attachments")
   listAttachments(
     @CurrentUser() user: AuthUser,
@@ -474,6 +479,8 @@ export class FinanceController {
     return this.finance.uploadAttachment(user, entryId, file);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @RequireAccess({ resource: "expense_attachments", action: "read" })
   @Get("entries/:entryId/attachments/:attachmentId")
   async downloadAttachment(
     @CurrentUser() user: AuthUser,
