@@ -244,7 +244,8 @@
   font-weight: 700;
   text-decoration: none;
 }
-.agendaEventContent > :nth-last-child(2) { margin-bottom: 16px; }
+.agendaEventStatus { align-self: start; margin-top: auto; padding-block: 9px; color: var(--portal-on-green-muted); font: 600 .81rem/1.35 Inter, sans-serif; }
+.agendaEventContent > :is(.agendaEventAction, .agendaEventStatus) { margin-block-start: auto; }
 .agendaEventAction:hover { color: #18120e; background: #ffad7b; border-color: #ffad7b; }
 .agendaEventAction:focus-visible { outline: 2px solid #ffad7b; outline-offset: 4px; }
 

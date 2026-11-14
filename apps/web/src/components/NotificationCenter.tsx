@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
+import { beginClientNavigation, hasAppRouter, pushAppRoute, shouldInterceptAppNavigation } from "../lib/app-navigation";
 import { formatChurchWhen } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
 import { useDialogLifecycle } from "./ui/dialog";
@@ -23,7 +24,12 @@ type Feed = { items: Notice[]; unread: number };
 type Filter = "all" | "unread";
 const endpoint = "/notifications";
 
-export function NotificationCenter({ userId, icon, closeIcon }: { userId: string; icon: ReactNode; closeIcon: ReactNode }) {
+export function NotificationCenter({ userId, icon, closeIcon, categoryIcons }: {
+  userId: string;
+  icon: ReactNode;
+  closeIcon: ReactNode;
+  categoryIcons: Record<string, ReactNode>;
+}) {
   const [open, setOpen] = useState(false);
   const [feed, setFeed] = useState<Feed>();
   const [filter, setFilter] = useState<Filter>("all");
@@ -32,6 +38,7 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
   const lastRefresh = useRef(0);
   const dialog = useRef<HTMLElement>(null);
   const titleId = useId();
+  const dialogId = useId();
   useDialogLifecycle(open, () => setOpen(false), dialog);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
@@ -51,11 +58,11 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
     const update = () => { if (document.visibilityState === "visible") void refresh(controller.signal); };
     update();
     const interval = window.setInterval(update, 90_000);
-    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
     return () => {
       controller.abort();
       window.clearInterval(interval);
-      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
     };
   }, [refresh, userId]);
 
@@ -65,8 +72,7 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
     setBusy(true);
     setError("");
     try {
-      await apiPost(endpoint + "/read", token, { ids });
-      if (!sync) return;
+      await apiPost(endpoint + "/read", token, { ids }, { keepalive: !sync });
       lastRefresh.current += 1;
       const now = new Date().toISOString();
       setFeed(current => {
@@ -75,7 +81,7 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
         return { items, unread: items.filter(item => !item.readAt).length };
       });
     } catch {
-      setError("Não foi possível salvar a leitura. Tente novamente.");
+      if (sync) setError("Não foi possível salvar a leitura. Tente novamente.");
     } finally {
       setBusy(false);
     }
@@ -85,11 +91,11 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
   const unread = feed?.unread ?? 0;
   return <>
     <button type="button" className={s.bell} aria-label={unread ? `Notificações, ${unread} não lidas` : "Notificações"}
-      aria-haspopup="dialog" aria-expanded={open} onClick={() => { setOpen(true); void refresh(); }}>
+      aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? dialogId : undefined} onClick={() => { setOpen(true); void refresh(); }}>
       {icon}{unread > 0 && <span className={s.badge} aria-hidden="true">{unread}</span>}
     </button>
     {open && createPortal(<div className={s.overlay} onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
-      <section className={s.drawer} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={dialog}>
+      <section id={dialogId} className={s.drawer} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={dialog}>
         <header className={s.header}>
           <div><h2 id={titleId}>Notificações</h2>{unread > 0 && <p>{unread} {unread === 1 ? "não lida" : "não lidas"}</p>}</div>
           <button type="button" className={s.close} aria-label="Fechar notificações" onClick={() => setOpen(false)}>{closeIcon}</button>
@@ -101,24 +107,33 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
           </div>
           {unread > 0 && <button className={s.mark} type="button" disabled={busy} onClick={() => void mark(feed?.items.filter(item => !item.readAt).map(item => item.id) ?? [])}>Marcar todas como lidas</button>}
         </div>
-        <div className={s.body}>
+        <div className={s.body} aria-busy={!feed && !error}>
           {error && <p className={s.failure} role="alert">{error} <button type="button" onClick={() => void refresh()}>Atualizar</button></p>}
-          {!feed && !error && <p role="status" className={s.empty}>Carregando notificações…</p>}
-          {feed && !visible.length && <div className={s.empty}>{icon}<strong>{filter === "unread" ? "Tudo lido por aqui" : "Nenhuma notificação por enquanto"}</strong></div>}
+          {!feed && !error && <p role="status" className={s.empty}><span className={s.spinner} aria-hidden="true" /> Carregando notificações…</p>}
+          {feed && !visible.length && <div className={s.empty}><span className={s.emptyIcon}>{icon}</span><strong>{filter === "unread" ? "Tudo lido por aqui" : "Você está em dia"}</strong><p>{filter === "unread" ? "Abra Todas para consultar o histórico." : "Novas escalas e pendências da sua área aparecem aqui."}</p></div>}
           {visible.length > 0 && <ul className={s.list}>
             {visible.map(item => <li key={item.id} data-unread={!item.readAt}>
-              <div className={s.meta}><span>{item.category}</span><time dateTime={item.createdAt}>{formatChurchWhen(item.createdAt)}</time></div>
-              <h3>{item.title}</h3>
-              <p>{item.detail}</p>
-              {item.state && <span className={s.state}>{item.state}</span>}
-              <div className={s.rowActions}>
-                <a href={withBasePath(item.href)} onClick={event => {
-                  if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || item.readAt) return;
-                  event.preventDefault();
-                  const href = event.currentTarget.href;
-                  void mark([item.id], false).finally(() => window.location.assign(href));
-                }}>{item.action} <span aria-hidden="true">→</span></a>
-                {!item.readAt && <button type="button" disabled={busy} onClick={() => void mark([item.id])}>Marcar como lida</button>}
+              <span className={s.categoryIcon} aria-hidden="true">{categoryIcons[item.category] ?? icon}</span>
+              <div className={s.itemContent}>
+                <div className={s.meta}><span>{item.category}</span><time dateTime={item.createdAt}>{formatChurchWhen(item.createdAt)}</time></div>
+                <h3>{item.title}</h3>
+                <p>{item.detail}</p>
+                {item.state && <span className={s.state}>{item.state}</span>}
+                <div className={s.rowActions}>
+                  <a href={withBasePath(item.href)} onClick={event => {
+                    if (!shouldInterceptAppNavigation(item.href, event)) return;
+                    event.preventDefault();
+                    if (!item.readAt) void mark([item.id], false);
+                    setOpen(false);
+                    if (hasAppRouter()) {
+                      beginClientNavigation(item.href);
+                      pushAppRoute(item.href);
+                    } else {
+                      window.location.assign(event.currentTarget.href);
+                    }
+                  }}>{item.action} <span aria-hidden="true">→</span></a>
+                  {!item.readAt && <button type="button" disabled={busy} onClick={() => void mark([item.id])}>Marcar como lida</button>}
+                </div>
               </div>
             </li>)}
           </ul>}

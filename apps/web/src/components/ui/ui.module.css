@@ -1296,8 +1296,8 @@
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid #d9e3db;
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 17px;
+  background: #fcfaf6;
   color: #20372d;
   box-shadow: 0 24px 72px #102f2a38;
   font-family: Inter, Arial, sans-serif;
@@ -1326,6 +1326,7 @@
 
 .confirmationContent h2 {
   margin: 0;
+  font-family: Montserrat, Inter, Arial, sans-serif;
   font-size: clamp(20px, 4vw, 24px);
   font-weight: 700;
   line-height: 1.2;
@@ -1348,6 +1349,8 @@
 }
 
 .confirmationActions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;

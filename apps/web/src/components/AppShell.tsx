@@ -604,7 +604,13 @@ export function AppShell({
           </button>
           <div className={s.toolbarRight}>
             {readyUser && <NotificationCenter key={readyUser.userId} userId={readyUser.userId}
-              icon={<UIIcon name="bell" size={20} />} closeIcon={<UIIcon name="close" size={20} />} />}
+              icon={<UIIcon name="bell" size={20} />} closeIcon={<UIIcon name="close" size={20} />}
+              categoryIcons={{
+                Escalas: <UIIcon name="calendar" size={18} />,
+                Tesouraria: <UIIcon name="wallet" size={18} />,
+                Admissões: <UIIcon name="badge" size={18} />,
+                "Grupos de Amizade": <UIIcon name="people" size={18} />,
+              }} />}
             {accessKind === "ready" ? (
               <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label="Minha conta">
                 {accountLink}

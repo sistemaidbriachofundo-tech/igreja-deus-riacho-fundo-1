@@ -636,11 +636,12 @@ describe("controller wiring (delegates to services)", () => {
       home: jest.fn().mockResolvedValue({ ministries: [] }),
       listMinistries: jest.fn(),
       getMinistryBySlug: jest.fn(),
-      listEvents: jest.fn(),
+      listEvents: jest.fn().mockResolvedValue({ events: [{ id: "e1", startsAt: "2099-01-01T13:00:00Z" }] }),
       getEventBySlug: jest.fn().mockResolvedValue({ id: "e1", slug: "encontro-jovens-demo" }),
       getContentBySlug: jest.fn(),
     };
     const registrations = {
+      openPublicRegistrationEvents: jest.fn().mockResolvedValue(new Set(["e1"])),
       publicCatalogForEvent: jest.fn().mockResolvedValue({
         modalities: [],
         lots: [],
@@ -666,7 +667,7 @@ describe("controller wiring (delegates to services)", () => {
     await c.home();
     await c.listMinistries();
     await c.getMinistry("jovens");
-    await c.listEvents();
+    await expect(c.listEvents()).resolves.toMatchObject({ events: [{ id: "e1", registrationOpen: true }] });
     await c.getEvent("encontro-jovens-demo");
     await c.createRegistration("encontro-jovens-demo", {
       displayName: "Demo",

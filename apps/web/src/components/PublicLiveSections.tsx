@@ -180,9 +180,11 @@ function AgendaEvent({ event }: { event: PublishedEvent }) {
         <h4 id={titleId}>{event.name}</h4>
         {event.locationText && <p className={s.agendaEventLocation}>{event.locationText}</p>}
         {event.description && <p className={s.agendaEventDescription}>{event.description}</p>}
-        <Link className={s.agendaEventAction} href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)} aria-label={"Ver inscrições para " + event.name}>
-          Ver inscrições <span aria-hidden="true">→</span>
-        </Link>
+        {event.registrationOpen === true && <Link className={s.agendaEventAction}
+          href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)} aria-label={"Inscrever-se em " + event.name}>
+          Inscrever-se <span aria-hidden="true">→</span>
+        </Link>}
+        {event.registrationOpen === false && <span className={s.agendaEventStatus}>Inscrições indisponíveis</span>}
       </div>
     </article>
   );
