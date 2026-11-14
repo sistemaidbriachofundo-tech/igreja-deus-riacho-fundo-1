@@ -187,7 +187,26 @@ export class EventsService {
     if (blocked) {
       throw new BadRequestException(blocked);
     }
+    await this.assertReceivingAccountsActive(eventId);
     return this.patch(actor, eventId, { status: "PUBLISHED" });
+  }
+
+  /** Lote pago com conta da igreja só publica se essa conta continuar ativa. */
+  private async assertReceivingAccountsActive(eventId: string): Promise<void> {
+    if (!this.prisma.eventLot?.findMany) return;
+    const lots = await this.prisma.eventLot.findMany({
+      where: { eventId, priceCents: { gt: 0 }, receivingAccountId: { not: null } },
+      select: { receivingAccountId: true },
+    });
+    const ids = [...new Set(lots.map((lot) => lot.receivingAccountId).filter((id): id is string => Boolean(id)))];
+    if (!ids.length || !this.prisma.churchReceivingAccount?.findMany) return;
+    const accounts = await this.prisma.churchReceivingAccount.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, active: true },
+    });
+    if (accounts.length !== ids.length || accounts.some((account) => !account.active)) {
+      throw new BadRequestException("A conta que recebe o evento pago não está ativa.");
+    }
   }
 
   async cancel(actor: AuthUser, eventId: string) {

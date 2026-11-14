@@ -401,6 +401,14 @@
   border-left: 1px solid var(--shell-line);
   padding-left: 15px;
 }
+.profileLink {
+  min-height: var(--shell-target);
+  min-width: var(--shell-target);
+  padding-right: 8px;
+  text-decoration: none;
+}
+.profileLink:hover { background: var(--shell-hover); }
+.profileLink:focus-visible { outline: 2px solid var(--shell-gold); outline-offset: 2px; }
 .account {
   display: grid;
   place-items: center;

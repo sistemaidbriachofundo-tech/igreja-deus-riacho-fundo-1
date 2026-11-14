@@ -9,9 +9,20 @@ import { CurrentUser } from "./decorators/current-user.decorator";
 import { Roles } from "./decorators/roles.decorator";
 import type { AuthUser } from "./types/auth-user";
 
+/** O convite administrativo sempre grava um grant da congregação. */
+export const CHURCH_ADMINISTRATIVE_ROLE = ROLE_CODES.PLATFORM_ADMIN;
+
+function canDelegateChurchAdministration(actor: AuthUser, organizationId: string) {
+  return actor.grants.some(grant =>
+    grant.roleCode === ROLE_CODES.PLATFORM_ADMIN &&
+    (!grant.organizationId || grant.organizationId === organizationId) &&
+    !grant.churchId && !grant.ministryId,
+  );
+}
+
 const assignableRoles = [
   ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA, ROLE_CODES.LIDER_MINISTERIO,
-  ROLE_CODES.MEMBRO, ROLE_CODES.EDITOR_SITE, ROLE_CODES.PUBLICADOR_SITE,
+  ROLE_CODES.MEMBRO, ROLE_CODES.EDITOR_SITE, ROLE_CODES.PUBLICADOR_SITE, CHURCH_ADMINISTRATIVE_ROLE,
 ] as const;
 
 class CreateChurchLogin {
@@ -74,6 +85,7 @@ export class ChurchAccessController {
         ...row, profiles: grants.map(grant => ({ role: grant.role.code, ministry: grant.ministry?.name ?? null })),
       })),
       hasMore: rows.length > 25,
+      canInviteAdministrator: canDelegateChurchAdministration(actor, organizationId),
     };
   }
 
@@ -102,11 +114,14 @@ export class ChurchAccessController {
     // Falha fechada: evita contas órfãs quando a entrega por e-mail está desconfigurada.
     const deliveryConfig = inviteEmailConfig();
     if (!assignableRoles.includes(input.role)) throw new BadRequestException("Perfil inválido.");
+    if (input.role === CHURCH_ADMINISTRATIVE_ROLE && !canDelegateChurchAdministration(actor, organizationId)) {
+      throw new ForbiddenException("Somente a administração da organização pode conceder este perfil.");
+    }
     const isLeader = input.role === ROLE_CODES.LIDER_MINISTERIO;
     const ministryId = isLeader ? input.ministryId?.trim() : undefined;
     if (isLeader && !ministryId) throw new BadRequestException("Selecione o ministério que a pessoa lidera.");
     const email = input.email.trim().toLowerCase();
-    assertTestRecipient(email, deliveryConfig.preview);
+    assertTestRecipient(email, deliveryConfig.preview || deliveryConfig.transport === "test");
     const issued = this.invitations.newToken();
     try {
       const created = await this.prisma.$transaction(async tx => {
@@ -185,7 +200,7 @@ export class ChurchAccessController {
       if (user.person.email?.trim().toLowerCase() !== user.email) {
         throw new BadRequestException("O endereço de e-mail mudou. Confira a ficha antes de reenviar o convite.");
       }
-      assertTestRecipient(user.email, deliveryConfig.preview);
+      assertTestRecipient(user.email, deliveryConfig.preview || deliveryConfig.transport === "test");
       const recent = await tx.accessInvitation.findFirst({
         where: { userId, purpose, revokedAt: null, createdAt: { gte: new Date(Date.now() - 60000) } },
         select: { id: true },

@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
-import { ChurchAccessController } from "./church-access.controller";
+import { ChurchAccessController, CHURCH_ADMINISTRATIVE_ROLE } from "./church-access.controller";
 import type { AuthUser } from "./types/auth-user";
 
 const pilot = { organizationId: "org-rf1", churchId: "church-rf1" };
@@ -16,6 +16,7 @@ function setup() {
     user: {
       create: jest.fn().mockResolvedValue({ id: "user-test", email: "person@example.test", status: "DISABLED" }),
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
     },
     accessInvitation: {
       create: jest.fn().mockResolvedValue({ id: "invite-test" }),
@@ -39,6 +40,7 @@ function setup() {
 
 describe("Acessos da congregação — convite ao titular", () => {
   beforeEach(() => {
+    delete process.env.EMAIL_TRANSPORT;
     process.env.ACCESS_INVITE_RESEND_API_KEY = "qa-mock-api-key";
     process.env.ACCESS_INVITE_FROM_EMAIL = "convites@example.test";
     process.env.ACCESS_INVITE_WEB_ORIGIN = "https://hml.example.test";
@@ -91,5 +93,56 @@ describe("Acessos da congregação — convite ao titular", () => {
       personId: "person-test", email: "person@example.test", role: "MEMBRO",
     })).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("convida a pessoa já cadastrada para o perfil administrativo e registra autor e escopo", async () => {
+    const { db, controller } = setup();
+    const organizationAdmin = { ...admin, grants: [{ roleCode: "PLATFORM_ADMIN", organizationId: pilot.organizationId }] };
+    await controller.create(organizationAdmin, {
+      personId: "person-test",
+      email: "person@example.test",
+      role: CHURCH_ADMINISTRATIVE_ROLE,
+    });
+    expect(CHURCH_ADMINISTRATIVE_ROLE).toBe("PLATFORM_ADMIN");
+    expect(db.user.create.mock.calls.at(-1)[0].data.grants.create).toMatchObject(pilot);
+    expect(await controller.list(admin)).toMatchObject({ canInviteAdministrator: false });
+    expect(await controller.list(organizationAdmin)).toMatchObject({ canInviteAdministrator: true });
+    expect(db.auditLog.create.mock.calls.at(-1)[0].data).toMatchObject({
+      actorUserId: admin.userId,
+      action: "access.invite.create",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      metadata: expect.objectContaining({ role: "PLATFORM_ADMIN" }),
+    });
+    await expect(controller.create(admin, {
+      personId: "person-test",
+      email: "person@example.test",
+      role: "PLATFORM_ADMIN",
+    })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("recusa reenvio repetido dentro de um minuto e permite o seguinte", async () => {
+    const { db, controller, invitations } = setup();
+    db.user.findFirst = jest.fn().mockResolvedValue({
+      id: "user-test",
+      email: "person@example.test",
+      status: "DISABLED",
+      passwordHash: null,
+      person: { displayName: "Pessoa de teste", email: "person@example.test" },
+    });
+    db.accessInvitation.findFirst = jest.fn()
+      .mockResolvedValueOnce({ id: "recente" })
+      .mockResolvedValueOnce(null);
+    await expect(controller.resend(admin, "user-test")).rejects.toThrow(/minuto/);
+    await expect(controller.resend(admin, "user-test")).resolves.toMatchObject({ sent: true });
+    expect(invitations.deliver).toHaveBeenCalledTimes(1);
+    expect(db.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        actorUserId: admin.userId,
+        action: "access.invite.resend",
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      }),
+    }));
   });
 });

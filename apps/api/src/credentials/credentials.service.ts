@@ -320,6 +320,7 @@ export class CredentialsService {
       displayName: credential.person.displayName,
       churchName: pilot.churchName,
       opaqueToken: credential.opaqueToken,
+      verificationBaseUrl: process.env.CREDENTIAL_VERIFICATION_WEB_URL || process.env.ACCESS_INVITE_WEB_ORIGIN,
       issuedAt: credential.issuedAt,
       credentialId: credential.id,
       photo: jpegPortrait((await this.getPhoto(credential.personId))?.jpeg),

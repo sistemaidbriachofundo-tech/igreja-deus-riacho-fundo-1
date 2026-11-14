@@ -32,7 +32,7 @@ export type { AppNavKey };
 type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
   "activity" | "calendar" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
-  "family" | "more" | "mail" | "settings" | "menu" | "logout";
+  "family" | "more" | "mail" | "settings" | "menu" | "logout" | "camera";
 
 export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
   const paths: Record<GlyphName, ReactNode> = {
@@ -64,6 +64,7 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
     mail: <><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></>,
     settings: <><circle cx="12" cy="12" r="3"/><path d="m10 2-.5 2-2 1-2-.8-2 3 1.5 1.5-.2 2.3-1.8 1 1 4 2.2.1 1.4 1.7-.4 2.1 3.8 1 1.1-1.8 2.2-.4 1.7 1.3 3-2-1.1-2 1-2 2.2-.3V9l-2-.4-1-2 1-2-3-2-1.8 1.4-2.2-.4L10 2Z"/></>,
     menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
+    camera: <><path d="M4 7h4l2-3h4l2 3h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/></>,
     logout: <><path d="M10 7V5H4v14h6v-2"/><path d="M10 12h10m-3-3 3 3-3 3"/></>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">{paths[name]}</svg>;
@@ -91,7 +92,8 @@ type LoadedAccess =
   | { kind: "held" }
   | { kind: "ready"; user: AuthUser };
 
-function mobileItems(menu: readonly PersonaArea[]): PersonaArea[] {
+function mobileItems(menu: readonly PersonaArea[], member: boolean): PersonaArea[] {
+  if (member) return menu.slice(0, 4);
   const preferred = MOBILE_PRIMARY.flatMap(key => {
     const item = menu.find(entry => entry.key === key);
     return item ? [item] : [];
@@ -218,7 +220,7 @@ export function AppShell({
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
   const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
-  const phone = mobileItems(menu);
+  const phone = mobileItems(menu, memberShell);
   const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
   const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
   const shownMeta = showModule ? meta : "Área administrativa";
@@ -240,6 +242,16 @@ export function AppShell({
     email: accountEmail,
     label: accessKind === "ready" ? personaLabel(roles) : accountLabel,
   };
+
+  const accountLink = (
+    <>
+      <span className={s.account} aria-hidden="true">{initials}</span>
+      <span className={s.accountInfo} title={accountEmail || accountName}>
+        <strong>{accessKind === "ready" ? "Minha conta" : accountName}</strong>
+        <small>{accountLabel}</small>
+      </span>
+    </>
+  );
 
   const roleKey = roles.join("|");
   useEffect(() => {
@@ -564,10 +576,11 @@ export function AppShell({
           </button>
           <div className={s.toolbarRight}>
             {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
-            <span className={s.profileCluster}>
-              <span className={s.account} aria-hidden="true">{initials}</span>
-              <span className={s.accountInfo} aria-label={`${accountEmail || accountName}, ${accountLabel}`} title={accountEmail || accountName}><strong>{accountName}</strong><small>{accountLabel}</small></span>
-            </span>
+            {accessKind === "ready" ? (
+              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label="Minha conta">
+                {accountLink}
+              </AppNavLink>
+            ) : <span className={s.profileCluster}>{accountLink}</span>}
             {renderLogout()}
           </div>
         </header>

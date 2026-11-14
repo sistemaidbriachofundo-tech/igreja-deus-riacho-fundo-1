@@ -1,17 +1,25 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
+import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
   filterRowsForMinistryLeader,
 } from "../common/ministry-access";
+import { queueEventCheckInNotice } from "../mail/check-in-notice";
+import { MailService } from "../mail/mail.service";
+import { smtpSendEnabled } from "../mail/smtp-config";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { buildPixCopiaECola } from "./pix-payload";
 
 const OCCUPYING_STATUSES = ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] as const;
 
@@ -36,6 +44,7 @@ export type LotInput = {
   closesAt?: string | null;
   status?: "DRAFT" | "OPEN" | "CLOSED";
   sortOrder?: number;
+  receivingAccountId?: string | null;
 };
 
 export type RegistrationInput = {
@@ -50,6 +59,8 @@ export type RegistrationInput = {
   guardianDisplayName?: string | null;
   /** Ciência sintética do responsável — obrigatória quando isMinor=true. */
   guardianAcknowledged?: boolean;
+  /** Destino do QR de check-in. Não entra na resposta. */
+  notificationEmail?: string | null;
 };
 
 export type LodgingOptionInput = {
@@ -107,6 +118,7 @@ export class EventRegistrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    @Optional() private readonly mail?: MailService,
   ) {}
 
   async createModality(actor: AuthUser, eventId: string, input: ModalityInput) {
@@ -199,6 +211,11 @@ export class EventRegistrationsService {
     if (!["DRAFT", "OPEN", "CLOSED"].includes(status)) {
       throw new BadRequestException("status inválido");
     }
+    const receivingAccountId = await this.resolveReceivingAccount(
+      pilot,
+      input.receivingAccountId,
+      priceCents,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.eventLot.create({
@@ -220,6 +237,7 @@ export class EventRegistrationsService {
               : parseDate(input.closesAt, "closesAt"),
           status,
           sortOrder: input.sortOrder ?? 0,
+          receivingAccountId,
         },
       });
       await tx.auditLog.create({
@@ -548,31 +566,88 @@ export class EventRegistrationsService {
     });
   }
 
-  /**
-   * Público — sem PII real: só rótulos sintéticos + modalidade/lote.
-   * Rejeita cpf/email/telefone/documento.
-   */
   async createPublicRegistration(eventSlug: string, input: RegistrationInput) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertNoRealPii(input as object);
-    const event = await this.prisma.portalEvent.findFirst({
-      where: {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        slug: eventSlug.trim().toLowerCase(),
-        status: "PUBLISHED",
+    const event = await this.findPublishedEvent(pilot, eventSlug);
+    return this.createRegistrationInternal({ pilot, event, input, actorUserId: null, source: "public" });
+  }
+
+  async createMemberRegistration(actor: AuthUser, eventSlug: string, input: RegistrationInput) {
+    const { pilot, person } = await this.requireMember(actor);
+    const event = await this.findPublishedEvent(pilot, eventSlug);
+    return this.createRegistrationInternal({
+      pilot, event, input: {
+        ...input,
+        ...(person.isMinor ? { isMinor: true } : {}),
+      },
+      actorUserId: actor.userId, source: "member", registrantPersonId: person.id,
+    });
+  }
+
+  async listMyRegistrations(actor: AuthUser) {
+    const { pilot, person } = await this.requireMember(actor);
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: { ...pilot, registrantPersonId: person.id },
+      select: {
+        id: true, status: true, paymentStatus: true, guardianAuthStatus: true, partySize: true,
+        event: { select: { name: true, slug: true, startsAt: true, status: true } },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return { profile: { name: person.displayName, email: actor.email, isMinor: person.isMinor }, registrations };
+  }
+
+  async getMyRegistration(actor: AuthUser, registrationId: string) {
+    const { pilot, person } = await this.requireMember(actor);
+    const row = await this.prisma.eventRegistration.findFirst({
+      where: { ...pilot, registrantPersonId: person.id, id: registrationId },
+      select: {
+        id: true, status: true, guardianAuthStatus: true, checkInCode: true,
+        event: { select: { name: true, status: true } },
+        paymentIntents: {
+          where: { status: "PENDING", receivingAccountId: { not: null } },
+          select: { amountCents: true, pixCopiaECola: true, pixTxid: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
     });
-    if (!event) {
-      throw new NotFoundException("Evento público não encontrado");
+    if (!row) throw new NotFoundException("Inscrição não encontrada");
+    const pending = row.status === "PENDING_PAYMENT" && row.event.status === "PUBLISHED" ? row.paymentIntents[0] : null;
+    const status = ["CANCELLED", "ARCHIVED"].includes(row.event.status) ? "CANCELLED" : row.status;
+    return {
+      id: row.id, status, guardianAuthStatus: row.guardianAuthStatus, checkInCode: row.checkInCode,
+      eventName: row.event.name,
+      paymentIntent: pending?.pixCopiaECola ? { ...pending, mode: "CHURCH_PIX" } : null,
+    };
+  }
+
+  private async requireMember(actor: AuthUser) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const pilot = { organizationId, churchId };
+    if (!hasAccess(actor.grants, { ...pilot, roleCodes: [ROLE_CODES.MEMBRO] }) ||
+        (actor.organizationId && actor.organizationId !== organizationId) ||
+        (actor.churchId && actor.churchId !== churchId)) {
+      throw new ForbiddenException("A área de eventos exige acesso de membro nesta congregação.");
     }
-    return this.createRegistrationInternal({
-      pilot,
-      event,
-      input,
-      actorUserId: null,
-      source: "public",
+    const person = await this.prisma.person.findFirst({
+      where: {
+        id: actor.personId, organizationId, status: "ACTIVE",
+        memberships: { some: { organizationId, churchId, status: "ACTIVE" } },
+      },
+      select: { id: true, displayName: true, isMinor: true },
     });
+    if (!person) throw new ForbiddenException("Cadastro de membro indisponível nesta congregação.");
+    return { pilot, person };
+  }
+
+  private async findPublishedEvent({ organizationId, churchId }: { organizationId: string; churchId: string }, slug: string) {
+    const event = await this.prisma.portalEvent.findFirst({
+      where: { organizationId, churchId, slug: slug.trim().toLowerCase(), status: "PUBLISHED" },
+    });
+    if (!event) throw new NotFoundException("Evento público não encontrado");
+    return event;
   }
 
   async getPublicRegistrationStatus(checkInCode: string) {
@@ -621,6 +696,41 @@ export class EventRegistrationsService {
       return this.toRegistrationDto(registration);
     }
 
+    return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  /** Check-in pelo código, restrito ao evento informado. Repetir devolve o mesmo registro. */
+  async checkInOnEvent(actor: AuthUser, eventId: string, checkInCode: string) {
+    const { pilot, event } = await this.requireEventWrite(actor, eventId);
+    const code = checkInCode?.trim();
+    if (!code || code.length < 8) {
+      throw new BadRequestException("checkInCode inválido");
+    }
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        checkInCode: code,
+        eventId: event.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!registration) {
+      throw new NotFoundException("Inscrição não encontrada neste evento");
+    }
+    if (registration.status === "CHECKED_IN") {
+      return this.toRegistrationDto(registration);
+    }
+    this.assertCheckInAllowed(registration);
+    return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  private async persistCheckIn(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    registration: { id: string; status: string; isMinor: boolean; guardianAuthStatus: string },
+    eventId: string,
+  ) {
+
     return this.prisma.$transaction(async (tx) => {
       const transition = await tx.eventRegistration.updateMany({
         where: {
@@ -648,7 +758,7 @@ export class EventRegistrationsService {
           resourceId: registration.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { eventId: event.id },
+          metadata: { eventId },
         },
       });
       return this.toRegistrationDto(updated);
@@ -908,7 +1018,9 @@ export class EventRegistrationsService {
       transportOptions: transportOptions.map((o) =>
         this.toResourceOptionDto(o, occTransport.get(o.id) ?? 0),
       ),
-      paymentMode: "MOCK_ONLY" as const,
+      paymentMode: openLots.some((lot) => Boolean(lot.receivingAccountId))
+        ? ("CHURCH_PIX" as const)
+        : ("MOCK_ONLY" as const),
       /** RF-022 entregue nesta fatia — opções podem estar vazias se staff não configurou. */
       rf022LodgingPending: false,
       requiresLodgingOption: lodgingOptions.length > 0,
@@ -924,10 +1036,12 @@ export class EventRegistrationsService {
       id: string;
       ministryId: string | null;
       status: string;
+      name?: string;
     };
     input: RegistrationInput;
     actorUserId: string | null;
-    source: "staff" | "public";
+    source: "staff" | "public" | "member";
+    registrantPersonId?: string;
   }) {
     const displayName = params.input.displayName?.trim();
     if (!displayName || displayName.length < 2 || displayName.length > 120) {
@@ -986,6 +1100,7 @@ export class EventRegistrationsService {
       modalityId: string | null;
       opensAt: Date | null;
       closesAt: Date | null;
+      receivingAccountId?: string | null;
     } | null = null;
     const lotId = params.input.lotId?.trim() || null;
     if (lotId) {
@@ -1081,11 +1196,19 @@ export class EventRegistrationsService {
 
     const priceCents = lot?.priceCents ?? 0;
     const needsPayment = priceCents > 0;
+    if (params.source !== "staff" && needsPayment && !lot?.receivingAccountId &&
+        process.env.IDBRF_EVENT_PIX_REQUIRED === "true") {
+      throw new BadRequestException("O recebimento deste lote pago ainda não está configurado.");
+    }
+    const notificationEmail = pilotMailbox(params.input.notificationEmail);
+    const pix = needsPayment && lot?.receivingAccountId
+      ? await this.pixInstruction(params.pilot, lot.receivingAccountId, priceCents)
+      : null;
     const checkInCode = randomBytes(16).toString("hex");
     const guardianAuthStatus = isMinor ? "PENDING" : "NOT_REQUIRED";
 
-    return this.prisma.$transaction(async (tx) => {
-      // Re-validate capacity inside transaction (best-effort).
+    const created = await this.prisma.$transaction(async (tx) => {
+      // A transação serializável mantém a última vaga consistente sob concorrência.
       const occModTx = await tx.eventRegistration.aggregate({
         where: {
           eventId: params.event.id,
@@ -1145,6 +1268,8 @@ export class EventRegistrationsService {
           mealOptionId: meal?.id ?? null,
           transportOptionId: transport?.id ?? null,
           displayName,
+          registrantPersonId: params.registrantPersonId,
+          notificationEmail,
           partySize,
           isMinor,
           guardianDisplayName,
@@ -1191,7 +1316,10 @@ export class EventRegistrationsService {
             amountCents: priceCents,
             currency: lot.currency,
             status: "PENDING",
-            providerRef: `mock_${randomBytes(8).toString("hex")}`,
+            providerRef: pix ? null : `mock_${randomBytes(8).toString("hex")}`,
+            receivingAccountId: pix?.accountId ?? null,
+            pixTxid: pix?.txid ?? null,
+            pixCopiaECola: params.registrantPersonId ? pix?.copiaECola ?? null : null,
           },
         });
       }
@@ -1202,7 +1330,9 @@ export class EventRegistrationsService {
           action:
             params.source === "public"
               ? "event_registration.create_public"
-              : "event_registration.create_staff",
+              : params.source === "member"
+                ? "event_registration.create_member"
+                : "event_registration.create_staff",
           resourceType: "event_registration",
           resourceId: registration.id,
           organizationId: params.pilot.organizationId,
@@ -1222,8 +1352,10 @@ export class EventRegistrationsService {
         },
       });
 
+      const dto = this.toRegistrationDto(registration);
       return {
-        ...this.toRegistrationDto(registration),
+        ...dto,
+        paymentMode: pix ? ("CHURCH_PIX" as const) : dto.paymentMode,
         guardianAuthorization: guardianAuthorization
           ? this.toGuardianAuthDto(guardianAuthorization)
           : null,
@@ -1232,11 +1364,26 @@ export class EventRegistrationsService {
               id: paymentIntent.id,
               status: paymentIntent.status,
               amountCents: paymentIntent.amountCents,
-              mode: "MOCK_ONLY" as const,
+              mode: pix ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
+              ...(pix ? { pixCopiaECola: pix.copiaECola, pixTxid: pix.txid } : {}),
             }
           : null,
       };
+    }, { isolationLevel: "Serializable" }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("As vagas foram atualizadas. Confira o lote e tente novamente.");
+      }
+      throw error;
     });
+    if (created.status === "CONFIRMED" && notificationEmail) {
+      await queueEventCheckInNotice(this.mail, {
+        registrationId: created.id,
+        to: notificationEmail,
+        eventName: params.event.name || "evento",
+        checkInCode: created.checkInCode,
+      });
+    }
+    return created;
   }
 
   private assertNoRealPii(input: object): void {
@@ -1494,6 +1641,7 @@ export class EventRegistrationsService {
       closesAt: Date | null;
       status: string;
       sortOrder: number;
+      receivingAccountId?: string | null;
     },
     occupied = 0,
   ) {
@@ -1513,7 +1661,8 @@ export class EventRegistrationsService {
       closesAt: row.closesAt?.toISOString() ?? null,
       status: row.status,
       sortOrder: row.sortOrder,
-      paymentMode: "MOCK_ONLY" as const,
+      receivingAccountId: row.receivingAccountId ?? null,
+      paymentMode: row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
     };
   }
 
@@ -1611,6 +1760,75 @@ export class EventRegistrationsService {
       paymentMode: "MOCK_ONLY" as const,
     };
   }
+
+  private async resolveReceivingAccount(
+    pilot: { organizationId: string; churchId: string },
+    receivingAccountId: string | null | undefined,
+    priceCents: number,
+  ): Promise<string | null> {
+    const id = receivingAccountId?.trim() || null;
+    if (!id) return null;
+    if (priceCents <= 0) {
+      throw new BadRequestException("Conta de recebimento só vale para lote pago.");
+    }
+    const account = await this.prisma.churchReceivingAccount.findFirst({
+      where: {
+        id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        active: true,
+        ledgerAccount: { active: true, type: "ASSET" },
+      },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new BadRequestException("Conta ativa da igreja não encontrada.");
+    }
+    return account.id;
+  }
+
+  private async pixInstruction(
+    pilot: { organizationId: string; churchId: string },
+    receivingAccountId: string,
+    amountCents: number,
+  ) {
+    const account = await this.prisma.churchReceivingAccount.findFirst({
+      where: {
+        id: receivingAccountId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        active: true,
+      },
+    });
+    if (!account) {
+      throw new BadRequestException("A conta Pix do lote não está ativa.");
+    }
+    const txid = randomBytes(8).toString("hex");
+    return {
+      accountId: account.id,
+      txid,
+      copiaECola: buildPixCopiaECola({
+        pixKey: account.pixKey,
+        merchantName: account.displayName,
+        merchantCity: account.merchantCity,
+        amountCents,
+        txid,
+      }),
+    };
+  }
+}
+
+function pilotMailbox(value: string | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    throw new BadRequestException("Informe um e-mail válido para receber a confirmação.");
+  }
+  const live = process.env.EMAIL_TRANSPORT === "smtp" && smtpSendEnabled();
+  if (!live && !email.endsWith("@example.test")) {
+    throw new BadRequestException("Neste ambiente de teste, use um e-mail fictício @example.test.");
+  }
+  return email;
 }
 
 function resourceLabel(
