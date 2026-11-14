@@ -239,29 +239,36 @@ export class PersonalRosterService {
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertCanOperateMinistry(actor, ministry, pilot);
 
-    const rows = await this.prisma.roster.findMany({
-      where: {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        ministryId: ministry.id,
-      },
-      orderBy: { serviceAt: "asc" },
-      include: {
-        slots: {
-          orderBy: { sortOrder: "asc" },
-          include: {
-            assignments: { include: { person: { select: { displayName: true } }, partner: { select: { displayName: true } } } },
+    const [rows, modules] = await Promise.all([
+      this.prisma.roster.findMany({
+        where: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          ministryId: ministry.id,
+        },
+        orderBy: { serviceAt: "asc" },
+        include: {
+          slots: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              assignments: { include: { person: { select: { displayName: true } }, partner: { select: { displayName: true } } } },
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.ministryRosterModule.findMany({
+        where: { ministryId: ministry.id }, select: { id: true, name: true }, orderBy: { name: "asc" },
+      }),
+    ]);
 
     return {
       ministryId: ministry.id,
+      modules,
       notified: false,
       rosters: rows.map((row) => ({
         id: row.id,
         ministryId: row.ministryId,
+        moduleId: row.moduleId,
         title: row.title,
         serviceAt: row.serviceAt.toISOString(),
         status: row.status,

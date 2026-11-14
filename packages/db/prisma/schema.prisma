@@ -822,6 +822,7 @@ model Ministry {
   church       Church       @relation(fields: [churchId], references: [id])
   leader       Person?      @relation("MinistryLeader", fields: [leaderPersonId], references: [id])
   rosters      Roster[]
+  rosterModules MinistryRosterModule[]
   grants       Grant[]
   portalEvents PortalEvent[]
   cmsContents  CmsContent[]
@@ -1406,11 +1407,28 @@ enum RosterAssignmentStatus {
   SUBSTITUTED
 }
 
+model MinistryRosterModule {
+  id          String   @id @default(cuid())
+  ministryId  String   @map("ministry_id")
+  name        String
+  nameKey     String   @map("name_key")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  ministry Ministry @relation(fields: [ministryId], references: [id], onDelete: Restrict)
+  rosters  Roster[]
+
+  @@unique([ministryId, nameKey])
+  @@unique([id, ministryId])
+  @@map("ministry_roster_modules")
+}
+
 model Roster {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
   churchId       String       @map("church_id")
   ministryId     String?      @map("ministry_id")
+  moduleId       String?      @map("module_id")
   title          String
   serviceAt      DateTime     @map("service_at")
   status         RosterStatus @default(DRAFT)
@@ -1420,10 +1438,12 @@ model Roster {
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
   ministry     Ministry?    @relation(fields: [ministryId], references: [id])
+  module       MinistryRosterModule? @relation(fields: [moduleId, ministryId], references: [id, ministryId], onDelete: Restrict)
   slots        RosterSlot[]
 
   @@index([churchId, serviceAt])
   @@index([ministryId])
+  @@index([moduleId])
   @@map("rosters")
 }
 

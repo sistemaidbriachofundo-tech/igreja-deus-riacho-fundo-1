@@ -1,7 +1,8 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
+import { RosterModuleCatalog } from "./RosterModuleCatalog";
 import { withBasePath } from "../../lib/paths";
 import type {
   ConversionResult,
@@ -309,6 +310,7 @@ function ReadyExperience({
 
           {tab === "escalas" ? (
             <EscalaList
+              key={desk.ministry.id}
               ministryId={desk.ministry.id}
               panel={escalas}
               escalaId={escalaId}
@@ -405,6 +407,7 @@ function EscalaList({
   onOpen: (escalaId?: string) => void;
   actions?: RosterActionsProps;
 }) {
+  const [moduleFilter, setModuleFilter] = useState("");
   if (
     panel.kind === "hidden" ||
     panel.kind === "denied" ||
@@ -418,9 +421,20 @@ function EscalaList({
       </p>
     );
   }
+  const modules = panel.modules ?? [];
+  const selectedModule = modules.find(module => module.id === moduleFilter);
+  const items = selectedModule ? panel.items.filter(item => item.moduleId === selectedModule.id) : panel.items;
+  const moduleNames = new Map(modules.map(module => [module.id, module.name]));
+  const editor = actions && {
+    ...actions, modules, moduleId: selectedModule?.id,
+    onOpen: (id: string) => { setModuleFilter(""); actions.onOpen(id); },
+  };
   return (
     <div className={styles.scheduleList}>
-      {actions && <RosterEditor {...actions} />}
+      {(actions || modules.length > 0) && (
+        <RosterModuleCatalog actions={actions} modules={modules} selectedId={selectedModule?.id ?? ""} onSelect={setModuleFilter} />
+      )}
+      {editor && <RosterEditor key={selectedModule?.id ?? "general"} {...editor} />}
       {shortcut && (
         <div className={styles.shortcuts}>
           <a
@@ -431,10 +445,10 @@ function EscalaList({
           </a>
         </div>
       )}
-      {panel.items.length === 0 ? (
-        <p className={styles.note}>Nenhuma escala deste ministério.</p>
+      {items.length === 0 ? (
+        <p className={styles.note}>{selectedModule ? "Nenhuma escala neste módulo." : "Nenhuma escala deste ministério."}</p>
       ) : (
-        panel.items.map((escala) => {
+        items.map((escala) => {
           const expanded = escala.id === escalaId;
           const detailId = `funcoes-${escala.id}`;
           const nextId = expanded ? undefined : escala.id;
@@ -453,6 +467,7 @@ function EscalaList({
                 <span>{escalaStatusLabel(escala.status)}</span>
               </header>
               <p>
+                {escala.moduleId && moduleNames.has(escala.moduleId) && `${moduleNames.get(escala.moduleId)} · `}
                 {formatChurchWhen(escala.serviceAt)} ·{" "}
                 {escala.assignedCount === 1
                   ? "1 pessoa escalada"
@@ -472,7 +487,7 @@ function EscalaList({
               </a>
               {expanded && (
                 <div className={styles.escalaDetails} id={detailId}>
-                  {actions && <RosterActions {...actions} roster={escala} />}
+                  {editor && <RosterActions {...editor} roster={escala} />}
                   {(!actions || !escala.positions?.length) && <h3>Funções na escala</h3>}
                   {(!actions || !escala.positions?.length) && (escala.functions.length ? (
                     <ul>

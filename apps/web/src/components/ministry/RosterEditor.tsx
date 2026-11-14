@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
-import type { EscalaAssignment, EscalaPosition, MinistryEscala } from "../../lib/ministry-presentation";
+import type { EscalaAssignment, EscalaModule, EscalaPosition, MinistryEscala } from "../../lib/ministry-presentation";
 import { UIIcon } from "../AppShell";
 import { RosterPreviewPanel } from "../serving/RosterPreviewPanel";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
@@ -17,6 +17,8 @@ export type RosterActionsProps = {
   members: FormalMember[];
   onRefresh: () => void;
   onOpen: (rosterId: string) => void;
+  modules?: EscalaModule[];
+  moduleId?: string;
 };
 
 const churchDateTime = new Intl.DateTimeFormat("sv-SE", {
@@ -24,7 +26,7 @@ const churchDateTime = new Intl.DateTimeFormat("sv-SE", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23",
 });
 
-export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster }: RosterActionsProps & { roster?: MinistryEscala }) {
+export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, modules = [], moduleId }: RosterActionsProps & { roster?: MinistryEscala }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +38,7 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster }: R
     const fields = new FormData(event.currentTarget);
     const title = String(fields.get("title") ?? "").trim();
     const localTime = String(fields.get("when") ?? "");
+    const selectedModule = fields.get("moduleId");
     setBusy(true);
     setError("");
     try {
@@ -43,8 +46,12 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster }: R
       if (!hasAssignments && !Number.isFinite(date.getTime())) throw new Error("Informe a data e a hora do culto.");
       const serviceAt = hasAssignments && roster ? roster.serviceAt : date.toISOString();
       const result = roster
-        ? await apiPatch<{ id: string }>("/rosters/" + encodeURIComponent(roster.id), token, { title, serviceAt })
-        : await apiPost<{ id: string }>("/rosters", token, { title, serviceAt, ministryId });
+        ? await apiPatch<{ id: string }>("/rosters/" + encodeURIComponent(roster.id), token, {
+          title, serviceAt, ...(selectedModule !== null ? { moduleId: selectedModule || null } : {}),
+        })
+        : await apiPost<{ id: string }>("/rosters", token, {
+          title, serviceAt, ministryId, ...(selectedModule ? { moduleId: selectedModule } : {}),
+        });
       setEditing(false);
       onOpen(result.id);
       onRefresh();
@@ -64,6 +71,12 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster }: R
         <form className={s.form} onSubmit={save}>
           <label>Nome do culto<input name="title" defaultValue={roster?.title} maxLength={160} required /></label>
           <label>Data e hora de Brasília<input name="when" type="datetime-local" disabled={hasAssignments} defaultValue={roster ? churchDateTime.format(new Date(roster.serviceAt)).replace(" ", "T") : ""} required /></label>
+          {modules.length > 0 && (
+            <label>Módulo<select name="moduleId" defaultValue={(roster ? roster.moduleId : moduleId) ?? ""}>
+              <option value="">Escala geral do ministério</option>
+              {modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
+            </select></label>
+          )}
           <button className={ui.workspacePrimary} type="submit" disabled={busy}>{busy ? "Salvando…" : roster ? "Salvar alterações" : "Criar escala"}</button>
           {error && <p role="alert">{error}</p>}
         </form>
@@ -98,9 +111,11 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
 
   function savePosition(event: FormEvent<HTMLFormElement>, position?: EscalaPosition) {
     event.preventDefault();
-    const roleLabel = String(new FormData(event.currentTarget).get("roleLabel") ?? "").trim();
+    const fields = new FormData(event.currentTarget);
+    const roleLabel = String(fields.get("roleLabel") ?? "").trim();
     const path = base + "/slots" + (position ? "/" + encodeURIComponent(position.id) : "");
-    void mutate(path, { roleLabel }, position ? "PATCH" : "POST");
+    const requiresCouple = fields.has("requiresCouple");
+    void mutate(path, position ? { roleLabel } : { roleLabel, requiresCouple }, position ? "PATCH" : "POST");
   }
 
   function savePerson(event: FormEvent<HTMLFormElement>, position: EscalaPosition, assignment?: EscalaAssignment) {
@@ -154,6 +169,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {draft && (
         <form className={s.form} onSubmit={savePosition}>
           <label>Nova posição<input name="roleLabel" placeholder="Ex. Recepção" maxLength={100} required /></label>
+          <label className={s.checkbox}><input type="checkbox" name="requiresCouple" /> Posição para casal</label>
           <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Adicionar posição</button>
         </form>
       )}

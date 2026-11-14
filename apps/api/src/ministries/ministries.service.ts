@@ -225,9 +225,40 @@ export class MinistriesService {
     });
   }
 
+  async saveRosterModule(actor: AuthUser, ministryId: string, input: string, moduleId?: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    this.assertManageMinistry(actor, ministry);
+    const name = input.trim().replace(/\s+/g, " ");
+    if (!name || name.length > 100) throw new BadRequestException("Informe um nome de módulo com até 100 caracteres.");
+    const nameKey = name.normalize("NFC").toLocaleLowerCase("pt-BR");
+    const select = { id: true, name: true } as const;
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const module = moduleId
+          ? await tx.ministryRosterModule.update({ where: { id: moduleId, ministryId }, data: { name, nameKey }, select })
+          : await tx.ministryRosterModule.create({ data: { ministryId, name, nameKey }, select });
+        await tx.auditLog.create({ data: {
+          actorUserId: actor.userId,
+          action: moduleId ? "ministry.roster_module.rename" : "ministry.roster_module.create",
+          resourceType: "ministry_roster_module", resourceId: module.id,
+          organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { ministryId },
+        } });
+        return module;
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error) {
+        if (error.code === "P2002") throw new ConflictException("Já existe um módulo com esse nome neste ministério.");
+        if (error.code === "P2025") throw new NotFoundException("Módulo não encontrado neste ministério.");
+      }
+      throw error;
+    }
+  }
+
   async createRoster(
     actor: AuthUser,
-    input: { title: string; serviceAt: string; ministryId?: string },
+    input: { title: string; serviceAt: string; ministryId?: string; moduleId?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
 
@@ -249,11 +280,13 @@ export class MinistriesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await this.assertRosterModule(tx, input.ministryId, input.moduleId);
       const roster = await tx.roster.create({
         data: {
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
           ministryId: input.ministryId ?? null,
+          ...(input.moduleId ? { moduleId: input.moduleId } : {}),
           title,
           serviceAt,
         },
@@ -273,7 +306,7 @@ export class MinistriesService {
     });
   }
 
-  async editRoster(actor: AuthUser, rosterId: string, input: { title: string; serviceAt: string }) {
+  async editRoster(actor: AuthUser, rosterId: string, input: { title: string; serviceAt: string; moduleId?: string | null }) {
     const pilot = await this.pilot.getPilotChurch();
     const roster = await this.requireRoster(rosterId, pilot);
     await this.assertRosterScope(actor, roster, pilot);
@@ -283,6 +316,7 @@ export class MinistriesService {
     if (!title || !Number.isFinite(serviceAt.getTime())) throw new BadRequestException("Informe título e horário válidos.");
 
     return this.prisma.$transaction(async tx => {
+      await this.assertRosterModule(tx, roster.ministryId, input.moduleId);
       if (serviceAt.getTime() !== roster.serviceAt.getTime()) {
         const assignments = await tx.rosterAssignment.count({
           where: { slot: { rosterId }, status: { in: ["PENDING", "CONFIRMED"] } },
@@ -291,7 +325,7 @@ export class MinistriesService {
       }
       const result = await tx.roster.updateMany({
         where: { id: rosterId, status: "DRAFT", updatedAt: roster.updatedAt },
-        data: { title, serviceAt },
+        data: { title, serviceAt, ...(input.moduleId !== undefined ? { moduleId: input.moduleId } : {}) },
       });
       if (result.count !== 1) throw new ConflictException("A escala mudou. Abra novamente para editar.");
       await tx.auditLog.create({ data: {
@@ -300,6 +334,15 @@ export class MinistriesService {
       } });
       return this.toRosterDto(await tx.roster.findUniqueOrThrow({ where: { id: rosterId } }));
     }, { isolationLevel: "Serializable" });
+  }
+
+  private async assertRosterModule(
+    tx: Prisma.TransactionClient, ministryId: string | null | undefined, moduleId: string | null | undefined,
+  ) {
+    if (!moduleId) return;
+    if (!ministryId || !await tx.ministryRosterModule.findFirst({
+      where: { id: moduleId, ministryId }, select: { id: true },
+    })) throw new BadRequestException("Selecione um módulo deste ministério.");
   }
 
   async editRosterSlot(actor: AuthUser, rosterId: string, slotId: string, label: string) {
@@ -1739,6 +1782,7 @@ export class MinistriesService {
     organizationId: string;
     churchId: string;
     ministryId: string | null;
+    moduleId?: string | null;
     title: string;
     serviceAt: Date;
     status: string;
@@ -1750,6 +1794,7 @@ export class MinistriesService {
       organizationId: row.organizationId,
       churchId: row.churchId,
       ministryId: row.ministryId,
+      ...(row.moduleId ? { moduleId: row.moduleId } : {}),
       title: row.title,
       serviceAt: row.serviceAt.toISOString(),
       status: row.status,

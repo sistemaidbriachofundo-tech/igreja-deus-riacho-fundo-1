@@ -195,6 +195,9 @@ describe("agenda pessoal e escopo de escala", () => {
         return slotOf(where.id);
       }),
     },
+    ministryRosterModule: {
+      findMany: jest.fn(async () => []),
+    },
     ministry: {
       findFirst: jest.fn(async ({ where }: { where: { id: string } }) => {
         return [louvorMinistry, atmosferaMinistry].find(
