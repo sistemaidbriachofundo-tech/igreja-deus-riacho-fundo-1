@@ -41,6 +41,28 @@ describe("DiscipleshipService", () => {
     ],
   };
 
+  it("limits the member journey to their own enrollment and uses the latest event per stage", async () => {
+    const findMany = jest.fn().mockResolvedValue([{ id: "my-enrollment", status: "ACTIVE",
+      mentor: { displayName: "Mentoria" }, track: { name: "Trilha da Conexão", stages: [
+        { id: "welcome", title: "Boas-vindas", description: null },
+        { id: "next", title: "Primeiros Passos", description: "Participar do encontro." },
+      ] },
+    }]);
+    const progress = jest.fn().mockResolvedValue([{ stageId: "welcome", kind: "COMPLETED" },
+      { stageId: "next", kind: "COMPLETED" }, { stageId: "next", kind: "REOPENED" }]);
+    const service = new DiscipleshipService({
+      discipleshipEnrollment: { findMany }, discipleshipProgressEvent: { findMany: progress },
+    } as never, { getPilotChurch: async () => pilot } as never);
+    expect(await service.myConnectionJourney(membro)).toMatchObject({
+      journey: { currentStageId: "next", mentorName: "Mentoria", stages: [{ completed: true }, { completed: false }] },
+    });
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      personId: "p-mem", status: { not: "CANCELLED" }, track: { organizationId: "org1", churchId: "church-rf1" },
+    } }));
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ where: { enrollmentId: "my-enrollment" } }));
+    await expect(service.myConnectionJourney({ ...membro, churchId: "another" })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   const now = new Date("2026-11-05T12:00:00Z");
 
   const trackRow = {

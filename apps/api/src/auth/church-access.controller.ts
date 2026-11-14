@@ -50,16 +50,17 @@ export class ChurchAccessController {
   constructor(private readonly prisma: PrismaService, private readonly pilot: PilotService, @Optional() private readonly invitations?: AccessInvitationService) {}
 
   @Get()
-  async list(@CurrentUser() actor: AuthUser, @Query("q") query = "", @Query("page") pageParam = "1") {
+  async list(@CurrentUser() actor: AuthUser, @Query("q") query = "", @Query("page") pageParam = "1", @Query("status") status = "") {
     const { organizationId, churchId } = await this.scope(actor);
     const page = Number(pageParam);
-    if (!Number.isInteger(page) || page < 1 || page > 10000 || typeof query !== "string" || query.length > 100) {
+    if (!Number.isInteger(page) || page < 1 || page > 10000 || typeof query !== "string" || query.length > 100 || !["", "ACTIVE", "DISABLED"].includes(status)) {
       throw new BadRequestException("Busca de acessos inválida.");
     }
     const q = query.trim();
     const rows = await this.prisma.user.findMany({
       where: {
         person: { organizationId, homeChurchId: churchId },
+        ...(status === "ACTIVE" || status === "DISABLED" ? { status } : {}),
         ...(q ? { OR: [
           { email: { contains: q, mode: "insensitive" as const } },
           { person: { displayName: { contains: q, mode: "insensitive" as const } } },

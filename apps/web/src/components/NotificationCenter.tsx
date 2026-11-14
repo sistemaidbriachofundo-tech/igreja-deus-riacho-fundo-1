@@ -29,6 +29,7 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const lastRefresh = useRef(0);
   const dialog = useRef<HTMLElement>(null);
   const titleId = useId();
   useDialogLifecycle(open, () => setOpen(false), dialog);
@@ -36,11 +37,12 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const token = loadStoredToken();
     if (!token) return;
+    const request = ++lastRefresh.current;
     try {
       const value = await apiGet<Feed>(endpoint, token);
-      if (!signal?.aborted) { setFeed(value); setError(""); }
+      if (!signal?.aborted && request === lastRefresh.current) { setFeed(value); setError(""); }
     } catch {
-      if (!signal?.aborted) setError("Não foi possível consultar as notificações. Tente novamente.");
+      if (!signal?.aborted && request === lastRefresh.current) setError("Não foi possível consultar as notificações. Tente novamente.");
     }
   }, []);
 
@@ -57,14 +59,21 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
     };
   }, [refresh, userId]);
 
-  async function mark(ids: string[]) {
+  async function mark(ids: string[], sync = true) {
     const token = loadStoredToken();
     if (!token || !ids.length) return;
     setBusy(true);
     setError("");
     try {
       await apiPost(endpoint + "/read", token, { ids });
-      await refresh();
+      if (!sync) return;
+      lastRefresh.current += 1;
+      const now = new Date().toISOString();
+      setFeed(current => {
+        if (!current) return current;
+        const items = current.items.map(item => ids.includes(item.id) && !item.readAt ? { ...item, readAt: now } : item);
+        return { items, unread: items.filter(item => !item.readAt).length };
+      });
     } catch {
       setError("Não foi possível salvar a leitura. Tente novamente.");
     } finally {
@@ -107,7 +116,7 @@ export function NotificationCenter({ userId, icon, closeIcon }: { userId: string
                   if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || item.readAt) return;
                   event.preventDefault();
                   const href = event.currentTarget.href;
-                  void mark([item.id]).finally(() => window.location.assign(href));
+                  void mark([item.id], false).finally(() => window.location.assign(href));
                 }}>{item.action} <span aria-hidden="true">→</span></a>
                 {!item.readAt && <button type="button" disabled={busy} onClick={() => void mark([item.id])}>Marcar como lida</button>}
               </div>

@@ -17,6 +17,7 @@ import {
   type RosterView,
   type ServingSurfaceId,
 } from "../../lib/serving-rosters";
+import { ConnectionJourney } from "./ConnectionJourney";
 import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
 import { RosterNotifications } from "./RosterNotifications";
 import { GroupRequests } from "../GroupRequests";
@@ -219,6 +220,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
             )
           }
         />
+        <ConnectionJourney />
         <GroupRequests token={token} />
         </>
       )}

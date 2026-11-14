@@ -42,6 +42,40 @@ export class NotificationsService {
     return { items, unread: items.filter(item => !item.readAt).length };
   }
 
+  async priorities(actor: AuthUser, now = new Date()) {
+    const scope = await this.scope(actor);
+    if (!scope) return { nextService: null, pending: [] };
+    const since = new Date(+now - 30 * 86_400_000);
+    const [ids, finance, admissions] = await Promise.all([
+      this.managedMinistries(actor, scope), this.finance(actor, scope, since), this.admissions(actor, scope, since),
+    ]);
+    const next = ids.length ? await this.db.roster.findFirst({
+      where: { ...scope, ministryId: { in: ids }, status: "PUBLISHED", serviceAt: { gt: now } },
+      orderBy: [{ serviceAt: "asc" }, { id: "asc" }],
+      select: { serviceAt: true },
+    }) : null;
+    const rosters = next ? await this.db.roster.findMany({
+      where: { ...scope, ministryId: { in: ids }, status: "PUBLISHED", serviceAt: next.serviceAt },
+      orderBy: { id: "asc" },
+      select: { id: true, ministryId: true, title: true, module: { select: { name: true } },
+        slots: { select: { id: true, assignments: { where: { status: { in: ["PENDING", "CONFIRMED"] } }, select: { id: true }, take: 1 } } } },
+    }) : [];
+    const teams = rosters.flatMap(roster => {
+      if (!roster.ministryId) return [];
+      const vacancies = roster.slots.filter(slot => !slot.assignments.length);
+      const params = new URLSearchParams({ ministry: roster.ministryId, aba: "escalas", escala: roster.id });
+      const anchor = vacancies[0] ? "#posto-" + encodeURIComponent(vacancies[0].id) : "";
+      return [{ id: roster.id, title: roster.module?.name ?? roster.title, vacancies: vacancies.length, href: "/app/ministerios/?" + params + anchor }];
+    });
+    return {
+      nextService: next ? { serviceAt: next.serviceAt, teams } : null,
+      pending: [...finance, ...admissions]
+        .filter(item => item.state === "Aguardando decisão" || item.state === "Em análise")
+        .sort((a, b) => +a.createdAt - +b.createdAt)
+        .map(({ id, category, title, detail, href }) => ({ id, category, title, detail, href })),
+    };
+  }
+
   async markRead(actor: AuthUser, ids: string[]) {
     const scope = await this.scope(actor);
     if (!scope) return { marked: 0 };
@@ -75,10 +109,10 @@ export class NotificationsService {
       return notices.map(row => {
         const status = "inviteStatus" in row ? row.inviteStatus : undefined;
         const invitation = row.kind === "substitute";
-        const assignmentId = ["published", "reminder"].includes(row.kind) ? row.id.split(":")[1] : "";
+        const assignmentId = ["published", "reminder", "rescheduled"].includes(row.kind) ? row.id.split(":")[1] : "";
         return {
           id: row.id, category: "Escalas", title: row.title,
-          detail: row.expiresAt && status === "open" ? `Prazo até ${WHEN.format(row.expiresAt)}` : row.body,
+          detail: row.body,
           createdAt: row.createdAt, href: assignmentId ? `${PORTAL}#escala-${encodeURIComponent(assignmentId)}` : invitation ? PORTAL + "#convite-" + encodeURIComponent(row.id.split(":")[1]) : row.path,
           action: invitation && status === "open" ? "Responder ao convite" : row.kind === "survey" ? "Ver pesquisa" : "Ver escala",
           state: status === "accepted" ? "Substituição confirmada" : status === "closed" ? "Convite encerrado" :
@@ -91,12 +125,16 @@ export class NotificationsService {
     }
   }
 
-  private async declines(actor: AuthUser, scope: Scope, since: Date, now: Date): Promise<Notice[]> {
+  private async managedMinistries(actor: AuthUser, scope: Scope) {
     if (!canLeadMinistry(actor.grants, scope)) return [];
     const ministries = await this.db.ministry.findMany({ where: scope, select: { id: true, leaderPersonId: true } });
-    const ids = ministries.filter(ministry => canManageSpecificMinistry(actor.grants, actor.personId, {
+    return ministries.filter(ministry => canManageSpecificMinistry(actor.grants, actor.personId, {
       ...scope, ministryId: ministry.id, leaderPersonId: ministry.leaderPersonId,
     })).map(ministry => ministry.id);
+  }
+
+  private async declines(actor: AuthUser, scope: Scope, since: Date, now: Date): Promise<Notice[]> {
+    const ids = await this.managedMinistries(actor, scope);
     if (!ids.length) return [];
     const rows = await this.db.rosterAssignment.findMany({
       where: { declinedAt: { gte: since }, status: { in: ["DECLINED", "SUBSTITUTED"] },

@@ -152,6 +152,11 @@ export class DiscipleshipController {
     });
   }
 
+  @Get("me/connection")
+  myConnection(@CurrentUser() user: AuthUser) {
+    return this.discipleship.myConnectionJourney(user);
+  }
+
   @Roles(...LEAD_ROLES)
   @Patch("enrollments/:enrollmentId")
   updateEnrollmentStatus(

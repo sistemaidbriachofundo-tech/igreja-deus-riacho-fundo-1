@@ -203,3 +203,11 @@
 @media (prefers-reduced-motion: reduce) {
   .theme *, .theme *::before, .theme *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.theme .masthead[data-overlay="true"] {
+  margin-bottom: calc(-1px - var(--portal-header));
+  border-bottom-color: #ffffff23;
+  background: #131515d6;
+  backdrop-filter: blur(10px);
+  box-shadow: none;
+}

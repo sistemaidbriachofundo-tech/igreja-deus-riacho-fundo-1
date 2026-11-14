@@ -9,7 +9,7 @@ import s from "./home-institutional.module.css";
 
 export default function HomePage() {
   return (
-    <PublicPage>
+    <PublicPage overlayHeader>
       <main id="conteudo" tabIndex={-1}>
         <PublishedSiteLayoutProvider>
           <PortalCinematicHero />
@@ -46,8 +46,8 @@ export default function HomePage() {
           <section className={s.agenda} id="agenda" aria-labelledby="agenda-title">
             <div className={s.agendaWrap}><PublishedAgenda /></div>
           </section>
-          <PortalFaithGallery />
           <PortalVideoShowcase />
+          <PortalFaithGallery />
         </PublishedSiteLayoutProvider>
       </main>
     </PublicPage>

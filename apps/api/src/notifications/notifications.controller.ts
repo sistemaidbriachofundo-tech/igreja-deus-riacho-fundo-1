@@ -22,6 +22,11 @@ export class NotificationsController {
     return this.notifications.list(actor);
   }
 
+  @Get("priorities")
+  priorities(@CurrentUser() actor: AuthUser) {
+    return this.notifications.priorities(actor);
+  }
+
   @Post("read")
   markRead(@CurrentUser() actor: AuthUser, @Body() body: ReadNotices) {
     return this.notifications.markRead(actor, body.ids);

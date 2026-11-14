@@ -1,8 +1,10 @@
 "use client";
 
+import { ConnectionJourney } from "./serving/ConnectionJourney";
 import { PersonPortrait } from "./PersonPortrait";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
+import { WorkspacePriorities } from "./WorkspacePriorities";
 import { AdministrativeOverview } from "./AdministrativeOverview";
 import { readTreasuryPosition, type TreasuryPosition } from "./TreasuryPanel";
 import { ApiRequestError, apiGet, isForbidden, isUnauthorized, loadStoredToken } from "../lib/api";
@@ -698,14 +700,15 @@ export function PersonaBoard() {
   const loading = mesa.phase === "idle" || mesa.phase === "loading";
   const counts = mesa.counts;
   if (deskKey === "PLATFORM_ADMIN") {
-    return <AdministrativeOverview counts={counts} distribution={mesa.bars}
+    return <div className={s.board}><AdministrativeOverview counts={counts} distribution={mesa.bars}
       admissions={mesa.admissions} events={mesa.events}
       treasuryPosition={mesa.treasuryPosition}
       loading={loading} partial={mesa.partial} signedOut={mesa.phase === "signed-out"}
-      onRefresh={() => setReload(value => value + 1)} />;
+      onRefresh={() => setReload(value => value + 1)} />
+      <WorkspacePriorities showService showDecisions revision={reload} />
+    </div>;
   }
   const summaryReady = counts !== null;
-  const admissions = (mesa.admissions ?? []).filter(row => !["Aprovado", "Recusado", "Cancelado"].includes(row.detail));
   const agenda = mesa.events ?? (showPublicAgenda ? publicRows : null);
   const agendaRows = agenda ? upcoming(agenda) : [];
   const marks = new Set(agendaRows.flatMap(row => row.when ? [spDayKey(new Date(row.when))] : []));
@@ -766,6 +769,9 @@ export function PersonaBoard() {
           ))}
       </nav>
 
+      {memberView && <ConnectionJourney compact />}
+      {(staff || leader) && <WorkspacePriorities showService={leader} showDecisions={staff} revision={reload} />}
+
       {visibleMetrics.length > 0 && (
         <section className={s.metrics} aria-label="Indicadores" aria-busy={loading}>
           {visibleMetrics.map(item => <Metric key={item.label} {...item} loading={loading} />)}
@@ -773,32 +779,14 @@ export function PersonaBoard() {
       )}
 
       <div className={s.columns}>
-        <Panel
-          id="avisos"
-          title="Pendências"
-          action={staff ? <AppNavLink href="/app/secretaria/">Ver admissões</AppNavLink> : undefined}
-        >
-          {staff && mesa.admissions === null && <p className={s.empty}>{loading ? "Carregando admissões…" : "Admissões indisponíveis no momento."}</p>}
-          {staff && mesa.admissions !== null && (
-            <RowList
-              rows={admissions}
-              hrefFor={() => "/app/secretaria/"}
-              empty="Nenhuma admissão em aberto."
-            />
-          )}
-          {memberView && mesa.assignments && (
-            pendingAssignments.length > 0
-              ? <RowList rows={pendingAssignments} hrefFor={() => "/app/servir/meu-espaco/"} empty="" />
-              : <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>
-          )}
-          {memberView && !loading && !mesa.assignments && mesa.card?.state === "absent" && (
+        {memberView && <Panel id="avisos" title="Sua escala">
+          {mesa.assignments ? (pendingAssignments.length > 0
+            ? <RowList rows={pendingAssignments} hrefFor={() => "/app/servir/meu-espaco/"} empty="" />
+            : <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>) : !loading && <p className={s.empty}>Não foi possível consultar sua escala.</p>}
+          {!loading && mesa.card?.state === "absent" && (
             <AppNavLink className={s.inlineLink} href="/app/membros/carteirinha/">Sua carteirinha ainda não foi emitida</AppNavLink>
           )}
-          {!staff && !memberView && !treasury && !loading && <p className={s.empty}>Nada pendente nesta mesa.</p>}
-          {treasury && !staff && !loading && mesa.entries && mesa.entries.length === 0 && (
-            <p className={s.empty}>Nenhum lançamento registrado.</p>
-          )}
-        </Panel>
+        </Panel>}
 
         <Panel title="Agenda" action={<AppNavLink href="/#agenda">Ver agenda</AppNavLink>}>
           <WeekStrip marks={marks} />

@@ -8,7 +8,7 @@ import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
-import { ApiRequestError, apiGet, apiPost, loadStoredToken } from "../lib/api";
+import { ApiRequestError, apiGet, apiPost, apiPostForm, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
@@ -215,6 +215,7 @@ export function TreasuryPanel() {
   const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
   const [failure, setFailure] = useState("");
   const [center, setCenter] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<{ id: string; message: string } | null>(null);
   const [targetExpense, setTargetExpense] = useState("");
   const [view, setView] = useState<TreasurySection>("visao");
   const [from, setFrom] = useState("");
@@ -342,6 +343,30 @@ export function TreasuryPanel() {
   const pendingBalance = tab === "deposito" ? summary?.pending.dinheiro : summary?.pending.cartao;
   const feeAccount = accounts.find(account => account.code === "5.9.10.01" && account.type === "EXPENSE");
 
+  async function attachReceipt(event: FormEvent<HTMLFormElement>, entry: EntryView) {
+    event.preventDefault();
+    if (!token || !canWrite || busy) return;
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const file = fields.get("file");
+    if (!(file instanceof File) || file.size === 0 || file.size > 4 * 1024 * 1024 ||
+        !["application/pdf", "image/jpeg", "image/png"].includes(file.type)) {
+      setAttachment({ id: entry.id, message: "Selecione PDF, JPG ou PNG com até 4 MB." });
+      return;
+    }
+    setBusy(true);
+    setAttachment(null);
+    try {
+      await apiPostForm("/ledger/entries/" + encodeURIComponent(entry.id) + "/attachments", token, fields);
+      form.reset();
+      showFeedback({ tone: "success", title: "Comprovante anexado", message: "O arquivo está disponível na revisão da despesa." });
+    } catch (error) {
+      setAttachment({ id: entry.id, message: dasError(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || busy || (tab === "despesa" ? !canCreateExpense : !canWrite)) return;
@@ -463,6 +488,10 @@ export function TreasuryPanel() {
       {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
+        {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
+          <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
+          <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
+        </section>}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
             onBank={id => { setBankFilter(id); setChannelFilter(""); setQuery(""); openView("extrato"); }}
@@ -501,6 +530,14 @@ export function TreasuryPanel() {
                 {entry.rejectionReason && entry.status === "REJECTED" && <small>Motivo da devolução: {entry.rejectionReason}</small>}
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
+              {canWrite && entry.status === "PENDING_APPROVAL" && <details className={styles.receiptUpload}>
+                <summary>Anexar comprovante</summary>
+                <form onSubmit={event => void attachReceipt(event, entry)}>
+                  <label>Arquivo (PDF, JPG ou PNG)<input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /></label>
+                  <button type="submit" className={ui.workspaceSecondary} disabled={busy}>Anexar</button>
+                </form>
+                {attachment?.id === entry.id && <p role="alert">{attachment.message}</p>}
+              </details>}
               {canApproveExpense && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
             </article>;
           })}

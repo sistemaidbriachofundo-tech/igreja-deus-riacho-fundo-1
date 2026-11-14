@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canLeadMinistry } from "@idbrf/shared";
+import { canLeadMinistry, grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -334,6 +334,34 @@ export class DiscipleshipService {
       });
       return this.toProgressEventDto(event);
     });
+  }
+
+  async myConnectionJourney(actor: AuthUser) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const scope = { organizationId, churchId, roleCodes: Object.values(ROLE_CODES) };
+    if (!actor.personId || (actor.organizationId && actor.organizationId !== organizationId) ||
+        (actor.churchId && actor.churchId !== churchId) ||
+        !actor.grants.some(grant => grantMatchesScope(grant, scope))) throw new ForbiddenException();
+
+    const enrollments = await this.prisma.discipleshipEnrollment.findMany({
+      where: { personId: actor.personId, status: { not: "CANCELLED" }, track: { organizationId, churchId } },
+      orderBy: [{ startedAt: "desc" }, { id: "asc" }],
+      select: {
+        id: true, status: true, mentor: { select: { displayName: true } },
+        track: { select: { name: true, stages: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, description: true } } } },
+      },
+    });
+    const journey = enrollments.find(row => /conex[aã]o/i.test(row.track.name));
+    if (!journey) return { journey: null };
+
+    const track = await this.prisma.discipleshipProgressEvent.findMany({
+      where: { enrollmentId: journey.id }, orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      select: { stageId: true, kind: true },
+    });
+    const latest = new Map(track.map(event => [event.stageId, event.kind]));
+    const stages = journey.track.stages.map(stage => ({ ...stage, completed: latest.get(stage.id) === "COMPLETED" }));
+    return { journey: { name: journey.track.name, status: journey.status, mentorName: journey.mentor?.displayName ?? null,
+      stages, currentStageId: journey.status === "COMPLETED" ? null : stages.find(stage => !stage.completed)?.id ?? null } };
   }
 
   async getProgress(actor: AuthUser, enrollmentId: string) {

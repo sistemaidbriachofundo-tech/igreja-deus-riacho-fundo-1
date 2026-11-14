@@ -1,5 +1,6 @@
 "use client";
 
+import { sundayServices } from "../lib/public-service-schedule";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PortalSectionLink } from "./PublicSectionLink";
@@ -83,8 +84,7 @@ export function PublishedAgenda() {
       <section className={s.visitSchedule} aria-labelledby="sunday-title">
         <h3 id="sunday-title">Cultos de domingo</h3>
         <ul className={s.sundayTimes}>
-          <li><span>Manhã</span><time dateTime="10:00">10h</time></li>
-          <li><span>Noite</span><time dateTime="19:00">19h</time></li>
+          {sundayServices.map(service => <li key={service.clock}><span>{service.shift}</span><time dateTime={service.clock}>{service.label}</time></li>)}
         </ul>
       </section>
       {status !== "unavailable" && (

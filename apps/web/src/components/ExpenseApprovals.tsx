@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { UIIcon, usePersonaAccess } from "./AppShell";
-import { apiGet, apiGetBlob, apiPost, loadStoredToken } from "../lib/api";
+import { ApiRequestError, apiGet, apiGetBlob, apiPost, loadStoredToken } from "../lib/api";
 import { formatBRL } from "../lib/das-operations";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
@@ -26,6 +26,8 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
   const access = usePersonaAccess();
   const { confirm, confirmation } = useActionConfirmation();
   const [rows, setRows] = useState<PendingExpense[] | null>(null);
+  const reasons = useRef<Record<string, string>>({});
+  const [decisionError, setDecisionError] = useState<{ id: string; text: string } | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const [revision, setRevision] = useState(0);
@@ -106,28 +108,31 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     if (!roles.includes(required) || row.createdByUserId === actorId
       || row.firstApprovedByUserId === actorId) return;
     setBusyId(row.id);
+    setDecisionError(null);
     try {
       const files = receipts[row.id] ?? await listReceipts(row.id);
-      let reason = "";
       if (!(await confirm({
         title: reject ? "Devolver esta despesa?" : required === "PASTOR" ? "Aprovar esta despesa?" : "Confirmar a conferência da despesa?",
         subject: row.description,
-        description: reject ? "A Tesouraria poderá consultar a decisão e o motivo." : required === "PASTOR"
+        description: reject ? `A despesa de ${formatBRL(row.amountCents)} será devolvida à Tesouraria. O motivo ficará registrado.` : required === "PASTOR"
           ? `O lançamento de ${formatBRL(row.amountCents)} entra no saldo aprovado e a decisão fica no histórico.`
           : `O lançamento de ${formatBRL(row.amountCents)} seguirá para aprovação do pastor.`,
         action: reject ? "Devolver despesa" : required === "PASTOR" ? "Aprovar despesa" : "Confirmar conferência",
         tone: reject ? "danger" : "normal",
         content: <><strong>Comprovantes</strong>{receiptLinks(row.id, files)}
-          {reject && <label className={s.reason}>Motivo da devolução <textarea maxLength={500} onChange={event => { reason = event.currentTarget.value; }} /></label>}</>,
+          {reject && <label className={s.reason}>Motivo da devolução <textarea maxLength={500} defaultValue={reasons.current[row.id] ?? ""} onChange={event => { reasons.current[row.id] = event.currentTarget.value; }} /></label>}</>,
       }))) return;
       const endpoint = "/ledger/entries/" + encodeURIComponent(row.id);
-      if (reject) await apiPost(endpoint + "/reject", token, { reason: reason.trim() });
+      if (reject) await apiPost(endpoint + "/reject", token, { reason: (reasons.current[row.id] ?? "").trim() });
       else await apiPost(endpoint + "/approve", token);
       showFeedback({ tone: "success", title: reject ? "Despesa devolvida" : required === "PASTOR" ? "Despesa aprovada" : "Conferência registrada", message: reject ? "A decisão foi registrada e está disponível para a Tesouraria." : required === "PASTOR" ? "A despesa foi registrada no saldo e no histórico." : "A conferência da Tesouraria foi registrada. Agora a despesa aguarda aprovação pastoral." });
+      delete reasons.current[row.id];
       setRevision(v => v + 1);
       onApproved?.();
-    } catch {
-      showFeedback({ tone: "error", title: "Decisão não registrada", message: "Verifique sua permissão e atualize a lista antes de tentar novamente." });
+    } catch (error) {
+      setDecisionError({ id: row.id, text: error instanceof ApiRequestError && error.status === 409
+        ? "Outra pessoa já decidiu ou a despesa mudou de etapa. Atualize a lista."
+        : "Não foi possível registrar a decisão. Tente novamente." });
     } finally {
       setBusyId("");
     }
@@ -162,6 +167,7 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
           <summary>Comprovantes</summary>
           {receipts[row.id] && receiptLinks(row.id, receipts[row.id])}
         </details>
+        {decisionError?.id === row.id && <p className={s.error} role="alert">{decisionError.text}</p>}
         <div className={s.itemBottom}>
           <small>{row.firstApprovedByUserId ? "Aguardando aprovação pastoral" : "Aguardando conferência da Tesouraria"}</small>
           {canApprove && <div className={s.itemActions}>

@@ -449,6 +449,10 @@ export function apiGetBlob(path: string, token: string): Promise<Blob> {
   return settle("GET", path, token, undefined, undefined, true, response => response.blob());
 }
 
+export function apiPostForm(path: string, token: string, form: FormData): Promise<void> {
+  return settle("POST", path, token, form, undefined, true, async () => undefined);
+}
+
 export function apiPutForm(path: string, token: string, form: FormData): Promise<void> {
   return settle("PUT", path, token, form, undefined, true, async () => undefined);
 }

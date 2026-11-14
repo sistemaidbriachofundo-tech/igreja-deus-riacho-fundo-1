@@ -28,9 +28,9 @@ const navigation = [
   { href: "/#agenda", label: "Agenda" },
 ];
 
-export function PortalHeader({ light = false }: { light?: boolean }) {
+export function PortalHeader({ light = false, overlay = false }: { light?: boolean; overlay?: boolean }) {
   return (
-    <header className={d.masthead} id="topo" data-appearance={light ? "light" : "dark"}>
+    <header className={d.masthead} id="topo" data-appearance={light ? "light" : "dark"} data-overlay={overlay || undefined}>
       <div className={d.mastheadInner}>
         <Logo inverse />
         <PortalDesktopNavigation />
@@ -69,8 +69,8 @@ export function PortalFooter() {
   );
 }
 
-export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
+export function PublicPage({ children, lightHeader = false, overlayHeader = false }: { children: ReactNode; lightHeader?: boolean; overlayHeader?: boolean }) {
+  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} overlay={overlayHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {
