@@ -32,7 +32,9 @@
 @media (min-width: 760px) {
   .counts > div { padding-inline: 20px; }
   .person:has(details) { grid-template-columns: minmax(0, 1fr) auto minmax(130px, auto); gap: 4px 16px; }
-  .person details:not([open]) { grid-column: auto; grid-row: 1; }
+  .person:has(details) > div { grid-column: 1; grid-row: 1; }
+  .person:has(details) > .assignmentStatus { grid-column: 2; grid-row: 1; }
+  .person details:not([open]) { grid-column: 3; grid-row: 1; justify-self: end; }
   .person details[open] { grid-column: 1 / -1; }
 }
 @media (max-width: 560px) {
