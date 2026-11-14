@@ -71,8 +71,7 @@ export function RosterRecurringAvailability({ actions }: { actions: RosterAction
   }
 
   const segment = editing?.segments[0];
-  return <details className={s.position}>
-    <summary>Disponibilidade semanal dos voluntários</summary>
+  return <section aria-label="Disponibilidade semanal dos voluntários">
     <div className={s.form}>
       <label>Voluntário<select value={personId} disabled={busy} onChange={event => {
         setPersonId(event.target.value);
@@ -105,5 +104,5 @@ export function RosterRecurringAvailability({ actions }: { actions: RosterAction
       </form>
     </>}
     {notice && <p role="status">{notice}</p>}
-  </details>;
+  </section>;
 }

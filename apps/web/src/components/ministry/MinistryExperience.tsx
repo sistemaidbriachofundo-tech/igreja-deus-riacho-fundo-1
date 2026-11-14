@@ -1,11 +1,7 @@
 "use client";
 
-import { RosterRecurringAvailability } from "./RosterRecurringAvailability";
-
 import { useState, type KeyboardEvent } from "react";
-import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
-import { MonthlyRosterPreview } from "./MonthlyRosterPreview";
-import { RosterModuleCatalog } from "./RosterModuleCatalog";
+import { RosterShowcase } from "./RosterShowcase";
 import { withBasePath } from "../../lib/paths";
 import type {
   ConversionResult,
@@ -18,18 +14,14 @@ import type {
 import type {
   ActivityPanel,
   EscalaPanel,
-  EscalaModuleRules,
 } from "../../lib/ministry-presentation";
-import { rosterPositionSummary } from "../../lib/ministry-presentation";
 import {
   MINISTRY_TABS,
   activeFormalMembers,
   activityStatusLabel,
-  escalaStatusLabel,
   formatChurchWhen,
   ministryHref,
   ministryPanelTitle,
-  meuEspacoHref,
   servingShortcut,
   visibleSchedule,
   type MinistryTabId,
@@ -316,9 +308,10 @@ function ReadyExperience({
           ) : null}
 
           {tab === "escalas" ? (
-            <EscalaList
+            <RosterShowcase
               key={desk.ministry.id}
               ministryId={desk.ministry.id}
+              ministryName={desk.ministry.name}
               panel={escalas}
               escalaId={escalaId}
               shortcut={shortcut}
@@ -398,137 +391,6 @@ function leadershipOf(desk: DeskReady): Array<{ name: string; role: string }> {
     name: leader.displayName,
     role: leader.roleTitle,
   }));
-}
-
-function EscalaList({
-  ministryId,
-  panel,
-  escalaId,
-  shortcut,
-  volunteerPortal,
-  onOpen,
-  actions,
-}: {
-  ministryId: string;
-  panel: EscalaPanel;
-  escalaId?: string;
-  shortcut: { href: string; label: string } | null;
-  volunteerPortal: boolean;
-  onOpen: (escalaId?: string) => void;
-  actions?: RosterActionsProps;
-}) {
-  const [moduleFilter, setModuleFilter] = useState("");
-  const [updatedRules, setUpdatedRules] = useState<Record<string, EscalaModuleRules>>({});
-  if (
-    panel.kind === "hidden" ||
-    panel.kind === "denied" ||
-    panel.kind === "unavailable"
-  ) {
-    return (
-      <p className={styles.note} role="status">
-        {panel.kind === "hidden"
-          ? "As escalas deste ministério não foram consultadas."
-          : panel.message}
-      </p>
-    );
-  }
-  const modules = (panel.modules ?? []).map(module => updatedRules[module.id] ? { ...module, rules: updatedRules[module.id] } : module);
-  const selectedModule = modules.find(module => module.id === moduleFilter);
-  const items = selectedModule ? panel.items.filter(item => item.moduleId === selectedModule.id) : panel.items;
-  const moduleNames = new Map(modules.map(module => [module.id, module.name]));
-  const editor = actions && {
-    ...actions, modules, moduleId: selectedModule?.id,
-    onOpen: (id: string, nextModuleId?: string) => {
-      setModuleFilter(nextModuleId ?? "");
-      actions.onOpen(id);
-    },
-  };
-  return (
-    <div className={styles.scheduleList}>
-      {volunteerPortal && <div className={styles.rosterHeading}>
-        <h2>Escalas do Atmosfera</h2>
-        <a className={ui.workspaceSecondary} href={withBasePath(meuEspacoHref())}>Abrir Portal do Voluntário</a>
-      </div>}
-      {(actions || modules.length > 0) && (
-        <RosterModuleCatalog actions={actions && { ...actions, onRulesSaved: rules => { if (selectedModule) setUpdatedRules(previous => ({ ...previous, [selectedModule.id]: rules })); } }} modules={modules} selectedId={selectedModule?.id ?? ""} onSelect={setModuleFilter} />
-      )}
-      {editor && modules.length > 0 && <MonthlyRosterPreview token={editor.token} ministryId={ministryId} onRefresh={editor.onRefresh} />}
-      {editor && <RosterRecurringAvailability actions={editor} />}
-      {editor && <RosterEditor key={selectedModule?.id ?? "general"} {...editor} />}
-      {shortcut && (
-        <div className={styles.shortcuts}>
-          <a
-            className={ui.workspaceSecondary}
-            href={withBasePath(shortcut.href)}
-          >
-            {shortcut.label}
-          </a>
-        </div>
-      )}
-      {items.length === 0 ? (
-        <p className={styles.note}>{selectedModule ? "Nenhuma escala neste módulo." : "Nenhuma escala deste ministério."}</p>
-      ) : (
-        items.map((escala) => {
-          const expanded = escala.id === escalaId;
-          const detailId = `funcoes-${escala.id}`;
-          const nextId = expanded ? undefined : escala.id;
-          const coverage = rosterPositionSummary(escala.positions ?? []);
-          return (
-            <article
-              key={escala.id}
-              id={`escala-${escala.id}`}
-              className={
-                expanded
-                  ? `${styles.escala} ${styles.escalaCurrent}`
-                  : styles.escala
-              }
-            >
-              <header>
-                <h2>{escala.title}</h2>
-                <span data-status={escala.status}>{escalaStatusLabel(escala.status)}</span>
-              </header>
-              <p>
-                {escala.moduleId && moduleNames.has(escala.moduleId) && `${moduleNames.get(escala.moduleId)} · `}
-                {formatChurchWhen(escala.serviceAt)} ·{" "}
-                {escala.positions?.length
-                  ? `${coverage.confirmed} de ${escala.positions.length} posições confirmadas${coverage.open ? ` · ${coverage.open} ${coverage.open === 1 ? "vaga" : "vagas"}` : ""}`
-                  : "Sem posições cadastradas"}
-              </p>
-              <a
-                className={ui.workspaceSecondary}
-                href={withBasePath(ministryHref(ministryId, "escalas", nextId))}
-                aria-expanded={expanded}
-                aria-controls={expanded ? detailId : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  onOpen(nextId);
-                }}
-              >
-                {expanded ? "Fechar detalhes" : "Abrir esta escala"}
-              </a>
-              {expanded && (
-                <div className={styles.escalaDetails} id={detailId}>
-                  {editor && <RosterActions {...editor} roster={escala} members={editor.members.filter(member =>
-                    modules.find(module => module.id === escala.moduleId)?.rules?.volunteerIds?.includes(member.personId) ?? true,
-                  )} />}
-                  {(!actions || !escala.positions?.length) && <h3>Funções na escala</h3>}
-                  {(!actions || !escala.positions?.length) && (escala.functions.length ? (
-                    <ul>
-                      {escala.functions.map((name) => (
-                        <li key={name}>{name}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Funções ainda não definidas.</p>
-                  ))}
-                </div>
-              )}
-            </article>
-          );
-        })
-      )}
-    </div>
-  );
 }
 
 function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: string | null }) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { apiGetBlob, apiPatch, apiPost } from "../../lib/api";
+import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
 import { ROSTER_LOCATION_LABELS, ROSTER_SERVICE_TYPES, type RosterLocation, rosterPositionSummary, type EscalaAssignment, type EscalaModule, type EscalaModuleRules, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
@@ -28,7 +28,7 @@ const churchDateTime = new Intl.DateTimeFormat("sv-SE", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23",
 });
 
-export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, modules = [], moduleId }: RosterActionsProps & { roster?: MinistryEscala }) {
+export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, modules = [], moduleId, buttonClass }: RosterActionsProps & { roster?: MinistryEscala; buttonClass?: string }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -68,7 +68,7 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
 
   return (
     <div className={s.editor}>
-      <button type="button" className={roster ? ui.workspaceSecondary : ui.workspacePrimary} aria-expanded={editing} onClick={() => setEditing(value => !value)}>
+      <button type="button" className={buttonClass ?? (roster ? ui.workspaceSecondary : ui.workspacePrimary)} aria-expanded={editing} onClick={() => setEditing(value => !value)}>
         <UIIcon name="calendar" size={16} /> {roster ? "Editar culto" : "Nova escala"}
       </button>
       {editing && (
@@ -145,23 +145,6 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       assignment ? "Substituição registrada. Aguardando a confirmação de quem vai assumir." : "Pessoa escalada. Aguardando confirmação.");
   }
 
-  async function download() {
-    setBusy(true);
-    setError("");
-    try {
-      const url = URL.createObjectURL(await apiGetBlob(base + "/pdf", token));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Escala - ${roster.title.replace(/[\/:*?"<>|]/g, "-")}.pdf`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch (error) {
-      setError(dasError(error));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function publish() {
     if (await confirm({ title: "Publicar escala?", subject: roster.title, description: "A escala ficará disponível para as pessoas escaladas consultarem.", action: "Publicar escala" })) {
       await mutate(base + "/publish");
@@ -173,7 +156,6 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     <div className={s.editor}>
       {confirmation}
       {notice && <p className={s.success} role="status">{notice}</p>}
-      <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void download()}>Baixar PDF da escala</button>
       {draft && <RosterEditor {...props} />}
       {Boolean(roster.positions?.length) && <dl className={s.counts} aria-label="Cobertura do culto">
         <div><dt>Vagas abertas</dt><dd>{summary.open}</dd></div>

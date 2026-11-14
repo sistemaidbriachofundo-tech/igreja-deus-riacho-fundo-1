@@ -144,7 +144,6 @@
   font-weight: 650;
 }
 .escala > a { margin-top: 12px; }
-.escalaCurrent { border-color: #80a28c; background: #edf6ef; }
 
 .grid {
   display: grid;
@@ -187,50 +186,10 @@
 }
 
 
-.scheduleList { display: grid; }
-.scheduleList > .shortcuts { margin-bottom: 12px; }
-.scheduleList .escala {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 4px 20px;
-  padding: 17px 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.scheduleList .escala + .escala { border-top: 1px solid var(--app-border, #dce6de); }
-.scheduleList .escala header { justify-content: flex-start; gap: 6px 12px; }
-.scheduleList .escala h2 { margin-bottom: 0; }
-.scheduleList .escala header > span[data-status="PUBLISHED"] { color: #24563f; background: #dceee1; }
-.scheduleList .escala header > span[data-status="DRAFT"] { color: #66430f; background: #f8e9cb; }
-.scheduleList .escala > p { grid-column: 1; margin-top: 3px; }
-.scheduleList .escala > a { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; }
-.scheduleList .escalaCurrent { padding-inline: 12px; border-radius: 8px; background: #eef5ef; }
-
 @media (max-width: 620px) {
   .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; overflow-x: visible; }
   .tabs > button { grid-column: span 2; min-width: 0; padding-inline: 7px; font-size: 12px; white-space: normal; }
   .tabs > button:nth-child(n+4) { grid-column: span 3; }
-  .scheduleList .escala { grid-template-columns: minmax(0, 1fr); }
-  .scheduleList .escala > a { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 7px; }
-}
-
-.escalaDetails {
-  grid-column: 1 / -1;
-  margin-top: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--app-border, #dce6de);
-}
-.escalaDetails h3 { margin: 0 0 7px; font-size: 13px; font-weight: 650; }
-.escalaDetails > ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 20px;
-  margin: 0;
-  padding-left: 17px;
-  color: var(--app-muted, #5f7368);
-  font-size: 13px;
 }
 
 .personDetails { display: grid; gap: 8px; margin: 0; }
@@ -244,12 +203,3 @@
   .tabs > button { display: flex; flex-direction: column; gap: 4px; justify-content: center; min-height: 54px; }
   .tabIcon { display: inline-flex; }
 }
-
-.rosterHeading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 20px;
-  flex-wrap: wrap;
-}
-.rosterHeading h2 { margin: 0; font-size: 1.25rem; }

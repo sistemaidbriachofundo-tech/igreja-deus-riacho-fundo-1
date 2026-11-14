@@ -9,11 +9,10 @@ import type { RosterActionsProps } from "./RosterEditor";
 import { RosterModuleRulesEditor } from "./RosterModuleRulesEditor";
 import s from "./roster-editor.module.css";
 
-export function RosterModuleCatalog({ actions, modules, selectedId, onSelect }: {
+export function RosterModuleCatalog({ actions, modules, selectedId }: {
   actions?: RosterActionsProps;
   modules: EscalaModule[];
   selectedId: string;
-  onSelect: (id: string) => void;
 }) {
   const [editing, setEditing] = useState<EscalaModule | "new" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,10 +47,6 @@ export function RosterModuleCatalog({ actions, modules, selectedId, onSelect }: 
   return (
     <section className={s.moduleCatalog} aria-label="Módulos de escala">
       <div className={s.form}>
-        {modules.length > 0 && <label>Módulo da escala<select value={selectedId} onChange={event => onSelect(event.target.value)}>
-          <option value="">Todas as escalas</option>
-          {modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
-        </select></label>}
         {actions && <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => edit("new")}>Novo módulo</button>}
         {actions && selected && <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => edit(selected)}>Renomear módulo</button>}
       </div>

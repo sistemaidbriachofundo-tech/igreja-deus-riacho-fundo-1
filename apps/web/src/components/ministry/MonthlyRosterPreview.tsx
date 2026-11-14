@@ -39,8 +39,7 @@ export function MonthlyRosterPreview({ token, ministryId, onRefresh }: { token: 
     } catch (error) { setNotice(dasError(error)); }
     finally { setBusy(false); }
   }
-  return <details className={s.position}>
-    <summary>Sorteio mensal</summary>
+  return <section aria-label="Sorteio mensal">
     <form className={s.form} onSubmit={generate}>
       <label>Mês das escalas<input name="month" type="month" required /></label>
       <button type="submit" className={ui.workspacePrimary} disabled={busy}>Gerar prévia mensal</button>
@@ -57,5 +56,5 @@ export function MonthlyRosterPreview({ token, ministryId, onRefresh }: { token: 
       {preview.rosters.every(roster => roster.positions.length === 0) && <p>Nenhuma vaga em rascunho neste mês.</p>}
       <button type="button" className={ui.workspaceSecondary} onClick={onRefresh}>Voltar para as escalas</button>
     </div>}
-  </details>;
+  </section>;
 }
