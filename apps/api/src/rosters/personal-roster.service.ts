@@ -10,10 +10,12 @@ import {
   canManageSpecificMinistry,
   type RosterPreviewDto,
 } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
-import { churchDayBounds, churchDayKey } from "./church-day";
+import { churchDayKey } from "./church-day";
+import { assertNoRosterDayConflict, writeRosterAssignment } from "./roster-assignment-transaction";
 import { previewSlots } from "./preview-domain/scheduler";
 import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
@@ -312,9 +314,16 @@ export class PersonalRosterService {
       (id): id is string => Boolean(id),
     );
     await this.assertSchedulable(pilot.churchId, slot.roster.serviceAt, personIds);
-    await this.assertNoSameDay(pilot.churchId, slot.roster.serviceAt, personIds);
-
-    const created = await this.prisma.$transaction(async (tx) => {
+    const created = await writeRosterAssignment(this.prisma, async (tx) => {
+      const current = await this.requireSlot(slotId, pilot, tx);
+      this.assertCanOperateMinistry(actor, current.roster.ministry, pilot, current.roster);
+      this.assertRosterOpen(current.roster);
+      if (+current.roster.serviceAt !== +slot.roster.serviceAt) {
+        throw new ConflictException("O horário do culto mudou. Atualize a escala e tente novamente.");
+      }
+      await assertNoRosterDayConflict(tx, {
+        churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds, conflictCode: "ROSTER_SAME_DAY",
+      });
       const assignment = await tx.rosterAssignment.create({
         data: {
           slotId: slot.id,
@@ -372,12 +381,7 @@ export class PersonalRosterService {
       loaded.slot.roster,
     );
     this.assertRosterOpen(loaded.slot.roster);
-    if (loaded.status === "SUBSTITUTED") {
-      throw new ConflictException({
-        code: "ALREADY_SUBSTITUTED",
-        message: "Esta atribuição já foi substituída.",
-      });
-    }
+    this.assertNotSubstituted(loaded);
 
     const personId = requiredPersonId(input.personId);
     const partnerPersonId = optionalPersonId(input.partnerPersonId);
@@ -403,14 +407,17 @@ export class PersonalRosterService {
       loaded.slot.roster.serviceAt,
       personIds,
     );
-    await this.assertNoSameDay(
-      pilot.churchId,
-      loaded.slot.roster.serviceAt,
-      personIds,
-      loaded.id,
-    );
-
-    const created = await this.prisma.$transaction(async (tx) => {
+    const created = await writeRosterAssignment(this.prisma, async (tx) => {
+      const current = await this.requireAssignment(assignmentId, pilot, tx);
+      this.assertRosterOpen(current.slot.roster);
+      this.assertNotSubstituted(current);
+      if (+current.slot.roster.serviceAt !== +loaded.slot.roster.serviceAt) {
+        throw new ConflictException("O horário do culto mudou. Atualize a escala e tente novamente.");
+      }
+      await assertNoRosterDayConflict(tx, {
+        churchId: pilot.churchId, serviceAt: current.slot.roster.serviceAt, personIds,
+        excludeAssignmentId: current.id, conflictCode: "ROSTER_SAME_DAY",
+      });
       await tx.rosterAssignment.update({
         where: { id: loaded.id },
         data: { status: "SUBSTITUTED" },
@@ -457,30 +464,19 @@ export class PersonalRosterService {
     status: "CONFIRMED" | "DECLINED",
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    const loaded = await this.requireAssignment(assignmentId, pilot);
-    this.assertCanRespond(actor, loaded, pilot);
-    this.assertRosterOpen(loaded.slot.roster);
-    if (loaded.status === "SUBSTITUTED") {
-      throw new ConflictException({
-        code: "ALREADY_SUBSTITUTED",
-        message: "Atribuição substituída não aceita confirmação.",
-      });
-    }
-
-    if (status === "CONFIRMED") {
-      const people = [loaded.personId, loaded.partnerPersonId].filter(
-        (id): id is string => Boolean(id),
-      );
-      await this.assertNoSameDay(
-        pilot.churchId,
-        loaded.slot.roster.serviceAt,
-        people,
-        loaded.id,
-      );
-    }
-
     const now = new Date();
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const updated = await writeRosterAssignment(this.prisma, async (tx) => {
+      const loaded = await this.requireAssignment(assignmentId, pilot, tx);
+      this.assertCanRespond(actor, loaded, pilot);
+      this.assertRosterOpen(loaded.slot.roster);
+      this.assertNotSubstituted(loaded);
+      if (status === "CONFIRMED") {
+        await assertNoRosterDayConflict(tx, {
+          churchId: pilot.churchId, serviceAt: loaded.slot.roster.serviceAt,
+          personIds: [loaded.personId, loaded.partnerPersonId].filter((id): id is string => Boolean(id)),
+          excludeAssignmentId: loaded.id, conflictCode: "ROSTER_SAME_DAY",
+        });
+      }
       const row = await tx.rosterAssignment.update({
         where: { id: loaded.id },
         data:
@@ -577,8 +573,12 @@ export class PersonalRosterService {
     return ministry;
   }
 
-  private async requireSlot(slotId: string, pilot: Pilot): Promise<SlotRef> {
-    const slot = await this.prisma.rosterSlot.findFirst({
+  private async requireSlot(
+    slotId: string,
+    pilot: Pilot,
+    db: Pick<Prisma.TransactionClient, "rosterSlot"> = this.prisma,
+  ): Promise<SlotRef> {
+    const slot = await db.rosterSlot.findFirst({
       where: { id: slotId },
       include: { roster: { include: { ministry: true } } },
     });
@@ -595,8 +595,9 @@ export class PersonalRosterService {
   private async requireAssignment(
     assignmentId: string,
     pilot: Pilot,
+    db: Pick<Prisma.TransactionClient, "rosterAssignment"> = this.prisma,
   ): Promise<AssignmentRow & { slot: SlotRef }> {
-    const assignment = await this.prisma.rosterAssignment.findFirst({
+    const assignment = await db.rosterAssignment.findFirst({
       where: { id: assignmentId },
       include: { slot: { include: { roster: { include: { ministry: true } } } } },
     });
@@ -721,37 +722,11 @@ export class PersonalRosterService {
     }
   }
 
-  private async assertNoSameDay(
-    churchId: string,
-    serviceAt: Date,
-    personIds: string[],
-    excludeAssignmentId?: string,
-  ) {
-    if (!personIds.length) return;
-    const { start, end } = churchDayBounds(serviceAt);
-    const conflicts = await this.prisma.rosterAssignment.findMany({
-      where: {
-        status: { in: [...ACTIVE] },
-        ...(excludeAssignmentId ? { id: { not: excludeAssignmentId } } : {}),
-        OR: [
-          { personId: { in: personIds } },
-          { partnerPersonId: { in: personIds } },
-        ],
-        slot: {
-          roster: {
-            churchId,
-            serviceAt: { gte: start, lt: end },
-          },
-        },
-      },
-      select: { id: true },
-      take: 1,
-    });
-    if (conflicts.length) {
+  private assertNotSubstituted(assignment: AssignmentRow) {
+    if (assignment.status === "SUBSTITUTED") {
       throw new ConflictException({
-        code: "ROSTER_SAME_DAY",
-        message:
-          "Esta pessoa já tem posição ativa no mesmo dia nesta congregação.",
+        code: "ALREADY_SUBSTITUTED",
+        message: "Esta atribuição já foi substituída.",
       });
     }
   }

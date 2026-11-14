@@ -357,6 +357,20 @@ describe("agenda pessoal e escopo de escala", () => {
     );
   });
 
+  it("revalida o dia dentro da transação após outra designação vencer a corrida", async () => {
+    await service.assign(liderLouvor, "slot-voz", { personId: "per-membro" });
+    db.$transaction.mockClear();
+    db.$transaction.mockRejectedValueOnce({ code: "P2034" });
+
+    await expect(service.assign(liderAtmosfera, "slot-porta", { personId: "per-membro" }))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: "ROSTER_SAME_DAY" }) });
+
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(db.$transaction).toHaveBeenLastCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
+    expect(assignments).toHaveLength(1);
+    expect(audits).toHaveLength(1);
+  });
+
   it("substitui com consentimento, sem notificação, e a pessoa nova confirma a própria linha", async () => {
     const original = await service.assign(liderLouvor, "slot-voz", {
       personId: "per-membro",
