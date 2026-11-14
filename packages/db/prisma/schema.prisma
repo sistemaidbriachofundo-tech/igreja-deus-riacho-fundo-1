@@ -705,6 +705,7 @@ model DiscipleshipTrack {
   id             String   @id @default(cuid())
   organizationId String   @map("organization_id")
   churchId       String   @map("church_id")
+  code           String?
   name           String
   description    String?
   createdAt      DateTime @default(now()) @map("created_at")
@@ -715,6 +716,7 @@ model DiscipleshipTrack {
   enrollments  DiscipleshipEnrollment[]
   stages       DiscipleshipTrackStage[]
 
+  @@unique([churchId, code])
   @@index([organizationId, churchId])
   @@map("discipleship_tracks")
 }

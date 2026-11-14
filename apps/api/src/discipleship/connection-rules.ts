@@ -10,8 +10,15 @@ export const CONNECTION_STAGES = [
   { code: "dna-servico", title: "DNA e Serviço", description: "Quatro aulas sobre pertencer, crescer e servir, ajudando a identificar onde e por que servir na igreja." },
 ] as const;
 
-export function isConnectionTrack(name: string | undefined) {
-  return /conex[aã]o/i.test(name ?? "");
+export const CONNECTION_TRACK_CODE = "conexao";
+export const CONNECTION_TRACK_NAME = "Trilha da Conexão";
+
+export function isConnectionTrackName(name: string | undefined) {
+  return /^(?:trilha\s+(?:da\s+)?)?conex[aã]o$/i.test((name ?? "").trim());
+}
+
+export function isConnectionTrack(track: { code?: string | null; name: string }) {
+  return track.code === CONNECTION_TRACK_CODE || (track.code === undefined && isConnectionTrackName(track.name));
 }
 
 export function baptismWaived(code: string | null | undefined, modality: string | null | undefined) {

@@ -9,6 +9,7 @@ const basePath =
 
 const nextConfig: NextConfig = {
   output: "export",
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   trailingSlash: true,
   transpilePackages: ["@idbrf/shared"],
   images: {

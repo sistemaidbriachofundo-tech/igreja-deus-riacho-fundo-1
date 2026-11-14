@@ -12,7 +12,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { BusinessException } from "../common/business.exception";
-import { baptismWaived, CONNECTION_STAGES, isConnectionTrack } from "./connection-rules";
+import { baptismWaived, CONNECTION_STAGES, CONNECTION_TRACK_CODE, CONNECTION_TRACK_NAME, isConnectionTrack, isConnectionTrackName } from "./connection-rules";
 
 const ENROLLMENT_STATUSES = [
   "ACTIVE",
@@ -54,13 +54,24 @@ export class DiscipleshipService {
       throw new BadRequestException("name é obrigatório");
     }
 
+    const official = isConnectionTrackName(name);
+    const description = input.description?.trim() || null;
+    const where = { churchId_code: { churchId: pilot.churchId, code: CONNECTION_TRACK_CODE } };
     return this.prisma.$transaction(async (tx) => {
+      if (official) {
+        const established = await tx.discipleshipTrack.findUnique({ where });
+        if (established) return this.toTrackDto(established);
+      }
       const track = await tx.discipleshipTrack.create({
         data: {
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          name,
-          description: input.description?.trim() || null,
+          name: official ? CONNECTION_TRACK_NAME : name,
+          description,
+          ...(official ? {
+            code: CONNECTION_TRACK_CODE,
+            stages: { create: CONNECTION_STAGES.map((stage, index) => ({ ...stage, sortOrder: index + 1 })) },
+          } : {}),
         },
       });
       await tx.auditLog.create({
@@ -75,6 +86,12 @@ export class DiscipleshipService {
         },
       });
       return this.toTrackDto(track);
+    }).catch(async (error: unknown) => {
+      if (official && typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        const established = await this.prisma.discipleshipTrack.findUnique({ where });
+        if (established) return this.toTrackDto(established);
+      }
+      throw error;
     });
   }
 
@@ -326,7 +343,7 @@ export class DiscipleshipService {
 
     return this.prisma.$transaction(async (tx) => {
       const completedAt = next === "COMPLETED" ? new Date() : null;
-      if (isConnectionTrack(enrollment.track.name)) {
+      if (isConnectionTrack(enrollment.track)) {
         const current = await this.lockConnectionEnrollment(tx, enrollment.id);
         if (next === "COMPLETED") {
           const progress = await this.connectionProgress(tx, current, pilot);
@@ -385,7 +402,7 @@ export class DiscipleshipService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      if (isConnectionTrack(enrollment.track.name)) {
+      if (isConnectionTrack(enrollment.track)) {
         const current = await this.lockConnectionEnrollment(tx, enrollment.id);
         if (current.status !== "ACTIVE") {
           throw new BusinessException("Coloque a matrícula em andamento para registrar progresso.", "CONNECTION_NOT_ACTIVE");
@@ -446,10 +463,10 @@ export class DiscipleshipService {
       orderBy: [{ startedAt: "desc" }, { id: "asc" }],
       select: {
         id: true, status: true, mentor: { select: { displayName: true } },
-        track: { select: { name: true, stages: { orderBy: { sortOrder: "asc" }, select: { id: true, code: true, title: true, description: true } } } },
+        track: { select: { name: true, code: true, stages: { orderBy: { sortOrder: "asc" }, select: { id: true, code: true, title: true, description: true } } } },
       },
     });
-    const journey = enrollments.find(row => isConnectionTrack(row.track.name));
+    const journey = enrollments.find(row => isConnectionTrack(row.track));
     if (!journey) return { journey: null };
 
     const track = await this.prisma.discipleshipProgressEvent.findMany({
@@ -486,7 +503,7 @@ export class DiscipleshipService {
       latestByStage.set(event.stageId, event);
     }
 
-    const official = isConnectionTrack(enrollment.track.name);
+    const official = isConnectionTrack(enrollment.track);
     const modality = official && stages.some(stage => baptismWaived(stage.code, "TRANSFERENCIA"))
       ? await this.approvedModality(this.prisma, enrollment.personId, pilot)
       : null;
@@ -607,6 +624,7 @@ export class DiscipleshipService {
             organizationId: true,
             churchId: true,
             name: true,
+            code: true,
           },
         },
       },
@@ -652,6 +670,7 @@ export class DiscipleshipService {
     organizationId: string;
     churchId: string;
     name: string;
+    code?: string | null;
     description: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -660,6 +679,7 @@ export class DiscipleshipService {
       id: track.id,
       organizationId: track.organizationId,
       churchId: track.churchId,
+      code: track.code ?? null,
       name: track.name,
       description: track.description,
       createdAt: track.createdAt.toISOString(),

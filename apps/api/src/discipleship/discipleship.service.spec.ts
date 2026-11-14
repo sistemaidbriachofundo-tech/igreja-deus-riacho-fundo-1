@@ -185,6 +185,28 @@ describe("DiscipleshipService", () => {
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
 
+  it("creates the official Connection track with all stages and returns the same track on retry", async () => {
+    const official = { ...trackRow, name: "Trilha da Conexão", code: "conexao" };
+    const findUnique = jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(official);
+    const create = jest.fn().mockResolvedValue(official);
+    const tx = { discipleshipTrack: { findUnique, create }, auditLog: { create: jest.fn() } };
+    const service = new DiscipleshipService(
+      withTx(tx) as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const first = await service.createTrack(lider, { name: "Trilha Conexao" });
+    const second = await service.createTrack(lider, { name: "Trilha da Conexão" });
+    expect(second).toEqual(first);
+    expect(first.code).toBe("conexao");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      code: "conexao",
+      stages: { create: CONNECTION_STAGES.map((stage, index) => ({ ...stage, sortOrder: index + 1 })) },
+    }) });
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects empty track name", async () => {
     const service = new DiscipleshipService(
       { $transaction: jest.fn() } as never,

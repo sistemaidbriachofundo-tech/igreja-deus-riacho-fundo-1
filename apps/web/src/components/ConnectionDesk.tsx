@@ -10,7 +10,7 @@ import { readPanel } from "../lib/panel-read";
 import { JourneyOperations, PeopleSearch, type ConnectionPerson } from "./JourneyOperations";
 import s from "./connection-desk.module.css";
 
-type Track = { id: string; name: string; description: string | null };
+type Track = { id: string; name: string; code?: string | null; description: string | null };
 type Group = { id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean; leader?: ConnectionPerson };
 type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
 type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
@@ -55,7 +55,9 @@ function ConnectionContent() {
     }).catch(() => { if (active) setGroups({ status: "error" }); });
     void read("/discipleship/tracks").then(async payload => {
       if (!active) return;
-      const track = parseTracks(payload).find(item => /conex[aã]o/i.test(item.name));
+      const tracks = parseTracks(payload);
+      const track = tracks.find(item => item.code === "conexao")
+        ?? tracks.find(item => item.code === undefined && /^(?:trilha\s+(?:da\s+)?)?conex[aã]o$/i.test(item.name));
       if (!track) {
         setJourney({ status: "ready", data: null });
         return;
@@ -213,7 +215,7 @@ export function parseTracks(value: unknown): Track[] {
   if (!Array.isArray(rows)) return [];
   return rows.flatMap(row => {
     const data = record(row); const id = valueText(data?.id), name = valueText(data?.name);
-    return id && name ? [{id, name, description: valueText(data?.description) || null}] : [];
+    return id && name ? [{ id, name, code: data?.code === undefined ? undefined : valueText(data.code) || null, description: valueText(data?.description) || null }] : [];
   });
 }
 export function parseGroups(value: unknown): Group[] {
