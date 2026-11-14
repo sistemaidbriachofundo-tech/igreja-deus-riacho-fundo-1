@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { apiPatch } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
+import { ministryHref } from "../../lib/ministry-view";
+import { withBasePath } from "../../lib/paths";
 import { ROSTER_SERVICE_TYPES, type EscalaModule, type EscalaModuleRules, type ModulePosition, type RosterServiceType } from "../../lib/ministry-presentation";
 import ui from "../ui/ui.module.css";
 import type { RosterActionsProps } from "./RosterEditor";
@@ -15,6 +17,11 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
   const [type, setType] = useState<RosterServiceType>("sunday_morning");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [newVolunteer, setNewVolunteer] = useState("");
+  const team = rules.volunteerIds;
+  const memberNames = new Map(actions.members.map(person => [person.personId, person.displayName]));
+  const availableMembers = actions.members.filter(person => !team?.includes(person.personId));
+  const teamMembers = actions.members.filter(person => !team || team.includes(person.personId));
   const rows = rules.positions[type] ?? [];
   const tags = [...new Set(["diaconia", ...Object.values(rules.positions).flatMap(list => list.map(row => row.qualification ?? "")).filter(Boolean)])];
 
@@ -29,14 +36,57 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
     setBusy(true);
     setNotice("");
     try {
-      await apiPatch(`/ministries/${encodeURIComponent(actions.ministryId)}/roster-modules/${encodeURIComponent(module.id)}/rules`, actions.token, rules);
-      setNotice("Regras salvas para os próximos cultos.");
+      const saved = await apiPatch<{ rules: EscalaModuleRules }>(`/ministries/${encodeURIComponent(actions.ministryId)}/roster-modules/${encodeURIComponent(module.id)}/rules`, actions.token, rules);
+      setNotice("Equipe e regras do módulo salvas.");
+      actions.onRulesSaved?.(saved.rules);
     } catch (error) { setNotice(dasError(error)); }
     finally { setBusy(false); }
   }
   return <details className={s.position}>
-    <summary>Vagas, habilitações e casais de {module.name}</summary>
+    <summary>Equipe e regras de {module.name}</summary>
     <form className={s.ruleForm} onSubmit={save}>
+      <fieldset className={s.moduleTeam}>
+        <legend>Voluntários do módulo</legend>
+        <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Gerenciar integrantes do ministério</a>
+        <label>Quem pode servir
+          <select value={team ? "team" : "ministry"} onChange={event => setRules(previous => ({
+            ...previous,
+            volunteerIds: event.target.value === "team"
+              ? [...new Set([...Object.values(previous.qualifications).flat(), ...previous.couples.flat()])]
+              : undefined,
+          }))}>
+            <option value="ministry">Todos os integrantes ativos do ministério</option>
+            <option value="team">Somente a equipe deste módulo</option>
+          </select>
+        </label>
+        {team && <>
+          <div className={s.form}>
+            <label>Voluntário<select value={newVolunteer} onChange={event => setNewVolunteer(event.target.value)}>
+              <option value="">Selecionar integrante</option>
+              {availableMembers.map(person => <option key={person.personId} value={person.personId}>{person.displayName}</option>)}
+            </select></label>
+            <button className={ui.workspaceSecondary} type="button" disabled={!newVolunteer || !availableMembers.some(member => member.personId === newVolunteer)} onClick={() => {
+              setRules({ ...rules, volunteerIds: [...team, newVolunteer] });
+              setNewVolunteer("");
+            }}>Adicionar voluntário</button>
+          </div>
+          {team.length ? <ul className={s.teamList}>{team.map(id => {
+            const linked = rules.couples.some(pair => pair.includes(id)) || Object.values(rules.qualifications).some(ids => ids.includes(id));
+            return <li key={id}>
+              <span>{memberNames.get(id) ?? "Integrante inativo"}</span>
+              <button type="button" className={ui.workspaceSecondary} onClick={() => {
+                setRules({
+                  ...rules,
+                  volunteerIds: team.filter(personId => personId !== id),
+                  couples: rules.couples.filter(pair => !pair.includes(id)),
+                  qualifications: Object.fromEntries(Object.entries(rules.qualifications).map(([tag, ids]) => [tag, ids.filter(personId => personId !== id)])),
+                });
+                if (linked) setNotice("A remoção também retira os vínculos de casal e habilitações dessa pessoa neste módulo ao salvar.");
+              }}>Remover <span className={s.screenReaderOnly}>{memberNames.get(id) ?? "integrante inativo"}</span></button>
+            </li>;
+          })}</ul> : <p>A equipe do módulo está vazia. Adicione pelo menos um voluntário para preencher vagas.</p>}
+        </>}
+      </fieldset>
       <div className={s.form}>
         <label>Tipo de culto<select value={type} onChange={event => setType(event.target.value as RosterServiceType)}>
           {Object.entries(ROSTER_SERVICE_TYPES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -51,20 +101,24 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
         <label>Habilitação<select value={row.qualification ?? ""} onChange={event => editRow(index, { qualification: event.target.value || undefined })}>
           <option value="">Qualquer integrante</option>{tags.map(tag => <option key={tag} value={tag}>{tag === "diaconia" ? "Diaconia" : tag}</option>)}
         </select></label>
-        <label className={s.checkbox}><input type="checkbox" checked={row.couple} onChange={event => editRow(index, { couple: event.target.checked })} /> Casal</label>
+        <label>Tipo de vaga<select value={row.couple ? "couple" : "individual"} onChange={event => editRow(index, { couple: event.target.value === "couple" })}>
+          <option value="individual">Individual</option>
+          <option value="couple">Casal</option>
+        </select></label>
         <button className={ui.workspaceSecondary} type="button" onClick={() => setRows(rows.filter((_, i) => i !== index))}>Remover posição</button>
       </div>)}
       <button className={ui.workspaceSecondary} type="button" onClick={() => setRows([...rows, { label: "", count: 1, couple: false }])}>Adicionar regra de vaga</button>
       {tags.map(tag => <div className={s.form} key={tag}><label>{tag === "diaconia" ? "Diáconos e diaconisas habilitados" : tag}
         <select multiple value={rules.qualifications[tag] ?? []} onChange={event => setRules({ ...rules, qualifications: {
           ...rules.qualifications, [tag]: Array.from(event.target.selectedOptions, option => option.value),
-        } })}>{actions.members.map(person => <option value={person.personId} key={person.personId}>{person.displayName}</option>)}</select>
+        } })}>{teamMembers.map(person => <option value={person.personId} key={person.personId}>{person.displayName}</option>)}</select>
       </label></div>)}
+      <h3>Casais para vagas de casal</h3>
       {rules.couples.map((pair, index) => <div className={s.form} key={index}>
         {pair.map((id, side) => <label key={side}>Pessoa {side + 1} do casal<select required value={id} onChange={event => {
           const updated: [string, string] = [...pair]; updated[side] = event.target.value;
           setRules({ ...rules, couples: rules.couples.map((current, i) => i === index ? updated : current) });
-        }}><option value="">Selecionar</option>{actions.members.map(person => <option key={person.personId} value={person.personId}>{person.displayName}</option>)}</select></label>)}
+        }}><option value="">Selecionar</option>{teamMembers.map(person => <option key={person.personId} value={person.personId}>{person.displayName}</option>)}</select></label>)}
         <button type="button" className={ui.workspaceSecondary} onClick={() => setRules({ ...rules, couples: rules.couples.filter((_, i) => i !== index) })}>Remover casal</button>
       </div>)}
       <button className={ui.workspaceSecondary} type="button" onClick={() => setRules({ ...rules, couples: [...rules.couples, ["", ""]] })}>Cadastrar casal</button>

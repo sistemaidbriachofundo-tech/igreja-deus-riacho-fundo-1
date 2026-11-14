@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
-import { ROSTER_SERVICE_TYPES, type EscalaAssignment, type EscalaModule, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
+import { ROSTER_SERVICE_TYPES, type EscalaAssignment, type EscalaModule, type EscalaModuleRules, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
 import { UIIcon } from "../AppShell";
 import { RosterPreviewPanel } from "../serving/RosterPreviewPanel";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
@@ -16,6 +16,7 @@ export type RosterActionsProps = {
   ministryId: string;
   members: FormalMember[];
   onRefresh: () => void;
+  onRulesSaved?: (rules: EscalaModuleRules) => void;
   onOpen: (rosterId: string) => void;
   modules?: EscalaModule[];
   moduleId?: string;

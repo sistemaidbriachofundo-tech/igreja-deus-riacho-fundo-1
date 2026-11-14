@@ -17,6 +17,7 @@ export type ModulePosition = { label: string; count: number; couple: boolean; qu
 export type EscalaModuleRules = {
   positions: Partial<Record<RosterServiceType, ModulePosition[]>>;
   qualifications: Record<string, string[]>;
+  volunteerIds?: string[];
   couples: [string, string][];
   minIntervalDays: number;
   maxMonthlyAssignments: number; substituteInviteLimit: number;
