@@ -6,7 +6,7 @@ import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { churchDayKey } from "./church-day";
 import { writeRosterAssignment } from "./roster-assignment-transaction";
-import { readModuleRules } from "./roster-operating-rules";
+import { isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
 import { acceptSubstitute, inviteAssignment, inviteKey, substitutionCandidates } from "./roster-substitution-invites";
 
 const PORTAL = "/app/servir/meu-espaco/";
@@ -79,15 +79,18 @@ export class RosterNoticesService {
     const surveyMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7);
     const notices = [];
     if (day === 25) {
-      const ministries = await this.db.roster.findMany({ where: {
+      const surveyRosters = await this.db.roster.findMany({ where: {
         churchId, organizationId, ministryId: { not: null }, status: { in: ["DRAFT", "PUBLISHED"] },
         serviceAt: { gte: new Date(Date.UTC(year, month, 1, 3)), lt: new Date(Date.UTC(year, month + 1, 1, 3)) },
-      }, distinct: ["ministryId"], select: { ministryId: true } });
+      }, distinct: ["ministryId", "moduleId"], select: { ministryId: true, module: { select: { rules: true } } } });
       const volunteers = await this.db.ministryMembership.findMany({ where: {
-        churchId, organizationId, ministryId: { in: ministries.flatMap(item => item.ministryId ? [item.ministryId] : []) },
+        churchId, organizationId, ministryId: { in: [...new Set(surveyRosters.flatMap(item => item.ministryId ? [item.ministryId] : []))] },
         status: "ATIVO", person: { status: "ACTIVE" },
-      }, distinct: ["personId"], select: { personId: true } });
-      for (const { personId } of volunteers) notices.push({ id: ["survey", churchId, surveyMonth, personId].join(":"), churchId, personId,
+      }, select: { personId: true, ministryId: true } });
+      const recipients = new Set(volunteers.filter(volunteer => surveyRosters.some(roster =>
+        roster.ministryId === volunteer.ministryId && isModuleVolunteer(readModuleRules(roster.module?.rules), volunteer.personId),
+      )).map(volunteer => volunteer.personId));
+      for (const personId of recipients) notices.push({ id: ["survey", churchId, surveyMonth, personId].join(":"), churchId, personId,
         kind: "survey", title: "Pesquisa de serviço aberta", body: "Informe quando você pode servir no próximo mês.", path: PORTAL + "#pesquisa-de-servico" });
     }
     const assignments = await this.db.rosterAssignment.findMany({ where: { status: { in: ["PENDING", "CONFIRMED"] },

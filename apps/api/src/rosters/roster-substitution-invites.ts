@@ -2,7 +2,7 @@ import { ConflictException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { churchDayKey } from "./church-day";
 import { assertNoRosterDayConflict } from "./roster-assignment-transaction";
-import { assertSlotEligibility, readModuleRules } from "./roster-operating-rules";
+import { assertSlotEligibility, isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
 import { DEFAULT_RULES } from "./preview-domain/types";
 import { evaluateCandidate } from "./preview-domain/eligibility";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
@@ -42,7 +42,7 @@ export async function substitutionCandidates(db: Prisma.TransactionClient, assig
   const response = new Map(responses.map(row => [row.personId, row.rosterIds]));
   const candidates = members.filter(({ personId }) => {
     const answer = response.get(personId);
-    return answer ? answer.includes(roster.id) : windows.some(window => window.personId === personId);
+    return isModuleVolunteer(rules, personId) && (answer ? answer.includes(roster.id) : windows.some(window => window.personId === personId));
   }).map(({ personId }) => ({
     personId, active: true, churchIds: [churchId], ministryIds: [ministryId], qualifiedPositionIds: [slot.id],
     approvedRoleTags: Object.keys(rules.qualifications).filter(tag => rules.qualifications[tag].includes(personId)),

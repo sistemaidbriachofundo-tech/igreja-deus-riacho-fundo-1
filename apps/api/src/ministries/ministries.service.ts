@@ -263,7 +263,7 @@ export class MinistriesService {
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertManageMinistry(actor, ministry);
     const rules = readModuleRules(input);
-    const ids = [...new Set([...Object.values(rules.qualifications).flat(), ...rules.couples.flat()])];
+    const ids = [...new Set([...(rules.volunteerIds ?? []), ...Object.values(rules.qualifications).flat(), ...rules.couples.flat()])];
     return this.prisma.$transaction(async tx => {
       if (ids.length && await tx.ministryMembership.count({ where: {
         ministryId, churchId: pilot.churchId, status: "ATIVO", personId: { in: ids }, person: { status: "ACTIVE" },

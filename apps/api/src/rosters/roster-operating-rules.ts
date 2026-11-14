@@ -8,6 +8,7 @@ export type PositionRule = { label: string; count: number; couple: boolean; qual
 export type ModuleRules = {
   positions: Partial<Record<CultType, PositionRule[]>>;
   qualifications: Record<string, string[]>;
+  volunteerIds?: string[];
   couples: [string, string][];
   minIntervalDays: number;
   maxMonthlyAssignments: number;
@@ -42,6 +43,11 @@ export function readModuleRules(raw: unknown): ModuleRules {
     if (!/^[a-z0-9_-]{1,40}$/.test(tag) || !Array.isArray(people) || people.some(id => !text(id))) throw new BadRequestException("Habilitação inválida.");
     return [tag, [...new Set(people.map(text))]];
   }));
+  const volunteers = source.volunteerIds;
+  if (volunteers !== undefined && (!Array.isArray(volunteers) || volunteers.some(id => !text(id)))) {
+    throw new BadRequestException("A equipe do módulo deve conter integrantes válidos.");
+  }
+  const volunteerIds = Array.isArray(volunteers) ? [...new Set(volunteers.map(text))] : undefined;
   const pairs = source.couples ?? [];
   if (!Array.isArray(pairs)) throw new BadRequestException("Cadastre os casais em pares.");
   const used = new Set<string>();
@@ -52,8 +58,15 @@ export function readModuleRules(raw: unknown): ModuleRules {
     used.add(a); used.add(b);
     return [a, b] as [string, string];
   });
-  return { positions, qualifications, couples, minIntervalDays: int(source.minIntervalDays, 0, 60, 10), maxMonthlyAssignments: int(source.maxMonthlyAssignments, 1, 31, 3),
+  if (volunteerIds && [...Object.values(qualifications).flat(), ...couples.flat()].some(id => !volunteerIds.includes(id))) {
+    throw new BadRequestException("Inclua na equipe do módulo todas as pessoas habilitadas ou cadastradas em casais.");
+  }
+  return { positions, qualifications, couples, ...(volunteerIds ? { volunteerIds } : {}), minIntervalDays: int(source.minIntervalDays, 0, 60, 10), maxMonthlyAssignments: int(source.maxMonthlyAssignments, 1, 31, 3),
     substituteInviteLimit: int(source.substituteInviteLimit, 0, 5, 0) };
+}
+
+export function isModuleVolunteer(rules: ModuleRules, personId: string): boolean {
+  return rules.volunteerIds?.includes(personId) ?? true;
 }
 
 export function cultTypeAt(date: Date): CultType {
@@ -68,14 +81,18 @@ export async function assertSlotEligibility(tx: Prisma.TransactionClient, slot: 
   requiredQualification?: string | null; requiresCouple: boolean;
   roster: { moduleId?: string | null; ministryId: string | null; churchId: string };
 }, people: string[]) {
-  if (!slot.requiredQualification && (!slot.requiresCouple || people.length < 2 || !slot.roster.moduleId)) return;
+  if (!slot.requiredQualification && !slot.roster.moduleId) return;
   const module = slot.roster.moduleId ? await tx.ministryRosterModule.findFirst({
     where: { id: slot.roster.moduleId, ministryId: slot.roster.ministryId ?? "" }, select: { rules: true },
   }) : null;
   const rules = readModuleRules(module?.rules);
+  if (!rules.volunteerIds && !slot.requiredQualification && (!slot.requiresCouple || people.length < 2)) return;
   const active = await tx.ministryMembership.count({ where: {
     churchId: slot.roster.churchId, ministryId: slot.roster.ministryId ?? "", status: "ATIVO", personId: { in: people }, person: { status: "ACTIVE" },
   } });
+  if (rules.volunteerIds && (active !== people.length || people.some(id => !isModuleVolunteer(rules, id)))) {
+    throw new ConflictException({ code: "ROSTER_MODULE_TEAM_REQUIRED", message: "Selecione um integrante ativo da equipe deste módulo." });
+  }
   if (slot.requiredQualification) {
     const qualified = rules.qualifications[slot.requiredQualification] ?? [];
     if (active !== people.length || people.some(id => !qualified.includes(id))) throw new ConflictException({ code: "ROSTER_QUALIFICATION_REQUIRED", message: "A posição exige uma habilitação cadastrada no módulo." });

@@ -21,7 +21,7 @@ import { previewSlots } from "./preview-domain/scheduler";
 import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
 
-import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, readModuleRules, type CultType } from "./roster-operating-rules";
+import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, readModuleRules, type CultType } from "./roster-operating-rules";
 
 function monthRange(month: string) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) throw new BadRequestException("Informe o mês no formato AAAA-MM.");
@@ -181,10 +181,12 @@ export class PersonalRosterService {
 
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
     const ministryId = roster.ministry.id;
-    const members = await this.prisma.ministryMembership.findMany({
+    const configured = readModuleRules(roster.module?.rules);
+    const activeMembers = await this.prisma.ministryMembership.findMany({
       where: { ...scope, ministryId, status: "ATIVO", person: { status: "ACTIVE" } },
       select: { personId: true, role: true, person: { select: { displayName: true } } },
     });
+    const members = activeMembers.filter(member => isModuleVolunteer(configured, member.personId));
     if (!members.length) {
       return { rosterId, positions: openSlots.map(({ id, roleLabel }) => ({
         slotId: id, roleLabel, personName: null, partnerName: null, reasons: ["EMPTY_TEAM"],
@@ -195,7 +197,6 @@ export class PersonalRosterService {
     const [year, month] = churchDayKey(roster.serviceAt).slice(0, 7).split("-").map(Number);
     const firstOfMonth = new Date(Date.UTC(year, month - 1, 1, 3));
     const nextMonth = new Date(Date.UTC(year, month, 1, 3));
-    const configured = readModuleRules(roster.module?.rules);
     const rules = { ...DEFAULT_RULES, minIntervalDays: configured.minIntervalDays, maxMonthlyAssignments: configured.maxMonthlyAssignments };
     const interval = rules.minIntervalDays * 86_400_000;
     const [history, availability, impediments] = await Promise.all([
@@ -269,13 +270,16 @@ export class PersonalRosterService {
     const memberships = await this.prisma.ministryMembership.findMany({
       where: { ...scope, personId: actor.personId, status: "ATIVO", person: { status: "ACTIVE" } }, select: { ministryId: true },
     });
-    const [rosters, response] = await Promise.all([
+    const [rows, response] = await Promise.all([
       this.prisma.roster.findMany({ where: {
         ...scope, ministryId: { in: memberships.map(item => item.ministryId) }, serviceAt: monthRange(month), status: { in: ["DRAFT", "PUBLISHED"] },
-      }, select: { id: true, title: true, serviceAt: true, module: { select: { name: true } } }, orderBy: { serviceAt: "asc" } }),
+      }, select: { id: true, title: true, serviceAt: true, module: { select: { name: true, rules: true } } }, orderBy: { serviceAt: "asc" } }),
       this.prisma.rosterAvailabilityResponse.findUnique({ where: { churchId_personId_month: { churchId: scope.churchId, personId: actor.personId, month } } }),
     ]);
-    return { month, open, answered: Boolean(response), availableRosterIds: response?.rosterIds ?? [], rosters };
+    const rosters = rows.filter(row => isModuleVolunteer(readModuleRules(row.module?.rules), actor.personId!))
+      .map(row => ({ ...row, module: row.module ? { name: row.module.name } : null }));
+    const allowed = new Set(rosters.map(roster => roster.id));
+    return { month, open, answered: Boolean(response), availableRosterIds: response?.rosterIds.filter(id => allowed.has(id)) ?? [], rosters };
   }
 
   async answerMonthlySurvey(actor: AuthUser, month: string, rosterIds: string[], now = new Date()) {
@@ -327,7 +331,7 @@ export class PersonalRosterService {
       const module = readModuleRules(roster.module?.rules);
       const open = roster.slots.filter(slot => !slot.assignments.length);
       const partners = new Map(module.couples.flatMap(([a, b]) => [[a, b], [b, a]] as const));
-      const candidates: Candidate[] = members.filter(member => response.get(member.personId)?.has(roster.id)).map(member => ({
+      const candidates: Candidate[] = members.filter(member => isModuleVolunteer(module, member.personId) && response.get(member.personId)?.has(roster.id)).map(member => ({
         personId: member.personId, active: true, churchIds: [scope.churchId], ministryIds: [ministryId],
         qualifiedPositionIds: open.map(slot => slot.roleLabel), spousePersonId: partners.get(member.personId),
         approvedRoleTags: Object.keys(module.qualifications).filter(tag => module.qualifications[tag].includes(member.personId)),
