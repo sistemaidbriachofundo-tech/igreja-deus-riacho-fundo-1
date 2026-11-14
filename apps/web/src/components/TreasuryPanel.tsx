@@ -224,6 +224,8 @@ export function TreasuryPanel() {
   const [channelFilter, setChannelFilter] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [statementStatus, setStatementStatus] = useState("");
+  const [churchDate, setChurchDate] = useState("");
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const intent = useRef("");
@@ -246,6 +248,7 @@ export function TreasuryPanel() {
 
   useEffect(() => {
     if (enabled) setToken(loadStoredToken());
+    setChurchDate(new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date()));
     setTargetExpense(new URLSearchParams(window.location.search).get("despesa") ?? "");
   }, [enabled]);
 
@@ -284,6 +287,8 @@ export function TreasuryPanel() {
   const isSample = data?.centers.some(item => item.id === activeCenter && item.code === "QA-TESOURARIA") === true;
   const validPeriod = !from || !to || from <= to;
   const rows = scopeEntries.filter(entry => {
+    if (statementStatus === "reconciled" && !entry.reconciliationId) return false;
+    if (statementStatus && statementStatus !== "reconciled" && entry.status !== statementStatus) return false;
     if (from && entry.entryDate < from) return false;
     if (to && entry.entryDate > to) return false;
     if (bankFilter && !entry.lines.some(line => line.accountId === bankFilter)) return false;
@@ -291,6 +296,20 @@ export function TreasuryPanel() {
     return !query || entry.description.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"));
   });
   const reconciliations = data?.reconciliations ?? [];
+  const statementPage = Math.min(page, Math.max(1, Math.ceil(rows.length / 15)));
+  const movementsByDay = new Map<string, EntryView[]>();
+  for (const entry of rows.slice((statementPage - 1) * 15, statementPage * 15)) {
+    const date = entry.entryDate.slice(0, 10);
+    movementsByDay.set(date, [...(movementsByDay.get(date) ?? []), entry]);
+  }
+
+  function clearStatementFilters() {
+    setBankFilter("");
+    setChannelFilter("");
+    setStatementStatus("");
+    setQuery("");
+    setPage(1);
+  }
 
   function openView(next: TreasurySection, movement?: Tab) {
     setView(next);
@@ -399,7 +418,13 @@ export function TreasuryPanel() {
         if (!(await confirm({
           title: "Enviar despesa ao pastor?",
           subject: description,
-          description: `A despesa de ${formatBRL(amountCents)} ficará pendente até a aprovação do pastor.`,
+          description: "A despesa ficará pendente até a aprovação do pastor. Confira os dados antes de enviar.",
+          content: <dl className={styles.expenseReview}>
+            <div><dt>Valor</dt><dd>{formatBRL(amountCents)}</dd></div>
+            <div><dt>Data</dt><dd>{displayDate(entryDate)}</dd></div>
+            <div><dt>Categoria</dt><dd>{accountMap.get(primary)?.name}</dd></div>
+            <div><dt>Conta bancária</dt><dd>{accountMap.get(secondary)?.name}</dd></div>
+          </dl>,
           action: "Enviar ao pastor",
         }))) return;
         if (!intent.current) intent.current = crypto.randomUUID();
@@ -494,8 +519,8 @@ export function TreasuryPanel() {
         </section>}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
-            onBank={id => { setBankFilter(id); setChannelFilter(""); setQuery(""); openView("extrato"); }}
-            onDeposits={() => { setBankFilter(""); setChannelFilter("dinheiro"); setQuery(""); openView("extrato"); }}
+            onBank={id => { clearStatementFilters(); setBankFilter(id); openView("extrato"); }}
+            onDeposits={() => { clearStatementFilters(); setChannelFilter("dinheiro"); openView("extrato"); }}
             onReconciliation={() => openView("conciliacao")} />
         ) : <TreasuryPositionCards state={cards} />)}
 
@@ -544,22 +569,33 @@ export function TreasuryPanel() {
         </section>}
 
         {view === "extrato" && <section className={styles.card} aria-label="Extrato e aprovações">
-          <h2>Extrato e aprovações</h2>
+          <header className={styles.statementHeader}>
+            <div><h2>Extrato</h2><p>Consulte os movimentos e confira como foram lançados.</p></div>
+            {data?.entries && <span>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
+          </header>
           <div className={styles.toolbar}>
             <label>Buscar movimento<input type="search" value={query} placeholder="Descrição" onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
             <label>Conta<select value={bankFilter} onChange={event => { setBankFilter(event.target.value); setPage(1); }}><option value="">Todas</option>{banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
             <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
+            <label>Situação<select value={statementStatus} onChange={event => { setStatementStatus(event.target.value); setPage(1); }}>
+              <option value="">Todas</option><option value="APPROVED">Aprovados</option><option value="PENDING_APPROVAL">Aguardando aprovação</option>
+              <option value="DRAFT">Rascunhos</option><option value="REJECTED">Recusados</option><option value="reconciled">Conciliados</option>
+            </select></label>
           </div>
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.entriesNote && <p role="status">{data.entriesNote}</p>}
-          {data?.entries && rows.length === 0 && <p>Nenhum movimento com estes filtros.</p>}
-          {rows.slice((page - 1) * 15, page * 15).map(entry => {
+          {(bankFilter || channelFilter || statementStatus || query) && <button className={ui.workspaceSecondary}
+            type="button" onClick={clearStatementFilters}>Limpar filtros do extrato</button>}
+          {data?.entries && rows.length === 0 && <p className={styles.expenseEmpty}>Nenhum movimento no período e nos filtros selecionados.</p>}
+          {[...movementsByDay].map(([date, movements]) => <section key={date} className={styles.statementDay} aria-label={displayDate(date)}>
+            <h3><time dateTime={date}>{displayDate(date)}</time></h3>
+            {movements.map(entry => {
             const approval = approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []);
             const ledgerType = ledgerChannel(entry, accountMap);
             return <article key={entry.id} className={styles.movement}>
               <div className={styles.movementInfo}>
                 <span className={styles.movementIcon}><UIIcon name={ledgerType === "movimentacao" ? "wallet" : "activity"} size={17} /></span>
-                <div><strong>{entry.description}</strong><small>{displayDate(entry.entryDate)} · {entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</small></div>
+                <div><strong>{entry.description}</strong><small className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</small></div>
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
               <details className={styles.movementDetails}><summary>Detalhes</summary>
@@ -569,10 +605,11 @@ export function TreasuryPanel() {
               {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
               {canWrite && approval.canApprove && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
             </article>;
-          })}
+            })}
+          </section>)}
           {rows.length > 15 && <div className={styles.pagination}>
-            <button type="button" disabled={page === 1} onClick={() => setPage(value => value - 1)}>Anterior</button><span>Página {page} de {Math.ceil(rows.length / 15)}</span>
-            <button type="button" disabled={page * 15 >= rows.length} onClick={() => setPage(value => value + 1)}>Próxima</button>
+            <button type="button" disabled={statementPage === 1} onClick={() => setPage(statementPage - 1)}>Anterior</button><span>Página {statementPage} de {Math.ceil(rows.length / 15)}</span>
+            <button type="button" disabled={statementPage * 15 >= rows.length} onClick={() => setPage(statementPage + 1)}>Próxima</button>
           </div>}
         </section>}
 
@@ -589,7 +626,7 @@ export function TreasuryPanel() {
 
         {view === "lancar" && canCreateExpense && <section className={styles.card} aria-label="Registrar lançamento">
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
-          {tab === "despesa" && <p className={styles.approvalInfo}>O administrador ou tesoureiro cadastra a despesa e o pastor da congregação aprova. O saldo só é atualizado após a aprovação.</p>}
+          {tab === "despesa" && <p className={styles.approvalInfo}>Preencha os dados, revise o lançamento e envie para o pastor. A despesa entra no saldo depois da aprovação.</p>}
           {tab === "despesa" && data && (!expenses.length || !banks.length) && <p className={styles.unavailable} role="alert">Não há categorias de despesas ou contas de caixa/banco disponíveis. Configure o plano de contas antes de registrar a despesa.</p>}
           {tab === "despesa" && demoAccounts && <p className={styles.unavailable} role="status">As categorias e contas bancárias deste ambiente são demonstrativas. Use apenas dados de teste até a homologação do financeiro de produção.</p>}
           {tab === "compromisso" && <p className={styles.approvalInfo}>A conta a pagar passa por conferência da Tesouraria e aprovação do pastor.</p>}
@@ -603,9 +640,9 @@ export function TreasuryPanel() {
           </label>
           {transfer && pendingBalance !== undefined && <p className={styles.note}>Valor em aberto para baixa: <strong>{formatBRL(pendingBalance)}</strong></p>}
           <form key={tab} className={styles.form} onSubmit={onSubmit} onChange={() => { if (tab === "despesa" && !busy) intent.current = ""; }}>
-            <label>Data <input type="date" name="date" required /></label>
+            <label>Data <input type="date" name="date" defaultValue={tab === "despesa" ? churchDate : undefined} required /></label>
             <label>Valor (R$) <input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
-            <label className={styles.wide}>Descrição ou referência do comprovante <input name="description" minLength={4} maxLength={180} required /></label>
+            <label className={styles.wide}>Descrição ou referência do comprovante <input name="description" minLength={4} maxLength={180} placeholder={tab === "despesa" ? "Ex. Material para o culto" : undefined} required /></label>
             {tab === "pix" || transfer ? <AccountSelect label="Conta bancária" name="primary" accounts={banks} /> : null}
             {(tab === "compromisso" || tab === "despesa") && <AccountSelect label="Categoria da despesa" name="primary" accounts={expenses} />}
             {tab === "pagar" && <AccountSelect label="Conta a pagar" name="primary" accounts={payables} />}

@@ -168,6 +168,27 @@ export class DiscipleshipService {
     });
   }
 
+  async editStage(actor: AuthUser, trackId: string, stageId: string, input: { title: string; description: string }) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const track = await this.requireTrack(trackId, pilot);
+    const title = input.title.trim();
+    if (!title) throw new BadRequestException("Informe o nome da etapa.");
+    return this.prisma.$transaction(async tx => {
+      const updated = await tx.discipleshipTrackStage.updateMany({
+        where: { id: stageId, trackId: track.id },
+        data: { title, description: input.description.trim() || null },
+      });
+      if (!updated.count) throw new NotFoundException("Etapa não encontrada nesta trilha.");
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "discipleship.stage.update", resourceType: "discipleship_track_stage",
+        resourceId: stageId, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { trackId, title },
+      } });
+      return this.toStageDto(await tx.discipleshipTrackStage.findUniqueOrThrow({ where: { id: stageId } }));
+    });
+  }
+
   async listStages(actor: AuthUser, trackId: string) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);

@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AppShell, AppNavLink, usePersonaAccess, UIIcon } from "./AppShell";
 import { GroupRequests } from "./GroupRequests";
-import { apiGet, apiPost, loadStoredToken } from "../lib/api";
+import { apiGet, apiPatch, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { readPanel } from "../lib/panel-read";
-import { JourneyOperations } from "./JourneyOperations";
+import { JourneyOperations, PeopleSearch, type ConnectionPerson } from "./JourneyOperations";
 import s from "./connection-desk.module.css";
 
 type Track = { id: string; name: string; description: string | null };
-type Group = { id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean };
-type Stage = { id: string; title: string; sortOrder: number };
+type Group = { id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean; leader?: ConnectionPerson };
+type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
 type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
 type Read<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 type Journey = { track: Track; stages: Stage[] | null; enrollments: Walk[] | null };
@@ -34,6 +34,10 @@ function ConnectionContent() {
   const [groups, setGroups] = useState<Read<Group[]>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [fault, setFault] = useState("");
+  const [groupEditor, setGroupEditor] = useState<Group | "new" | null>(null);
+  const [groupLeader, setGroupLeader] = useState<ConnectionPerson | null | undefined>();
+  const [groupFeedback, setGroupFeedback] = useState("");
+  const [groupError, setGroupError] = useState("");
   const [busy, setBusy] = useState(false);
   const roleKey = roles.join("|");
 
@@ -70,6 +74,12 @@ function ConnectionContent() {
     return () => { active = false; };
   }, [access.kind, permitted, roleKey, attempt]);
 
+  useEffect(() => {
+    if (access.kind !== "ready" || !permitted) return;
+    const id = window.location.hash.slice(1);
+    if (["trilha", "grupos", "pedidos"].includes(id)) document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, [access.kind, permitted]);
+
   if (access.kind !== "ready" || !permitted) return null;
   const tracking = journey.status === "ready" ? journey.data : null;
   const canRetry = journey.status === "error" || groups.status === "error"
@@ -86,6 +96,40 @@ function ConnectionContent() {
       setBusy(false);
     }
   }
+  async function saveGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!groupEditor || busy) return;
+    const form = new FormData(event.currentTarget);
+    const body = {
+      name: String(form.get("name")).trim(),
+      meetsAtHint: String(form.get("schedule")).trim(),
+      ...(groupLeader !== undefined ? { leaderPersonId: groupLeader?.id ?? null } : {}),
+    };
+    setBusy(true);
+    setGroupError("");
+    try {
+      if (groupEditor === "new") await apiPost("/small-groups", token, body);
+      else await apiPatch("/small-groups/" + encodeURIComponent(groupEditor.id), token, body);
+      setGroupFeedback(groupEditor === "new" ? "Grupo cadastrado." : "Grupo atualizado.");
+      setGroupEditor(null);
+      try {
+        setGroups({ status: "ready", data: parseGroups(await apiGet("/small-groups", token)) });
+      } catch {
+        setGroups({ status: "error" });
+      }
+    } catch (error) {
+      setGroupError(dasError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+  function editGroup(group: Group | "new") {
+    setGroupEditor(group);
+    setGroupLeader(undefined);
+    setGroupFeedback("");
+    setGroupError("");
+  }
+
   return <div className={s.page}>
     <header className={s.heading}>
       <h1>Conexão e caminhada</h1>
@@ -100,7 +144,7 @@ function ConnectionContent() {
       </div>
     </div>
 
-    <section className={s.section} aria-labelledby="trilha-conexao">
+    <section id="trilha" className={s.section} aria-labelledby="trilha-conexao">
       <div className={s.sectionTitle}>
         <h2 id="trilha-conexao">Trilha Conexão</h2>
       </div>
@@ -130,20 +174,39 @@ function ConnectionContent() {
       </div>}
     </section>
 
-    <section className={s.section} aria-labelledby="grupos-amizade">
+    <section id="grupos" className={s.section} aria-labelledby="grupos-amizade">
       <div className={s.sectionTitle}>
         <h2 id="grupos-amizade">Grupos de Amizade</h2>
+        {token && <button className={s.primaryAction} type="button" onClick={() => editGroup("new")}>
+          <UIIcon name="plus" size={17} /> Novo grupo
+        </button>}
       </div>
+      {groupFeedback && <p className={s.notice} role="status">{groupFeedback}</p>}
+      {groupError && <p className={s.notice} role="alert">{groupError}</p>}
+      {groupEditor && <div className={s.groupEdit} key={groupEditor === "new" ? "new" : groupEditor.id}>
+        <h3>{groupEditor === "new" ? "Cadastrar grupo" : "Editar " + groupEditor.name}</h3>
+        <form id="grupo-form" className={s.operationForm} onSubmit={saveGroup}>
+        <label>Nome do grupo<input name="name" required maxLength={100} defaultValue={groupEditor === "new" ? "" : groupEditor.name} autoFocus /></label>
+        <label>Dia, hora e local<input name="schedule" maxLength={180} defaultValue={groupEditor === "new" ? "" : groupEditor.meetsAtHint ?? ""} placeholder="Ex. terças, 19h30 · Riacho Fundo I" /></label>
+        </form>
+        <p><strong>Responsável</strong> · {groupLeader === undefined && groupEditor !== "new" ? groupEditor.leader?.displayName ?? "A definir" : groupLeader?.displayName ?? "A definir"}</p>
+        <PeopleSearch token={token} label="Buscar responsável pelo nome" onSelect={setGroupLeader} />
+        <div className={s.requestActions}>
+          <button type="submit" form="grupo-form" className={s.primaryAction} disabled={busy}>{busy ? "Salvando…" : "Salvar grupo"}</button>
+          <button type="button" className={s.retry} disabled={busy} onClick={() => { setGroupEditor(null); setGroupError(""); }}>Cancelar</button>
+        </div>
+      </div>}
       {groups.status === "loading" ? <div className={s.load} role="status" aria-label="Carregando grupos"><span/></div> :
       groups.status === "error" ? <p className={s.notice} role="alert">Não foi possível consultar os grupos agora.</p> :
       groups.data.length ? <div className={s.groups}>{groups.data.map(group => <article key={group.id} className={s.group}>
         <h3>{group.name}</h3>
         <p>{group.meetsAtHint || "Horário ainda não informado"}</p>
-        <div><span>{group.memberCount} participantes registrados</span><small>{group.leaderAssigned ? "Responsável cadastrado" : "Responsável ainda não definido"}</small></div>
+        <div><span>{group.memberCount} participantes registrados</span><small>{group.leader?.displayName ?? (group.leaderAssigned ? "Responsável cadastrado" : "Responsável ainda não definido")}</small></div>
+        {token && <button className={s.retry} type="button" onClick={() => editGroup(group)}>Editar grupo<span className={s.srOnly}> {group.name}</span></button>}
       </article>)}</div> :
       <p className={s.notice}>Nenhum Grupo de Amizade cadastrado nesta congregação.</p>}
     </section>
-    {token && <GroupRequests manage token={token} />}
+    {token && <div id="pedidos"><GroupRequests manage token={token} /></div>}
     <AppNavLink href="/app/ministerios/" className={s.back}><UIIcon name="arrow" size={16}/> Voltar aos ministérios</AppNavLink>
   </div>;
 }
@@ -166,9 +229,10 @@ export function parseGroups(value: unknown): Group[] {
   return rows.flatMap(row => {
     const data = record(row); const id = valueText(data?.id), name = valueText(data?.name);
     if (!id || !name) return [];
+    const leaderId = valueText(data?.leaderPersonId), leaderName = valueText(data?.leaderName);
     return [{ id, name, meetsAtHint: valueText(data?.meetsAtHint) || null,
       memberCount: Array.isArray(data?.members) ? data.members.length : 0,
-      leaderAssigned: Boolean(valueText(data?.leaderPersonId)) }];
+      leaderAssigned: Boolean(leaderId), ...(leaderId && leaderName ? { leader: { id: leaderId, displayName: leaderName } } : {}) }];
   });
 }
 export function parseStages(value: unknown): Stage[] {
@@ -177,7 +241,7 @@ export function parseStages(value: unknown): Stage[] {
   return rows.flatMap(row => {
     const d = record(row); const id = valueText(d?.id), title = valueText(d?.title);
     const sortOrder = typeof d?.sortOrder === "number" ? d.sortOrder : 0;
-    return id && title ? [{id,title,sortOrder}] : [];
+    return id && title ? [{id,title,sortOrder, description: valueText(d?.description) || null}] : [];
   }).sort((a,b)=>a.sortOrder-b.sortOrder);
 }
 export function parseWalks(value: unknown): Walk[] {

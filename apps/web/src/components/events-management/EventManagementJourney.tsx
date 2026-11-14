@@ -40,6 +40,12 @@ export function EventManagementJourney() {
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [canReconcile, setCanReconcile] = useState(false);
+  useEffect(() => {
+    if (phase !== "ready" || window.location.hash !== "#novo-evento") return;
+    const form = document.getElementById("novo-evento");
+    form?.scrollIntoView({ block: "start" });
+    form?.querySelector("input")?.focus({ preventScroll: true });
+  }, [phase]);
   const [treasuryOnly, setTreasuryOnly] = useState(false);
   const [leaderMinistries, setLeaderMinistries] = useState<MinistryNavItem[] | null>(null);
   const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);

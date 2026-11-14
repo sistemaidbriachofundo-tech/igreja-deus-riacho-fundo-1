@@ -47,3 +47,19 @@ a.retry { display:inline-flex; align-items:center; text-decoration:none; }
 .operationList li>.operationLinks { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .operationList time, .operationList span { font-size:.85rem; color:#50645a; }
 .srOnly { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+.page :is(:global(#trilha), :global(#grupos), :global(#pedidos)) { scroll-margin-top: 80px; }
+.primaryAction { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; min-height: 44px; background: #23503e; color: #fff; border: 1px solid #23503e; border-radius: 8px; font: 650 13px Inter, sans-serif; cursor: pointer; }
+.primaryAction:hover { background: #17392d; }
+.primaryAction:disabled { opacity: .6; cursor: wait; }
+.sectionTitle { align-items: center; flex-wrap: wrap; }
+.operationForm textarea { width: 100%; padding: 9px 10px; border: 1px solid #bdcec5; border-radius: 7px; background: #fff; font: inherit; }
+.group > button { margin-top: 10px; }
+
+.sectionTitle:has(.primaryAction) { display: flex; justify-content: space-between; }
+.birthdayGreeting { display: grid; gap: 12px; justify-items: start; }
+.birthdayGreeting label { display: grid; width: 100%; gap: 6px; font-weight: 650; }
+.birthdayGreeting textarea { min-height: 130px; width: 100%; padding: 10px; resize: vertical; border: 1px solid #b9ccbf; border-radius: 8px; background: white; color: #1c3228; font: inherit; }
+.birthdayGreeting p { margin: 0; color: #486155; font-size: .875rem; }
+.groupEdit { width: 100%; padding: 14px 0; border-block: 1px solid #d5e2da; }
+.groupEdit h3 { margin: 0; }

@@ -55,6 +55,17 @@ class CreateStageBody {
   sortOrder?: number;
 }
 
+class EditStageBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  title!: string;
+
+  @IsString()
+  @MaxLength(280)
+  description!: string;
+}
+
 class CreateEnrollmentBody {
   @IsString()
   @MinLength(1)
@@ -135,6 +146,13 @@ export class DiscipleshipController {
     @Body() body: CreateStageBody,
   ) {
     return this.discipleship.createStage(user, trackId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch("tracks/:trackId/stages/:stageId")
+  editStage(@CurrentUser() user: AuthUser, @Param("trackId") trackId: string,
+    @Param("stageId") stageId: string, @Body() body: EditStageBody) {
+    return this.discipleship.editStage(user, trackId, stageId, body);
   }
 
   @Roles(...LEAD_ROLES)

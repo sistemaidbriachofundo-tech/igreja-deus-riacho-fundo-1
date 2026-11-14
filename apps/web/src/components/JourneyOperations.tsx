@@ -6,15 +6,15 @@ import { dasError } from "../lib/das-operations";
 import { clearPanelReads } from "../lib/panel-read";
 import s from "./connection-desk.module.css";
 
-type Person = { id: string; displayName: string };
+export type ConnectionPerson = { id: string; displayName: string };
 type Enrollment = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
-type Stage = { id: string; title: string; sortOrder: number };
+type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
 type Progress = { stages: Array<Stage & { completed: boolean; waived?: boolean }>; currentStageId?: string | null; canComplete?: boolean; enforceOrder?: boolean };
 const statusLabels: Record<string, string> = { ACTIVE: "Em andamento", PAUSED: "Pausada", COMPLETED: "Concluída", CANCELLED: "Cancelada" };
 
-function PeopleSearch({ token, label, onSelect }: { token: string; label: string; onSelect: (person: Person) => void }) {
+export function PeopleSearch({ token, label, onSelect }: { token: string; label: string; onSelect: (person: ConnectionPerson) => void }) {
   const [query, setQuery] = useState("");
-  const [people, setPeople] = useState<Person[]>();
+  const [people, setPeople] = useState<ConnectionPerson[]>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function search(event: FormEvent<HTMLFormElement>) {
@@ -23,7 +23,7 @@ function PeopleSearch({ token, label, onSelect }: { token: string; label: string
     setError("");
     setPeople(undefined);
     try {
-      const result = await apiGet<{ people: Person[] }>("/discipleship/people?q=" + encodeURIComponent(query.trim()), token);
+      const result = await apiGet<{ people: ConnectionPerson[] }>("/discipleship/people?q=" + encodeURIComponent(query.trim()), token);
       setPeople(result.people);
     } catch (problem) { setError(dasError(problem)); }
     finally { setBusy(false); }
@@ -46,10 +46,11 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
   onPeopleChange: (people: Enrollment[]) => void;
   onStagesChange: (stages: Stage[]) => void;
 }) {
+  const [editingStage, setEditingStage] = useState<Stage | null>(null);
   const [stageTitle, setStageTitle] = useState("");
   const [stageDescription, setStageDescription] = useState("");
-  const [person, setPerson] = useState<Person | null>(null);
-  const [mentor, setMentor] = useState<Person | null>(null);
+  const [person, setPerson] = useState<ConnectionPerson | null>(null);
+  const [mentor, setMentor] = useState<ConnectionPerson | null>(null);
   const [selected, setSelected] = useState("");
   const [progress, setProgress] = useState<Progress>();
   const [busy, setBusy] = useState(false);
@@ -106,6 +107,32 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
         <label>Orientação para o participante<input maxLength={240} value={stageDescription} onChange={event => setStageDescription(event.target.value)} /></label>
         <button className={s.retry} type="submit" disabled={busy || !stageTitle.trim()}>Salvar etapa</button>
       </form>
+    </details>
+    <details className={s.operationPanel}>
+      <summary>Editar etapas da trilha</summary>
+      {editingStage ? <form className={s.operationForm} key={editingStage.id} onSubmit={event => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        const title = String(form.get("title")).trim();
+        const description = String(form.get("description")).trim();
+        if (!title) return;
+        void operate(async () => {
+          const updated = await apiPatch<Stage>(stagePath + "/" + encodeURIComponent(editingStage.id), token, { title, description });
+          onStagesChange(stages.map(stage => stage.id === updated.id ? updated : stage));
+          setEditingStage(null);
+          if (selected) setProgress(await apiGet<Progress>(progressPath, token));
+        }, "Etapa atualizada.");
+      }}>
+        <label>Nome da etapa<input name="title" required maxLength={100} defaultValue={editingStage.title} autoFocus /></label>
+        <label>Orientação para o participante<textarea name="description" maxLength={280} defaultValue={editingStage.description ?? ""} rows={3} /></label>
+        <div className={s.requestActions}>
+          <button type="submit" className={s.primaryAction} disabled={busy}>Salvar alterações</button>
+          <button className={s.retry} type="button" disabled={busy} onClick={() => setEditingStage(null)}>Cancelar</button>
+        </div>
+      </form> : <ul className={s.operationList}>{stages.map(stage => <li key={stage.id}>
+        <strong>{stage.title}</strong>
+        <button className={s.retry} type="button" onClick={() => setEditingStage(stage)}>Editar<span className={s.srOnly}> {stage.title}</span></button>
+      </li>)}</ul>}
     </details>
     <details className={s.operationPanel}>
       <summary>Matricular pessoa</summary>

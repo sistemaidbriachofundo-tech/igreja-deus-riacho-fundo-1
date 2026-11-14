@@ -123,6 +123,40 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
+function SidebarGroup({ label, href, icon, active, current = active, compact, onNavigate, children }: {
+  label: string;
+  href: string;
+  icon: GlyphName;
+  active: boolean;
+  current?: boolean;
+  compact: boolean;
+  onNavigate: () => void;
+  children: ReactNode;
+}) {
+  const id = useId();
+  const key = "idbrf-menu:" + href;
+  const [expanded, setExpanded] = useState(active);
+  useEffect(() => {
+    const value = window.localStorage.getItem(key);
+    setExpanded(active || value === "open");
+  }, [key, active]);
+  return <div>
+    <div className={s.groupHeading}>
+      <AppNavLink href={href} className={active ? s.menuActive : s.menuItem} aria-current={current ? "page" : undefined} title={compact ? label : undefined} onNavigate={onNavigate}>
+        <UIIcon name={icon} size={19} /><span className={s.menuLabel}>{label}</span>
+      </AppNavLink>
+      {!compact && <button className={s.groupChevron} type="button" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label}
+        aria-expanded={expanded} aria-controls={id} onClick={() => {
+          setExpanded(!expanded);
+          window.localStorage.setItem(key, expanded ? "closed" : "open");
+        }}><UIIcon name="chevron" size={15} /></button>}
+    </div>
+    <div className={s.subList} id={id} role="group" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label} hidden={compact || !expanded}>
+      {children}
+    </div>
+  </div>;
+}
+
 function AtmosferaScalesLink({ ministryId, href, legacyActive, onNavigate }: {
   ministryId: string;
   href: string;
@@ -516,46 +550,46 @@ export function AppShell({
           {menuBlocks.map(block => {
             if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
             if (block.kind === "secretary") return (
-              <div key="secretaria">
-                <AppNavLink href="/app/secretaria/" className={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? s.menuActive : s.menuItem}
-                  aria-current={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? "page" : undefined} title={railCollapsed ? "Secretaria" : undefined} onNavigate={afterNavigate}>
-                  <UIIcon name="layers" size={19}/><span className={s.menuLabel}>Secretaria</span>
-                </AppNavLink>
-                {!railCollapsed && <div className={s.subList} role="group" aria-label="Submenu da Secretaria">
-                  {secretaryChildren.map(item => {
-                    const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
-                    return <AppNavLink key={item.key} href={item.href} className={selected ? s.menuActive : s.subItem} aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
-                      <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.title}</span>
-                    </AppNavLink>;
-                  })}
-                </div>}
-              </div>
+              <SidebarGroup key="secretaria" label="Secretaria" href="/app/secretaria/" icon="layers"
+                active={active === "secretaria" || active === "carteirinha"} current={active === "secretaria" && (!secretarySection || secretarySection === "resumo")} compact={railCollapsed} onNavigate={afterNavigate}>
+                {secretaryChildren.map(item => {
+                  const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
+                  return <AppNavLink key={item.key} href={item.href} className={selected ? s.subSelected : s.subItem}
+                    aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
+                    <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.title}</span>
+                  </AppNavLink>;
+                })}
+              </SidebarGroup>
             );
-            if (block.kind === "treasury") {
-              const currentParent = active === "tesouraria";
-              return <div key="tesouraria" className={s.treasuryBlock}>
-                <AppNavLink href="/app/tesouraria/"
-                  className={currentParent ? s.menuActive : s.menuItem}
-                  title={railCollapsed ? "Tesouraria" : undefined} onNavigate={afterNavigate}>
-                  <UIIcon name="wallet" size={19}/><span className={s.menuLabel}>Tesouraria</span>
-                  {currentParent && <span className={s.activeIndicator}/>}
-                </AppNavLink>
-                {!railCollapsed && treasuryChildren.length > 0 && <div className={s.subList}
-                  role="group" aria-label="Submenu da Tesouraria">
-                  {treasuryChildren.map(item => {
-                    const selected = currentParent && treasurySection === item.section;
-                    return <a key={item.section} href={withBasePath(treasurySectionHref(item.section))}
-                      className={selected ? s.subSelected : s.subItem}
-                      aria-current={selected ? "page" : undefined}
-                      onClick={() => { setTreasurySection(item.section); afterNavigate(); }}>
-                      <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.label}</span>
-                    </a>;
-                  })}
-                </div>}
-              </div>;
-            }
+            if (block.kind === "treasury") return (
+              <SidebarGroup key="tesouraria" label="Tesouraria" href="/app/tesouraria/" icon="wallet"
+                active={active === "tesouraria"} current={false} compact={railCollapsed} onNavigate={afterNavigate}>
+                {treasuryChildren.map(item => {
+                  const selected = active === "tesouraria" && treasurySection === item.section;
+                  return <a key={item.section} href={withBasePath(treasurySectionHref(item.section))}
+                    className={selected ? s.subSelected : s.subItem} aria-current={selected ? "page" : undefined}
+                    onClick={() => { setTreasurySection(item.section); afterNavigate(); }}>
+                    <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.label}</span>
+                  </a>;
+                })}
+              </SidebarGroup>
+            );
             if (block.kind === "link") {
               const item = block.item;
+              const children = item.key === "conexao" ? [
+                { title: "Trilha da Conexão", id: "trilha", icon: "layers" as const },
+                { title: "Grupos de Amizade", id: "grupos", icon: "people" as const },
+                { title: "Pedidos de entrada", id: "pedidos", icon: "mail" as const },
+              ] : item.key === "eventos-gestao" && (preview || roles.some(role => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"].includes(role))) ? [
+                { title: "Cadastrar evento", id: "novo-evento", icon: "plus" as const },
+              ] : [];
+              if (children.length) return (
+                <SidebarGroup key={item.key} label={item.label} href={item.href} icon={item.icon}
+                  active={active === item.key} compact={railCollapsed} onNavigate={afterNavigate}>
+                  {children.map(child => <a key={child.id} href={withBasePath(item.href + "#" + child.id)}
+                    className={s.subItem} onClick={afterNavigate}><UIIcon name={child.icon} size={16}/><span className={s.menuLabel}>{child.title}</span></a>)}
+                </SidebarGroup>
+              );
               const label = itemLabel(item);
               return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
                 <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
