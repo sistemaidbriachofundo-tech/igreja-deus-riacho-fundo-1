@@ -772,6 +772,9 @@ export class MinistriesService {
       if (isOwn && current.roster.status === "DRAFT") throw new ForbiddenException("A escala ainda não foi publicada.");
       this.assertNotSubstituted(current.assignment);
       if (status === "CONFIRMED") {
+        const slot = { ...current.slot, roster: current.roster };
+        await assertOpenModuleSlot(tx, slot, assignmentId);
+        await assertSlotEligibility(tx, slot, [current.assignment.personId, current.assignment.partnerPersonId].filter((id): id is string => Boolean(id)));
         await assertNoRosterDayConflict(tx, {
           churchId: pilot.churchId, serviceAt: current.roster.serviceAt,
           personIds: [current.assignment.personId, current.assignment.partnerPersonId].filter((id): id is string => Boolean(id)),
@@ -859,7 +862,9 @@ export class MinistriesService {
       const current = await this.requireAssignmentInChurch(assignmentId, pilot, tx);
       this.assertRosterNotClosed(current.roster);
       this.assertNotSubstituted(current.assignment);
-      await assertSlotEligibility(tx, { ...current.slot, roster: current.roster }, personIds);
+      const slot = { ...current.slot, roster: current.roster };
+      await assertOpenModuleSlot(tx, slot, assignmentId);
+      await assertSlotEligibility(tx, slot, personIds);
       await assertNoRosterDayConflict(tx, {
         churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds,
         excludeAssignmentId: assignmentId, conflictCode: "ROSTER_SERVICE_CONFLICT",

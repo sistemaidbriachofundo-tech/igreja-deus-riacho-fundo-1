@@ -85,8 +85,8 @@ export async function assertSlotEligibility(tx: Prisma.TransactionClient, slot: 
   }
 }
 
-export async function assertOpenModuleSlot(tx: Prisma.TransactionClient, slot: { id: string; roster: { moduleId?: string | null } }) {
+export async function assertOpenModuleSlot(tx: Prisma.TransactionClient, slot: { id: string; roster: { moduleId?: string | null } }, excludeAssignmentId?: string) {
   if (!slot.roster.moduleId) return;
-  const filled = await tx.rosterAssignment.findFirst({ where: { slotId: slot.id, status: { in: ["PENDING", "CONFIRMED"] } }, select: { id: true } });
+  const filled = await tx.rosterAssignment.findFirst({ where: { slotId: slot.id, id: excludeAssignmentId ? { not: excludeAssignmentId } : undefined, status: { in: ["PENDING", "CONFIRMED"] } }, select: { id: true } });
   if (filled) throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
 }

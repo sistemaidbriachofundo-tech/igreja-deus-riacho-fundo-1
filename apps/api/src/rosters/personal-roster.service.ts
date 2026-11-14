@@ -566,6 +566,7 @@ export class PersonalRosterService {
       if (+current.slot.roster.serviceAt !== +loaded.slot.roster.serviceAt) {
         throw new ConflictException("O horário do culto mudou. Atualize a escala e tente novamente.");
       }
+      await assertOpenModuleSlot(tx, current.slot, assignmentId);
       await assertSlotEligibility(tx, current.slot, personIds);
       await assertNoRosterDayConflict(tx, {
         churchId: pilot.churchId, serviceAt: current.slot.roster.serviceAt, personIds,
@@ -624,6 +625,8 @@ export class PersonalRosterService {
       this.assertRosterOpen(loaded.slot.roster);
       this.assertNotSubstituted(loaded);
       if (status === "CONFIRMED") {
+        await assertOpenModuleSlot(tx, loaded.slot, assignmentId);
+        await assertSlotEligibility(tx, loaded.slot, [loaded.personId, loaded.partnerPersonId].filter((id): id is string => Boolean(id)));
         await assertNoRosterDayConflict(tx, {
           churchId: pilot.churchId, serviceAt: loaded.slot.roster.serviceAt,
           personIds: [loaded.personId, loaded.partnerPersonId].filter((id): id is string => Boolean(id)),
