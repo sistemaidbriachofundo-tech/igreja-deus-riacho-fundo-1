@@ -9,6 +9,7 @@
   "theme_color": "#142339",
   "background_color": "#ffffff",
   "icons": [
-    { "src": "images/idb-riacho-oficial-2026.webp", "sizes": "any", "type": "image/webp" }
+    { "src": "images/portal-voluntario-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "images/portal-voluntario-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

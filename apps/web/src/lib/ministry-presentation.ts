@@ -7,24 +7,26 @@
 import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
 import type { AssignmentStatus } from "./serving-rosters";
 
+export const ROSTER_LOCATION_LABELS = { sector: "Setor", zone: "Zona", side: "Lado" } as const;
+export type RosterLocation = Partial<Record<keyof typeof ROSTER_LOCATION_LABELS, string | null>>;
 export type EscalaAssignment = {
   id: string; personId: string; partnerPersonId: string; status: AssignmentStatus;
   personName: string; partnerName: string; substituteForId?: string; declinedAt?: string;
 };
-export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; requiredQualification?: string; assignments: EscalaAssignment[] };
+export type EscalaPosition = RosterLocation & { id: string; label: string; requiresCouple: boolean; requiredQualification?: string; assignments: EscalaAssignment[] };
 export const ROSTER_SERVICE_TYPES = {
   thursday_evening: "Quinta à noite", sunday_morning: "Domingo de manhã",
   sunday_evening: "Domingo à noite", special_event: "Evento especial",
 } as const;
 export type RosterServiceType = keyof typeof ROSTER_SERVICE_TYPES;
-export type ModulePosition = { label: string; count: number; couple: boolean; qualification?: string };
+export type ModulePosition = RosterLocation & { label: string; count: number; couple: boolean; qualification?: string };
 export type EscalaModuleRules = {
   positions: Partial<Record<RosterServiceType, ModulePosition[]>>;
   qualifications: Record<string, string[]>;
   volunteerIds?: string[];
   couples: [string, string][];
   minIntervalDays: number;
-  maxMonthlyAssignments: number; substituteInviteLimit: number;
+  maxMonthlyAssignments: number; substituteInviteLimit: number; substituteInviteHours?: number;
 };
 export type EscalaModule = { id: string; name: string; rules?: EscalaModuleRules };
 
@@ -136,6 +138,7 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
       const id = textOf(card?.id);
       if (id && label) positions.push({
         id, label, requiresCouple: card?.requiresCouple === true,
+        sector: textOf(card?.sector), zone: textOf(card?.zone), side: textOf(card?.side),
         requiredQualification: textOf(card?.requiredQualification), assignments: assigned,
       });
     }

@@ -4,7 +4,9 @@ import { localParts } from "./preview-domain/time";
 
 export const CULT_TYPES = ["thursday_evening", "sunday_morning", "sunday_evening", "special_event"] as const;
 export type CultType = typeof CULT_TYPES[number];
-export type PositionRule = { label: string; count: number; couple: boolean; qualification?: string };
+export const POSITION_LOCATION_FIELDS = ["sector", "zone", "side"] as const;
+export type PositionLocation = Partial<Record<typeof POSITION_LOCATION_FIELDS[number], string | null>>;
+export type PositionRule = PositionLocation & { label: string; count: number; couple: boolean; qualification?: string };
 export type ModuleRules = {
   positions: Partial<Record<CultType, PositionRule[]>>;
   qualifications: Record<string, string[]>;
@@ -13,6 +15,7 @@ export type ModuleRules = {
   minIntervalDays: number;
   maxMonthlyAssignments: number;
   substituteInviteLimit: number;
+  substituteInviteHours: number;
 };
 
 const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -21,6 +24,19 @@ function int(value: unknown, min: number, max: number, fallback: number) {
   if (value === undefined) return fallback;
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) throw new BadRequestException("Limite de escala inválido.");
   return value;
+}
+
+export function readPositionLocation(input: Record<string, unknown>): PositionLocation {
+  const location: PositionLocation = {};
+  for (const field of POSITION_LOCATION_FIELDS) {
+    const value = input[field];
+    if (value === undefined) continue;
+    if (value !== null && (typeof value !== "string" || value.trim().length > 100)) {
+      throw new BadRequestException("Setor, zona e lado devem ter até 100 caracteres.");
+    }
+    location[field] = text(value) || null;
+  }
+  return location;
 }
 
 export function readModuleRules(raw: unknown): ModuleRules {
@@ -35,7 +51,7 @@ export function readModuleRules(raw: unknown): ModuleRules {
       const label = text(value.label);
       const qualification = text(value.qualification).toLowerCase();
       if (!label || label.length > 100 || (qualification && !/^[a-z0-9_-]{1,40}$/.test(qualification))) throw new BadRequestException("Posição ou habilitação inválida.");
-      return { label, count: int(value.count, 0, 30, 1), couple: value.couple === true, ...(qualification ? { qualification } : {}) };
+      return { ...readPositionLocation(value), label, count: int(value.count, 0, 30, 1), couple: value.couple === true, ...(qualification ? { qualification } : {}) };
     });
     if (positions[type].reduce((total, row) => total + row.count, 0) > 100) throw new BadRequestException("Informe até 100 vagas por tipo de culto.");
   }
@@ -62,7 +78,7 @@ export function readModuleRules(raw: unknown): ModuleRules {
     throw new BadRequestException("Inclua na equipe do módulo todas as pessoas habilitadas ou cadastradas em casais.");
   }
   return { positions, qualifications, couples, ...(volunteerIds ? { volunteerIds } : {}), minIntervalDays: int(source.minIntervalDays, 0, 60, 10), maxMonthlyAssignments: int(source.maxMonthlyAssignments, 1, 31, 3),
-    substituteInviteLimit: int(source.substituteInviteLimit, 0, 5, 0) };
+    substituteInviteLimit: int(source.substituteInviteLimit, 0, 5, 0), substituteInviteHours: int(source.substituteInviteHours, 1, 72, 12) };
 }
 
 export function isModuleVolunteer(rules: ModuleRules, personId: string): boolean {

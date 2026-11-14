@@ -66,6 +66,9 @@ type SlotRef = {
   roleLabel: string;
   requiresCouple: boolean;
   requiredQualification?: string | null;
+  sector?: string | null;
+  zone?: string | null;
+  side?: string | null;
   sortOrder: number;
   roster: RosterRef;
 };
@@ -406,6 +409,9 @@ export class PersonalRosterService {
           roleLabel: slot.roleLabel,
           requiresCouple: slot.requiresCouple,
           requiredQualification: slot.requiredQualification,
+          sector: slot.sector,
+          zone: slot.zone,
+          side: slot.side,
           sortOrder: slot.sortOrder,
           assignments: slot.assignments.map(assignment => ({
             ...this.toAssignmentDto(assignment),
@@ -903,6 +909,9 @@ export class PersonalRosterService {
       participation:
         row.personId === actorPersonId ? ("assignee" as const) : ("partner" as const),
       roleLabel: row.slot.roleLabel,
+      ...(row.slot.sector ? { sector: row.slot.sector } : {}),
+      ...(row.slot.zone ? { zone: row.slot.zone } : {}),
+      ...(row.slot.side ? { side: row.slot.side } : {}),
       rosterId: row.slot.roster.id,
       title: row.slot.roster.title,
       serviceAt: row.slot.roster.serviceAt.toISOString(),

@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { riachoWeeklyWindowToUtc, utcWeeklyWindowsToRiachoLocal } from "../rosters/preview-domain/timezone-availability";
+import { renderRosterPdf } from "../rosters/roster-pdf";
 import {
   BadRequestException,
   ConflictException,
@@ -23,7 +26,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
 
-import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, type CultType } from "../rosters/roster-operating-rules";
+import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, readPositionLocation, type CultType, type PositionLocation } from "../rosters/roster-operating-rules";
 
 export type LeadershipPublicEntry = {
   displayName: string;
@@ -307,7 +310,7 @@ export class MinistriesService {
       if (!CULT_TYPES.includes(type)) throw new BadRequestException("Tipo de culto inválido.");
       const rules = readModuleRules(module?.rules);
       const slots = (rules.positions[type] ?? []).flatMap(position => Array.from({ length: position.count }, () => ({
-        roleLabel: position.label, requiresCouple: position.couple, requiredQualification: position.qualification,
+        ...readPositionLocation(position), roleLabel: position.label, requiresCouple: position.couple, requiredQualification: position.qualification,
       })));
       const roster = await tx.roster.create({
         data: {
@@ -375,7 +378,7 @@ export class MinistriesService {
     return module;
   }
 
-  async editRosterSlot(actor: AuthUser, rosterId: string, slotId: string, label: string) {
+  async editRosterSlot(actor: AuthUser, rosterId: string, slotId: string, label: string, location: PositionLocation = {}) {
     const pilot = await this.pilot.getPilotChurch();
     const roster = await this.requireRoster(rosterId, pilot);
     await this.assertRosterScope(actor, roster, pilot);
@@ -386,7 +389,7 @@ export class MinistriesService {
     return this.prisma.$transaction(async tx => {
       const result = await tx.rosterSlot.updateMany({
         where: { id: slotId, rosterId, roster: { status: "DRAFT" } },
-        data: { roleLabel },
+        data: { roleLabel, ...readPositionLocation(location) },
       });
       if (result.count !== 1) throw new NotFoundException("Posição não encontrada em uma escala editável.");
       await tx.auditLog.create({ data: {
@@ -395,6 +398,28 @@ export class MinistriesService {
       } });
       return this.toSlotDto(await tx.rosterSlot.findUniqueOrThrow({ where: { id: slotId } }));
     }, { isolationLevel: "Serializable" });
+  }
+
+  async rosterPdf(actor: AuthUser, rosterId: string) {
+    const scope = await this.pilot.getPilotChurch();
+    const roster = await this.requireRoster(rosterId, scope);
+    await this.assertRosterScope(actor, roster, scope);
+    const document = await this.prisma.roster.findFirst({
+      where: { id: rosterId, churchId: scope.churchId, organizationId: scope.organizationId },
+      select: {
+        title: true, serviceAt: true, status: true,
+        module: { select: { name: true } }, ministry: { select: { name: true } },
+        slots: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: {
+          roleLabel: true, sector: true, zone: true, side: true,
+          assignments: {
+            where: { status: { in: ["PENDING", "CONFIRMED"] } },
+            select: { status: true, person: { select: { displayName: true } }, partner: { select: { displayName: true } } },
+          },
+        } },
+      },
+    });
+    if (!document) throw new NotFoundException("Escala não encontrada.");
+    return renderRosterPdf(document);
   }
 
   async listRosters(actor: AuthUser) {
@@ -594,7 +619,7 @@ export class MinistriesService {
   async addSlot(
     actor: AuthUser,
     rosterId: string,
-    input: {
+    input: PositionLocation & {
       roleLabel: string;
       requiresCouple?: boolean;
       sortOrder?: number;
@@ -616,6 +641,7 @@ export class MinistriesService {
         data: {
           rosterId,
           roleLabel,
+          ...readPositionLocation(input),
           requiresCouple: Boolean(input.requiresCouple),
           sortOrder: input.sortOrder ?? 0,
         },
@@ -929,6 +955,87 @@ export class MinistriesService {
   }
 
   // —— RF-014 disponibilidade / impedimentos ——
+
+  private async recurringAvailabilityScope(actor: AuthUser, ministryId: string, personId: string) {
+    const { churchId, organizationId } = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, { churchId, organizationId });
+    this.assertManageMinistry(actor, ministry);
+    if (!personId || !await this.prisma.ministryMembership.findFirst({
+      where: { churchId, organizationId, ministryId, personId, status: "ATIVO", person: { status: "ACTIVE" } },
+      select: { id: true },
+    })) throw new NotFoundException("Selecione um integrante ativo do ministério.");
+    return { churchId, organizationId, personId };
+  }
+
+  async recurringAvailability(actor: AuthUser, ministryId: string, personId: string) {
+    const scope = await this.recurringAvailabilityScope(actor, ministryId, personId);
+    const rows = await this.prisma.volunteerAvailability.findMany({
+      where: { ...scope, active: true }, orderBy: [{ weekday: "asc" }, { startMinute: "asc" }],
+    });
+    const groups = new Map<string, ReturnType<typeof utcWeeklyWindowsToRiachoLocal>>();
+    for (const row of rows) {
+      const id = row.groupId ?? row.id;
+      const windows = groups.get(id) ?? [];
+      groups.set(id, [...windows, ...utcWeeklyWindowsToRiachoLocal([row])]);
+    }
+    const windows = [...groups].map(([id, segments]) => {
+      if (segments.length > 1 && segments.every(window => window.weekday === segments[0].weekday)) {
+        return { id, segments: [{
+          weekday: segments[0].weekday,
+          startMinute: Math.min(...segments.map(window => window.startMinute)),
+          endMinute: Math.max(...segments.map(window => window.endMinute)),
+        }] };
+      }
+      return { id, segments };
+    });
+    return { windows };
+  }
+
+  async saveRecurringAvailability(actor: AuthUser, ministryId: string, input: {
+    personId: string; weekday: number; startMinute: number; endMinute: number; replaceId?: string;
+  }) {
+    const scope = await this.recurringAvailabilityScope(actor, ministryId, input.personId);
+    this.assertWeekday(input.weekday);
+    this.assertMinuteWindow(input.startMinute, input.endMinute);
+    const windows = riachoWeeklyWindowToUtc(input);
+    const groupId = randomUUID();
+    return this.prisma.$transaction(async tx => {
+      if (input.replaceId) await this.deactivateRecurringWindow(tx, scope, input.replaceId);
+      await tx.volunteerAvailability.createMany({ data: windows.map(window => ({ ...scope, ...window, groupId })) });
+      await tx.auditLog.create({ data: {
+        churchId: scope.churchId, organizationId: scope.organizationId, actorUserId: actor.userId,
+        action: input.replaceId ? "roster.availability.update" : "roster.availability.create",
+        resourceType: "volunteer_availability", resourceId: groupId,
+        metadata: { personId: scope.personId, ministryId },
+      } });
+      return { id: groupId };
+    });
+  }
+
+  async removeRecurringAvailability(actor: AuthUser, ministryId: string, personId: string, id: string) {
+    const scope = await this.recurringAvailabilityScope(actor, ministryId, personId);
+    return this.prisma.$transaction(async tx => {
+      await this.deactivateRecurringWindow(tx, scope, id);
+      await tx.auditLog.create({ data: {
+        churchId: scope.churchId, organizationId: scope.organizationId, actorUserId: actor.userId,
+        action: "roster.availability.deactivate", resourceType: "volunteer_availability",
+        resourceId: id, metadata: { personId, ministryId },
+      } });
+      return { removed: true };
+    });
+  }
+
+  private async deactivateRecurringWindow(
+    tx: Prisma.TransactionClient,
+    scope: { organizationId: string; churchId: string; personId: string },
+    id: string,
+  ) {
+    const result = await tx.volunteerAvailability.updateMany({
+      where: { ...scope, active: true, OR: [{ id, groupId: null }, { groupId: id }] },
+      data: { active: false },
+    });
+    if (!result.count) throw new NotFoundException("Disponibilidade não encontrada.");
+  }
 
   async createAvailability(
     actor: AuthUser,
@@ -1844,7 +1951,7 @@ export class MinistriesService {
     };
   }
 
-  private toSlotDto(slot: {
+  private toSlotDto(slot: PositionLocation & {
     id: string;
     rosterId: string;
     roleLabel: string;
@@ -1855,6 +1962,9 @@ export class MinistriesService {
       id: slot.id,
       rosterId: slot.rosterId,
       roleLabel: slot.roleLabel,
+      sector: slot.sector ?? null,
+      zone: slot.zone ?? null,
+      side: slot.side ?? null,
       requiresCouple: slot.requiresCouple,
       sortOrder: slot.sortOrder,
     };

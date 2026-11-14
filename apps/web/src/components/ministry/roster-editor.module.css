@@ -50,3 +50,28 @@
 .teamList { display: grid; gap: 6px; padding: 0; list-style: none; }
 .teamList li { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; }
 .screenReaderOnly { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.location {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  font-size: 0.875rem;
+}
+
+.location:empty {
+  display: none;
+}
+
+.availabilityWindows {
+  margin-block: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.availabilityWindows li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-block: 0.45rem;
+}

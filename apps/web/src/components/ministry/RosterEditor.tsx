@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { apiPatch, apiPost } from "../../lib/api";
+import { apiGetBlob, apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
-import { ROSTER_SERVICE_TYPES, rosterPositionSummary, type EscalaAssignment, type EscalaModule, type EscalaModuleRules, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
+import { ROSTER_LOCATION_LABELS, ROSTER_SERVICE_TYPES, type RosterLocation, rosterPositionSummary, type EscalaAssignment, type EscalaModule, type EscalaModuleRules, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
 import { assignmentStatusLabel } from "../../lib/serving-rosters";
 import { UIIcon } from "../AppShell";
 import { RosterPreviewPanel } from "../serving/RosterPreviewPanel";
@@ -128,7 +128,8 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     const roleLabel = String(fields.get("roleLabel") ?? "").trim();
     const path = base + "/slots" + (position ? "/" + encodeURIComponent(position.id) : "");
     const requiresCouple = fields.has("requiresCouple");
-    void mutate(path, position ? { roleLabel } : { roleLabel, requiresCouple }, position ? "PATCH" : "POST");
+    const location = Object.fromEntries(Object.keys(ROSTER_LOCATION_LABELS).map(field => [field, String(fields.get(field) ?? "").trim() || null]));
+    void mutate(path, { roleLabel, ...location, ...(position ? {} : { requiresCouple }) }, position ? "PATCH" : "POST");
   }
 
   function savePerson(event: FormEvent<HTMLFormElement>, position: EscalaPosition, assignment?: EscalaAssignment) {
@@ -144,6 +145,23 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       assignment ? "Substituição registrada. Aguardando a confirmação de quem vai assumir." : "Pessoa escalada. Aguardando confirmação.");
   }
 
+  async function download() {
+    setBusy(true);
+    setError("");
+    try {
+      const url = URL.createObjectURL(await apiGetBlob(base + "/pdf", token));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Escala - ${roster.title.replace(/[\/:*?"<>|]/g, "-")}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) {
+      setError(dasError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function publish() {
     if (await confirm({ title: "Publicar escala?", subject: roster.title, description: "A escala ficará disponível para as pessoas escaladas consultarem.", action: "Publicar escala" })) {
       await mutate(base + "/publish");
@@ -155,6 +173,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     <div className={s.editor}>
       {confirmation}
       {notice && <p className={s.success} role="status">{notice}</p>}
+      <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void download()}>Baixar PDF da escala</button>
       {draft && <RosterEditor {...props} />}
       {Boolean(roster.positions?.length) && <dl className={s.counts} aria-label="Cobertura do culto">
         <div><dt>Vagas abertas</dt><dd>{summary.open}</dd></div>
@@ -183,8 +202,13 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
                 ? "Diaconia" : position.requiredQualification].filter(Boolean).join(" · ")}
             </span>}
           </header>
-          {draft && <details><summary>Renomear posição</summary><form className={s.form} onSubmit={event => savePosition(event, position)}>
+          <div className={s.location}>{Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) => {
+            const value = position[field as keyof RosterLocation];
+            return value && <span key={field}>{label} <strong>{value}</strong></span>;
+          })}</div>
+          {draft && <details><summary>Editar posição</summary><form className={s.form} onSubmit={event => savePosition(event, position)}>
             <label>Nome da posição<input name="roleLabel" defaultValue={position.label} maxLength={100} required /></label>
+            <PositionLocationInputs location={position} />
             <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Salvar posição</button>
           </form></details>}
           {listed.map(assignment => (
@@ -214,6 +238,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {draft && (
         <form className={s.form} onSubmit={savePosition}>
           <label>Nova posição<input name="roleLabel" placeholder="Ex. Recepção" maxLength={100} required /></label>
+          <PositionLocationInputs />
           <label className={s.checkbox}><input type="checkbox" name="requiresCouple" /> Posição para casal</label>
           <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Adicionar posição</button>
         </form>
@@ -221,6 +246,12 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {draft && Boolean(roster.positions?.length) && <button type="button" className={ui.workspacePrimary} disabled={busy} onClick={() => void publish()}>Publicar escala</button>}
       {error && <p className={s.error} role="alert">{error}</p>}
     </div>
+  );
+}
+
+function PositionLocationInputs({ location }: { location?: RosterLocation }) {
+  return Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) =>
+    <label key={field}>{label}<input name={field} maxLength={100} defaultValue={location?.[field as keyof RosterLocation] ?? ""} /></label>,
   );
 }
 

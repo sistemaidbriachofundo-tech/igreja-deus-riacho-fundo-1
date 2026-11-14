@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   description:
     "Igreja de Deus no Riacho Fundo I, em Brasília. Conheça a igreja e confira os horários dos cultos.",
   manifest: withBasePath("/roster.webmanifest"),
-  icons: { icon: withBasePath(officialLogoAsset), shortcut: withBasePath(officialLogoAsset) },
+  icons: { icon: withBasePath(officialLogoAsset), shortcut: withBasePath(officialLogoAsset), apple: withBasePath("/images/portal-voluntario-192.png") },
 };
 
 export default function RootLayout({

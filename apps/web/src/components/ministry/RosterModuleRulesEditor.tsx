@@ -5,7 +5,7 @@ import { apiPatch } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import { ministryHref } from "../../lib/ministry-view";
 import { withBasePath } from "../../lib/paths";
-import { ROSTER_SERVICE_TYPES, type EscalaModule, type EscalaModuleRules, type ModulePosition, type RosterServiceType } from "../../lib/ministry-presentation";
+import { ROSTER_LOCATION_LABELS, ROSTER_SERVICE_TYPES, type RosterLocation, type EscalaModule, type EscalaModuleRules, type ModulePosition, type RosterServiceType } from "../../lib/ministry-presentation";
 import ui from "../ui/ui.module.css";
 import type { RosterActionsProps } from "./RosterEditor";
 import s from "./roster-editor.module.css";
@@ -93,10 +93,12 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
         </select></label>
         <label>Intervalo mínimo em dias<input type="number" min={0} max={60} value={rules.minIntervalDays} onChange={event => setRules({ ...rules, minIntervalDays: Number(event.target.value) })} /></label>
         <label>Máximo de escalas por mês<input type="number" min={1} max={31} value={rules.maxMonthlyAssignments} onChange={event => setRules({ ...rules, maxMonthlyAssignments: Number(event.target.value) })} /></label>
-        <label>Convites automáticos por vaga<input type="number" min={0} max={5} value={rules.substituteInviteLimit} onChange={event => setRules({ ...rules, substituteInviteLimit: Number(event.target.value) })} /></label>
+        <label>Convites por rodada<input type="number" min={0} max={5} value={rules.substituteInviteLimit} onChange={event => setRules({ ...rules, substituteInviteLimit: Number(event.target.value) })} /></label>
+        {rules.substituteInviteLimit > 0 && <label>Prazo para aceitar (horas)<input type="number" min={1} max={72} value={rules.substituteInviteHours ?? 12} onChange={event => setRules({ ...rules, substituteInviteHours: Number(event.target.value) })} /></label>}
       </div>
       {rows.map((row, index) => <div className={s.form} key={index}>
         <label>Posição<input required maxLength={100} value={row.label} onChange={event => editRow(index, { label: event.target.value })} /></label>
+        {Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) => <label key={field}>{label}<input maxLength={100} value={row[field as keyof RosterLocation] ?? ""} onChange={event => editRow(index, { [field]: event.target.value })} /></label>)}
         <label>Vagas<input type="number" min={0} max={30} value={row.count} onChange={event => editRow(index, { count: Number(event.target.value) })} /></label>
         <label>Habilitação<select value={row.qualification ?? ""} onChange={event => editRow(index, { qualification: event.target.value || undefined })}>
           <option value="">Qualquer integrante</option>{tags.map(tag => <option key={tag} value={tag}>{tag === "diaconia" ? "Diaconia" : tag}</option>)}

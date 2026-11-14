@@ -1461,6 +1461,9 @@ model RosterSlot {
   roleLabel     String  @map("role_label")
   requiresCouple Boolean @default(false) @map("requires_couple")
   requiredQualification String? @map("required_qualification")
+  sector String?
+  zone String?
+  side String?
   sortOrder     Int     @default(0) @map("sort_order")
 
   roster       Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
@@ -1506,6 +1509,7 @@ model VolunteerAvailability {
   /// Minutos desde 00:00 UTC exclusivo
   endMinute      Int      @map("end_minute")
   notes          String?
+  groupId        String? @map("group_id")
   active         Boolean  @default(true)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -2565,6 +2569,8 @@ model RosterNotice {
   path String
   sentAt DateTime? @map("sent_at")
   claimedAt DateTime? @map("claimed_at")
+  expiresAt DateTime? @map("expires_at")
+  pushReceipts String[] @default([]) @map("push_receipts")
   createdAt DateTime @default(now()) @map("created_at")
   church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)

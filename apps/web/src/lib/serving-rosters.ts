@@ -439,6 +439,9 @@ export type PersonalAssignment = {
   substituteForId?: string;
   participation: "assignee" | "partner";
   roleLabel: string;
+  sector?: string | null;
+  zone?: string | null;
+  side?: string | null;
   title: string;
   serviceAt: string;
   rosterStatus: RosterStatus;
@@ -487,6 +490,9 @@ function parsePersonalAssignment(value: unknown): PersonalAssignment {
     ...(substituteForId ? { substituteForId } : {}),
     participation,
     roleLabel: requiredString(row.roleLabel, "função"),
+    ...(row.sector ? { sector: optionalString(row.sector) } : {}),
+    ...(row.zone ? { zone: optionalString(row.zone) } : {}),
+    ...(row.side ? { side: optionalString(row.side) } : {}),
     title: requiredString(row.title, "título da escala"),
     serviceAt,
     rosterStatus: oneOf(row.rosterStatus, ROSTER_STATUSES, "estado da escala"),

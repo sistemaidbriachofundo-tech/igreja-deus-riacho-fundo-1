@@ -33,6 +33,16 @@ export class RosterNoticesController {
 
   @Roles(...VOLUNTEERS)
   @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("device")
+  device(@CurrentUser() user: AuthUser, @Body() body: EndpointBody) { return this.notices.deviceStatus(user, body.endpoint); }
+
+  @Roles(...VOLUNTEERS)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("test")
+  test(@CurrentUser() user: AuthUser, @Body() body: EndpointBody) { return this.notices.testDevice(user, body.endpoint); }
+
+  @Roles(...VOLUNTEERS)
+  @RequireAccess({ resource: "ministries", action: "respond" })
   @Post("unsubscribe")
   unsubscribe(@CurrentUser() user: AuthUser, @Body() body: EndpointBody) { return this.notices.unsubscribe(user, body.endpoint); }
 
@@ -40,6 +50,10 @@ export class RosterNoticesController {
   @RequireAccess({ resource: "ministries", action: "respond" })
   @Post("invites/:assignmentId/accept")
   accept(@CurrentUser() user: AuthUser, @Param("assignmentId") assignmentId: string) { return this.notices.acceptInvite(user, assignmentId); }
+
+  @Public()
+  @Get("run")
+  cron(@Headers("authorization") authorization?: string) { return this.notices.scheduled(authorization); }
 
   @Public()
   @Post("run")

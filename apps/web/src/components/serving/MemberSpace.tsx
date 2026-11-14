@@ -61,7 +61,7 @@ export function MemberSpace({
                     <div>
                       <h3>{item.title}</h3>
                       <p className={styles.footnote}>
-                        {[item.ministryName, item.roleLabel].filter(Boolean).join(" · ")}
+                        {[item.ministryName, item.roleLabel, item.sector, item.zone, item.side].filter(Boolean).join(" · ")}
                       </p>
                     </div>
                     <span className={styles.badge} data-status={item.status}>

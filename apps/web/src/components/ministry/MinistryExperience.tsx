@@ -1,5 +1,7 @@
 "use client";
 
+import { RosterRecurringAvailability } from "./RosterRecurringAvailability";
+
 import { useState, type KeyboardEvent } from "react";
 import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
 import { MonthlyRosterPreview } from "./MonthlyRosterPreview";
@@ -451,6 +453,7 @@ function EscalaList({
         <RosterModuleCatalog actions={actions && { ...actions, onRulesSaved: rules => { if (selectedModule) setUpdatedRules(previous => ({ ...previous, [selectedModule.id]: rules })); } }} modules={modules} selectedId={selectedModule?.id ?? ""} onSelect={setModuleFilter} />
       )}
       {editor && modules.length > 0 && <MonthlyRosterPreview token={editor.token} ministryId={ministryId} onRefresh={editor.onRefresh} />}
+      {editor && <RosterRecurringAvailability actions={editor} />}
       {editor && <RosterEditor key={selectedModule?.id ?? "general"} {...editor} />}
       {shortcut && (
         <div className={styles.shortcuts}>

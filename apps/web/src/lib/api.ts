@@ -288,7 +288,7 @@ async function apiFetch(url: string, init: RequestInit, timeoutMs: number): Prom
   }
 }
 
-type ApiMethod = "GET" | "POST" | "PATCH" | "PUT";
+type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 async function request<T>(
   method: ApiMethod,
@@ -439,6 +439,10 @@ export async function apiPost<T>(path: string, token: string, body?: unknown, op
 /** Alterações restritas via backend com validação de papel e escopo na API. */
 export async function apiPatch<T>(path: string, token: string, body: unknown, options?: ApiCallOptions): Promise<T> {
   return settle<T>("PATCH", path, token, body, options, true);
+}
+
+export function apiDelete<T>(path: string, token: string): Promise<T> {
+  return settle<T>("DELETE", path, token, undefined, undefined, true);
 }
 
 export function apiGetBlob(path: string, token: string): Promise<Blob> {
