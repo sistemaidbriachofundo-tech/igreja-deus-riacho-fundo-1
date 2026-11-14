@@ -95,6 +95,23 @@ describe("DiscipleshipService", () => {
     };
   }
 
+  it("atualiza o mentor e rejeita a própria pessoa como mentor", async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: "new-mentor" });
+    const update = jest.fn().mockResolvedValue({ ...enrollmentRow, mentorPersonId: "new-mentor" });
+    const auditLog = { create: jest.fn() };
+    const service = new DiscipleshipService({
+      ...withTx({ discipleshipEnrollment: { update }, auditLog }),
+      discipleshipEnrollment: { findFirst: jest.fn().mockResolvedValue({ ...enrollmentRow, track: trackRow }) },
+      person: { findFirst },
+    } as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.updateMentor(lider, "e1", enrollmentRow.personId)).rejects.toBeInstanceOf(BadRequestException);
+    expect(findFirst).not.toHaveBeenCalled();
+    await expect(service.updateMentor(lider, "e1", "new-mentor")).resolves.toMatchObject({ mentorPersonId: "new-mentor" });
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: pilot.organizationId, isMinor: false }) }));
+    expect(update).toHaveBeenCalledWith({ where: { id: "e1" }, data: { mentorPersonId: "new-mentor" } });
+    expect(auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "discipleship.enrollment.mentor" }) }));
+  });
+
   it("forbids MEMBRO from creating tracks", async () => {
     const service = new DiscipleshipService(
       { $transaction: jest.fn() } as never,

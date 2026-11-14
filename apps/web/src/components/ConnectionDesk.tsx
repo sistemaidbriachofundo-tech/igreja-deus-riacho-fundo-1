@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { AppShell, AppNavLink, usePersonaAccess, UIIcon } from "./AppShell";
 import { GroupRequests } from "./GroupRequests";
-import { apiGet, loadStoredToken } from "../lib/api";
+import { apiGet, apiPost, loadStoredToken } from "../lib/api";
+import { dasError } from "../lib/das-operations";
 import { readPanel } from "../lib/panel-read";
+import { JourneyOperations } from "./JourneyOperations";
 import s from "./connection-desk.module.css";
 
 type Track = { id: string; name: string; description: string | null };
 type Group = { id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean };
 type Stage = { id: string; title: string; sortOrder: number };
-type Walk = { id: string; mentorPersonId: string | null; status: string };
+type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
 type Read<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 type Journey = { track: Track; stages: Stage[] | null; enrollments: Walk[] | null };
 export const CONNECTION_ROLES = ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"] as const;
@@ -31,6 +33,8 @@ function ConnectionContent() {
   const [journey, setJourney] = useState<Read<Journey | null>>({ status: "loading" });
   const [groups, setGroups] = useState<Read<Group[]>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [fault, setFault] = useState("");
+  const [busy, setBusy] = useState(false);
   const roleKey = roles.join("|");
 
   useEffect(() => {
@@ -39,7 +43,7 @@ function ConnectionContent() {
     if (!token) return;
     setToken(token);
     let active = true;
-    const read = (path: string) => readPanel(token, path, () => apiGet<unknown>(path, token));
+    const read = (path: string) => readPanel(token, path, () => apiGet<unknown>(path, token), { fresh: attempt > 0 });
     setJourney({ status: "loading" });
     setGroups({ status: "loading" });
     void read("/small-groups").then(payload => {
@@ -70,6 +74,18 @@ function ConnectionContent() {
   const tracking = journey.status === "ready" ? journey.data : null;
   const canRetry = journey.status === "error" || groups.status === "error"
     || (tracking && (tracking.stages === null || tracking.enrollments === null));
+  async function createConnection() {
+    setBusy(true);
+    setFault("");
+    try {
+      await apiPost("/discipleship/tracks", token, { name: "Trilha da Conexão" });
+      setAttempt(value => value + 1);
+    } catch (error) {
+      setFault(dasError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
   return <div className={s.page}>
     <header className={s.heading}>
       <h1>Conexão e caminhada</h1>
@@ -102,7 +118,16 @@ function ConnectionContent() {
         </ol>
         {tracking.stages === null && <p className={s.notice} role="alert">As etapas da trilha estão indisponíveis.</p>}
         {tracking.stages?.length === 0 && <p className={s.notice}>Nenhuma etapa cadastrada.</p>}
-      </> : <p className={s.notice}>A Trilha Conexão aguarda cadastro pela liderança.</p>}
+        {token && tracking.stages && tracking.enrollments && <JourneyOperations
+          token={token} trackId={tracking.track.id} initialPeople={tracking.enrollments} initialStages={tracking.stages}
+          onPeopleChange={enrollments => setJourney({ status: "ready", data: { ...tracking, enrollments } })}
+          onStagesChange={stages => setJourney({ status: "ready", data: { ...tracking, stages } })}
+        />}
+      </> : <div>
+        <p className={s.notice}>A Trilha Conexão aguarda cadastro pela liderança.</p>
+        {token && journey.status === "ready" && <button type="button" className={s.retry} disabled={busy} onClick={() => void createConnection()}>Criar Trilha da Conexão</button>}
+        {fault && <p role="alert">{fault}</p>}
+      </div>}
     </section>
 
     <section className={s.section} aria-labelledby="grupos-amizade">
@@ -160,6 +185,10 @@ export function parseWalks(value: unknown): Walk[] {
   if (!Array.isArray(rows)) return [];
   return rows.flatMap(row => {
     const d = record(row); const id=valueText(d?.id);
-    return id ? [{ id, mentorPersonId: valueText(d?.mentorPersonId)||null, status: valueText(d?.status) }] : [];
+    return id ? [{
+      id, personId: valueText(d?.personId), personName: valueText(d?.personName) || null,
+      mentorPersonId: valueText(d?.mentorPersonId) || null, mentorName: valueText(d?.mentorName) || null,
+      status: valueText(d?.status),
+    }] : [];
   });
 }

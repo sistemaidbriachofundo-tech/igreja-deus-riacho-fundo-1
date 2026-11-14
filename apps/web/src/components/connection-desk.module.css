@@ -32,3 +32,18 @@
 @media(prefers-reduced-motion:reduce){.load span{animation:none}}
 
 .requestActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.retry[aria-pressed="true"] { background:#285f43; color:white; }
+.retry:disabled { cursor:not-allowed; opacity:.55; }
+a.retry { display:inline-flex; align-items:center; text-decoration:none; }
+.operationPanel { display:grid; gap:12px; padding:14px; border:1px solid #dce7de; border-radius:9px; }
+.operationPanel summary { cursor:pointer; font-weight:750; padding:5px 0; }
+.operationPanel h4, .section h3 { margin:0; }
+.operationForm { display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-block:10px; }
+.operationForm label { display:grid; gap:5px; min-width:min(100%, 170px); flex:1; font-size:.9rem; }
+.operationForm input, .operationForm select { min-height:44px; width:100%; padding:7px 10px; border:1px solid #b9ccbf; border-radius:7px; background:white; color:#1c3228; font:inherit; }
+.operationList { margin:0; padding:0; list-style:none; }
+.operationList li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:9px; padding:11px 0; border-bottom:1px solid #dce7de; }
+.operationList li>div { display:grid; gap:3px; }
+.operationList li>.operationLinks { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.operationList time, .operationList span { font-size:.85rem; color:#50645a; }
+.srOnly { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

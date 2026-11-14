@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -74,6 +75,13 @@ class UpdateEnrollmentStatusBody {
   status!: string;
 }
 
+class UpdateMentorBody {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  mentorPersonId!: string | null;
+}
+
 class RecordProgressBody {
   @IsString()
   @MinLength(1)
@@ -110,6 +118,13 @@ export class DiscipleshipController {
   @Get("tracks")
   listTracks(@CurrentUser() user: AuthUser) {
     return this.discipleship.listTracks(user);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Header("Cache-Control", "private, no-store")
+  @Get("people")
+  searchPeople(@CurrentUser() user: AuthUser, @Query("q") q = "") {
+    return this.discipleship.searchPeople(user, q);
   }
 
   @Roles(...LEAD_ROLES)
@@ -169,6 +184,12 @@ export class DiscipleshipController {
       enrollmentId,
       body.status,
     );
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch("enrollments/:enrollmentId/mentor")
+  updateMentor(@CurrentUser() user: AuthUser, @Param("enrollmentId") id: string, @Body() body: UpdateMentorBody) {
+    return this.discipleship.updateMentor(user, id, body.mentorPersonId);
   }
 
   @Roles(...LEAD_ROLES)

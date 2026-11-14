@@ -157,7 +157,7 @@ export function AppShell({
   meta: string;
   children: ReactNode;
   editorial?: boolean;
-  secretarySection?: "resumo" | "pessoas" | "admissoes";
+  secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes";
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
@@ -290,6 +290,7 @@ export function AppShell({
       ? [{ key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const }]
       : []),
     { key: "admissoes", title: "Admissões", href: "/app/secretaria/admissoes/", icon: "layers" as const },
+    { key: "aniversariantes", title: "Aniversariantes", href: "/app/secretaria/aniversariantes/", icon: "calendar" as const },
     ...(credentialMenu ? [{ key: "carteirinha", title: "Carteirinhas", href: credentialMenu.href, icon: "badge" as const }] : []),
   ];
   const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "secretary" } | { kind: "treasury" } | { kind: "ministries" } | { kind: "divider" }> = [];

@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { canLeadMinistry, grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -22,6 +24,13 @@ const PROGRESS_KINDS = ["STARTED", "COMPLETED", "REOPENED"] as const;
 type ProgressKind = (typeof PROGRESS_KINDS)[number];
 
 const MAX_PROGRESS_NOTE = 280;
+
+function congregationPeople(organizationId: string, churchId: string): Prisma.PersonWhereInput {
+  return {
+    organizationId,
+    OR: [{ homeChurchId: churchId }, { memberships: { some: { churchId, status: { in: ["ACTIVE", "PENDING_ADMISSION"] } } } }],
+  };
+}
 
 @Injectable()
 export class DiscipleshipService {
@@ -82,6 +91,23 @@ export class DiscipleshipService {
       churchId: pilot.churchId,
       tracks: rows.map((row) => this.toTrackDto(row)),
     };
+  }
+
+  async searchPeople(actor: AuthUser, search: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const query = search.trim().slice(0, 100);
+    if (query.length < 2) return { people: [] };
+    const people = await this.prisma.person.findMany({
+      where: {
+        ...congregationPeople(pilot.organizationId, pilot.churchId),
+        status: "ACTIVE", displayName: { contains: query, mode: "insensitive" },
+      },
+      orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      select: { id: true, displayName: true },
+      take: 15,
+    });
+    return { people };
   }
 
   async createStage(
@@ -172,7 +198,8 @@ export class DiscipleshipService {
     const person = await this.prisma.person.findFirst({
       where: {
         id: input.personId,
-        organizationId: pilot.organizationId,
+        ...congregationPeople(pilot.organizationId, pilot.churchId),
+        status: "ACTIVE",
       },
       select: { id: true },
     });
@@ -180,18 +207,7 @@ export class DiscipleshipService {
       throw new BadRequestException("Pessoa não encontrada neste escopo");
     }
 
-    if (input.mentorPersonId) {
-      const mentor = await this.prisma.person.findFirst({
-        where: {
-          id: input.mentorPersonId,
-          organizationId: pilot.organizationId,
-        },
-        select: { id: true },
-      });
-      if (!mentor) {
-        throw new BadRequestException("Mentor não encontrado neste escopo");
-      }
-    }
+    if (input.mentorPersonId) await this.requireMentor(input.mentorPersonId, person.id, pilot);
 
     return this.prisma.$transaction(async (tx) => {
       const enrollment = await tx.discipleshipEnrollment.create({
@@ -213,6 +229,11 @@ export class DiscipleshipService {
         },
       });
       return this.toEnrollmentDto(enrollment);
+    }).catch((error: unknown) => {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        throw new ConflictException("Esta pessoa já está matriculada na trilha.");
+      }
+      throw error;
     });
   }
 
@@ -237,13 +258,35 @@ export class DiscipleshipService {
           churchId: pilot.churchId,
         },
       },
+      include: { person: { select: { displayName: true } }, mentor: { select: { displayName: true } } },
       orderBy: { startedAt: "desc" },
     });
 
     return {
       churchId: pilot.churchId,
-      enrollments: rows.map((row) => this.toEnrollmentDto(row)),
+      enrollments: rows.map((row) => ({
+        ...this.toEnrollmentDto(row), personName: row.person?.displayName ?? null, mentorName: row.mentor?.displayName ?? null,
+      })),
     };
+  }
+
+  async updateMentor(actor: AuthUser, enrollmentId: string, mentorPersonId: string | null) {
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const enrollment = await this.requireEnrollment(enrollmentId, pilot);
+    if (mentorPersonId !== null) await this.requireMentor(mentorPersonId, enrollment.personId, pilot);
+    if (enrollment.mentorPersonId === mentorPersonId) return this.toEnrollmentDto(enrollment);
+    return this.prisma.$transaction(async tx => {
+      const updated = await tx.discipleshipEnrollment.update({
+        where: { id: enrollment.id }, data: { mentorPersonId },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "discipleship.enrollment.mentor", resourceType: "discipleship_enrollment",
+        resourceId: enrollment.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { mentorAssigned: Boolean(mentorPersonId) },
+      } });
+      return this.toEnrollmentDto(updated);
+    });
   }
 
   async updateEnrollmentStatus(
@@ -375,7 +418,7 @@ export class DiscipleshipService {
     });
     const events = await this.prisma.discipleshipProgressEvent.findMany({
       where: { enrollmentId: enrollment.id },
-      orderBy: { recordedAt: "asc" },
+      orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
 
     const latestByStage = new Map<string, (typeof events)[number]>();
@@ -393,10 +436,7 @@ export class DiscipleshipService {
       };
     });
 
-    const currentStage =
-      stageSummaries.find((s) => !s.completed) ??
-      stageSummaries[stageSummaries.length - 1] ??
-      null;
+    const currentStage = enrollment.status === "COMPLETED" ? null : stageSummaries.find((stage) => !stage.completed);
 
     return {
       enrollment: this.toEnrollmentDto(enrollment),
@@ -407,6 +447,15 @@ export class DiscipleshipService {
       totalStageCount: stageSummaries.length,
       history: events.map((e) => this.toProgressEventDto(e)),
     };
+  }
+
+  private async requireMentor(id: string, participantId: string, pilot: { organizationId: string; churchId: string }) {
+    if (!id?.trim() || id === participantId) throw new BadRequestException("Selecione um mentor diferente do participante.");
+    const mentor = await this.prisma.person.findFirst({
+      where: { id, ...congregationPeople(pilot.organizationId, pilot.churchId), status: "ACTIVE", isMinor: false },
+      select: { id: true },
+    });
+    if (!mentor) throw new BadRequestException("Mentor não encontrado neste escopo");
   }
 
   private assertLead(
