@@ -99,6 +99,7 @@
 }
 .visit > svg { flex: none; color: #ffa678; }
 .visit > div { display: grid; gap: 3px; }
+.serviceName { color: #f4e5d8; font-size: .8rem; }
 .visit strong { font-size: clamp(.99rem, 1.6vw, 1.28rem); }
 .visit .address { margin-left: 6px; padding-left: 16px; border-left: 1px solid #ffffff40; gap: 0; }
 .address > span { color: #eddfd3; font-size: .8rem; }

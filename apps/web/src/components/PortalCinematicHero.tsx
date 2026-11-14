@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { SITE_COVER_PHOTO } from "@idbrf/shared";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import { PUBLIC_FACADE_IMAGE, resolveSitePhoto } from "../lib/site-layout";
-import { nextSundayService, sundayServices } from "../lib/public-service-schedule";
+import { familyService, nextPublicService, sundayServices } from "../lib/public-service-schedule";
 import { parsePublishedHome } from "../lib/portal-live-data";
 import { usePublishedResource } from "../lib/use-published-resource";
 import { PortalSectionLink } from "./PublicSectionLink";
@@ -17,9 +17,9 @@ export function PortalCinematicHero() {
   const { hero, appearance } = usePublishedSiteLayout();
   const home = usePublishedResource("/public/home", parsePublishedHome);
   const notice = home.data?.banners.find(banner => banner.slug === "aviso-cultos" && banner.summary);
-  const [next, setNext] = useState<ReturnType<typeof nextSundayService>>();
+  const [next, setNext] = useState<ReturnType<typeof nextPublicService>>();
   useEffect(() => {
-    const update = () => setNext(nextSundayService(new Date()));
+    const update = () => setNext(nextPublicService(new Date()));
     update();
     const interval = window.setInterval(update, 60_000);
     return () => window.clearInterval(interval);
@@ -46,8 +46,14 @@ export function PortalCinematicHero() {
         <div className={s.visit} aria-label="Horários dos cultos e endereço">
           <PortalGlyph name="calendar" width={23} height={23} />
           <div>
-            <span className={s.visitLabel}>{notice ? "Horários habituais" : next ? "Próximo culto" : "Cultos de domingo"}</span>
-            <strong>{next && !notice ? <>Domingo, <time dateTime={next.clock}>{next.label}</time></> : sundayServices.map(service => service.label).join(" e ")}</strong>
+            <span className={s.visitLabel}>{notice ? "Horários habituais" : next ? "Próximo culto" : "Horários dos cultos"}</span>
+            {next && !notice ? <>
+              <strong>{next.day}, <time dateTime={next.clock}>{next.label}</time></strong>
+              {next === familyService && <span className={s.serviceName}>{next.name}</span>}
+            </> : <>
+              <strong>Quinta, {familyService.label}</strong>
+              <span className={s.serviceName}>Domingo, {sundayServices.map(service => service.label).join(" e ")}</span>
+            </>}
           </div>
           <div className={s.address}>
             <span>QS 12, Riacho Fundo I</span>

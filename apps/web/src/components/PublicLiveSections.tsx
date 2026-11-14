@@ -1,6 +1,6 @@
 "use client";
 
-import { sundayServices } from "../lib/public-service-schedule";
+import { familyService, sundayServices } from "../lib/public-service-schedule";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PortalSectionLink } from "./PublicSectionLink";
@@ -81,11 +81,18 @@ export function PublishedAgenda() {
   return (
     <div className={s.visitAgenda}>
       <h2 id="agenda-title" tabIndex={-1}>Agenda</h2>
-      <section className={s.visitSchedule} aria-labelledby="sunday-title">
-        <h3 id="sunday-title">Cultos de domingo</h3>
-        <ul className={s.sundayTimes}>
-          {sundayServices.map(service => <li key={service.clock}><span>{service.shift}</span><time dateTime={service.clock}>{service.label}</time></li>)}
-        </ul>
+      <section className={s.visitSchedule} aria-labelledby="weekly-services">
+        <h3 id="weekly-services">Cultos da semana</h3>
+        <div className={s.serviceGroups}>
+          <article className={s.familyService}>
+            <div><span>Toda quinta-feira</span><h4>{familyService.name}</h4></div>
+            <time dateTime={familyService.clock}>{familyService.label}</time>
+          </article>
+          <article className={s.sundayServices}>
+            <h4>Todo domingo</h4>
+            <ul>{sundayServices.map(service => <li key={service.clock}><span>{service.shift}</span><time dateTime={service.clock}>{service.label}</time></li>)}</ul>
+          </article>
+        </div>
       </section>
       {status !== "unavailable" && (
         <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">

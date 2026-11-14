@@ -5,7 +5,16 @@ import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
 import { PortalIdentityPhoto } from "../components/PortalIdentityPhoto";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
+import { withBasePath } from "../lib/paths";
 import s from "./home-institutional.module.css";
+
+const purposes = [
+  { title: "Adoração", detail: "Celebrar a Deus.", photo: "adoracao" },
+  { title: "Comunhão", detail: "Pertencer e caminhar juntos.", photo: "comunidade" },
+  { title: "Discipulado", detail: "Crescer na Palavra e na fé.", photo: "palavra" },
+  { title: "Serviço", detail: "Cuidar das pessoas.", photo: "intercessao" },
+  { title: "Evangelização e missão", detail: "Compartilhar a esperança.", photo: "templo" },
+];
 
 export default function HomePage() {
   return (
@@ -29,18 +38,16 @@ export default function HomePage() {
           </section>
           <section className={s.purposes} aria-labelledby="purposes-title">
             <div className={s.purposesWrap}>
-              <div className={s.purposesIntro}>
-                <span>PORQUE EXISTIMOS</span>
-                <h2 id="purposes-title">Nossa fé se transforma em cuidado.</h2>
-                <p>Os cinco propósitos da igreja dão direção à forma como nos reunimos, cuidamos e servimos.</p>
-              </div>
-              <ol className={s.purposesList}>
-                <li><span>01</span><strong>Adoração</strong><small>Celebrar a Deus.</small></li>
-                <li><span>02</span><strong>Comunhão</strong><small>Pertencer e caminhar juntos.</small></li>
-                <li><span>03</span><strong>Discipulado</strong><small>Crescer na Palavra e na fé.</small></li>
-                <li><span>04</span><strong>Serviço</strong><small>Cuidar das pessoas.</small></li>
-                <li><span>05</span><strong>Evangelização e missão</strong><small>Compartilhar a esperança.</small></li>
-              </ol>
+              <h2 id="purposes-title">Como vivemos nossa fé</h2>
+              <ul className={s.purposesList}>
+                {purposes.map(purpose => (
+                  <li key={purpose.title}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={withBasePath(`/images/riacho/${purpose.photo}.webp`)} alt="" loading="lazy" decoding="async" />
+                    <div className={s.purposeCaption}><h3>{purpose.title}</h3><p>{purpose.detail}</p></div>
+                  </li>
+                ))}
+              </ul>
             </div>
           </section>
           <section className={s.agenda} id="agenda" aria-labelledby="agenda-title">

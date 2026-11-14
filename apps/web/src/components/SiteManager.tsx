@@ -1,5 +1,6 @@
 "use client";
 
+import { familyService, sundayServices } from "../lib/public-service-schedule";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 
@@ -46,7 +47,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl((layout.identity ?? SITE_IDENTITY_PHOTO).imageUrl)} alt={(layout.identity ?? SITE_IDENTITY_PHOTO).alt} width={120} />
     </div>
-    <div className={s.previewAgenda}><h3>Cultos de domingo</h3><p>10h e 19h</p></div>
+    <div className={s.previewAgenda}><h3>Cultos da semana</h3><p>{familyService.name} · quintas às {familyService.label}</p><p>Domingos às {sundayServices.map(service => service.label).join(" e ")}</p></div>
     {!layout.hidden.includes("galeria") && <div className={s.previewGallery}>
       <h3>{layout.gallery.title} <em>{layout.gallery.accent}</em></h3><p>{layout.gallery.description}</p>
       <div>{layout.gallery.items.map((item,index)=><figure key={index}>
