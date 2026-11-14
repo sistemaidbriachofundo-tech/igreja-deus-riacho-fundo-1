@@ -5,6 +5,7 @@
   "description": "API NestJS — monólito modular",
   "scripts": {
     "build": "nest build",
+    "postbuild": "node scripts/write-release-identity.mjs",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
@@ -23,12 +24,12 @@
     "argon2": "^0.45.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "nodemailer": "^7.0.11",
+    "nodemailer": "10.5.0",
     "pdfkit": "^0.20.2",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "sharp": "^0.34.5",
+    "sharp": "0.35.5",
     "web-push": "3.6.7"
   },
   "devDependencies": {

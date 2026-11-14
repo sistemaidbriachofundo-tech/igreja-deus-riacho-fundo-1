@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
+    "build:production": "node scripts/build-production.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests && node --test scripts/synthetic-auth-policy.test.mjs",
+    "test": "vitest run --passWithNoTests && node --test scripts/synthetic-auth-policy.test.mjs scripts/production-login.test.mjs",
     "stub:auth": "node scripts/synthetic-auth-stub.mjs",
     "postbuild": "node scripts/verify-export.mjs"
   },
