@@ -1,0 +1,14 @@
+{
+  "id": "./app/servir/meu-espaco/",
+  "name": "Portal do Voluntário · ID Riacho 1",
+  "short_name": "ID Riacho 1",
+  "start_url": "./app/servir/meu-espaco/",
+  "scope": "./",
+  "display": "standalone",
+  "lang": "pt-BR",
+  "theme_color": "#142339",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "images/idb-riacho-oficial-2026.webp", "sizes": "any", "type": "image/webp" }
+  ]
+}

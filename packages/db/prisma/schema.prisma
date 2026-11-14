@@ -172,6 +172,9 @@ model Church {
   pastoralRetentionPolicies PastoralRetentionPolicy[]
   churchAssets ChurchAsset[]
   pushDeviceTokens PushDeviceToken[]
+  rosterAvailabilityResponses RosterAvailabilityResponse[]
+  rosterNotices RosterNotice[]
+  rosterPushSubscriptions RosterPushSubscription[]
   @@unique([organizationId, slug])
   ministryMemberships MinistryMembership[]
   @@map("churches")
@@ -259,6 +262,9 @@ model Person {
   @@index([organizationId, email])
   @@index([legalGuardianPersonId])
   ministryMemberships MinistryMembership[]
+  rosterAvailabilityResponses RosterAvailabilityResponse[]
+  rosterNotices RosterNotice[]
+  rosterPushSubscriptions RosterPushSubscription[]
   @@map("persons")
 }
 
@@ -822,6 +828,7 @@ model Ministry {
   church       Church       @relation(fields: [churchId], references: [id])
   leader       Person?      @relation("MinistryLeader", fields: [leaderPersonId], references: [id])
   rosters      Roster[]
+  rosterModules MinistryRosterModule[]
   grants       Grant[]
   portalEvents PortalEvent[]
   cmsContents  CmsContent[]
@@ -1406,13 +1413,32 @@ enum RosterAssignmentStatus {
   SUBSTITUTED
 }
 
+model MinistryRosterModule {
+  id          String   @id @default(cuid())
+  ministryId  String   @map("ministry_id")
+  name        String
+  nameKey     String   @map("name_key")
+  rules       Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  ministry Ministry @relation(fields: [ministryId], references: [id], onDelete: Restrict)
+  rosters  Roster[]
+
+  @@unique([ministryId, nameKey])
+  @@unique([id, ministryId])
+  @@map("ministry_roster_modules")
+}
+
 model Roster {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
   churchId       String       @map("church_id")
   ministryId     String?      @map("ministry_id")
+  moduleId       String?      @map("module_id")
   title          String
   serviceAt      DateTime     @map("service_at")
+  serviceType    String?      @map("service_type")
   status         RosterStatus @default(DRAFT)
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
@@ -1420,10 +1446,12 @@ model Roster {
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
   ministry     Ministry?    @relation(fields: [ministryId], references: [id])
+  module       MinistryRosterModule? @relation(fields: [moduleId, ministryId], references: [id, ministryId], onDelete: Restrict)
   slots        RosterSlot[]
 
   @@index([churchId, serviceAt])
   @@index([ministryId])
+  @@index([moduleId])
   @@map("rosters")
 }
 
@@ -1432,6 +1460,7 @@ model RosterSlot {
   rosterId      String  @map("roster_id")
   roleLabel     String  @map("role_label")
   requiresCouple Boolean @default(false) @map("requires_couple")
+  requiredQualification String? @map("required_qualification")
   sortOrder     Int     @default(0) @map("sort_order")
 
   roster       Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
@@ -2510,4 +2539,50 @@ model PushDeviceToken {
   @@index([personId, churchId, revokedAt])
   @@index([organizationId, churchId])
   @@map("push_device_tokens")
+}
+
+model RosterAvailabilityResponse {
+  churchId String @map("church_id")
+  personId String @map("person_id")
+  month String
+  rosterIds String[] @map("roster_ids")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([churchId, personId, month])
+  @@index([churchId, month])
+  @@map("roster_availability_responses")
+}
+
+model RosterNotice {
+  id String @id
+  churchId String @map("church_id")
+  personId String @map("person_id")
+  kind String
+  title String
+  body String
+  path String
+  sentAt DateTime? @map("sent_at")
+  claimedAt DateTime? @map("claimed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([churchId, personId, createdAt])
+  @@map("roster_notices")
+}
+
+model RosterPushSubscription {
+  endpoint String @id
+  churchId String @map("church_id")
+  personId String @map("person_id")
+  p256dh String
+  auth String
+  createdAt DateTime @default(now()) @map("created_at")
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([churchId, personId])
+  @@map("roster_push_subscriptions")
 }

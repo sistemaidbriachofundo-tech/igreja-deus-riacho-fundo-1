@@ -8,9 +8,24 @@ import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
 
 export type EscalaAssignment = { id: string; personId: string; partnerPersonId: string; status: string; personName: string; partnerName: string };
 export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; assignments: EscalaAssignment[] };
+export const ROSTER_SERVICE_TYPES = {
+  thursday_evening: "Quinta à noite", sunday_morning: "Domingo de manhã",
+  sunday_evening: "Domingo à noite", special_event: "Evento especial",
+} as const;
+export type RosterServiceType = keyof typeof ROSTER_SERVICE_TYPES;
+export type ModulePosition = { label: string; count: number; couple: boolean; qualification?: string };
+export type EscalaModuleRules = {
+  positions: Partial<Record<RosterServiceType, ModulePosition[]>>;
+  qualifications: Record<string, string[]>;
+  couples: [string, string][];
+  minIntervalDays: number;
+  maxMonthlyAssignments: number; substituteInviteLimit: number;
+};
+export type EscalaModule = { id: string; name: string; rules?: EscalaModuleRules };
 
 export type MinistryEscala = {
   id: string;
+  moduleId?: string;
   title: string;
   serviceAt: string;
   status: string;
@@ -29,7 +44,7 @@ export type MinistryActivity = {
 
 export type EscalaPanel =
   | { kind: "hidden" }
-  | { kind: "ready"; items: MinistryEscala[] }
+  | { kind: "ready"; items: MinistryEscala[]; modules?: EscalaModule[] }
   | { kind: "denied"; message: string }
   | { kind: "unavailable"; message: string };
 
@@ -116,6 +131,7 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
     }
     items.push({
       id,
+      ...(textOf(row.moduleId) ? { moduleId: textOf(row.moduleId) } : {}),
       title,
       serviceAt,
       status: textOf(row.status) || "DRAFT",
@@ -126,6 +142,17 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
   }
   items.sort((a, b) => Date.parse(a.serviceAt) - Date.parse(b.serviceAt) || a.title.localeCompare(b.title, "pt-BR"));
   return items;
+}
+
+function readEscalaModules(body: unknown, ministryId: string): EscalaModule[] {
+  const result = asRecord(body);
+  if (result?.ministryId !== ministryId || !Array.isArray(result.modules)) return [];
+  return result.modules.flatMap((value) => {
+    const row = asRecord(value);
+    const id = textOf(row?.id);
+    const name = textOf(row?.name);
+    return id && name ? [{ id, name, ...(asRecord(row?.rules) ? { rules: row?.rules as EscalaModuleRules } : {}) }] : [];
+  });
 }
 
 /** Atividade sem ministryId, ou de outro ministério, não aparece neste painel. */
@@ -186,14 +213,16 @@ export async function loadMinistryBoard(options: {
     requestJson(fetchImpl, `${base}/rosters/by-ministry/${encodeURIComponent(ministryId)}`, options.token),
     requestJson(fetchImpl, `${base}/events`, options.token),
   ]);
+  const escalas = presentList(
+    escalaRes.status,
+    readScopedEscalas(escalaRes.body, ministryId),
+    "Esta conta não vê as escalas deste ministério.",
+    "As escalas deste ministério não puderam ser lidas.",
+  );
+  const modules = readEscalaModules(escalaRes.body, ministryId);
   return {
     desk,
-    escalas: presentList(
-      escalaRes.status,
-      readScopedEscalas(escalaRes.body, ministryId),
-      "Esta conta não vê as escalas deste ministério.",
-      "As escalas deste ministério não puderam ser lidas.",
-    ),
+    escalas: escalas.kind === "ready" && modules.length ? { ...escalas, modules } : escalas,
     activities: presentList(
       activityRes.status,
       readScopedActivities(activityRes.body, ministryId),
