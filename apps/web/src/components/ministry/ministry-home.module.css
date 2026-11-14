@@ -31,8 +31,9 @@
 }
 
 .panel {
-  composes: workspaceSurface from "../ui/ui.module.css";
   overflow: hidden;
+  min-width: 0;
+  border-block-start: 1px solid var(--app-border, #dce6de);
 }
 
 .tabs { padding-inline: var(--app-gutter, 24px); }

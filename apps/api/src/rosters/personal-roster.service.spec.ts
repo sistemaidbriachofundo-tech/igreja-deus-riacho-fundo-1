@@ -73,7 +73,7 @@ function rosterOf(slotId: string) {
     ministryId: "min-louvor",
     title: "Louvor encerrado",
     serviceAt: new Date("2026-11-22T21:00:00.000Z"),
-    status: "CLOSED",
+    status: slotId === "slot-rascunho" ? "DRAFT" : "CLOSED",
     ministry: louvorMinistry,
   };
 }
@@ -195,6 +195,9 @@ describe("agenda pessoal e escopo de escala", () => {
         return slotOf(where.id);
       }),
     },
+    ministryRosterModule: {
+      findMany: jest.fn(async () => []),
+    },
     ministry: {
       findFirst: jest.fn(async ({ where }: { where: { id: string } }) => {
         return [louvorMinistry, atmosferaMinistry].find(
@@ -262,6 +265,24 @@ describe("agenda pessoal e escopo de escala", () => {
     audits.splice(0, audits.length);
     seq = 1;
     ministryReads = 0;
+  });
+
+  it("só mostra a designação ao voluntário depois da publicação", async () => {
+    const slotId = "slot-rascunho";
+    const slot = slotOf(slotId);
+    prisma.rosterSlot.findFirst.mockResolvedValueOnce(slot).mockResolvedValueOnce(slot);
+    const assignment = await service.assign(liderLouvor, slotId, { personId: membro.personId! });
+
+    expect((await service.listMine(membro)).assignments).toEqual([]);
+    await expect(service.confirm(membro, assignment.id)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(assignments[0]?.status).toBe("PENDING");
+  });
+
+  it("recusa a mesma pessoa como titular e par", async () => {
+    await expect(service.assign(liderLouvor, "slot-voz", {
+      personId: "per-membro", partnerPersonId: "per-membro",
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: "ROSTER_SAME_PARTNER" }) });
+    expect(assignments).toHaveLength(0);
   });
 
   it("grava a designação, devolve só a agenda do JWT e confirma com persistência", async () => {
@@ -355,6 +376,20 @@ describe("agenda pessoal e escopo de escala", () => {
     expect(secretariaView.rosters[0]?.slots[0]?.assignments[0]?.personId).toBe(
       "per-outro",
     );
+  });
+
+  it("revalida o dia dentro da transação após outra designação vencer a corrida", async () => {
+    await service.assign(liderLouvor, "slot-voz", { personId: "per-membro" });
+    db.$transaction.mockClear();
+    db.$transaction.mockRejectedValueOnce({ code: "P2034" });
+
+    await expect(service.assign(liderAtmosfera, "slot-porta", { personId: "per-membro" }))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: "ROSTER_SAME_DAY" }) });
+
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(db.$transaction).toHaveBeenLastCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
+    expect(assignments).toHaveLength(1);
+    expect(audits).toHaveLength(1);
   });
 
   it("substitui com consentimento, sem notificação, e a pessoa nova confirma a própria linha", async () => {
@@ -470,6 +505,8 @@ function matchesAssignment(row: Assignment, where: Record<string, unknown>): boo
     if (slot.roster.churchId && slot.roster.churchId !== roster.churchId) {
       return false;
     }
+    const statuses = slot.roster.status as { in?: string[] } | undefined;
+    if (statuses?.in && !statuses.in.includes(roster.status)) return false;
     const serviceAt = slot.roster.serviceAt as { gte?: Date; lt?: Date } | undefined;
     if (serviceAt?.gte && roster.serviceAt < serviceAt.gte) return false;
     if (serviceAt?.lt && roster.serviceAt >= serviceAt.lt) return false;

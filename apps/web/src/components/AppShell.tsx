@@ -17,6 +17,7 @@ import {
   SESSION_UNAUTHORIZED_EVENT, apiGet, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, signOutSession, type AuthUser,
 } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
+import { AdminSessionContext } from "./AdminAccessGate";
 import {
   SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
   accountInitials, areaAllowed, canListMinistries,
@@ -193,8 +194,9 @@ export function AppShell({
     publishPerfProbe();
   }, []);
 
+  const session = useContext(AdminSessionContext);
   useEffect(() => {
-    if (preview || viewer) return;
+    if (preview || viewer || session) return;
     let mounted = true;
     const token = loadStoredToken();
     if (!token) {
@@ -213,9 +215,9 @@ export function AppShell({
         setLoaded(isUnauthorized(error) || isForbidden(error) ? { kind: "anonymous" } : { kind: "held" });
       });
     return () => { mounted = false; };
-  }, [preview, viewer]);
+  }, [preview, viewer, session]);
 
-  const readyUser = viewer ?? (loaded?.kind === "ready" ? loaded.user : null);
+  const readyUser = viewer ?? (loaded?.kind === "anonymous" ? null : session ?? (loaded?.kind === "ready" ? loaded.user : null));
   const roles = readyUser ? readyUser.grants.map(grant => grant.roleCode) : [];
   const accessKind: PersonaAccessState["kind"] = preview
     ? "preview"
@@ -245,9 +247,7 @@ export function AppShell({
     ? "Acesso local"
     : accessKind === "ready"
       ? personaLabel(roles)
-      : accessKind === "pending"
-        ? "Confirmando perfil"
-        : "Sessão não confirmada";
+      : "Sessão não confirmada";
   const accountName = preview ? "Visitante" : accessKind === "ready"
     ? (/(@example\.test$|\.demo@)/i.test(accountEmail) ? "Conta de homologação" : accountEmail)
     : accountLabel;
@@ -409,6 +409,7 @@ export function AppShell({
       setMinistryNote("");
       return;
     }
+    if (!ministryOpen && !paletteOpen) return;
     const token = loadStoredToken();
     if (!token) {
       setMinistries(null);
@@ -433,7 +434,7 @@ export function AppShell({
         setMinistryNote("Não foi possível atualizar a lista de ministérios.");
       });
     return () => { cancelled = true; };
-  }, [preview, roleKey, showMinistries]);
+  }, [preview, roleKey, showMinistries, ministryOpen, paletteOpen]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.defaultPrevented || event.target instanceof HTMLElement && event.target.closest('dialog[open], [role="dialog"]')) return;
@@ -605,7 +606,7 @@ export function AppShell({
               <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label="Minha conta">
                 {accountLink}
               </AppNavLink>
-            ) : <span className={s.profileCluster}>{accountLink}</span>}
+            ) : accessKind !== "pending" && <span className={s.profileCluster}>{accountLink}</span>}
             {renderLogout()}
           </div>
         </header>

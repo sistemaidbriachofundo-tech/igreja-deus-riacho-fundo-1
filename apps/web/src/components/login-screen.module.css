@@ -67,6 +67,16 @@
 .reveal:hover:not(:disabled) { background: #edf2ed; }
 .submit { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 8px; padding: 0 15px; border: 0; border-radius: 6px; background: #c65320; color: #fff; font: 650 14px Inter, sans-serif; cursor: pointer; }
 .submit:hover:not(:disabled) { background: #a84319; }
+.submitSpinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ffffff5c;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: submitSpin .7s linear infinite;
+}
+@keyframes submitSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .submitSpinner { animation: none; } }
 .form button:disabled { opacity: .62; cursor: not-allowed; }
 .page :is(a, button, input):focus-visible { outline: 2px solid #9a7540; outline-offset: 3px; }
 .warning { color: #634721; margin: 4px 0; font-size: 14px; }

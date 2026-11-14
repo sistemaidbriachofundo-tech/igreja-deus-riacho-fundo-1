@@ -109,8 +109,8 @@
 }
 .section {
   min-width: 0;
-  composes: workspaceSurface from "./ui/ui.module.css";
-  padding: var(--app-gutter, 24px);
+  border-top: 1px solid var(--line);
+  padding-block: var(--app-gutter, 24px) 12px;
 }
 .sectionHead {
   display: flex;
@@ -732,8 +732,8 @@
 .metric:first-child:hover { background: #e4f0e6; }
 .metrics .metric:focus-visible { outline-offset: -4px; }
 .priorities {
-  composes: workspaceSurface from "./ui/ui.module.css";
   overflow: hidden;
+  border-block: 1px solid var(--line);
   scroll-margin-top: 85px;
 }
 .priorityHeader { padding: 13px 18px; border-bottom: 1px solid var(--line); background: #edf3ed; }
@@ -756,7 +756,7 @@
 .priorityText { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; }
 .priorityValue { color: var(--accent); font-size: 23px; font-weight: 650; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .priorityList a > svg { flex: none; color: #698174; }
-.finance { background: linear-gradient(120deg, #edf5ee, #fff 74%); }
+.finance { background: #edf5ee; padding-inline: var(--app-gutter, 24px); }
 .financeValues {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

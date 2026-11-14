@@ -455,7 +455,8 @@ export function dashboardPaths(roles: readonly string[]): string[] {
   if (staff || leader) paths.push("/indicators/summary");
   if (staff) paths.push("/indicators/membership");
   if (staff) paths.push("/admissions");
-  if (staff || leader) paths.push("/ministries", "/events");
+  if ((staff || leader) && !roles.includes("PLATFORM_ADMIN")) paths.push("/ministries");
+  if (staff || leader) paths.push("/events");
   if (isMemberOnly(roles)) paths.push("/rosters/me", "/credentials/me");
   if (treasury) paths.push("/ledger/accounts", "/ledger/entries");
   if (roles.includes("PLATFORM_ADMIN")) paths.push("/treasury/position");

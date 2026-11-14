@@ -58,7 +58,6 @@ describe("mesa por persona", () => {
       "/indicators/summary",
       "/indicators/membership",
       "/admissions",
-      "/ministries",
       "/events",
       "/treasury/position",
     ]);
