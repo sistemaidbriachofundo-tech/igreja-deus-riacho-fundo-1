@@ -278,6 +278,13 @@ describe("agenda pessoal e escopo de escala", () => {
     expect(assignments[0]?.status).toBe("PENDING");
   });
 
+  it("recusa a mesma pessoa como titular e par", async () => {
+    await expect(service.assign(liderLouvor, "slot-voz", {
+      personId: "per-membro", partnerPersonId: "per-membro",
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: "ROSTER_SAME_PARTNER" }) });
+    expect(assignments).toHaveLength(0);
+  });
+
   it("grava a designação, devolve só a agenda do JWT e confirma com persistência", async () => {
     const created = await service.assign(liderLouvor, "slot-voz", {
       personId: "per-membro",

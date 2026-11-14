@@ -1,9 +1,18 @@
-import { ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import type { PrismaService } from "../prisma/prisma.service";
 import { churchDayBounds } from "./church-day";
 
 const MAX_ATTEMPTS = 3;
+
+export function assertDistinctRosterPartners(personId: string, partnerPersonId?: string | null) {
+  if (partnerPersonId?.trim() === personId.trim()) {
+    throw new BadRequestException({
+      code: "ROSTER_SAME_PARTNER",
+      message: "Selecione duas pessoas diferentes para a posição de casal.",
+    });
+  }
+}
 
 export async function writeRosterAssignment<T>(
   prisma: PrismaService,

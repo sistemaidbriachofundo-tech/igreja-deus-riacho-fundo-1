@@ -21,7 +21,7 @@ import {
 } from "../channels/channels.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
-import { assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
+import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
 
 export type LeadershipPublicEntry = {
   displayName: string;
@@ -637,6 +637,7 @@ export class MinistriesService {
     if (!input.personId?.trim()) {
       throw new BadRequestException("personId é obrigatório");
     }
+    assertDistinctRosterPartners(input.personId, input.partnerPersonId);
     await this.requirePerson(input.personId, pilot.organizationId);
 
     const personIds = [
@@ -795,6 +796,7 @@ export class MinistriesService {
     if (!input.personId?.trim()) {
       throw new BadRequestException("personId é obrigatório");
     }
+    assertDistinctRosterPartners(input.personId, input.partnerPersonId);
     await this.requirePerson(input.personId, pilot.organizationId);
 
     const personIds = [

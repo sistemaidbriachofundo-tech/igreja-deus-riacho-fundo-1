@@ -15,7 +15,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { churchDayKey } from "./church-day";
-import { assertNoRosterDayConflict, writeRosterAssignment } from "./roster-assignment-transaction";
+import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "./roster-assignment-transaction";
 import { previewSlots } from "./preview-domain/scheduler";
 import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
@@ -304,6 +304,7 @@ export class PersonalRosterService {
 
     const personId = requiredPersonId(input.personId);
     const partnerPersonId = optionalPersonId(input.partnerPersonId);
+    assertDistinctRosterPartners(personId, partnerPersonId);
     await this.requirePerson(personId, pilot.organizationId);
     if (partnerPersonId) {
       await this.requirePerson(partnerPersonId, pilot.organizationId);
@@ -393,6 +394,7 @@ export class PersonalRosterService {
 
     const personId = requiredPersonId(input.personId);
     const partnerPersonId = optionalPersonId(input.partnerPersonId);
+    assertDistinctRosterPartners(personId, partnerPersonId);
     await this.requirePerson(personId, pilot.organizationId);
     if (partnerPersonId) {
       await this.requirePerson(partnerPersonId, pilot.organizationId);
