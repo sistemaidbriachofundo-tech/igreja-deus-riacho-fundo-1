@@ -421,6 +421,7 @@ export async function loadMinistryDesk(options: {
   token: string;
   baseUrl: string;
   ministryId?: string;
+  ministrySlug?: string;
   fetchImpl?: FetchLike;
 }): Promise<DeskResult> {
   const fetchImpl = options.fetchImpl ?? (fetch as unknown as FetchLike);
@@ -455,7 +456,10 @@ export async function loadMinistryDesk(options: {
       message: SCOPE_DENIED,
     };
   }
-  const ministry = ministries.find((item) => item.id === options.ministryId) ?? ministries[0];
+  const ministry = options.ministrySlug
+    ? ministries.find(item => item.slug === options.ministrySlug)
+    : ministries.find(item => item.id === options.ministryId) ?? ministries[0];
+  if (!ministry) return { kind: "empty", message: "Este ministério não está disponível para sua conta." };
   const scope = `${base}/ministry-scope/${encodeURIComponent(ministry.id)}`;
   const membershipRes = await requestJson(
     fetchImpl,

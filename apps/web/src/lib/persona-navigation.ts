@@ -1,3 +1,4 @@
+import { ministryHref } from "./ministry-view";
 /**
  * Menu e página inicial por papel.
  * A lista espelha os @Roles já publicados nos controllers.
@@ -402,6 +403,7 @@ export type MinistrySubmenuEntry = {
   href: string;
   label: string;
   icon: NavIcon;
+  scales?: { ministryId: string; href: string };
 };
 
 /** O catálogo e os ministérios autorizados compartilham a mesma área. */
@@ -417,6 +419,7 @@ export function ministrySubmenu(
     href: ministryContextHref(item),
     label: item.name,
     icon: "family" as const,
+    ...(item.slug === "atmosfera" ? { scales: { ministryId: item.id, href: ministryHref(item.id, "escalas") } } : {}),
   }));
   return [...catalog, ...dynamic];
 }

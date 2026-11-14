@@ -105,6 +105,25 @@ function render(tab: "visao" | "integrantes" | "escalas" | "atividades" | "recur
 }
 
 describe("experiência de ministérios", () => {
+  it("exibe os módulos e as escalas gerais dentro do Atmosfera", () => {
+    const atmosfera = { id: "atmosfera", name: "Atmosfera", slug: "atmosfera" };
+    const html = renderToStaticMarkup(<MinistryExperience
+      {...quiet}
+      token="synthetic"
+      desk={{ ...ready, ministry: atmosfera, ministries: [atmosfera, ...ready.ministries] }}
+      tab="escalas"
+      escalas={{ kind: "ready", modules: [{ id: "recepcao", name: "Recepção" }], items: [
+        { id: "antiga", title: "Culto geral existente", serviceAt: "2026-11-15T13:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
+        { id: "nova", moduleId: "recepcao", title: "Culto de domingo à noite", serviceAt: "2026-11-15T22:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
+      ] }}
+      activities={{ kind: "hidden" }}
+    />);
+    expect(html).toContain("Novo módulo");
+    expect(html).toContain('value="recepcao">Recepção');
+    expect(html).toContain("Culto geral existente");
+    expect(html).toContain("Culto de domingo à noite");
+  });
+
   it("abre Homens com as cinco abas, sem caixa na navegação e sem jargão", () => {
     const html = render("visao");
     expect(html).toContain("Homens");

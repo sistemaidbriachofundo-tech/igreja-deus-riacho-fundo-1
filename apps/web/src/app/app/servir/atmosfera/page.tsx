@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AppShell } from "../../../../components/AppShell";
-import { ServingWorkspace } from "../../../../components/serving/ServingWorkspace";
+import { MinistryDeskPage } from "../../../../components/MinistryDeskPage";
 
 export const metadata: Metadata = {
   title: "Atmosfera — escalas",
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function AtmosferaPage() {
-  return <AppShell active="escalas" meta="Escalas · Atmosfera"><ServingWorkspace surface="atmosfera" /></AppShell>;
+  return <AppShell active="atmosfera" meta="Escalas · Atmosfera"><Suspense fallback={null}><MinistryDeskPage ministrySlug="atmosfera" /></Suspense></AppShell>;
 }

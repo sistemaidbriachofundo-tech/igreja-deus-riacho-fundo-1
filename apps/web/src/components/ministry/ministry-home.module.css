@@ -241,3 +241,12 @@
   .tabs > button { display: flex; flex-direction: column; gap: 4px; justify-content: center; min-height: 54px; }
   .tabIcon { display: inline-flex; }
 }
+
+.rosterHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+}
+.rosterHeading h2 { margin: 0; font-size: 1.25rem; }

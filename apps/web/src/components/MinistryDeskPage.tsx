@@ -30,10 +30,12 @@ function writeRoute(route: Route) {
   window.history.pushState(null, "", url);
 }
 
-export function MinistryDeskPage() {
+export function MinistryDeskPage({ ministrySlug }: { ministrySlug?: string } = {}) {
   const { roles } = usePersonaAccess();
   const [token, setToken] = useState<string | null>(null);
-  const route = parseMinistryRoute(useSearchParams().toString());
+  const search = useSearchParams().toString();
+  const parsed = parseMinistryRoute(search);
+  const route = ministrySlug ? { ...parsed, ministryId: undefined, tab: "escalas" as const } : parsed;
   const overview = !route.ministryId && route.tab === "visao";
   const [board, setBoard] = useState<MinistryBoardData | null>(null);
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
@@ -54,6 +56,7 @@ export function MinistryDeskPage() {
       token,
       baseUrl: getApiBaseUrl(),
       ministryId: route.ministryId,
+      ministrySlug,
     })
       .then((next) => {
         if (!cancelled) setBoard(next);
@@ -70,7 +73,13 @@ export function MinistryDeskPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, overview, route.ministryId, reloadKey]);
+  }, [token, overview, route.ministryId, ministrySlug, reloadKey]);
+
+  useEffect(() => {
+    if (ministrySlug && board?.desk.kind === "ready") {
+      window.location.replace(withBasePath(ministryHref(board.desk.ministry.id, "escalas", route.escalaId)));
+    }
+  }, [board, ministrySlug, route.escalaId]);
 
   function go(next: Route) {
     setConversion(null);
@@ -167,6 +176,10 @@ export function MinistryDeskPage() {
   }
 
   if (overview) return <MinistryOverview token={token} />;
+
+  if (ministrySlug && board?.desk.kind === "ready") {
+    return <p className={styles.loadingPanel} role="status">Abrindo escalas de Atmosfera…</p>;
+  }
 
   if (!board) {
     return (

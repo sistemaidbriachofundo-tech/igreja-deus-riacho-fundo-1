@@ -17,6 +17,8 @@ import {
   type RosterView,
   type ServingSurfaceId,
 } from "../../lib/serving-rosters";
+import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
+import { RosterNotifications } from "./RosterNotifications";
 import { MemberSpace } from "./MemberSpace";
 import { MinistryRosterDesk } from "./MinistryRosterDesk";
 import { ServingFrame } from "./ServingFrame";
@@ -187,6 +189,9 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
         </p>
       )}
       {phase === "ready" && user && surface === "membro" && (
+        <>
+          <MonthlyServiceSurvey token={token} />
+          <RosterNotifications token={token} onAccepted={() => setReload(value => value + 1)} />
         <MemberSpace
           assignments={agenda}
           busy={busy}
@@ -204,6 +209,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
             )
           }
         />
+        </>
       )}
       {phase === "ready" && user && surface !== "membro" && scopeDenied && (
         <section className={styles.blocked} role="alert" data-scope="forbidden">

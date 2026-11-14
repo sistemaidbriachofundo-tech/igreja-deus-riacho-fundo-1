@@ -1,13 +1,15 @@
 "use client";
 
 import { isAdminEnabled } from "../lib/admin-environment";
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createContext, Suspense, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AnchorHTMLAttributes, CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
   pushAppRoute, shouldInterceptAppNavigation,
 } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
+import { useSearchParams } from "next/navigation";
+import { parseMinistryRoute } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
 import { officialLogoAsset } from "../lib/brand";
 import { treasurySectionFromHash, treasurySectionHref, treasurySidebarItems, type TreasurySection } from "../lib/treasury-navigation";
@@ -117,6 +119,20 @@ export function AppNavLink({
     beginClientNavigation(href);
     pushAppRoute(href);
   }}>{children}</a>;
+}
+
+function AtmosferaScalesLink({ ministryId, href, legacyActive, onNavigate }: {
+  ministryId: string;
+  href: string;
+  legacyActive: boolean;
+  onNavigate: () => void;
+}) {
+  const route = parseMinistryRoute(useSearchParams().toString());
+  const selected = legacyActive || (route.ministryId === ministryId && route.tab === "escalas");
+
+  return <AppNavLink href={href} className={selected ? s.subSelected : s.subItem} aria-current={selected ? "page" : undefined} onNavigate={onNavigate}>
+    <UIIcon name="calendar" size={16}/><span className={s.menuLabel}>Escalas</span>
+  </AppNavLink>;
 }
 
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
@@ -264,6 +280,8 @@ export function AppShell({
   const treasuryChildren = treasurySidebarItems(roles);
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
+  const atmosferaScales = ministryEntries.find(entry => entry.scales)?.scales;
+  const showAtmosferaSearch = Boolean(atmosferaScales && "atmosfera escalas".includes(term.trim().toLocaleLowerCase("pt-BR")));
   const secretaryMenu = menu.some(item => item.key === "secretaria");
   const credentialMenu = menu.find(item => item.key === "carteirinha");
   const secretaryChildren = [
@@ -545,9 +563,16 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={s.subItem} onNavigate={afterNavigate}>
-                  <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
-                </AppNavLink>)}
+                {ministryEntries.map(entry => <div key={entry.key} role={entry.scales ? "group" : undefined} aria-label={entry.scales ? entry.label : undefined}>
+                  <AppNavLink href={entry.href} className={s.subItem} onNavigate={afterNavigate}>
+                    <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
+                  </AppNavLink>
+                  {entry.scales && <div className={s.ministrySubList}>
+                    <Suspense fallback={null}>
+                      <AtmosferaScalesLink {...entry.scales} legacyActive={active === "atmosfera"} onNavigate={afterNavigate} />
+                    </Suspense>
+                  </div>}
+                </div>)}
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;
@@ -613,7 +638,7 @@ export function AppShell({
         <section ref={paletteRef} tabIndex={-1} className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
           <div className={s.commandSearch}><label htmlFor={searchId} aria-label="Buscar página ou ministério"><UIIcon name="search" size={20}/></label><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></div>
           <div className={s.commandList}>
-            {filtered.map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {filtered.filter(item => item.key !== "atmosfera" || !atmosferaScales).map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {treasuryChildren.filter(item => !term.trim() || (`Tesouraria financeiro ${item.label}`).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR"))).map(item =>
               <a key={`financeiro-${item.section}`} href={withBasePath(treasurySectionHref(item.section))}
                 onClick={afterNavigate}>
@@ -623,7 +648,8 @@ export function AppShell({
               </a>
             )}
             {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
+            {showAtmosferaSearch && atmosferaScales && <AppNavLink href={atmosferaScales.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="calendar"/></span><span><strong>Atmosfera · Escalas</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>}
+            {!showAtmosferaSearch && filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
         </section>
       </div>}
