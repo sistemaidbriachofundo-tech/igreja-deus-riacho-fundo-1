@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { hasEnabledLoginForm, productionApiOrigin, productionWebOrigin } from "../../apps/web/scripts/production-login.mjs";
 
 const production = process.env.IDBRF_PRODUCTION_API_ORIGIN;
 const web = process.env.IDBRF_PRODUCTION_WEB_ORIGIN;
@@ -24,6 +25,8 @@ if (
 }
 if (!origin(production) || !origin(web)) {
   failures.push("Informe as origens HTTPS do site e da API de produção, separadas da homologação.");
+} else if (production !== productionApiOrigin || web !== productionWebOrigin) {
+  failures.push("Informe os endereços oficiais do portal e da API.");
 }
 if (!/^[a-f0-9]{40}$/.test(sha)) failures.push("Informe o SHA completo da API candidata.");
 if (failures.length === 0) {
@@ -38,6 +41,8 @@ if (failures.length === 0) {
     const readiness = ready.ok ? await ready.json() : null;
     if (identity?.stage !== "production" || identity?.sourceSha !== sha) failures.push("A API respondeu com ambiente ou versão diferente do esperado.");
     if (readiness?.status !== "ready" || readiness?.database !== "ok") failures.push("A API não confirmou acesso ao banco.");
+    if (readiness?.commit !== sha.slice(0, 12)) failures.push("A prontidão da API não informa a versão esperada.");
+    if (readiness?.authState !== "prisma" || readiness?.mfaBlocking !== true) failures.push("A API não confirmou sessões persistentes e MFA obrigatório.");
     if (privateRoute.status !== 401) failures.push("A API não confirmou que a rota de sessão exige autenticação.");
 
     const cors = await fetch(production + "/auth/login", {
@@ -50,6 +55,24 @@ if (failures.length === 0) {
     }
   } catch {
     failures.push("A API candidata não pôde ser verificada por HTTPS.");
+  }
+
+  try {
+    const options = { redirect: "error", signal: AbortSignal.timeout(12_000) };
+    const [login, manifest] = await Promise.all([
+      fetch(web + "/login/", options),
+      fetch(web + "/release.json", options),
+    ]);
+    if (!login.ok || !hasEnabledLoginForm(await login.text())) {
+      failures.push("O portal oficial não está entregando o formulário de login habilitado.");
+    }
+    const release = manifest.ok ? await manifest.json() : null;
+    if (release?.channel !== "production" || release?.sourceSha !== sha ||
+        release?.officialUrl !== web || release?.apiOrigin !== production) {
+      failures.push("O manifesto do portal não confirma a versão e a API oficiais esperadas.");
+    }
+  } catch {
+    failures.push("O portal oficial não pôde ser verificado por HTTPS.");
   }
 }
 
@@ -71,5 +94,5 @@ if (failures.length) {
   for (const failure of failures) console.error(failure);
   process.exitCode = 1;
 } else {
-  console.log("Pré-verificação de rede, API, banco e dependências concluída. Consulte o roteiro de liberação para os testes autenticados e a restauração.");
+  console.log("Pré-verificação do portal, API, banco e dependências concluída. Consulte o roteiro de liberação para os testes autenticados e a restauração.");
 }

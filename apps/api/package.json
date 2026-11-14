@@ -10,7 +10,8 @@
     "start:prod": "node dist/main.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "postbuild": "node scripts/write-release-identity.mjs"
   },
   "dependencies": {
     "@idbrf/db": "*",
@@ -23,12 +24,12 @@
     "argon2": "^0.45.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "nodemailer": "^7.0.11",
+    "nodemailer": "10.5.0",
     "pdfkit": "^0.20.2",
     "qrcode": "^1.5.4",
-    "sharp": "^0.34.5",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
