@@ -392,10 +392,13 @@ describe("agenda pessoal e escopo de escala", () => {
     expect(audits).toHaveLength(1);
   });
 
-  it("substitui com consentimento, sem notificação, e a pessoa nova confirma a própria linha", async () => {
+  it("registra a recusa e a substituição com consentimento sem notificar", async () => {
     const original = await service.assign(liderLouvor, "slot-voz", {
       personId: "per-membro",
     });
+    const response = await service.decline(membro, original.id);
+    expect(response.status).toBe("DECLINED");
+    expect((await service.listMine(membro)).assignments[0]?.status).toBe("DECLINED");
     const replacement = await service.substitute(liderLouvor, original.id, {
       personId: "per-reserva",
     });
@@ -414,7 +417,7 @@ describe("agenda pessoal e escopo de escala", () => {
     const previous = await service.listMine(membro);
     expect(previous.assignments[0]?.status).toBe("SUBSTITUTED");
     const next = await service.listMine(reserva);
-    expect(next.assignments.map((item) => item.status)).toEqual(["PENDING"]);
+    expect(next.assignments[0]).toMatchObject({ status: "PENDING", substituteForId: original.id });
 
     const accepted = await service.confirm(reserva, replacement.id);
     expect(accepted.status).toBe("CONFIRMED");

@@ -436,6 +436,7 @@ export function findSameDayBlocks(rosters: readonly RosterView[]): SimultaneousB
 export type PersonalAssignment = {
   id: string;
   status: AssignmentStatus;
+  substituteForId?: string;
   participation: "assignee" | "partner";
   roleLabel: string;
   title: string;
@@ -479,9 +480,11 @@ function parsePersonalAssignment(value: unknown): PersonalAssignment {
   if (!Number.isFinite(Date.parse(serviceAt))) {
     throw new Error("Formato inesperado: horário da agenda inválido.");
   }
+  const substituteForId = optionalString(row.substituteForId);
   return {
     id: requiredString(row.id, "atribuição"),
     status: oneOf(row.status, ASSIGNMENT_STATUSES, "estado da atribuição"),
+    ...(substituteForId ? { substituteForId } : {}),
     participation,
     roleLabel: requiredString(row.roleLabel, "função"),
     title: requiredString(row.title, "título da escala"),

@@ -2,7 +2,13 @@
 
 import { formatChurchDate } from "../../lib/das-operations";
 import { assignmentStatusLabel, type PersonalAssignment } from "../../lib/serving-rosters";
+import { UIIcon } from "../AppShell";
+import { useActionConfirmation } from "../ui/ActionConfirmation";
 import styles from "./serving.module.css";
+
+function needsResponse(item: PersonalAssignment) {
+  return item.status === "PENDING" && item.rosterStatus === "PUBLISHED";
+}
 
 export function MemberSpace({
   assignments,
@@ -17,38 +23,60 @@ export function MemberSpace({
   onConfirm: (assignmentId: string) => void;
   onDecline: (assignmentId: string) => void;
 }) {
+  const { confirm, confirmation } = useActionConfirmation();
+  const ordered = [...assignments].sort((a, b) => Number(needsResponse(b)) - Number(needsResponse(a)));
+
+  async function decline(item: PersonalAssignment) {
+    if (await confirm({
+      title: "Recusar esta escala?",
+      subject: `${item.title} · ${item.roleLabel}`,
+      description: "Sua resposta ficará visível para a liderança, que poderá escalar outra pessoa.",
+      action: "Recusar escala",
+      cancel: "Voltar",
+      tone: "danger",
+    })) onDecline(item.id);
+  }
+
   return (
     <div data-surface="membro">
+      {confirmation}
       {notice && (
         <p className={styles.notice} role="status" data-persist="roster">
           {notice}
         </p>
       )}
-      <section className={styles.card} aria-label="Agenda pessoal">
-        <h2>Sua agenda</h2>
+      <section className={styles.memberAgenda} aria-label="Agenda pessoal">
+        <header><h2>Sua agenda</h2></header>
         {assignments.length === 0 ? (
           <p role="status" data-agenda="empty">
             Você ainda não tem escalas nesta agenda.
           </p>
         ) : (
           <div className={styles.agenda}>
-            {assignments.map((item) => {
-              const open = item.status === "PENDING" && item.rosterStatus !== "CLOSED";
+            {ordered.map((item) => {
+              const open = needsResponse(item);
               return (
-                <article key={item.id} className={styles.roster} data-assignment={item.id}>
+                <article key={item.id} className={styles.agendaItem} data-assignment={item.id}>
                   <div className={styles.rosterHeader}>
                     <div>
                       <h3>{item.title}</h3>
                       <p className={styles.footnote}>
                         {[item.ministryName, item.roleLabel].filter(Boolean).join(" · ")}
                       </p>
-                      <p className={styles.footnote}>{formatChurchDate(item.serviceAt)}</p>
                     </div>
                     <span className={styles.badge} data-status={item.status}>
-                      {assignmentStatusLabel[item.status]}
+                      {item.status === "PENDING" && item.rosterStatus === "CLOSED"
+                        ? "Encerrada sem resposta"
+                        : assignmentStatusLabel[item.status]}
                     </span>
                   </div>
-                  {item.participation === "partner" && <p className={styles.footnote}>Participação em dupla</p>}
+                  <p className={styles.agendaTime}>
+                    <UIIcon name="calendar" size={16} />
+                    <time dateTime={item.serviceAt}>{formatChurchDate(item.serviceAt)}</time>
+                  </p>
+                  {(item.substituteForId || item.participation === "partner") && <p className={styles.footnote}>
+                    {[item.substituteForId && "Substituição", item.participation === "partner" && "Participação em dupla"].filter(Boolean).join(" · ")}
+                  </p>}
                   {item.sameDayConflict && (
                     <p className={styles.conflict} role="status">
                       Você tem outra posição na escala deste dia.
@@ -62,13 +90,13 @@ export function MemberSpace({
                         disabled={busy}
                         onClick={() => onConfirm(item.id)}
                       >
-                        Confirmar
+                        Confirmar presença
                       </button>
                       <button
                         type="button"
-                        className={styles.danger}
+                        className={styles.agendaDecline}
                         disabled={busy}
-                        onClick={() => onDecline(item.id)}
+                        onClick={() => void decline(item)}
                       >
                         Recusar
                       </button>

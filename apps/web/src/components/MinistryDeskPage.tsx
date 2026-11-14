@@ -37,7 +37,9 @@ export function MinistryDeskPage({ ministrySlug }: { ministrySlug?: string } = {
   const parsed = parseMinistryRoute(search);
   const route = ministrySlug ? { ...parsed, ministryId: undefined, tab: "escalas" as const } : parsed;
   const overview = !route.ministryId && route.tab === "visao";
-  const [board, setBoard] = useState<MinistryBoardData | null>(null);
+  const boardKey = route.ministryId ?? ministrySlug ?? "";
+  const [loadedBoard, setLoadedBoard] = useState<{ key: string; data: MinistryBoardData } | null>(null);
+  const board = loadedBoard?.key === boardKey ? loadedBoard.data : null;
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [change, setChange] = useState<MembershipChange | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
@@ -51,7 +53,6 @@ export function MinistryDeskPage({ ministrySlug }: { ministrySlug?: string } = {
   useEffect(() => {
     if (!token || overview) return;
     let cancelled = false;
-    setBoard(null);
     void loadMinistryBoard({
       token,
       baseUrl: getApiBaseUrl(),
@@ -59,21 +60,21 @@ export function MinistryDeskPage({ ministrySlug }: { ministrySlug?: string } = {
       ministrySlug,
     })
       .then((next) => {
-        if (!cancelled) setBoard(next);
+        if (!cancelled) setLoadedBoard({ key: boardKey, data: next });
       })
       .catch(() => {
         if (!cancelled) {
-          setBoard({
+          setLoadedBoard({ key: boardKey, data: {
             desk: { kind: "error", message: "A consulta dos ministérios autorizados não respondeu." },
             escalas: { kind: "hidden" },
             activities: { kind: "hidden" },
-          });
+          } });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [token, overview, route.ministryId, ministrySlug, reloadKey]);
+  }, [token, overview, route.ministryId, ministrySlug, boardKey, reloadKey]);
 
   useEffect(() => {
     if (ministrySlug && board?.desk.kind === "ready") {

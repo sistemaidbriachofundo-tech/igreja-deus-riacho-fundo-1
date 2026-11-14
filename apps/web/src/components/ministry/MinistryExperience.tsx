@@ -18,6 +18,7 @@ import type {
   EscalaPanel,
   EscalaModuleRules,
 } from "../../lib/ministry-presentation";
+import { rosterPositionSummary } from "../../lib/ministry-presentation";
 import {
   MINISTRY_TABS,
   activeFormalMembers,
@@ -435,7 +436,10 @@ function EscalaList({
   const moduleNames = new Map(modules.map(module => [module.id, module.name]));
   const editor = actions && {
     ...actions, modules, moduleId: selectedModule?.id,
-    onOpen: (id: string) => { setModuleFilter(""); actions.onOpen(id); },
+    onOpen: (id: string, nextModuleId?: string) => {
+      setModuleFilter(nextModuleId ?? "");
+      actions.onOpen(id);
+    },
   };
   return (
     <div className={styles.scheduleList}>
@@ -465,6 +469,7 @@ function EscalaList({
           const expanded = escala.id === escalaId;
           const detailId = `funcoes-${escala.id}`;
           const nextId = expanded ? undefined : escala.id;
+          const coverage = rosterPositionSummary(escala.positions ?? []);
           return (
             <article
               key={escala.id}
@@ -477,14 +482,14 @@ function EscalaList({
             >
               <header>
                 <h2>{escala.title}</h2>
-                <span>{escalaStatusLabel(escala.status)}</span>
+                <span data-status={escala.status}>{escalaStatusLabel(escala.status)}</span>
               </header>
               <p>
                 {escala.moduleId && moduleNames.has(escala.moduleId) && `${moduleNames.get(escala.moduleId)} · `}
                 {formatChurchWhen(escala.serviceAt)} ·{" "}
-                {escala.assignedCount === 1
-                  ? "1 pessoa escalada"
-                  : `${escala.assignedCount} pessoas escaladas`}
+                {escala.positions?.length
+                  ? `${coverage.confirmed} de ${escala.positions.length} posições confirmadas${coverage.open ? ` · ${coverage.open} ${coverage.open === 1 ? "vaga" : "vagas"}` : ""}`
+                  : "Sem posições cadastradas"}
               </p>
               <a
                 className={ui.workspaceSecondary}

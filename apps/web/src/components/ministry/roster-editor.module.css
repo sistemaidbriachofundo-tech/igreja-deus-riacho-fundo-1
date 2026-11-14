@@ -6,14 +6,35 @@
 .form :is(input, select) { min-width: 0; width: 100%; padding: 9px 10px; min-height: 44px; border: 1px solid #b9cabe; border-radius: 8px; color: #162c23; background: white; }
 .form .checkbox { display: flex; flex: 0 1 auto; align-items: center; min-height: 44px; }
 .form .checkbox input { width: auto; min-height: 0; }
-.position { width: 100%; padding: 14px; border: 1px solid #cbdad0; border-radius: 10px; background: #f6faf6; }
-.position h4 { margin: 0 0 7px; font-size: 15px; }
-.position details { margin-block: 8px; }
-.position summary { cursor: pointer; padding-block: 7px; font-size: 13px; }
+.counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; margin: 0; padding-block: 14px; border-block: 1px solid #cbdad0; }
+.counts > div { display: grid; gap: 4px; padding-inline: 12px; }
+.counts > div + div { border-left: 1px solid #cbdad0; }
+.counts dt { font-size: 12px; color: #425e51; }
+.counts dd { margin: 0; color: #1a4132; font-weight: 740; font-size: 24px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.position { width: 100%; padding-block: 12px; border-bottom: 1px solid #cbdad0; }
+.positionHeading { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
+.positionHeading h4 { margin: 0; font-size: 15px; }
+.positionHeading span, .vacancy { color: #486459; font-size: 13px; }
+.vacancy { margin: 6px 0; }
+.position summary, .previewTools summary { cursor: pointer; min-height: 36px; padding-block: 8px; color: #24563f; font-size: 13px; font-weight: 650; }
+.previewTools { width: 100%; }
 .position .form { margin-top: 8px; }
-.person { display: grid; gap: 8px; padding-block: 8px; border-top: 1px solid #dce6de; }
+.person { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 10px; padding-block: 9px; border-top: 1px solid #dce6de; overflow-wrap: anywhere; }
+.person details { grid-column: 1 / -1; }
+.person details:not([open]) > summary { padding-block: 6px; }
 .person small { display: block; margin-top: 3px; color: #536b60; }
+.assignmentStatus { padding: 4px 8px; border-radius: 999px; background: #e8eeea; color: #385244; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.assignmentStatus[data-status="PENDING"] { background: #f8e9cb; color: #66430f; }
+.assignmentStatus[data-status="CONFIRMED"] { background: #dceee1; color: #20523a; }
+.assignmentStatus[data-status="DECLINED"] { background: #f6e4df; color: #813d31; }
+.success { color: #24563f; margin: 0; font-size: 13px; }
 .error { color: #8b2929; }
+@media (min-width: 760px) {
+  .counts > div { padding-inline: 20px; }
+  .person:has(details) { grid-template-columns: minmax(0, 1fr) auto minmax(130px, auto); gap: 4px 16px; }
+  .person details:not([open]) { grid-column: auto; grid-row: 1; }
+  .person details[open] { grid-column: 1 / -1; }
+}
 @media (max-width: 560px) {
   .form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .form button { justify-self: start; min-height: 44px; }

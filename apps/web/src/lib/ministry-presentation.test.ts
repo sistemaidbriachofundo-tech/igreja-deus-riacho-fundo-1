@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadMinistryBoard, readScopedActivities, readScopedEscalas } from "./ministry-presentation";
+import { loadMinistryBoard, readScopedActivities, readScopedEscalas, rosterPositionSummary } from "./ministry-presentation";
 
 const token = "token-sintetico";
 const base = "http://api.test";
@@ -22,8 +22,19 @@ describe("escalas e atividades no escopo do ministério", () => {
               status: "PUBLISHED",
               slots: [
                 {
+                  id: "slot-recepcao",
                   roleLabel: "Recepção",
-                  assignments: [{ status: "CONFIRMED" }, { status: "DECLINED" }],
+                  requiresCouple: true,
+                  assignments: [
+                    { id: "original", personId: "p1", status: "SUBSTITUTED", declinedAt: "2026-11-10T12:00:00.000Z" },
+                    { id: "substituto", personId: "p2", partnerPersonId: "p3", status: "CONFIRMED", substituteForId: "original" },
+                  ],
+                },
+                {
+                  id: "slot-diaconia",
+                  roleLabel: "Corredor",
+                  requiredQualification: "diaconia",
+                  assignments: [{ id: "recusa", personId: "p4", status: "DECLINED" }],
                 },
               ],
             },
@@ -39,14 +50,21 @@ describe("escalas e atividades no escopo do ministério", () => {
         },
         "min-homens",
       ),
-    ).toEqual([
+    ).toMatchObject([
       {
         id: "esc-homens",
         title: "Recepção de sábado",
         serviceAt: "2026-11-14T19:00:00.000Z",
         status: "PUBLISHED",
-        functions: ["Recepção"],
-        assignedCount: 1,
+        functions: ["Recepção", "Corredor"],
+        assignedCount: 2,
+        positions: [
+          { assignments: [
+            { id: "original", status: "SUBSTITUTED", declinedAt: "2026-11-10T12:00:00.000Z" },
+            { id: "substituto", status: "CONFIRMED", substituteForId: "original" },
+          ] },
+          { requiredQualification: "diaconia", assignments: [{ id: "recusa", status: "DECLINED" }] },
+        ],
       },
     ]);
 
@@ -81,6 +99,17 @@ describe("escalas e atividades no escopo do ministério", () => {
         "min-homens",
       )?.map((item) => item.id),
     ).toEqual(["evt-homens"]);
+  });
+
+  it("contabiliza a posição pelo estado de quem está escalado", () => {
+    const assignments = (status: "PENDING" | "CONFIRMED" | "DECLINED") => [{
+      id: status, personId: "p1", partnerPersonId: "", personName: "", partnerName: "", status,
+    }];
+    expect(rosterPositionSummary([
+      { id: "slot-1", label: "Portas", requiresCouple: false, assignments: assignments("PENDING") },
+      { id: "slot-2", label: "Corredor", requiresCouple: false, assignments: assignments("DECLINED") },
+      { id: "slot-3", label: "Setor 2", requiresCouple: false, assignments: assignments("CONFIRMED") },
+    ])).toEqual({ open: 1, pending: 1, confirmed: 1 });
   });
 
   it("líder fora do ministério não pede escala nem atividade", async () => {

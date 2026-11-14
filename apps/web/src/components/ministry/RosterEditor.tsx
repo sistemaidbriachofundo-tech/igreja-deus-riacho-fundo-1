@@ -4,7 +4,8 @@ import { useState, type FormEvent } from "react";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
-import { ROSTER_SERVICE_TYPES, type EscalaAssignment, type EscalaModule, type EscalaModuleRules, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
+import { ROSTER_SERVICE_TYPES, rosterPositionSummary, type EscalaAssignment, type EscalaModule, type EscalaModuleRules, type EscalaPosition, type MinistryEscala } from "../../lib/ministry-presentation";
+import { assignmentStatusLabel } from "../../lib/serving-rosters";
 import { UIIcon } from "../AppShell";
 import { RosterPreviewPanel } from "../serving/RosterPreviewPanel";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
@@ -17,7 +18,7 @@ export type RosterActionsProps = {
   members: FormalMember[];
   onRefresh: () => void;
   onRulesSaved?: (rules: EscalaModuleRules) => void;
-  onOpen: (rosterId: string) => void;
+  onOpen: (rosterId: string, moduleId?: string) => void;
   modules?: EscalaModule[];
   moduleId?: string;
 };
@@ -56,7 +57,7 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
           ...(serviceType ? { serviceType } : {}),
         });
       setEditing(false);
-      onOpen(result.id);
+      onOpen(result.id, typeof selectedModule === "string" ? selectedModule : undefined);
       onRefresh();
     } catch (error) {
       setError(dasError(error));
@@ -97,17 +98,22 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
   const { confirm, confirmation } = useActionConfirmation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const base = "/rosters/" + encodeURIComponent(roster.id);
   const draft = roster.status === "DRAFT";
   const open = draft || roster.status === "PUBLISHED";
+  const rules = props.modules?.find(module => module.id === roster.moduleId)?.rules;
+  const summary = rosterPositionSummary(roster.positions ?? []);
 
-  async function mutate(path: string, data?: unknown, method: "POST" | "PATCH" = "POST") {
+  async function mutate(path: string, data?: unknown, method: "POST" | "PATCH" = "POST", success = "Escala atualizada.") {
     if (busy) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       if (method === "PATCH") await apiPatch(path, token, data);
       else await apiPost(path, token, data);
+      setNotice(success);
       onRefresh();
     } catch (error) {
       setError(dasError(error));
@@ -134,7 +140,8 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     const path = assignment
       ? "/rosters/assignments/" + encodeURIComponent(assignment.id) + "/substitute"
       : "/rosters/slots/" + encodeURIComponent(position.id) + "/assign";
-    void mutate(path, { personId, ...(partnerPersonId ? { partnerPersonId } : {}) });
+    void mutate(path, { personId, ...(partnerPersonId ? { partnerPersonId } : {}) }, "POST",
+      assignment ? "Substituição registrada. Aguardando a confirmação de quem vai assumir." : "Pessoa escalada. Aguardando confirmação.");
   }
 
   async function publish() {
@@ -147,32 +154,63 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
   return (
     <div className={s.editor}>
       {confirmation}
+      {notice && <p className={s.success} role="status">{notice}</p>}
       {draft && <RosterEditor {...props} />}
-      {open && Boolean(roster.positions?.length) && <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} />}
-      {roster.positions?.map(position => (
+      {Boolean(roster.positions?.length) && <dl className={s.counts} aria-label="Cobertura do culto">
+        <div><dt>Vagas abertas</dt><dd>{summary.open}</dd></div>
+        <div><dt>A confirmar</dt><dd>{summary.pending}</dd></div>
+        <div><dt>Confirmadas</dt><dd>{summary.confirmed}</dd></div>
+      </dl>}
+      {open && Boolean(roster.positions?.length) && <details className={s.previewTools}>
+        <summary>Consultar sugestões de equipe</summary>
+        <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} />
+      </details>}
+      {roster.positions?.map(position => {
+        const current = position.assignments.filter(item => item.status === "PENDING" || item.status === "CONFIRMED");
+        const declined = position.assignments.filter(item => item.status === "DECLINED");
+        const latestDecline = declined.reduce<EscalaAssignment | undefined>((latest, item) =>
+          !latest || (item.declinedAt ?? "") >= (latest.declinedAt ?? "") ? item : latest, undefined);
+        const replacing = !current.length ? latestDecline : undefined;
+        const eligible = members.filter(member => !position.requiredQualification ||
+          rules?.qualifications[position.requiredQualification]?.includes(member.personId));
+        const listed = [...current, ...position.assignments.filter(item => !current.includes(item))];
+        return (
         <section className={s.position} key={position.id} aria-label={position.label}>
-          <h4>{position.label}</h4>
+          <header className={s.positionHeading}>
+            <h4>{position.label}</h4>
+            {(position.requiresCouple || position.requiredQualification) && <span>
+              {[position.requiresCouple && "Casal", position.requiredQualification === "diaconia"
+                ? "Diaconia" : position.requiredQualification].filter(Boolean).join(" · ")}
+            </span>}
+          </header>
           {draft && <details><summary>Renomear posição</summary><form className={s.form} onSubmit={event => savePosition(event, position)}>
             <label>Nome da posição<input name="roleLabel" defaultValue={position.label} maxLength={100} required /></label>
             <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Salvar posição</button>
           </form></details>}
-          {position.assignments.map(assignment => (
+          {listed.map(assignment => (
             <div key={assignment.id} className={s.person}>
               <div><strong>{names.get(assignment.personId) ?? (assignment.personName || "Integrante escalado")}</strong>
                 {assignment.partnerPersonId && <span> · {names.get(assignment.partnerPersonId) ?? (assignment.partnerName || "Parceiro escalado")}</span>}
-                <small>{assignment.status === "CONFIRMED" ? "Confirmado" : "Aguardando confirmação"}</small>
+                {assignment.declinedAt && assignment.status === "SUBSTITUTED" && <small>Recusou antes da substituição</small>}
+                {assignment.substituteForId && <small>Substituição</small>}
               </div>
-              {open && members.length > 0 && <details><summary>Substituir</summary>
-                <PersonForm members={members.filter(member => member.personId !== assignment.personId)} busy={busy} couple={position.requiresCouple} label="Salvar substituição" onSubmit={event => savePerson(event, position, assignment)} />
+              <span className={s.assignmentStatus} data-status={assignment.status}>{assignmentStatusLabel[assignment.status]}</span>
+              {open && (current.includes(assignment) || replacing?.id === assignment.id) && eligible.some(member => member.personId !== assignment.personId) && <details>
+                <summary>{assignment.status === "DECLINED" ? "Escalar substituto" : "Substituir"}</summary>
+                <PersonForm members={eligible.filter(member => member.personId !== assignment.personId)} busy={busy} couple={position.requiresCouple}
+                  pairs={roster.moduleId ? rules?.couples ?? [] : undefined}
+                  label="Salvar substituição" onSubmit={event => savePerson(event, position, assignment)} />
               </details>}
             </div>
           ))}
-          {!position.assignments.length && <p>Posição livre</p>}
-          {open && !position.assignments.length && members.length > 0 && (
-            <PersonForm members={members} busy={busy} couple={position.requiresCouple} label="Escalar" onSubmit={event => savePerson(event, position)} />
+          {!current.length && <p className={s.vacancy}>{replacing ? "Vaga aberta após recusa" : "Vaga aberta"}</p>}
+          {open && !current.length && !replacing && (
+            <PersonForm members={eligible} busy={busy} couple={position.requiresCouple}
+              pairs={roster.moduleId ? rules?.couples ?? [] : undefined}
+              label="Escalar" onSubmit={event => savePerson(event, position)} />
           )}
         </section>
-      ))}
+      ); })}
       {draft && (
         <form className={s.form} onSubmit={savePosition}>
           <label>Nova posição<input name="roleLabel" placeholder="Ex. Recepção" maxLength={100} required /></label>
@@ -186,15 +224,25 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
   );
 }
 
-function PersonForm({ members, busy, couple, label, onSubmit }: {
-  members: FormalMember[]; busy: boolean; couple: boolean; label: string;
+function PersonForm({ members, busy, couple, pairs, label, onSubmit }: {
+  members: FormalMember[]; busy: boolean; couple: boolean; pairs?: [string, string][]; label: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [person, setPerson] = useState("");
+  const people = couple && pairs ? members.filter(member => pairs.some(pair =>
+    pair.includes(member.personId) && pair.every(id => members.some(item => item.personId === id)))) : members;
+  const partners = person ? people.filter(member => member.personId !== person &&
+    (!pairs || pairs.some(pair => pair.includes(person) && pair.includes(member.personId)))) : [];
+  if (!people.length) return <p className={s.vacancy}>Nenhum {couple ? "casal elegível" : "integrante elegível"} disponível para esta posição.</p>;
   return (
     <form className={s.form} onSubmit={onSubmit}>
-      <label>Integrante<select name="personId" required><option value="">Selecionar</option>{members.map(member => <option key={member.personId} value={member.personId}>{member.displayName}</option>)}</select></label>
-      {couple && <label>Parceiro<select name="partnerPersonId" required><option value="">Selecionar</option>{members.map(member => <option key={member.personId} value={member.personId}>{member.displayName}</option>)}</select></label>}
-      <button type="submit" className={ui.workspaceSecondary} disabled={busy || !members.length}>{label}</button>
+      <label>Integrante<select name="personId" value={person} onChange={event => setPerson(event.target.value)} required>
+        <option value="">Selecionar</option>{people.map(member => <option key={member.personId} value={member.personId}>{member.displayName}</option>)}
+      </select></label>
+      {couple && <label>Par<select key={person} name="partnerPersonId" required disabled={!person}>
+        <option value="">Selecionar</option>{partners.map(member => <option key={member.personId} value={member.personId}>{member.displayName}</option>)}
+      </select></label>}
+      <button type="submit" className={ui.workspaceSecondary} disabled={busy || !person || (couple && !partners.length)}>{label}</button>
     </form>
   );
 }

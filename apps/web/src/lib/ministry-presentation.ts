@@ -5,9 +5,13 @@
  */
 
 import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
+import type { AssignmentStatus } from "./serving-rosters";
 
-export type EscalaAssignment = { id: string; personId: string; partnerPersonId: string; status: string; personName: string; partnerName: string };
-export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; assignments: EscalaAssignment[] };
+export type EscalaAssignment = {
+  id: string; personId: string; partnerPersonId: string; status: AssignmentStatus;
+  personName: string; partnerName: string; substituteForId?: string; declinedAt?: string;
+};
+export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; requiredQualification?: string; assignments: EscalaAssignment[] };
 export const ROSTER_SERVICE_TYPES = {
   thursday_evening: "Quinta à noite", sunday_morning: "Domingo de manhã",
   sunday_evening: "Domingo à noite", special_event: "Evento especial",
@@ -116,19 +120,24 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
       const label = textOf(card?.roleLabel);
       if (label) functions.push(label);
       const assignments = Array.isArray(card?.assignments) ? card.assignments : [];
-      const assigned = assignments.flatMap(assignment => {
+      const assigned = assignments.flatMap<EscalaAssignment>(assignment => {
         const item = asRecord(assignment);
         const status = textOf(item?.status);
-        if (status !== "PENDING" && status !== "CONFIRMED") return [];
-        assignedCount += 1;
         const id = textOf(item?.id), personId = textOf(item?.personId);
-        return id && personId ? [{
+        if (!id || !personId || (status !== "PENDING" && status !== "CONFIRMED" && status !== "DECLINED" && status !== "SUBSTITUTED")) return [];
+        if (status === "PENDING" || status === "CONFIRMED") assignedCount += textOf(item?.partnerPersonId) ? 2 : 1;
+        return [{
           id, personId, status, partnerPersonId: textOf(item?.partnerPersonId),
           personName: textOf(item?.personName), partnerName: textOf(item?.partnerName),
-        }] : [];
+          substituteForId: textOf(item?.substituteForId),
+          declinedAt: textOf(item?.declinedAt),
+        }];
       });
       const id = textOf(card?.id);
-      if (id && label) positions.push({ id, label, requiresCouple: card?.requiresCouple === true, assignments: assigned });
+      if (id && label) positions.push({
+        id, label, requiresCouple: card?.requiresCouple === true,
+        requiredQualification: textOf(card?.requiredQualification), assignments: assigned,
+      });
     }
     items.push({
       id,
@@ -143,6 +152,16 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
   }
   items.sort((a, b) => Date.parse(a.serviceAt) - Date.parse(b.serviceAt) || a.title.localeCompare(b.title, "pt-BR"));
   return items;
+}
+
+export function rosterPositionSummary(positions: readonly EscalaPosition[]) {
+  const summary = { open: 0, pending: 0, confirmed: 0 };
+  for (const position of positions) {
+    if (position.assignments.some(item => item.status === "PENDING")) summary.pending++;
+    else if (position.assignments.some(item => item.status === "CONFIRMED")) summary.confirmed++;
+    else summary.open++;
+  }
+  return summary;
 }
 
 function readEscalaModules(body: unknown, ministryId: string): EscalaModule[] {
