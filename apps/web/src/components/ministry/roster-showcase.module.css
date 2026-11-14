@@ -257,3 +257,26 @@
   .track { grid-auto-columns: min(86%, 302px); gap: 9px; }
   .cardArt { min-height: 126px; }
 }
+
+.heroCopy h3 { font-family: Montserrat, Inter, sans-serif; }
+.heroCopy .priority { margin: 0 0 13px; color: #ffc395; font-weight: 700; }
+.moreActions { margin-right: auto; }
+.timeline { display: grid; gap: 12px; }
+.timeline > h2 { margin: 0; font: 700 clamp(1.2rem, 2.4vw, 1.5rem) Montserrat, Inter, sans-serif; }
+.timelineDay { border: 1px solid #d6e3d9; border-radius: 12px; background: white; }
+.timelineDay > h3 { margin: 0; padding: 12px 15px; background: #edf3ec; border-radius: 11px 11px 0 0; font-size: .93rem; text-transform: capitalize; }
+.timelineTime { display: grid; grid-template-columns: 55px minmax(0, 1fr); gap: 10px; padding: 10px 13px; }
+.timelineTime + .timelineTime { border-top: 1px solid #d6e3d9; }
+.timelineTime > time { padding-top: 11px; font-weight: 750; }
+.timelineTime ul { display: grid; gap: 7px; padding: 0; margin: 0; list-style: none; }
+.timelineTime li { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-inline-start: 3px solid #659576; border-radius: 5px; padding: 8px 10px; background: #f6f8f4; }
+.timelineTime li[data-state="open"] { border-color: #bd6238; }
+.timelineTime li[data-state="pending"] { border-color: #a8792b; }
+.timelineTime h4, .timelineTime p { margin: 0; }
+.timelineTime p { color: #476454; font-size: .78rem; }
+.timelineActions { display: flex; flex-wrap: wrap; gap: 5px; }
+.timelineActions .openCard { color: #244f3c; margin-right: 3px; }
+@media (max-width: 480px) {
+  .timelineTime { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .timelineTime > time { padding-top: 0; }
+}

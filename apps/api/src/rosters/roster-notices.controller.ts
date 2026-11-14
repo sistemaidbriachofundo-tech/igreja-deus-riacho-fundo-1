@@ -51,6 +51,11 @@ export class RosterNoticesController {
   @Post("invites/:assignmentId/accept")
   accept(@CurrentUser() user: AuthUser, @Param("assignmentId") assignmentId: string) { return this.notices.acceptInvite(user, assignmentId); }
 
+  @Roles(...VOLUNTEERS)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("invites/:assignmentId/decline")
+  decline(@CurrentUser() user: AuthUser, @Param("assignmentId") assignmentId: string) { return this.notices.declineInvite(user, assignmentId); }
+
   @Public()
   @Get("run")
   cron(@Headers("authorization") authorization?: string) { return this.notices.scheduled(authorization); }

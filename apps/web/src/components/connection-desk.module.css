@@ -1,4 +1,4 @@
-.page{max-width:1180px;margin:0 auto;padding:clamp(12px,2vw,28px);display:grid;gap:28px;color:#1c3228}
+.page{width:100%;min-width:0;display:grid;gap:28px;color:#1c3228}
 .heading{display:grid;gap:10px;padding:clamp(16px,3.6vw,35px) 0 6px}
 .heading h1{font:850 clamp(1.65rem,3vw,2.8rem)/1.13 Montserrat,Inter,sans-serif;letter-spacing:-.048em;margin:0;color:#133b2b}
 .heading p{font:400 clamp(.92rem,1.6vw,1.12rem)/1.6 Inter,sans-serif;color:#617365;max-width:62ch;margin:0}
@@ -30,3 +30,5 @@
 @media(max-width:850px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:630px){.steps{grid-template-columns:1fr}.progressRow>div{padding:14px 9px}.progressRow strong{font-size:1.2rem}}
 @media(prefers-reduced-motion:reduce){.load span{animation:none}}
+
+.requestActions { display: flex; gap: 8px; flex-wrap: wrap; }

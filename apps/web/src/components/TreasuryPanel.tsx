@@ -215,6 +215,7 @@ export function TreasuryPanel() {
   const [data, setData] = useState<Awaited<ReturnType<typeof loadTreasury>> | null>(null);
   const [failure, setFailure] = useState("");
   const [center, setCenter] = useState<string | null>(null);
+  const [targetExpense, setTargetExpense] = useState("");
   const [view, setView] = useState<TreasurySection>("visao");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -244,6 +245,7 @@ export function TreasuryPanel() {
 
   useEffect(() => {
     if (enabled) setToken(loadStoredToken());
+    setTargetExpense(new URLSearchParams(window.location.search).get("despesa") ?? "");
   }, [enabled]);
 
   useEffect(() => {
@@ -258,6 +260,12 @@ export function TreasuryPanel() {
     }).catch(error => { if (!cancelled) setFailure(dasError(error)); });
     return () => { cancelled = true; };
   }, [enabled, token, center, revision, isPastorOnly]);
+
+  useEffect(() => {
+    if (data && view === "despesas" && targetExpense) {
+      document.getElementById(`despesa-${targetExpense}`)?.scrollIntoView({ block: "center" });
+    }
+  }, [data, view, targetExpense]);
 
   const cards: TreasuryCardState = data?.cards ?? (
     !enabled ? { kind: "disabled" } : failure ? { kind: "error", message: failure } : token ? { kind: "loading" } : { kind: "checking" }
@@ -485,11 +493,12 @@ export function TreasuryPanel() {
           {expenseRows.map(entry => {
             const workflow = expenseWorkflowStatus(entry);
             const canApproveExpense = canWrite && approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []).canApprove;
-            return <article key={entry.id} className={styles.expenseItem}>
+            return <article key={entry.id} className={styles.expenseItem} id={`despesa-${entry.id}`} data-target={targetExpense === entry.id}>
               <div className={styles.expenseInfo}>
                 <strong>{entry.description}</strong>
                 <small>{displayDate(entry.entryDate)}</small>
                 <span className={styles.expenseState} data-status={entry.status}>{workflow}</span>
+                {entry.rejectionReason && entry.status === "REJECTED" && <small>Motivo da devolução: {entry.rejectionReason}</small>}
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
               {canApproveExpense && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
@@ -653,6 +662,7 @@ function readEntries(payload: unknown): EntryView[] | null {
       entryDate: str(row.entryDate),
       description: str(row.description),
       status: str(row.status),
+      rejectionReason: str(row.rejectionReason) || undefined,
       amountCents: typeof amount === "number" ? amount : null,
       createdByUserId: str(row.createdByUserId),
       firstApprovedByUserId: str(row.firstApprovedByUserId) || null,

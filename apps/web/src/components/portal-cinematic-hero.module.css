@@ -5,7 +5,7 @@
 }
 
 .photo {
-  height: clamp(275px, min(41vw, 55svh), 560px);
+  height: clamp(240px, min(35vw, 43svh), 495px);
   background: var(--portal-green);
 }
 
@@ -24,7 +24,7 @@
   gap: clamp(20px, 5vw, 74px);
   max-width: var(--portal-content);
   margin-inline: auto;
-  padding: clamp(29px, 4.5vw, 63px) var(--portal-gutter) clamp(22px, 3vw, 42px);
+  padding: clamp(20px, 3vw, 42px) var(--portal-gutter) clamp(20px, 3vw, 36px);
   box-sizing: content-box;
 }
 
@@ -76,12 +76,31 @@
 .primaryAction:hover { color: var(--portal-title-accent); }
 
 @media (max-width: 740px) {
-  .photo { height: auto; aspect-ratio: 16 / 9; }
-  .layout { grid-template-columns: minmax(0, 1fr); gap: 17px; }
+  .photo { height: clamp(150px, 46vw, 290px); }
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 11px; }
   .headline { font-size: clamp(40px, 9.2vw, 62px); }
 }
 
 /* Missão institucional permanente, independente de campanhas publicadas. */
-.missionLabel { margin: 0 0 8px; color: #bf4b14; font-size: 11px; font-weight: 850; letter-spacing: .16em; }
-.missionStatement { margin: 0 0 22px; max-width: 32ch; font: 500 clamp(20px, 2.2vw, 29px)/1.23 Montserrat, Inter, sans-serif; letter-spacing: -.03em; color: #222126; }
+.missionStatement { margin: 0 0 9px; max-width: 32ch; font: 500 clamp(20px, 2.2vw, 29px)/1.23 Montserrat, Inter, sans-serif; letter-spacing: -.03em; color: #222126; }
 .missionStatement strong { color: #d64b0d; font-style: italic; font-weight: 850; }
+
+
+.visit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #856f583c;
+  font-size: .83rem;
+}
+.visit p { display: grid; gap: 2px; margin: 0; }
+.visit span { color: var(--portal-muted); }
+.visit a { display: inline-flex; align-items: center; min-height: 44px; color: var(--portal-ink); font-weight: 700; text-underline-offset: 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .layout { animation: portal-reveal .28s ease-out; }
+  @keyframes portal-reveal { from { transform: translateY(7px); opacity: .72; } }
+}

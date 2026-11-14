@@ -26,12 +26,15 @@ export function PortalCinematicHero() {
           </h1>
         </div>
         <div className={s.intro}>
-          <p className={s.missionLabel}>NOSSA MISSÃO</p>
           <p className={s.missionStatement}>Uma igreja <strong>para Deus</strong>, pelas <strong>famílias</strong> e enviada ao <strong>mundo.</strong></p>
           {hero.description !== "Uma igreja para Deus, pelas famílias e enviada ao mundo." && <p className={s.description}>{hero.description}</p>}
           <PortalSectionLink sectionId="agenda" className={s.primaryAction}>
-            Horários dos cultos <PortalGlyph name="down" width={17} />
+            Ver horários dos cultos <PortalGlyph name="down" width={17} />
           </PortalSectionLink>
+          <div className={s.visit}>
+            <p><strong>Cultos aos domingos</strong><span>10h e 19h · QS 12, Riacho Fundo I</span></p>
+            <a href="https://www.waze.com/pt-BR/live-map/directions/igreja-de-deus-no-brasil-qs-12-riacho-fundo-1?to=place.w.204473961.2044608539.1892048">Como chegar</a>
+          </div>
         </div>
       </div>
     </section>

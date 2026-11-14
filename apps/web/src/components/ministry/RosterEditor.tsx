@@ -32,7 +32,9 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const hasAssignments = Boolean(roster?.assignedCount);
+  const { confirm, confirmation } = useActionConfirmation();
+  const published = roster?.status === "PUBLISHED";
+  const dateLocked = Boolean(roster?.assignedCount) && !published;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,8 +48,11 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
     setError("");
     try {
       const date = new Date(localTime + "-03:00");
-      if (!hasAssignments && !Number.isFinite(date.getTime())) throw new Error("Informe a data e a hora do culto.");
-      const serviceAt = hasAssignments && roster ? roster.serviceAt : date.toISOString();
+      if (!dateLocked && !Number.isFinite(date.getTime())) throw new Error("Informe a data e a hora do culto.");
+      const serviceAt = dateLocked && roster ? roster.serviceAt : date.toISOString();
+      if (published && roster && new Date(serviceAt).getTime() !== new Date(roster.serviceAt).getTime() &&
+          !(await confirm({ title: "Alterar o horário do culto?", subject: title,
+            description: "Os voluntários receberão um aviso e precisarão confirmar presença novamente.", action: "Alterar horário" }))) return;
       const result = roster
         ? await apiPatch<{ id: string }>("/rosters/" + encodeURIComponent(roster.id), token, {
           title, serviceAt, ...(selectedModule !== null ? { moduleId: selectedModule || null } : {}),
@@ -68,14 +73,15 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
 
   return (
     <div className={s.editor}>
+      {confirmation}
       <button type="button" className={buttonClass ?? (roster ? ui.workspaceSecondary : ui.workspacePrimary)} aria-expanded={editing} onClick={() => setEditing(value => !value)}>
         <UIIcon name="calendar" size={16} /> {roster ? "Editar culto" : "Nova escala"}
       </button>
       {editing && (
         <form className={s.form} onSubmit={save}>
           <label>Nome do culto<input name="title" defaultValue={roster?.title} maxLength={160} required /></label>
-          <label>Data e hora de Brasília<input name="when" type="datetime-local" disabled={hasAssignments} defaultValue={roster ? churchDateTime.format(new Date(roster.serviceAt)).replace(" ", "T") : ""} required /></label>
-          {modules.length > 0 && (
+          <label>Data e hora de Brasília<input name="when" type="datetime-local" disabled={dateLocked} defaultValue={roster ? churchDateTime.format(new Date(roster.serviceAt)).replace(" ", "T") : ""} required /></label>
+          {modules.length > 0 && !published && (
             <label>Módulo<select name="moduleId" defaultValue={(roster ? roster.moduleId : moduleId) ?? ""}>
               <option value="">Escala geral do ministério</option>
               {modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
@@ -156,7 +162,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     <div className={s.editor}>
       {confirmation}
       {notice && <p className={s.success} role="status">{notice}</p>}
-      {draft && <RosterEditor {...props} />}
+      {open && new Date(roster.serviceAt).getTime() > Date.now() && <RosterEditor {...props} />}
       {Boolean(roster.positions?.length) && <dl className={s.counts} aria-label="Cobertura do culto">
         <div><dt>Vagas abertas</dt><dd>{summary.open}</dd></div>
         <div><dt>A confirmar</dt><dd>{summary.pending}</dd></div>
@@ -176,7 +182,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
           rules?.qualifications[position.requiredQualification]?.includes(member.personId));
         const listed = [...current, ...position.assignments.filter(item => !current.includes(item))];
         return (
-        <section className={s.position} key={position.id} aria-label={position.label}>
+        <section className={s.position} key={position.id} id={`posto-${position.id}`} tabIndex={-1} aria-label={position.label}>
           <header className={s.positionHeading}>
             <h4>{position.label}</h4>
             {(position.requiresCouple || position.requiredQualification) && <span>

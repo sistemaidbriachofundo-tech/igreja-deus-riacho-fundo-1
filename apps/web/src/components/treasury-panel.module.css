@@ -325,3 +325,5 @@
   .expenseItem { grid-template-columns: minmax(0, 1fr); }
   .expenseItem .amount { justify-self: start; }
 }
+
+.expenseItem[data-target="true"] { outline: 2px solid #b76633; outline-offset: 2px; }

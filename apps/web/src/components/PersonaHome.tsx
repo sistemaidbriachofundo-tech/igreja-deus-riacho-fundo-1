@@ -39,7 +39,7 @@ const DESK_ORDER: readonly DeskKey[] = [
 
 const DESK: Record<DeskKey, { title: string; lede: string }> = {
   PLATFORM_ADMIN: {
-    title: "Painel administrativo",
+    title: "Governança Ministerial",
     lede: "Acompanhe a congregação e acesse as rotinas de trabalho da igreja.",
   },
   SECRETARIA: {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { formatChurchDate } from "../../lib/das-operations";
 import { assignmentStatusLabel, type PersonalAssignment } from "../../lib/serving-rosters";
 import { UIIcon } from "../AppShell";
@@ -24,12 +25,16 @@ export function MemberSpace({
   onDecline: (assignmentId: string) => void;
 }) {
   const { confirm, confirmation } = useActionConfirmation();
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash.startsWith("escala-")) document.getElementById(hash)?.scrollIntoView({ block: "center" });
+  }, [assignments]);
   const ordered = [...assignments].sort((a, b) => Number(needsResponse(b)) - Number(needsResponse(a)));
 
   async function decline(item: PersonalAssignment) {
     if (await confirm({
       title: "Recusar esta escala?",
-      subject: `${item.title} · ${item.roleLabel}`,
+      subject: `${item.title} · ${formatChurchDate(item.serviceAt)} · ${item.roleLabel}`,
       description: "Sua resposta ficará visível para a liderança, que poderá escalar outra pessoa.",
       action: "Recusar escala",
       cancel: "Voltar",
@@ -56,7 +61,7 @@ export function MemberSpace({
             {ordered.map((item) => {
               const open = needsResponse(item);
               return (
-                <article key={item.id} className={styles.agendaItem} data-assignment={item.id}>
+                <article key={item.id} className={styles.agendaItem} id={`escala-${item.id}`} data-assignment={item.id}>
                   <div className={styles.rosterHeader}>
                     <div>
                       <h3>{item.title}</h3>

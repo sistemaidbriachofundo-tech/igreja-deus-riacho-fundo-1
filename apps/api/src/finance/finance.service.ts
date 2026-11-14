@@ -596,8 +596,19 @@ export class FinanceService {
     entryId: string,
     reason?: string,
   ) {
-    const pilot = await this.requireFinance(actor);
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const pilot = { organizationId, churchId };
     const row = await this.requireEntryInPilot(pilot, entryId);
+    const expense = this.isExpenseForPastor(row.lines);
+    const required = expense && row.firstApprovedByUserId ? ROLE_CODES.PASTOR : ROLE_CODES.TESOURARIA;
+    if ((actor.churchId && actor.churchId !== churchId) ||
+        (actor.organizationId && actor.organizationId !== organizationId) ||
+        !hasAccess(actor.grants, { ...pilot, roleCodes: [required] })) {
+      throw new ForbiddenException("Sem permissão para decidir nesta etapa da despesa.");
+    }
+    if (expense && (row.createdByUserId === actor.userId || row.firstApprovedByUserId === actor.userId)) {
+      throw new ForbiddenException("A decisão precisa ser registrada por outro responsável.");
+    }
     if (row.status !== "PENDING_APPROVAL") {
       throw new ConflictException({
         code: "LEDGER_ENTRY_NOT_PENDING",
@@ -605,31 +616,38 @@ export class FinanceService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.ledgerEntry.update({
-        where: { id: entryId },
-        data: {
-          status: "REJECTED",
-          rejectedByUserId: actor.userId,
-          rejectedAt: new Date(),
-          rejectionReason: reason?.trim() || null,
-        },
-        include: { lines: true },
-      });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.ledgerEntry.update({
+          where: { id: entryId, status: "PENDING_APPROVAL", firstApprovedByUserId: row.firstApprovedByUserId },
+          data: {
+            status: "REJECTED",
+            rejectedByUserId: actor.userId,
+            rejectedAt: new Date(),
+            rejectionReason: reason?.trim() || null,
+          },
+          include: { lines: true },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "ledger.entry.reject",
-          resourceType: "ledger_entry",
-          resourceId: entryId,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-        },
-      });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: "ledger.entry.reject",
+            resourceType: "ledger_entry",
+            resourceId: entryId,
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+          },
+        });
 
-      return this.toEntryDto(updated);
-    });
+        return this.toEntryDto(updated);
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+        throw new ConflictException("A despesa já mudou de etapa. Atualize a lista antes de decidir.");
+      }
+      throw error;
+    }
   }
 
   async reverseEntry(actor: AuthUser, entryId: string) {
@@ -1685,9 +1703,27 @@ export class FinanceService {
 
   // —— Comprovantes / anexos (RF-016) ——
 
+  private async requireAttachmentReader(actor: AuthUser, entryId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    if (actor.churchId && actor.churchId !== scope.churchId || actor.organizationId && actor.organizationId !== scope.organizationId) {
+      throw new ForbiddenException("Despesa fora da congregação ativa.");
+    }
+    if (!hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR] }) ||
+        hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN] })) {
+      const financeScope = await this.requireFinance(actor);
+      await this.requireEntryInPilot(financeScope, entryId);
+      return financeScope;
+    }
+    const entry = await this.requireEntryInPilot(pilot, entryId);
+    if (!this.isExpenseForPastor(entry.lines) || !entry.firstApprovedByUserId) {
+      throw new ForbiddenException("O comprovante ainda não está em revisão pastoral.");
+    }
+    return pilot;
+  }
+
   async listAttachments(actor: AuthUser, entryId: string) {
-    const pilot = await this.requireFinance(actor);
-    await this.requireEntryInPilot(pilot, entryId);
+    const pilot = await this.requireAttachmentReader(actor, entryId);
     const rows = await this.prisma.ledgerEntryAttachment.findMany({
       where: {
         entryId,
@@ -1773,8 +1809,7 @@ export class FinanceService {
     entryId: string,
     attachmentId: string,
   ) {
-    const pilot = await this.requireFinance(actor);
-    await this.requireEntryInPilot(pilot, entryId);
+    const pilot = await this.requireAttachmentReader(actor, entryId);
     const row = await this.prisma.ledgerEntryAttachment.findFirst({
       where: {
         id: attachmentId,

@@ -118,7 +118,7 @@ describe("experiência de ministérios", () => {
       ] }}
       activities={{ kind: "hidden" }}
     />);
-    expect(html).toContain("Módulos e regras");
+    expect(html).toContain("Mais");
     expect(html).toContain('aria-pressed="false">Recepção');
     expect(html).toContain("Baixar PDF da escala Culto geral existente");
     expect(html).toContain("Baixar Excel da escala Culto de domingo à noite");

@@ -9,6 +9,7 @@ import { PersonalRosterService } from "./personal-roster.service";
 @Module({
   imports: [AuthModule, PilotModule],
   controllers: [PersonalRostersController, RosterNoticesController],
+  exports: [RosterNoticesService],
   providers: [PersonalRosterService, RosterNoticesService],
 })
 export class PersonalRostersModule {}

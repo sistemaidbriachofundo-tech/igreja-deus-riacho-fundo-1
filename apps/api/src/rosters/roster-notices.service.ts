@@ -24,7 +24,7 @@ export class RosterNoticesService {
   async list(actor: AuthUser, now = new Date()) {
     const scope = await this.personScope(actor);
     const notices = await this.db.rosterNotice.findMany({ where: scope, orderBy: { createdAt: "desc" }, take: 50,
-      select: { id: true, kind: true, title: true, body: true, path: true, createdAt: true, expiresAt: true } });
+      select: { id: true, kind: true, title: true, body: true, path: true, createdAt: true, expiresAt: true, declinedAt: true } });
     const inviteIds = notices.filter(notice => notice.kind === "substitute").map(notice => notice.id.split(":")[1]);
     const assignments = inviteIds.length ? await this.db.rosterAssignment.findMany({
       where: { id: { in: inviteIds }, slot: { roster: { churchId: scope.churchId } } },
@@ -44,7 +44,7 @@ export class RosterNoticesService {
         );
         const closed = !roster || roster.status !== "PUBLISHED" || roster.serviceAt <= now ||
           assignment.status !== "DECLINED" || assignment.slot.assignments.length > 0;
-        return { ...notice, inviteStatus: confirmed ? "accepted" : closed ? "closed" :
+        return { ...notice, inviteStatus: confirmed ? "accepted" : notice.declinedAt ? "declined" : closed ? "closed" :
           !notice.expiresAt || notice.expiresAt <= now ? "expired" : "open" };
       }),
       publicKey: this.pushConfig()?.publicKey ?? null,
@@ -84,6 +84,7 @@ export class RosterNoticesService {
       if (!assignment) throw new ConflictException("Este convite não está mais disponível.");
       const existing = await tx.rosterAssignment.findFirst({ where: { substituteForId: assignmentId, personId: scope.personId, status: "CONFIRMED" } });
       if (existing) return { assignmentId: existing.id, confirmed: true };
+      if (invitation.declinedAt) throw new ConflictException("Você já recusou este convite.");
       if (!invitation.expiresAt || invitation.expiresAt <= now) throw new ConflictException("O prazo deste convite terminou.");
       const replacement = await acceptSubstitute(tx, assignment, scope.personId, now);
       await tx.auditLog.create({ data: {
@@ -92,6 +93,32 @@ export class RosterNoticesService {
         metadata: { replacedAssignmentId: assignmentId },
       } });
       return { assignmentId: replacement.id, confirmed: true };
+    });
+  }
+
+  async declineInvite(actor: AuthUser, assignmentId: string, now = new Date()) {
+    const scope = await this.personScope(actor);
+    return writeRosterAssignment(this.db, async tx => {
+      const id = inviteKey(assignmentId, scope.personId);
+      const invitation = await tx.rosterNotice.findFirst({ where: { ...scope, id } });
+      if (!invitation) throw new ForbiddenException("Convite indisponível.");
+      if (invitation.declinedAt) return { declined: true };
+      if (!invitation.expiresAt || invitation.expiresAt <= now) throw new ConflictException("O prazo deste convite terminou.");
+      const assignment = await tx.rosterAssignment.findFirst({
+        where: { id: assignmentId, status: "DECLINED", slot: {
+          roster: { churchId: scope.churchId, status: "PUBLISHED", serviceAt: { gt: now } },
+          assignments: { none: { status: { in: ["PENDING", "CONFIRMED"] } } },
+        } },
+        select: { slot: { select: { roster: { select: { organizationId: true } } } } },
+      });
+      if (!assignment) throw new ConflictException("Este convite já foi encerrado.");
+      await tx.rosterNotice.update({ where: { id }, data: { declinedAt: now } });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "roster.assignment.substitute_invite_decline",
+        resourceType: "roster_assignment", resourceId: assignmentId,
+        churchId: scope.churchId, organizationId: assignment.slot.roster.organizationId,
+      } });
+      return { declined: true };
     });
   }
 
@@ -164,8 +191,8 @@ export class RosterNoticesService {
       if (!rules.substituteInviteLimit || slot.roster.serviceAt <= now) return 0;
       const history = await tx.rosterNotice.findMany({ where: {
         churchId, kind: "substitute", id: { startsWith: inviteKey(assignmentId, "") },
-      }, select: { personId: true, expiresAt: true } });
-      if (history.some(invite => invite.expiresAt && invite.expiresAt > now)) return 0;
+      }, select: { personId: true, expiresAt: true, declinedAt: true } });
+      if (history.some(invite => !invite.declinedAt && invite.expiresAt && invite.expiresAt > now)) return 0;
       const invited = new Set(history.map(invite => invite.personId));
       const candidates = (await substitutionCandidates(tx, assignment, now))
         .filter(personId => !invited.has(personId)).slice(0, rules.substituteInviteLimit);
@@ -176,7 +203,7 @@ export class RosterNoticesService {
         id: inviteKey(assignmentId, personId), churchId, personId, kind: "substitute",
         title: "Convite para substituir na escala",
         body: `${slot.roster.title} · ${when.format(slot.roster.serviceAt)}. Responda até ${when.format(expiresAt)}.`,
-        path: PORTAL + "#avisos-da-escala", createdAt: now, expiresAt,
+        path: PORTAL + "#convite-" + assignmentId, createdAt: now, expiresAt,
       })), skipDuplicates: true });
       return count;
     });
@@ -226,7 +253,7 @@ export class RosterNoticesService {
   private async deliver(churchId: string, now: Date) {
     const config = this.pushConfig();
     if (!config) return 0;
-    const claimable = { sentAt: null, OR: [{ claimedAt: null }, { claimedAt: { lt: new Date(+now - 10 * 60_000) } }] };
+    const claimable = { sentAt: null, declinedAt: null, OR: [{ claimedAt: null }, { claimedAt: { lt: new Date(+now - 10 * 60_000) } }] };
     const notices = await this.db.rosterNotice.findMany({ where: { churchId, ...claimable,
       createdAt: { gte: new Date(+now - DAY) }, AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }], person: { rosterPushSubscriptions: { some: { churchId } } },
     }, orderBy: { createdAt: "asc" }, take: 20 });
@@ -240,10 +267,11 @@ export class RosterNoticesService {
         });
         if (!notice.expiresAt || notice.expiresAt <= now || !assignment || !(await substitutionCandidates(this.db, assignment, now)).includes(notice.personId)) continue;
       }
-      if (notice.kind === "reminder" || notice.kind === "published") {
+      if (notice.kind === "reminder" || notice.kind === "published" || notice.kind === "rescheduled") {
         const assignment = await this.db.rosterAssignment.findFirst({ where: { id: notice.id.split(":")[1], OR: [{ personId: notice.personId }, { partnerPersonId: notice.personId }],
           status: notice.kind === "reminder" ? "CONFIRMED" : { in: ["PENDING", "CONFIRMED"] },
-          slot: { roster: { churchId, status: "PUBLISHED", serviceAt: { gt: now } } },
+          slot: { roster: { churchId, status: "PUBLISHED", serviceAt: { gt: now,
+            ...(notice.kind === "rescheduled" && notice.expiresAt ? { equals: notice.expiresAt } : {}) } } },
         } });
         if (!assignment || (notice.kind === "reminder" && +notice.createdAt < +now - REMINDER_GRACE)) continue;
       }

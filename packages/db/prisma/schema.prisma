@@ -175,6 +175,8 @@ model Church {
   rosterAvailabilityResponses RosterAvailabilityResponse[]
   rosterNotices RosterNotice[]
   rosterPushSubscriptions RosterPushSubscription[]
+  workspaceNotificationReads WorkspaceNotificationRead[]
+
   @@unique([organizationId, slug])
   ministryMemberships MinistryMembership[]
   @@map("churches")
@@ -239,6 +241,7 @@ model Person {
   ministryLeads Ministry[] @relation("MinistryLeader")
   smallGroupLeads SmallGroup[] @relation("SmallGroupLeader")
   smallGroupMemberships SmallGroupMember[]
+  smallGroupJoinRequests SmallGroupJoinRequest[]
   discipleshipEnrollments DiscipleshipEnrollment[]
   discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
@@ -320,6 +323,8 @@ model User {
   budgetsCreated Budget[] @relation("BudgetCreator")
   accountingPeriodsClosed AccountingPeriod[] @relation("AccountingPeriodCloser")
   ledgerEntryAttachmentsUploaded LedgerEntryAttachment[] @relation("LedgerAttachmentUploader")
+
+  workspaceNotificationReads WorkspaceNotificationRead[]
 
   @@map("users")
 }
@@ -1348,6 +1353,7 @@ model SmallGroup {
   leader       Person?      @relation("SmallGroupLeader", fields: [leaderPersonId], references: [id])
   members      SmallGroupMember[]
   meetings     GroupMeeting[]
+  joinRequests SmallGroupJoinRequest[]
 
   @@index([organizationId, churchId])
   @@map("small_groups")
@@ -1371,6 +1377,27 @@ model SmallGroupMember {
   @@unique([groupId, personId])
   @@index([personId])
   @@map("small_group_members")
+}
+
+enum SmallGroupJoinStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+model SmallGroupJoinRequest {
+  id        String               @id @default(cuid())
+  groupId   String               @map("group_id")
+  personId  String               @map("person_id")
+  status    SmallGroupJoinStatus @default(PENDING)
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  group  SmallGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, personId])
+  @@index([personId])
+  @@map("small_group_join_requests")
 }
 
 model GroupMeeting {
@@ -2570,6 +2597,7 @@ model RosterNotice {
   sentAt DateTime? @map("sent_at")
   claimedAt DateTime? @map("claimed_at")
   expiresAt DateTime? @map("expires_at")
+  declinedAt DateTime? @map("declined_at")
   pushReceipts String[] @default([]) @map("push_receipts")
   createdAt DateTime @default(now()) @map("created_at")
   church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
@@ -2591,4 +2619,17 @@ model RosterPushSubscription {
 
   @@index([churchId, personId])
   @@map("roster_push_subscriptions")
+}
+
+
+model WorkspaceNotificationRead {
+  userId String @map("user_id")
+  churchId String @map("church_id")
+  noticeId String @map("notice_id")
+  readAt DateTime @default(now()) @map("read_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  @@id([userId, churchId, noticeId])
+  @@index([churchId])
+  @@map("workspace_notification_reads")
 }

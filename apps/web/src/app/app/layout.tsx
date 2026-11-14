@@ -4,10 +4,10 @@ import { AdminAccessGate } from "../../components/AdminAccessGate";
 
 export const metadata: Metadata = {
   title: {
-    default: "ID Riacho 1 — Área Administrativa",
+    default: "ID Riacho 1 — Governança Ministerial",
     template: "%s · ID Riacho 1",
   },
-  description: "Área administrativa da Igreja de Deus — Riacho Fundo I.",
+  description: "Governança Ministerial da Igreja de Deus — Riacho Fundo I.",
   // As páginas administrativas não devem ser indexadas.
   robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };

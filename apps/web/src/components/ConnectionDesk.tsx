@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AppShell, AppNavLink, usePersonaAccess, UIIcon } from "./AppShell";
+import { GroupRequests } from "./GroupRequests";
 import { apiGet, loadStoredToken } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
 import s from "./connection-desk.module.css";
@@ -26,6 +27,7 @@ function ConnectionContent() {
   const access = usePersonaAccess();
   const roles = access.kind === "ready" ? access.roles : [];
   const permitted = roles.some(role => CONNECTION_ROLES.includes(role as typeof CONNECTION_ROLES[number]));
+  const [token, setToken] = useState("");
   const [journey, setJourney] = useState<Read<Journey | null>>({ status: "loading" });
   const [groups, setGroups] = useState<Read<Group[]>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -35,6 +37,7 @@ function ConnectionContent() {
     if (access.kind !== "ready" || !permitted) return;
     const token = loadStoredToken();
     if (!token) return;
+    setToken(token);
     let active = true;
     const read = (path: string) => readPanel(token, path, () => apiGet<unknown>(path, token));
     setJourney({ status: "loading" });
@@ -115,6 +118,7 @@ function ConnectionContent() {
       </article>)}</div> :
       <p className={s.notice}>Nenhum Grupo de Amizade cadastrado nesta congregação.</p>}
     </section>
+    {token && <GroupRequests manage token={token} />}
     <AppNavLink href="/app/ministerios/" className={s.back}><UIIcon name="arrow" size={16}/> Voltar aos ministérios</AppNavLink>
   </div>;
 }

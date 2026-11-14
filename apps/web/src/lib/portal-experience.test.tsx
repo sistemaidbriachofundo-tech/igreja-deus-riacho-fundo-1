@@ -17,8 +17,8 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(html).toContain("Igreja de Deus");
     expect(html).toContain("Riacho Fundo I");
     expect(html).not.toContain("Quero visitar");
-    expect(html).toContain("Horários dos cultos");
-    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).toContain("Ver horários dos cultos");
+    expect(html.match(/<a /g)).toHaveLength(2);
     expect(html).not.toContain('aria-label="Explorar os cinco ministérios"');
     expect(html).not.toContain('href="/ministerios');
     expect(html).not.toContain("Culto de Celebração");

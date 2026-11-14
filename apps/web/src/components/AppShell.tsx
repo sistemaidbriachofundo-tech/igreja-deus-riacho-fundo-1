@@ -17,6 +17,7 @@ import {
   SESSION_UNAUTHORIZED_EVENT, apiGet, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, signOutSession, type AuthUser,
 } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
+import { NotificationCenter } from "./NotificationCenter";
 import { AdminSessionContext } from "./AdminAccessGate";
 import {
   SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
@@ -241,7 +242,7 @@ export function AppShell({
   const phone = mobileItems(menu, memberShell);
   const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
   const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
-  const shownMeta = showModule ? meta : "Área administrativa";
+  const shownMeta = showModule ? meta : "Governança Ministerial";
   const accountEmail = readyUser?.email ?? "";
   const accountLabel = preview
     ? "Acesso local"
@@ -495,7 +496,7 @@ export function AppShell({
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
         <div className={s.railHeader}>
-          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
+          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — Governança Ministerial" onNavigate={afterNavigate}>
             {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />
@@ -509,7 +510,7 @@ export function AppShell({
           </button>
         </div>
 
-        <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
+        <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "Governança Ministerial"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
           {menuBlocks.map(block => {
             if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
@@ -601,7 +602,8 @@ export function AppShell({
             <UIIcon name="search" size={18}/><span>Buscar no painel</span>
           </button>
           <div className={s.toolbarRight}>
-            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
+            {readyUser && <NotificationCenter key={readyUser.userId} userId={readyUser.userId}
+              icon={<UIIcon name="bell" size={20} />} closeIcon={<UIIcon name="close" size={20} />} />}
             {accessKind === "ready" ? (
               <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label="Minha conta">
                 {accountLink}
@@ -611,6 +613,7 @@ export function AppShell({
           </div>
         </header>
         <main className={s.content}>
+          <div className={s.workspace}>
           {showModule && children}
           {accessKind === "pending" && <div className={s.accessLoading} role="status" aria-label="Carregando painel"><span className={s.accessSpinner} aria-hidden="true" /><span className={s.screenReaderOnly}>Carregando painel</span></div>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
@@ -619,6 +622,7 @@ export function AppShell({
           </section>}
           {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p><AppNavLink href="/login/">Ir para o login</AppNavLink></div>}
           {accessKind === "held" && <p className={s.holdNote} role="alert">Não foi possível verificar seu acesso. Atualize a página para tentar de novo.</p>}
+          </div>
         </main>
       </div>
 

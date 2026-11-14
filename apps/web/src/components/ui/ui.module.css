@@ -1168,10 +1168,9 @@
 }
 
 .workspaceHeader .pageTitle {
-  margin: 0;
   color: var(--app-ink, #22382e);
-  font: 650 clamp(27px, 2.6vw, 35px)/1.18 Inter, Arial, sans-serif;
-  letter-spacing: -0.045em;
+  font: 700 var(--app-title-size, clamp(1.5rem, 2.45vw, 2.05rem))/1.15 Montserrat, Inter, sans-serif;
+  letter-spacing: -.04em;
 }
 
 .workspaceHeader .sectionIntro {

@@ -19,6 +19,7 @@ import {
 } from "../../lib/serving-rosters";
 import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
 import { RosterNotifications } from "./RosterNotifications";
+import { GroupRequests } from "../GroupRequests";
 import { MemberSpace } from "./MemberSpace";
 import { MinistryRosterDesk } from "./MinistryRosterDesk";
 import { ServingFrame } from "./ServingFrame";
@@ -218,6 +219,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
             )
           }
         />
+        <GroupRequests token={token} />
         </>
       )}
       {phase === "ready" && user && surface !== "membro" && scopeDenied && (

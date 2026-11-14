@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import { dasError, formatChurchDate } from "../../lib/das-operations";
 import { withBasePath } from "../../lib/paths";
+import { useActionConfirmation } from "../ui/ActionConfirmation";
 import styles from "./serving.module.css";
 
 const PATH = "/rosters/notifications";
 type Feed = { publicKey: string | null; testEnabled?: boolean; notices: {
   id: string; kind: string; title: string; body: string; path: string; createdAt: string;
-  expiresAt?: string | null; inviteStatus?: "open" | "expired" | "accepted" | "closed";
+  expiresAt?: string | null; inviteStatus?: "open" | "expired" | "accepted" | "closed" | "declined";
 }[] };
 
 function keyBytes(key: string) {
@@ -17,6 +18,7 @@ function keyBytes(key: string) {
 }
 
 export function RosterNotifications({ token, onAccepted }: { token: string; onAccepted: () => void }) {
+  const { confirm, confirmation } = useActionConfirmation();
   const [feed, setFeed] = useState<Feed>();
   const [subscribed, setSubscribed] = useState(false);
   const [supported, setSupported] = useState(false);
@@ -41,6 +43,11 @@ export function RosterNotifications({ token, onAccepted }: { token: string; onAc
       .catch(error => { if (active) setNotice(dasError(error)); });
     return () => { active = false; };
   }, [token, workerPath]);
+
+  useEffect(() => {
+    const target = window.location.hash.slice(1);
+    if (feed && target.startsWith("convite-")) document.getElementById(target)?.scrollIntoView({ block: "center" });
+  }, [feed]);
 
   async function toggle() {
     if (!feed?.publicKey || busy) return;
@@ -101,14 +108,21 @@ export function RosterNotifications({ token, onAccepted }: { token: string; onAc
     }
   }
 
-  async function accept(id: string) {
+  async function respond(id: string, action: "accept" | "decline") {
     setBusy(true);
     setNotice("");
     try {
-      await apiPost(PATH + "/invites/" + encodeURIComponent(id.split(":")[1]) + "/accept", token);
-      setFeed(current => current && { ...current, notices: current.notices.filter(item => item.id !== id) });
-      onAccepted();
-      setNotice("Substituição confirmada. Veja o culto em Minha escala.");
+      if (action === "decline" && !(await confirm({
+        title: "Recusar o convite de substituição?",
+        subject: feed?.notices.find(item => item.id === id)?.body,
+        description: "A vaga segue disponível para outro voluntário.",
+        action: "Recusar convite", cancel: "Voltar", tone: "danger",
+      }))) return;
+      await apiPost(PATH + "/invites/" + encodeURIComponent(id.split(":")[1]) + "/" + action, token);
+      setFeed(current => current && { ...current, notices: current.notices.map(item =>
+        item.id === id ? { ...item, inviteStatus: action === "accept" ? "accepted" : "declined" } : item) });
+      if (action === "accept") onAccepted();
+      setNotice(action === "accept" ? "Substituição confirmada. Veja o culto em Minha escala." : "Convite recusado.");
     } catch (error) {
       setNotice(dasError(error));
     } finally {
@@ -117,6 +131,7 @@ export function RosterNotifications({ token, onAccepted }: { token: string; onAc
   }
 
   return <section className={styles.card} aria-label="Avisos da escala" id="avisos-da-escala">
+    {confirmation}
     <h2>Avisos da escala</h2>
     {feed?.publicKey && installOnIos && <p>No iPhone ou iPad, abra o menu Compartilhar do Safari, toque em “Adicionar à Tela de Início” e ative os avisos pelo app instalado.</p>}
     {feed?.publicKey && supported && !installOnIos && <button className={styles.primary} type="button" disabled={busy} onClick={() => void toggle()}>
@@ -124,13 +139,16 @@ export function RosterNotifications({ token, onAccepted }: { token: string; onAc
     </button>}
     {feed?.testEnabled && subscribed && <button className={styles.primary} type="button" disabled={busy} onClick={() => void testPush()}>Enviar push de teste</button>}
     {notice && <p role="status">{notice}</p>}
-    {feed && (feed.notices.length ? <ul>{feed.notices.map(item => <li key={item.id}>
+    {feed && (feed.notices.length ? <ul>{feed.notices.map(item => <li key={item.id} id={item.kind === "substitute" ? "convite-" + item.id.split(":")[1] : undefined}>
       <a href={withBasePath(item.path)}>{item.title}</a>
       <p>{item.body} · {formatChurchDate(item.createdAt)}</p>
       {item.kind === "substitute" && (() => {
         const status = item.inviteStatus === "open" && item.expiresAt && Date.parse(item.expiresAt) <= Date.now() ? "expired" : item.inviteStatus;
-        if (status === "open") return <button className={styles.primary} type="button" disabled={busy} onClick={() => void accept(item.id)}>Aceitar substituição</button>;
-        return <strong>{status === "accepted" ? "Substituição confirmada" : status === "expired" ? "Prazo encerrado" : "Convite encerrado"}</strong>;
+        if (status === "open") return <div className={styles.actions}>
+          <button className={styles.primary} type="button" disabled={busy} onClick={() => void respond(item.id, "accept")}>Aceitar substituição</button>
+          <button type="button" disabled={busy} onClick={() => void respond(item.id, "decline")}>Recusar convite</button>
+        </div>;
+        return <strong>{status === "accepted" ? "Substituição confirmada" : status === "expired" ? "Prazo encerrado" : status === "declined" ? "Convite recusado" : "Convite encerrado"}</strong>;
       })()}
     </li>)}</ul> : <p>Você ainda não tem avisos.</p>)}
   </section>;

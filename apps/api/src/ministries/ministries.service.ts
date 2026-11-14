@@ -343,30 +343,69 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const roster = await this.requireRoster(rosterId, pilot);
     await this.assertRosterScope(actor, roster, pilot);
-    this.assertRosterDraft(roster);
+    this.assertRosterNotClosed(roster);
     const title = input.title.trim();
     const serviceAt = new Date(input.serviceAt);
     if (!title || !Number.isFinite(serviceAt.getTime())) throw new BadRequestException("Informe título e horário válidos.");
+    const published = roster.status === "PUBLISHED";
+    const changed = +serviceAt !== +roster.serviceAt;
+    const now = new Date();
+    if (published && (serviceAt <= now || roster.serviceAt <= now)) throw new ConflictException("Informe um horário futuro para um culto que ainda vai acontecer.");
+    if (published && input.moduleId !== undefined && input.moduleId !== roster.moduleId) {
+      throw new ConflictException("O módulo fica definido após a publicação.");
+    }
 
-    return this.prisma.$transaction(async tx => {
+    return writeRosterAssignment(this.prisma, async tx => {
       await this.assertRosterModule(tx, roster.ministryId, input.moduleId);
-      if (serviceAt.getTime() !== roster.serviceAt.getTime()) {
+      if (changed && published) {
+        const assignments = await tx.rosterAssignment.findMany({
+          where: { slot: { rosterId }, status: { in: ["PENDING", "CONFIRMED"] } },
+          select: { id: true, personId: true, partnerPersonId: true },
+        });
+        const people = [...new Set(assignments.flatMap(item => item.partnerPersonId ? [item.personId, item.partnerPersonId] : [item.personId]))];
+        await this.assertPersonsSchedulable(pilot.churchId, serviceAt, people, tx);
+        await assertNoRosterDayConflict(tx, {
+          churchId: pilot.churchId, serviceAt, personIds: people, excludeRosterId: rosterId, conflictCode: "ROSTER_SAME_DAY",
+        });
+        await tx.rosterAssignment.updateMany({
+          where: { id: { in: assignments.map(item => item.id) } },
+          data: { status: "PENDING", confirmedAt: null },
+        });
+        const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+        const notices = assignments.flatMap(item =>
+          (item.partnerPersonId ? [item.personId, item.partnerPersonId] : [item.personId]).map(personId => ({
+            id: `rescheduled:${item.id}:${now.getTime()}:${personId}`, churchId: pilot.churchId, personId, kind: "rescheduled",
+            title: "O horário da sua escala mudou", body: `${title} · ${when.format(serviceAt)}. Responda novamente no portal.`,
+            path: "/app/servir/meu-espaco/#escala-" + item.id, expiresAt: serviceAt, createdAt: now,
+          })),
+        );
+        if (notices.length) await tx.rosterNotice.createMany({ data: notices, skipDuplicates: true });
+        const declined = await tx.rosterAssignment.findMany({
+          where: { slot: { rosterId }, status: "DECLINED" }, select: { id: true },
+        });
+        if (declined.length) await tx.rosterNotice.updateMany({
+          where: { churchId: pilot.churchId, kind: "substitute", expiresAt: { gt: now },
+            OR: declined.map(item => ({ id: { startsWith: `substitute:${item.id}:` } })) },
+          data: { expiresAt: now },
+        });
+      } else if (changed) {
         const assignments = await tx.rosterAssignment.count({
           where: { slot: { rosterId }, status: { in: ["PENDING", "CONFIRMED"] } },
         });
-        if (assignments > 0) throw new ConflictException("O horário fica fixo após a primeira pessoa ser escalada.");
+        if (assignments > 0) throw new ConflictException("O horário fica fixo após a primeira pessoa ser escalada no rascunho.");
       }
       const result = await tx.roster.updateMany({
-        where: { id: rosterId, status: "DRAFT", updatedAt: roster.updatedAt },
+        where: { id: rosterId, status: roster.status, updatedAt: roster.updatedAt },
         data: { title, serviceAt, ...(input.moduleId !== undefined ? { moduleId: input.moduleId } : {}) },
       });
       if (result.count !== 1) throw new ConflictException("A escala mudou. Abra novamente para editar.");
       await tx.auditLog.create({ data: {
-        actorUserId: actor.userId, action: "roster.update", resourceType: "roster", resourceId: rosterId,
+        actorUserId: actor.userId, action: changed && published ? "roster.reschedule" : "roster.update", resourceType: "roster", resourceId: rosterId,
         organizationId: pilot.organizationId, churchId: pilot.churchId,
+        ...(changed ? { metadata: { previousAt: roster.serviceAt.toISOString(), serviceAt: serviceAt.toISOString() } } : {}),
       } });
       return this.toRosterDto(await tx.roster.findUniqueOrThrow({ where: { id: rosterId } }));
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
   private async assertRosterModule(
@@ -1495,10 +1534,11 @@ export class MinistriesService {
     churchId: string,
     serviceAt: Date,
     personIds: string[],
+    db: Pick<Prisma.TransactionClient, "volunteerAvailability" | "volunteerImpediment"> = this.prisma,
   ): Promise<void> {
     for (const personId of personIds) {
-      await this.assertPersonAvailable(churchId, personId, serviceAt);
-      await this.assertNoImpediment(churchId, personId, serviceAt);
+      await this.assertPersonAvailable(churchId, personId, serviceAt, db);
+      await this.assertNoImpediment(churchId, personId, serviceAt, db);
     }
   }
 
@@ -1506,8 +1546,9 @@ export class MinistriesService {
     churchId: string,
     personId: string,
     serviceAt: Date,
+    db: Pick<Prisma.TransactionClient, "volunteerAvailability"> = this.prisma,
   ): Promise<void> {
-    const windows = await this.prisma.volunteerAvailability.findMany({
+    const windows = await db.volunteerAvailability.findMany({
       where: { churchId, personId, active: true },
       take: 50,
     });
@@ -1536,8 +1577,9 @@ export class MinistriesService {
     churchId: string,
     personId: string,
     serviceAt: Date,
+    db: Pick<Prisma.TransactionClient, "volunteerImpediment"> = this.prisma,
   ): Promise<void> {
-    const hit = await this.prisma.volunteerImpediment.findFirst({
+    const hit = await db.volunteerImpediment.findFirst({
       where: {
         churchId,
         personId,

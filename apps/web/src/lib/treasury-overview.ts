@@ -7,6 +7,7 @@ export type TreasuryEntry = {
   entryDate: string;
   description: string;
   status: string;
+  rejectionReason?: string;
   amountCents: number | null;
   createdByUserId: string;
   firstApprovedByUserId: string | null;
