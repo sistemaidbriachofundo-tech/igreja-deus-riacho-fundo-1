@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PortalSectionLink } from "./PublicSectionLink";
 import { instagramUrl } from "../lib/portal-content";
 import {
@@ -89,17 +89,66 @@ export function PublishedAgenda() {
       </section>
       {status !== "unavailable" && (
         <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
-          <h3 id="upcoming-events-title">Próximos eventos</h3>
-          {status === "loading" && <p className={s.agendaStatus} role="status">Carregando eventos…</p>}
-          {status === "ready" && events.length === 0 && <p className={s.agendaStatus}>Nenhum evento previsto no momento.</p>}
-          {events.length > 0 && (
-            <ul className={s.eventGrid}>
-              {events.map(event => <li key={event.id}><AgendaEvent event={event} /></li>)}
-            </ul>
-          )}
+          {events.length > 0 ? <AgendaEventStrip events={events} /> : <>
+            <h3 id="upcoming-events-title">Próximos eventos</h3>
+            {status === "loading" && <p className={s.agendaStatus} role="status">Carregando eventos…</p>}
+            {status === "ready" && <p className={s.agendaStatus}>Nenhum evento previsto no momento.</p>}
+          </>}
         </section>
       )}
     </div>
+  );
+}
+
+function AgendaEventStrip({ events }: { events: PublishedEvent[] }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [position, setPosition] = useState({ before: false, after: false });
+
+  function updatePosition() {
+    const list = listRef.current;
+    if (!list) return;
+    const before = list.scrollLeft > 1;
+    const after = list.scrollLeft + list.clientWidth < list.scrollWidth - 1;
+    setPosition(previous => previous.before === before && previous.after === after ? previous : { before, after });
+  }
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(list);
+    updatePosition();
+    return () => observer.disconnect();
+  }, [events.length]);
+
+  function move(direction: -1 | 1) {
+    const list = listRef.current;
+    const first = list?.children[0];
+    const second = list?.children[1];
+    if (!list || !first || !second) return;
+    const step = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
+    list.scrollBy({ left: direction * step });
+  }
+
+  return (
+    <>
+      <div className={s.agendaEventHeading}>
+        <h3 id="upcoming-events-title">Próximos eventos</h3>
+        {(position.before || position.after) && (
+          <div className={s.agendaEventControls}>
+            <button type="button" aria-label="Eventos anteriores" aria-controls="agenda-events" disabled={!position.before} onClick={() => move(-1)}>
+              <span aria-hidden="true">←</span>
+            </button>
+            <button type="button" aria-label="Próximos eventos da lista" aria-controls="agenda-events" disabled={!position.after} onClick={() => move(1)}>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        )}
+      </div>
+      <ul ref={listRef} id="agenda-events" className={s.eventStrip} aria-labelledby="upcoming-events-title" role="list" onScroll={updatePosition}>
+        {events.map(event => <li key={event.id}><AgendaEvent event={event} /></li>)}
+      </ul>
+    </>
   );
 }
 
@@ -125,7 +174,7 @@ function AgendaEvent({ event }: { event: PublishedEvent }) {
         {event.locationText && <p className={s.agendaEventLocation}>{event.locationText}</p>}
         {event.description && <p className={s.agendaEventDescription}>{event.description}</p>}
         <Link className={s.agendaEventAction} href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)} aria-label={"Ver inscrições para " + event.name}>
-          Ver inscrições <span aria-hidden="true">↗</span>
+          Ver inscrições <span aria-hidden="true">→</span>
         </Link>
       </div>
     </article>

@@ -148,15 +148,53 @@
   font-size: clamp(25px, 3vw, 38px);
 }
 .agendaStatus { margin: 0; color: var(--portal-on-green-muted); }
-.eventGrid {
+.agendaEventHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  margin-bottom: clamp(14px, 2vw, 22px);
+}
+.agendaEventHeading h3 { margin-bottom: 0; }
+.agendaEventControls { display: flex; gap: 8px; }
+.agendaEventControls button {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(12px, 1.8vw, 22px);
+  place-items: center;
+  width: 44px;
+  height: 44px;
   padding: 0;
+  background: #1b1c1f;
+  border: 1px solid #a65831;
+  border-radius: 9px;
+  color: #ffad7b;
+  font-size: 22px;
+  cursor: pointer;
+}
+.agendaEventControls button:hover:enabled { color: #18120e; background: #ffad7b; }
+.agendaEventControls button:focus-visible { outline: 2px solid #ffad7b; outline-offset: 3px; }
+.agendaEventControls button:disabled { opacity: .42; cursor: default; }
+.eventStrip {
+  display: flex;
+  gap: clamp(12px, 1.8vw, 22px);
+  min-width: 0;
   margin: 0;
+  padding: 0 0 9px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-color: #a65831 #191a1d;
+  scrollbar-width: thin;
   list-style: none;
 }
-.eventGrid > li { display: flex; min-width: 0; }
+.eventStrip > li {
+  display: flex;
+  flex: 0 0 min(88%, clamp(270px, 40%, 430px));
+  min-width: 0;
+  scroll-snap-align: start;
+}
+.eventStrip > li:last-child:not(:only-child) { scroll-snap-align: end; }
 .visitEvent {
   display: flex;
   flex-direction: column;
@@ -228,7 +266,11 @@
 .agendaEventAction:focus-visible { outline: 2px solid #ffad7b; outline-offset: 4px; }
 
 @media (max-width: 620px) {
-  .eventGrid, .visitSchedule { grid-template-columns: minmax(0, 1fr); }
+  .eventStrip > li { flex-basis: 88%; }
+  .eventStrip > li:only-child { flex-basis: 100%; }
+  .visitSchedule { grid-template-columns: minmax(0, 1fr); }
   .visitSchedule { gap: 14px; }
   .sundayTimes li:first-child { padding-inline-start: 0; border-inline-start: 0; }
 }
+
+@media (prefers-reduced-motion: reduce) { .eventStrip { scroll-behavior: auto; } }
