@@ -31,9 +31,9 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 42px;
+  min-height: 44px;
   padding: 10px 15px;
-  border-radius: 9px;
+  border-radius: 999px;
   font: 660 12px/1.25 Inter, Arial, sans-serif;
   text-decoration: none;
   cursor: pointer;
@@ -191,7 +191,7 @@
   color: #738477;
   font: 540 12px Inter, Arial, sans-serif;
 }
-.pagination button { min-height: 36px; background: #fff; border: 1px solid #dbe6dd; color: #3b654c; padding: 7px 12px; font-size: 11px; }
+.pagination button { min-height: 44px; background: #fff; border: 1px solid #dbe6dd; color: #3b654c; padding: 7px 12px; font-size: 11px; }
 .pagination button:hover { background: #f1f7f2; }
 .admissions { display: grid; gap: 9px; margin-top: 18px; }
 .admission {
@@ -305,7 +305,7 @@
 .pipelineEyebrow{color:#99793d;font-size:.68rem;letter-spacing:.12em;font-weight:840}
 .pipelineHead h2{color:#174532;font:830 clamp(1.2rem,2vw,1.62rem)/1.3 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.04em;margin:5px 0}
 .pipelineHead p{margin:0;color:#6b8071;font-size:.8rem;line-height:1.5}
-.pipelineAll{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-height:43px;padding:10px 13px;border:1px solid #cddfd1;border-radius:10px;background:#f2f8f2;text-decoration:none;color:#255943;font-size:.78rem;font-weight:800}
+.pipelineAll{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-height:44px;padding:10px 13px;border:1px solid #cddfd1;border-radius:999px;background:#f2f8f2;text-decoration:none;color:#255943;font-size:.78rem;font-weight:800}
 .pipelineAll:hover{background:#e5f1e7}
 .pipelineSteps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .pipelineStep{position:relative;display:grid;align-content:space-between;justify-items:start;gap:12px;min-width:0;min-height:173px;border:1px solid #e3eae1;border-radius:14px;background:linear-gradient(155deg,#f8fbf6,#fff);padding:16px;text-decoration:none;color:#234b38;transition:transform .15s,background .15s}

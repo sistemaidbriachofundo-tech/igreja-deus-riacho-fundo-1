@@ -1,7 +1,8 @@
 "use client";
 
-import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
+import { isAdminEnabled } from "../../lib/admin-environment";
 import { useCallback, useEffect, useState } from "react";
+import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
 import { ApiRequestError, apiGet, getApiBaseUrl, loadStoredToken } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
@@ -126,9 +127,8 @@ export function ManagementReports() {
   }
 
   return <AppShell active={null} meta="Relatórios">
-    {notice && <p className={s.blocked} role="alert">{notice}</p>}
     <OperationalReports
-      production={isProductionAdmin()}
+      notice={notice}
       membership={membership}
       ministries={ministries}
       participation={participation}
@@ -152,7 +152,6 @@ export function ManagementReports() {
       }}
       onDownload={(report, format) => { void download(report, format); }}
     />
-    <p className={s.notice}><a className={s.link} href={withBasePath("/app/tesouraria/")}>Abrir a tesouraria</a></p>
   </AppShell>;
 }
 
@@ -310,14 +309,13 @@ export function ReportsView(props: {
   return <main className={s.page}>
     <header className={s.header}>
       <div>
-        <div className={s.kicker}>FRENTE E · RELATÓRIOS</div>
         <h1>Membresia e ministérios</h1>
-        <p>As contagens vêm da API. Registros de menores não são listados. Integrante formal continua bloqueado enquanto não houver tabela.</p>
+        <p>Consulte os totais de membresia e a participação nos ministérios.</p>
       </div>
-      <div className={s.reportLinks}><a className={s.link} href={withBasePath("/app/secretaria/indicadores/")}>Painel completo de membresia</a>
-      <a className={s.link} href={withBasePath("/app/eventos-gestao/")}>Gestão de eventos</a></div>
+      <div className={s.reportLinks}><a className={ui.workspaceSecondary} href={withBasePath("/app/secretaria/indicadores/")}>Painel completo de membresia</a>
+      <a className={ui.workspaceSecondary} href={withBasePath("/app/eventos-gestao/")}>Gestão de eventos</a></div>
     </header>
-    {props.phase === "disabled" && <p className={s.blocked} role="status">Homologação desabilitada. Nenhum total foi inventado.</p>}
+    {props.phase === "disabled" && <p className={s.blocked} role="status">Relatórios indisponíveis neste endereço.</p>}
     {props.phase === "signed-out" && <p className={s.notice} role="status">Entre na área administrativa para consultar os relatórios.</p>}
     {props.phase === "loading" && <p className={s.notice} role="status">Consultando relatórios autorizados…</p>}
     {props.phase === "forbidden" && <p className={s.blocked} role="alert">{props.notice}</p>}
@@ -356,11 +354,11 @@ function ReportCard(props: {
   return <section className={s.panel}>
     <h2>{props.title}</h2>
     {props.note && <p className={ready ? s.notice : s.blocked}>{props.note}</p>}
-    {!ready && <p>A API não devolveu contagens para este relatório.</p>}
+    {!ready && <p>Nenhum dado disponível para este relatório.</p>}
     {ready && <ul className={s.lines}>{props.lines.map((line) => <li key={line.label}><span>{line.label}</span><strong>{line.value}</strong></li>)}</ul>}
     <div className={s.actions}>
-      <button type="button" disabled={props.busy || !ready} onClick={props.onCsv}>Exportar CSV</button>
-      <button type="button" disabled={props.busy || !ready} onClick={props.onPdf}>Exportar PDF</button>
+      <button className={ui.workspaceSecondary} type="button" disabled={props.busy || !ready} onClick={props.onCsv}>Exportar CSV</button>
+      <button className={ui.workspaceSecondary} type="button" disabled={props.busy || !ready} onClick={props.onPdf}>Exportar PDF</button>
     </div>
   </section>;
 }

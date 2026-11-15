@@ -8,6 +8,7 @@ import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
 import s from "./expense-approvals.module.css";
+import ui from "./ui/ui.module.css";
 
 type Receipt = { id: string; displayName: string };
 
@@ -98,7 +99,7 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     return <div className={s.receipts}>
       {files === null ? <p>Comprovantes indisponíveis. Volte para atualizar a consulta.</p> :
         files.length === 0 ? <p>Nenhum comprovante anexado.</p> :
-        files.map(file => <button type="button" key={file.id} onClick={() => void downloadReceipt(entry, file)}>{file.displayName}</button>)}
+        files.map(file => <button className={ui.workspaceSecondary} type="button" key={file.id} onClick={() => void downloadReceipt(entry, file)}><UIIcon name="download" size={16} /> {file.displayName}</button>)}
     </div>;
   }
 
@@ -147,7 +148,7 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     {error && <p className={s.error} role="alert">{error}</p>}
     <div className={s.actions}>
       <strong>{rows === null ? (error ? "Consulta indisponível" : "Consultando…") : `${rows.length} ${rows.length === 1 ? "despesa pendente" : "despesas pendentes"}`}</strong>
-      <button type="button" onClick={() => void load()} disabled={Boolean(busyId)}>Atualizar</button>
+      <button className={ui.workspaceSecondary} type="button" onClick={() => void load()} disabled={Boolean(busyId)}><UIIcon name="refresh" size={16} /> Atualizar</button>
     </div>
     {rows?.length === 0 && <div className={s.empty}><UIIcon name="check" size={27}/><strong>Nenhuma despesa pendente</strong><p>Os lançamentos enviados pela Tesouraria aparecem aqui.</p></div>}
     {target && rows && !rows.some(row => row.id === target) && <p role="status">Esta despesa saiu da fila de aprovação.</p>}
@@ -171,8 +172,9 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
         <div className={s.itemBottom}>
           <small>{row.firstApprovedByUserId ? "Aguardando aprovação pastoral" : "Aguardando conferência da Tesouraria"}</small>
           {canApprove && <div className={s.itemActions}>
-            <button type="button" onClick={() => void decide(row, true)} disabled={Boolean(busyId)}>Devolver despesa</button>
-            <button type="button" onClick={() => void decide(row)} disabled={Boolean(busyId)}>
+            <button className={ui.workspaceSecondary} type="button" onClick={() => void decide(row, true)} disabled={Boolean(busyId)}>Devolver despesa</button>
+            <button className={ui.workspacePrimary} type="button" onClick={() => void decide(row)} disabled={Boolean(busyId)}>
+            <UIIcon name="check" size={16} />
             {busyId === row.id ? "Salvando…" : phase === "PASTOR" ? "Aprovar despesa" : "Confirmar conferência"}
           </button></div>}
         </div>

@@ -18,20 +18,6 @@
 .itemTitle span { font-weight: 750; font-variant-numeric: tabular-nums; }
 .item > p, .itemBottom small { color: #4d6459; font-size: .83rem; margin: 0; }
 
-.actions button, .itemBottom button {
-  min-height: 44px;
-  padding: 9px 15px;
-  border: 1px solid #c8dbd0;
-  border-radius: 9px;
-  background: #fff;
-  color: #1c5039;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.itemBottom button { background: #20553e; border-color: #20553e; color: #fff; }
-.actions button:disabled, .itemBottom button:disabled { opacity: .6; cursor: not-allowed; }
-
 .list { display: grid; gap: 12px; min-width: 0; }
 .item, .empty, .panel {
   padding: clamp(16px, 2.3vw, 23px);
@@ -68,14 +54,13 @@
 .error { border-color: #dfc5c5; background: #fff2f1; color: #8a3431; }
 
 @media (max-width: 440px) {
-  .itemBottom button { width: 100%; }
+  .itemActions, .itemBottom button { width: 100%; }
 }
 
 .item[data-target="true"] { border-color: #b76633; box-shadow: 0 0 0 2px #f5e4d8; }
 .receipts { display: grid; justify-items: start; gap: 8px; }
-.receipts button { border: 1px solid #cadbd0; background: #fff; border-radius: 8px; padding: 8px 10px; color: #1c5039; cursor: pointer; overflow-wrap: anywhere; }
+.receipts button { max-width: 100%; overflow-wrap: anywhere; }
 
 .itemActions { display: flex; flex-wrap: wrap; gap: 8px; }
-.itemActions button:first-child { color: #28513d; background: #fff; border-color: #bbd0c2; }
 .reason { display: grid; gap: 6px; margin-top: 12px; }
 .reason textarea { border: 1px solid #bbd0c2; border-radius: 8px; padding: 8px; min-height: 65px; font: inherit; }

@@ -567,7 +567,7 @@ export function TreasuryPanel() {
                 </form>
                 {attachment?.id === entry.id && <p role="alert">{attachment.message}</p>}
               </details>}
-              {canApproveExpense && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
+              {canApproveExpense && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
             </article>;
           })}
         </section>}
@@ -606,14 +606,14 @@ export function TreasuryPanel() {
                 {entry.lines.map((line, index) => <p key={index}>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"} · {formatBRL(line.cents)}</p>)}
                 {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
               </details>
-              {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
-              {canWrite && approval.canApprove && <button type="button" className={styles.entryAction} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
+              {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
+              {canWrite && approval.canApprove && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
             </article>;
             })}
           </section>)}
           {rows.length > 15 && <div className={styles.pagination}>
-            <button type="button" disabled={statementPage === 1} onClick={() => setPage(statementPage - 1)}>Anterior</button><span>Página {statementPage} de {Math.ceil(rows.length / 15)}</span>
-            <button type="button" disabled={statementPage * 15 >= rows.length} onClick={() => setPage(statementPage + 1)}>Próxima</button>
+            <button className={ui.workspaceSecondary} type="button" disabled={statementPage === 1} onClick={() => setPage(statementPage - 1)}>Anterior</button><span>Página {statementPage} de {Math.ceil(rows.length / 15)}</span>
+            <button className={ui.workspaceSecondary} type="button" disabled={statementPage * 15 >= rows.length} onClick={() => setPage(statementPage + 1)}>Próxima</button>
           </div>}
         </section>}
 
@@ -653,7 +653,7 @@ export function TreasuryPanel() {
             {tab === "compromisso" && <AccountSelect label="Conta a pagar" name="secondary" accounts={payables} />}
             {(tab === "pagar" || tab === "despesa") && <AccountSelect label="Conta bancária" name="secondary" accounts={banks} />}
             {tab === "liquidacao" && <label>Taxa do cartão (R$) <input name="fee" inputMode="decimal" placeholder="0,00" /></label>}
-            <button className={styles.wide} type="submit" disabled={disabled}>{busy ? "Salvando…" : tab === "despesa" ? "Enviar para aprovação do pastor" : "Gravar rascunho"}</button>
+            <button className={`${ui.workspacePrimary} ${styles.wide}`} type="submit" disabled={disabled}>{busy ? "Salvando…" : tab === "despesa" ? "Enviar para aprovação do pastor" : "Gravar rascunho"}</button>
           </form>
         </section>}
       </section>
