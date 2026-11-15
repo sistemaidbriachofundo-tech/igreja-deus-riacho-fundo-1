@@ -6,7 +6,7 @@
 .panel label{display:flex;flex-direction:column;gap:6px;font-size:.92rem;font-weight:700;color:#507162;min-width:0}
 .panel input,.panel select,.panel textarea{font:inherit;font-weight:450;color:#294b3c;border:1px solid #d5e5d9;border-radius:10px;background:#fbfdfb;padding:12px;min-height:44px;width:100%}
 .panel textarea{min-height:96px;resize:vertical}
-.panel button{font:inherit;font-weight:750;color:#fff;background:#285c46;border:1px solid #285c46;border-radius:10px;min-height:44px;padding:10px 14px;cursor:pointer}
+.panel button:where(:not(.calendarControls button, .agendaRow button)){font:inherit;font-weight:750;color:#fff;background:#285c46;border:1px solid #285c46;border-radius:999px;min-height:44px;padding:10px 14px;cursor:pointer}
 .panel button:disabled{opacity:.5;cursor:not-allowed}
 .panel button.secondary{background:#f5f9f6;color:#3b6d53;border-color:#d2e1d5}
 .actions{display:flex;flex-wrap:wrap;gap:10px}
@@ -26,11 +26,8 @@
 .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
 .toolbar label{display:flex;flex-direction:column;gap:6px;font-size:.92rem;font-weight:700;color:#507162;min-width:min(100%,220px);flex:1}
 .toolbar input,.toolbar select{font:inherit;font-weight:450;color:#294b3c;border:1px solid #d5e5d9;border-radius:10px;background:#fbfdfb;padding:12px;min-height:44px;width:100%}
-.monthNav,.viewToggle{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.monthNav strong{min-width:12ch;color:#254b3b}
-.toolbar button,.viewToggle button,.monthNav button{font:inherit;font-weight:750;min-height:44px;padding:10px 14px;border-radius:10px;cursor:pointer}
-.checkline{display:flex;align-items:center;gap:8px;font-weight:700;color:#507162}
-.checkline input{width:20px;height:20px}
+.agenda .checkline{display:flex;flex-direction:row;align-items:center;gap:8px;min-height:44px;width:fit-content;cursor:pointer}
+.checkline input{width:24px;height:24px;min-height:24px;flex:none}
 .calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;min-width:0}
 .weekday{font-size:.75rem;font-weight:800;color:#72897b;text-align:center;padding:4px 0}
 .day,.dayOutside{min-height:92px;border:1px solid #e1ebe3;border-radius:12px;padding:6px;background:#fff;display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -54,9 +51,8 @@
 .panel h2{color:#2a503f;font-weight:700;font-size:1.12rem;}
 .panel label,.toolbar label{color:#557565;font-weight:650;font-size:.83rem;}
 .panel input,.panel select,.panel textarea,.toolbar input,.toolbar select{border-color:#d9e5dc;background:#fbfdfb;color:#294b3c;border-radius:9px;}
-.panel button,.toolbar button,.monthNav button,.viewToggle button{border-radius:999px;}
-.panel button{background:#285c46;border-color:#285c46;color:#fff;font-weight:650;}
-.panel button:hover{background:#204d3b;}
+.panel button:where(:not(.calendarControls button, .agendaRow button)){background:#285c46;border-color:#285c46;color:#fff;font-weight:650;}
+.panel button:where(:not(.calendarControls button, .agendaRow button)):hover{background:#204d3b;}
 .counts{gap:14px;}
 .counts div{padding:18px;border-color:#e0eae1;border-radius:12px;background:#fdfefd;}
 .counts strong{font-size:1.7rem;color:#27543d;font-weight:700;}
@@ -74,3 +70,58 @@
 .panel input[type="checkbox"] { width: 24px; min-height: 24px; }
 
 .panel[id="novo-evento"] { scroll-margin-top: 88px; }
+.panel[id="novo-evento"] > button { justify-self: start; }
+
+.agendaHeading { letter-spacing: -.025em; }
+.fieldLabel { display: inline-flex; align-items: center; gap: 6px; }
+.calendarControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.viewToggle { flex: none; }
+.monthNav { display: flex; align-items: center; gap: 4px; }
+.monthNav strong { min-width: 12ch; text-align: center; color: #254b3b; }
+.monthNav strong::first-letter { text-transform: uppercase; }
+.monthNav button { width: 44px; padding: 0; border-radius: 50%; }
+.previousArrow { display: inline-flex; transform: rotate(180deg); }
+.agendaList { margin: 0; padding: 0; list-style: none; }
+.agendaRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--app-border, #dce6de);
+}
+.agendaRow[data-selected="true"] { border-color: transparent; border-radius: 14px; background: #edf4ee; }
+.agendaRow strong, .agendaRow small { display: block; overflow-wrap: anywhere; }
+.agendaRow small { margin-top: 3px; color: #526f61; }
+.agendaIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e6f0e7;
+  color: #24533e;
+}
+
+@media (max-width: 530px) {
+  .agenda .toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+  .agenda .toolbar label, .agenda .toolbar select { min-width: 0; }
+  .calendarControls { gap: 6px; }
+  .calendar { gap: 4px; }
+  .day, .dayOutside { min-height: 54px; }
+  .panel[id="novo-evento"] > button { justify-self: stretch; }
+  .agendaRow { gap: 7px; padding-inline: 4px; }
+  .agendaRow button { padding-inline: 7px; font-size: .75rem; }
+  .agendaIcon { width: 30px; height: 30px; }
+}

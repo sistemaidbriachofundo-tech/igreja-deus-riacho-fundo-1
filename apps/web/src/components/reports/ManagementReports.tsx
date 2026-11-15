@@ -1,7 +1,7 @@
 "use client";
 
 import { isAdminEnabled } from "../../lib/admin-environment";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
 import { ApiRequestError, apiGet, getApiBaseUrl, loadStoredToken } from "../../lib/api";
@@ -20,6 +20,9 @@ import s from "./management-reports.module.css";
 type Phase = "disabled" | "signed-out" | "loading" | "forbidden" | "error" | "ready";
 type ReportName = "membership" | "ministries" | "participation" | "ministry-cost";
 
+type ReportFilters = { from: string; to: string; ministryId: string; status: string };
+const EMPTY_FILTERS: ReportFilters = { from: "", to: "", ministryId: "", status: "" };
+
 const idle = <T,>(): Slot<T> => ({ state: "loading" });
 
 export function ManagementReports() {
@@ -27,6 +30,9 @@ export function ManagementReports() {
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [applied, setApplied] = useState(EMPTY_FILTERS);
+  const [ministryOptions, setMinistryOptions] = useState<MinistryReport["ministries"]>([]);
+  const requestId = useRef(0);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [ministryId, setMinistryId] = useState("");
@@ -36,7 +42,9 @@ export function ManagementReports() {
   const [participation, setParticipation] = useState<Slot<ParticipationReport>>(enabled ? idle() : { state: "disabled" });
   const [cost, setCost] = useState<Slot<MinistryCostReport>>(enabled ? idle() : { state: "disabled" });
 
-  const load = useCallback((stored: string, filters: { from: string; to: string; ministryId: string; status: string }) => {
+  const load = useCallback((stored: string, filters: ReportFilters) => {
+    const currentRequest = ++requestId.current;
+    setApplied(filters);
     const period = query({ from: filters.from, to: filters.to });
     const ministry = filters.ministryId ? `ministryId=${encodeURIComponent(filters.ministryId)}` : "";
     const eventQuery = query({
@@ -64,17 +72,23 @@ export function ManagementReports() {
     for (const [name, path] of jobs) {
       void apiGet<unknown>(path, stored)
         .then((payload) => {
+          if (requestId.current !== currentRequest) return;
           const parsed = parseReport(name, payload);
           if (!parsed) {
             place(name, { state: "error", message: "A API devolveu um relatório incompleto." });
             return;
           }
           if (name === "membership") setMembership({ state: "ready", data: parsed as MembershipReport });
-          if (name === "ministries") setMinistries({ state: "ready", data: parsed as MinistryReport });
+          if (name === "ministries") {
+            const data = parsed as MinistryReport;
+            setMinistries({ state: "ready", data });
+            if (!filters.ministryId) setMinistryOptions(data.ministries);
+          }
           if (name === "participation") setParticipation({ state: "ready", data: parsed as ParticipationReport });
           if (name === "ministry-cost") setCost({ state: "ready", data: parsed as MinistryCostReport });
         })
         .catch((error: unknown) => {
+          if (requestId.current !== currentRequest) return;
           const message = error instanceof ApiRequestError && error.status === 403
             ? "Seu perfil não tem autorização para este relatório."
             : dasError(error);
@@ -98,14 +112,20 @@ export function ManagementReports() {
       return;
     }
     setToken(stored);
-    load(stored, { from: "", to: "", ministryId: "", status: "" });
+    load(stored, EMPTY_FILTERS);
+    return () => { requestId.current += 1; };
   }, [enabled, load]);
 
   async function download(report: ReportName, format: "csv" | "pdf") {
     if (!token) return;
     setBusy(true);
     setNotice("");
-    const period = query({ from, to, ministryId: report === "membership" ? "" : ministryId, status: report === "participation" ? status : "" });
+    const period = query({
+      from: applied.from,
+      to: applied.to,
+      ministryId: report === "membership" ? "" : applied.ministryId,
+      status: report === "participation" ? applied.status : "",
+    });
     try {
       const response = await fetch(`${getApiBaseUrl()}/reports/${report}.${format}${period}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -136,6 +156,7 @@ export function ManagementReports() {
       from={from}
       to={to}
       ministryId={ministryId}
+      ministryOptions={ministryOptions}
       status={status}
       busy={busy}
       onFrom={setFrom}

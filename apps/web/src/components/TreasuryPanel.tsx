@@ -502,7 +502,7 @@ export function TreasuryPanel() {
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
         {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      {view !== "aprovacoes" && <div className={styles.toolbar}>
+      {view !== "aprovacoes" && <div className={`${styles.toolbar} ${styles.scopeFilters}`} role="group" aria-label="Escopo da Tesouraria">
         <label>Centro de custo
           <select value={activeCenter} onChange={event => { setCenter(event.target.value); setBankFilter(""); setPage(1); }} disabled={!data?.centers.length || busy}>
             <option value="">Toda a congregação</option>
@@ -574,11 +574,14 @@ export function TreasuryPanel() {
 
         {view === "extrato" && <section className={styles.card} aria-label="Extrato e aprovações">
           <header className={styles.statementHeader}>
-            <div><h2>Extrato</h2><p>Consulte os movimentos e confira como foram lançados.</p></div>
-            {data?.entries && <span>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
+            <div className={styles.statementTitle}>
+              <span className={styles.statementIcon}><UIIcon name="book" size={22} /></span>
+              <div><h2>Extrato</h2><p>Consulte os movimentos e confira como foram lançados.</p></div>
+            </div>
+            {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
           </header>
-          <div className={styles.toolbar}>
-            <label>Buscar movimento<input type="search" value={query} placeholder="Descrição" onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+          <div className={`${styles.toolbar} ${styles.statementFilters}`} role="group" aria-label="Filtros do extrato">
+            <label><span><UIIcon name="search" size={15} /> Buscar movimento</span><input type="search" value={query} placeholder="Descrição" onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
             <label>Conta<select value={bankFilter} onChange={event => { setBankFilter(event.target.value); setPage(1); }}><option value="">Todas</option>{banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
             <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
             <label>Situação<select value={statementStatus} onChange={event => { setStatementStatus(event.target.value); setPage(1); }}>
@@ -588,11 +591,11 @@ export function TreasuryPanel() {
           </div>
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.entriesNote && <p role="status">{data.entriesNote}</p>}
-          {(bankFilter || channelFilter || statementStatus || query) && <button className={ui.workspaceSecondary}
-            type="button" onClick={clearStatementFilters}>Limpar filtros do extrato</button>}
+          {(bankFilter || channelFilter || statementStatus || query) && <button className={`${ui.workspaceQuiet} ${styles.clearStatement}`}
+            type="button" onClick={clearStatementFilters}><UIIcon name="close" size={16} /> Limpar filtros do extrato</button>}
           {data?.entries && rows.length === 0 && <p className={styles.expenseEmpty}>Nenhum movimento no período e nos filtros selecionados.</p>}
           {[...movementsByDay].map(([date, movements]) => <section key={date} className={styles.statementDay} aria-label={displayDate(date)}>
-            <h3><time dateTime={date}>{displayDate(date)}</time></h3>
+            <h3><UIIcon name="calendar" size={16} /><time dateTime={date}>{displayDate(date)}</time></h3>
             {movements.map(entry => {
             const approval = approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []);
             const ledgerType = ledgerChannel(entry, accountMap);
@@ -602,7 +605,7 @@ export function TreasuryPanel() {
                 <div><strong>{entry.description}</strong><small className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</small></div>
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
-              <details className={styles.movementDetails}><summary>Detalhes</summary>
+              <details className={styles.movementDetails}><summary>Detalhes do movimento</summary>
                 {entry.lines.map((line, index) => <p key={index}>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"} · {formatBRL(line.cents)}</p>)}
                 {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
               </details>
@@ -612,8 +615,8 @@ export function TreasuryPanel() {
             })}
           </section>)}
           {rows.length > 15 && <div className={styles.pagination}>
-            <button className={ui.workspaceSecondary} type="button" disabled={statementPage === 1} onClick={() => setPage(statementPage - 1)}>Anterior</button><span>Página {statementPage} de {Math.ceil(rows.length / 15)}</span>
-            <button className={ui.workspaceSecondary} type="button" disabled={statementPage * 15 >= rows.length} onClick={() => setPage(statementPage + 1)}>Próxima</button>
+            <button className={ui.workspaceSecondary} type="button" disabled={statementPage === 1} onClick={() => setPage(statementPage - 1)}><span className={styles.previousPage}><UIIcon name="chevron" size={16} /></span> Anterior</button><span>Página {statementPage} de {Math.ceil(rows.length / 15)}</span>
+            <button className={ui.workspaceSecondary} type="button" disabled={statementPage * 15 >= rows.length} onClick={() => setPage(statementPage + 1)}>Próxima <UIIcon name="chevron" size={16} /></button>
           </div>}
         </section>}
 

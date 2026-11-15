@@ -117,6 +117,7 @@ export function OperationalReports(props: {
   to: string;
   ministryId: string;
   status: string;
+  ministryOptions?: Pick<MinistryReport["ministries"][number], "id" | "name">[];
   busy: boolean;
   onFrom: (value: string) => void;
   onTo: (value: string) => void;
@@ -125,7 +126,7 @@ export function OperationalReports(props: {
   onApply: () => void;
   onDownload: (report: "membership" | "ministries" | "participation" | "ministry-cost", format: "csv" | "pdf") => void;
 }) {
-  const ministryOptions = props.ministries.state === "ready" ? props.ministries.data.ministries : [];
+  const ministryOptions = props.ministryOptions ?? (props.ministries.state === "ready" ? props.ministries.data.ministries : []);
   return (
     <div className={s.page}>
       <PageHeader appearance="workspace" heading="h1" title="Relatórios"
@@ -137,17 +138,21 @@ export function OperationalReports(props: {
 
       <nav className={s.sectionLinks} aria-label="Relatórios disponíveis">
         {Object.entries(sections).map(([id, section]) => <a href={`#report-${id}`} key={id}>
-          <UIIcon name={section.icon} size={19} /><span>{section.label}</span><UIIcon name="chevron" size={14} />
+          <span className={s.sectionIcon}><UIIcon name={section.icon} size={19} /></span>
+          <span>{section.label}</span><UIIcon name="chevron" size={14} />
         </a>)}
       </nav>
 
       <form className={s.filters} aria-label="Filtros dos relatórios" onSubmit={(event) => { event.preventDefault(); props.onApply(); }}>
-        <label>De
-          <input type="date" value={props.from} onChange={(event) => props.onFrom(event.target.value)} />
-        </label>
-        <label>Até
-          <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
-        </label>
+        <fieldset className={s.period}>
+          <legend><UIIcon name="calendar" size={15} /> Período</legend>
+          <label>De
+            <input type="date" value={props.from} onChange={(event) => props.onFrom(event.target.value)} />
+          </label>
+          <label>Até
+            <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
+          </label>
+        </fieldset>
         <label><span id="report-ministry-label">Ministério</span>
           <select aria-labelledby="report-ministry-label" value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
             <option value="">Todos</option>
@@ -225,12 +230,12 @@ function ReportFrame<T>(props: {
           <span className={s.panelIcon}><UIIcon name={icon} size={21} /></span>
           <h2 id={id + "-title"}>{label}</h2>
         </div>
-        <div className={s.actions}>
-          <button className={ui.workspaceSecondary} type="button" disabled={props.busy || !ready} onClick={props.onCsv}>
-            <UIIcon name="download" size={16} /> Exportar CSV
+        <div className={s.exports} role="group" aria-label={`Exportar: ${label}`}>
+          <button className={ui.workspaceQuiet} type="button" aria-label="Exportar CSV" disabled={props.busy || !ready} onClick={props.onCsv}>
+            <UIIcon name="grid" size={16} /> CSV
           </button>
-          <button className={ui.workspaceSecondary} type="button" disabled={props.busy || !ready} onClick={props.onPdf}>
-            <UIIcon name="download" size={16} /> Exportar PDF
+          <button className={ui.workspaceQuiet} type="button" aria-label="Exportar PDF" disabled={props.busy || !ready} onClick={props.onPdf}>
+            <UIIcon name="download" size={16} /> PDF
           </button>
         </div>
       </header>
@@ -272,11 +277,13 @@ function MembershipBody({ data }: { data: MembershipReport }) {
     <>
       {data.note && <p className={s.notice}>{data.note}</p>}
       {!data.countsMatch && <p className={s.blocked} role="alert">As contagens não fecham. O gráfico ficou de fora.</p>}
+      <dl className={s.highlights}>
+        <div><dt>Total de membresias</dt><dd>{data.totalMemberships}</dd></div>
+        <div><dt>Visitantes adultos ativos</dt><dd>{data.adultVisitorsActive}</dd></div>
+        <div><dt>Menores omitidos</dt><dd>{data.minorsOmitted}</dd></div>
+      </dl>
       <Chart bars={bars} caption="Membresia por situação" format={(value) => String(value)} />
       <ul className={s.lines}>
-        <li><span>Total de membresias</span><strong>{data.totalMemberships}</strong></li>
-        <li><span>Menores omitidos</span><strong>{data.minorsOmitted}</strong></li>
-        <li><span>Visitantes adultos ativos</span><strong>{data.adultVisitorsActive}</strong></li>
         {Object.entries(data.adultsByStatus).map(([status, value]) => (
           <li key={status}><span>Adultos · {labelOf(status)}</span><strong>{value}</strong></li>
         ))}

@@ -12,6 +12,8 @@ import {
   shiftMonth,
   type AgendaItem,
 } from "./calendar";
+import { UIIcon } from "../ui/UIIcon";
+import ui from "../ui/ui.module.css";
 import s from "./event-management.module.css";
 
 type Mode = "calendario" | "lista";
@@ -41,11 +43,11 @@ export function EventAgenda({
     <div className={s.agenda}>
       <div className={s.toolbar}>
         <label>
-          Buscar
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome do encontro" />
+          <span className={s.fieldLabel}><UIIcon name="search" size={15} /> Buscar</span>
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome do encontro" />
         </label>
         <label>
-          Situação
+          <span className={s.fieldLabel}><UIIcon name="filter" size={15} /> Situação</span>
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">Todas</option>
             <option value="DRAFT">Rascunho</option>
@@ -54,14 +56,24 @@ export function EventAgenda({
             <option value="ARCHIVED">Arquivado</option>
           </select>
         </label>
-        <div className={s.monthNav} role="group" aria-label="Mês da agenda">
-          <button type="button" className={s.secondary} onClick={() => setMonth((current) => shiftMonth(current, -1))}>Mês anterior</button>
-          <strong>{monthTitle(month)}</strong>
-          <button type="button" className={s.secondary} onClick={() => setMonth((current) => shiftMonth(current, 1))}>Próximo mês</button>
-        </div>
-        <div className={s.viewToggle} role="group" aria-label="Formato da agenda">
-          <button type="button" className={mode === "calendario" ? undefined : s.secondary} aria-pressed={mode === "calendario"} onClick={() => setMode("calendario")}>Calendário</button>
-          <button type="button" className={mode === "lista" ? undefined : s.secondary} aria-pressed={mode === "lista"} onClick={() => setMode("lista")}>Lista</button>
+      </div>
+      <div className={s.calendarControls}>
+        {monthFilter && <div className={s.monthNav} role="group" aria-label="Mês da agenda">
+          <button type="button" className={ui.workspaceQuiet} aria-label="Mês anterior" onClick={() => setMonth((current) => shiftMonth(current, -1))}>
+            <span className={s.previousArrow}><UIIcon name="chevron" size={19} /></span>
+          </button>
+          <strong aria-live="polite">{monthTitle(month)}</strong>
+          <button type="button" className={ui.workspaceQuiet} aria-label="Próximo mês" onClick={() => setMonth((current) => shiftMonth(current, 1))}>
+            <UIIcon name="chevron" size={19} />
+          </button>
+        </div>}
+        <div className={`${ui.workspaceChoices} ${s.viewToggle}`} role="group" aria-label="Formato da agenda">
+          <button type="button" aria-pressed={mode === "calendario"} onClick={() => setMode("calendario")}>
+            <UIIcon name="calendar" size={17} /> Calendário
+          </button>
+          <button type="button" aria-pressed={mode === "lista"} onClick={() => setMode("lista")}>
+            <UIIcon name="book" size={17} /> Lista
+          </button>
         </div>
       </div>
       {mode === "lista" && (
@@ -94,17 +106,21 @@ export function EventAgenda({
           ))}
         </div>
       )}
-      <div className={s.cards}>
+      {visible.length > 0 && <ul className={s.agendaList}>
         {visible.map((event) => (
-          <article className={s.card} key={event.id}>
-            <strong>{event.name || "Evento"}</strong>
-            <small>{eventStatusLabel(event.status)} · {formatAgendaWhen(event.startsAt)}</small>
-            <button type="button" className={s.secondary} aria-pressed={selectedId === event.id} onClick={() => onChoose(event.id)}>
+          <li className={s.agendaRow} key={event.id} data-selected={selectedId === event.id}>
+            <span className={s.agendaIcon}><UIIcon name="calendar" size={19} /></span>
+            <div>
+              <strong>{event.name || "Evento"}</strong>
+              <small>{eventStatusLabel(event.status)} · {formatAgendaWhen(event.startsAt)}</small>
+            </div>
+            <button type="button" className={ui.workspaceQuiet} aria-pressed={selectedId === event.id} onClick={() => onChoose(event.id)}>
               {selectedId === event.id ? "Selecionado" : "Abrir"}
+              <UIIcon name={selectedId === event.id ? "check" : "chevron"} size={16} />
             </button>
-          </article>
+          </li>
         ))}
-      </div>
+      </ul>}
     </div>
   );
 }

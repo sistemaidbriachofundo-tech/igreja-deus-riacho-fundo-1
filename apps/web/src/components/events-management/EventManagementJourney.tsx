@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { PageHeader } from "../ui/PageHeader";
 import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
+import { UIIcon } from "../ui/UIIcon";
 import { apiGet, apiPatch, apiPost, getApiBaseUrl, loadStoredToken, type LoginResult } from "../../lib/api";
 import { dasError, churchLocalToISO, readDasRows } from "../../lib/das-operations";
 import { isSyntheticLabel } from "../../lib/event-registrations";
@@ -414,8 +415,8 @@ export function EventManagementView(props: {
     <PageHeader appearance="workspace" heading="h1" title="Agenda, presença e participação"
       description="Organize eventos, acompanhe inscrições e registre a presença."
       actions={<>
-        {props.phase === "ready" && !props.treasuryOnly && <a className={ui.workspacePrimary} href="#novo-evento">Novo evento</a>}
-        <a className={ui.workspaceSecondary} href={withBasePath("/app/relatorios/")}>Relatórios de gestão</a>
+        {props.phase === "ready" && !props.treasuryOnly && <a className={ui.workspacePrimary} href="#novo-evento"><UIIcon name="plus" size={18} /> Novo evento</a>}
+        <a className={ui.workspaceSecondary} href={withBasePath("/app/relatorios/")}><UIIcon name="activity" size={18} /> Relatórios de gestão</a>
       </>} />
     {props.phase === "disabled" && <p className={s.blocked} role="status">O acesso à gestão de eventos está indisponível neste endereço.</p>}
     {props.phase === "signed-out" && <p className={s.notice} role="status">Entre com sua conta para organizar eventos.</p>}
@@ -425,7 +426,7 @@ export function EventManagementView(props: {
     {props.notice && props.phase === "ready" && <p className={s.notice} role="status">{props.notice}</p>}
     {props.phase === "ready" && <>
       <section className={s.panel}>
-        <h2>Agenda</h2>
+        <h2 className={s.agendaHeading}>Agenda</h2>
         <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
       </section>
       {!props.treasuryOnly && <form id="novo-evento" className={s.panel} aria-labelledby="novo-evento-titulo" onSubmit={props.onCreate}>
