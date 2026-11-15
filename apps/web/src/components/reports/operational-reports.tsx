@@ -148,16 +148,16 @@ export function OperationalReports(props: {
         <label>Até
           <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
         </label>
-        <label>Ministério
-          <select value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
-            <option value="">Todos os disponíveis</option>
+        <label><span id="report-ministry-label">Ministério</span>
+          <select aria-labelledby="report-ministry-label" value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
+            <option value="">Todos</option>
             {ministryOptions.map((ministry) => (
               <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
             ))}
           </select>
         </label>
-        <label>Situação do evento
-          <select value={props.status} onChange={(event) => props.onStatus(event.target.value)}>
+        <label><span id="report-status-label">Situação do evento</span>
+          <select aria-labelledby="report-status-label" value={props.status} onChange={(event) => props.onStatus(event.target.value)}>
             <option value="">Todas</option>
             <option value="PENDING_PAYMENT">Pagamento pendente</option>
             <option value="CONFIRMED">Confirmado</option>
