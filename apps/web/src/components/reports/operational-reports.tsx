@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AppNavLink } from "../AppShell";
 import { PageHeader } from "../ui/PageHeader";
+import { FilterDisclosure } from "../ui/FilterDisclosure";
 import { UIIcon, type GlyphName } from "../ui/UIIcon";
 import ui from "../ui/ui.module.css";
 import { formatBRL } from "../../lib/das-operations";
@@ -117,6 +118,7 @@ export function OperationalReports(props: {
   to: string;
   ministryId: string;
   status: string;
+  appliedFilterCount?: number;
   ministryOptions?: Pick<MinistryReport["ministries"][number], "id" | "name">[];
   busy: boolean;
   onFrom: (value: string) => void;
@@ -143,37 +145,39 @@ export function OperationalReports(props: {
         </a>)}
       </nav>
 
-      <form className={s.filters} aria-label="Filtros dos relatórios" onSubmit={(event) => { event.preventDefault(); props.onApply(); }}>
-        <fieldset className={s.period}>
-          <legend><UIIcon name="calendar" size={15} /> Período</legend>
-          <label>De
-            <input type="date" value={props.from} onChange={(event) => props.onFrom(event.target.value)} />
+      <FilterDisclosure mobileOnly closeOnSubmit count={props.appliedFilterCount}>
+        <form className={s.filters} aria-label="Filtros dos relatórios" onSubmit={(event) => { event.preventDefault(); props.onApply(); }}>
+          <fieldset className={s.period}>
+            <legend><UIIcon name="calendar" size={15} /> Período</legend>
+            <label>De
+              <input type="date" value={props.from} onChange={(event) => props.onFrom(event.target.value)} />
+            </label>
+            <label>Até
+              <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
+            </label>
+          </fieldset>
+          <label><span id="report-ministry-label">Ministério</span>
+            <select aria-labelledby="report-ministry-label" value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
+              <option value="">Todos</option>
+              {ministryOptions.map((ministry) => (
+                <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+              ))}
+            </select>
           </label>
-          <label>Até
-            <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
+          <label><span id="report-status-label">Situação do evento</span>
+            <select aria-labelledby="report-status-label" value={props.status} onChange={(event) => props.onStatus(event.target.value)}>
+              <option value="">Todas</option>
+              <option value="PENDING_PAYMENT">Pagamento pendente</option>
+              <option value="CONFIRMED">Confirmado</option>
+              <option value="CHECKED_IN">Presente</option>
+              <option value="CANCELLED">Cancelado</option>
+            </select>
           </label>
-        </fieldset>
-        <label><span id="report-ministry-label">Ministério</span>
-          <select aria-labelledby="report-ministry-label" value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
-            <option value="">Todos</option>
-            {ministryOptions.map((ministry) => (
-              <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
-            ))}
-          </select>
-        </label>
-        <label><span id="report-status-label">Situação do evento</span>
-          <select aria-labelledby="report-status-label" value={props.status} onChange={(event) => props.onStatus(event.target.value)}>
-            <option value="">Todas</option>
-            <option value="PENDING_PAYMENT">Pagamento pendente</option>
-            <option value="CONFIRMED">Confirmado</option>
-            <option value="CHECKED_IN">Presente</option>
-            <option value="CANCELLED">Cancelado</option>
-          </select>
-        </label>
-        <button className={ui.workspacePrimary} type="submit" disabled={props.busy}>
-          <UIIcon name="filter" size={17} /> Aplicar filtros
-        </button>
-      </form>
+          <button className={ui.workspacePrimary} type="submit" disabled={props.busy}>
+            <UIIcon name="filter" size={17} /> Aplicar filtros
+          </button>
+        </form>
+      </FilterDisclosure>
       {props.notice && <p className={s.blocked} role="alert">{props.notice}</p>}
 
       <ReportFrame

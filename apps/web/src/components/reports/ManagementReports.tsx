@@ -157,6 +157,7 @@ export function ManagementReports() {
       to={to}
       ministryId={ministryId}
       ministryOptions={ministryOptions}
+      appliedFilterCount={Number(Boolean(applied.from || applied.to)) + Number(Boolean(applied.ministryId)) + Number(Boolean(applied.status))}
       status={status}
       busy={busy}
       onFrom={setFrom}

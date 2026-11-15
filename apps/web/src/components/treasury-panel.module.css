@@ -347,3 +347,57 @@
 .expenseReview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; padding: 12px 0 0; border-top: 1px solid #d5e1d9; }
 .expenseReview dt { font-size: .75rem; color: #4b6358; }
 .expenseReview dd { margin: 3px 0 0; font-size: .88rem; font-weight: 700; overflow-wrap: anywhere; }
+
+.actionShort { display: none; }
+.statementSearch {
+  display: flex;
+  flex: 1 1 18rem;
+  align-items: center;
+  gap: 9px;
+  max-width: 26rem;
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid #cbdcd0;
+  border-radius: 999px;
+  color: #466c57;
+  background: #f5f9f5;
+}
+.statementSearch svg { flex: none; }
+.panel .statementSearch input {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #234c38;
+  font: 500 14px/1.2 Inter, Arial, sans-serif;
+}
+.statementSearch:focus-within { border-color: #59836b; }
+.filterFields {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #edf4ee;
+}
+.filterFields .statementFilters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
+@media (max-width: 620px) {
+  .headerShortcut { padding-inline: 7px; gap: 4px; font-size: .75rem; }
+  .actionShort { display: inline; }
+  .actionFull { display: none; }
+  .filterFields .statementFilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 360px) {
+  .headerPrimary { padding-inline: 9px; gap: 4px; font-size: .75rem; }
+  .sectionNavigation { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1px; }
+  .sectionNavigation > button { min-width: 0; padding-inline: 1px; font-size: .63rem; white-space: normal; }
+}

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AppNavLink, UIIcon } from "../AppShell";
 import { apiGet } from "../../lib/api";
 import { Alert } from "../ui/Alert";
+import ui from "../ui/ui.module.css";
 import s from "./secretary-dashboard.module.css";
 
 /** Secretaria RF1: os indicadores vêm da API, nunca de números colocados na interface. */
@@ -52,19 +53,18 @@ function shortPeriod(value: string, annual: boolean) {
     : value;
 }
 const activities = [
-  ["birth", "Aniversários"], ["baptism", "Batismos"], ["wedding", "Casamentos"],
-  ["new", "Novos cadastros"], ["changed", "Alterações"], ["visitors", "Visitantes"],
+  ["birth", "Aniversários", "birthday"], ["baptism", "Batismos", "calendar"], ["wedding", "Casamentos", "family"],
+  ["new", "Novos cadastros", "plus"], ["changed", "Alterações", "activity"], ["visitors", "Visitantes", "people"],
 ] as const;
 type Activity = (typeof activities)[number][0];
 
-function SummaryCard({ label, number, detail, icon, tone }: {
-  label: string; number: number | null; detail: string;
-  icon: "people" | "family" | "check" | "clock"; tone: "featured" | "green" | "gold" | "neutral";
+function SummaryCard({ label, number, icon, tone }: {
+  label: string; number: number | null;
+  icon: "people" | "family" | "check" | "clock"; tone: "green" | "gold" | "neutral";
 }) {
   return <article className={s.summaryCard} data-tone={tone}>
     <div className={s.cardTop}><span>{label}</span><span className={s.cardIcon}><UIIcon name={icon} size={21}/></span></div>
     <strong>{number === null ? "—" : counts.format(number)}</strong>
-    <small>{detail}</small>
   </article>;
 }
 
@@ -149,10 +149,8 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
     <section className={s.hero} aria-labelledby="secretary-panorama-title">
       <div className={s.heroCopy}>
         <h2 id="secretary-panorama-title">Panorama da <em>congregação</em></h2>
-        <p>Acompanhe cadastros, admissões e movimentações de membros.</p>
         <div className={s.heroActions}>
-          <AppNavLink href="/app/secretaria/pessoas/">Consultar fichas <UIIcon name="arrow" size={16}/></AppNavLink>
-          <AppNavLink href="/app/secretaria/admissoes/">Ver admissões <UIIcon name="arrow" size={16}/></AppNavLink>
+          <AppNavLink href="/app/secretaria/aniversariantes/"><UIIcon name="birthday" size={17}/> Aniversariantes <UIIcon name="arrow" size={15}/></AppNavLink>
         </div>
       </div>
       <div className={s.heroAside} aria-label="Informações do painel">
@@ -167,14 +165,14 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
     </Alert>}
 
     <section className={s.summary} aria-label="Indicadores principais">
-      <SummaryCard tone="green" label="Membros" number={overview.byCategory.membros} detail="Vínculos registrados" icon="check"/>
-      <SummaryCard tone="neutral" label="Famílias cadastradas" number={households} detail="Núcleos familiares" icon="family"/>
-      <SummaryCard tone="gold" label="Em admissão" number={overview.byCategory.em_admissao} detail="Pessoas em acompanhamento" icon="clock"/>
+      <SummaryCard tone="green" label="Membros" number={overview.byCategory.membros} icon="check"/>
+      <SummaryCard tone="neutral" label="Famílias cadastradas" number={households} icon="family"/>
+      <SummaryCard tone="gold" label="Em admissão" number={overview.byCategory.em_admissao} icon="clock"/>
     </section>
 
     <div className={s.sectionHeading}>
-      <div><span className={s.overline}>COMUNIDADE E CUIDADO</span><h2>Quem está conosco</h2>
-      <p>Composição da membresia e datas importantes para acompanhar as pessoas.</p></div>
+      <div><h2>Quem está conosco</h2>
+      </div>
       <div className={s.quickLink}><AppNavLink href="/app/membros/carteirinha/">
         <UIIcon name="badge" size={16}/> Carteirinhas ativas: {credentials === null ? "—" : counts.format(credentials)}
         <UIIcon name="chevron" size={16}/>
@@ -184,7 +182,6 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
     <div className={s.top}>
       <section className={s.panel} aria-labelledby="composition-title">
         <header className={s.panelHeading}>
-          <span className={s.overline}>PERFIL DE MEMBRESIA</span>
           <h3 id="composition-title">Situação dos cadastros</h3>
           <p>Clique em uma situação para encontrar as pessoas relacionadas.</p>
         </header>
@@ -223,15 +220,14 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
 
       <section className={s.panel} aria-labelledby="activity-title">
         <header className={s.panelHeading}>
-          <span className={s.overline}>ACOMPANHAMENTO</span>
           <h3 id="activity-title">Pessoas e datas especiais</h3>
           <p>Comemorações e alterações que merecem atenção da Secretaria.</p>
         </header>
         <div className={s.activityPicker} role="group" aria-label="Tipo de acompanhamento">
-          {activities.map(([key, label]) => <button key={key} type="button" aria-pressed={activity === key}
-            onClick={() => { setActivity(key); setLimit(6); }}>{label}</button>)}
+          {activities.map(([key, label, icon]) => <button key={key} type="button" aria-pressed={activity === key}
+            onClick={() => { setActivity(key); setLimit(6); }}><UIIcon name={icon} size={16}/>{label}</button>)}
         </div>
-        {celebrations && <div className={s.activityPeriod} role="group" aria-label="Período das comemorações">
+        {celebrations && <div className={`${ui.workspaceChoices} ${s.activityPeriod}`} role="group" aria-label="Período das comemorações">
           <button type="button" aria-pressed={!upcoming} onClick={() => setUpcoming(false)}>Hoje</button>
           <button type="button" aria-pressed={upcoming} onClick={() => setUpcoming(true)}>Próximos 7 dias</button>
         </div>}

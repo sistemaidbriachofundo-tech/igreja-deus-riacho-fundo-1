@@ -15,6 +15,7 @@ import { TreasuryOverview } from "./TreasuryOverview";
 import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
 import { ExpenseApprovals } from "./ExpenseApprovals";
 import { PageHeader } from "./ui/PageHeader";
+import { FilterDisclosure } from "./ui/FilterDisclosure";
 import ui from "./ui/ui.module.css";
 import styles from "./treasury-panel.module.css";
 
@@ -476,6 +477,22 @@ export function TreasuryPanel() {
     (receiving && (!revenue || (tab !== "pix" && !waiting))) ||
     (transfer && (!originAccount || pendingBalance === undefined || pendingBalance <= 0));
 
+  const scopeFilters = (
+    <div className={`${styles.toolbar} ${styles.scopeFilters}`} role="group" aria-label="Escopo da Tesouraria">
+      <label>Centro de custo
+        <select value={activeCenter} onChange={event => { setCenter(event.target.value); setBankFilter(""); setPage(1); }} disabled={!data?.centers.length || busy}>
+          <option value="">Toda a congregação</option>
+          {data?.centers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+      {view !== "lancar" && <>
+        <label>Movimentos de <input type="date" value={from} max={to || undefined} onChange={event => { setFrom(event.target.value); setPage(1); }} /></label>
+        <label>Até <input type="date" value={to} min={from || undefined} onChange={event => { setTo(event.target.value); setPage(1); }} /></label>
+      </>}
+    </div>
+  );
+  const statementFilterCount = [activeCenter, from || to, bankFilter, channelFilter, statementStatus].filter(Boolean).length;
+
   if (isPastorOnly) return <ExpenseApprovals />;
 
   return (
@@ -484,14 +501,14 @@ export function TreasuryPanel() {
       <PageHeader appearance="workspace" heading="h1" title="Tesouraria"
         description={isSample ? "Dados de teste de novembro de 2026" : undefined}
         actions={canCreateExpense && view !== "lancar" ? <>
-          <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
+          <button type="button" className={`${ui.workspacePrimary} ${styles.headerPrimary}`} onClick={() => openMovement("despesa")}>
             <UIIcon name="plus" size={17} /> Incluir despesa
           </button>
-          {canWrite && <button type="button" className={ui.workspaceQuiet} onClick={() => openMovement("pix")}>
-            <UIIcon name="wallet" size={17} /> Novo lançamento
+          {canWrite && <button type="button" className={`${ui.workspaceQuiet} ${styles.headerShortcut}`} aria-label="Novo lançamento" onClick={() => openMovement("pix")}>
+            <UIIcon name="wallet" size={17} /> <span className={styles.actionFull}>Novo lançamento</span><span className={styles.actionShort}>Lançamento</span>
           </button>}
-          {canWrite && <AppNavLink className={ui.workspaceQuiet} href="/app/eventos-gestao/">
-            <UIIcon name="calendar" size={17} /> Pix de eventos
+          {canWrite && <AppNavLink className={`${ui.workspaceQuiet} ${styles.headerShortcut}`} aria-label="Pix de eventos" href="/app/eventos-gestao/">
+            <UIIcon name="calendar" size={17} /> <span className={styles.actionFull}>Pix de eventos</span><span className={styles.actionShort}>Pix</span>
           </AppNavLink>}
         </> : undefined}
       />
@@ -502,18 +519,7 @@ export function TreasuryPanel() {
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
         {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      {view !== "aprovacoes" && <div className={`${styles.toolbar} ${styles.scopeFilters}`} role="group" aria-label="Escopo da Tesouraria">
-        <label>Centro de custo
-          <select value={activeCenter} onChange={event => { setCenter(event.target.value); setBankFilter(""); setPage(1); }} disabled={!data?.centers.length || busy}>
-            <option value="">Toda a congregação</option>
-            {data?.centers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-        </label>
-        {view !== "lancar" && <>
-          <label>Movimentos de <input type="date" value={from} max={to || undefined} onChange={event => { setFrom(event.target.value); setPage(1); }} /></label>
-          <label>Até <input type="date" value={to} min={from || undefined} onChange={event => { setTo(event.target.value); setPage(1); }} /></label>
-        </>}
-      </div>}
+      {view !== "aprovacoes" && view !== "extrato" && scopeFilters}
       {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
@@ -576,23 +582,30 @@ export function TreasuryPanel() {
           <header className={styles.statementHeader}>
             <div className={styles.statementTitle}>
               <span className={styles.statementIcon}><UIIcon name="book" size={22} /></span>
-              <div><h2>Extrato</h2><p>Consulte os movimentos e confira como foram lançados.</p></div>
+              <h2>Extrato</h2>
             </div>
             {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
           </header>
-          <div className={`${styles.toolbar} ${styles.statementFilters}`} role="group" aria-label="Filtros do extrato">
-            <label><span><UIIcon name="search" size={15} /> Buscar movimento</span><input type="search" value={query} placeholder="Descrição" onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
-            <label>Conta<select value={bankFilter} onChange={event => { setBankFilter(event.target.value); setPage(1); }}><option value="">Todas</option>{banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
-            <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
-            <label>Situação<select value={statementStatus} onChange={event => { setStatementStatus(event.target.value); setPage(1); }}>
-              <option value="">Todas</option><option value="APPROVED">Aprovados</option><option value="PENDING_APPROVAL">Aguardando aprovação</option>
-              <option value="DRAFT">Rascunhos</option><option value="REJECTED">Recusados</option><option value="reconciled">Conciliados</option>
-            </select></label>
-          </div>
+          <FilterDisclosure count={statementFilterCount} search={<label className={styles.statementSearch}>
+            <UIIcon name="search" size={17} />
+            <input aria-label="Buscar movimento" type="search" value={query} placeholder="Buscar movimento" onChange={event => { setQuery(event.target.value); setPage(1); }} />
+          </label>}>
+            <div className={styles.filterFields}>
+              {scopeFilters}
+              <div className={`${styles.toolbar} ${styles.statementFilters}`} role="group" aria-label="Filtros do extrato">
+                  <label>Conta<select value={bankFilter} onChange={event => { setBankFilter(event.target.value); setPage(1); }}><option value="">Todas</option>{banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+                  <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
+                  <label>Situação<select value={statementStatus} onChange={event => { setStatementStatus(event.target.value); setPage(1); }}>
+                    <option value="">Todas</option><option value="APPROVED">Aprovados</option><option value="PENDING_APPROVAL">Aguardando aprovação</option>
+                    <option value="DRAFT">Rascunhos</option><option value="REJECTED">Recusados</option><option value="reconciled">Conciliados</option>
+                  </select></label>
+              </div>
+            </div>
+          </FilterDisclosure>
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.entriesNote && <p role="status">{data.entriesNote}</p>}
-          {(bankFilter || channelFilter || statementStatus || query) && <button className={`${ui.workspaceQuiet} ${styles.clearStatement}`}
-            type="button" onClick={clearStatementFilters}><UIIcon name="close" size={16} /> Limpar filtros do extrato</button>}
+          {(statementFilterCount > 0 || query) && <button className={`${ui.workspaceQuiet} ${styles.clearStatement}`}
+            type="button" onClick={() => { clearStatementFilters(); setCenter(""); setFrom(""); setTo(""); }}><UIIcon name="close" size={16} /> Limpar filtros do extrato</button>}
           {data?.entries && rows.length === 0 && <p className={styles.expenseEmpty}>Nenhum movimento no período e nos filtros selecionados.</p>}
           {[...movementsByDay].map(([date, movements]) => <section key={date} className={styles.statementDay} aria-label={displayDate(date)}>
             <h3><UIIcon name="calendar" size={16} /><time dateTime={date}>{displayDate(date)}</time></h3>

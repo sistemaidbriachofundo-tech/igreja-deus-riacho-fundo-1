@@ -1508,3 +1508,26 @@
 /* Cadastro da Secretaria com largura confortável, sem alterar modais do restante do produto. */
 .workspaceDialogWide{width:min(920px,calc(100vw - 30px));max-width:min(920px,calc(100vw - 30px));max-height:calc(100dvh - 28px);padding:clamp(15px,2.2vw,25px);overflow:auto;border-radius:20px}
 @media(max-width:580px){.workspaceDialogWide{width:calc(100vw - 14px);max-width:calc(100vw - 14px);max-height:calc(100dvh - 12px);padding:13px;border-radius:14px}}
+
+.filterDisclosure { display: grid; gap: 10px; min-width: 0; }
+.filterRail { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.filterRail button { flex: none; }
+.filterRail button[aria-expanded="true"] { background: #e8f0e9; border-color: #b7cdbd; }
+.filterCount {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  min-height: 20px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: #24513e;
+  color: #fff;
+  font-size: .72rem;
+}
+.filterDisclosure:not([data-mobile-only="true"]) > .filterContent[data-open="false"] { display: none; }
+@media (min-width: 721px) {
+  .filterDisclosure[data-mobile-only="true"] > .filterRail { display: none; }
+}
+@media (max-width: 720px) {
+  .filterContent[data-open="false"] { display: none; }
+}
