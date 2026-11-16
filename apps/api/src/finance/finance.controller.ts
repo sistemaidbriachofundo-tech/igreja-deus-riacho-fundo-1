@@ -520,6 +520,7 @@ export class FinanceController {
     return this.finance.removeAttachment(user, entryId, attachmentId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("imports")
   listImports(@CurrentUser() user: AuthUser, @Query("bankStatements") bankStatements?: string) {
     return this.finance.listImports(user, bankStatements === "true");
@@ -530,6 +531,7 @@ export class FinanceController {
     return this.finance.createImport(user, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Post("imports/ofx")
   @UseInterceptors(FileInterceptor("file", {
     limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 1 },
@@ -542,6 +544,7 @@ export class FinanceController {
     return this.finance.uploadBankStatement(user, accountId, file);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("imports/:batchId")
   getImport(@CurrentUser() user: AuthUser, @Param("batchId") batchId: string) {
     return this.finance.getImport(user, batchId);

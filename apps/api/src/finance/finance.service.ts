@@ -721,7 +721,7 @@ export class FinanceService {
   // —— Extratos bancários ——
 
   async listImports(actor: AuthUser, bankStatementsOnly = false) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, bankStatementsOnly ? "read" : "write");
     const batches = await this.prisma.bankImportBatch.findMany({
       where: {
         organizationId: pilot.organizationId,
@@ -742,7 +742,7 @@ export class FinanceService {
     accountId: string,
     file?: { originalname: string; buffer: Buffer },
   ) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "import-statements");
     if (typeof accountId !== "string" || !accountId.trim()) {
       throw new BadRequestException("Selecione a conta bancária do extrato.");
     }
@@ -944,12 +944,13 @@ export class FinanceService {
   }
 
   async getImport(actor: AuthUser, batchId: string) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const batch = await this.prisma.bankImportBatch.findFirst({
       where: {
         id: batchId,
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
+        ...(!canAccessFinance(actor.grants, pilot) ? { accountId: { not: null } } : {}),
       },
       include: { lines: true },
     });
@@ -2030,10 +2031,10 @@ export class FinanceService {
 
   // —— helpers ——
 
-  private async requireFinance(actor: AuthUser, action: "read" | "write" | "expense-create" = "write"): Promise<PilotScope> {
+  private async requireFinance(actor: AuthUser, action: "read" | "write" | "expense-create" | "import-statements" = "write"): Promise<PilotScope> {
     const pilot = await this.pilot.getPilotChurch();
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
-    // Admin pode cadastrar uma despesa pendente, mas nunca recebe aprovação ou operações gerais.
+    // Admin consulta, cadastra despesas pendentes e carrega extratos para conferência.
     const adminAllowed = action !== "write" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
     if (!adminAllowed && !canAccessFinance(actor.grants, scope)) {
       throw new ForbiddenException(

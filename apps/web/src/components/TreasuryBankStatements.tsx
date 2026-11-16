@@ -56,10 +56,13 @@ function bankCandidates(line: BankLine, batch: BankBatch, entries: TreasuryEntry
     Number(b.entryDate.slice(0, 10) === postedAt) - Number(a.entryDate.slice(0, 10) === postedAt));
 }
 
-export function TreasuryBankStatements({ token, accounts, entries }: {
+export function TreasuryBankStatements({ token, accounts, entries, canReconcile, accountsLoading, accountsError }: {
   token: string;
   accounts: TreasuryAccount[];
   entries: TreasuryEntry[];
+  canReconcile: boolean;
+  accountsLoading?: boolean;
+  accountsError?: string;
 }) {
   const [batches, setBatches] = useState<BankBatch[]>([]);
   const [batch, setBatch] = useState<BankBatch | null>(null);
@@ -153,14 +156,18 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
   return (
     <div className={styles.bankStatements}>
       <div className={styles.bankStatementBar}>
-        <div><strong>Extratos bancários</strong><small>Arquivos OFX por conta bancária</small></div>
+        <div className={styles.bankStatementTitle}><span className={styles.statementIcon}><UIIcon name="download" size={20} /></span>
+          <div><strong>Extratos bancários</strong><small>Arquivos OFX por conta</small></div>
+        </div>
         <button type="button" className={ui.workspacePrimary} aria-controls={panelId} aria-expanded={open} onClick={() => setOpen(value => !value)}>
-          <UIIcon name="plus" size={17} /> Importar extrato bancário
+          <UIIcon name={open ? "close" : "plus"} size={17} /> {open ? "Fechar importação" : "Importar extrato bancário"}
         </button>
       </div>
       <div id={panelId} hidden={!open} className={styles.bankStatementBody}>
       <p className={styles.note}>Escolha a mesma conta do arquivo exportado pelo banco. Limite de 2 MB por arquivo.</p>
-      {eligibleAccounts.length ? <form onSubmit={upload}>
+      {accountsLoading ? <p className={styles.note} role="status">Carregando contas bancárias…</p> :
+        accountsError ? <p className={styles.feedback} data-error="true" role="alert">Não foi possível carregar as contas. Atualize a página para tentar novamente.</p> :
+        eligibleAccounts.length ? <form onSubmit={upload}>
         <label>Conta bancária
           <select name="accountId" defaultValue="" required disabled={pending}>
             <option value="" disabled>Selecione a conta</option>
@@ -184,8 +191,8 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
         <h3>{batch.filename}</h3>
         <p className={styles.note}>{accounts.find(account => account.id === batch.accountId)?.name ?? "Conta bancária"}</p>
         <ul>{batch.lines.slice(0, visible).map(line => {
-          const candidates = bankCandidates(line, batch, entries)
-            .filter(entry => !batch.lines.some(other => other.matchedEntryId === entry.id));
+          const candidates = canReconcile ? bankCandidates(line, batch, entries)
+            .filter(entry => !batch.lines.some(other => other.matchedEntryId === entry.id)) : [];
           const matched = entries.find(entry => entry.id === line.matchedEntryId);
           return <li key={line.id}>
             <div className={styles.importedMovement}>
@@ -194,7 +201,7 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
             </div>
             {line.matchedEntryId ? <>
               <small>Vinculado{matched ? " · " + matched.description : ""}</small>
-              <button type="button" className={ui.workspaceQuiet} disabled={pending} onClick={() => match(line)}>Desfazer vínculo</button>
+              {canReconcile && <button type="button" className={ui.workspaceQuiet} disabled={pending} onClick={() => match(line)}>Desfazer vínculo</button>}
             </> : candidates.length ? <form onSubmit={event => {
               event.preventDefault();
               const entryId = new FormData(event.currentTarget).get("entryId");
@@ -207,7 +214,7 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
                 </select>
               </label>
               <button type="submit" className={ui.workspaceSecondary} disabled={pending}>Vincular</button>
-            </form> : <small>Aguardando lançamento correspondente nesta conta.</small>}
+            </form> : <small>{canReconcile ? "Aguardando lançamento correspondente nesta conta." : "Aguardando conferência da Tesouraria."}</small>}
           </li>;
         })}</ul>
         {batch.lines.length > visible && <button type="button" className={ui.workspaceSecondary} onClick={() => setVisible(value => value + 25)}>Mostrar mais movimentos</button>}

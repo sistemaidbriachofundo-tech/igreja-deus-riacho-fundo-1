@@ -6,7 +6,7 @@ import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiPost, apiPostForm, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
@@ -209,6 +209,7 @@ export function TreasuryPanel() {
   const canWrite = access.kind === "ready" && access.roles.includes("TESOURARIA");
   const canCreateExpense = access.kind === "ready" &&
     (access.roles.includes("TESOURARIA") || access.roles.includes("PLATFORM_ADMIN"));
+  const canImportStatement = canCreateExpense;
   const isPastorOnly = access.kind === "ready" && access.roles.includes("PASTOR") && !canCreateExpense;
   const canReviewApprovals = access.kind === "ready" &&
     (access.roles.includes("TESOURARIA") || access.roles.includes("PASTOR"));
@@ -580,13 +581,16 @@ export function TreasuryPanel() {
           })}
         </section>}
 
-        {view === "extrato" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Extrato e aprovações">
-          <FinancialHeading icon="book" title="Extrato">
+        {view === "extrato" && <section className={styles.statementWorkspace} aria-label="Extrato">
+          <FinancialHeading icon="book" title="Extrato" statement>
             {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
           </FinancialHeading>
-          {canWrite && token && <TreasuryBankStatements token={token}
+          {canImportStatement && token && <TreasuryBankStatements token={token}
             accounts={banks}
-            entries={entries} />}
+            entries={entries}
+            canReconcile={canWrite}
+            accountsLoading={!data && !failure}
+            accountsError={data?.accountsNote || failure} />}
           <FilterDisclosure count={statementFilterCount} search={<WorkspaceSearch
             aria-label="Buscar movimento" value={query} placeholder="Buscar movimento"
             onChange={event => { setQuery(event.target.value); setPage(1); }} />}>
@@ -618,27 +622,27 @@ export function TreasuryPanel() {
               .filter(line => bankIds.has(line.accountId))
               .map(line => accountMap.get(line.accountId)?.name).filter(Boolean)));
             const channel = treasuryChannels.find(item => item.id === ledgerType)?.name;
-            return <article key={entry.id} className={styles.movement}>
+            return <StatementMovement key={entry.id} description={entry.description} details={<>
+              <dl>{entry.lines.map((line, index) => <div key={index}>
+                <dt>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"}</dt><dd>{formatBRL(line.cents)}</dd>
+              </div>)}</dl>
+              {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
+            </>} actions={<>
+              {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
+              {canWrite && approval.canApprove && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
+            </>}>
               <div className={styles.movementInfo}>
                 <span className={styles.movementIcon} data-direction={effect.kind}><UIIcon name={effect.kind === "credit" || effect.kind === "debit" ? "arrow" : effect.kind === "transfer" ? "refresh" : "book"} size={17} /></span>
                 <div><strong>{entry.description}</strong>
                   {(channel || bankNames.length > 0) && <small>{[channel, ...bankNames].filter(Boolean).join(" · ")}</small>}
+                  <span className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</span>
                 </div>
               </div>
-              <span className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</span>
               <div className={styles.movementValue} data-direction={effect.kind}>
                 <strong className={styles.amount}>{effect.amount === null ? "—" : (effect.kind === "credit" ? "+" : effect.kind === "debit" ? "−" : "") + formatBRL(Math.abs(effect.amount))}</strong>
                 <small>{direction}</small>
               </div>
-              <details className={styles.movementDetails}><summary aria-label={`Detalhes do movimento: ${entry.description}`}><UIIcon name="chevron" size={18} /></summary>
-                <dl>{entry.lines.map((line, index) => <div key={index}>
-                  <dt>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"}</dt><dd>{formatBRL(line.cents)}</dd>
-                </div>)}</dl>
-                {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
-              </details>
-              {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
-              {canWrite && approval.canApprove && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
-            </article>;
+            </StatementMovement>;
             })}
           </section>)}
           {rows.length > 15 && <div className={styles.pagination}>
@@ -699,10 +703,28 @@ function AccountSelect({ label, name, accounts }: { label: string; name: string;
   </select></label>;
 }
 
-function FinancialHeading({ icon, title, children }: {
-  icon: "wallet" | "book" | "check"; title: string; children?: React.ReactNode;
+function StatementMovement({ description, children, details, actions }: {
+  description: string; children: ReactNode; details: ReactNode; actions: ReactNode;
 }) {
-  return <header className={styles.statementHeader}>
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
+  return <article className={styles.movement}>
+    {children}
+    <button className={styles.movementToggle} type="button" aria-label={`Detalhes do movimento: ${description}`}
+      aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>
+      <UIIcon name="chevron" size={18} />
+    </button>
+    <div id={id} hidden={!expanded} className={styles.movementDetails}>
+      {details}
+    </div>
+    <div className={styles.movementActions}>{actions}</div>
+  </article>;
+}
+
+function FinancialHeading({ icon, title, children, statement = false }: {
+  icon: "wallet" | "book" | "check"; title: string; children?: ReactNode; statement?: boolean;
+}) {
+  return <header className={styles.statementHeader} data-statement={statement || undefined}>
     <div className={styles.statementTitle}>
       <span className={styles.statementIcon}><UIIcon name={icon} size={22} /></span>
       <h2>{title}</h2>
