@@ -14,10 +14,10 @@ export { s as portalStyles };
 
 function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
-    <Link href="/" className={`${inverse ? s.brandInverse : s.brand} ${d.brand}`} aria-label="Igreja de Deus no Riacho Fundo I — página inicial">
+    <Link href="/" className={`${inverse ? s.brandInverse : s.brand} ${d.brand}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={withBasePath(officialLogoAsset)} alt="" width={48} height={48} className={s.logo} />
-      <span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></span>
+      <span><strong>IGREJA DE DEUS</strong>{" "}<small>RIACHO FUNDO I</small></span>
     </Link>
   );
 }
