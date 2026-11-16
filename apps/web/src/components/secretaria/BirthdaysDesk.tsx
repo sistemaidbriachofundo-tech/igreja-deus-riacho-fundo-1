@@ -66,7 +66,7 @@ function BirthdayList() {
       birthdays === undefined ? <p className={s.notice} role="status">Carregando aniversariantes…</p> :
       birthdays.length === 0 ? <div className={s.empty}><UIIcon name="calendar" size={24} /><p>Nenhum aniversário registrado nesse período.</p></div> :
       <ul className={s.people}>{birthdays.map(person => {
-        const names = person.name.trim().replace(/\s*\(.*$/, "").split(/\s+/);
+        const names = person.name.split("(", 1)[0].trim().split(/\s+/);
         const firstName = names[0];
         const initials = [firstName, ...(names.length > 1 ? [names.at(-1)] : [])]
           .map(name => name?.[0] ?? "").join("").toLocaleUpperCase("pt-BR");

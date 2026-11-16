@@ -21,12 +21,15 @@ function decodeXml(text: string) {
 export function parseYoutubeStreams(xml: string, now = Date.now()): Recording[] {
   const seen = new Set<string>();
   const recordings: Recording[] = [];
-  for (const [, entry] of xml.matchAll(/<entry>\s*([\s\S]*?)<\/entry>/g)) {
-    const id = entry.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
-    const channel = entry.match(/<yt:channelId>([\w-]+)<\/yt:channelId>/)?.[1];
-    const published = entry.match(/<published>([^<]+)<\/published>/)?.[1];
+  for (const entry of xml.split("<entry>").slice(1)) {
+    const closingTag = entry.indexOf("</entry>");
+    if (closingTag === -1) continue;
+    const content = entry.slice(0, closingTag);
+    const id = content.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/)?.[1];
+    const channel = content.match(/<yt:channelId>([\w-]+)<\/yt:channelId>/)?.[1];
+    const published = content.match(/<published>([^<]+)<\/published>/)?.[1];
     const time = Date.parse(published ?? "");
-    const title = decodeXml(entry.match(/<title>([^<]*)<\/title>/)?.[1] ?? "").trim();
+    const title = decodeXml(content.match(/<title>([^<]*)<\/title>/)?.[1] ?? "").trim();
     if (!id || seen.has(id) || channel !== CHANNEL_ID || !title || !Number.isFinite(time) || time > now) continue;
     seen.add(id);
     recordings.push({ id, title, publishedAt: new Date(time).toISOString() });

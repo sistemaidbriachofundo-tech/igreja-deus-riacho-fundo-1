@@ -6,6 +6,8 @@ export function hasEnabledLoginForm(html) {
   return [...forms].some(([, form]) =>
     /<input\b[^>]*\btype="email"/i.test(form) &&
     /<input\b[^>]*\btype="password"/i.test(form) &&
-    /<button\b(?=[^>]*\s+type="submit")(?![^>]*\s+(?:disabled(?=[\s=>])|aria-disabled="true"))[^>]*>/i.test(form),
+    [...form.matchAll(/<button\b[^>]*>/gi)].some(([tag]) =>
+      /\stype="submit"/i.test(tag) && !/\s(?:disabled(?=[\s=>])|aria-disabled="true")/i.test(tag),
+    ),
   );
 }
