@@ -141,7 +141,7 @@ function ConnectionContent() {
 
     <section id="trilha" className={s.section} aria-labelledby="trilha-conexao">
       <div className={s.sectionTitle}>
-        <h2 id="trilha-conexao">Trilha Conexão</h2>
+        <h2 id="trilha-conexao"><span className={s.sectionIcon}><UIIcon name="layers" size={22} /></span>Trilha Conexão</h2>
       </div>
       {journey.status === "loading" ? <div className={s.load} role="status" aria-label="Carregando trilha"><span/></div> :
       journey.status === "error" ? <p className={s.notice} role="alert">Não foi possível consultar a trilha.</p> :
@@ -171,7 +171,7 @@ function ConnectionContent() {
 
     <section id="grupos" className={s.section} aria-labelledby="grupos-amizade">
       <div className={s.sectionTitle}>
-        <h2 id="grupos-amizade">Grupos de Amizade</h2>
+        <h2 id="grupos-amizade"><span className={s.sectionIcon}><UIIcon name="people" size={22} /></span>Grupos de Amizade</h2>
         {token && <button className={s.primaryAction} type="button" onClick={() => editGroup("new")}>
           <UIIcon name="plus" size={17} /> Novo grupo
         </button>}
@@ -195,9 +195,12 @@ function ConnectionContent() {
       groups.status === "error" ? <p className={s.notice} role="alert">Não foi possível consultar os grupos agora.</p> :
       groups.data.length ? <div className={s.groups}>{groups.data.map(group => <article key={group.id} className={s.group}>
         <h3>{group.name}</h3>
-        <p>{group.meetsAtHint || "Horário ainda não informado"}</p>
-        <div><span>{group.memberCount} participantes registrados</span><small>{group.leader?.displayName ?? (group.leaderAssigned ? "Responsável cadastrado" : "Responsável ainda não definido")}</small></div>
-        {token && <button className={s.retry} type="button" onClick={() => editGroup(group)}>Editar grupo<span className={s.srOnly}> {group.name}</span></button>}
+        <p><UIIcon name="calendar" size={16} />{group.meetsAtHint || "Horário ainda não informado"}</p>
+        <div className={s.groupDetails}>
+          <span><UIIcon name="people" size={16} />{group.memberCount} {group.memberCount === 1 ? "participante" : "participantes"}</span>
+          <small><UIIcon name="badge" size={16} />{group.leader?.displayName ?? (group.leaderAssigned ? "Responsável cadastrado" : "Responsável a definir")}</small>
+        </div>
+        {token && <button className={s.retry} type="button" onClick={() => editGroup(group)}>Editar grupo <UIIcon name="arrow" size={15} /><span className={s.srOnly}> {group.name}</span></button>}
       </article>)}</div> :
       <p className={s.notice}>Nenhum Grupo de Amizade cadastrado nesta congregação.</p>}
     </section>

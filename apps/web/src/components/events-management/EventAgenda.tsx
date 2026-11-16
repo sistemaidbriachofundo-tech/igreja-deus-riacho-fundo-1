@@ -14,6 +14,7 @@ import {
 } from "./calendar";
 import { UIIcon } from "../ui/UIIcon";
 import ui from "../ui/ui.module.css";
+import { WorkspaceSearch } from "../ui/WorkspaceSearch";
 import s from "./event-management.module.css";
 
 type Mode = "calendario" | "lista";
@@ -42,22 +43,6 @@ export function EventAgenda({
 
   return (
     <div className={s.agenda}>
-      <div className={s.toolbar}>
-        <label>
-          <span className={s.fieldLabel}><UIIcon name="search" size={15} /> Buscar</span>
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome do encontro" />
-        </label>
-        <label>
-          <span className={s.fieldLabel}><UIIcon name="filter" size={15} /> Situação</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">Todas</option>
-            <option value="DRAFT">Rascunho</option>
-            <option value="PUBLISHED">Publicado</option>
-            <option value="CANCELLED">Cancelado</option>
-            <option value="ARCHIVED">Arquivado</option>
-          </select>
-        </label>
-      </div>
       <div className={s.calendarControls}>
         {monthFilter && <div className={s.monthNav} role="group" aria-label="Mês da agenda">
           <button type="button" className={ui.workspaceQuiet} aria-label="Mês anterior" onClick={() => setMonth((current) => shiftMonth(current, -1))}>
@@ -76,6 +61,20 @@ export function EventAgenda({
             <UIIcon name="book" size={17} /> Lista
           </button>
         </div>
+      </div>
+      <div className={s.toolbar}>
+        <WorkspaceSearch value={query} onChange={event => setQuery(event.target.value)}
+          placeholder="Buscar evento" aria-label="Buscar" />
+        <label className={s.agendaStatus}>
+          <UIIcon name="filter" size={17} />
+          <select aria-label="Situação" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="">Todas as situações</option>
+            <option value="DRAFT">Rascunho</option>
+            <option value="PUBLISHED">Publicado</option>
+            <option value="CANCELLED">Cancelado</option>
+            <option value="ARCHIVED">Arquivado</option>
+          </select>
+        </label>
       </div>
       {mode === "lista" && (
         <label className={s.checkline}>
@@ -123,13 +122,19 @@ export function EventAgenda({
           </tbody>
         </table>
       )}
-      {visible.length > 0 && <ul className={s.agendaList}>
+      {visible.length > 0 && <div className={s.agendaResults}>
+        <div className={s.agendaResultsHead}>
+          <h3>Eventos</h3>
+          <span role="status">{visible.length} {visible.length === 1 ? "evento encontrado" : "eventos encontrados"}</span>
+        </div>
+        <ul className={s.agendaList}>
         {visible.map((event) => (
           <li className={s.agendaRow} key={event.id} data-selected={selectedId === event.id}>
             <span className={s.agendaIcon}><UIIcon name="calendar" size={19} /></span>
-            <div>
+            <div className={s.agendaIdentity}>
               <strong>{event.name || "Evento"}</strong>
-              <small>{eventStatusLabel(event.status)} · {formatAgendaWhen(event.startsAt)}</small>
+              <small><time dateTime={event.startsAt}>{formatAgendaWhen(event.startsAt)}</time></small>
+              <span className={s.agendaTag} data-status={event.status}>{eventStatusLabel(event.status)}</span>
             </div>
             <button type="button" className={ui.workspaceQuiet} aria-pressed={selectedId === event.id} aria-label={`${selectedId === event.id ? "Selecionado" : "Abrir"}: ${event.name || "Evento"}`} onClick={() => onChoose(event.id)}>
               {selectedId === event.id ? "Selecionado" : "Abrir"}
@@ -137,7 +142,8 @@ export function EventAgenda({
             </button>
           </li>
         ))}
-      </ul>}
+        </ul>
+      </div>}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
+import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { PersonaBoard } from "./PersonaHome";
@@ -650,10 +651,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             )}
             {showsPeople && (
               <div className={s.peopleWorkspace}>
-                <section className={s.panel} aria-busy={checking}>
+                <section className={`${s.panel} ${s.directoryPanel}`} aria-busy={checking}>
                   <div className={s.panelHeading}>
-                    <div className={s.panelHeadingCopy}><h2>Cadastro de pessoas</h2><span role="status">{loadedGroups.people ? `${filtered.length.toLocaleString("pt-BR")} ${filtered.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}` : "Cadastros da congregação"}{selectedFamily ? ` · ${selectedFamily.label}` : ""}</span></div>
-                    <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
+                    <div className={s.panelHeadingCopy}><span className={s.sectionMark}><UIIcon name="people" size={22} /></span><div><h2>Cadastro de pessoas</h2><span role="status">{loadedGroups.people ? `${filtered.length.toLocaleString("pt-BR")} ${filtered.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}` : "Cadastros da congregação"}{selectedFamily ? ` · ${selectedFamily.label}` : ""}</span></div></div>
+                    <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
                   </div>
 
                   {secretary && <div className={s.peopleFilters}>
@@ -714,10 +715,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             )}
             {showsAdmissions && (
               <div>
-                <section className={s.panel} aria-busy={checking}>
+                <section className={`${s.panel} ${s.directoryPanel}`} aria-busy={checking}>
                   <div className={s.panelHeading}>
-                    <div className={s.panelHeadingCopy}><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Processos da secretaria"}</span></div>
-                    <input type="search" value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
+                    <div className={s.panelHeadingCopy}><span className={s.sectionMark}><UIIcon name="layers" size={22} /></span><div><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Processos da secretaria"}</span></div></div>
+                    <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
                   <div className={ui.workspaceChoices} role="group" aria-label="Filtrar protocolos">
                     {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href="/app/secretaria/admissoes/">Limpar seleção</AppNavLink>}
@@ -739,9 +740,11 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                             : "documentação";
                         return (
                           <article key={admission.id} className={s.admission}>
-                            <div>
-                              <strong>{personName}</strong>
-                              <small><span className={s.statusPill} data-status={admission.status}>{label(admission.status)}</span> {label(admission.modality ?? "")}</small>
+                            <div className={s.admissionIdentity}>
+                              <PersonPortrait name={personName} size="small" />
+                              <div><strong>{personName}</strong>
+                                <small><span className={s.statusPill} data-status={admission.status}>{label(admission.status)}</span> {label(admission.modality ?? "")}</small>
+                              </div>
                             </div>
                             <div className={s.admissionActions}>
                               <AppNavLink className={s.openFicha} href={`/app/secretaria/pessoas/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>

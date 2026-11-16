@@ -406,3 +406,17 @@
 .ministryCenter summary { cursor: pointer; color: #215943; font-weight: 700; padding-block: 8px; }
 .ministryCenter form { margin: 12px 0 0; align-items: end; }
 .ministryCenter p { color: #536858; }
+
+.expenseHeading { padding: 12px 14px; border-radius: 15px; background: #edf5ee; }
+.expenseHeading > div { min-width: 0; }
+.expenseHeading .note { margin: 4px 0 0; }
+.expenseHeading h2 { font-family: Montserrat, Inter, sans-serif; }
+.expenseIdentity { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.expenseMark { composes: workspaceMark from "./ui/ui.module.css"; width: 36px; height: 36px; border-radius: 11px; }
+.expenseInfo { overflow-wrap: anywhere; }
+.approvalInfo { display: flex; gap: 8px; align-items: flex-start; border-radius: 13px; }
+.approvalInfo > svg { flex: none; }
+@media (max-width: 540px) {
+  .expenseMark { width: 30px; height: 30px; }
+  .expenseIdentity { gap: 8px; }
+}

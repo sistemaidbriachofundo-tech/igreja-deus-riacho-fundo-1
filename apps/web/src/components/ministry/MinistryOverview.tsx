@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WorkspaceSearch } from "../ui/WorkspaceSearch";
 import { apiGet } from "../../lib/api";
 import { presentMembership, readMinistries, type FormalMember, type MinistryOption } from "../../lib/ministry-desk";
 import { readScopedEscalas, type MinistryEscala } from "../../lib/ministry-presentation";
@@ -44,6 +45,7 @@ async function loadOverview(token: string, signal: AbortSignal): Promise<TeamRow
 export function MinistryOverview({ token }: { token: string }) {
   const [rows, setRows] = useState<TeamRow[] | null>(null);
   const [error, setError] = useState(false);
+  const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -60,6 +62,9 @@ export function MinistryOverview({ token }: { token: string }) {
   const peopleComplete = rows !== null && rows.every(row => row.people !== null);
   const schedulesComplete = rows !== null && rows.every(row => row.schedules !== null);
   const partial = rows !== null && (!peopleComplete || !schedulesComplete);
+  const search = query.trim().toLocaleLowerCase("pt-BR");
+  const filteredRows = rows?.filter(({ ministry }) =>
+    ministryPanelTitle(ministry).toLocaleLowerCase("pt-BR").includes(search));
   const totals = [
     { label: "Ministérios", value: rows?.length, icon: "layers" },
     { label: "Pessoas nas equipes", value: peopleComplete ? new Set(rows.flatMap(row => row.people?.map(person => person.personId) ?? [])).size : null, icon: "people" },
@@ -83,13 +88,19 @@ export function MinistryOverview({ token }: { token: string }) {
           {rows === null && <p className={s.note} role="status">Consultando ministérios…</p>}
           {rows?.length === 0 && <p className={s.note}>Nenhum ministério disponível.</p>}
           {rows && rows.length > 0 && <>
+            <div className={s.directoryToolbar}>
+              <h2>Equipes da congregação</h2>
+              <WorkspaceSearch value={query} onChange={event => setQuery(event.target.value)}
+                placeholder="Buscar ministério" aria-label="Buscar ministério" />
+            </div>
+            {filteredRows?.length === 0 && <p className={s.note} role="status">Nenhum ministério corresponde à busca.</p>}
             <ul className={s.directoryList} aria-label="Ministérios da congregação">
-              {rows.map(({ ministry, people, schedules }) => {
+              {filteredRows?.map(({ ministry, people, schedules }) => {
                 const title = ministryPanelTitle(ministry);
                 const count = schedules?.filter(row => row.status === "PUBLISHED" || row.status === "DRAFT").length;
                 return <li key={ministry.id} className={s.directoryRow}>
                   <AppNavLink className={s.directoryName} href={ministryHref(ministry.id, "visao")}>
-                    <span className={s.directoryIcon}><UIIcon name="layers" size={19} /></span>
+                    <span className={s.directoryIcon}><UIIcon name={ministry.slug === "atmosfera" ? "family" : "layers"} size={22} /></span>
                     <strong>{title}</strong><UIIcon name="chevron" size={16} />
                   </AppNavLink>
                   <div className={s.directoryActions}>

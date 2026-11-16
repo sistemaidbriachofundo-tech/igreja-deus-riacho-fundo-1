@@ -319,3 +319,40 @@
 @media(max-width:900px){.pipelineSteps{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:460px){.pipelineSteps{gap:8px}.pipelineStep{min-height:155px;padding:12px}.pipelineLabel{font-size:.74rem}.pipelineStep>strong{font-size:1.65rem}}
 @media print{.pipelineStep,.admissionPipeline{box-shadow:none;break-inside:avoid}.pipelineAll{display:none}}
+
+.directoryPanel {
+  --directory-tint: #eef5ef;
+  border-radius: 19px;
+  padding: clamp(12px, 2vw, 22px);
+}
+.directoryPanel .panelHeading {
+  background: var(--directory-tint);
+  border-radius: 15px;
+  padding: clamp(12px, 2vw, 18px);
+  gap: 12px;
+}
+.directoryPanel .panelHeadingCopy { display: flex; align-items: center; gap: 11px; }
+.directoryPanel .panelHeadingCopy > div { display: grid; gap: 5px; min-width: 0; }
+.directoryPanel .panelHeadingCopy h2 { font: 750 clamp(1rem, 2vw, 1.25rem)/1.2 Montserrat, Inter, sans-serif; }
+.directoryPanel .panelHeadingCopy div > span { color: #496456; font-size: .8rem; }
+.sectionMark { composes: workspaceMark from "./ui/ui.module.css"; background: #dcebe0; }
+.directorySearch { width: min(100%, 350px); background: #fff; }
+.directoryPanel .familySelect select { border-radius: 12px; background: #f6f9f6; }
+.directoryPanel .tableWrap { border-radius: 13px; }
+.directoryPanel .tableWrap th { background: #edf4ee; color: #3b6050; font-weight: 700; }
+.directoryPanel .personIdentity { gap: 10px; }
+.directoryPanel .admissions { gap: 0; }
+.directoryPanel .admission { border: 0; border-bottom: 1px solid #e1ebe4; border-radius: 0; padding-block: 13px; }
+.directoryPanel .admission:nth-of-type(even) { background: #f8faf8; }
+.admissionIdentity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.admissionIdentity > div { min-width: 0; }
+.admissionIdentity strong { overflow-wrap: anywhere; }
+@media (max-width: 740px) {
+  .directoryPanel .panelHeading { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .directorySearch { width: 100%; }
+  .directoryPanel .tableWrap { border: 0; background: transparent; }
+  .directoryPanel .tableWrap tr { padding: 11px; border-radius: 14px; }
+  .directoryPanel .tableWrap td:first-child { padding-bottom: 10px; border-bottom: 1px solid #e7eee8; }
+  .directoryPanel .tableWrap td { font-size: .8rem; overflow-wrap: anywhere; }
+  .directoryPanel .tableWrap td::before { color: #536858; text-transform: none; letter-spacing: 0; font-size: .75rem; }
+}

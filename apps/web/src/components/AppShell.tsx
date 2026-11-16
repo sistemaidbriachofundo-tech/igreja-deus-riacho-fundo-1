@@ -24,7 +24,7 @@ import {
   accountInitials, areaAllowed, canListMinistries,
   isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
   personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
-  type AppNavKey, type MinistryNavItem, type PersonaArea,
+  type AppNavKey, type MinistryNavItem, type MinistrySubmenuEntry, type PersonaArea,
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useDialogLifecycle } from "./ui/dialog";
@@ -119,18 +119,39 @@ function SidebarGroup({ label, href, icon, active, current = active, compact, on
   </div>;
 }
 
-function AtmosferaScalesLink({ ministryId, href, legacyActive, onNavigate }: {
-  ministryId: string;
-  href: string;
-  legacyActive: boolean;
+function MinistrySubmenu({ entries, active, onNavigate, search = "" }: {
+  entries: MinistrySubmenuEntry[];
+  search?: string;
+  active?: AppNavKey | null;
   onNavigate: () => void;
 }) {
-  const route = parseMinistryRoute(useSearchParams().toString());
-  const selected = legacyActive || (route.ministryId === ministryId && route.tab === "escalas");
+  const route = parseMinistryRoute(search);
+  return entries.map(entry => {
+    const selectedMinistry = active === "ministerios" && Boolean(route.ministryId)
+      && entry.key === `ministry:${route.ministryId}`;
+    const selectedScales = Boolean(entry.scales) && (active === "atmosfera"
+      || (selectedMinistry && route.tab === "escalas"));
+    const selected = entry.key === "ministerios"
+      ? active === "ministerios" && !route.ministryId
+      : selectedMinistry && !selectedScales;
+    return <div key={entry.key} role={entry.scales ? "group" : undefined} aria-label={entry.scales ? entry.label : undefined}>
+      <AppNavLink href={entry.href} className={selected ? s.subSelected : s.subItem}
+        aria-current={selected ? "page" : undefined} onNavigate={onNavigate}>
+        <UIIcon name={entry.icon} size={16} /><span className={s.menuLabel}>{entry.label}</span>
+      </AppNavLink>
+      {entry.scales && <div className={s.ministrySubList}>
+        <AppNavLink href={entry.scales.href} className={selectedScales ? s.subSelected : s.subItem}
+          aria-current={selectedScales ? "page" : undefined} onNavigate={onNavigate}>
+          <UIIcon name="calendar" size={16} /><span className={s.menuLabel}>Escalas</span>
+        </AppNavLink>
+      </div>}
+    </div>;
+  });
+}
 
-  return <AppNavLink href={href} className={selected ? s.subSelected : s.subItem} aria-current={selected ? "page" : undefined} onNavigate={onNavigate}>
-    <UIIcon name="calendar" size={16}/><span className={s.menuLabel}>Escalas</span>
-  </AppNavLink>;
+function CurrentMinistrySubmenu(props: Omit<Parameters<typeof MinistrySubmenu>[0], "search">) {
+  const search = useSearchParams().toString();
+  return <MinistrySubmenu {...props} search={search} />;
 }
 
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
@@ -163,6 +184,7 @@ export function AppShell({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loaded, setLoaded] = useState<LoadedAccess | null>(viewer ? { kind: "ready", user: viewer } : null);
   const [term, setTerm] = useState("");
+  const [sectionId, setSectionId] = useState("");
   const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -175,6 +197,7 @@ export function AppShell({
   const searchId = useId();
   const ministryListId = useId();
   const paletteRef = useRef<HTMLElement>(null);
+  const paletteBackdropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const deniedRef = useRef<HTMLHeadingElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -276,6 +299,12 @@ export function AppShell({
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [active, roleKey]);
+  useEffect(() => {
+    const sync = () => setSectionId(window.location.hash.slice(1));
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [active]);
   const treasuryChildren = treasurySidebarItems(roles);
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
@@ -317,6 +346,8 @@ export function AppShell({
     }
     menuBlocks.push({ kind: "link", item });
   }
+  const commandTreasury = treasuryChildren.filter(item =>
+    (`Tesouraria financeiro ${item.label}`).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
   const commandMinistries = (ministries ?? []).filter(item => item.name.toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
   const railCollapsed = viewport === "desktop" && collapsed;
   const menuExpanded = viewport === "mobile" ? drawerOpen : viewport === "desktop" ? !collapsed : false;
@@ -455,7 +486,28 @@ export function AppShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [accessKind, preview, paletteOpen, drawerOpen]);
-  useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
+  useEffect(() => {
+    if (!paletteOpen) setTerm("");
+    else if (viewport === "desktop") inputRef.current?.focus();
+  }, [paletteOpen, viewport]);
+  useEffect(() => {
+    const visualViewport = window.visualViewport;
+    const backdrop = paletteBackdropRef.current;
+    if (!paletteOpen || viewport !== "mobile" || !visualViewport || !backdrop) return;
+    const fit = () => {
+      backdrop.style.setProperty("--visible-height", `${visualViewport.height}px`);
+      backdrop.style.setProperty("--visible-top", `${visualViewport.offsetTop}px`);
+    };
+    fit();
+    visualViewport.addEventListener("resize", fit);
+    visualViewport.addEventListener("scroll", fit);
+    return () => {
+      visualViewport.removeEventListener("resize", fit);
+      visualViewport.removeEventListener("scroll", fit);
+      backdrop.style.removeProperty("--visible-height");
+      backdrop.style.removeProperty("--visible-top");
+    };
+  }, [paletteOpen, viewport]);
   useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
   useEffect(() => {
     if (viewport === "mobile" && drawerOpen) drawerCloseRef.current?.focus();
@@ -549,9 +601,14 @@ export function AppShell({
               ] : [];
               if (children.length) return (
                 <SidebarGroup key={item.key} label={item.label} href={item.href} icon={item.icon}
-                  active={active === item.key} compact={railCollapsed} onNavigate={afterNavigate}>
-                  {children.map(child => <a key={child.id} href={withBasePath(item.href + "#" + child.id)}
-                    className={s.subItem} onClick={afterNavigate}><UIIcon name={child.icon} size={16}/><span className={s.menuLabel}>{child.title}</span></a>)}
+                  active={active === item.key} current={active === item.key && !children.some(child => child.id === sectionId)}
+                  compact={railCollapsed} onNavigate={afterNavigate}>
+                  {children.map(child => {
+                    const selected = active === item.key && sectionId === child.id;
+                    return <a key={child.id} href={withBasePath(item.href + "#" + child.id)}
+                      className={selected ? s.subSelected : s.subItem} aria-current={selected ? "location" : undefined}
+                      onClick={afterNavigate}><UIIcon name={child.icon} size={16}/><span className={s.menuLabel}>{child.title}</span></a>;
+                  })}
                 </SidebarGroup>
               );
               const label = itemLabel(item);
@@ -564,16 +621,9 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.map(entry => <div key={entry.key} role={entry.scales ? "group" : undefined} aria-label={entry.scales ? entry.label : undefined}>
-                  <AppNavLink href={entry.href} className={s.subItem} onNavigate={afterNavigate}>
-                    <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
-                  </AppNavLink>
-                  {entry.scales && <div className={s.ministrySubList}>
-                    <Suspense fallback={null}>
-                      <AtmosferaScalesLink {...entry.scales} legacyActive={active === "atmosfera"} onNavigate={afterNavigate} />
-                    </Suspense>
-                  </div>}
-                </div>)}
+                <Suspense fallback={<MinistrySubmenu entries={ministryEntries} active={active} onNavigate={afterNavigate} />}>
+                  <CurrentMinistrySubmenu entries={ministryEntries} active={active} onNavigate={afterNavigate} />
+                </Suspense>
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;
@@ -644,12 +694,20 @@ export function AppShell({
 
       {confirmation}
 
-      {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
+      {paletteOpen && <div ref={paletteBackdropRef} className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
         <section ref={paletteRef} tabIndex={-1} className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
-          <div className={s.commandSearch}><label htmlFor={searchId} aria-label="Buscar página ou ministério"><UIIcon name="search" size={20}/></label><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></div>
+          <header className={s.commandHeader}>
+            <h2>{viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}</h2>
+            <button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={21} /></button>
+          </header>
+          <label className={s.commandSearch}>
+            <UIIcon name="search" size={20} />
+            <input ref={inputRef} id={searchId} type="search" value={term} onChange={event => setTerm(event.target.value)}
+              placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off" />
+          </label>
           <div className={s.commandList}>
             {filtered.filter(item => item.key !== "atmosfera" || !atmosferaScales).map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {treasuryChildren.filter(item => !term.trim() || (`Tesouraria financeiro ${item.label}`).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR"))).map(item =>
+            {commandTreasury.map(item =>
               <a key={`financeiro-${item.section}`} href={withBasePath(treasurySectionHref(item.section))}
                 onClick={afterNavigate}>
                 <span className={s.commandListIcon}><UIIcon name={item.icon}/></span>
@@ -659,7 +717,7 @@ export function AppShell({
             )}
             {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {showAtmosferaSearch && atmosferaScales && <AppNavLink href={atmosferaScales.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="calendar"/></span><span><strong>Atmosfera · Escalas</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>}
-            {!showAtmosferaSearch && filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
+            {!showAtmosferaSearch && filtered.length === 0 && commandTreasury.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
         </section>
       </div>}

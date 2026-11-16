@@ -1310,7 +1310,8 @@
 @media (max-width: 620px) {
   .workspaceHeader .pageHeader { align-items: flex-start; flex-direction: column; }
   .workspaceHeader .pageActions { width: 100%; }
-  .workspaceTabs > :is(button, a) { padding-inline: 12px; }
+  .workspaceTabs { flex-wrap: wrap; overflow-x: visible; }
+  .workspaceTabs > :is(button, a) { padding-inline: 10px; }
 }
 
 .workspaceDialog {
@@ -1530,4 +1531,57 @@
 }
 @media (max-width: 720px) {
   .filterContent[data-open="false"] { display: none; }
+}
+
+.workspaceSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid #d9e6dc;
+  border-radius: 13px;
+  background: #f6f9f6;
+  color: #35664e;
+}
+.workspaceSearch:focus-within {
+  border-color: #568468;
+  background: #fff;
+  box-shadow: 0 0 0 3px #5a8f6c25;
+}
+.workspaceSearch > svg { flex: none; }
+.workspaceSearch > input[type="search"] {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  border: 0;
+  padding: 0;
+  outline: none;
+  background: transparent;
+  color: #173c2d;
+  font: 500 .9rem/1.35 Inter, sans-serif;
+  box-shadow: none;
+}
+.workspaceSearch > input[type="search"]:focus-visible { outline: none; }
+.workspaceSearch > input::placeholder { color: #536858; }
+@media (max-width: 970px) {
+  .workspaceSearch > input[type="search"] { font-size: 16px; }
+}
+
+.workspaceMark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #e5f0e7;
+  color: #285d45;
+}
+
+@media (max-width: 970px) {
+  .workspaceDialog :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select, textarea),
+  .actionConfirmation :is(input, select, textarea) { font-size: 16px; }
 }

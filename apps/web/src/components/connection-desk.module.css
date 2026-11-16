@@ -56,3 +56,51 @@ a.retry { display:inline-flex; align-items:center; text-decoration:none; }
 .sectionTitle:has(.primaryAction) { display: flex; justify-content: space-between; }
 .groupEdit { width: 100%; padding: 14px 0; border-block: 1px solid #d5e2da; }
 .groupEdit h3 { margin: 0; }
+
+.section {
+  min-width: 0;
+  border: 1px solid #dbe8de;
+  border-radius: 19px;
+  background: #fff;
+  padding: clamp(14px, 2.2vw, 24px);
+}
+.sectionTitle h2 { display: flex; align-items: center; gap: 11px; }
+.sectionIcon { composes: workspaceMark from "./ui/ui.module.css"; }
+.progressRow { border: 0; border-radius: 15px; background: #eaf3ec; }
+.progressRow>div+div { border-color: #cddfd2; }
+.progressRow span { color: #466351; }
+.steps { gap: 8px; }
+.steps li {
+  align-items: flex-start;
+  background: #f4f8f4;
+  border: 1px solid #e1ebe3;
+  border-radius: 13px;
+  padding: 10px;
+  min-width: 0;
+}
+.steps li span { display: grid; place-items: center; flex: none; width: 29px; height: 29px; border-radius: 50%; background: #dcebe0; color: #27543e; }
+.steps li strong { align-self: center; overflow-wrap: anywhere; }
+.groups { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; }
+.group {
+  align-content: start;
+  padding: 15px;
+  border: 1px solid #dce9df;
+  border-radius: 15px;
+  background: linear-gradient(160deg, #edf5ee, #fff 70%);
+}
+.group h3 { overflow-wrap: anywhere; }
+.group p, .groupDetails > :is(span,small) { display: flex; align-items: flex-start; gap: 7px; font: 500 .83rem/1.45 Inter, sans-serif; color: #4b6657; }
+.group :is(p,span,small) > svg { flex: none; }
+.group .groupDetails { display: grid; justify-content: stretch; gap: 6px; }
+.group > button { display: flex; align-items: center; gap: 8px; background: #fff; }
+.operationPanel { background: #f5f9f6; border-radius: 14px; padding: 0; }
+.operationPanel > summary { padding: 13px; min-height: 48px; color: #28583f; }
+.operationPanel[open] { padding: 0 13px 13px; }
+.operationPanel[open] > summary { padding-inline: 0; }
+.groupEdit { padding: 16px; border: 1px solid #d7e6da; border-radius: 15px; background: #f4f8f4; }
+@media (max-width: 630px) {
+  .progressRow > div { padding: 12px 8px; }
+  .progressRow span { line-height: 1.3; }
+  .groups { grid-template-columns: 1fr; }
+  .group h3 { font-size: .95rem; }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { BUILTIN_ROLES, PERSONA_LABELS, parseMinistryNav, type BuiltinRole, type MinistryNavItem } from "../lib/persona-navigation";
@@ -126,9 +127,8 @@ export function AccessDirectory() {
       <div className={s.panel}>
         <form className={s.filter} aria-label="Buscar e filtrar contas" onSubmit={event => { event.preventDefault(); setPage(1); setFilter(search.trim()); }}>
           <div className={s.searchGroup}>
-            <label className={s.searchInput}><UIIcon name="search" size={17} />
-              <input aria-label="Buscar conta" type="search" maxLength={100} placeholder="Nome ou e-mail" value={search} onChange={event => setSearch(event.target.value)} />
-            </label>
+            <WorkspaceSearch aria-label="Buscar conta" maxLength={100} placeholder="Nome ou e-mail"
+              value={search} onChange={event => setSearch(event.target.value)} />
             <button className={ui.workspaceSecondary} type="submit">Buscar</button>
           </div>
           <label className={s.statusFilter}>Situação<select value={status} onChange={event => { setPage(1); setStatus(event.target.value); }}>

@@ -521,8 +521,10 @@
 }
 .commandModal {
   width: min(100%, 570px);
-  max-height: 75vh;
-  overflow: auto;
+  max-height: 75dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #fff;
   border: 1px solid #e5ede0;
   border-radius: 15px;
@@ -532,9 +534,13 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 15px 18px;
-  border-bottom: 1px solid #e8eee4;
-  color: #7e9377;
+  margin: 0 18px 12px;
+  padding: 0 14px;
+  min-height: 48px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: #f4f8f5;
+  color: #3d6853;
 }
 .commandSearch input {
   flex: 1;
@@ -544,11 +550,12 @@
   padding-block: 8px;
   background: transparent;
   color: #334d37;
-  font:
-    400 14px Inter,
-    sans-serif;
+  font: 500 16px/1.4 Inter, sans-serif;
 }
-.commandSearch button {
+.commandSearch:focus-within { border-color: #40785c; box-shadow: 0 0 0 2px #dcebe1; }
+.commandHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; }
+.commandHeader h2 { margin: 0; color: #173f31; font: 750 1.18rem/1.2 Montserrat, Inter, sans-serif; letter-spacing: -.025em; }
+.commandHeader button {
   display: grid;
   place-items: center;
   width: 44px;
@@ -557,8 +564,8 @@
   padding: 0;
   border: 0;
   background: #f2f6ef;
-  border-radius: 7px;
-  color: #83957a;
+  border-radius: 50%;
+  color: #36614d;
   cursor: pointer;
 }
 .commandTitle {
@@ -572,6 +579,9 @@
 .commandList {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 0 10px 10px;
 }
 .commandList > a {
@@ -878,13 +888,7 @@
   .content {
     padding: 23px 14px 105px;
   }
-  .commandSearch {
-    gap: 8px;
-    padding: 12px;
-  }
-  .commandSearch input {
-    font-size: 12px;
-  }
+  .commandSearch { gap: 8px; }
 }
 @media (max-width: 350px) {
   .toolbar {
@@ -944,17 +948,27 @@
 }
 
 @media (max-width: 970px) {
-  .toolbar .hamburger, .toolbar .commandButton { display: none; }
+  .toolbar .hamburger { display: none; }
+  .toolbar .commandButton { display: grid; place-items: center; flex: 0 0 44px; width: 44px; min-height: 44px; padding: 0; background: transparent; border: 0; }
+  .toolbar .commandButton > span { display: none; }
+  .toolbarIdentity { min-width: 0; }
+  .toolbarIdentity > div { min-width: 0; }
+  .toolbarIdentity strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .toolbar .smallLogo { display: block; flex: none; width: 32px; height: 36px; }
   .mobileNav { gap: 4px; min-height: 61px; background: #fff; backdrop-filter: none; }
   .mobileItem, .mobileActive { min-height: 46px; border-radius: 15px; font-size: 11px; }
   .mobileActive { color: #214f39; background: transparent; }
   .mobileNav :is(.mobileItem, .mobileActive) svg { box-sizing: content-box; padding: 3px 12px; border-radius: 999px; }
   .mobileNav .mobileActive svg { background: #e0eee4; }
-  .modalBackdrop { align-items: end; padding: 0; }
-  .commandModal { width: 100%; max-height: 84dvh; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
-  .commandList { display: block; padding: 4px 12px 16px; }
-  .commandList > a { min-height: 50px; border-radius: 0; }
+  .modalBackdrop { inset: var(--visible-top, 0px) 0 auto; height: var(--visible-height, 100dvh); align-items: stretch; padding: 0; }
+  .commandModal { width: 100%; max-height: 100%; border: 0; border-radius: 0; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+  .commandList { flex: 1; padding: 2px 14px 16px; }
+  .commandList > a { min-height: 56px; border-radius: 0; }
+  .commandList strong { font-size: .9rem; }
+  .frame .commandSearch input,
+  .frame .workspace :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select, textarea) { font-size: 16px; }
+  .frame .workspace :is(input,select,textarea) { min-width: 0; max-width: 100%; }
+  .frame .workspace :is(input,textarea) { scroll-margin-block: 78px 106px; }
   .commandList > a + a { border-top: 1px solid var(--app-border); }
   .commandList a small { display: none; }
 }

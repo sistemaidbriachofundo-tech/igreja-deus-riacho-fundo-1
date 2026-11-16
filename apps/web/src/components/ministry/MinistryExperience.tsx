@@ -27,7 +27,7 @@ import {
   type MinistryTabId,
 } from "../../lib/ministry-view";
 import { MinistryMembershipCatalog } from "../MinistryMembershipCatalog";
-import { UIIcon } from "../AppShell";
+import { AppNavLink, UIIcon } from "../AppShell";
 import { PersonPortrait } from "../PersonPortrait";
 import { PageHeader } from "../ui/PageHeader";
 import ui from "../ui/ui.module.css";
@@ -163,6 +163,10 @@ function ReadyExperience({
         title={desk.ministry.name}
         description={desk.ministry.description || undefined}
         actions={
+          <div className={styles.ministryActions}>
+          <AppNavLink className={ui.workspaceQuiet} href="/app/ministerios/">
+            <UIIcon name="layers" size={16} /> Todos os ministérios
+          </AppNavLink>
           <label className={styles.ministryPicker}>
             Acessar ministério
             <select
@@ -176,6 +180,7 @@ function ReadyExperience({
               ))}
             </select>
           </label>
+          </div>
         }
       />
       <article
@@ -221,17 +226,17 @@ function ReadyExperience({
             <section className={styles.overview}>
               <ul className={styles.stats}>
                 <li>
-                  <span>Integrantes formais</span>
+                  <span><UIIcon name="people" size={16} /> Integrantes formais</span>
                   <strong>
                     {count === null ? "Indisponível" : String(count)}
                   </strong>
                 </li>
                 <li>
-                  <span>Interesses, sem vínculo</span>
+                  <span><UIIcon name="mail" size={16} /> Interesses, sem vínculo</span>
                   <strong>{desk.interests.length}</strong>
                 </li>
                 <li>
-                  <span>Escalas deste ministério</span>
+                  <span><UIIcon name="calendar" size={16} /> Escalas deste ministério</span>
                   <strong>
                     {escalas.kind === "ready"
                       ? String(escalas.items.length)
@@ -432,7 +437,7 @@ function MinistryCash({ finance }: { finance: FinancePanel }) {
   });
   return (
     <section className={styles.cash} aria-labelledby="caixa-title">
-      <h2 id="caixa-title">Caixa do ministério</h2>
+      <h2 id="caixa-title"><UIIcon name="wallet" size={20} /> Caixa do ministério</h2>
       {finance.kind === "ready" ? (
         <ul className={styles.stats}>
           <li>

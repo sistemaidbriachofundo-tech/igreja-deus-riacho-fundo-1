@@ -268,3 +268,48 @@
   .directoryActions { padding-inline-start: 43px; }
   .directoryActions a { gap: 5px; padding-inline: 5px; }
 }
+
+.directoryToolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.directoryToolbar h2 { margin: 0; color: #23523e; font: 750 clamp(1rem, 2vw, 1.25rem)/1.25 Montserrat, Inter, sans-serif; }
+.directoryToolbar > label { width: min(100%, 320px); }
+.directoryList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(224px, 100%), 1fr));
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.directoryList .directoryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-between;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dce8df;
+  border-radius: 16px;
+  background: linear-gradient(155deg, #f5faf6, #fff 65%);
+}
+.directoryList .directoryName { padding: 8px; min-height: 64px; gap: 10px; border-radius: 13px; }
+.directoryName strong { font: 750 .9rem/1.3 Montserrat, Inter, sans-serif; }
+.directoryIcon { width: 40px; height: 40px; border-radius: 13px; }
+.directoryList .directoryActions { justify-content: space-between; padding: 4px; border-top: 1px solid #e5eee6; }
+.directoryActions a span { padding: 2px 6px; border-radius: 999px; background: #e6f1e9; }
+.ministryActions { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+.ministryActions > a { color: #285f45; }
+.panel { border: 1px solid #dce8df; border-radius: 18px; background: #fff; }
+.tabs { background: #f5f9f5; padding-top: 8px; }
+.overview > .stats { background: #eaf3eb; border-radius: 15px; }
+.stats span { display: flex; align-items: center; gap: 6px; }
+.stats span > svg { flex: none; }
+.cash { border-radius: 15px; background: #f1f7f2; }
+.cash h2 { display: flex; align-items: center; gap: 7px; }
+.split > section { padding: 14px; border: 1px solid #e2ebe4; background: #f8faf8; border-radius: 14px; }
+@media (max-width: 620px) {
+  .directoryToolbar > label { width: 100%; }
+  .ministryActions { width: 100%; }
+  .ministryPicker { flex: 1 1 160px; }
+  .stats span { flex-wrap: wrap; gap: 4px; }
+  .panel .tabs { padding-inline: 7px; }
+}

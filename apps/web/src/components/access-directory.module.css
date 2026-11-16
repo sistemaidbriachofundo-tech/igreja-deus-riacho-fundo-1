@@ -8,13 +8,7 @@
 .panel :is(input, select) { width: 100%; min-height: 44px; min-width: 0; padding: 8px 10px; border: 1px solid #bdcec2; border-radius: 8px; background: #fff; color: #14382a; font-size: 14px; }
 .filter { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 14px; }
 .searchGroup { display: flex; align-items: center; gap: 8px; flex: 1 1 230px; min-width: 0; }
-.panel .searchInput {
-  display: flex; align-items: center; gap: 8px; flex: 1;
-  min-width: 0; min-height: 44px; padding-inline: 12px;
-  border: 1px solid #cbdcd0; border-radius: 999px; background: #f5f9f5; color: #466c57;
-}
-.searchInput svg { flex: none; }
-.panel .searchInput input { border: 0; padding: 0; background: transparent; }
+.panel .searchGroup > label { flex: 1; min-width: 0; }
 .statusFilter { flex: 0 1 11rem; }
 .list, .people { display: grid; margin: 14px 0 0; padding: 0; list-style: none; }
 .people { gap: 8px; }

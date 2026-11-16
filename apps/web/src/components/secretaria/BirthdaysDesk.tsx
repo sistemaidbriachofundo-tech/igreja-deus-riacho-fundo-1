@@ -53,6 +53,7 @@ function BirthdayList() {
     </Modal>
     <section className={s.directory} aria-label="Agenda de aniversários">
       <div className={s.directoryBar}>
+        <h2 className={s.directoryTitle}><span className={s.directoryMark}><UIIcon name="birthday" size={22} /></span> Agenda de aniversários</h2>
         <div className={ui.workspaceChoices} role="group" aria-label="Período dos aniversários">
           {(Object.keys(periods) as Period[]).map(key => <button type="button" key={key} aria-pressed={period === key}
             onClick={() => setPeriod(key)}><UIIcon name={periods[key].icon} size={16} />{periods[key].label}</button>)}

@@ -64,3 +64,10 @@
 .itemActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .reason { display: grid; gap: 6px; margin-top: 12px; }
 .reason textarea { border: 1px solid #bbd0c2; border-radius: 8px; padding: 8px; min-height: 65px; font: inherit; }
+
+.actions { padding: 10px 13px; border-radius: 14px; background: #eaf3ec; }
+.item { border-radius: 16px; }
+.itemTitle { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.itemTitle span { color: #23583f; white-space: nowrap; }
+.item details { background: #f4f8f4; border-radius: 11px; padding: 6px 11px; }
+.item summary { color: #295a41; font-weight: 650; padding-block: 7px; cursor: pointer; }

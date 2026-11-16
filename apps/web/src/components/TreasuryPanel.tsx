@@ -16,6 +16,7 @@ import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash
 import { ExpenseApprovals } from "./ExpenseApprovals";
 import { PageHeader } from "./ui/PageHeader";
 import { FilterDisclosure } from "./ui/FilterDisclosure";
+import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import ui from "./ui/ui.module.css";
 import styles from "./treasury-panel.module.css";
 
@@ -519,7 +520,7 @@ export function TreasuryPanel() {
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
         {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      {view !== "aprovacoes" && view !== "extrato" && scopeFilters}
+      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && scopeFilters}
       {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
@@ -537,17 +538,18 @@ export function TreasuryPanel() {
         ) : <TreasuryPositionCards state={cards} />)}
 
         {view === "despesas" && <section className={styles.card} aria-label="Despesas da congregação">
-          <div className={styles.expenseHeading}>
-            <div>
-              <span className={styles.kicker}>Controle financeiro</span>
-              <h2>Despesas da congregação</h2>
-              <p className={styles.note}>Registre pagamentos, acompanhe cada solicitação e consulte a decisão pastoral.</p>
+          <header className={styles.expenseHeading}>
+            <div className={styles.statementTitle}>
+              <span className={styles.statementIcon}><UIIcon name="wallet" size={22} /></span>
+              <div><h2>Despesas da congregação</h2>
+                {data?.entries && <p className={styles.note}>{expenseRows.length} {expenseRows.length === 1 ? "despesa no período" : "despesas no período"}</p>}
+              </div>
             </div>
-            {canCreateExpense && <button type="button" className={ui.workspacePrimary} onClick={() => openMovement("despesa")}>
-              <UIIcon name="plus" size={17} /> Incluir despesa
-            </button>}
-          </div>
-          <p className={styles.approvalInfo}>Fluxo: <strong>Tesouraria registra → Pastor aprova → Despesa entra no saldo</strong>. Pedidos pendentes não reduzem o caixa.</p>
+          </header>
+          <FilterDisclosure count={[activeCenter, from || to].filter(Boolean).length}>{scopeFilters}</FilterDisclosure>
+          <p className={styles.approvalInfo}><UIIcon name="shield" size={19} />
+            <span>A despesa entra no saldo após a aprovação do pastor.</span>
+          </p>
           {demoAccounts && <p className={styles.unavailable} role="status">Este ambiente usa contas demonstrativas. Não registre despesas reais antes da configuração do plano de contas de produção.</p>}
           {!canCreateExpense && access.kind === "ready" && <p className={styles.unavailable} role="status">
             Seu perfil pode consultar as despesas, mas somente quem tem permissão de Tesouraria pode cadastrar uma nova.
@@ -560,11 +562,14 @@ export function TreasuryPanel() {
             const workflow = expenseWorkflowStatus(entry);
             const canApproveExpense = canWrite && approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []).canApprove;
             return <article key={entry.id} className={styles.expenseItem} id={`despesa-${entry.id}`} data-target={targetExpense === entry.id}>
+              <div className={styles.expenseIdentity}>
+                <span className={styles.expenseMark}><UIIcon name="wallet" size={19} /></span>
               <div className={styles.expenseInfo}>
                 <strong>{entry.description}</strong>
                 <small>{displayDate(entry.entryDate)}</small>
                 <span className={styles.expenseState} data-status={entry.status}>{workflow}</span>
                 {entry.rejectionReason && entry.status === "REJECTED" && <small>Motivo da devolução: {entry.rejectionReason}</small>}
+              </div>
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
               {canWrite && entry.status === "PENDING_APPROVAL" && <details className={styles.receiptUpload}>
@@ -588,10 +593,9 @@ export function TreasuryPanel() {
             </div>
             {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
           </header>
-          <FilterDisclosure count={statementFilterCount} search={<label className={styles.statementSearch}>
-            <UIIcon name="search" size={17} />
-            <input aria-label="Buscar movimento" type="search" value={query} placeholder="Buscar movimento" onChange={event => { setQuery(event.target.value); setPage(1); }} />
-          </label>}>
+          <FilterDisclosure count={statementFilterCount} search={<WorkspaceSearch
+            aria-label="Buscar movimento" value={query} placeholder="Buscar movimento"
+            onChange={event => { setQuery(event.target.value); setPage(1); }} />}>
             <div className={styles.filterFields}>
               {scopeFilters}
               <div className={`${styles.toolbar} ${styles.statementFilters}`} role="group" aria-label="Filtros do extrato">

@@ -82,3 +82,13 @@
   .personActions { width: 100%; }
   .personActions :is(a, button) { min-width: min(100%, 120px); }
 }
+
+.directory { padding: clamp(12px, 2vw, 22px); border: 1px solid #dce8df; border-radius: 19px; background: #fff; }
+.directoryBar { padding: 11px; border: 0; border-radius: 14px; background: #edf5ef; }
+.directoryTitle { display: flex; align-items: center; gap: 10px; margin: 0; color: #1c4936; font: 750 clamp(1rem, 2vw, 1.22rem)/1.2 Montserrat, Inter, sans-serif; }
+.directoryMark { composes: workspaceMark from "../ui/ui.module.css"; background: #dcebe0; }
+.person { padding-inline: 6px; }
+@media (max-width: 600px) {
+  .directoryTitle { width: 100%; }
+  .directoryBar { gap: 8px; }
+}
