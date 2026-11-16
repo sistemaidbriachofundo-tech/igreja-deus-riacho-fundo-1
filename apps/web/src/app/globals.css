@@ -40,6 +40,22 @@
   box-sizing: border-box;
 }
 
+input:is([type="date"], [type="datetime-local"], [type="month"], [type="time"]) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+@media (max-width: 600px) {
+  :root input:is([type="date"], [type="datetime-local"], [type="month"], [type="time"]) {
+    min-block-size: 44px;
+    font-size: 1rem;
+  }
+
+  input::-webkit-date-and-time-value {
+    text-align: start;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }

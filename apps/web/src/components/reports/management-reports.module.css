@@ -225,5 +225,6 @@
 }
 
 @media (max-width: 520px) {
+  .period { grid-template-columns: minmax(0, 1fr); }
   .filters button { grid-column: 1 / -1; width: 100%; }
 }
