@@ -422,6 +422,7 @@
   font-size: 10px;
   font-weight: 650;
 }
+.account::before { content: attr(data-initials); }
 .accountInfo {
   display: flex;
   flex-direction: column;

@@ -452,7 +452,9 @@ function MinistryCash({ finance }: { finance: FinancePanel }) {
         <p>
           {finance.kind === "denied"
             ? "Seu perfil não tem acesso ao caixa."
-            : "Saldo ainda indisponível."}
+            : finance.kind === "unconfigured"
+              ? "A Tesouraria ainda precisa configurar o centro de custo deste ministério."
+              : "Não foi possível consultar o saldo do ministério."}
         </p>
       )}
     </section>

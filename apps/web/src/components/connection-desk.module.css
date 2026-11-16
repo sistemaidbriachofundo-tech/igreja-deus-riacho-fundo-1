@@ -17,7 +17,7 @@
 .groups{display:grid;gap:0}
 .group{border-bottom:1px solid #dce7de;padding:13px 0;display:grid;gap:8px;min-width:0}
 .group h3{margin:0;color:#24533a;font:780 1rem Montserrat,Inter,sans-serif}
-.group p{margin:0;color:#6c7a6e;font-size:.87rem}
+.group p{margin:0;color:#4b6051;font-size:.87rem}
 .group div{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;color:#536e5b;font-size:.8rem}
 .group small{color:#966133;font-size:.76rem}
 .back{display:inline-flex;align-items:center;gap:9px;color:#285f43;font-weight:750;width:fit-content}

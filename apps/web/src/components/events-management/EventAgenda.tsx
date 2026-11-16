@@ -38,6 +38,7 @@ export function EventAgenda({
     [events, query, status, monthFilter],
   );
   const cells = useMemo(() => buildMonthGrid(month, visible), [month, visible]);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, index) => cells.slice(index * 7, index * 7 + 7));
 
   return (
     <div className={s.agenda}>
@@ -85,26 +86,42 @@ export function EventAgenda({
       {events.length === 0 && <p>Nenhum evento nesta agenda.</p>}
       {events.length > 0 && visible.length === 0 && <p>Nenhum evento com esses filtros.</p>}
       {mode === "calendario" && (
-        <div className={s.calendar} role="grid" aria-label={`Calendário de ${monthTitle(month)}`}>
-          {WEEKDAYS.map((day) => <div className={s.weekday} key={day} role="columnheader">{day}</div>)}
-          {cells.map((cell) => (
-            <div className={cell.inMonth ? s.day : s.dayOutside} key={cell.date} role="gridcell" aria-label={cell.date}>
-              <span>{cell.day}</span>
-              {cell.events.map((event) => (
-                <button
-                  type="button"
-                  key={event.id}
-                  className={selectedId === event.id ? s.chipOn : s.chip}
-                  aria-pressed={selectedId === event.id}
-                  onClick={() => onChoose(event.id)}
-                >
-                  <span>{event.name || "Evento"}</span>
-                  <small>{eventStatusLabel(event.status)}</small>
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
+        <table className={s.calendar} aria-label={`Calendário de ${monthTitle(month)}`}>
+          <thead>
+            <tr>{WEEKDAYS.map((day) => <th className={s.weekday} key={day} scope="col">{day}</th>)}</tr>
+          </thead>
+          <tbody>
+            {weeks.map((week) => (
+              <tr key={week[0].date}>
+                {week.map((cell) => (
+                  <td className={cell.inMonth ? s.day : s.dayOutside} key={cell.date}>
+                    <div className={s.dayContent}>
+                      <time dateTime={cell.date}>{cell.day}</time>
+                      {cell.events.length > 0 && (
+                        <span className={s.eventCount}>
+                          <span aria-hidden="true">{cell.events.length}</span>
+                          <span className={s.srOnly}>{cell.events.length === 1 ? "1 evento" : `${cell.events.length} eventos`}</span>
+                        </span>
+                      )}
+                      {cell.events.map((event) => (
+                        <button
+                          type="button"
+                          key={event.id}
+                          className={selectedId === event.id ? s.chipOn : s.chip}
+                          aria-pressed={selectedId === event.id}
+                          onClick={() => onChoose(event.id)}
+                        >
+                          <span>{event.name || "Evento"}</span>
+                          <small>{eventStatusLabel(event.status)}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
       {visible.length > 0 && <ul className={s.agendaList}>
         {visible.map((event) => (
@@ -114,7 +131,7 @@ export function EventAgenda({
               <strong>{event.name || "Evento"}</strong>
               <small>{eventStatusLabel(event.status)} · {formatAgendaWhen(event.startsAt)}</small>
             </div>
-            <button type="button" className={ui.workspaceQuiet} aria-pressed={selectedId === event.id} onClick={() => onChoose(event.id)}>
+            <button type="button" className={ui.workspaceQuiet} aria-pressed={selectedId === event.id} aria-label={`${selectedId === event.id ? "Selecionado" : "Abrir"}: ${event.name || "Evento"}`} onClick={() => onChoose(event.id)}>
               {selectedId === event.id ? "Selecionado" : "Abrir"}
               <UIIcon name={selectedId === event.id ? "check" : "chevron"} size={16} />
             </button>

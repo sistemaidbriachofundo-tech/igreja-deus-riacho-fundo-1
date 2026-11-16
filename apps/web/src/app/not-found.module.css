@@ -1,0 +1,32 @@
+.page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 24px;
+  background: #f4f8f3;
+  color: #173e2e;
+}
+.content {
+  width: min(100%, 540px);
+  padding: clamp(24px, 6vw, 52px);
+  border: 1px solid #dbe8dc;
+  border-radius: 24px;
+  background: #fff;
+}
+.icon {
+  display: inline-grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e6f0e8;
+  color: #285c46;
+}
+.content h1 {
+  margin: 18px 0 8px;
+  font-size: clamp(1.7rem, 5vw, 2.5rem);
+  letter-spacing: -.04em;
+}
+.content p { margin: 0; color: #536858; line-height: 1.6; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.actions a { text-decoration: none; }

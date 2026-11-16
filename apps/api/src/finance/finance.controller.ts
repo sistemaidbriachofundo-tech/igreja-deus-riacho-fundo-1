@@ -367,6 +367,16 @@ export class FinanceController {
     return this.finance.listCostCenters(user);
   }
 
+  @Get("cost-centers/ministry-options")
+  listMinistryCostCenterOptions(@CurrentUser() user: AuthUser) {
+    return this.finance.listMinistryCostCenterOptions(user);
+  }
+
+  @Post("cost-centers/ministry/:ministryId")
+  configureMinistryCostCenter(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string) {
+    return this.finance.configureMinistryCostCenter(user, ministryId);
+  }
+
   @Post("cost-centers")
   createCostCenter(@CurrentUser() user: AuthUser, @Body() body: CodeNameBody) {
     return this.finance.createCostCenter(user, body);

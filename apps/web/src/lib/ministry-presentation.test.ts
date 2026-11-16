@@ -134,6 +134,24 @@ describe("escalas e atividades no escopo do ministério", () => {
     expect(calls.some((url) => url.endsWith("/events"))).toBe(false);
   });
 
+  it("usa os endpoints do ministério e diferencia caixa pendente de saldo zero", async () => {
+    const calls: string[] = [];
+    const event = { id: "evt", ministryId: "min-homens", name: "Encontro", startsAt: "2026-11-21T12:00:00.000Z" };
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      if (url.endsWith("/ministries")) return json(200, { ministries: [{ id: "min-homens", name: "Homens" }] });
+      if (url.endsWith("/formal-memberships")) return json(200, { blocked: false, members: [] });
+      if (url.endsWith("/agenda")) return json(200, { blocked: false, items: [event, { ...event, id: "outro", ministryId: "min-jovens" }] });
+      if (url.endsWith("/requests")) return json(200, { blocked: false, requests: [{ id: "int", displayName: "Pessoa fictícia" }] });
+      if (url.endsWith("/cost-center-balance")) return json(200, { currency: "BRL", configured: false, balanceCents: null });
+      return json(200, { rosters: [] });
+    };
+    const board = await loadMinistryBoard({ token, baseUrl: base, fetchImpl });
+    expect(board.activities).toMatchObject({ kind: "ready", items: [{ id: "evt" }] });
+    expect(board.desk).toMatchObject({ kind: "ready", finance: { kind: "unconfigured" }, interests: [{ id: "int" }] });
+    expect(calls.some(url => url.endsWith("/events") || url.includes("/volunteer-interests"))).toBe(false);
+  });
+
   it("no ministério autorizado lê a escala pelo id e ignora saldo", async () => {
     const calls: string[] = [];
     const fetchImpl = async (url: string) => {

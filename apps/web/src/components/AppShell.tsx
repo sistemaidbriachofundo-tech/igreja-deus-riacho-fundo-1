@@ -260,7 +260,7 @@ export function AppShell({
 
   const accountLink = (
     <>
-      <span className={s.account} aria-hidden="true">{initials}</span>
+      <span className={s.account} aria-hidden="true" data-initials={initials} />
       <span className={s.accountInfo} title={accountEmail || accountName}>
         <strong>{accessKind === "ready" ? "Minha conta" : accountName}</strong>
         <small>{accountLabel}</small>
@@ -610,7 +610,7 @@ export function AppShell({
                 "Grupos de Amizade": <UIIcon name="people" size={18} />,
               }} />}
             {accessKind === "ready" ? (
-              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label="Minha conta">
+              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label={`Minha conta · ${accountLabel}`}>
                 {accountLink}
               </AppNavLink>
             ) : accessKind !== "pending" && <span className={s.profileCluster}>{accountLink}</span>}

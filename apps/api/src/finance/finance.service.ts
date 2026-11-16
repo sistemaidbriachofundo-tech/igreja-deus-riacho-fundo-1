@@ -26,6 +26,7 @@ import {
 } from "@idbrf/shared";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
+import { requireMinistryInPilot } from "../common/ministry-access";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
@@ -1355,6 +1356,39 @@ export class FinanceService {
       churchId: pilot.churchId,
       costCenters: rows.map((r) => this.toCostCenterDto(r)),
     };
+  }
+
+  async listMinistryCostCenterOptions(actor: AuthUser) {
+    const scope = await this.requireFinance(actor);
+    const [ministries, centers] = await Promise.all([
+      this.prisma.ministry.findMany({
+        where: scope, select: { id: true, name: true, slug: true }, orderBy: { name: "asc" },
+      }),
+      this.prisma.costCenter.findMany({ where: scope, select: { code: true } }),
+    ]);
+    const configured = new Set(centers.map((center) => center.code));
+    return { ministries: ministries.flatMap(({ id, name, slug }) =>
+      configured.has(`MIN:${id}`) || configured.has(slug) ? [] : [{ id, name }],
+    ) };
+  }
+
+  async configureMinistryCostCenter(actor: AuthUser, ministryId: string) {
+    const scope = await this.requireFinance(actor);
+    const ministry = await requireMinistryInPilot(this.prisma, ministryId, scope, "notFound");
+    const code = `MIN:${ministry.id}`;
+    const existing = await this.prisma.costCenter.findFirst({
+      where: { ...scope, code: { in: [code, ministry.slug] } },
+    });
+    if (existing) return this.toCostCenterDto(existing);
+    try {
+      return await this.createCostCenter(actor, { code, name: ministry.name });
+    } catch (error) {
+      // A second request may create the same center while the form is open.
+      if (!(error instanceof ConflictException) && (error as { code?: string })?.code !== "P2002") throw error;
+      const concurrent = await this.prisma.costCenter.findFirst({ where: { ...scope, code } });
+      if (!concurrent) throw error;
+      return this.toCostCenterDto(concurrent);
+    }
   }
 
   async createCostCenter(

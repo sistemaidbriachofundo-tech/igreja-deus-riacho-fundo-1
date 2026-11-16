@@ -93,10 +93,10 @@ export function MinistryOverview({ token }: { token: string }) {
                     <strong>{title}</strong><UIIcon name="chevron" size={16} />
                   </AppNavLink>
                   <div className={s.directoryActions}>
-                    <AppNavLink className={ui.workspaceQuiet} href={ministryHref(ministry.id, "integrantes")} aria-label={`Equipe de ${title}: ${people === null ? "quantidade indisponível" : people.length}`}>
+                    <AppNavLink className={ui.workspaceQuiet} href={ministryHref(ministry.id, "integrantes")} aria-label={`Equipe ${people?.length ?? "—"} · ${title}`}>
                       <UIIcon name="people" size={16} /> Equipe <span>{people?.length ?? "—"}</span>
                     </AppNavLink>
-                    <AppNavLink className={ui.workspaceQuiet} href={ministryHref(ministry.id, "escalas")} aria-label={`Escalas de ${title}: ${count ?? "quantidade indisponível"}`}>
+                    <AppNavLink className={ui.workspaceQuiet} href={ministryHref(ministry.id, "escalas")} aria-label={`Escalas ${count ?? "—"} · ${title}`}>
                       <UIIcon name="calendar" size={16} /> Escalas <span>{count ?? "—"}</span>
                     </AppNavLink>
                   </div>

@@ -57,15 +57,26 @@ export type MembershipPanel =
   | (DeniedPanel & { members: null })
   | { kind: "ready"; members: FormalMember[]; message: string };
 
+export type MinistryActivity = {
+  id: string;
+  name: string;
+  startsAt: string;
+  locationText: string | null;
+  status: string;
+};
+
 export type AgendaPanel =
+  | { kind: "ready"; scheduleText: string | null; items: MinistryActivity[] }
   | (BlockedPanel & { scheduleText: string | null; items: null })
   | (DeniedPanel & { scheduleText: null; items: null });
 
 export type RequestsPanel =
+  | { kind: "ready"; requests: InterestRow[] }
   | (BlockedPanel & { requests: null })
   | (DeniedPanel & { requests: null });
 
 export type FinancePanel =
+  | { kind: "unconfigured" }
   | (BlockedPanel & { balance: null; dependency: "issue-96" })
   | (DeniedPanel & { balance: null })
   | { kind: "ready"; balanceCents: number; incomeCents: number; expenseCents: number };
@@ -269,7 +280,31 @@ export function presentMembership(status: number, body: unknown): MembershipPane
   };
 }
 
-export function presentAgenda(status: number, body: unknown): AgendaPanel {
+/** Atividade sem ministryId, ou de outro ministério, não aparece neste painel. */
+export function readMinistryActivities(rows: unknown, ministryId: string): MinistryActivity[] | null {
+  if (!Array.isArray(rows)) return null;
+  const items: MinistryActivity[] = [];
+  for (const item of rows) {
+    const row = asRecord(item);
+    const id = textOf(row?.id);
+    const name = textOf(row?.name);
+    const startsAt = textOf(row?.startsAt);
+    if (!row || !id || !name || !startsAt || textOf(row.ministryId) !== ministryId) continue;
+    if (!Number.isFinite(Date.parse(startsAt))) continue;
+    const location = textOf(row.locationText);
+    items.push({
+      id,
+      name,
+      startsAt,
+      locationText: location || null,
+      status: textOf(row.status) || "DRAFT",
+    });
+  }
+  items.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.name.localeCompare(b.name, "pt-BR"));
+  return items;
+}
+
+export function presentAgenda(status: number, body: unknown, ministryId = ""): AgendaPanel {
   if (status === 403) {
     return {
       kind: "denied",
@@ -280,7 +315,10 @@ export function presentAgenda(status: number, body: unknown): AgendaPanel {
       items: null,
     };
   }
-  const scheduleText = textOf(asRecord(body)?.scheduleText) || null;
+  const data = asRecord(body);
+  const scheduleText = textOf(data?.scheduleText) || null;
+  const items = status === 200 && data?.blocked === false ? readMinistryActivities(data.items, ministryId) : null;
+  if (items) return { kind: "ready", scheduleText, items };
   return {
     kind: "blocked",
     code: readCode(body, "MINISTRY_AGENDA_MODEL_BLOCKED"),
@@ -291,6 +329,10 @@ export function presentAgenda(status: number, body: unknown): AgendaPanel {
 }
 
 export function presentRequests(status: number, body: unknown): RequestsPanel {
+  const data = asRecord(body);
+  if (status === 200 && data?.blocked === false && Array.isArray(data.requests)) {
+    return { kind: "ready", requests: readInterests({ interests: data.requests }) };
+  }
   if (status === 403) {
     return {
       kind: "denied",
@@ -311,6 +353,7 @@ export function presentRequests(status: number, body: unknown): RequestsPanel {
 export function presentFinance(status: number, body: unknown): FinancePanel {
   const data = asRecord(body);
   if (status === 200 && data?.currency === "BRL") {
+    if (data.configured === false) return { kind: "unconfigured" };
     const { balanceCents, incomeCents, expenseCents } = data;
     if (typeof balanceCents === "number" && Number.isSafeInteger(balanceCents)
       && typeof incomeCents === "number" && Number.isSafeInteger(incomeCents)
@@ -477,18 +520,17 @@ export async function loadMinistryDesk(options: {
     };
   }
 
-  const [agendaRes, requestsRes, financeRes, interestRes] = await Promise.all([
+  const [agendaRes, requestsRes, financeRes] = await Promise.all([
     requestJson(fetchImpl, `${scope}/agenda`, options.token),
     requestJson(fetchImpl, `${scope}/requests`, options.token),
     requestJson(fetchImpl, `${scope}/cost-center-balance`, options.token),
-    requestJson(
-      fetchImpl,
-      `${base}/volunteer-interests?ministryId=${encodeURIComponent(ministry.id)}`,
-      options.token,
-    ),
   ]);
-
-  const interests = interestRes.status === 200 ? readInterests(interestRes.body) : [];
+  const requests = presentRequests(requestsRes.status, requestsRes.body);
+  const legacyInterests = requestsRes.status === 501
+    ? await requestJson(fetchImpl, `${base}/volunteer-interests?ministryId=${encodeURIComponent(ministry.id)}`, options.token)
+    : null;
+  const interests = requests.kind === "ready" ? requests.requests
+    : legacyInterests?.status === 200 ? readInterests(legacyInterests.body) : [];
   return {
     kind: "ready",
     ministries,
@@ -496,11 +538,11 @@ export async function loadMinistryDesk(options: {
     membership: presentMembership(membershipRes.status, membershipRes.body),
     interests,
     interestsMessage:
-      interestRes.status === 200
+      requests.kind === "ready" || legacyInterests?.status === 200
         ? "Interesse de voluntariado. Não é vínculo formal com o ministério."
-        : readMessage(interestRes.body, "Os interesses deste ministério não puderam ser lidos."),
-    agenda: presentAgenda(agendaRes.status, agendaRes.body),
-    requests: presentRequests(requestsRes.status, requestsRes.body),
+        : readMessage(legacyInterests?.body ?? requestsRes.body, "Os interesses deste ministério não puderam ser lidos."),
+    agenda: presentAgenda(agendaRes.status, agendaRes.body, ministry.id),
+    requests,
     finance: presentFinance(financeRes.status, financeRes.body),
   };
 }

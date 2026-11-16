@@ -45,7 +45,7 @@ export function WorkspacePriorities({ showService, showDecisions, revision }: { 
       <h2>Decisões pendentes</h2>
       {data.pending.length ? <ul>{data.pending.slice(0, 5).map(item => <li key={item.id}>
         <div><strong>{item.category}</strong><span>{item.detail}</span></div>
-        <a href={withBasePath(item.href)} aria-label={item.title + " · " + item.detail}>Revisar</a>
+        <a href={withBasePath(item.href)} aria-label={"Revisar " + item.title + " · " + item.detail}>Revisar</a>
       </li>)}</ul> : <p>Nenhuma decisão pendente para o seu perfil.</p>}
     </div>}
   </section>;

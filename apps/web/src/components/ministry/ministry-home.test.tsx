@@ -178,7 +178,7 @@ describe("experiência de ministérios", () => {
     expect(atividades).not.toContain("Saldo ainda indisponível");
 
     const recursos = render("recursos");
-    expect(recursos).toContain("Saldo ainda indisponível");
+    expect(recursos).toContain("Não foi possível consultar o saldo do ministério");
     expect(recursos).not.toContain("R$");
     expect(recursos).not.toContain("Pedidos internos");
   });

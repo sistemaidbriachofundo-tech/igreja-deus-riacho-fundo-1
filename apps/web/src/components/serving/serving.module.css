@@ -21,7 +21,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-bronze);
+  color: #755627;
 }
 
 .top h1 {
@@ -34,7 +34,7 @@
 .lead {
   margin: 0.4rem 0 0;
   max-width: 42rem;
-  color: var(--color-ink-muted);
+  color: #536858;
 }
 
 .nav {
@@ -50,7 +50,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   font: inherit;
   font-size: 0.92rem;
   font-weight: 650;
@@ -68,9 +68,9 @@
 }
 
 .nav a[aria-current="page"] {
-  background: var(--color-marrom);
+  background: var(--app-primary,#285c46);
   color: var(--color-on-dark);
-  border-color: var(--color-marrom);
+  border-color: var(--app-primary,#285c46);
 }
 
 .nav a:focus-visible,
@@ -86,7 +86,7 @@
 .danger {
   border: 0;
   color: var(--color-on-dark);
-  background: var(--color-marrom);
+  background: var(--app-primary,#285c46);
   padding: 0.65rem 0.9rem;
   min-height: 2.75rem;
 }
@@ -149,7 +149,7 @@
 .meta {
   margin: 0.4rem 0 0;
   padding-left: 1.1rem;
-  color: var(--color-ink-muted);
+  color: #536858;
 }
 
 .schedule,
@@ -247,7 +247,7 @@
 }
 
 .check input {
-  accent-color: var(--color-marrom);
+  accent-color: var(--app-primary,#285c46);
   width: 1rem;
   height: 1rem;
 }
@@ -258,7 +258,7 @@
 
 .footnote {
   margin: 0;
-  color: var(--color-ink-muted);
+  color: #536858;
   font-size: 0.85rem;
 }
 

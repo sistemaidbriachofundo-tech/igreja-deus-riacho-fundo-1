@@ -690,7 +690,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                               <td data-label="Situação"><span className={s.statusPill} data-status={membership.status}>{label(membership.status)}</span></td>
                               <td data-label="Contato">{membership.person.email ?? "Não informado"}</td>
                               <td data-label="Ficha">
-                                <button type="button" className={s.openFicha} onClick={() => setFichaId(membership.person.id)} aria-label={"Abrir ficha de " + membership.person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
+                                <button type="button" className={s.openFicha} onClick={() => setFichaId(membership.person.id)} aria-label={"Ver ficha de " + membership.person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
                               </td>
                             </tr>
                           ))}

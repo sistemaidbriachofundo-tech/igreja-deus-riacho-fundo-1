@@ -523,6 +523,8 @@ export function TreasuryPanel() {
       {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
+        {view === "visao" && canWrite && token && <MinistryCostCenterSetup token={token}
+          onConfigured={() => setRevision(value => value + 1)} />}
         {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
           <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
           <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
@@ -693,6 +695,63 @@ function failureState(error: unknown): TreasuryCardState {
     return { kind: "forbidden", message: "Seu perfil não consulta a tesouraria." };
   }
   return { kind: "error", message: dasError(error) };
+}
+
+function MinistryCostCenterSetup({ token, onConfigured }: { token: string; onConfigured: () => void }) {
+  const { showFeedback } = useFeedback();
+  const [options, setOptions] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [ministryId, setMinistryId] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadOptions() {
+    setError("");
+    setPending(true);
+    try {
+      const result = await apiGet<{ ministries: Array<{ id: string; name: string }> }>("/ledger/cost-centers/ministry-options", token);
+      setOptions(result.ministries);
+    } catch (cause) {
+      setError(dasError(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function configure(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!ministryId || pending) return;
+    setPending(true);
+    setError("");
+    try {
+      await apiPost(`/ledger/cost-centers/ministry/${encodeURIComponent(ministryId)}`, token);
+      setOptions(current => current?.filter(item => item.id !== ministryId) ?? null);
+      setMinistryId("");
+      onConfigured();
+      showFeedback({ tone: "success", title: "Centro de custo configurado", message: "O ministério já pode acompanhar o caixa." });
+    } catch (cause) {
+      setError(dasError(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return <details className={`${styles.card} ${styles.ministryCenter}`} id="centros-de-custo"
+    onToggle={event => { if (event.currentTarget.open && !options && !pending) void loadOptions(); }}>
+    <summary>Centros de custo dos ministérios</summary>
+    {error && <p role="alert">{error}</p>}
+    {options === null && (pending ? <p role="status">Consultando ministérios…</p>
+      : error ? <button type="button" className={ui.workspaceQuiet} onClick={() => void loadOptions()}>Tentar novamente</button> : null)}
+    {options?.length === 0 && <p>Todos os ministérios já têm centro de custo.</p>}
+    {Boolean(options?.length) && <form className={styles.toolbar} onSubmit={configure}>
+      <label>Ministério
+        <select value={ministryId} required disabled={pending} onChange={event => setMinistryId(event.target.value)}>
+          <option value="">Selecione um ministério</option>
+          {options?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+      <button type="submit" className={ui.workspacePrimary} disabled={pending || !ministryId}>Configurar centro de custo</button>
+    </form>}
+  </details>;
 }
 
 async function loadTreasury(token: string, centerId: string) {

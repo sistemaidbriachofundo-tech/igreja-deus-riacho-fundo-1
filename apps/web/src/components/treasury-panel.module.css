@@ -401,3 +401,8 @@
   .sectionNavigation { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1px; }
   .sectionNavigation > button { min-width: 0; padding-inline: 1px; font-size: .63rem; white-space: normal; }
 }
+
+.ministryCenter { margin-bottom: 16px; }
+.ministryCenter summary { cursor: pointer; color: #215943; font-weight: 700; padding-block: 8px; }
+.ministryCenter form { margin: 12px 0 0; align-items: end; }
+.ministryCenter p { color: #536858; }

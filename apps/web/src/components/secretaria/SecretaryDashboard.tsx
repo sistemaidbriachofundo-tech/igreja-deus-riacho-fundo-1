@@ -259,11 +259,11 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
         </form>}
       </div>
       <dl className={s.movementSummary} aria-label="Totais do período selecionado">
-        <div><dt>Admissões</dt><dd>{counts.format(movements.period.admissoes)}</dd><small>Aprovadas</small></div>
-        <div><dt>Transferências recebidas</dt><dd>{counts.format(movements.period.transferenciasEntrada)}</dd><small>Entradas</small></div>
-        <div><dt>Transferências enviadas</dt><dd>{counts.format(movements.period.transferenciasSaida)}</dd><small>Saídas</small></div>
-        <div><dt>Variação de eventos</dt><dd>{counts.format(movements.period.admissoes + movements.period.transferenciasEntrada - movements.period.transferenciasSaida)}</dd>
-          <small>Não representa o total de membros</small></div>
+        <div><dt>Admissões aprovadas</dt><dd>{counts.format(movements.period.admissoes)}</dd></div>
+        <div><dt>Transferências recebidas</dt><dd>{counts.format(movements.period.transferenciasEntrada)}</dd></div>
+        <div><dt>Transferências enviadas</dt><dd>{counts.format(movements.period.transferenciasSaida)}</dd></div>
+        <div><dt>Variação de eventos</dt><dd>{counts.format(movements.period.admissoes + movements.period.transferenciasEntrada - movements.period.transferenciasSaida)}
+          <small>Não representa o total de membros</small></dd></div>
       </dl>
       <div className={s.chartHeading}>
         <div><h4>Histórico registrado</h4><p>Comparação de entradas, saídas e admissões</p></div>

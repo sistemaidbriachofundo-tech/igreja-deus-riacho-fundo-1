@@ -4,7 +4,7 @@
  * Interesse de voluntariado continua no adaptador formal e não vira integrante.
  */
 
-import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
+import { loadMinistryDesk, readMinistryActivities, type DeskResult, type MinistryActivity } from "./ministry-desk";
 import type { AssignmentStatus } from "./serving-rosters";
 
 export const ROSTER_LOCATION_LABELS = { sector: "Setor", zone: "Zona", side: "Lado" } as const;
@@ -39,14 +39,6 @@ export type MinistryEscala = {
   functions: string[];
   assignedCount: number;
   positions?: EscalaPosition[];
-};
-
-export type MinistryActivity = {
-  id: string;
-  name: string;
-  startsAt: string;
-  locationText: string | null;
-  status: string;
 };
 
 export type EscalaPanel =
@@ -178,29 +170,8 @@ function readEscalaModules(body: unknown, ministryId: string): EscalaModule[] {
   });
 }
 
-/** Atividade sem ministryId, ou de outro ministério, não aparece neste painel. */
 export function readScopedActivities(body: unknown, ministryId: string): MinistryActivity[] | null {
-  const rows = asRecord(body)?.events;
-  if (!Array.isArray(rows)) return null;
-  const items: MinistryActivity[] = [];
-  for (const item of rows) {
-    const row = asRecord(item);
-    const id = textOf(row?.id);
-    const name = textOf(row?.name);
-    const startsAt = textOf(row?.startsAt);
-    if (!row || !id || !name || !startsAt || textOf(row.ministryId) !== ministryId) continue;
-    if (!Number.isFinite(Date.parse(startsAt))) continue;
-    const location = textOf(row.locationText);
-    items.push({
-      id,
-      name,
-      startsAt,
-      locationText: location || null,
-      status: textOf(row.status) || "DRAFT",
-    });
-  }
-  items.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.name.localeCompare(b.name, "pt-BR"));
-  return items;
+  return readMinistryActivities(asRecord(body)?.events, ministryId);
 }
 
 function presentList<T>(
@@ -234,9 +205,11 @@ export async function loadMinistryBoard(options: {
   }
   const base = options.baseUrl.replace(/\/$/, "");
   const ministryId = desk.ministry.id;
-  const [escalaRes, activityRes] = await Promise.all([
+  const [escalaRes, legacyActivityRes] = await Promise.all([
     requestJson(fetchImpl, `${base}/rosters/by-ministry/${encodeURIComponent(ministryId)}`, options.token),
-    requestJson(fetchImpl, `${base}/events`, options.token),
+    desk.agenda.kind === "blocked" && desk.agenda.code === "MINISTRY_AGENDA_MODEL_BLOCKED"
+      ? requestJson(fetchImpl, `${base}/events`, options.token)
+      : null,
   ]);
   const escalas = presentList(
     escalaRes.status,
@@ -248,9 +221,9 @@ export async function loadMinistryBoard(options: {
   return {
     desk,
     escalas: escalas.kind === "ready" && modules.length ? { ...escalas, modules } : escalas,
-    activities: presentList(
-      activityRes.status,
-      readScopedActivities(activityRes.body, ministryId),
+    activities: desk.agenda.kind === "ready" ? { kind: "ready", items: desk.agenda.items } : presentList(
+      legacyActivityRes?.status ?? (desk.agenda.kind === "denied" ? 403 : 0),
+      readScopedActivities(legacyActivityRes?.body, ministryId),
       "Esta conta não vê as atividades deste ministério.",
       "As atividades deste ministério não puderam ser lidas.",
     ),

@@ -202,7 +202,7 @@ export class ReportsService {
         from: period.from?.toISOString() ?? null,
         to: period.to?.toISOString() ?? null,
       },
-      note: "Contagens de church_memberships no período informado. Nomes, e-mails e registros de menores não saem neste relatório.",
+      note: "Totais de membresia no período informado. Nomes, e-mails e registros de menores não saem neste relatório.",
     };
     await this.audit(actor, pilot, "report.membership.read", {
       byStatus,
