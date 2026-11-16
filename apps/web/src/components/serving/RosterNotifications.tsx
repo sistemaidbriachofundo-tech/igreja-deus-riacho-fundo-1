@@ -29,6 +29,7 @@ export function RosterNotifications({ token, mode, onAccepted }: {
   const [supported, setSupported] = useState(false);
   const [installOnIos, setInstallOnIos] = useState(false);
   const [notice, setNotice] = useState("");
+  const [target, setTarget] = useState("");
   const [busy, setBusy] = useState(false);
   const workerPath = withBasePath("/roster-notifications.js");
   useEffect(() => {
@@ -52,9 +53,16 @@ export function RosterNotifications({ token, mode, onAccepted }: {
   }, [mode, token, workerPath]);
 
   useEffect(() => {
-    const target = window.location.hash.slice(1);
-    if (mode === "invites" && feed && target.startsWith("convite-")) document.getElementById(target)?.scrollIntoView({ block: "center" });
-  }, [feed, mode]);
+    if (mode !== "invites") return;
+    const syncTarget = () => setTarget(window.location.hash.slice(1));
+    syncTarget();
+    window.addEventListener("hashchange", syncTarget);
+    return () => window.removeEventListener("hashchange", syncTarget);
+  }, [mode]);
+
+  useEffect(() => {
+    if (feed && target.startsWith("convite-")) document.getElementById(target)?.scrollIntoView({ block: "center" });
+  }, [feed, target]);
 
   async function toggle() {
     if (!feed?.publicKey || busy) return;
@@ -152,23 +160,28 @@ export function RosterNotifications({ token, mode, onAccepted }: {
     </section>;
   }
 
-  const invitations = feed?.notices.filter(item => item.kind === "substitute") ?? [];
+  const invitations = (feed?.notices ?? [])
+    .filter(item => item.kind === "substitute")
+    .map(item => ({
+      ...item,
+      anchor: "convite-" + item.id.split(":")[1],
+      status: item.inviteStatus === "open" && item.expiresAt && Date.parse(item.expiresAt) <= Date.now() ? "expired" : item.inviteStatus,
+    }))
+    .filter(item => item.status === "open" || item.anchor === target);
   if (!invitations.length && !notice) return null;
 
   return <section className={styles.invites} aria-label="Convites de substituição">
     {confirmation}
     <h2><UIIcon name="mail" size={19} /> Convites de substituição</h2>
     {notice && <p role="status">{notice}</p>}
-    {invitations.length > 0 && <ul>{invitations.map(item => {
-      const status = item.inviteStatus === "open" && item.expiresAt && Date.parse(item.expiresAt) <= Date.now() ? "expired" : item.inviteStatus;
-      return <li key={item.id} id={"convite-" + item.id.split(":")[1]} className={styles.inviteItem} data-invite-status={status}>
-        <h3>{item.title}</h3>
-        <p>{item.body}</p>
+    {invitations.length > 0 && <ul>{invitations.map(({ id, anchor, status, title, body }) =>
+      <li key={id} id={anchor} className={styles.inviteItem} data-targeted={anchor === target || undefined}>
+        <h3>{title}</h3>
+        <p>{body}</p>
         {status === "open" ? <div className={styles.actions}>
-          <button className={styles.primary} type="button" disabled={busy} onClick={() => void respond(item.id, "accept")}>Aceitar substituição</button>
-          <button className={styles.agendaDecline} type="button" disabled={busy} onClick={() => void respond(item.id, "decline")}>Recusar convite</button>
+          <button className={styles.primary} type="button" disabled={busy} onClick={() => void respond(id, "accept")}>Aceitar substituição</button>
+          <button className={styles.agendaDecline} type="button" disabled={busy} onClick={() => void respond(id, "decline")}>Recusar convite</button>
         </div> : <strong>{status === "accepted" ? "Substituição confirmada" : status === "expired" ? "Prazo encerrado" : status === "declined" ? "Convite recusado" : "Convite encerrado"}</strong>}
-      </li>;
-    })}</ul>}
+      </li>)}</ul>}
   </section>;
 }

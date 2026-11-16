@@ -184,7 +184,7 @@
   gap: .65rem .8rem;
   align-items: start;
 }
-.agendaItem:target, .inviteItem:target { border-color: #688e78; box-shadow: 0 0 0 2px #d9eade; }
+.agendaItem:target, .inviteItem[data-targeted] { border-color: #688e78; box-shadow: 0 0 0 2px #d9eade; }
 .agendaEmpty { align-items: center; color: #255742; }
 .agendaEmpty p { margin: .2rem 0 0; color: #536858; font-size: .85rem; line-height: 1.45; }
 .agendaDate {
@@ -216,8 +216,6 @@
 .agendaItem .badge[data-status="CONFIRMED"] { background: #dceee1; color: #20523a; }
 .agendaItem .badge[data-status="DECLINED"] { background: #f6e4df; color: #813d31; }
 
-.invites:not(:has(.inviteItem[data-invite-status="open"], .inviteItem:target, [role="status"])),
-.inviteItem:not([data-invite-status="open"], :target) { display: none; }
 .invites h2 { display: flex; align-items: center; gap: .55rem; }
 .invites ul { display: grid; gap: .65rem; margin: .65rem 0 0; padding: 0; list-style: none; }
 .inviteItem h3 { margin: 0; font-size: 1rem; }
