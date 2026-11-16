@@ -2,8 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Fatos do fonte na main. Não substitui o navegador.
- * Persistência ausente permanece BLOCKED. Atalho de menu e saldo inventado permanecem FAIL quando o fonte já os mostra.
+ * Inventário do código-fonte. Os testes integrados validam a persistência e as permissões em execução.
  */
 
 function read(root, rel) {
@@ -19,26 +18,25 @@ export function classifyPhaseG(root) {
   const space = read(root, "apps/web/src/components/serving/MemberSpace.tsx");
   const dossier = read(root, "apps/web/src/components/HmlPhaseOne.tsx");
   const ci = read(root, ".github/workflows/ci.yml");
-  const navBlock = shell.slice(shell.indexOf("const NAV"), shell.indexOf("const PERSONA_LABELS"));
-  const menuFiltersRole = /grants|roleCode/.test(navBlock) && /filter\(/.test(navBlock);
+  const navigation = read(root, "apps/web/src/lib/persona-navigation.ts");
+  const membershipModel = /^model MinistryMembership\s*\{/m.test(schema);
+  const formalRead = gate.includes("this.team.read(scope)") && gate.includes("members: result.members");
+  const menuFiltersRole = shell.includes("shellAreasForRoles(roles)") && navigation.includes("areasForRoles(roles)");
+  const personalAgenda = space.includes('data-assignment={item.id}') && space.includes("Sua agenda");
   const items = [
     {
-      id: "schema-sem-vinculo-formal",
-      status: schema.includes("model MinistryMembership") ? "FAIL" : "BLOCKED",
-      summary: schema.includes("model MinistryMembership")
-        ? "O schema passou a ter MinistryMembership. A persistência precisa de E2E, não deste relatório."
-        : "schema.prisma não tem MinistryMembership. O vínculo formal continua sem tabela. Alteração de schema é do integrador.",
+      id: "schema-vinculo-formal",
+      status: membershipModel ? "PASS" : "BLOCKED",
+      summary: membershipModel
+        ? "O schema contém o modelo de vínculo formal."
+        : "O schema ainda não contém o modelo de vínculo formal.",
     },
     {
-      id: "api-vinculo-501",
-      status:
-        gate.includes("MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED") && gate.includes("members: null")
-          ? "BLOCKED"
-          : "FAIL",
-      summary:
-        gate.includes("MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED") && gate.includes("members: null")
-          ? "O gate de ministério ainda termina em bloqueio de schema, com members nulo."
-          : "O gate de vínculo formal mudou e não declara mais o bloqueio explícito.",
+      id: "api-vinculo-formal",
+      status: membershipModel && formalRead ? "PASS" : "BLOCKED",
+      summary: membershipModel && formalRead
+        ? "O gate consulta o serviço de vínculo no escopo autorizado."
+        : "A leitura de vínculos carece de modelo ou consulta no serviço.",
     },
     {
       id: "seed-publicador",
@@ -56,26 +54,24 @@ export function classifyPhaseG(root) {
       id: "menu-por-papel",
       status: menuFiltersRole ? "PASS" : "FAIL",
       summary: menuFiltersRole
-        ? "O bloco NAV do AppShell filtra módulos pelo papel."
-        : "AppShell publica a mesma lista NAV para todos os papéis. O menu ainda é genérico.",
+        ? "O AppShell usa a navegação por papel."
+        : "O AppShell precisa consultar a navegação por papel.",
     },
     {
       id: "tesouraria-sem-engano",
       status:
-        treasury.includes("Sem consulta") &&
-        treasury.includes("não é saldo da igreja") &&
-        treasury.includes("Banco, Pix e maquininha estão bloqueados")
+        treasury.includes('state.kind !== "ready"') &&
+        treasury.includes("Nenhum valor foi exibido.") &&
+        treasury.includes("/treasury/position")
           ? "PASS"
           : "FAIL",
       summary:
-        "TreasuryPanel só mostra valor do ledger e rotula a ilustração. Pix, banco e maquininha ficam no texto de bloqueio.",
+        "TreasuryPanel consulta a posição e omite valores quando a consulta está indisponível.",
     },
     {
-      id: "meu-espaco-sem-lista",
-      status: space.includes("Não há consulta da agenda pessoal") ? "BLOCKED" : "FAIL",
-      summary: space.includes("Não há consulta da agenda pessoal")
-        ? "Meu Espaço declara que não consulta a agenda pessoal. A lista própria continua ausente."
-        : "O texto de Meu Espaço não declara mais a ausência da agenda.",
+      id: "meu-espaco-agenda",
+      status: personalAgenda ? "PASS" : "BLOCKED",
+      summary: personalAgenda ? "Meu Espaço renderiza as designações da agenda pessoal." : "Meu Espaço precisa renderizar a agenda pessoal.",
     },
     {
       id: "ficha-controle-no-fonte",

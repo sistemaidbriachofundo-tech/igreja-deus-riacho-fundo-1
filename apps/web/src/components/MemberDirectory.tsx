@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import type { FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { withBasePath } from "../lib/paths";
@@ -143,7 +144,7 @@ export function MemberDirectory(){
             </div>
           </div>}
           <div className={s.controls}>
-            <label className={s.search}><UIIcon name="search" size={18}/><input aria-label="Buscar pessoa, família ou ministério" placeholder="Buscar pessoas, famílias e ministérios..." value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/></label>
+            <WorkspaceSearch aria-label="Buscar pessoa, família ou ministério" placeholder="Buscar pessoas, famílias e ministérios" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} />
             <label className={s.sort}><span>Ordenar:</span><select value={sort} onChange={e=>setSort(e.target.value as typeof sort)} aria-label="Ordenar pessoas"><option value="NAME">Nome A–Z</option><option value="RECENT">Mais recentes</option></select></label>
           </div>
           <div className={s.filters} role="group" aria-label="Situação da membresia">

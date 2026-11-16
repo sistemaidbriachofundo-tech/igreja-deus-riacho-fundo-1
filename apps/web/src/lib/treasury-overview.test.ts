@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeTreasury, type TreasuryAccount, type TreasuryEntry, type TreasuryEntryLine } from "./treasury-overview";
+import { statementCashEffect, summarizeTreasury, type TreasuryAccount, type TreasuryEntry, type TreasuryEntryLine } from "./treasury-overview";
 
 const accounts: TreasuryAccount[] = [
   { id: "b", code: "1.1.10.01", name: "BRB", type: "ASSET" },
@@ -18,6 +18,18 @@ const entry = (id: string, entryDate: string, lines: TreasuryEntryLine[]): Treas
 });
 
 describe("Tesouraria por banco e canal", () => {
+  it("mostra o valor líquido do banco e o sentido da transferência por conta", () => {
+    const banks = new Set(["b", "c"]);
+    const settlement = entry("cartão", "2026-11-06", [line("c", "DEBIT", 97000), line("t", "DEBIT", 3000), line("r", "CREDIT", 100000)]);
+    expect(statementCashEffect(settlement, banks)).toEqual({ kind: "credit", amount: 97000 });
+    const transfer = { ...entry("transferência", "2026-11-06", [line("b", "CREDIT", 10000), line("c", "DEBIT", 10000)]), amountCents: 10000 };
+    expect(statementCashEffect(transfer, banks)).toEqual({ kind: "transfer", amount: 10000 });
+    expect(statementCashEffect(transfer, banks, "b")).toEqual({ kind: "debit", amount: -10000 });
+    expect(statementCashEffect(transfer, banks, "c")).toEqual({ kind: "credit", amount: 10000 });
+    const payable = entry("conta a pagar", "2026-11-06", [line("r", "DEBIT", 10000), line("p", "CREDIT", 10000)]);
+    expect(statementCashEffect(payable, banks).kind).toBe("ledger");
+  });
+
   it("separa a receita do dinheiro efetivamente depositado sem contar o rascunho", () => {
     const entries = [
       entry("pix", "2026-11-02", [line("b", "DEBIT", 50000), line("p", "CREDIT", 50000)]),

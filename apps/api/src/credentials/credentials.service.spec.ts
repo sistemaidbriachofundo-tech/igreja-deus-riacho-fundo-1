@@ -84,7 +84,7 @@ describe("CredentialsService", () => {
     buildCredentialPdfKey: jest.fn().mockReturnValue("credentials/org1/church/c1/x.pdf"),
     put: jest.fn(),
     get: jest.fn(),
-    remove: jest.fn(),
+    remove: jest.fn().mockResolvedValue(undefined),
     contentSha256: jest.fn().mockReturnValue("abc"),
   };
 

@@ -10,6 +10,6 @@ export default function VisaoGeralPage() {
 }
 
 export const metadata: Metadata = {
-  title: "Área Administrativa",
+  title: "Governança Ministerial",
   description: "Painel de gestão de pessoas, ministérios, conteúdo e processos — Igreja de Deus Riacho Fundo I.",
 };

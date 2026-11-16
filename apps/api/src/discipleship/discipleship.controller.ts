@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -54,6 +55,17 @@ class CreateStageBody {
   sortOrder?: number;
 }
 
+class EditStageBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  title!: string;
+
+  @IsString()
+  @MaxLength(280)
+  description!: string;
+}
+
 class CreateEnrollmentBody {
   @IsString()
   @MinLength(1)
@@ -74,6 +86,13 @@ class UpdateEnrollmentStatusBody {
   status!: string;
 }
 
+class UpdateMentorBody {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  mentorPersonId!: string | null;
+}
+
 class RecordProgressBody {
   @IsString()
   @MinLength(1)
@@ -90,7 +109,6 @@ class RecordProgressBody {
 }
 
 const LEAD_ROLES = [
-  ROLE_CODES.SECRETARIA,
   ROLE_CODES.PASTOR,
   ROLE_CODES.LIDER_MINISTERIO,
   ROLE_CODES.PLATFORM_ADMIN,
@@ -113,6 +131,13 @@ export class DiscipleshipController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Header("Cache-Control", "private, no-store")
+  @Get("people")
+  searchPeople(@CurrentUser() user: AuthUser, @Query("q") q = "") {
+    return this.discipleship.searchPeople(user, q);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Post("tracks/:trackId/stages")
   createStage(
     @CurrentUser() user: AuthUser,
@@ -120,6 +145,13 @@ export class DiscipleshipController {
     @Body() body: CreateStageBody,
   ) {
     return this.discipleship.createStage(user, trackId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch("tracks/:trackId/stages/:stageId")
+  editStage(@CurrentUser() user: AuthUser, @Param("trackId") trackId: string,
+    @Param("stageId") stageId: string, @Body() body: EditStageBody) {
+    return this.discipleship.editStage(user, trackId, stageId, body);
   }
 
   @Roles(...LEAD_ROLES)
@@ -152,6 +184,11 @@ export class DiscipleshipController {
     });
   }
 
+  @Get("me/connection")
+  myConnection(@CurrentUser() user: AuthUser) {
+    return this.discipleship.myConnectionJourney(user);
+  }
+
   @Roles(...LEAD_ROLES)
   @Patch("enrollments/:enrollmentId")
   updateEnrollmentStatus(
@@ -164,6 +201,12 @@ export class DiscipleshipController {
       enrollmentId,
       body.status,
     );
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch("enrollments/:enrollmentId/mentor")
+  updateMentor(@CurrentUser() user: AuthUser, @Param("enrollmentId") id: string, @Body() body: UpdateMentorBody) {
+    return this.discipleship.updateMentor(user, id, body.mentorPersonId);
   }
 
   @Roles(...LEAD_ROLES)

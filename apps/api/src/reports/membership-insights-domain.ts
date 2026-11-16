@@ -95,7 +95,7 @@ function yearMonthSeries(rows: InsightMembership[], now: Date, period: { from: D
   }
   return { months, years };
 }
-function anniversary(date: Date, today: { year: number; month: number; day: number }) {
+export function anniversary(date: Date, today: { year: number; month: number; day: number }, firstDay = 0, lastDay = 30) {
   const original = ymd(date);
   const todayUtc = Date.UTC(today.year, today.month - 1, today.day);
   for (let offset = 0; offset <= 1; offset++) {
@@ -103,7 +103,7 @@ function anniversary(date: Date, today: { year: number; month: number; day: numb
     const candidate = new Date(Date.UTC(year, original.month - 1, original.day));
     if (candidate.getUTCMonth() + 1 !== original.month || candidate.getUTCDate() !== original.day) continue;
     const daysAway = Math.round((candidate.getTime() - todayUtc) / 86400000);
-    if (daysAway >= 0 && daysAway <= 30)
+    if (daysAway >= firstDay && daysAway <= lastDay)
       return { day: dateKey(candidate), daysAway, years: year - original.year };
   }
   return null;

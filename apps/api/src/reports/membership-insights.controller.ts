@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Header, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -8,6 +8,13 @@ import { MembershipInsightsService } from "./membership-insights.service";
 @Controller("reports")
 export class MembershipInsightsController {
   constructor(private readonly insights: MembershipInsightsService) {}
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
+  @Get("birthdays")
+  birthdays(@CurrentUser() user: AuthUser, @Query("period") period?: string) {
+    return this.insights.birthdays(user, period);
+  }
 
   /** Somente leitura e escopo autorizado; sem consultas anônimas. */
   @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)

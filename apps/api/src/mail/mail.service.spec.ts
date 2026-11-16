@@ -65,6 +65,19 @@ describe("e-mail do piloto", () => {
     })).rejects.toThrow(/desligado/);
   });
 
+  it("restringe envio real no DEV aos destinatários explícitos do QA", async () => {
+    const env = {
+      SMTP_HOST: "smtp.hostinger.com", SMTP_PORT: "587", SMTP_USER: "igreja",
+      SMTP_FROM: "nao-responda@example.test", SMTP_PASSWORD: "teste",
+      SMTP_SEND_ENABLED: "1", SMTP_ALLOWED_RECIPIENTS: "permitido@example.test",
+    };
+    const message = { idempotencyKey: "k2", to: "pessoa@example.test", subject: "Teste", text: "Sem rede" };
+    await expect(new SmtpMailTransport({ ...env, IDBRF_RUNTIME_STAGE: "qa" }).send(message))
+      .rejects.toThrow(/destinatário não está autorizado/);
+    await expect(new SmtpMailTransport({ ...env, IDBRF_RUNTIME_STAGE: "hml" }).send(message))
+      .rejects.toThrow(/ambiente QA/);
+  });
+
   it("reenvia de forma idempotente no transporte de teste e não grava o corpo", async () => {
     const transport = new TestMailTransport();
     const rows = new Map<string, { status: string; providerMessageId: string | null; toAddress: string; subject: string }>();

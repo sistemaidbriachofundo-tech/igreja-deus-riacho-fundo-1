@@ -1,8 +1,9 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { PrismaService } from "./prisma/prisma.service";
-import { APP_NAME, createHealthStatus, readSourceSha, type HealthStatus } from "@idbrf/shared";
+import { APP_NAME, createHealthStatus, type HealthStatus } from "@idbrf/shared";
 import { mfaBlockingEnabled } from "./auth/privileged-roles";
 import { usesDurableAuthState } from "./auth/session/auth-state.tokens";
+import { deployedSourceSha } from "./deployed-source";
 
 @Injectable()
 export class HealthService {
@@ -23,7 +24,7 @@ export class HealthService {
         status: "ready",
         service: "api",
         database: "ok",
-        commit: readSourceSha()?.slice(0, 12) ?? null,
+        commit: deployedSourceSha()?.slice(0, 12) ?? null,
         authState: usesDurableAuthState() ? "prisma" : "memory",
         mfaBlocking: mfaBlockingEnabled(),
       };

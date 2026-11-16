@@ -17,7 +17,7 @@ import { generateAuthenticatorQr } from "../lib/authenticator-qr";
 import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
 
-type Props = { onAuthenticated?: () => void };
+type Props = { onAuthenticated?: (user: LoginResult["user"]) => void };
 type Me = LoginResult["user"];
 
 export function LoginScreen({ onAuthenticated }: Props) {
@@ -104,7 +104,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
     setEnrollment(null);
     setCode("");
     setPassword("");
-    if (onAuthenticated) onAuthenticated();
+    if (onAuthenticated) onAuthenticated(login.user);
     else openAuthenticatedArea(authenticatedLanding(login.user));
   }
 
@@ -238,8 +238,9 @@ export function LoginScreen({ onAuthenticated }: Props) {
               </div>
               {error && <Alert appearance="workspace" tone="danger" title={error} />}
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
-              <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking||busy ? "Aguarde…" : "Entrar no painel"}
+              <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}
+                aria-busy={busy || checking} aria-label={busy || checking ? "Carregando" : undefined}>
+                {checking||busy ? <span className={styles.submitSpinner} aria-hidden="true" /> : "Entrar no painel"}
               </button>
             </form>}
             <p className={styles.bottom}>Não possui acesso ou esqueceu a senha? Procure a administração da igreja.</p>

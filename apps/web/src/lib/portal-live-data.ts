@@ -26,6 +26,7 @@ export type PublishedEvent = {
   locationText: string | null;
   ministryId: string | null;
   featuredOnHome: boolean;
+  registrationOpen?: boolean;
 };
 
 export type PublishedMinistry = {
@@ -88,6 +89,7 @@ export function parsePublishedEvent(value: unknown): PublishedEvent | null {
     locationText: optionalText(row.locationText),
     ministryId: optionalText(row.ministryId),
     featuredOnHome: row.featuredOnHome === true,
+    ...(typeof row.registrationOpen === "boolean" ? { registrationOpen: row.registrationOpen } : {}),
   };
 }
 

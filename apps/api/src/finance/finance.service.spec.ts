@@ -107,6 +107,23 @@ describe("FinanceService", () => {
     );
   });
 
+  it("permite ao administrador da congregação enviar OFX sem liberar a conciliação", async () => {
+    const admin = { ...treasurer, grants: [{ ...treasurer.grants[0], roleCode: "PLATFORM_ADMIN" }] };
+    const foreignAdmin = { ...admin, grants: [{ ...admin.grants[0], churchId: "outra-igreja" }] };
+    const accountLookup = jest.fn().mockResolvedValue({ ...accountRow, code: "1.1.10.01" });
+    const service = new FinanceService(
+      { ledgerAccount: { findFirst: accountLookup } } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(service.uploadBankStatement(admin, accountRow.id)).rejects.toBeInstanceOf(BadRequestException);
+    expect(accountLookup).toHaveBeenCalledWith({
+      where: { id: accountRow.id, organizationId: pilot.organizationId, churchId: pilot.churchId },
+    });
+    await expect(service.uploadBankStatement(foreignAdmin, accountRow.id)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.matchBankLine(admin, "line", { entryId: "entry" })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it("lists chart of accounts for TESOURARIA", async () => {
     const service = new FinanceService(
       {

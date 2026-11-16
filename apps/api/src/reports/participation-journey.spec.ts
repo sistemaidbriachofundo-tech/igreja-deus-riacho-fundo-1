@@ -87,7 +87,12 @@ function createMemoryPrisma() {
   const hydrate = (name: string, row: Row): Row => {
     if (name === "eventRegistration") {
       const event = table("portalEvent").find((item) => item.id === row.eventId);
-      return { ...row, event: event ? { ...event } : null };
+      const tickets = table("eventParticipantTicket").filter(ticket => ticket.registrationId === row.id);
+      return { ...row, tickets, event: event ? { ...event } : null };
+    }
+    if (name === "eventParticipantTicket") {
+      const registration = table("eventRegistration").find(item => item.id === row.registrationId);
+      return { ...row, registration };
     }
     if (name === "churchMembership") {
       const person = table("person").find((item) => item.id === row.personId);
@@ -169,6 +174,12 @@ function createMemoryPrisma() {
       } as Row;
       table(name).push(row);
       return { ...row };
+    },
+    async createMany({ data }: { data: Array<Record<string, unknown>> }) {
+      table(name).push(...data.map(row => ({
+        ...row, id: `${name}_${seq++}`, checkedInAt: null,
+      })));
+      return { count: data.length };
     },
     async findFirst(args?: { where?: Record<string, unknown> }) {
       const found = table(name).find((row) => matches(hydrate(name, row), args?.where));
@@ -281,6 +292,7 @@ function createMemoryPrisma() {
         if (prop === "$transaction") {
           return async (fn: (tx: unknown) => Promise<unknown>) => fn(client);
         }
+        if (prop === "$queryRaw") return async () => [];
         if (prop === "then") return undefined;
         return apiFor(String(prop));
       },
@@ -358,18 +370,15 @@ describe("evento → presença → relatório", () => {
     await expect(registrations.checkIn(secretaria, minor.id)).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    const checked = await registrations.checkIn(
-      secretaria,
-      adult.id,
-      adult.checkInCode,
-    );
+    await expect(registrations.checkIn(secretaria, adult.id, adult.checkInCode))
+      .rejects.toBeInstanceOf(BadRequestException);
+    const first = await registrations.checkInOnEvent(secretaria, created.id, adult.tickets[0].code);
+    expect(first).toMatchObject({ status: "CONFIRMED", remaining: 1 });
+    expect((await reports.participation(secretaria, { eventId: created.id })).counts.presentParticipants).toBe(1);
+    const checked = await registrations.checkInOnEvent(secretaria, created.id, adult.tickets[1].code);
     expect(checked.status).toBe("CHECKED_IN");
-    const again = await registrations.checkIn(
-      secretaria,
-      adult.id,
-      adult.checkInCode,
-    );
-    expect(again.status).toBe("CHECKED_IN");
+    const again = await registrations.checkInOnEvent(secretaria, created.id, adult.tickets[1].code);
+    expect(again).toMatchObject({ status: "CHECKED_IN", alreadyCheckedIn: true });
     expect(db.table("eventRegistration")).toHaveLength(2);
     expect(
       db.table("eventRegistration").filter((row) => row.status === "CHECKED_IN"),
@@ -440,7 +449,7 @@ describe("evento → presença → relatório", () => {
       expect.arrayContaining([
         "portal_event.create",
         "portal_event.patch",
-        "event_registration.check_in",
+        "event_registration.participant_check_in",
         "report.participation.read",
         "report.participation.csv",
         "report.participation.pdf",
@@ -448,7 +457,7 @@ describe("evento → presença → relatório", () => {
     );
     expect(JSON.stringify(db.table("auditLog"))).not.toContain("TESTE Menor");
     expect(
-      db.table("auditLog").filter((row) => row.action === "event_registration.check_in"),
-    ).toHaveLength(1);
+      db.table("auditLog").filter((row) => row.action === "event_registration.participant_check_in"),
+    ).toHaveLength(2);
   });
 });

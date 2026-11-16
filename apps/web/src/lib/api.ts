@@ -46,6 +46,7 @@ export interface AuthUser {
   userId: string;
   personId: string;
   email: string;
+  canManageConnection?: boolean;
   grants: Array<{
     roleCode: string;
     organizationId?: string | null;
@@ -82,6 +83,7 @@ export const SESSION_FRESH_MS = 120_000;
 export const SESSION_UNAUTHORIZED_EVENT = "idbrf:session-unauthorized";
 
 export type ApiCallOptions = {
+  keepalive?: boolean;
   timeoutMs?: number;
   /** Ignora a confirmação recente e consulta /auth/me de novo. */
   fresh?: boolean;
@@ -187,6 +189,7 @@ function cloneUser(user: AuthUser): AuthUser {
     userId: user.userId,
     personId: user.personId,
     email: user.email,
+    canManageConnection: user.canManageConnection,
     grants: user.grants.map(grant => ({ ...grant })),
   };
 }
@@ -288,7 +291,7 @@ async function apiFetch(url: string, init: RequestInit, timeoutMs: number): Prom
   }
 }
 
-type ApiMethod = "GET" | "POST" | "PATCH" | "PUT";
+type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 async function request<T>(
   method: ApiMethod,
@@ -302,7 +305,7 @@ async function request<T>(
   if (token) headers.Authorization = `Bearer ${token}`;
   const multipart = typeof FormData !== "undefined" && body instanceof FormData;
   if (method !== "GET" && !multipart) headers["Content-Type"] = "application/json";
-  const init: RequestInit = { method, headers };
+  const init: RequestInit = { method, headers, keepalive: options?.keepalive };
   if (method !== "GET") init.body = multipart ? body : JSON.stringify(body);
   const res = await apiFetch(`${getApiBaseUrl()}${path}`, init, options?.timeoutMs ?? API_TIMEOUT_MS);
   if (!res.ok) {
@@ -441,8 +444,20 @@ export async function apiPatch<T>(path: string, token: string, body: unknown, op
   return settle<T>("PATCH", path, token, body, options, true);
 }
 
+export function apiDelete<T>(path: string, token: string): Promise<T> {
+  return settle<T>("DELETE", path, token, undefined, undefined, true);
+}
+
 export function apiGetBlob(path: string, token: string): Promise<Blob> {
   return settle("GET", path, token, undefined, undefined, true, response => response.blob());
+}
+
+export function apiPostForm(path: string, token: string, form: FormData): Promise<void> {
+  return settle("POST", path, token, form, undefined, true, async () => undefined);
+}
+
+export function apiPostFormJson<T>(path: string, token: string, form: FormData): Promise<T> {
+  return settle<T>("POST", path, token, form, undefined, true);
 }
 
 export function apiPutForm(path: string, token: string, form: FormData): Promise<void> {

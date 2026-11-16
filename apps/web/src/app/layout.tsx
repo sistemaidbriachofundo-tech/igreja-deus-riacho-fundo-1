@@ -6,6 +6,8 @@ import { withBasePath } from "../lib/paths";
 import "@fontsource/montserrat/500.css";
 import "@fontsource/montserrat/600.css";
 import "@fontsource/montserrat/700.css";
+import "@fontsource/montserrat/800.css";
+import "@fontsource/montserrat/800-italic.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -18,7 +20,8 @@ export const metadata: Metadata = {
   },
   description:
     "Igreja de Deus no Riacho Fundo I, em Brasília. Conheça a igreja e confira os horários dos cultos.",
-  icons: { icon: withBasePath(officialLogoAsset), shortcut: withBasePath(officialLogoAsset) },
+  manifest: withBasePath("/roster.webmanifest"),
+  icons: { icon: withBasePath(officialLogoAsset), shortcut: withBasePath(officialLogoAsset), apple: withBasePath("/images/portal-voluntario-192.png") },
 };
 
 export default function RootLayout({

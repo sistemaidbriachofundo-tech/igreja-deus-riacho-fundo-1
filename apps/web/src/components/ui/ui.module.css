@@ -1168,10 +1168,9 @@
 }
 
 .workspaceHeader .pageTitle {
-  margin: 0;
   color: var(--app-ink, #22382e);
-  font: 650 clamp(27px, 2.6vw, 35px)/1.18 Inter, Arial, sans-serif;
-  letter-spacing: -0.045em;
+  font: 700 var(--app-title-size, clamp(1.5rem, 2.45vw, 2.05rem))/1.15 Montserrat, Inter, sans-serif;
+  letter-spacing: -.04em;
 }
 
 .workspaceHeader .sectionIntro {
@@ -1197,7 +1196,7 @@
   min-height: 44px;
   padding: 10px 14px;
   border: 1px solid var(--app-border, #dce6de);
-  border-radius: var(--app-control-radius, 8px);
+  border-radius: 999px;
   background: var(--app-surface, #fff);
   color: var(--app-accent, #255742);
   font: 600 14px/1.25 Inter, Arial, sans-serif;
@@ -1232,9 +1231,10 @@
 
 .workspaceTabs {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
+  gap: 5px;
   max-width: 100%;
+  padding-block: 4px 8px;
   overflow-x: auto;
   border-bottom: 1px solid var(--app-border, #dce6de);
   scrollbar-width: thin;
@@ -1243,33 +1243,75 @@
 .workspaceTabs > :is(button, a) {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  position: relative;
   flex: none;
-  min-height: 46px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 8px 13px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   background: transparent;
-  color: var(--app-muted, #5f7368);
-  font: 600 13px/1.35 Inter, Arial, sans-serif;
+  color: #496557;
+  font: 600 13px/1.25 Inter, Arial, sans-serif;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
 }
 
-.workspaceTabs > :is(button, a):hover { background: var(--app-subtle, #f5f8f5); }
+.workspaceTabs > :is(button, a) svg,
+.workspaceChoices > :is(button, a) svg { flex: none; }
+.workspaceTabs > :is(button, a):hover,
+.workspaceChoices > :is(button, a):hover { background: #e7eee8; color: #234e3c; }
 .workspaceTabs > :is(button, a)[aria-current="page"],
 .workspaceTabs > button[aria-selected="true"] {
-  border-bottom-color: var(--app-accent, #255742);
-  color: var(--app-accent, #255742);
+  background: #dceae0;
+  color: #164933;
+  font-weight: 700;
 }
-.workspaceTabs > :is(button, a):focus-visible { outline-offset: -4px; }
+.workspaceTabs > :is(button, a):focus-visible,
+.workspaceChoices > :is(button, a):focus-visible { outline: 2px solid #a8491b; outline-offset: -3px; }
+
+.workspaceChoices {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  width: fit-content;
+  padding: 4px;
+  border-radius: 24px;
+  background: #e8efe9;
+}
+.workspaceChoices > :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px clamp(8px, 2vw, 14px);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #3c5b4d;
+  font: 650 .8125rem/1.2 Inter, Arial, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.workspaceChoices > button[aria-pressed="true"] {
+  background: #24513e;
+  color: #fff;
+}
+.workspaceChoices > button[aria-pressed="true"]:focus-visible { outline-color: #ffd0a5; }
+@media (max-width: 420px) {
+  .workspaceChoices > :is(button, a) { padding-inline: 8px; font-size: .75rem; }
+}
 
 @media (max-width: 620px) {
   .workspaceHeader .pageHeader { align-items: flex-start; flex-direction: column; }
   .workspaceHeader .pageActions { width: 100%; }
-  .workspaceTabs > :is(button, a) { padding-inline: 12px; }
+  .workspaceTabs { flex-wrap: wrap; overflow-x: visible; }
+  .workspaceTabs > :is(button, a) { padding-inline: 10px; }
 }
 
 .workspaceDialog {
@@ -1297,8 +1339,8 @@
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid #d9e3db;
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 17px;
+  background: #fcfaf6;
   color: #20372d;
   box-shadow: 0 24px 72px #102f2a38;
   font-family: Inter, Arial, sans-serif;
@@ -1327,6 +1369,7 @@
 
 .confirmationContent h2 {
   margin: 0;
+  font-family: Montserrat, Inter, Arial, sans-serif;
   font-size: clamp(20px, 4vw, 24px);
   font-weight: 700;
   line-height: 1.2;
@@ -1349,6 +1392,8 @@
 }
 
 .confirmationActions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1464,3 +1509,79 @@
 /* Cadastro da Secretaria com largura confortável, sem alterar modais do restante do produto. */
 .workspaceDialogWide{width:min(920px,calc(100vw - 30px));max-width:min(920px,calc(100vw - 30px));max-height:calc(100dvh - 28px);padding:clamp(15px,2.2vw,25px);overflow:auto;border-radius:20px}
 @media(max-width:580px){.workspaceDialogWide{width:calc(100vw - 14px);max-width:calc(100vw - 14px);max-height:calc(100dvh - 12px);padding:13px;border-radius:14px}}
+
+.filterDisclosure { display: grid; gap: 10px; min-width: 0; }
+.filterRail { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.filterRail button { flex: none; }
+.filterRail button[aria-expanded="true"] { background: #e8f0e9; border-color: #b7cdbd; }
+.filterCount {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  min-height: 20px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: #24513e;
+  color: #fff;
+  font-size: .72rem;
+}
+.filterDisclosure:not([data-mobile-only="true"]) > .filterContent[data-open="false"] { display: none; }
+@media (min-width: 721px) {
+  .filterDisclosure[data-mobile-only="true"] > .filterRail { display: none; }
+}
+@media (max-width: 720px) {
+  .filterContent[data-open="false"] { display: none; }
+}
+
+.workspaceSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid #d9e6dc;
+  border-radius: 13px;
+  background: #f6f9f6;
+  color: #35664e;
+}
+.workspaceSearch:focus-within {
+  border-color: #568468;
+  background: #fff;
+  box-shadow: 0 0 0 3px #5a8f6c25;
+}
+.workspaceSearch > svg { flex: none; }
+.workspaceSearch > input[type="search"] {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  border: 0;
+  padding: 0;
+  outline: none;
+  background: transparent;
+  color: #173c2d;
+  font: 500 .9rem/1.35 Inter, sans-serif;
+  box-shadow: none;
+}
+.workspaceSearch > input[type="search"]:focus-visible { outline: none; }
+.workspaceSearch > input::placeholder { color: #536858; }
+@media (max-width: 970px) {
+  .workspaceSearch > input[type="search"] { font-size: 16px; }
+}
+
+.workspaceMark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #e5f0e7;
+  color: #285d45;
+}
+
+@media (max-width: 970px) {
+  .workspaceDialog :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select, textarea),
+  .actionConfirmation :is(input, select, textarea) { font-size: 16px; }
+}

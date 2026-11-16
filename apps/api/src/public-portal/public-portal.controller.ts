@@ -39,8 +39,12 @@ export class PublicPortalController {
 
   @Public()
   @Get("events")
-  listEvents() {
-    return this.portal.listEvents();
+  async listEvents() {
+    const catalog = await this.portal.listEvents();
+    const now = new Date();
+    const current = catalog.events.filter(event => Date.parse(event.endsAt ?? event.startsAt) >= +now);
+    const open = await this.registrations.openPublicRegistrationEvents(current.map(event => event.id), now);
+    return { ...catalog, events: catalog.events.map(event => ({ ...event, registrationOpen: open.has(event.id) })) };
   }
 
   @Public()

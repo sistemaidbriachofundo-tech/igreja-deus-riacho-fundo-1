@@ -1,4 +1,5 @@
-import { ConflictException, Inject, Injectable } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import { canManageMemberships } from "@idbrf/shared";
 import { createHash } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService, type PilotChurch } from "../pilot/pilot.service";
@@ -160,6 +161,29 @@ export class AccountService {
 
   async replacePhoto(actor: AuthUser, bytes: Buffer): Promise<void> {
     const linked = await this.requireLinked(actor);
+    return this.savePersonPhoto(actor, linked, bytes);
+  }
+
+  async replacePersonPhoto(actor: AuthUser, personId: string, bytes: Buffer): Promise<void> {
+    const scope = await this.pilot.getPilotChurch();
+    if ((actor.churchId && actor.churchId !== scope.churchId) ||
+        (actor.organizationId && actor.organizationId !== scope.organizationId) ||
+        !canManageMemberships(actor.grants, scope)) throw new ForbiddenException();
+    const person = await this.prisma.person.findFirst({
+      where: { id: personId, organizationId: scope.organizationId, homeChurchId: scope.churchId },
+      select: { id: true, photoStorageKey: true },
+    });
+    if (!person) throw new BusinessException("Cadastro não encontrado nesta congregação.", "PERSON_NOT_FOUND", 404);
+    return this.savePersonPhoto(actor, {
+      ...person, organizationId: scope.organizationId, homeChurchId: scope.churchId,
+    }, bytes);
+  }
+
+  private async savePersonPhoto(
+    actor: AuthUser,
+    linked: Pick<LinkedPerson, "id" | "organizationId" | "homeChurchId" | "photoStorageKey">,
+    bytes: Buffer,
+  ): Promise<void> {
     const jpeg = await normalizeProfilePhoto(bytes);
     const storageKey = this.storage.buildPersonPhotoKey({
       organizationId: linked.organizationId,
@@ -168,36 +192,41 @@ export class AccountService {
     });
     const jpegBytes = new Uint8Array(jpeg);
     await this.storage.put(storageKey, jpeg);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.personPhoto.upsert({
-        where: { personId: linked.id },
-        create: { personId: linked.id, jpeg: jpegBytes },
-        update: { jpeg: jpegBytes },
-      });
-      const updated = await tx.person.updateMany({
-        where: {
-          id: linked.id,
-          organizationId: linked.organizationId,
-          homeChurchId: linked.homeChurchId,
-        },
-        data: { photoStorageKey: storageKey },
-      });
-      if (updated.count !== 1) throw unlinked();
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "account.photo.replace",
-          resourceType: "person",
-          resourceId: linked.id,
-          organizationId: linked.organizationId,
-          churchId: linked.homeChurchId,
-          metadata: {
-            sha256: createHash("sha256").update(jpeg).digest("hex"),
-            byteSize: jpeg.length,
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.personPhoto.upsert({
+          where: { personId: linked.id },
+          create: { personId: linked.id, jpeg: jpegBytes },
+          update: { jpeg: jpegBytes },
+        });
+        const updated = await tx.person.updateMany({
+          where: {
+            id: linked.id,
+            organizationId: linked.organizationId,
+            homeChurchId: linked.homeChurchId,
           },
-        },
+          data: { photoStorageKey: storageKey },
+        });
+        if (updated.count !== 1) throw unlinked();
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: "account.photo.replace",
+            resourceType: "person",
+            resourceId: linked.id,
+            organizationId: linked.organizationId,
+            churchId: linked.homeChurchId,
+            metadata: {
+              sha256: createHash("sha256").update(jpeg).digest("hex"),
+              byteSize: jpeg.length,
+            },
+          },
+        });
       });
-    });
+    } catch (error) {
+      await this.storage.remove(storageKey).catch(() => undefined);
+      throw error;
+    }
     if (linked.photoStorageKey && linked.photoStorageKey !== storageKey) {
       await this.storage.remove(linked.photoStorageKey).catch(() => undefined);
     }

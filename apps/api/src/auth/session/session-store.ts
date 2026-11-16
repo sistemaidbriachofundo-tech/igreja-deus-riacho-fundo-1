@@ -16,6 +16,7 @@ export interface SessionRecord {
   familyId: string;
   authzVersion: string;
   mfaSatisfied: boolean;
+  mfaVerifiedAtMs?: number | null;
   expiresAtMs: number;
   revokedAtMs: number | null;
   replacedById: string | null;
@@ -27,6 +28,7 @@ export interface SessionStore {
     familyId: string;
     authzVersion: string;
     mfaSatisfied: boolean;
+    mfaVerifiedAtMs?: number | null;
     expiresAtMs: number;
   }): Promise<{ sessionId: string }>;
   get(sessionId: string): Promise<SessionRecord | null>;
@@ -46,6 +48,7 @@ export class InMemorySessionStore implements SessionStore {
     familyId: string;
     authzVersion: string;
     mfaSatisfied: boolean;
+    mfaVerifiedAtMs?: number | null;
     expiresAtMs: number;
   }): Promise<{ sessionId: string }> {
     this.purge();
@@ -55,6 +58,7 @@ export class InMemorySessionStore implements SessionStore {
       familyId: input.familyId,
       authzVersion: input.authzVersion,
       mfaSatisfied: input.mfaSatisfied,
+      mfaVerifiedAtMs: input.mfaVerifiedAtMs ?? null,
       expiresAtMs: input.expiresAtMs,
       revokedAtMs: null,
       replacedById: null,
@@ -128,6 +132,7 @@ export class PrismaSessionStore implements SessionStore {
     familyId: string;
     authzVersion: string;
     mfaSatisfied: boolean;
+    mfaVerifiedAtMs?: number | null;
     expiresAtMs: number;
   }): Promise<{ sessionId: string }> {
     const sessionId = newPresentedId();
@@ -137,7 +142,7 @@ export class PrismaSessionStore implements SessionStore {
       await this.prisma.$executeRaw`
         INSERT INTO auth_sessions (
           id, user_id, family_id, status, authz_version, authz_fingerprint,
-          policy_version, refresh_token_hash, mfa_satisfied, expires_at, created_at, updated_at
+          policy_version, refresh_token_hash, mfa_satisfied, mfa_verified_at, expires_at, created_at, updated_at
         ) VALUES (
           ${id},
           ${input.userId},
@@ -148,6 +153,7 @@ export class PrismaSessionStore implements SessionStore {
           1,
           ${id},
           ${input.mfaSatisfied},
+          ${input.mfaVerifiedAtMs != null ? utcTimestamp(new Date(input.mfaVerifiedAtMs)) : null},
           ${utcTimestamp(new Date(input.expiresAtMs))},
           ${utcTimestamp(now)},
           ${utcTimestamp(now)}
@@ -166,7 +172,7 @@ export class PrismaSessionStore implements SessionStore {
     let rows: SessionRow[];
     try {
       rows = await this.prisma.$queryRaw<SessionRow[]>`
-        SELECT user_id, family_id, authz_fingerprint, mfa_satisfied, expires_at, revoked_at, replaced_by_id
+        SELECT user_id, family_id, authz_fingerprint, mfa_satisfied, mfa_verified_at, expires_at, revoked_at, replaced_by_id
         FROM auth_sessions
         WHERE id = ${digestPresentedId(sessionId)}
       `;
@@ -182,6 +188,7 @@ export class PrismaSessionStore implements SessionStore {
       familyId: row.family_id,
       authzVersion: row.authz_fingerprint ?? "",
       mfaSatisfied: Boolean(row.mfa_satisfied),
+      mfaVerifiedAtMs: row.mfa_verified_at ? toMillis(row.mfa_verified_at) : null,
       expiresAtMs: toMillis(row.expires_at),
       revokedAtMs: row.revoked_at ? toMillis(row.revoked_at) : null,
       replacedById: row.replaced_by_id,
@@ -247,6 +254,7 @@ interface SessionRow {
   family_id: string;
   authz_fingerprint: string | null;
   mfa_satisfied: boolean;
+  mfa_verified_at: Date | string | null;
   expires_at: Date | string;
   revoked_at: Date | string | null;
   replaced_by_id: string | null;

@@ -8,13 +8,15 @@ export function ServingFrame({
   title,
   lead,
   children,
+  personal = false,
 }: {
   title: string;
   lead: string;
   children: ReactNode;
+  personal?: boolean;
 }) {
   return (
-    <div className={styles.page}>
+    <div className={personal ? styles.personalPage : styles.page}>
       <PageHeader appearance="workspace" heading="h1" title={title} description={lead} />
       {children}
     </div>

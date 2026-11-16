@@ -260,6 +260,7 @@ export const API_ENDPOINT_STATUS = {
   "POST /ledger/entries/:entryId/reverse": "implemented",
   "GET /ledger/imports": "implemented",
   "POST /ledger/imports": "implemented",
+  "POST /ledger/imports/ofx": "implemented",
   "GET /ledger/imports/:batchId": "implemented",
   "GET /ledger/reconciliations": "implemented",
   "POST /ledger/reconciliations": "implemented",

@@ -1,7 +1,7 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
-import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
+import { useState, type KeyboardEvent } from "react";
+import { RosterShowcase } from "./RosterShowcase";
 import { withBasePath } from "../../lib/paths";
 import type {
   ConversionResult,
@@ -19,7 +19,6 @@ import {
   MINISTRY_TABS,
   activeFormalMembers,
   activityStatusLabel,
-  escalaStatusLabel,
   formatChurchWhen,
   ministryHref,
   ministryPanelTitle,
@@ -28,7 +27,7 @@ import {
   type MinistryTabId,
 } from "../../lib/ministry-view";
 import { MinistryMembershipCatalog } from "../MinistryMembershipCatalog";
-import { UIIcon } from "../AppShell";
+import { AppNavLink, UIIcon } from "../AppShell";
 import { PersonPortrait } from "../PersonPortrait";
 import { PageHeader } from "../ui/PageHeader";
 import ui from "../ui/ui.module.css";
@@ -137,6 +136,7 @@ function ReadyExperience({
       : null;
   const schedule = visibleSchedule(desk);
   const leaders = leadershipOf(desk);
+  const isAtmosfera = desk.ministry.slug === "atmosfera";
   const shortcut = servingShortcut(desk.ministry.slug);
 
   function onTabKey(event: KeyboardEvent<HTMLDivElement>) {
@@ -163,6 +163,10 @@ function ReadyExperience({
         title={desk.ministry.name}
         description={desk.ministry.description || undefined}
         actions={
+          <div className={styles.ministryActions}>
+          <AppNavLink className={ui.workspaceQuiet} href="/app/ministerios/">
+            <UIIcon name="layers" size={16} /> Todos os ministérios
+          </AppNavLink>
           <label className={styles.ministryPicker}>
             Acessar ministério
             <select
@@ -176,6 +180,7 @@ function ReadyExperience({
               ))}
             </select>
           </label>
+          </div>
         }
       />
       <article
@@ -214,23 +219,24 @@ function ReadyExperience({
           id={`ministry-panel-${tab}`}
           aria-labelledby={`ministry-tab-${tab}`}
           className={styles.tabPanel}
+          data-tab={tab}
           tabIndex={0}
         >
           {tab === "visao" ? (
             <section className={styles.overview}>
               <ul className={styles.stats}>
                 <li>
-                  <span>Integrantes formais</span>
+                  <span><UIIcon name="people" size={16} /> Integrantes formais</span>
                   <strong>
                     {count === null ? "Indisponível" : String(count)}
                   </strong>
                 </li>
                 <li>
-                  <span>Interesses, sem vínculo</span>
+                  <span><UIIcon name="mail" size={16} /> Interesses, sem vínculo</span>
                   <strong>{desk.interests.length}</strong>
                 </li>
                 <li>
-                  <span>Escalas deste ministério</span>
+                  <span><UIIcon name="calendar" size={16} /> Escalas deste ministério</span>
                   <strong>
                     {escalas.kind === "ready"
                       ? String(escalas.items.length)
@@ -308,16 +314,19 @@ function ReadyExperience({
           ) : null}
 
           {tab === "escalas" ? (
-            <EscalaList
+            <RosterShowcase
+              key={desk.ministry.id}
               ministryId={desk.ministry.id}
+              ministryName={desk.ministry.name}
               panel={escalas}
               escalaId={escalaId}
               shortcut={shortcut}
+              volunteerPortal={isAtmosfera}
               onOpen={onOpenEscala}
               actions={token ? {
                 token,
                 ministryId: desk.ministry.id,
-                members: desk.membership.kind === "ready" ? activeFormalMembers(desk.membership.members) : [],
+                members: desk.membership.kind === "ready" ? desk.membership.members.filter(member => member.status === "ATIVO") : [],
                 onRefresh,
                 onOpen: onOpenEscala,
               } : undefined}
@@ -390,109 +399,6 @@ function leadershipOf(desk: DeskReady): Array<{ name: string; role: string }> {
   }));
 }
 
-function EscalaList({
-  ministryId,
-  panel,
-  escalaId,
-  shortcut,
-  onOpen,
-  actions,
-}: {
-  ministryId: string;
-  panel: EscalaPanel;
-  escalaId?: string;
-  shortcut: { href: string; label: string } | null;
-  onOpen: (escalaId?: string) => void;
-  actions?: RosterActionsProps;
-}) {
-  if (
-    panel.kind === "hidden" ||
-    panel.kind === "denied" ||
-    panel.kind === "unavailable"
-  ) {
-    return (
-      <p className={styles.note} role="status">
-        {panel.kind === "hidden"
-          ? "As escalas deste ministério não foram consultadas."
-          : panel.message}
-      </p>
-    );
-  }
-  return (
-    <div className={styles.scheduleList}>
-      {actions && <RosterEditor {...actions} />}
-      {shortcut && (
-        <div className={styles.shortcuts}>
-          <a
-            className={ui.workspaceSecondary}
-            href={withBasePath(shortcut.href)}
-          >
-            {shortcut.label}
-          </a>
-        </div>
-      )}
-      {panel.items.length === 0 ? (
-        <p className={styles.note}>Nenhuma escala deste ministério.</p>
-      ) : (
-        panel.items.map((escala) => {
-          const expanded = escala.id === escalaId;
-          const detailId = `funcoes-${escala.id}`;
-          const nextId = expanded ? undefined : escala.id;
-          return (
-            <article
-              key={escala.id}
-              id={`escala-${escala.id}`}
-              className={
-                expanded
-                  ? `${styles.escala} ${styles.escalaCurrent}`
-                  : styles.escala
-              }
-            >
-              <header>
-                <h2>{escala.title}</h2>
-                <span>{escalaStatusLabel(escala.status)}</span>
-              </header>
-              <p>
-                {formatChurchWhen(escala.serviceAt)} ·{" "}
-                {escala.assignedCount === 1
-                  ? "1 pessoa escalada"
-                  : `${escala.assignedCount} pessoas escaladas`}
-              </p>
-              <a
-                className={ui.workspaceSecondary}
-                href={withBasePath(ministryHref(ministryId, "escalas", nextId))}
-                aria-expanded={expanded}
-                aria-controls={expanded ? detailId : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  onOpen(nextId);
-                }}
-              >
-                {expanded ? "Fechar detalhes" : "Abrir esta escala"}
-              </a>
-              {expanded && (
-                <div className={styles.escalaDetails} id={detailId}>
-                  {actions && <RosterActions {...actions} roster={escala} />}
-                  {(!actions || !escala.positions?.length) && <h3>Funções na escala</h3>}
-                  {(!actions || !escala.positions?.length) && (escala.functions.length ? (
-                    <ul>
-                      {escala.functions.map((name) => (
-                        <li key={name}>{name}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Funções ainda não definidas.</p>
-                  ))}
-                </div>
-              )}
-            </article>
-          );
-        })
-      )}
-    </div>
-  );
-}
-
 function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: string | null }) {
   return (
     <div className={styles.stack}>
@@ -531,7 +437,7 @@ function MinistryCash({ finance }: { finance: FinancePanel }) {
   });
   return (
     <section className={styles.cash} aria-labelledby="caixa-title">
-      <h2 id="caixa-title">Caixa do ministério</h2>
+      <h2 id="caixa-title"><UIIcon name="wallet" size={20} /> Caixa do ministério</h2>
       {finance.kind === "ready" ? (
         <ul className={styles.stats}>
           <li>
@@ -551,7 +457,9 @@ function MinistryCash({ finance }: { finance: FinancePanel }) {
         <p>
           {finance.kind === "denied"
             ? "Seu perfil não tem acesso ao caixa."
-            : "Saldo ainda indisponível."}
+            : finance.kind === "unconfigured"
+              ? "A Tesouraria ainda precisa configurar o centro de custo deste ministério."
+              : "Não foi possível consultar o saldo do ministério."}
         </p>
       )}
     </section>

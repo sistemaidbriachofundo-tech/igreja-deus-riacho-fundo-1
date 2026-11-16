@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hasEnabledLoginForm } from "./production-login.mjs";
 
 // Executado após o build estático do Next.js para GitHub Pages.
 // Confere rotas exportadas, navegação e assets locais.
@@ -84,8 +85,7 @@ for (const page of findHtml(outDir)) {
       failures.push("Login must display email and password inputs before opening the dashboard.");
     }
     if (process.env.NEXT_PUBLIC_ADMIN_PRODUCTION === "true" &&
-        (html.includes("O acesso ao painel está indisponível") ||
-          !/<button\b(?=[^>]*\btype="submit")(?![^>]*\bdisabled\b)[^>]*>/.test(html))) {
+        !hasEnabledLoginForm(html)) {
       failures.push("O login da candidata de produção precisa estar habilitado.");
     }
   }

@@ -54,7 +54,7 @@ describe("relatórios operacionais", () => {
     const html = view({ state: "error", message: "A consulta de custo falhou." });
     expect(html).toContain("Rótulo omitido");
     expect(html).not.toContain("ana@example.test");
-    expect(html).toContain("Nenhum número foi colocado no lugar da consulta");
+    expect(html).toContain("A consulta de custo falhou.");
     expect(html).not.toContain(formatBRL(0));
   });
 
