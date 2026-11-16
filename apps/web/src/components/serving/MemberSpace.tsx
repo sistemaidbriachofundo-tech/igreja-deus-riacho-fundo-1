@@ -3,13 +3,17 @@
 import { useEffect } from "react";
 import { formatChurchDate } from "../../lib/das-operations";
 import { assignmentStatusLabel, type PersonalAssignment } from "../../lib/serving-rosters";
-import { UIIcon } from "../AppShell";
+import { UIIcon } from "../ui/UIIcon";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
 import styles from "./serving.module.css";
 
 function needsResponse(item: PersonalAssignment) {
   return item.status === "PENDING" && item.rosterStatus === "PUBLISHED";
 }
+
+const assignmentDate = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+});
 
 export function MemberSpace({
   assignments,
@@ -51,58 +55,56 @@ export function MemberSpace({
         </p>
       )}
       <section className={styles.memberAgenda} aria-label="Agenda pessoal">
-        <header><h2>Sua agenda</h2></header>
+        <header><UIIcon name="roster" size={20} /><h2>Sua agenda</h2></header>
         {assignments.length === 0 ? (
-          <p role="status" data-agenda="empty">
-            Você ainda não tem escalas nesta agenda.
-          </p>
+          <div className={styles.agendaEmpty} role="status" data-agenda="empty">
+            <UIIcon name="calendar" size={23} />
+            <div><strong>Sem escalas na agenda</strong><p>Seus horários de serviço aparecem aqui quando a liderança publicar a escala.</p></div>
+          </div>
         ) : (
           <div className={styles.agenda}>
             {ordered.map((item) => {
               const open = needsResponse(item);
+              const parts = assignmentDate.formatToParts(new Date(item.serviceAt));
+              const day = parts.find(part => part.type === "day")?.value;
+              const month = parts.find(part => part.type === "month")?.value.replace(".", "");
+              const hour = parts.find(part => part.type === "hour")?.value;
+              const minute = parts.find(part => part.type === "minute")?.value;
+              const closed = item.status === "PENDING" && item.rosterStatus === "CLOSED";
               return (
                 <article key={item.id} className={styles.agendaItem} id={`escala-${item.id}`} data-assignment={item.id}>
-                  <div className={styles.rosterHeader}>
-                    <div>
-                      <h3>{item.title}</h3>
-                      <p className={styles.footnote}>
-                        {[item.ministryName, item.roleLabel, item.sector, item.zone, item.side].filter(Boolean).join(" · ")}
-                      </p>
+                  <div className={styles.agendaDate} aria-hidden="true"><strong>{day}</strong><span>{month}</span></div>
+                  <div className={styles.agendaEntry}>
+                    <h3>{item.title}</h3>
+                    <p className={styles.footnote}>
+                      {[item.ministryName, item.roleLabel, item.sector, item.zone, item.side].filter(Boolean).join(" · ")}
+                    </p>
+                    <div className={styles.agendaMeta}>
+                      <time dateTime={item.serviceAt} className={styles.agendaTime}>
+                        <UIIcon name="clock" size={15} />
+                        <span className={styles.agendaAccessibleDate}>{formatChurchDate(item.serviceAt)}</span>
+                        <span aria-hidden="true">{hour}:{minute}</span>
+                      </time>
+                      <span className={styles.badge} data-status={closed ? "CLOSED" : item.status}>
+                        {item.status === "CONFIRMED" && <UIIcon name="check" size={13} />}
+                        {closed ? "Encerrada sem resposta" : assignmentStatusLabel[item.status]}
+                      </span>
                     </div>
-                    <span className={styles.badge} data-status={item.status}>
-                      {item.status === "PENDING" && item.rosterStatus === "CLOSED"
-                        ? "Encerrada sem resposta"
-                        : assignmentStatusLabel[item.status]}
-                    </span>
+                    {(item.substituteForId || item.participation === "partner") && <p className={styles.footnote}>
+                      {[item.substituteForId && "Substituição", item.participation === "partner" && "Participação em dupla"].filter(Boolean).join(" · ")}
+                    </p>}
                   </div>
-                  <p className={styles.agendaTime}>
-                    <UIIcon name="calendar" size={16} />
-                    <time dateTime={item.serviceAt}>{formatChurchDate(item.serviceAt)}</time>
-                  </p>
-                  {(item.substituteForId || item.participation === "partner") && <p className={styles.footnote}>
-                    {[item.substituteForId && "Substituição", item.participation === "partner" && "Participação em dupla"].filter(Boolean).join(" · ")}
-                  </p>}
                   {item.sameDayConflict && (
-                    <p className={styles.conflict} role="status">
+                    <p className={styles.agendaConflict} role="status">
                       Você tem outra posição na escala deste dia.
                     </p>
                   )}
                   {open && (
                     <div className={styles.actions}>
-                      <button
-                        type="button"
-                        className={styles.primary}
-                        disabled={busy}
-                        onClick={() => onConfirm(item.id)}
-                      >
-                        Confirmar presença
+                      <button type="button" className={styles.primary} disabled={busy} onClick={() => onConfirm(item.id)}>
+                        <UIIcon name="check" size={17} /> Confirmar presença
                       </button>
-                      <button
-                        type="button"
-                        className={styles.agendaDecline}
-                        disabled={busy}
-                        onClick={() => void decline(item)}
-                      >
+                      <button type="button" className={styles.agendaDecline} disabled={busy} onClick={() => void decline(item)}>
                         Recusar
                       </button>
                     </div>

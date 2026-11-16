@@ -84,8 +84,7 @@ const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
   "meu-espaco": "Minha escala",
   "eventos-membro": "Ver eventos",
   tesouraria: "Abrir tesouraria",
-  editorial: "Ver conteúdos",
-  site: "Abrir o site",
+  site: "Editar o portal",
 };
 
 const PRIMARY_TASKS: Record<DeskKey, readonly AppNavKey[]> = {

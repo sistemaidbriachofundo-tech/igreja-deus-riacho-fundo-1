@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
-  "activity" | "calendar" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
+  "activity" | "calendar" | "roster" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
   "family" | "more" | "mail" | "settings" | "menu" | "logout" | "camera" | "birthday" | "month" | "whatsapp";
 
 export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
@@ -24,6 +24,7 @@ export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) 
     wallet: <><path d="M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15v-4"/><path d="M3 7h17v3h-6a3 3 0 0 0 0 6h6v-6M16 13h1"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
     activity: <path d="M2 12h5l3-8 4 16 3-8h5"/>,
+    roster: <><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V3h6v1m-7 6 1.2 1.2L11 9m2 2h3m-8 5 1.2 1.2L11 15m2 2h3"/></>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/></>,
     book: <><path d="M12 6c-3-2-7-2-10-1v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 1ZM12 6v15"/></>,
     bell: <><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 8h18c0-1-3-2-3-8ZM10 21h4"/></>,

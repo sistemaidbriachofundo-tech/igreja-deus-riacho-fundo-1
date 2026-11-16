@@ -179,12 +179,11 @@ function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last
 }
 
 export function AppShell({
-  active, meta, children, editorial = false, viewer, secretarySection,
+  active, meta, children, viewer, secretarySection,
 }: {
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
-  editorial?: boolean;
   secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes";
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
@@ -369,7 +368,7 @@ export function AppShell({
       }
       continue;
     }
-    if (!supportingSectionInserted && ["acessos", "editorial", "site"].includes(item.key)) {
+    if (!supportingSectionInserted && ["acessos", "site"].includes(item.key)) {
       menuBlocks.push({ kind: "divider" });
       supportingSectionInserted = true;
     }
@@ -703,14 +702,14 @@ export function AppShell({
         </main>
       </div>
 
-      {menu.length > 0 && <nav className={s.mobileNav} aria-label="Navegação principal no celular">
+      {menu.length > 0 && <nav className={s.mobileNav} data-member={memberShell || undefined} aria-label="Navegação principal no celular">
         {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
           aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
           onClick={() => setPaletteOpen(true)}>
-          <UIIcon name="more" size={20}/><span>Mais</span>
+          <UIIcon name={memberShell ? "menu" : "more"} size={20}/><span>Mais</span>
         </button>
       </nav>}
 

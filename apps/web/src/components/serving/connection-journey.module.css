@@ -16,3 +16,13 @@
 .journey ol { margin: 14px 0 0; padding-left: 23px; }
 .journey li { padding: 9px 0; border-bottom: 1px solid #dde8df; }
 .journey li span { display: block; margin-top: 3px; font-size: .85rem; }
+
+.journey header h2 { display: flex; gap: 8px; align-items: center; font-size: 1.12rem; }
+.journey .current { border: 0; border-radius: 12px; background: #edf4ee; padding: 11px 13px; }
+.current > span { color: #35614b; }
+.current p, .journey > p { font-size: .88rem; }
+.mentor { display: flex; align-items: flex-start; gap: 7px; color: #355246; }
+.mentor svg { flex-shrink: 0; margin-top: 3px; }
+.steps { margin-top: 10px; }
+.steps summary { color: #235541; font-size: .88rem; font-weight: 700; cursor: pointer; padding-block: 10px; }
+.steps ol { margin-top: 0; font-size: .88rem; }

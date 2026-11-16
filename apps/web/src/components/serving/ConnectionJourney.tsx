@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiGet, loadStoredToken } from "../../lib/api";
 import { withBasePath } from "../../lib/paths";
 import { readPanel } from "../../lib/panel-read";
+import { UIIcon } from "../ui/UIIcon";
 import styles from "./connection-journey.module.css";
 
 type Stage = { id: string; title: string; description: string | null; completed: boolean; waived?: boolean };
@@ -34,7 +35,7 @@ export function ConnectionJourney({ compact = false }: { compact?: boolean }) {
 
   const stage = data?.stages.find(item => item.id === data.currentStageId);
   return <section className={styles.journey} id="trilha-da-conexao" aria-label="Trilha da Conexão">
-    <header><h2>Trilha da Conexão</h2>
+    <header><h2><UIIcon name="layers" size={20} /> Trilha da Conexão</h2>
       {compact && <a href={withBasePath("/app/servir/meu-espaco/#trilha-da-conexao")}>Abrir minha trilha</a>}
     </header>
     {failure ? <p role="alert">A trilha está indisponível. <button type="button" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button></p> :
@@ -47,10 +48,10 @@ export function ConnectionJourney({ compact = false }: { compact?: boolean }) {
           {stage.description && <p>{stage.description}</p>}
         </div>}
         {data.status === "ACTIVE" && !stage && <p>A equipe da Conexão vai orientar o próximo passo.</p>}
-        <p><strong>Acompanhamento</strong> {data.mentorName ?? "Responsável a definir"}</p>
-        {!compact && data.stages.length > 0 && <ol>{data.stages.map(item => <li key={item.id} aria-current={stage?.id === item.id ? "step" : undefined}>
+        <p className={styles.mentor}><UIIcon name="people" size={17} /><span><strong>Acompanhamento</strong><br />{data.mentorName ?? "Responsável a definir"}</span></p>
+        {!compact && data.stages.length > 0 && <details className={styles.steps}><summary>Ver etapas da trilha</summary><ol>{data.stages.map(item => <li key={item.id} aria-current={stage?.id === item.id ? "step" : undefined}>
           <strong>{item.title}</strong><span>{item.completed ? "Concluída" : item.waived ? "Não se aplica ao seu percurso" : stage?.id === item.id ? "Etapa atual" : "A iniciar"}</span>
-        </li>)}</ol>}
+        </li>)}</ol></details>}
       </>}
   </section>;
 }

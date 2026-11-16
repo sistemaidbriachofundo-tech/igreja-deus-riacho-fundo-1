@@ -16,11 +16,12 @@ describe("Identidade institucional e canal", () => {
     expect(html).not.toContain("<iframe");
   });
   it("conserva o menu de gestão e a marca comum no estúdio", () => {
-    const html = renderToStaticMarkup(<AppShell active="editorial" meta="Estúdio editorial"><p>Editor</p></AppShell>);
+    const html = renderToStaticMarkup(<AppShell active="site" meta="Estúdio editorial"><p>Editor</p></AppShell>);
     expect(html).toContain("Estúdio editorial");
     expect(html).toContain("Mídia e conteúdo");
     expect(html).not.toContain("church-os-art.svg");
-    expect(html).toContain("Gestão do site");
+    expect(html).toContain('aria-current="page"');
+    expect(html).not.toContain("/app/editorial/");
     expect(html).toContain("Secretaria");
     expect(html).not.toContain("Membros e famílias");
     expect(html).toContain("Editor");

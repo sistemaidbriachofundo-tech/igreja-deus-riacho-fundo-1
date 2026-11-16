@@ -177,7 +177,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
   const copy = COPY[surface];
 
   return (
-    <ServingFrame title={copy.title} lead={copy.lead}>
+    <ServingFrame title={copy.title} lead={copy.lead} personal={surface === "membro"}>
       {phase === "disabled" && (
         <section className={styles.card} role="status">
           <h2>Escalas indisponíveis neste endereço</h2>
@@ -201,29 +201,29 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
       )}
       {phase === "ready" && user && surface === "membro" && (
         <>
+          <MemberSpace
+            assignments={agenda}
+            busy={busy}
+            notice={notice}
+            onConfirm={(assignmentId) =>
+              void run(
+                () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
+                "Participação confirmada.",
+              )
+            }
+            onDecline={(assignmentId) =>
+              void run(
+                () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
+                "Você recusou esta escala.",
+              )
+            }
+          />
+          <RosterNotifications token={token} mode="invites" onAccepted={() => setReload(value => value + 1)} />
           <MonthlyServiceSurvey token={token} />
-          <RosterNotifications token={token} onAccepted={() => setReload(value => value + 1)} />
-        <MemberSpace
-          assignments={agenda}
-          busy={busy}
-          notice={notice}
-          onConfirm={(assignmentId) =>
-            void run(
-              () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-              "Participação confirmada.",
-            )
-          }
-          onDecline={(assignmentId) =>
-            void run(
-              () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
-              "Você recusou esta escala.",
-            )
-          }
-        />
-        <ConnectionJourney />
-        <GroupRequests token={token} />
-        {user.canManageConnection !== true && roles.some(role => ["LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
-          <GroupRequests manage hideEmpty token={token} />}
+          <ConnectionJourney />
+          <GroupRequests token={token} />
+          {user.canManageConnection !== true && roles.some(role => ["LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
+            <GroupRequests manage hideEmpty token={token} />}
         </>
       )}
       {phase === "ready" && user && surface !== "membro" && scopeDenied && (

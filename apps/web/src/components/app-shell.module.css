@@ -988,3 +988,19 @@
 .groupChevron[aria-expanded="true"] svg { transform: rotate(90deg); }
 .subList[hidden] { display: none; }
 @media (max-width: 970px) { .groupChevron { width: 44px; min-height: 44px; } }
+
+@media (max-width: 970px) {
+  .mobileNav[data-member] {
+    gap: 2px;
+    padding-inline: max(7px, env(safe-area-inset-left, 0px)) max(7px, env(safe-area-inset-right, 0px));
+    box-shadow: 0 -4px 18px #163e2e0a;
+  }
+  .mobileNav[data-member] :is(.mobileItem, .mobileActive) {
+    gap: 3px;
+    color: #475e50;
+    font-weight: 620;
+    text-align: center;
+  }
+  .mobileNav[data-member] .mobileActive { color: #174b36; font-weight: 760; }
+  .mobileNav[data-member] .mobileActive svg { background: #dcebe2; }
+}

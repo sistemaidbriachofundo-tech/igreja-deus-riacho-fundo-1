@@ -24,6 +24,7 @@ const result = spawnSync(process.execPath, [process.env.npm_execpath, "run", "bu
     NEXT_PUBLIC_ADMIN_PRODUCTION: "true",
     NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: "true",
     NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false",
+    NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED: "true",
     NEXT_PUBLIC_API_URL: apiOrigin,
   },
 });

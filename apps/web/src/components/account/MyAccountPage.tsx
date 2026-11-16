@@ -8,6 +8,8 @@ import {
 import { withBasePath } from "../../lib/paths";
 import { usePersonaAccess } from "../AppShell";
 import { Alert, Button, Input, Loading, PageHeader, PasswordField } from "../ui";
+import { RosterNotifications } from "../serving/RosterNotifications";
+import { areaAllowed } from "../../lib/persona-navigation";
 import { ProfilePhoto } from "./ProfilePhoto";
 import s from "./my-account.module.css";
 
@@ -159,6 +161,7 @@ export function MyAccountPage() {
           <div className={s.details}>
             <AccountContact account={activeProfile.account} token={activeProfile.token} />
             <AccountSecurity token={activeProfile.token} />
+            {areaAllowed(access.roles, "meu-espaco") && <RosterNotifications token={activeProfile.token} mode="settings" />}
           </div>
         </div>
       )}

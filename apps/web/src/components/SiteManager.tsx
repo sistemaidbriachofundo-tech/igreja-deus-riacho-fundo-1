@@ -6,6 +6,7 @@ import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
+import type { GlyphName } from "./ui/UIIcon";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
 import { PageHeader } from "./ui/PageHeader";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
@@ -21,9 +22,12 @@ import s from "./site-manager.module.css";
 type Tab = "conteudo"|"imagens"|"aparencia"|"estrutura"|"historico"|"vivi";
 type Revision = {id:string;date:string;actorUserId:string|null;note:string|null};
 type State = {draft:SiteLayout;published:SiteLayout|null;draftUpdatedAt:string|null;publishedAt:string|null;revisions:Revision[];permissions:{canPublish:boolean}};
-const tabs: {key:Tab;label:string}[] = [
-  {key:"conteudo",label:"Textos"},{key:"imagens",label:"Fotos"},{key:"aparencia",label:"Cores"},
-  {key:"estrutura",label:"Estrutura"},{key:"historico",label:"Histórico"},
+const tabs: {key:Tab;label:string;icon:GlyphName}[] = [
+  {key:"imagens",label:"Fotos",icon:"camera"},
+  {key:"conteudo",label:"Textos",icon:"book"},
+  {key:"aparencia",label:"Cores",icon:"spark"},
+  {key:"estrutura",label:"Seções",icon:"layers"},
+  {key:"historico",label:"Histórico",icon:"clock"},
 ];
 const optionalSections = ["galeria", "videos"] as const;
 const imageUrl=resolveSitePhoto;
@@ -88,7 +92,7 @@ export function SiteManager() {
   const [token,setToken]=useState<string|null>(null);
   const [checking,setChecking]=useState(true),[busy,setBusy]=useState(false);
   const [email,setEmail]=useState(""),[password,setPassword]=useState("");
-  const [tab,setTab]=useState<Tab>("conteudo"),[previewDevice,setPreviewDevice]=useState<"desktop"|"mobile">("desktop"),[previewMode,setPreviewMode]=useState<"rascunho"|"leitor">("rascunho");
+  const [tab,setTab]=useState<Tab>("imagens"),[previewDevice,setPreviewDevice]=useState<"desktop"|"mobile">("desktop"),[previewMode,setPreviewMode]=useState<"rascunho"|"leitor">("rascunho");
   const [layout,setLayout]=useState<SiteLayout>(defaultSiteLayout);
   const [draftUpdatedAt,setDraftUpdatedAt]=useState<string|null>(null);
   const [published,setPublished]=useState<SiteLayout|null>(null);
@@ -136,12 +140,14 @@ export function SiteManager() {
   }
   function setPhoto(value:string){
     if(!validSiteImage(value)){showFeedback({ tone: "error", title: "Foto não selecionada", message: "Escolha uma foto aprovada da biblioteca ou uma imagem enviada ao armazenamento da igreja." });return;}
-    if(imageSlot==="hero")setHero("imageUrl",value);
-    else if(imageSlot==="identity")update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),imageUrl:value}});
-    else {
-      const items=layout.gallery.items.map((item,i)=>i===imageSlot?{...item,imageUrl:value}:item);
-      update({...layout,gallery:{...layout.gallery,items}});
-    }
+    setLayout(current => {
+      if (imageSlot === "hero") return {...current,hero:{...current.hero,imageUrl:value}};
+      if (imageSlot === "identity") return {...current,identity:{...(current.identity??SITE_IDENTITY_PHOTO),imageUrl:value}};
+      const items = current.gallery.items.map((item, i) => i === imageSlot ? {...item,imageUrl:value} : item);
+      return {...current,gallery:{...current.gallery,items}};
+    });
+    setDirty(true);
+    setNotice("");
     setError("");
   }
   function changePhotoText(index:number,field:"title"|"subtitle"|"alt",value:string){
@@ -246,11 +252,18 @@ export function SiteManager() {
     setNotice("Sugestão aplicada. Revise o texto e salve o rascunho.");
   }
 
-  return <AppShell active="site" meta="Gestão do site" editorial>
+  const identity = layout.identity ?? SITE_IDENTITY_PHOTO;
+  const galleryPhoto = typeof imageSlot === "number" ? layout.gallery.items[imageSlot] : undefined;
+  const selectedPhoto = imageSlot === "hero" ? layout.hero : galleryPhoto ?? identity;
+
+  return <AppShell active="site" meta="Mídia e conteúdo">
     <div className={s.page} id="capa">
     {confirmation}
-      <PageHeader appearance="workspace" heading="h1" title="Gestão do site"
-        description="Edite a capa, os textos e as fotos da página inicial." />
+      <PageHeader appearance="workspace" heading="h1" title="Mídia e conteúdo"
+        description="Edite as fotos, a capa e os textos do portal da igreja."
+        actions={<a className={ui.workspaceSecondary} href={withBasePath("/")} target="_blank" rel="noopener">
+          Ver portal <UIIcon name="arrow" size={16} />
+        </a>} />
       {!configured&&<div className={s.message}>O ambiente de edição ainda não está conectado. A página pública permanece como está.</div>}
       {error&&<div className={s.error} role="alert">{error}</div>}
       {notice&&<div className={s.notice} role="status">{notice}</div>}
@@ -274,9 +287,9 @@ export function SiteManager() {
         </div>
         {!canPublish&&<p className={s.warning} role="status">Seu perfil pode preparar e salvar o site. A publicação precisa ser feita por um pastor ou publicador autorizado.</p>}
         <div className={s.columns}>
-          <section className={s.editor} aria-label="Controles de edição">
+          <section className={s.editor} aria-label="Controles de edição" inert={busy}>
             <div className={s.tabs} role="group" aria-label="Ferramentas do editor">
-              {tabs.map(item=><button type="button" key={item.key} className={tab===item.key?s.activeTab:s.tab} aria-pressed={tab===item.key} onClick={()=>setTab(item.key)}>{item.label}</button>)}
+              {tabs.map(item=><button type="button" key={item.key} className={tab===item.key?s.activeTab:s.tab} aria-pressed={tab===item.key} onClick={()=>setTab(item.key)}><UIIcon name={item.icon} size={17} />{item.label}</button>)}
             </div>
             {tab==="conteudo"&&<div className={s.controls}>
               <div className={s.editorHeading}><h2>Textos da página</h2><button type="button" className={ui.workspaceQuiet} onClick={() => setTab("vivi")}>Ajuda de redação</button></div>
@@ -288,26 +301,33 @@ export function SiteManager() {
               <label>Título da galeria<input maxLength={110} value={layout.gallery.title} onChange={e=>setGallery("title",e.target.value)}/></label>
               <label>Destaque<input maxLength={110} value={layout.gallery.accent} onChange={e=>setGallery("accent",e.target.value)}/></label>
               <label>Descrição<textarea rows={3} maxLength={500} value={layout.gallery.description} onChange={e=>setGallery("description",e.target.value)}/></label>
-              {layout.gallery.items.map((item,i)=><div className={s.photoFields} key={i}><strong>Foto {i+1}</strong>
-                <label>Título<input maxLength={55} value={item.title} onChange={e=>changePhotoText(i,"title",e.target.value)}/></label>
-                <label>Legenda<input maxLength={80} value={item.subtitle} onChange={e=>changePhotoText(i,"subtitle",e.target.value)}/></label>
-                <label>Descrição acessível<input maxLength={220} value={item.alt} onChange={e=>changePhotoText(i,"alt",e.target.value)}/></label></div>)}
             </div>}
             {tab==="imagens"&&<div className={s.controls}>
-              <h2>Fotos da página inicial</h2>
-              <p>Escolha a foto que deseja trocar e selecione uma imagem do acervo ou envie um arquivo.</p>
-              <label>Local da foto<select value={String(imageSlot)} onChange={event=>{
-                const value=event.target.value;
-                setImageSlot(value==="hero"||value==="identity"?value:Number(value));
-              }}>
-                <option value="hero">Capa principal</option>
-                <option value="identity">Quem somos</option>
-                {layout.gallery.items.map((item,index)=><option value={index} key={index}>Galeria · {item.title}</option>)}
-              </select></label>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={s.currentPhoto} src={imageUrl(imageSlot==="hero"?layout.hero.imageUrl:imageSlot==="identity"?(layout.identity??SITE_IDENTITY_PHOTO).imageUrl:layout.gallery.items[imageSlot]?.imageUrl??layout.hero.imageUrl)} alt="Foto selecionada para este local" />
-              {imageSlot==="identity"&&<label>Descrição acessível<input maxLength={220} value={(layout.identity??SITE_IDENTITY_PHOTO).alt}
-                onChange={event=>update({...layout,identity:{...(layout.identity??SITE_IDENTITY_PHOTO),alt:event.target.value}})} /></label>}
+              <h2>Fotos do portal</h2>
+              <p>Escolha onde a foto vai aparecer. Depois, selecione uma imagem do acervo ou envie um arquivo.</p>
+              <div className={s.photoTargets} role="group" aria-label="Local da foto">
+                <button className={ui.workspaceSecondary} type="button" aria-pressed={imageSlot==="hero"} onClick={()=>setImageSlot("hero")}>Capa</button>
+                <button className={ui.workspaceSecondary} type="button" aria-pressed={imageSlot==="identity"} onClick={()=>setImageSlot("identity")}>Quem somos</button>
+                <button className={ui.workspaceSecondary} type="button" aria-pressed={typeof imageSlot==="number"} onClick={()=>setImageSlot(typeof imageSlot==="number"?imageSlot:0)}>Galeria</button>
+              </div>
+              {typeof imageSlot==="number"&&<label>Foto da galeria
+                <select value={imageSlot} onChange={event=>setImageSlot(Number(event.target.value))}>
+                  {layout.gallery.items.map((item,index)=><option value={index} key={index}>{item.title || `Foto ${index+1}`}</option>)}
+                </select>
+              </label>}
+              <figure className={s.photoPreview}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className={s.currentPhoto} src={imageUrl(selectedPhoto.imageUrl)} alt={"alt" in selectedPhoto ? selectedPhoto.alt : "Foto de capa do portal"} />
+                <figcaption>Foto selecionada</figcaption>
+              </figure>
+              {imageSlot==="identity"&&<label>Descrição acessível<input maxLength={220} value={identity.alt}
+                onChange={event=>update({...layout,identity:{...identity,alt:event.target.value}})} /></label>}
+              {typeof imageSlot==="number"&&galleryPhoto&&<details className={s.photoFields} key={imageSlot}>
+                <summary>Título, legenda e descrição</summary>
+                <label>Título<input maxLength={55} value={galleryPhoto.title} onChange={e=>changePhotoText(imageSlot,"title",e.target.value)}/></label>
+                <label>Legenda<input maxLength={80} value={galleryPhoto.subtitle} onChange={e=>changePhotoText(imageSlot,"subtitle",e.target.value)}/></label>
+                <label>Descrição acessível<input maxLength={220} value={galleryPhoto.alt} onChange={e=>changePhotoText(imageSlot,"alt",e.target.value)}/></label>
+              </details>}
               <SiteMediaLibrary token={token} onChoose={setPhoto}/>
             </div>}
             {tab==="aparencia"&&<div className={s.controls}>

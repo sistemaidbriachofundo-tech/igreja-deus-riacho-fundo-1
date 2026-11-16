@@ -127,7 +127,11 @@ export function NotificationCenter({ userId, icon, closeIcon, categoryIcons }: {
                     event.preventDefault();
                     if (!item.readAt) void mark([item.id], false);
                     setOpen(false);
-                    if (hasAppRouter()) {
+                    const link = event.currentTarget;
+                    if (link.pathname === window.location.pathname && link.search === window.location.search && link.hash) {
+                      if (link.hash !== window.location.hash) window.location.hash = link.hash;
+                      else document.getElementById(link.hash.slice(1))?.scrollIntoView({ block: "start" });
+                    } else if (hasAppRouter()) {
                       beginClientNavigation(item.href);
                       pushAppRoute(item.href);
                     } else {
