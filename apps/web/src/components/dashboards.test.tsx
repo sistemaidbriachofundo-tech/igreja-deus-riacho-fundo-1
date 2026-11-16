@@ -26,7 +26,7 @@ function board(role: string) {
 }
 
 const TITLES: Record<string, string> = {
-  PLATFORM_ADMIN: "Painel administrativo",
+  PLATFORM_ADMIN: "Governança Ministerial",
   SECRETARIA: "Mesa da secretaria",
   PASTOR: "Mesa pastoral",
   TESOURARIA: "Mesa da tesouraria",
@@ -58,7 +58,6 @@ describe("mesa por persona", () => {
       "/indicators/summary",
       "/indicators/membership",
       "/admissions",
-      "/ministries",
       "/events",
       "/treasury/position",
     ]);

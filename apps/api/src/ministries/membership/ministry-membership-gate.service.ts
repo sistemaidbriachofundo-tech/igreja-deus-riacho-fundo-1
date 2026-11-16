@@ -16,8 +16,6 @@ import { requireMinistryInPilot } from "../../common/ministry-access";
 import { PilotService } from "../../pilot/pilot.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
-  MINISTRY_AGENDA_MODEL_BLOCKED,
-  MINISTRY_FINANCE_CONTRACT_BLOCKED,
   MINISTRY_INTEREST_CONVERSION_BLOCKED,
   MINISTRY_INTEREST_NOT_IN_SCOPE,
   MINISTRY_INTEREST_WITHOUT_PERSON,
@@ -27,7 +25,6 @@ import {
   MINISTRY_MEMBERSHIP_PERSIST_REJECTED,
   MINISTRY_MEMBERSHIP_READY,
   MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED,
-  MINISTRY_REQUEST_MODEL_BLOCKED,
   MINISTRY_SCOPE_FORBIDDEN,
   PERSON_NOT_IN_MINISTRY_SCOPE,
 } from "./ministry-membership.contract";
@@ -151,24 +148,26 @@ export class MinistryMembershipGateService {
 
   async readAgenda(actor: AuthUser, ministryId: string) {
     const ministry = await this.assertScope(actor, ministryId);
-    this.blocked(MINISTRY_AGENDA_MODEL_BLOCKED, {
-      dependency: "schema.prisma",
-      issue: 97,
-      scheduleText: ministry.scheduleText ?? null,
-      items: null,
-      message:
-        "Há apenas o horário livre do perfil. A agenda estruturada não existe e as escalas globais ficam de fora deste escopo.",
+    const items = await this.prisma.portalEvent.findMany({
+      where: {
+        organizationId: ministry.organizationId,
+        churchId: ministry.churchId,
+        ministryId: ministry.id,
+      },
+      orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, ministryId: true, startsAt: true, status: true, locationText: true },
     });
+    return { blocked: false, scheduleText: ministry.scheduleText, items };
   }
 
   async readRequests(actor: AuthUser, ministryId: string) {
-    await this.assertScope(actor, ministryId);
-    this.blocked(MINISTRY_REQUEST_MODEL_BLOCKED, {
-      dependency: "schema.prisma",
-      issue: 97,
-      requests: null,
-      message: "Solicitações do ministério ainda não têm modelo. Nenhuma fila foi inventada.",
+    const scope = await this.scope(actor, ministryId);
+    const requests = await this.prisma.volunteerInterest.findMany({
+      where: scope,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true, displayName: true, stage: true, status: true },
     });
+    return { blocked: false, requests };
   }
 
   async readCostCenterBalance(actor: AuthUser, ministryId: string) {
@@ -179,7 +178,7 @@ export class MinistryMembershipGateService {
       ),
     }, ministryId);
 
-    // The cost center code points to the immutable ministry ID, even if its name changes.
+    // Accept the stable ID and the slug used by existing ministry reports.
     const rows = await this.prisma.$queryRaw<Array<{
       incomeCents: number;
       expenseCents: number;
@@ -189,7 +188,7 @@ export class MinistryMembershipGateService {
         CASE WHEN line.side = 'CREDIT' THEN line.amount_cents ELSE -line.amount_cents END END), 0)::float8 AS "incomeCents",
         COALESCE(SUM(CASE WHEN account.type = 'EXPENSE' THEN
           CASE WHEN line.side = 'DEBIT' THEN line.amount_cents ELSE -line.amount_cents END END), 0)::float8 AS "expenseCents",
-        COALESCE(SUM(CASE WHEN account.type = 'ASSET' THEN
+        COALESCE(SUM(CASE WHEN account.type = 'ASSET' AND account.code LIKE '1.1.%' THEN
           CASE WHEN line.side = 'DEBIT' THEN line.amount_cents ELSE -line.amount_cents END END), 0)::float8 AS "balanceCents"
       FROM cost_centers center
       LEFT JOIN ledger_entries entry ON entry.organization_id = center.organization_id
@@ -202,18 +201,15 @@ export class MinistryMembershipGateService {
       LEFT JOIN ledger_accounts account ON account.id = line.account_id
         AND account.organization_id = center.organization_id AND account.church_id = center.church_id
       WHERE center.organization_id = ${ministry.organizationId}
-        AND center.church_id = ${ministry.churchId} AND center.code = ${"MIN:" + ministry.id}
-      GROUP BY center.id
+        AND center.church_id = ${ministry.churchId}
+        AND center.code IN (${"MIN:" + ministry.id}, ${ministry.slug})
+      HAVING COUNT(DISTINCT center.id) > 0
     `;
     const totals = rows[0];
-    if (!totals) {
-      this.blocked(MINISTRY_FINANCE_CONTRACT_BLOCKED, {
-        dependency: "issue-96",
-        balance: null,
-        message: "Ainda não há um centro de custo associado a este ministério.",
-      });
-    }
-    return { ministryId: ministry.id, currency: "BRL", ...totals };
+    const center = { ministryId: ministry.id, currency: "BRL" };
+    return totals
+      ? { ...center, configured: true, ...totals }
+      : { ...center, configured: false, balanceCents: null, incomeCents: null, expenseCents: null };
   }
 
   private async scope(actor: AuthUser, ministryId: string): Promise<MembershipScope> {

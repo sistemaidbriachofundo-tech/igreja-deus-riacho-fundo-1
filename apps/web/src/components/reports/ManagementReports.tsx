@@ -1,7 +1,8 @@
 "use client";
 
-import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
-import { useCallback, useEffect, useState } from "react";
+import { isAdminEnabled } from "../../lib/admin-environment";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
 import { ApiRequestError, apiGet, getApiBaseUrl, loadStoredToken } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
@@ -19,6 +20,9 @@ import s from "./management-reports.module.css";
 type Phase = "disabled" | "signed-out" | "loading" | "forbidden" | "error" | "ready";
 type ReportName = "membership" | "ministries" | "participation" | "ministry-cost";
 
+type ReportFilters = { from: string; to: string; ministryId: string; status: string };
+const EMPTY_FILTERS: ReportFilters = { from: "", to: "", ministryId: "", status: "" };
+
 const idle = <T,>(): Slot<T> => ({ state: "loading" });
 
 export function ManagementReports() {
@@ -26,6 +30,9 @@ export function ManagementReports() {
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [applied, setApplied] = useState(EMPTY_FILTERS);
+  const [ministryOptions, setMinistryOptions] = useState<MinistryReport["ministries"]>([]);
+  const requestId = useRef(0);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [ministryId, setMinistryId] = useState("");
@@ -35,7 +42,9 @@ export function ManagementReports() {
   const [participation, setParticipation] = useState<Slot<ParticipationReport>>(enabled ? idle() : { state: "disabled" });
   const [cost, setCost] = useState<Slot<MinistryCostReport>>(enabled ? idle() : { state: "disabled" });
 
-  const load = useCallback((stored: string, filters: { from: string; to: string; ministryId: string; status: string }) => {
+  const load = useCallback((stored: string, filters: ReportFilters) => {
+    const currentRequest = ++requestId.current;
+    setApplied(filters);
     const period = query({ from: filters.from, to: filters.to });
     const ministry = filters.ministryId ? `ministryId=${encodeURIComponent(filters.ministryId)}` : "";
     const eventQuery = query({
@@ -63,17 +72,23 @@ export function ManagementReports() {
     for (const [name, path] of jobs) {
       void apiGet<unknown>(path, stored)
         .then((payload) => {
+          if (requestId.current !== currentRequest) return;
           const parsed = parseReport(name, payload);
           if (!parsed) {
             place(name, { state: "error", message: "A API devolveu um relatório incompleto." });
             return;
           }
           if (name === "membership") setMembership({ state: "ready", data: parsed as MembershipReport });
-          if (name === "ministries") setMinistries({ state: "ready", data: parsed as MinistryReport });
+          if (name === "ministries") {
+            const data = parsed as MinistryReport;
+            setMinistries({ state: "ready", data });
+            if (!filters.ministryId) setMinistryOptions(data.ministries);
+          }
           if (name === "participation") setParticipation({ state: "ready", data: parsed as ParticipationReport });
           if (name === "ministry-cost") setCost({ state: "ready", data: parsed as MinistryCostReport });
         })
         .catch((error: unknown) => {
+          if (requestId.current !== currentRequest) return;
           const message = error instanceof ApiRequestError && error.status === 403
             ? "Seu perfil não tem autorização para este relatório."
             : dasError(error);
@@ -97,14 +112,20 @@ export function ManagementReports() {
       return;
     }
     setToken(stored);
-    load(stored, { from: "", to: "", ministryId: "", status: "" });
+    load(stored, EMPTY_FILTERS);
+    return () => { requestId.current += 1; };
   }, [enabled, load]);
 
   async function download(report: ReportName, format: "csv" | "pdf") {
     if (!token) return;
     setBusy(true);
     setNotice("");
-    const period = query({ from, to, ministryId: report === "membership" ? "" : ministryId, status: report === "participation" ? status : "" });
+    const period = query({
+      from: applied.from,
+      to: applied.to,
+      ministryId: report === "membership" ? "" : applied.ministryId,
+      status: report === "participation" ? applied.status : "",
+    });
     try {
       const response = await fetch(`${getApiBaseUrl()}/reports/${report}.${format}${period}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -126,9 +147,8 @@ export function ManagementReports() {
   }
 
   return <AppShell active={null} meta="Relatórios">
-    {notice && <p className={s.blocked} role="alert">{notice}</p>}
     <OperationalReports
-      production={isProductionAdmin()}
+      notice={notice}
       membership={membership}
       ministries={ministries}
       participation={participation}
@@ -136,6 +156,8 @@ export function ManagementReports() {
       from={from}
       to={to}
       ministryId={ministryId}
+      ministryOptions={ministryOptions}
+      appliedFilterCount={Number(Boolean(applied.from || applied.to)) + Number(Boolean(applied.ministryId)) + Number(Boolean(applied.status))}
       status={status}
       busy={busy}
       onFrom={setFrom}
@@ -152,7 +174,6 @@ export function ManagementReports() {
       }}
       onDownload={(report, format) => { void download(report, format); }}
     />
-    <p className={s.notice}><a className={s.link} href={withBasePath("/app/tesouraria/")}>Abrir a tesouraria</a></p>
   </AppShell>;
 }
 
@@ -310,14 +331,13 @@ export function ReportsView(props: {
   return <main className={s.page}>
     <header className={s.header}>
       <div>
-        <div className={s.kicker}>FRENTE E · RELATÓRIOS</div>
         <h1>Membresia e ministérios</h1>
-        <p>As contagens vêm da API. Registros de menores não são listados. Integrante formal continua bloqueado enquanto não houver tabela.</p>
+        <p>Consulte os totais de membresia e a participação nos ministérios.</p>
       </div>
-      <div className={s.reportLinks}><a className={s.link} href={withBasePath("/app/secretaria/indicadores/")}>Painel completo de membresia</a>
-      <a className={s.link} href={withBasePath("/app/eventos-gestao/")}>Gestão de eventos</a></div>
+      <div className={s.reportLinks}><a className={ui.workspaceSecondary} href={withBasePath("/app/secretaria/indicadores/")}>Painel completo de membresia</a>
+      <a className={ui.workspaceSecondary} href={withBasePath("/app/eventos-gestao/")}>Gestão de eventos</a></div>
     </header>
-    {props.phase === "disabled" && <p className={s.blocked} role="status">Homologação desabilitada. Nenhum total foi inventado.</p>}
+    {props.phase === "disabled" && <p className={s.blocked} role="status">Relatórios indisponíveis neste endereço.</p>}
     {props.phase === "signed-out" && <p className={s.notice} role="status">Entre na área administrativa para consultar os relatórios.</p>}
     {props.phase === "loading" && <p className={s.notice} role="status">Consultando relatórios autorizados…</p>}
     {props.phase === "forbidden" && <p className={s.blocked} role="alert">{props.notice}</p>}
@@ -356,11 +376,11 @@ function ReportCard(props: {
   return <section className={s.panel}>
     <h2>{props.title}</h2>
     {props.note && <p className={ready ? s.notice : s.blocked}>{props.note}</p>}
-    {!ready && <p>A API não devolveu contagens para este relatório.</p>}
+    {!ready && <p>Nenhum dado disponível para este relatório.</p>}
     {ready && <ul className={s.lines}>{props.lines.map((line) => <li key={line.label}><span>{line.label}</span><strong>{line.value}</strong></li>)}</ul>}
     <div className={s.actions}>
-      <button type="button" disabled={props.busy || !ready} onClick={props.onCsv}>Exportar CSV</button>
-      <button type="button" disabled={props.busy || !ready} onClick={props.onPdf}>Exportar PDF</button>
+      <button className={ui.workspaceSecondary} type="button" disabled={props.busy || !ready} onClick={props.onCsv}>Exportar CSV</button>
+      <button className={ui.workspaceSecondary} type="button" disabled={props.busy || !ready} onClick={props.onPdf}>Exportar PDF</button>
     </div>
   </section>;
 }

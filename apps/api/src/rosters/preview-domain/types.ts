@@ -27,6 +27,7 @@ export interface Candidate {
   familyGroupId?: string | null;
 }
 export interface SlotDemand {
+  priority?: number;
   slotId: string;
   rosterId: string;
   churchId: string;

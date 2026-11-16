@@ -2,7 +2,10 @@
 
 import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
 import { useEffect, useState, type FormEvent } from "react";
+import { PageHeader } from "../ui/PageHeader";
+import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
+import { UIIcon } from "../ui/UIIcon";
 import { apiGet, apiPatch, apiPost, getApiBaseUrl, loadStoredToken, type LoginResult } from "../../lib/api";
 import { dasError, churchLocalToISO, readDasRows } from "../../lib/das-operations";
 import { isSyntheticLabel } from "../../lib/event-registrations";
@@ -40,6 +43,12 @@ export function EventManagementJourney() {
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [canReconcile, setCanReconcile] = useState(false);
+  useEffect(() => {
+    if (phase !== "ready" || window.location.hash !== "#novo-evento") return;
+    const form = document.getElementById("novo-evento");
+    form?.scrollIntoView({ block: "start" });
+    form?.querySelector("input")?.focus({ preventScroll: true });
+  }, [phase]);
   const [treasuryOnly, setTreasuryOnly] = useState(false);
   const [leaderMinistries, setLeaderMinistries] = useState<MinistryNavItem[] | null>(null);
   const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);
@@ -403,26 +412,21 @@ export function EventManagementView(props: {
 }) {
   const published = props.selected?.status === "PUBLISHED";
   return <main className={s.page}>
-    <header className={s.header}>
-      <div>
-        {!props.production && <div className={s.kicker}>HOMOLOGAÇÃO</div>}
-        <h1>Agenda, presença e participação</h1>
-        <p>Rascunho, revisão, publicação e presença ficam gravados neste ambiente. Menores não aparecem nesta tela.</p>
-      </div>
-      <div className={s.actions}>
-        {props.phase === "ready" && !props.treasuryOnly && <a className={s.primaryLink} href="#novo-evento">Novo evento</a>}
-        <a className={s.link} href={withBasePath("/app/relatorios/")}>Relatórios de gestão</a>
-      </div>
-    </header>
-    {props.phase === "disabled" && <p className={s.blocked} role="status">Homologação desabilitada. Nenhum evento foi inventado.</p>}
-    {props.phase === "signed-out" && <p className={s.notice} role="status">Entre na área administrativa para operar eventos reais.</p>}
+    <PageHeader appearance="workspace" heading="h1" title="Agenda, presença e participação"
+      description="Organize eventos, acompanhe inscrições e registre a presença."
+      actions={<>
+        {props.phase === "ready" && !props.treasuryOnly && <a className={ui.workspacePrimary} href="#novo-evento"><UIIcon name="plus" size={18} /> Novo evento</a>}
+        <a className={ui.workspaceSecondary} href={withBasePath("/app/relatorios/")}><UIIcon name="activity" size={18} /> Relatórios de gestão</a>
+      </>} />
+    {props.phase === "disabled" && <p className={s.blocked} role="status">O acesso à gestão de eventos está indisponível neste endereço.</p>}
+    {props.phase === "signed-out" && <p className={s.notice} role="status">Entre com sua conta para organizar eventos.</p>}
     {props.phase === "loading" && <p className={s.notice} role="status">Consultando eventos autorizados…</p>}
     {props.phase === "forbidden" && <p className={s.blocked} role="alert">{props.notice || "Seu perfil não tem autorização para eventos."}</p>}
-    {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Nada foi completado nesta tela."}</p>}
+    {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Tente novamente."}</p>}
     {props.notice && props.phase === "ready" && <p className={s.notice} role="status">{props.notice}</p>}
     {props.phase === "ready" && <>
       <section className={s.panel}>
-        <h2>Agenda</h2>
+        <h2 className={s.agendaHeading}><span className={s.agendaMark}><UIIcon name="calendar" size={23} /></span>Agenda</h2>
         <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
       </section>
       {!props.treasuryOnly && <form id="novo-evento" className={s.panel} aria-labelledby="novo-evento-titulo" onSubmit={props.onCreate}>

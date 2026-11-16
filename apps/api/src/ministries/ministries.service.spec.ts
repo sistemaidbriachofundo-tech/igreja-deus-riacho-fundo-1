@@ -104,11 +104,18 @@ describe("MinistriesService", () => {
     updatedAt: now,
   };
 
-  function withTx(tx: object) {
+  function withTx(tx: { rosterAssignment?: object } & Record<string, unknown>) {
     return {
-      $transaction: jest.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
-        fn(tx),
-      ),
+      $transaction: jest.fn(async function (
+        this: { rosterAssignment?: object; rosterSlot?: object },
+        fn: (transaction: object) => Promise<unknown>,
+      ) {
+        return fn({
+          rosterSlot: this.rosterSlot,
+          ...tx,
+          rosterAssignment: { ...this.rosterAssignment, ...tx.rosterAssignment },
+        });
+      }),
     };
   }
 
@@ -615,7 +622,7 @@ describe("MinistriesService", () => {
         findMany: jest.fn().mockResolvedValue([{ id: "a-other", personId: "p-mem" }]),
       },
       ...schedulableOk(),
-      $transaction: jest.fn(),
+      ...withTx({}),
     };
     const service = new MinistriesService(
       prisma as never,
@@ -930,7 +937,7 @@ describe("MinistriesService", () => {
       },
       person: { findFirst: jest.fn().mockResolvedValue({ id: "p-new" }) },
       ...schedulableOk(),
-      $transaction: jest.fn(),
+      ...withTx({}),
     };
     const service = new MinistriesService(
       prisma as never,
@@ -1411,6 +1418,8 @@ describe("MinistriesService", () => {
     };
     const confirmTx = {
       rosterAssignment: {
+        findFirst: jest.fn().mockResolvedValue(assignment),
+        findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockResolvedValue({
           ...assignment,
           status: "CONFIRMED",

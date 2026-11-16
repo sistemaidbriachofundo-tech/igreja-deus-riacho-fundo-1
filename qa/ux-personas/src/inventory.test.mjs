@@ -1,23 +1,27 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import {
   blockedCases,
-  designSystemIsOnMain,
+  hasFoundationComponents,
   pageRoutes,
-  readFoundationTokens,
+  repoRoot,
 } from "./inventory.mjs";
 
-test("o portal público e o login estão na árvore de rotas", () => {
+test("o portal público e os fluxos de login estão na árvore de rotas", () => {
   const routes = pageRoutes();
-  for (const route of ["/", "/a-igreja/", "/eventos/", "/login/", "/app/", "/app/secretaria/", "/app/operacao/"]) {
+  for (const route of ["/", "/a-igreja/", "/eventos/", "/login/", "/ativar-acesso/", "/redefinir-senha/"]) {
     assert.ok(routes.includes(route), route);
   }
 });
 
-test("não existem dashboards dedicados de pastor, admin, tesouraria, líder ou membro", () => {
+test("o painel tem rotas para Secretaria, Tesouraria, ministérios e voluntariado", () => {
   const routes = pageRoutes();
-  for (const route of ["/app/pastor/", "/app/admin/", "/app/tesouraria/", "/app/lider/", "/app/membro/", "/design-system/"]) {
-    assert.equal(routes.includes(route), false, route);
+  for (const route of [
+    "/app/", "/app/secretaria/", "/app/tesouraria/", "/app/ministerios/", "/app/servir/meu-espaco/",
+  ]) {
+    assert.ok(routes.includes(route), route);
   }
 });
 
@@ -34,11 +38,10 @@ test("casos bloqueados trazem motivo e não são apresentados como prontos", () 
   }
 });
 
-test("a fundação #102 não está aplicada na main", () => {
-  assert.equal(designSystemIsOnMain(), false);
-  const foundation = readFoundationTokens();
-  if (!foundation.available) return;
-  assert.match(foundation.text, /#D4AF37/);
-  assert.match(foundation.text, /touchTarget: "2\.75rem"/);
-  assert.match(foundation.text, /Ouro sobre creme/);
+test("os componentes da fundação usam os tokens e o alvo mínimo de toque", () => {
+  assert.ok(hasFoundationComponents());
+  const tokens = readFileSync(join(repoRoot, "apps/web/src/components/ui/tokens.ts"), "utf8");
+  assert.match(tokens, /#D4AF37/i);
+  assert.match(tokens, /touchTarget: "2\.75rem"/);
+  assert.match(tokens, /Ouro sobre creme/);
 });

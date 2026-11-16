@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { nextPublicService } from "./public-service-schedule";
 import { PortalJourney } from "../components/PortalJourney";
 import { MinisterioEmFoco } from "../components/MinisterioEmFoco";
 import { FirstVisitFeature, VisitQuestions } from "../components/FirstVisit";
@@ -17,11 +18,21 @@ describe("portal v3+ — camadas de experiência", () => {
     expect(html).toContain("Igreja de Deus");
     expect(html).toContain("Riacho Fundo I");
     expect(html).not.toContain("Quero visitar");
-    expect(html).toContain("Horários dos cultos");
-    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).toContain("Quero conhecer");
+    expect(html).toContain("Como chegar");
+    expect(html).toContain("10h e 19h");
+    expect(html.match(/<a /g)).toHaveLength(2);
     expect(html).not.toContain('aria-label="Explorar os cinco ministérios"');
     expect(html).not.toContain('href="/ministerios');
     expect(html).not.toContain("Culto de Celebração");
+  });
+
+  it("calcula o próximo culto no horário de Brasília", () => {
+    expect(nextPublicService(new Date("2026-11-15T12:59:00Z")).label).toBe("10h");
+    expect(nextPublicService(new Date("2026-11-15T13:00:00Z")).label).toBe("19h");
+    expect(nextPublicService(new Date("2026-11-15T22:01:00Z")).name).toBe("Culto da Família");
+    expect(nextPublicService(new Date("2026-11-19T22:59:00Z")).label).toBe("20h");
+    expect(nextPublicService(new Date("2026-11-19T23:00:00Z")).label).toBe("10h");
   });
 
   it("exibe as oito fotos novas com descrições acessíveis", () => {

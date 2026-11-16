@@ -1,10 +1,9 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canLeadMinistry } from "@idbrf/shared";
+import { requireConnectionManagement } from "../discipleship/connection-access";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -23,12 +22,12 @@ export class GroupsService {
     actor: AuthUser,
     input: {
       name: string;
-      leaderPersonId?: string;
+      leaderPersonId?: string | null;
       meetsAtHint?: string;
     },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const name = input.name?.trim();
     if (!name) {
@@ -36,7 +35,7 @@ export class GroupsService {
     }
 
     if (input.leaderPersonId) {
-      await this.requirePerson(input.leaderPersonId, pilot.organizationId);
+      await this.requireEligibleLeader(input.leaderPersonId, pilot);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -64,9 +63,34 @@ export class GroupsService {
     });
   }
 
+  async edit(actor: AuthUser, groupId: string, input: { name: string; meetsAtHint?: string; leaderPersonId?: string | null }) {
+    const pilot = await this.pilot.getPilotChurch();
+    await requireConnectionManagement(this.prisma, actor, pilot);
+    const group = await this.requireGroup(groupId, pilot);
+    const name = input.name.trim();
+    if (!name) throw new BadRequestException("Informe o nome do grupo.");
+    if (input.leaderPersonId) await this.requireEligibleLeader(input.leaderPersonId, pilot);
+    return this.prisma.$transaction(async tx => {
+      const row = await tx.smallGroup.update({
+        where: { id: group.id },
+        data: {
+          name,
+          ...(input.meetsAtHint === undefined ? {} : { meetsAtHint: input.meetsAtHint?.trim() || null }),
+          ...(input.leaderPersonId === undefined ? {} : { leaderPersonId: input.leaderPersonId }),
+        },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "small_group.update", resourceType: "small_group",
+        resourceId: row.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { name },
+      } });
+      return this.toGroupDto(row);
+    });
+  }
+
   async list(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const rows = await this.prisma.smallGroup.findMany({
       where: {
@@ -75,6 +99,7 @@ export class GroupsService {
       },
       orderBy: { createdAt: "desc" },
       include: {
+        leader: { select: { displayName: true } },
         members: {
           select: { id: true, personId: true, role: true, joinedAt: true },
         },
@@ -85,6 +110,7 @@ export class GroupsService {
       churchId: pilot.churchId,
       groups: rows.map((row) => ({
         ...this.toGroupDto(row),
+        leaderName: row.leader?.displayName ?? null,
         members: row.members.map((m) => ({
           id: m.id,
           personId: m.personId,
@@ -101,7 +127,7 @@ export class GroupsService {
     input: { personId: string; role?: string },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     await this.requireGroup(groupId, pilot);
     await this.requirePerson(input.personId, pilot.organizationId);
 
@@ -145,7 +171,7 @@ export class GroupsService {
     filters: { from?: string; to?: string; groupId?: string } = {},
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
 
     const { from, to } = this.requireDateRange(filters.from, filters.to);
 
@@ -268,7 +294,7 @@ export class GroupsService {
     },
   ) {
     const pilot = await this.pilot.getPilotChurch();
-    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    await requireConnectionManagement(this.prisma, actor, pilot);
     await this.requireGroup(groupId, pilot);
 
     const occurredAt = new Date(input.occurredAt);
@@ -339,16 +365,15 @@ export class GroupsService {
     });
   }
 
-  private assertLead(
-    actor: AuthUser,
-    organizationId: string,
-    churchId: string,
-  ): void {
-    if (!canLeadMinistry(actor.grants, { organizationId, churchId })) {
-      throw new ForbiddenException(
-        "Sem permissão de liderança nesta congregação",
-      );
-    }
+
+  private async requireEligibleLeader(personId: string, pilot: { organizationId: string; churchId: string }) {
+    const person = await this.prisma.person.findFirst({
+      where: { id: personId, organizationId: pilot.organizationId, status: "ACTIVE", isMinor: false,
+        OR: [{ homeChurchId: pilot.churchId }, { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } }],
+        user: { status: "ACTIVE" } },
+      select: { id: true },
+    });
+    if (!person) throw new BadRequestException("Escolha um responsável adulto com acesso ativo nesta congregação.");
   }
 
   private async requirePerson(personId: string, organizationId: string) {

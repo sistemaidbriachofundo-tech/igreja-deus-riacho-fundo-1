@@ -137,11 +137,6 @@ SELECT r.roster||'_assignment_'||n,r.roster||'_slot_'||n,t.person,
 FROM qa_rosters r CROSS JOIN generate_series(1,6) n
 JOIN qa_teams t ON t.id=r.id AND t.slot=((r.week-1)*5+n-1)%28+1 ON CONFLICT (id) DO NOTHING;
 -- step
-INSERT INTO portal_events (id,organization_id,church_id,ministry_id,name,slug,starts_at,ends_at,location_text,status,published_at,updated_at)
-SELECT 'qa_rf1_event_'||position||'_'||week,org,church,id,title,'qa-rf1-'||position||'-'||week,
-       service,service+interval '2 hours',CASE WHEN position%2=0 THEN 'Salão principal' ELSE 'Sala de comunhão' END,
-       'PUBLISHED',now(),now() FROM qa_rosters WHERE week BETWEEN 3 AND 6 ON CONFLICT (id) DO NOTHING;
--- step
 INSERT INTO cost_centers (id,organization_id,church_id,code,name,updated_at)
 SELECT 'qa_rf1_cc_'||position,org,church,'MIN:'||id,name,now() FROM qa_ministries ON CONFLICT (church_id,code) DO NOTHING;
 -- step

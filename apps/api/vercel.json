@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "schedules": {
+    "roster-notifications": {
+      "schedule": "*/15 * * * *",
+      "timezone": "America/Sao_Paulo",
+      "path": "/rosters/notifications/run",
+      "requestMethod": "POST"
+    }
+  }
+}

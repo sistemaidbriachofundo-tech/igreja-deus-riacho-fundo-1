@@ -11,7 +11,7 @@ const retiredDemoPath = join(__dirname, "../app/app/demo/page.tsx");
 
 describe("V1: separação entre portal público e administração", () => {
   it("preserva login e área interna sem levar cadastro administrativo para a Home", () => {
-    expect(home).toContain("<PublicPage>");
+    expect(home).toMatch(/<PublicPage(?:\s|>)/);
     expect(home).not.toContain('href="/app/membros/"');
     expect(portal).toContain('href="/login/"');
     expect(mobileMenu).not.toContain('href="/login/"');

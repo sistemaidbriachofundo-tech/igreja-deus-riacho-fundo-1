@@ -54,6 +54,15 @@ export class SmtpMailTransport implements MailTransport {
         "O SMTP da igreja está configurado na forma, mas o envio live permanece desligado. Use o transporte de teste neste DEV.",
       );
     }
+    if (this.env.IDBRF_RUNTIME_STAGE === "qa") {
+      const allowed = (this.env.SMTP_ALLOWED_RECIPIENTS ?? "").split(",")
+        .map(address => address.trim().toLowerCase()).filter(Boolean);
+      if (!allowed.includes(message.to.trim().toLowerCase())) {
+        throw new ServiceUnavailableException("O destinatário não está autorizado para os testes de e-mail do DEV.");
+      }
+    } else if (this.env.IDBRF_RUNTIME_STAGE !== "production") {
+      throw new ServiceUnavailableException("O SMTP de teste só pode ser usado no ambiente QA.");
+    }
     const password = this.env.SMTP_PASSWORD ?? "";
     const nodemailer = (await import("nodemailer")) as unknown as {
       createTransport: (options: Record<string, unknown>) => {

@@ -1,5 +1,6 @@
 import {
   Body,
+  StreamableFile,
   Controller,
   Delete,
   Get,
@@ -26,6 +27,7 @@ import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
+import { CULT_TYPES, type CultType } from "../rosters/roster-operating-rules";
 import { MinistriesService } from "./ministries.service";
 
 const LEAD_ROLES = [
@@ -122,6 +124,22 @@ class CreateRosterBody {
   @IsOptional()
   @IsString()
   ministryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  moduleId?: string;
+
+  @IsOptional()
+  @IsIn(CULT_TYPES)
+  serviceType?: CultType;
+}
+
+class RosterModuleBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name!: string;
 }
 
 class EditRosterBody {
@@ -133,18 +151,30 @@ class EditRosterBody {
   @IsString()
   @MinLength(1)
   serviceAt!: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  moduleId?: string | null;
 }
 
-class EditRosterSlotBody {
+class RosterSlotLocationBody {
+  @IsOptional() @IsString() @MaxLength(100) sector?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) zone?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) side?: string | null;
+}
+
+class EditRosterSlotBody extends RosterSlotLocationBody {
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   roleLabel!: string;
 }
 
-class CreateSlotBody {
+class CreateSlotBody extends RosterSlotLocationBody {
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   roleLabel!: string;
 
   @IsOptional()
@@ -210,6 +240,10 @@ class CreateAvailabilityBody {
   notes?: string | null;
 }
 
+class SaveRecurringAvailabilityBody extends CreateAvailabilityBody {
+  @IsOptional() @IsString() @MaxLength(100) replaceId?: string;
+}
+
 class CreateImpedimentBody {
   @IsString()
   @MinLength(1)
@@ -266,6 +300,69 @@ class ResendAlertBody {
 @Controller("ministries")
 export class MinistriesController {
   constructor(private readonly ministries: MinistriesService) {}
+
+  @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-availability")
+  recurringAvailability(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Query("personId") personId: string,
+  ) {
+    return this.ministries.recurringAvailability(user, ministryId, personId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post(":ministryId/roster-availability")
+  saveRecurringAvailability(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Body() body: SaveRecurringAvailabilityBody,
+  ) {
+    return this.ministries.saveRecurringAvailability(user, ministryId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Delete(":ministryId/roster-availability/:id")
+  removeRecurringAvailability(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("id") id: string,
+    @Query("personId") personId: string,
+  ) {
+    return this.ministries.removeRecurringAvailability(user, ministryId, personId, id);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/roster-modules/:moduleId/rules")
+  saveRosterModuleRules(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.ministries.saveRosterModuleRules(user, ministryId, moduleId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post(":ministryId/roster-modules")
+  createRosterModule(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Body() body: RosterModuleBody,
+  ) {
+    return this.ministries.saveRosterModule(user, ministryId, body.name);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/roster-modules/:moduleId")
+  renameRosterModule(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Body() body: RosterModuleBody,
+  ) {
+    return this.ministries.saveRosterModule(user, ministryId, body.name, moduleId);
+  }
 
   @Roles(
     ROLE_CODES.SECRETARIA,
@@ -369,6 +466,13 @@ export class RostersController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Get(":rosterId/pdf")
+  async rosterPdf(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string) {
+    const pdf = await this.ministries.rosterPdf(user, rosterId);
+    return new StreamableFile(pdf, { type: "application/pdf", disposition: 'attachment; filename="escala.pdf"' });
+  }
+
+  @Roles(...LEAD_ROLES)
   @Patch(":rosterId/slots/:slotId")
   updateSlot(
     @CurrentUser() user: AuthUser,
@@ -376,7 +480,7 @@ export class RostersController {
     @Param("slotId") slotId: string,
     @Body() body: EditRosterSlotBody,
   ) {
-    return this.ministries.editRosterSlot(user, rosterId, slotId, body.roleLabel);
+    return this.ministries.editRosterSlot(user, rosterId, slotId, body.roleLabel, body);
   }
 
   @Roles(

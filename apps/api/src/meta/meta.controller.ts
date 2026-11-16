@@ -5,9 +5,9 @@ import {
   API_ENDPOINT_STATUS,
   APP_NAME,
   APP_SLUG,
-  readSourceSha,
 } from "@idbrf/shared";
 import { Public } from "../auth/decorators/public.decorator";
+import { deployedSourceSha } from "../deployed-source";
 
 @Controller("meta")
 export class MetaController {
@@ -24,7 +24,7 @@ export class MetaController {
       stage: process.env.IDBRF_RUNTIME_STAGE === "production" ? "production" : "non-production",
       endpoints: API_ENDPOINT_STATUS,
       hmlPublicUrl: process.env.HML_PUBLIC_API_URL?.trim() || null,
-      sourceSha: readSourceSha(),
+      sourceSha: deployedSourceSha(),
       notes: [
         "Dados fictícios em DEV/HML",
         "HML_PUBLIC_API_URL só após autorização de publicação",

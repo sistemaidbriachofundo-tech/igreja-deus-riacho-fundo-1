@@ -26,6 +26,7 @@ export interface ParticipationSource {
   eventName: string;
   displayName: string;
   partySize: number;
+  presentParticipants?: number;
   isMinor: boolean;
   guardianDisplayName?: string | null;
   status: string;
@@ -99,11 +100,12 @@ export function summarizeParticipation(input: readonly ParticipationSource[]): {
     }
     if (row.status === "CHECKED_IN") {
       counts.checkedIn += 1;
-      counts.presentParticipants += party;
+      counts.presentParticipants += row.presentParticipants ?? party;
     } else if (row.status === "PENDING_PAYMENT") {
       counts.pendingPayment += 1;
     } else if (row.status === "CONFIRMED") {
       counts.confirmedAwaitingPresence += 1;
+      counts.presentParticipants += row.presentParticipants ?? 0;
     } else if (row.status !== "CANCELLED") {
       counts.unclassified += 1;
     }

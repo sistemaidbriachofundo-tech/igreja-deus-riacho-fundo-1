@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { riachoWeeklyWindowToUtc, utcWeeklyWindowsToRiachoLocal } from "../rosters/preview-domain/timezone-availability";
+import { renderRosterPdf } from "../rosters/roster-pdf";
 import {
   BadRequestException,
   ConflictException,
@@ -13,6 +16,7 @@ import {
   ROLE_CODES,
   hasAccess,
 } from "@idbrf/shared";
+import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   ChannelsService,
@@ -20,7 +24,9 @@ import {
 } from "../channels/channels.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
-import { churchDayBounds } from "../rosters/church-day";
+import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
+
+import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, readPositionLocation, type CultType, type PositionLocation } from "../rosters/roster-operating-rules";
 
 export type LeadershipPublicEntry = {
   displayName: string;
@@ -224,9 +230,60 @@ export class MinistriesService {
     });
   }
 
+  async saveRosterModule(actor: AuthUser, ministryId: string, input: string, moduleId?: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    this.assertManageMinistry(actor, ministry);
+    const name = input.trim().replace(/\s+/g, " ");
+    if (!name || name.length > 100) throw new BadRequestException("Informe um nome de módulo com até 100 caracteres.");
+    const nameKey = name.normalize("NFC").toLocaleLowerCase("pt-BR");
+    const select = { id: true, name: true } as const;
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const module = moduleId
+          ? await tx.ministryRosterModule.update({ where: { id: moduleId, ministryId }, data: { name, nameKey }, select })
+          : await tx.ministryRosterModule.create({ data: { ministryId, name, nameKey }, select });
+        await tx.auditLog.create({ data: {
+          actorUserId: actor.userId,
+          action: moduleId ? "ministry.roster_module.rename" : "ministry.roster_module.create",
+          resourceType: "ministry_roster_module", resourceId: module.id,
+          organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { ministryId },
+        } });
+        return module;
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error) {
+        if (error.code === "P2002") throw new ConflictException("Já existe um módulo com esse nome neste ministério.");
+        if (error.code === "P2025") throw new NotFoundException("Módulo não encontrado neste ministério.");
+      }
+      throw error;
+    }
+  }
+
+  async saveRosterModuleRules(actor: AuthUser, ministryId: string, moduleId: string, input: unknown) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    this.assertManageMinistry(actor, ministry);
+    const rules = readModuleRules(input);
+    const ids = [...new Set([...(rules.volunteerIds ?? []), ...Object.values(rules.qualifications).flat(), ...rules.couples.flat()])];
+    return this.prisma.$transaction(async tx => {
+      if (ids.length && await tx.ministryMembership.count({ where: {
+        ministryId, churchId: pilot.churchId, status: "ATIVO", personId: { in: ids }, person: { status: "ACTIVE" },
+      } }) !== ids.length) throw new BadRequestException("Use somente integrantes ativos deste ministério.");
+      const module = await tx.ministryRosterModule.updateMany({ where: { id: moduleId, ministryId }, data: { rules } });
+      if (!module.count) throw new NotFoundException("Módulo não encontrado neste ministério.");
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "ministry.roster_module.rules", resourceType: "ministry_roster_module", resourceId: moduleId,
+        organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { ministryId },
+      } });
+      return { id: moduleId, rules };
+    });
+  }
+
   async createRoster(
     actor: AuthUser,
-    input: { title: string; serviceAt: string; ministryId?: string },
+    input: { title: string; serviceAt: string; ministryId?: string; moduleId?: string; serviceType?: CultType },
   ) {
     const pilot = await this.pilot.getPilotChurch();
 
@@ -248,13 +305,23 @@ export class MinistriesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const module = await this.assertRosterModule(tx, input.ministryId, input.moduleId);
+      const type = input.serviceType ?? cultTypeAt(serviceAt);
+      if (!CULT_TYPES.includes(type)) throw new BadRequestException("Tipo de culto inválido.");
+      const rules = readModuleRules(module?.rules);
+      const slots = (rules.positions[type] ?? []).flatMap(position => Array.from({ length: position.count }, () => ({
+        ...readPositionLocation(position), roleLabel: position.label, requiresCouple: position.couple, requiredQualification: position.qualification,
+      })));
       const roster = await tx.roster.create({
         data: {
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
           ministryId: input.ministryId ?? null,
+          ...(input.moduleId ? { moduleId: input.moduleId } : {}),
+          ...(slots.length ? { slots: { create: slots.map((slot, sortOrder) => ({ ...slot, sortOrder })) } } : {}),
           title,
           serviceAt,
+          serviceType: type,
         },
       });
       await tx.auditLog.create({
@@ -272,36 +339,85 @@ export class MinistriesService {
     });
   }
 
-  async editRoster(actor: AuthUser, rosterId: string, input: { title: string; serviceAt: string }) {
+  async editRoster(actor: AuthUser, rosterId: string, input: { title: string; serviceAt: string; moduleId?: string | null }) {
     const pilot = await this.pilot.getPilotChurch();
     const roster = await this.requireRoster(rosterId, pilot);
     await this.assertRosterScope(actor, roster, pilot);
-    this.assertRosterDraft(roster);
+    this.assertRosterNotClosed(roster);
     const title = input.title.trim();
     const serviceAt = new Date(input.serviceAt);
     if (!title || !Number.isFinite(serviceAt.getTime())) throw new BadRequestException("Informe título e horário válidos.");
+    const published = roster.status === "PUBLISHED";
+    const changed = +serviceAt !== +roster.serviceAt;
+    const now = new Date();
+    if (published && (serviceAt <= now || roster.serviceAt <= now)) throw new ConflictException("Informe um horário futuro para um culto que ainda vai acontecer.");
+    if (published && input.moduleId !== undefined && input.moduleId !== roster.moduleId) {
+      throw new ConflictException("O módulo fica definido após a publicação.");
+    }
 
-    return this.prisma.$transaction(async tx => {
-      if (serviceAt.getTime() !== roster.serviceAt.getTime()) {
+    return writeRosterAssignment(this.prisma, async tx => {
+      await this.assertRosterModule(tx, roster.ministryId, input.moduleId);
+      if (changed && published) {
+        const assignments = await tx.rosterAssignment.findMany({
+          where: { slot: { rosterId }, status: { in: ["PENDING", "CONFIRMED"] } },
+          select: { id: true, personId: true, partnerPersonId: true },
+        });
+        const people = [...new Set(assignments.flatMap(item => item.partnerPersonId ? [item.personId, item.partnerPersonId] : [item.personId]))];
+        await this.assertPersonsSchedulable(pilot.churchId, serviceAt, people, tx);
+        await assertNoRosterDayConflict(tx, {
+          churchId: pilot.churchId, serviceAt, personIds: people, excludeRosterId: rosterId, conflictCode: "ROSTER_SAME_DAY",
+        });
+        await tx.rosterAssignment.updateMany({
+          where: { id: { in: assignments.map(item => item.id) } },
+          data: { status: "PENDING", confirmedAt: null },
+        });
+        const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+        const notices = assignments.flatMap(item =>
+          (item.partnerPersonId ? [item.personId, item.partnerPersonId] : [item.personId]).map(personId => ({
+            id: `rescheduled:${item.id}:${now.getTime()}:${personId}`, churchId: pilot.churchId, personId, kind: "rescheduled",
+            title: "O horário da sua escala mudou", body: `${title} · ${when.format(serviceAt)}. Responda novamente no portal.`,
+            path: "/app/servir/meu-espaco/#escala-" + item.id, expiresAt: serviceAt, createdAt: now,
+          })),
+        );
+        if (notices.length) await tx.rosterNotice.createMany({ data: notices, skipDuplicates: true });
+        const declined = await tx.rosterAssignment.findMany({
+          where: { slot: { rosterId }, status: "DECLINED" }, select: { id: true },
+        });
+        if (declined.length) await tx.rosterNotice.updateMany({
+          where: { churchId: pilot.churchId, kind: "substitute", expiresAt: { gt: now },
+            OR: declined.map(item => ({ id: { startsWith: `substitute:${item.id}:` } })) },
+          data: { expiresAt: now },
+        });
+      } else if (changed) {
         const assignments = await tx.rosterAssignment.count({
           where: { slot: { rosterId }, status: { in: ["PENDING", "CONFIRMED"] } },
         });
-        if (assignments > 0) throw new ConflictException("O horário fica fixo após a primeira pessoa ser escalada.");
+        if (assignments > 0) throw new ConflictException("O horário fica fixo após a primeira pessoa ser escalada no rascunho.");
       }
       const result = await tx.roster.updateMany({
-        where: { id: rosterId, status: "DRAFT", updatedAt: roster.updatedAt },
-        data: { title, serviceAt },
+        where: { id: rosterId, status: roster.status, updatedAt: roster.updatedAt },
+        data: { title, serviceAt, ...(input.moduleId !== undefined ? { moduleId: input.moduleId } : {}) },
       });
       if (result.count !== 1) throw new ConflictException("A escala mudou. Abra novamente para editar.");
       await tx.auditLog.create({ data: {
-        actorUserId: actor.userId, action: "roster.update", resourceType: "roster", resourceId: rosterId,
+        actorUserId: actor.userId, action: changed && published ? "roster.reschedule" : "roster.update", resourceType: "roster", resourceId: rosterId,
         organizationId: pilot.organizationId, churchId: pilot.churchId,
+        ...(changed ? { metadata: { previousAt: roster.serviceAt.toISOString(), serviceAt: serviceAt.toISOString() } } : {}),
       } });
       return this.toRosterDto(await tx.roster.findUniqueOrThrow({ where: { id: rosterId } }));
-    }, { isolationLevel: "Serializable" });
+    });
   }
 
-  async editRosterSlot(actor: AuthUser, rosterId: string, slotId: string, label: string) {
+  private async assertRosterModule(
+    tx: Prisma.TransactionClient, ministryId: string | null | undefined, moduleId: string | null | undefined,
+  ) {
+    if (!moduleId) return null;
+    const module = ministryId ? await tx.ministryRosterModule.findFirst({ where: { id: moduleId, ministryId }, select: { rules: true } }) : null;
+    if (!module) throw new BadRequestException("Selecione um módulo deste ministério.");
+    return module;
+  }
+
+  async editRosterSlot(actor: AuthUser, rosterId: string, slotId: string, label: string, location: PositionLocation = {}) {
     const pilot = await this.pilot.getPilotChurch();
     const roster = await this.requireRoster(rosterId, pilot);
     await this.assertRosterScope(actor, roster, pilot);
@@ -312,7 +428,7 @@ export class MinistriesService {
     return this.prisma.$transaction(async tx => {
       const result = await tx.rosterSlot.updateMany({
         where: { id: slotId, rosterId, roster: { status: "DRAFT" } },
-        data: { roleLabel },
+        data: { roleLabel, ...readPositionLocation(location) },
       });
       if (result.count !== 1) throw new NotFoundException("Posição não encontrada em uma escala editável.");
       await tx.auditLog.create({ data: {
@@ -321,6 +437,28 @@ export class MinistriesService {
       } });
       return this.toSlotDto(await tx.rosterSlot.findUniqueOrThrow({ where: { id: slotId } }));
     }, { isolationLevel: "Serializable" });
+  }
+
+  async rosterPdf(actor: AuthUser, rosterId: string) {
+    const scope = await this.pilot.getPilotChurch();
+    const roster = await this.requireRoster(rosterId, scope);
+    await this.assertRosterScope(actor, roster, scope);
+    const document = await this.prisma.roster.findFirst({
+      where: { id: rosterId, churchId: scope.churchId, organizationId: scope.organizationId },
+      select: {
+        title: true, serviceAt: true, status: true,
+        module: { select: { name: true } }, ministry: { select: { name: true } },
+        slots: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: {
+          roleLabel: true, sector: true, zone: true, side: true,
+          assignments: {
+            where: { status: { in: ["PENDING", "CONFIRMED"] } },
+            select: { status: true, person: { select: { displayName: true } }, partner: { select: { displayName: true } } },
+          },
+        } },
+      },
+    });
+    if (!document) throw new NotFoundException("Escala não encontrada.");
+    return renderRosterPdf(document);
   }
 
   async listRosters(actor: AuthUser) {
@@ -417,16 +555,10 @@ export class MinistriesService {
       }
     }
 
-    // Conflitos com OUTRAS escalas no mesmo serviceAt (exclui esta roster).
-    if (personIds.size) {
-      await this.assertNoServiceConflict(
-        pilot.churchId,
-        roster.serviceAt,
-        [...personIds],
-        undefined,
-        rosterId,
-      );
-    }
+    await assertNoRosterDayConflict(this.prisma, {
+      churchId: pilot.churchId, serviceAt: roster.serviceAt, personIds: [...personIds],
+      excludeRosterId: rosterId, conflictCode: "ROSTER_SERVICE_CONFLICT",
+    });
 
     // Pessoas duplicadas entre slots desta escala.
     const active = withSlots.slots.flatMap((s) => s.assignments);
@@ -526,7 +658,7 @@ export class MinistriesService {
   async addSlot(
     actor: AuthUser,
     rosterId: string,
-    input: {
+    input: PositionLocation & {
       roleLabel: string;
       requiresCouple?: boolean;
       sortOrder?: number;
@@ -548,6 +680,7 @@ export class MinistriesService {
         data: {
           rosterId,
           roleLabel,
+          ...readPositionLocation(input),
           requiresCouple: Boolean(input.requiresCouple),
           sortOrder: input.sortOrder ?? 0,
         },
@@ -599,6 +732,7 @@ export class MinistriesService {
     if (!input.personId?.trim()) {
       throw new BadRequestException("personId é obrigatório");
     }
+    assertDistinctRosterPartners(input.personId, input.partnerPersonId);
     await this.requirePerson(input.personId, pilot.organizationId);
 
     const personIds = [
@@ -629,13 +763,21 @@ export class MinistriesService {
       personIds,
     );
 
-    await this.assertNoServiceConflict(
-      pilot.churchId,
-      slot.roster.serviceAt,
-      personIds,
-    );
-
-    return this.prisma.$transaction(async (tx) => {
+    return writeRosterAssignment(this.prisma, async (tx) => {
+      const current = await tx.rosterSlot.findFirst({
+        where: { id: slotId, roster: { organizationId: pilot.organizationId, churchId: pilot.churchId } },
+        include: { roster: true },
+      });
+      if (!current) throw new NotFoundException("Slot de escala não encontrado");
+      this.assertRosterNotClosed(current.roster);
+      if (+current.roster.serviceAt !== +slot.roster.serviceAt) {
+        throw new ConflictException("O horário do culto mudou. Atualize a escala e tente novamente.");
+      }
+      await assertOpenModuleSlot(tx, current);
+      await assertSlotEligibility(tx, current, personIds);
+      await assertNoRosterDayConflict(tx, {
+        churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds, conflictCode: "ROSTER_SERVICE_CONFLICT",
+      });
       const assignment = await tx.rosterAssignment.create({
         data: {
           slotId,
@@ -680,7 +822,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
     this.assertRosterNotClosed(loaded.roster);
-    const isOwn = actor.personId === loaded.assignment.personId &&
+    const isOwn = loaded.roster.status !== "DRAFT" && actor.personId === loaded.assignment.personId &&
       hasAccess(actor.grants, {
         roleCodes: [ROLE_CODES.MEMBRO],
         organizationId: pilot.organizationId,
@@ -688,20 +830,22 @@ export class MinistriesService {
       });
     if (!isOwn) await this.assertRosterScope(actor, loaded.roster, pilot);
 
-    if (status === "CONFIRMED") {
-      await this.assertNoServiceConflict(
-        pilot.churchId,
-        loaded.roster.serviceAt,
-        [
-          loaded.assignment.personId,
-          loaded.assignment.partnerPersonId,
-        ].filter(Boolean) as string[],
-        assignmentId,
-      );
-    }
-
     const now = new Date();
-    const dto = await this.prisma.$transaction(async (tx) => {
+    const dto = await writeRosterAssignment(this.prisma, async (tx) => {
+      const current = await this.requireAssignmentInChurch(assignmentId, pilot, tx);
+      this.assertRosterNotClosed(current.roster);
+      if (isOwn && current.roster.status === "DRAFT") throw new ForbiddenException("A escala ainda não foi publicada.");
+      this.assertNotSubstituted(current.assignment);
+      if (status === "CONFIRMED") {
+        const slot = { ...current.slot, roster: current.roster };
+        await assertOpenModuleSlot(tx, slot, assignmentId);
+        await assertSlotEligibility(tx, slot, [current.assignment.personId, current.assignment.partnerPersonId].filter((id): id is string => Boolean(id)));
+        await assertNoRosterDayConflict(tx, {
+          churchId: pilot.churchId, serviceAt: current.roster.serviceAt,
+          personIds: [current.assignment.personId, current.assignment.partnerPersonId].filter((id): id is string => Boolean(id)),
+          excludeAssignmentId: assignmentId, conflictCode: "ROSTER_SERVICE_CONFLICT",
+        });
+      }
       const updated = await tx.rosterAssignment.update({
         where: { id: assignmentId },
         data:
@@ -752,6 +896,7 @@ export class MinistriesService {
     if (!input.personId?.trim()) {
       throw new BadRequestException("personId é obrigatório");
     }
+    assertDistinctRosterPartners(input.personId, input.partnerPersonId);
     await this.requirePerson(input.personId, pilot.organizationId);
 
     const personIds = [
@@ -778,14 +923,17 @@ export class MinistriesService {
       personIds,
     );
 
-    await this.assertNoServiceConflict(
-      pilot.churchId,
-      loaded.roster.serviceAt,
-      personIds,
-      assignmentId,
-    );
-
-    const dto = await this.prisma.$transaction(async (tx) => {
+    const dto = await writeRosterAssignment(this.prisma, async (tx) => {
+      const current = await this.requireAssignmentInChurch(assignmentId, pilot, tx);
+      this.assertRosterNotClosed(current.roster);
+      this.assertNotSubstituted(current.assignment);
+      const slot = { ...current.slot, roster: current.roster };
+      await assertOpenModuleSlot(tx, slot, assignmentId);
+      await assertSlotEligibility(tx, slot, personIds);
+      await assertNoRosterDayConflict(tx, {
+        churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds,
+        excludeAssignmentId: assignmentId, conflictCode: "ROSTER_SERVICE_CONFLICT",
+      });
       await tx.rosterAssignment.update({
         where: { id: assignmentId },
         data: { status: "SUBSTITUTED" },
@@ -846,6 +994,87 @@ export class MinistriesService {
   }
 
   // —— RF-014 disponibilidade / impedimentos ——
+
+  private async recurringAvailabilityScope(actor: AuthUser, ministryId: string, personId: string) {
+    const { churchId, organizationId } = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, { churchId, organizationId });
+    this.assertManageMinistry(actor, ministry);
+    if (!personId || !await this.prisma.ministryMembership.findFirst({
+      where: { churchId, organizationId, ministryId, personId, status: "ATIVO", person: { status: "ACTIVE" } },
+      select: { id: true },
+    })) throw new NotFoundException("Selecione um integrante ativo do ministério.");
+    return { churchId, organizationId, personId };
+  }
+
+  async recurringAvailability(actor: AuthUser, ministryId: string, personId: string) {
+    const scope = await this.recurringAvailabilityScope(actor, ministryId, personId);
+    const rows = await this.prisma.volunteerAvailability.findMany({
+      where: { ...scope, active: true }, orderBy: [{ weekday: "asc" }, { startMinute: "asc" }],
+    });
+    const groups = new Map<string, ReturnType<typeof utcWeeklyWindowsToRiachoLocal>>();
+    for (const row of rows) {
+      const id = row.groupId ?? row.id;
+      const windows = groups.get(id) ?? [];
+      groups.set(id, [...windows, ...utcWeeklyWindowsToRiachoLocal([row])]);
+    }
+    const windows = [...groups].map(([id, segments]) => {
+      if (segments.length > 1 && segments.every(window => window.weekday === segments[0].weekday)) {
+        return { id, segments: [{
+          weekday: segments[0].weekday,
+          startMinute: Math.min(...segments.map(window => window.startMinute)),
+          endMinute: Math.max(...segments.map(window => window.endMinute)),
+        }] };
+      }
+      return { id, segments };
+    });
+    return { windows };
+  }
+
+  async saveRecurringAvailability(actor: AuthUser, ministryId: string, input: {
+    personId: string; weekday: number; startMinute: number; endMinute: number; replaceId?: string;
+  }) {
+    const scope = await this.recurringAvailabilityScope(actor, ministryId, input.personId);
+    this.assertWeekday(input.weekday);
+    this.assertMinuteWindow(input.startMinute, input.endMinute);
+    const windows = riachoWeeklyWindowToUtc(input);
+    const groupId = randomUUID();
+    return this.prisma.$transaction(async tx => {
+      if (input.replaceId) await this.deactivateRecurringWindow(tx, scope, input.replaceId);
+      await tx.volunteerAvailability.createMany({ data: windows.map(window => ({ ...scope, ...window, groupId })) });
+      await tx.auditLog.create({ data: {
+        churchId: scope.churchId, organizationId: scope.organizationId, actorUserId: actor.userId,
+        action: input.replaceId ? "roster.availability.update" : "roster.availability.create",
+        resourceType: "volunteer_availability", resourceId: groupId,
+        metadata: { personId: scope.personId, ministryId },
+      } });
+      return { id: groupId };
+    });
+  }
+
+  async removeRecurringAvailability(actor: AuthUser, ministryId: string, personId: string, id: string) {
+    const scope = await this.recurringAvailabilityScope(actor, ministryId, personId);
+    return this.prisma.$transaction(async tx => {
+      await this.deactivateRecurringWindow(tx, scope, id);
+      await tx.auditLog.create({ data: {
+        churchId: scope.churchId, organizationId: scope.organizationId, actorUserId: actor.userId,
+        action: "roster.availability.deactivate", resourceType: "volunteer_availability",
+        resourceId: id, metadata: { personId, ministryId },
+      } });
+      return { removed: true };
+    });
+  }
+
+  private async deactivateRecurringWindow(
+    tx: Prisma.TransactionClient,
+    scope: { organizationId: string; churchId: string; personId: string },
+    id: string,
+  ) {
+    const result = await tx.volunteerAvailability.updateMany({
+      where: { ...scope, active: true, OR: [{ id, groupId: null }, { groupId: id }] },
+      data: { active: false },
+    });
+    if (!result.count) throw new NotFoundException("Disponibilidade não encontrada.");
+  }
 
   async createAvailability(
     actor: AuthUser,
@@ -1305,10 +1534,11 @@ export class MinistriesService {
     churchId: string,
     serviceAt: Date,
     personIds: string[],
+    db: Pick<Prisma.TransactionClient, "volunteerAvailability" | "volunteerImpediment"> = this.prisma,
   ): Promise<void> {
     for (const personId of personIds) {
-      await this.assertPersonAvailable(churchId, personId, serviceAt);
-      await this.assertNoImpediment(churchId, personId, serviceAt);
+      await this.assertPersonAvailable(churchId, personId, serviceAt, db);
+      await this.assertNoImpediment(churchId, personId, serviceAt, db);
     }
   }
 
@@ -1316,8 +1546,9 @@ export class MinistriesService {
     churchId: string,
     personId: string,
     serviceAt: Date,
+    db: Pick<Prisma.TransactionClient, "volunteerAvailability"> = this.prisma,
   ): Promise<void> {
-    const windows = await this.prisma.volunteerAvailability.findMany({
+    const windows = await db.volunteerAvailability.findMany({
       where: { churchId, personId, active: true },
       take: 50,
     });
@@ -1346,8 +1577,9 @@ export class MinistriesService {
     churchId: string,
     personId: string,
     serviceAt: Date,
+    db: Pick<Prisma.TransactionClient, "volunteerImpediment"> = this.prisma,
   ): Promise<void> {
-    const hit = await this.prisma.volunteerImpediment.findFirst({
+    const hit = await db.volunteerImpediment.findFirst({
       where: {
         churchId,
         personId,
@@ -1629,43 +1861,11 @@ export class MinistriesService {
     }
   }
 
-  private async assertNoServiceConflict(
-    churchId: string,
-    serviceAt: Date,
-    personIds: string[],
-    excludeAssignmentId?: string,
-    excludeRosterId?: string,
-  ): Promise<void> {
-    if (!personIds.length) return;
-
-    const { start, end } = churchDayBounds(serviceAt);
-    const conflicts = await this.prisma.rosterAssignment.findMany({
-      where: {
-        status: { in: ["PENDING", "CONFIRMED"] },
-        ...(excludeAssignmentId
-          ? { id: { not: excludeAssignmentId } }
-          : {}),
-        OR: [
-          { personId: { in: personIds } },
-          { partnerPersonId: { in: personIds } },
-        ],
-        slot: {
-          roster: {
-            churchId,
-            serviceAt: { gte: start, lt: end },
-            ...(excludeRosterId ? { id: { not: excludeRosterId } } : {}),
-          },
-        },
-      },
-      select: { id: true, personId: true },
-      take: 1,
-    });
-
-    if (conflicts.length) {
+  private assertNotSubstituted(assignment: { status: string }) {
+    if (assignment.status === "SUBSTITUTED") {
       throw new ConflictException({
-        code: "ROSTER_SERVICE_CONFLICT",
-        message:
-          "Pessoa já possui escala no mesmo dia nesta congregação",
+        code: "ALREADY_SUBSTITUTED",
+        message: "Esta atribuição já foi substituída.",
       });
     }
   }
@@ -1701,8 +1901,9 @@ export class MinistriesService {
   private async requireAssignmentInChurch(
     assignmentId: string,
     pilot: { organizationId: string; churchId: string },
+    db: Pick<Prisma.TransactionClient, "rosterAssignment"> = this.prisma,
   ) {
-    const assignment = await this.prisma.rosterAssignment.findFirst({
+    const assignment = await db.rosterAssignment.findFirst({
       where: { id: assignmentId },
       include: {
         slot: {
@@ -1771,6 +1972,7 @@ export class MinistriesService {
     organizationId: string;
     churchId: string;
     ministryId: string | null;
+    moduleId?: string | null;
     title: string;
     serviceAt: Date;
     status: string;
@@ -1782,6 +1984,7 @@ export class MinistriesService {
       organizationId: row.organizationId,
       churchId: row.churchId,
       ministryId: row.ministryId,
+      ...(row.moduleId ? { moduleId: row.moduleId } : {}),
       title: row.title,
       serviceAt: row.serviceAt.toISOString(),
       status: row.status,
@@ -1790,7 +1993,7 @@ export class MinistriesService {
     };
   }
 
-  private toSlotDto(slot: {
+  private toSlotDto(slot: PositionLocation & {
     id: string;
     rosterId: string;
     roleLabel: string;
@@ -1801,6 +2004,9 @@ export class MinistriesService {
       id: slot.id,
       rosterId: slot.rosterId,
       roleLabel: slot.roleLabel,
+      sector: slot.sector ?? null,
+      zone: slot.zone ?? null,
+      side: slot.side ?? null,
       requiresCouple: slot.requiresCouple,
       sortOrder: slot.sortOrder,
     };

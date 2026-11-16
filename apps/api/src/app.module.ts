@@ -35,6 +35,7 @@ import { MembershipsModule } from "./memberships/memberships.module";
 import { MetaController } from "./meta/meta.controller";
 import { MinistriesModule } from "./ministries/ministries.module";
 import { PersonalRostersModule } from "./rosters/personal-rosters.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { PastoralModule } from "./pastoral/pastoral.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
@@ -73,6 +74,7 @@ import { ViviModule } from "./vivi/vivi.module";
     GroupsModule,
     MinistriesModule,
     PersonalRostersModule,
+    NotificationsModule,
     EventsModule,
     FinanceModule,
     TreasuryModule,

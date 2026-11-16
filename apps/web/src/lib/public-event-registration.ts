@@ -14,11 +14,15 @@ type Catalog = {
   transportOptions: Choice[];
 };
 
-export type RegistrationReceipt = {
+type RegistrationStatus = {
   status: string;
+  guardianAuthStatus?: string;
+  tickets?: { position: number; code: string; checkedInAt?: string | null }[];
+};
+
+export type RegistrationReceipt = RegistrationStatus & {
   id: string;
   checkInCode: string;
-  guardianAuthStatus?: string;
   paymentIntent: null | { mode: string; amountCents: number; pixCopiaECola?: string; pixTxid?: string };
 };
 
@@ -83,6 +87,17 @@ export function availableEventLots(lots: Lot[], modalityId: string, partySize: n
     (lot.remaining === null || lot.remaining >= partySize));
 }
 
+export function eventRegistrationChoices(catalog: Catalog) {
+  const hasRoom = (choice: Choice, count: number) => choice.remaining === null || choice.remaining >= count;
+  return catalog.modalities.filter(modality => {
+    const size = modality.minPartySize;
+    return hasRoom(modality, size)
+      && availableEventLots(catalog.lots, modality.id, size).length > 0
+      && [catalog.lodgingOptions, catalog.mealOptions, catalog.transportOptions].every(list =>
+        !list.length || list.some(choice => hasRoom(choice, size)));
+  });
+}
+
 export async function loadEventRegistration(slug: string) {
   if (!validEventSlug(slug)) return null;
   return parseRegistrationCatalog(await apiGetPublic<unknown>("/public/events/" + slug));
@@ -105,5 +120,5 @@ export async function registerForEvent(slug: string, fields: EventRegistrationFi
 
 export function loadRegistrationStatus(code: string) {
   if (!validRegistrationCode(code)) throw new Error("Código de inscrição inválido.");
-  return apiGetPublic<{ status: string; guardianAuthStatus?: string }>("/public/registrations/" + code);
+  return apiGetPublic<RegistrationStatus>("/public/registrations/" + code);
 }

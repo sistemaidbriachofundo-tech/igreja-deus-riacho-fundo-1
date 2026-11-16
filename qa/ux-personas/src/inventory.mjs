@@ -165,6 +165,6 @@ export function readFoundationTokens() {
   }
 }
 
-export function designSystemIsOnMain() {
+export function hasFoundationComponents() {
   return existsSync(join(repoRoot, "apps/web/src/components/ui/Button.tsx"));
 }

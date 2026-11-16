@@ -83,7 +83,7 @@ describe("telas de eventos e relatórios", () => {
       onParticipant={noop} onPartySize={noop} onRegister={noop} onCheckCode={noop}
       onPresence={noop} onStatus={noop} onFrom={noop} onTo={noop} onReport={noop} onDownload={noop}
     />);
-    expect(html).toContain("Nenhum evento foi inventado");
+    expect(html).toContain("O acesso à gestão de eventos está indisponível neste endereço.");
     expect(html).not.toContain("Inscrições");
   });
 

@@ -32,9 +32,10 @@ function setup() {
     }),
     deliver: jest.fn().mockResolvedValue({ sent: true, email: "person@example.test", expiresInHours: 24 }),
   };
+  const auth = { requireRecentMfa: jest.fn().mockResolvedValue(undefined) };
   return {
-    db, invitations,
-    controller: new ChurchAccessController(db as never, { getPilotChurch: async () => pilot } as never, invitations as never),
+    db, invitations, auth,
+    controller: new ChurchAccessController(db as never, { getPilotChurch: async () => pilot } as never, invitations as never, auth as never),
   };
 }
 
@@ -96,7 +97,7 @@ describe("Acessos da congregação — convite ao titular", () => {
   });
 
   it("convida a pessoa já cadastrada para o perfil administrativo e registra autor e escopo", async () => {
-    const { db, controller } = setup();
+    const { db, controller, auth } = setup();
     const organizationAdmin = { ...admin, grants: [{ roleCode: "PLATFORM_ADMIN", organizationId: pilot.organizationId }] };
     await controller.create(organizationAdmin, {
       personId: "person-test",
@@ -104,6 +105,7 @@ describe("Acessos da congregação — convite ao titular", () => {
       role: CHURCH_ADMINISTRATIVE_ROLE,
     });
     expect(CHURCH_ADMINISTRATIVE_ROLE).toBe("PLATFORM_ADMIN");
+    expect(auth.requireRecentMfa).toHaveBeenCalledWith(organizationAdmin);
     expect(db.user.create.mock.calls.at(-1)[0].data.grants.create).toMatchObject(pilot);
     expect(await controller.list(admin)).toMatchObject({ canInviteAdministrator: false });
     expect(await controller.list(organizationAdmin)).toMatchObject({ canInviteAdministrator: true });

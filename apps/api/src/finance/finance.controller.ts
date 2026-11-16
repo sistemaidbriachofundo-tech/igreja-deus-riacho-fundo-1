@@ -138,6 +138,7 @@ class CreateEntryBody {
 class RejectEntryBody {
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   reason?: string;
 }
 
@@ -366,6 +367,16 @@ export class FinanceController {
     return this.finance.listCostCenters(user);
   }
 
+  @Get("cost-centers/ministry-options")
+  listMinistryCostCenterOptions(@CurrentUser() user: AuthUser) {
+    return this.finance.listMinistryCostCenterOptions(user);
+  }
+
+  @Post("cost-centers/ministry/:ministryId")
+  configureMinistryCostCenter(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string) {
+    return this.finance.configureMinistryCostCenter(user, ministryId);
+  }
+
   @Post("cost-centers")
   createCostCenter(@CurrentUser() user: AuthUser, @Body() body: CodeNameBody) {
     return this.finance.createCostCenter(user, body);
@@ -431,6 +442,8 @@ export class FinanceController {
     return this.finance.approveEntry(user, entryId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
+  @RequireAccess({ resource: "ledger", action: "approve" })
   @Post("entries/:entryId/reject")
   rejectEntry(
     @CurrentUser() user: AuthUser,
@@ -448,6 +461,8 @@ export class FinanceController {
     return this.finance.reverseEntry(user, entryId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @RequireAccess({ resource: "expense_attachments", action: "read" })
   @Get("entries/:entryId/attachments")
   listAttachments(
     @CurrentUser() user: AuthUser,
@@ -474,6 +489,8 @@ export class FinanceController {
     return this.finance.uploadAttachment(user, entryId, file);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @RequireAccess({ resource: "expense_attachments", action: "read" })
   @Get("entries/:entryId/attachments/:attachmentId")
   async downloadAttachment(
     @CurrentUser() user: AuthUser,
@@ -503,9 +520,10 @@ export class FinanceController {
     return this.finance.removeAttachment(user, entryId, attachmentId);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("imports")
-  listImports(@CurrentUser() user: AuthUser) {
-    return this.finance.listImports(user);
+  listImports(@CurrentUser() user: AuthUser, @Query("bankStatements") bankStatements?: string) {
+    return this.finance.listImports(user, bankStatements === "true");
   }
 
   @Post("imports")
@@ -513,6 +531,20 @@ export class FinanceController {
     return this.finance.createImport(user, body);
   }
 
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Post("imports/ofx")
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 1 },
+  }))
+  uploadBankStatement(
+    @CurrentUser() user: AuthUser,
+    @Body("accountId") accountId: string,
+    @UploadedFile() file?: { originalname: string; buffer: Buffer },
+  ) {
+    return this.finance.uploadBankStatement(user, accountId, file);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("imports/:batchId")
   getImport(@CurrentUser() user: AuthUser, @Param("batchId") batchId: string) {
     return this.finance.getImport(user, batchId);

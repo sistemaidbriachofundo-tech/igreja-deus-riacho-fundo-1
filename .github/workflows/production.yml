@@ -28,8 +28,6 @@ concurrency:
 env:
   NODE_VERSION: "22"
   DATABASE_URL: postgresql://idbrf:idbrf_ci@localhost:5432/idbrf?schema=public
-  # Domínio apex Hostinger — sem basePath do GitHub Pages
-  NEXT_PUBLIC_BASE_PATH: ""
 
 jobs:
   lint:
@@ -125,19 +123,10 @@ jobs:
       - run: npm run build -w @idbrf/api
       - name: Build web (apex / API de produção)
         env:
-          NEXT_PUBLIC_BASE_PATH: ${{ env.NEXT_PUBLIC_BASE_PATH }}
-          NEXT_PUBLIC_HML_ENABLED: "false"
-          NEXT_PUBLIC_ADMIN_PRODUCTION: "true"
-          NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: "true"
-          NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
           NEXT_PUBLIC_API_URL: ${{ vars.PRODUCTION_API_URL || 'https://api.igrejadeusrf1.com.br' }}
         run: |
-          if [ "${NEXT_PUBLIC_API_URL}" != "https://api.igrejadeusrf1.com.br" ]; then
-            echo "::error::O painel de produção exige a API oficial https://api.igrejadeusrf1.com.br."
-            exit 1
-          fi
           for attempt in 1 2 3; do
-            if npm run build -w @idbrf/web; then
+            if npm run build:production -w @idbrf/web; then
               exit 0
             fi
             echo "Web build failed (attempt ${attempt}/3); retrying…"
@@ -146,8 +135,6 @@ jobs:
           echo "Web build failed after 3 attempts"
           exit 1
       - name: Manifesto do candidato
-        env:
-          PRODUCTION_API_ORIGIN: ${{ vars.PRODUCTION_API_URL || 'https://api.igrejadeusrf1.com.br' }}
         run: |
           mkdir -p dist/prod
           printf '%s\n' "{
@@ -159,13 +146,7 @@ jobs:
             \"dnsCutover\": false
           }" > dist/prod/release.json
           cp -a apps/web/out dist/prod/web-out
-          printf '%s\n' "{
-            \"channel\": \"production\",
-            \"sourceSha\": \"${GITHUB_SHA}\",
-            \"phase\": \"EM_EXECUCAO\",
-            \"officialUrl\": \"https://igrejadeusrf1.com.br\",
-            \"apiOrigin\": \"${PRODUCTION_API_ORIGIN}\"
-          }" > dist/prod/web-out/release.json
+          node -e 'for (const path of process.argv.slice(1)) if (require("./" + path).sourceSha !== process.env.GITHUB_SHA) throw new Error("SHA divergente: " + path)' apps/api/dist/release-identity.json dist/prod/web-out/release.json
           mkdir -p dist/prod/api
           cp -a apps/api/dist dist/prod/api/dist
           cp -a apps/api/package.json dist/prod/api/package.json
@@ -232,4 +213,4 @@ jobs:
           test -f dist/prod/release.json
           cat dist/prod/release.json
       - name: Registrar verificação pós-deploy
-        run: echo "Após publicar a API candidata, execute npm run release:preflight com o SHA publicado."
+        run: echo "Após publicar o portal e a API candidatos, execute npm run release:preflight com o SHA publicado."

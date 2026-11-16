@@ -1,8 +1,8 @@
 .overview { display: grid; gap: 18px; min-width: 0; color: #18382d; }
 .position {
   display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 24px;
-  padding: clamp(20px, 3.5vw, 42px); border-radius: 18px;
-  background: radial-gradient(ellipse at 100% -35%, #397159, transparent 67%), #102b23; color: #fcf8ed;
+  padding: clamp(18px, 3vw, 34px); border-radius: 10px;
+  background: #183f31; color: #fcf8ed;
 }
 .available { display: grid; align-content: center; gap: 11px; min-width: 0; }
 .positionLabel { display: flex; align-items: center; gap: 8px; color: #c7ded0; font-size: 13px; font-weight: 640; }
@@ -17,10 +17,13 @@
 .sectionHeading > span { font-size: 12px; color: #526b60; }
 .sectionHeading > span strong { color: #234839; margin-left: 5px; }
 .bankGrid, .analyticGrid { display: grid; gap: 12px; }
-.bankGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr)); }
-.bank, .surface { background: #fff; border: 1px solid #dbe7dd; border-radius: 13px; min-width: 0; padding: clamp(14px, 2vw, 22px); }
+.bankGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr)); gap: 1px; background: #d4e2d8; border: 1px solid #d4e2d8; border-radius: 9px; }
+.bank, .surface { background: #fff; min-width: 0; padding: clamp(14px, 2vw, 22px); }
+.bank { border: 0; }
+.surface { border-top: 1px solid #d4e2d8; }
 .bank { display: grid; justify-items: start; gap: 7px; text-align: left; color: #234839; font-size: 13px; cursor: pointer; }
-.bank:hover { border-color: #7ca38c; background: #f6faf5; }
+.bank:hover { background: #edf5ef; }
+.bank:focus-visible { outline-offset: -4px; }
 .bankTop { display: flex; justify-content: space-between; align-items: center; width: 100%; color: #526d60; }
 .bankIcon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #e5f0e7; }
 .bank strong { font-size: clamp(16px, 2vw, 25px); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
@@ -48,7 +51,7 @@
 .empty { font-size: 13px; color: #526b60; }
 @media (max-width: 740px) {
   .position, .analyticGrid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .bankGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .bankGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bank { padding: 12px; }
   .position dl { gap: 3px; }
 }

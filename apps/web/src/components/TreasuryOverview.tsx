@@ -42,7 +42,7 @@ export function TreasuryOverview({ position, summary, onBank, onDeposits, onReco
         </header>
         {summary.banks.length ? <div className={s.bankGrid}>
           {summary.banks.map(bank => (
-            <button className={s.bank} key={bank.id} type="button" onClick={() => onBank(bank.id)} aria-label={`Ver extrato de ${bank.name}, saldo ${formatBRL(bank.balance)}`}>
+            <button className={s.bank} key={bank.id} type="button" onClick={() => onBank(bank.id)} aria-label={`${bank.name} ${formatBRL(bank.balance)} · Ver extrato`}>
               <span className={s.bankTop}><span className={s.bankIcon}><UIIcon name="wallet" size={18} /></span><UIIcon name="arrow" size={17} /></span>
               <span>{bank.name}</span>
               <strong>{formatBRL(bank.balance)}</strong>

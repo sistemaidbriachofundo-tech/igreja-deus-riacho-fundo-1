@@ -475,7 +475,7 @@ components:
         modality:
           type: string
           nullable: true
-          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO, ACLAMACAO]
         currentStep:
           type: string
           enum: [modality, documents, secretaria, pastor]
@@ -495,7 +495,7 @@ components:
         householdId: { type: string }
         modality:
           type: string
-          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO, ACLAMACAO]
         notes: { type: string }
     AdvanceAdmissionRequest:
       type: object
@@ -506,7 +506,7 @@ components:
           enum: [modality, documents, secretaria, pastor]
         modality:
           type: string
-          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO]
+          enum: [BATISMO, TRANSFERENCIA, RECONCILIACAO, OUTRO, ACLAMACAO]
         notes: { type: string }
         decision:
           type: string
@@ -4276,6 +4276,11 @@ paths:
       x-implementation: implemented
       summary: Lista lotes de importação (CSV/OFX/PDF_META)
       security: [{ bearerAuth: [] }]
+      parameters:
+        - name: bankStatements
+          in: query
+          schema: { type: boolean }
+          description: Retorna somente extratos com conta bancária vinculada, sem as linhas.
       responses:
         "200":
           description: Envelope batches[]
@@ -4304,6 +4309,30 @@ paths:
       responses:
         "201":
           description: Batch PARSED | META_ONLY | PARSED_STUB | FAILED
+
+  /ledger/imports/ofx:
+    post:
+      tags: [ledger]
+      x-implementation: implemented
+      summary: Enviar extrato OFX em reais para uma conta bancária ativa da congregação
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [accountId, file]
+              properties:
+                accountId: { type: string }
+                file: { type: string, format: binary, description: Arquivo OFX de até 2 MB }
+      responses:
+        "201":
+          description: Lote com movimentos, quantidade de repetidos descartados e indicação de reenvio do mesmo arquivo.
+        "400":
+          description: Conta ou conteúdo inválido.
+        "413":
+          description: Arquivo acima do limite.
 
   /ledger/imports/{batchId}:
     get:

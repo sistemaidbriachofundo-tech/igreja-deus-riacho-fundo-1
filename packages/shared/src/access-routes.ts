@@ -58,6 +58,12 @@ export function classifyAccessRoute(
     return { resource: "admin", action: "administer" };
   }
 
+  if (verb === "POST" && path === "/ledger/imports/ofx") {
+    return { resource: "bank_statements", action: "write" };
+  }
+  if (read && (path === "/ledger/imports" || /^\/ledger\/imports\/[^/]+$/.test(path))) {
+    return { resource: "bank_statements", action: "read" };
+  }
   if (path === "/ledger" || path.startsWith("/ledger/")) {
     return { resource: "ledger", action: read ? "read" : "write" };
   }

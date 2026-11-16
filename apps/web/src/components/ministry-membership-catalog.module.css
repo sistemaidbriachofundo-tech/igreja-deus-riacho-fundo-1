@@ -409,13 +409,11 @@
 @media (max-width: 700px) { .admit > button { margin-top: 0; } }
 
 .admit { margin-block: 18px; padding-block: 0 18px; border-top: 0; border-bottom: 1px solid var(--app-border, #dce6de); }
-.memberSearch { display: grid; gap: 7px; margin-top: 18px; max-width: 420px; color: #5f7368; font: 600 12px/1.4 Inter, Arial, sans-serif; }
-.memberSearch input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #dce6de; border-radius: 8px; background: #fff; color: #22382e; font: 400 14px/1.4 Inter, Arial, sans-serif; }
-.memberSearch input:focus-visible { outline: 3px solid #b79a6e; outline-offset: 2px; }
+.memberSearch { margin-top: 18px; max-width: 420px; }
 .emptySearch { margin-top: 20px !important; }
 .pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #dce6de; color: #5f7368; font: 400 12px/1.4 Inter, Arial, sans-serif; }
 .pagination button { padding-inline: 12px; }
-@media (max-width: 620px) { .memberSearch input { font-size: 16px; } }
+
 
 .actionFeedback { margin-block: 14px; }
 .personLink { padding: 4px 0; border: 0; background: transparent; color: #245840; font: inherit; font-weight: 700; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

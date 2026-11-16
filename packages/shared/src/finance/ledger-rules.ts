@@ -10,6 +10,11 @@ export const LEDGER_ACCOUNT_TYPES = [
 
 export type LedgerAccountTypeCode = (typeof LEDGER_ACCOUNT_TYPES)[number];
 
+export function isBankStatementAccount(account: { code: string; type: string; active?: boolean }): boolean {
+  // 1.1.02 é a conta bancária do plano inicial. Contas bancárias individuais usam 1.1.10.
+  return account.active !== false && account.type === "ASSET" && /^1\.1\.(?:02$|10\.)/.test(account.code);
+}
+
 export const LEDGER_ENTRY_STATUSES = [
   "DRAFT",
   "PENDING_APPROVAL",

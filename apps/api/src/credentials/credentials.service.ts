@@ -316,6 +316,9 @@ export class CredentialsService {
     const pilot = await this.pilot.getPilotChurch();
     const credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
 
+    const portrait = await this.getPhoto(credential.personId);
+    const photo = jpegPortrait(portrait?.jpeg);
+    const pdfPortraitHash = photo ? this.storage.contentSha256(photo) : null;
     const pdfBytes = await renderCredentialPdf({
       displayName: credential.person.displayName,
       churchName: pilot.churchName,
@@ -323,12 +326,8 @@ export class CredentialsService {
       verificationBaseUrl: process.env.CREDENTIAL_VERIFICATION_WEB_URL || process.env.ACCESS_INVITE_WEB_ORIGIN,
       issuedAt: credential.issuedAt,
       credentialId: credential.id,
-      photo: jpegPortrait((await this.getPhoto(credential.personId))?.jpeg),
+      photo,
     });
-
-    if (credential.pdfStorageKey) {
-      await this.storage.remove(credential.pdfStorageKey);
-    }
 
     const pdfStorageKey = this.storage.buildCredentialPdfKey({
       organizationId: pilot.organizationId,
@@ -338,17 +337,30 @@ export class CredentialsService {
     await this.storage.put(pdfStorageKey, pdfBytes);
 
     const updated = await this.prisma.memberCredential.update({
-      where: { id: credential.id },
+      where: {
+        id: credential.id,
+        status: credential.status,
+        AND: [{ pdfStorageKey: credential.pdfStorageKey ?? null }],
+        person: { photo: { is: portrait ? { jpeg: { equals: portrait.jpeg } } : null } },
+      },
       data: {
         pdfStorageKey,
         pdfContentType: "application/pdf",
         pdfByteSize: pdfBytes.byteLength,
         pdfGeneratedAt: new Date(),
+        pdfPortraitHash,
       },
       include: {
         person: { select: { displayName: true } },
       },
+    }).catch(async (error: unknown) => {
+      await this.storage.remove(pdfStorageKey).catch(() => undefined);
+      if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+        throw new BusinessException("A carteirinha mudou durante a geração. Tente baixar novamente.", "CREDENTIAL_PDF_CHANGED", 409);
+      }
+      throw error;
     });
+    if (credential.pdfStorageKey) await this.storage.remove(credential.pdfStorageKey).catch(() => undefined);
 
     await this.prisma.auditLog.create({
       data: {
@@ -385,7 +397,13 @@ export class CredentialsService {
   /** Download autenticado do PDF privado. */
   async downloadPdf(actor: AuthUser, credentialId: string) {
     const pilot = await this.pilot.getPilotChurch();
-    const credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+    let credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+    const photo = jpegPortrait((await this.getPhoto(credential.personId))?.jpeg);
+    const currentHash = photo ? this.storage.contentSha256(photo) : null;
+    if (credential.pdfStorageKey && (credential.pdfPortraitHash ?? null) !== currentHash) {
+      await this.generatePdf(actor, credentialId);
+      credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
+    }
     if (!credential.pdfStorageKey || !credential.pdfContentType) {
       throw new NotFoundException(
         "PDF ainda não gerado — use POST /credentials/:id/pdf",

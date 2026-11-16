@@ -387,7 +387,7 @@ export function AdministrativeOverview({
       <PageHeader
         appearance="workspace"
         heading="h1"
-        title="Painel administrativo"
+        title="Governança Ministerial"
         actions={
             <button
               type="button"

@@ -8,7 +8,7 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 
 | Variável | Regra |
 |----------|-------|
-| `SOURCE_SHA` | SHA completo do commit da API publicada, configurado no processo ou no build da imagem |
+| `SOURCE_SHA` | SHA completo do commit da API publicada. Passe no build da imagem se o checkout for disponibilizado sem metadados Git. O artefato compilado a partir do checkout já inclui o SHA. |
 | `IDBRF_RUNTIME_STAGE` | `production` |
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | Postgres prod, `sslmode=require` ou `verify-full` |
@@ -48,7 +48,7 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 
 - [ ] Backup / ensaio de restore do Postgres prod (vazio ou sintético isolado)
 - [ ] `/health` e `/ready` OK na API interna
-- [ ] Após publicar a API, rodar `npm run release:preflight` com o SHA do artefato e confirmar `/meta` e `/ready`
+- [ ] Após publicar o portal e a API, rodar `npm run release:preflight` com o SHA do artefato e confirmar `/login/`, `/release.json`, `/meta` e `/ready`
 - [ ] Frontend do artefato `production-candidate-*` com `NEXT_PUBLIC_ADMIN_PRODUCTION=true`, `NEXT_PUBLIC_HML_ENABLED=false` e a API oficial
 - [ ] Conferir login, MFA e acesso por função com uma conta autorizada de produção
 - [ ] Autorização explícita para corte de DNS

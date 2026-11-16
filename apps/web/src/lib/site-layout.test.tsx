@@ -77,8 +77,8 @@ describe("Gestão do Site — editor visual",()=>{
   });
   it("provides an authenticated editor route without faking data",()=>{
     const html=renderToStaticMarkup(<SiteManager/>);
-    expect(html).toContain("Gestão do site");
-    expect(html).toContain("Gestão do site");
+    expect(html).toContain("Mídia e conteúdo");
+    expect(html).toContain("/app/site/");
   });
   it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
     const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"RASCUNHO SECRETO 5a13"}};

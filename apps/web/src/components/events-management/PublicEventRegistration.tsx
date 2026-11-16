@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ApiRequestError } from "../../lib/api";
 import {
-  availableEventLots, loadEventRegistration, loadMemberReceipt, loadRegistrationStatus, memberEventsHref, registerForEvent,
+  availableEventLots, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt, loadRegistrationStatus, memberEventsHref, registerForEvent,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
 import { formatPortalDate } from "../../lib/portal-live-data";
@@ -28,17 +28,20 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
   const [guardianStatus, setGuardianStatus] = useState(receipt.guardianAuthStatus);
   const [pix, setPix] = useState(receipt.paymentIntent);
   const [notice, setNotice] = useState("");
-  const [qr, setQr] = useState("");
+  const [tickets, setTickets] = useState(receipt.tickets);
+  const [qr, setQr] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const confirmed = status === "CONFIRMED" || status === "CHECKED_IN";
   useEffect(() => {
     if (!confirmed) return;
     let live = true;
-    void import("qrcode").then(lib => lib.toDataURL(receipt.checkInCode, {
-      margin: 4, width: 256, errorCorrectionLevel: "M",
-    })).then(url => { if (live) setQr(url); }).catch(() => {});
+    const codes = tickets?.length ? tickets.map(ticket => ticket.code) : [receipt.checkInCode];
+    void import("qrcode").then(lib => Promise.all(codes.map(async code => [
+      code,
+      await lib.toDataURL(code, { margin: 4, width: 192, errorCorrectionLevel: "M" }),
+    ] as const))).then(entries => { if (live) setQr(Object.fromEntries(entries)); }).catch(() => {});
     return () => { live = false; };
-  }, [confirmed, receipt.checkInCode]);
+  }, [confirmed, receipt.checkInCode, tickets]);
   async function refresh() {
     setBusy(true);
     setNotice("");
@@ -51,17 +54,24 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
         : await loadRegistrationStatus(receipt.checkInCode);
       setStatus(updated.status);
       setGuardianStatus(updated.guardianAuthStatus);
+      setTickets(updated.tickets);
     }
     catch (error) { setNotice(message(error)); }
     finally { setBusy(false); }
   }
   if (confirmed) return <section className={s.panel}>
     <Alert appearance="workspace" tone="success" title={status === "CHECKED_IN" ? "Presença registrada" : "Inscrição confirmada"}>
-      Apresente o QR ou o código na entrada do evento.
+      {tickets?.length ? "Apresente o ingresso de cada participante na entrada." : "Apresente o QR ou o código na entrada do evento."}
     </Alert>
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    {qr && <img src={qr} alt="QR para o check-in do evento" width={256} height={256} />}
-    <p className={s.code}>{receipt.checkInCode}</p>
+    <ul className={s.tickets}>
+      {(tickets?.length ? tickets : [{ position: 0, code: receipt.checkInCode }]).map(ticket => <li key={ticket.code}>
+        {ticket.position > 0 && <h3>Ingresso {ticket.position}</h3>}
+        {ticket.checkedInAt && <p>Presença registrada</p>}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {qr[ticket.code] && <img src={qr[ticket.code]} alt={ticket.position ? "QR do ingresso " + ticket.position : "QR para o check-in do evento"} width={192} height={192} />}
+        <p className={s.code}>{ticket.code}</p>
+      </li>)}
+    </ul>
     {guardianStatus === "PENDING" && <>
       <p>Para a entrada, a equipe do evento ainda precisa conferir a autorização do responsável.</p>
       <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>Atualizar situação</Button>
@@ -102,7 +112,8 @@ export function EventRegistrationForm({ catalog, member }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
-  const modality = catalog.modalities.find(choice => choice.id === modalityId);
+  const choices = eventRegistrationChoices(catalog);
+  const modality = choices.find(choice => choice.id === modalityId);
   const lots = availableEventLots(catalog.lots, modalityId, quantity);
   const lot = lots.find(choice => choice.id === lotId);
   const resourceFields = [
@@ -111,9 +122,14 @@ export function EventRegistrationForm({ catalog, member }: {
     { name: "transportOptionId", label: "Transporte", choices: catalog.transportOptions },
   ] as const;
 
+  const capacityMatches = modality && Number.isInteger(quantity)
+    && quantity >= modality.minPartySize && quantity <= modality.maxPartySize
+    && (modality.remaining === null || modality.remaining >= quantity)
+    && resourceFields.every(item => !item.choices.length || item.choices.some(choice => choice.remaining === null || choice.remaining >= quantity));
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!lot || !modality || submitting.current || (member && !member.token)) return;
+    if (!lot || !modality || !capacityMatches || submitting.current || (member && !member.token)) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -131,7 +147,7 @@ export function EventRegistrationForm({ catalog, member }: {
   }
 
   if (receipt) return <EventReceipt receipt={receipt} memberToken={member?.token} />;
-  if (catalog.modalities.length === 0 || catalog.lots.length === 0) {
+  if (!choices.length) {
     return <Alert appearance="workspace" tone="info" title="Inscrições indisponíveis neste momento" />;
   }
   return <form className={s.panel} onSubmit={submit}>
@@ -139,9 +155,9 @@ export function EventRegistrationForm({ catalog, member }: {
       <Select label="Modalidade" value={modalityId} onChange={event => {
         const id = event.target.value;
         setModalityId(id);
-        setQuantity(catalog.modalities.find(choice => choice.id === id)?.minPartySize ?? 1);
+        setQuantity(choices.find(choice => choice.id === id)?.minPartySize ?? 1);
         setLotId("");
-      }} required options={[{ label: "Selecione", value: "" }, ...catalog.modalities.map(choice => ({
+      }} required options={[{ label: "Selecione", value: "" }, ...choices.map(choice => ({
         label: choice.name, value: choice.id,
       }))]} />
       {modality && <Input label="Pessoas na inscrição" type="number" min={modality.minPartySize} max={modality.maxPartySize}
@@ -161,8 +177,9 @@ export function EventRegistrationForm({ catalog, member }: {
       <Input name="guardian" label="Nome do responsável" minLength={2} maxLength={120} required />
       <label className={s.check}><input name="consent" type="checkbox" required /> Sou responsável pelo participante e autorizo a inscrição.</label>
     </>}
+    {modality && !capacityMatches && <Alert appearance="workspace" tone="info" title="Sem vagas para essa quantidade de pessoas" />}
     {error && <Alert appearance="workspace" tone="danger" title={error} />}
-    <Button type="submit" disabled={!lot || busy}>{busy ? "Enviando…" : lot?.priceCents ? "Inscrever e gerar Pix" : "Confirmar inscrição"}</Button>
+    <Button type="submit" disabled={!lot || !capacityMatches || busy}>{busy ? "Enviando…" : lot?.priceCents ? "Inscrever e gerar Pix" : "Confirmar inscrição"}</Button>
   </form>;
 }
 
@@ -191,11 +208,11 @@ export function PublicEventRegistration() {
     </header>
     {error ? <Alert appearance="workspace" tone="danger" title={error} /> :
       catalog ? <>
-        <section className={s.panel}>
+        {eventRegistrationChoices(catalog).length > 0 && <section className={s.panel}>
           <Link href={memberEventsHref(catalog.event.slug)}>Entrar como membro</Link>
           <p>Com sua conta da igreja, acompanhe o pagamento e consulte seu ingresso em Minhas inscrições.</p>
           <a href="#inscricao-visitante">Continuar como visitante</a>
-        </section>
+        </section>}
         <div id="inscricao-visitante"><EventRegistrationForm catalog={catalog} /></div>
       </> : <Loading label="Carregando evento" />}
   </main>;

@@ -1,3 +1,4 @@
+import { ministryHref } from "./ministry-view";
 /**
  * Menu e página inicial por papel.
  * A lista espelha os @Roles já publicados nos controllers.
@@ -23,7 +24,6 @@ export type AppNavKey =
   | "secretaria"
   | "conexao"
   | "carteirinha"
-  | "editorial"
   | "site"
   | "operacao"
   | "tesouraria"
@@ -47,7 +47,9 @@ export type NavIcon =
   | "settings"
   | "family"
   | "shield"
-  | "wallet";
+  | "wallet"
+  | "roster"
+  | "camera";
 
 export type PersonaProbe = {
   method: "GET" | "POST";
@@ -86,7 +88,6 @@ const ADMISSIONS = ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] as const satisfies
 const CREDENTIALS = ["MEMBRO", "SECRETARIA", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
 const MINISTRY_LEAD = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
 const SITE_EDITORS = ["EDITOR_SITE", "PUBLICADOR_SITE", "SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
-const CMS_CONTENT = ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] as const satisfies readonly BuiltinRole[];
 const OWN_ASSIGNMENT = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "MEMBRO"] as const satisfies readonly BuiltinRole[];
 const OPERATION = ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "TESOURARIA"] as const satisfies readonly BuiltinRole[];
 
@@ -135,7 +136,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     icon: "family",
     hint: "Acolhimento, acompanhamento e Grupos de Amizade",
     ribbon: { code: "Conexão", title: "Caminhos de pertencimento.", detail: "Trilhas e grupos são acessados apenas por líderes autorizados." },
-    roles: MINISTRY_LEAD,
+    roles: ["PLATFORM_ADMIN", "PASTOR", "LIDER_MINISTERIO"],
     probe: { method: "GET", path: "/discipleship/tracks", source: "apps/api/src/discipleship/discipleship.controller.ts", marker: '@Get("tracks")' },
     additionalProbes: [{ method: "GET", path: "/small-groups", source: "apps/api/src/groups/groups.controller.ts", marker: '@Get()' }],
     surface: "admin",
@@ -210,7 +211,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     href: "/app/servir/meu-espaco/",
     label: "Meu Espaço",
     short: "Eu",
-    icon: "badge",
+    icon: "roster",
     hint: "Sua escala",
     ribbon: { code: "Minha escala", title: "A sua escala.", detail: "Sem lista de outras pessoas." },
     roles: OWN_ASSIGNMENT,
@@ -283,24 +284,12 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     surface: "admin",
   },
   {
-    key: "editorial",
-    href: "/app/editorial/",
-    label: "Mídia e conteúdo",
-    short: "Conteúdo",
-    icon: "book",
-    hint: "Conteúdos da igreja",
-    ribbon: { code: "Conteúdo", title: "Histórias que edificam.", detail: "Conteúdo oficial da igreja." },
-    roles: CMS_CONTENT,
-    probe: { method: "GET", path: "/cms/contents", source: "apps/api/src/cms/cms.controller.ts", marker: "return this.cms.list" },
-    surface: "admin",
-  },
-  {
     key: "site",
     href: "/app/site/",
-    label: "Gestão do site",
-    short: "Site",
-    icon: "settings",
-    hint: "Páginas do site",
+    label: "Mídia e conteúdo",
+    short: "Mídia",
+    icon: "camera",
+    hint: "Fotos, capa e textos do portal público",
     ribbon: { code: "Site", title: "O site da igreja.", detail: "A publicação continua decidida pela API." },
     roles: SITE_EDITORS,
     probe: { method: "GET", path: "/cms/site-layout", source: "apps/api/src/cms/site-layout.controller.ts", marker: "return this.site.editor" },
@@ -402,6 +391,7 @@ export type MinistrySubmenuEntry = {
   href: string;
   label: string;
   icon: NavIcon;
+  scales?: { ministryId: string; href: string };
 };
 
 /** O catálogo e os ministérios autorizados compartilham a mesma área. */
@@ -417,6 +407,7 @@ export function ministrySubmenu(
     href: ministryContextHref(item),
     label: item.name,
     icon: "family" as const,
+    ...(item.slug === "atmosfera" ? { scales: { ministryId: item.id, href: ministryHref(item.id, "escalas") } } : {}),
   }));
   return [...catalog, ...dynamic];
 }
