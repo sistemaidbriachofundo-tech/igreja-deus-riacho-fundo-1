@@ -407,7 +407,8 @@ model Grant {
   church       Church?       @relation(fields: [churchId], references: [id])
   ministry     Ministry?     @relation(fields: [ministryId], references: [id], onDelete: SetNull)
 
-  @@unique([userId, roleId, organizationId, churchId, ministryId])
+  @@unique([userId, roleId, organizationId, churchId], map: "grants_user_id_role_id_organization_id_church_id_key")
+  @@unique([userId, roleId, organizationId, churchId, ministryId], map: "grants_user_id_role_id_organization_id_church_id_ministry_id_ke")
   @@index([userId])
   @@index([organizationId, churchId])
   @@index([ministryId])
@@ -994,7 +995,7 @@ model EventLot {
 
   event          PortalEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   modality       EventModality? @relation(fields: [modalityId], references: [id], onDelete: SetNull)
-  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
+  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id], onDelete: Restrict)
   registrations  EventRegistration[]
   paymentIntents EventPaymentIntent[]
 
@@ -1215,8 +1216,8 @@ model EventPaymentIntent {
   event        PortalEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   lot          EventLot?         @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
-  ledgerEntry  LedgerEntry?      @relation(fields: [ledgerEntryId], references: [id])
+  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id], onDelete: Restrict)
+  ledgerEntry  LedgerEntry?      @relation(fields: [ledgerEntryId], references: [id], onDelete: Restrict)
   webhookReceipts EventPaymentWebhookReceipt[]
 
   @@unique([churchId, bankCreditReference], map: "event_payment_credit_reference_key")
@@ -1761,7 +1762,7 @@ model SecurityPolicy {
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
-  organization Organization? @relation(fields: [organizationId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId])
   @@map("security_policies")

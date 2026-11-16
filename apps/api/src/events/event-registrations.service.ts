@@ -22,6 +22,14 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { buildPixCopiaECola } from "./pix-payload";
 
+type PaymentSettlement = {
+  idempotencyKey: string;
+  paymentIntentId: string;
+  status: "CONFIRMED_MOCK" | "FAILED_MOCK";
+  providerRef?: string | null;
+  actorUserId?: string;
+};
+
 const OCCUPYING_STATUSES = ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] as const;
 
 export type ModalityInput = {
@@ -886,6 +894,9 @@ export class EventRegistrationsService {
     status: "CONFIRMED_MOCK" | "FAILED_MOCK";
     providerRef?: string | null;
   }) {
+    if (process.env.IDBRF_RUNTIME_STAGE === "production") {
+      throw new NotFoundException();
+    }
     const idempotencyKey = params.idempotencyKey?.trim();
     if (!idempotencyKey || idempotencyKey.length < 8) {
       throw new BadRequestException("Idempotency-Key obrigatória");
@@ -903,6 +914,11 @@ export class EventRegistrationsService {
       throw new UnauthorizedException("Assinatura inválida");
     }
 
+    return this.settleEventPayment({ ...params, idempotencyKey });
+  }
+
+  private async settleEventPayment(params: PaymentSettlement) {
+    const { idempotencyKey } = params;
     const existing = await this.prisma.eventPaymentWebhookReceipt.findUnique({
       where: { idempotencyKey },
     });
@@ -929,7 +945,9 @@ export class EventRegistrationsService {
       throw new NotFoundException("PaymentIntent não encontrado");
     }
 
-    const payloadHash = createHash("sha256").update(canonical).digest("hex");
+    const payloadHash = createHash("sha256")
+      .update(`${idempotencyKey}:${params.paymentIntentId}:${params.status}`)
+      .digest("hex");
 
     return this.prisma.$transaction(async (tx) => {
       // Re-check idempotency inside tx
@@ -984,8 +1002,8 @@ export class EventRegistrationsService {
       });
       await tx.auditLog.create({
         data: {
-          actorUserId: null,
-          action: "event_payment.webhook_mock",
+          actorUserId: params.actorUserId ?? null,
+          action: params.actorUserId ? "event_payment.manual_confirm" : "event_payment.webhook_mock",
           resourceType: "event_payment_intent",
           resourceId: intent.id,
           organizationId: intent.organizationId,
@@ -994,6 +1012,7 @@ export class EventRegistrationsService {
             status: params.status,
             idempotent: false,
             registrationId: registration.id,
+            ...(params.actorUserId ? { mode: "EXTERNAL_MANUAL" } : {}),
           },
         },
       });
@@ -1550,30 +1569,13 @@ export class EventRegistrationsService {
       throw new BadRequestException("Nenhum pagamento pendente para esta inscrição");
     }
     const idempotencyKey = `manual_${actor.userId}_${intent.id}_${Date.now()}`;
-    const status = "CONFIRMED_MOCK" as const;
-    const canonical = `${idempotencyKey}:${intent.id}:${status}`;
-    const signature = createHmac("sha256", webhookSecret())
-      .update(canonical)
-      .digest("hex");
-    const result = await this.handleMockPaymentWebhook({
-      signatureHeader: signature,
+    return this.settleEventPayment({
       idempotencyKey,
       paymentIntentId: intent.id,
-      status,
+      status: "CONFIRMED_MOCK",
       providerRef: `manual_staff_${actor.userId.slice(0, 8)}`,
+      actorUserId: actor.userId,
     });
-    await this.prisma.auditLog.create({
-      data: {
-        actorUserId: actor.userId,
-        action: "event_payment.manual_confirm",
-        resourceType: "event_payment_intent",
-        resourceId: intent.id,
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        metadata: { registrationId: registration.id, mode: "EXTERNAL_MANUAL" },
-      },
-    });
-    return result;
   }
 
   private assertNoRealPii(input: object): void {
@@ -2062,9 +2064,8 @@ function parseDate(value: string, field: string): Date {
 
 function webhookSecret(): string {
   const fromEnv = process.env.EVENT_PAYMENT_WEBHOOK_SECRET?.trim();
-  if (fromEnv) return fromEnv;
-  // Segredo de demo apenas — nunca gateway live.
-  return "event-payment-mock-dev-secret";
+  if (!fromEnv || fromEnv.length < 32) throw new NotFoundException();
+  return fromEnv;
 }
 
 function signaturesMatch(a: string, b: string): boolean {

@@ -38,6 +38,7 @@ describe("configuração do ambiente real", () => {
     { CORS_ORIGIN: "http://igreja.example.org" },
     { PRIVATE_BLOB_READ_WRITE_TOKEN: "test-public-token" },
     { HML_DEMO_PASSWORD_HASH: "synthetic-fixture" },
+    { SEED_ON_BOOT: "1" },
     { TRUST_PROXY: "0" },
     { F11_MFA_BLOCKING: "false" },
     { F11_MFA_ENFORCEMENT: "OFF" },

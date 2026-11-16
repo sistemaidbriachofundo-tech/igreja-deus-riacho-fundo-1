@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/.next
+**/dist
+**/out
+**/coverage
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+_prod_deploy
