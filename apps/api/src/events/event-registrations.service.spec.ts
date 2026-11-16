@@ -8,6 +8,14 @@ import { EventRegistrationsService } from "./event-registrations.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
 describe("EventRegistrationsService", () => {
+  const mockSecret = "fixture-only-payment-key-with-more-than-32-characters";
+
+  beforeEach(() => {
+    jest.replaceProperty(process, "env", { ...process.env, EVENT_PAYMENT_WEBHOOK_SECRET: mockSecret });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
   const pilot = {
     organizationId: "org1",
     churchId: "church-rf1",
@@ -310,11 +318,10 @@ describe("EventRegistrationsService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
 
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-key-001";
     const status = "CONFIRMED_MOCK" as const;
     const canonical = `${idem}:pi1:${status}`;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(canonical)
       .digest("hex");
 
@@ -336,6 +343,44 @@ describe("EventRegistrationsService", () => {
     });
     expect(replay.idempotentReplay).toBe(true);
     expect(replay.resultStatus).toBe("CONFIRMED_MOCK");
+  });
+
+  it.each(["production", "missing-secret"])("blocks the mock payment endpoint before database access: %s", async mode => {
+    if (mode === "production") process.env.IDBRF_RUNTIME_STAGE = "production";
+    else delete process.env.EVENT_PAYMENT_WEBHOOK_SECRET;
+
+    const service = new EventRegistrationsService({} as never, {} as never);
+    await expect(service.handleMockPaymentWebhook({
+      idempotencyKey: "payment-fixture-001",
+      paymentIntentId: "fixture",
+      status: "CONFIRMED_MOCK",
+      signatureHeader: undefined,
+    })).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("manually confirms a payment in production with the staff audit in the same transaction", async () => {
+    process.env.IDBRF_RUNTIME_STAGE = "production";
+    delete process.env.EVENT_PAYMENT_WEBHOOK_SECRET;
+    const pendingRegistration = { ...registration, id: "reg1", eventId: event.id, status: "PENDING_PAYMENT" };
+    const intent = { id: "pi-manual", status: "PENDING", registration: pendingRegistration, ...pilot, eventId: event.id };
+    const tx = {
+      eventPaymentWebhookReceipt: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      eventPaymentIntent: { update: jest.fn() },
+      eventRegistration: { update: jest.fn().mockResolvedValue({ ...pendingRegistration, status: "CONFIRMED", paymentStatus: "CONFIRMED_MOCK" }) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+      eventRegistration: { findFirst: jest.fn().mockResolvedValue(pendingRegistration) },
+      eventPaymentIntent: { findFirst: jest.fn().mockResolvedValue(intent) },
+      eventPaymentWebhookReceipt: { findUnique: jest.fn().mockResolvedValue(null) },
+      ...withTx(tx),
+    };
+    const service = new EventRegistrationsService(prisma as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.confirmManualPayment(secretaria, "reg1")).resolves.toMatchObject({ resultStatus: "CONFIRMED_MOCK" });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      actorUserId: secretaria.userId, action: "event_payment.manual_confirm",
+    }) });
   });
 
   it("rejects webhook with bad signature", async () => {
@@ -798,10 +843,9 @@ describe("EventRegistrationsService", () => {
       }),
     ).rejects.toThrow(/status mock/);
 
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-key-404";
     const status = "FAILED_MOCK" as const;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(`${idem}:pi-missing:${status}`)
       .digest("hex");
     await expect(
@@ -859,10 +903,9 @@ describe("EventRegistrationsService", () => {
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-fail-001";
     const status = "FAILED_MOCK" as const;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(`${idem}:pi1:${status}`)
       .digest("hex");
     const result = await service.handleMockPaymentWebhook({

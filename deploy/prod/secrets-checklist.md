@@ -22,7 +22,6 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 | `RATE_LIMIT_STORE` | **não** `memory` (usar store compartilhado) |
 | `PRIVATE_BLOB_READ_WRITE_TOKEN` | bucket privado ≠ token público |
 | `STORAGE_ROOT` | path privado no volume (não exposto na web) |
-| `EVENT_PAYMENT_WEBHOOK_SECRET` | ≥32 chars — sem segredo de demo |
 | `EVENT_MANUAL_PIX_KEY` | chave Pix da igreja (pagamento externo de eventos) |
 
 ## Proibidos em produção
@@ -34,6 +33,8 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 | Reusar `JWT_SECRET` / DB de HML ou Vercel | contaminação |
 | Expor `5432` na internet | firewall só loopback / rede Docker |
 | Commit de `.env` / chaves | vazamento |
+
+O webhook de pagamento simulado é bloqueado em produção. Em DEV/HML, configure `EVENT_PAYMENT_WEBHOOK_SECRET` com ao menos 32 caracteres quando precisar testar o webhook. A confirmação manual pelo painel usa autenticação e auditoria do operador.
 
 ## GitHub (pipeline)
 

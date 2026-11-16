@@ -1188,8 +1188,8 @@ describe("FinanceService", () => {
     const meta = await service.uploadAttachment(treasurer, "e1", {
       originalname: "recibo.pdf",
       mimetype: "application/pdf",
-      buffer: Buffer.from("%PDF"),
-      size: 4,
+      buffer: Buffer.from("%PDF-"),
+      size: 5,
     });
     expect(meta.displayName).toBe("recibo.pdf");
     expect(mockStorage.put).toHaveBeenCalled();
@@ -1719,8 +1719,16 @@ describe("FinanceService", () => {
       attSvc.uploadAttachment(treasurer, "e1", {
         originalname: "foto.png",
         mimetype: "image/png",
-        buffer: Buffer.from("PNG"),
-        size: 3,
+        buffer: Buffer.from("%PDF-"),
+        size: 5,
+      }),
+    ).rejects.toThrow("Conteúdo do arquivo não corresponde ao tipo informado");
+    await expect(
+      attSvc.uploadAttachment(treasurer, "e1", {
+        originalname: "foto.png",
+        mimetype: "image/png",
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        size: 8,
       }),
     ).resolves.toMatchObject({ contentType: "image/png" });
     await expect(

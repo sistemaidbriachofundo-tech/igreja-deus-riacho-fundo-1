@@ -39,10 +39,10 @@ type PilotScope = {
   churchId: string;
 };
 
-const ATTACHMENT_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
+const ATTACHMENT_SIGNATURES = new Map([
+  ["application/pdf", Buffer.from("%PDF-")],
+  ["image/jpeg", Buffer.from([0xff, 0xd8, 0xff])],
+  ["image/png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
 ]);
 const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -1905,13 +1905,17 @@ export class FinanceService {
   ) {
     const pilot = await this.requireFinance(actor);
     await this.requireEntryInPilot(pilot, entryId);
-    if (!ATTACHMENT_TYPES.has(file.mimetype)) {
+    const fileSignature = ATTACHMENT_SIGNATURES.get(file.mimetype);
+    if (!fileSignature) {
       throw new BadRequestException(
         "Tipo não permitido — use PDF, JPEG ou PNG",
       );
     }
-    if (file.size <= 0 || file.size > ATTACHMENT_MAX_BYTES) {
+    if (file.size !== file.buffer.length || file.size <= 0 || file.size > ATTACHMENT_MAX_BYTES) {
       throw new BadRequestException("Arquivo deve ter entre 1 byte e 5 MiB");
+    }
+    if (!file.buffer.subarray(0, fileSignature.length).equals(fileSignature)) {
+      throw new BadRequestException("Conteúdo do arquivo não corresponde ao tipo informado");
     }
     const displayName = sanitizeDisplayName(file.originalname);
     const ext =

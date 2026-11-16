@@ -69,3 +69,16 @@ export function rosterInviteWhatsAppText(input: {
   lines.push("Pode confirmar por aqui, por favor?");
   return lines.join("\n");
 }
+
+/** Detecta e-mail em texto livre sem revarrer o mesmo trecho. */
+export function containsEmailAddress(text: string): boolean {
+  for (const word of text.split(/\s+/)) {
+    const parts = word.split("@");
+    for (let i = 1; i < parts.length; i += 1) {
+      const domain = parts[i]!;
+      const dot = domain.indexOf(".", 1);
+      if (parts[i - 1] && dot >= 1 && dot < domain.length - 1) return true;
+    }
+  }
+  return false;
+}

@@ -173,14 +173,20 @@ export function formatPortalDate(value: string): { day: string; month: string; d
   };
 }
 
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
 /** Do not silently request localhost from the deployed static website. */
 export function publicApiBase(configured: string | undefined): string | null {
-  const value = configured?.trim().replace(/\/+$/, "");
+  const value = configured ? withoutTrailingSlashes(configured.trim()) : null;
   if (!value) return null;
   try {
     const url = new URL(value);
-    if (url.protocol === "https:") return url.href.replace(/\/+$/, "");
-    if (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)) return url.href.replace(/\/+$/, "");
+    if (url.protocol === "https:") return withoutTrailingSlashes(url.href);
+    if (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)) return withoutTrailingSlashes(url.href);
   } catch { /* invalid environment configuration */ }
   return null;
 }

@@ -1,6 +1,6 @@
+import { containsEmailAddress } from "@idbrf/shared";
 import type { DasRecord } from "./das-operations";
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
@@ -72,7 +72,7 @@ export function publicationBlockReason(event: {
   locationText: string;
 }): string | null {
   const joined = [event.name, event.slug, event.description, event.locationText].join("\n");
-  if (PERSONAL_EMAIL.test(joined) || PERSONAL_CPF.test(joined) || PERSONAL_PHONE.test(joined)) {
+  if (containsEmailAddress(joined) || PERSONAL_CPF.test(joined) || PERSONAL_PHONE.test(joined)) {
     return "Publicação bloqueada: revise nome, descrição ou local. O texto parece conter e-mail, telefone ou CPF.";
   }
   return null;

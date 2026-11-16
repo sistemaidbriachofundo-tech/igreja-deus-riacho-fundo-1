@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -11,6 +12,7 @@ import {
   canViewOwnCredential,
   containsSensitiveCredentialPayload,
   generateOpaqueCredentialToken,
+  isOpaqueCredentialToken,
 } from "@idbrf/shared";
 import QRCode from "qrcode";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -432,7 +434,7 @@ export class CredentialsService {
    * Não devolve CPF/telefone — só status + nome de exibição.
    */
   async lookupByOpaqueToken(opaqueToken: string) {
-    assertOpaqueCredentialPayload(opaqueToken);
+    if (!isOpaqueCredentialToken(opaqueToken)) throw new BadRequestException("Código de carteirinha inválido");
     const credential = await this.prisma.memberCredential.findUnique({
       where: { opaqueToken },
       include: {

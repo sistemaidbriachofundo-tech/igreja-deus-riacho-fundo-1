@@ -3,7 +3,8 @@ const testTarget = /(?:^|[._-])(?:hml|qa|demo|sandbox|preview|test)(?:[._-]|$)/i
 export function assertProductionConfiguration(env: NodeJS.ProcessEnv): void {
   if (env.IDBRF_RUNTIME_STAGE !== "production") return;
 
-  if (env.NODE_ENV !== "production" || env.HML_DEMO_PASSWORD_HASH || env.SEED_HML_MASS === "true") {
+  if (env.NODE_ENV !== "production" || env.HML_DEMO_PASSWORD_HASH ||
+    env.SEED_HML_MASS === "true" || env.SEED_ON_BOOT === "1") {
     throw new Error("A API de produção exige configuração sem dados sintéticos");
   }
 

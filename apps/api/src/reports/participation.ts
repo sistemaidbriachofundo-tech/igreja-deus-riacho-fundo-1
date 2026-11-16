@@ -1,3 +1,4 @@
+import { containsEmailAddress } from "@idbrf/shared";
 export const REGISTRATION_STATUSES = [
   "PENDING_PAYMENT",
   "CONFIRMED",
@@ -7,14 +8,13 @@ export const REGISTRATION_STATUSES = [
 
 export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
 export function textLooksPersonal(value: string | null | undefined): boolean {
   if (!value) return false;
   return (
-    PERSONAL_EMAIL.test(value) ||
+    containsEmailAddress(value) ||
     PERSONAL_CPF.test(value) ||
     PERSONAL_PHONE.test(value)
   );
