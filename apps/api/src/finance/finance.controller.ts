@@ -521,13 +521,25 @@ export class FinanceController {
   }
 
   @Get("imports")
-  listImports(@CurrentUser() user: AuthUser) {
-    return this.finance.listImports(user);
+  listImports(@CurrentUser() user: AuthUser, @Query("bankStatements") bankStatements?: string) {
+    return this.finance.listImports(user, bankStatements === "true");
   }
 
   @Post("imports")
   createImport(@CurrentUser() user: AuthUser, @Body() body: CreateImportBody) {
     return this.finance.createImport(user, body);
+  }
+
+  @Post("imports/ofx")
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 1 },
+  }))
+  uploadBankStatement(
+    @CurrentUser() user: AuthUser,
+    @Body("accountId") accountId: string,
+    @UploadedFile() file?: { originalname: string; buffer: Buffer },
+  ) {
+    return this.finance.uploadBankStatement(user, accountId, file);
   }
 
   @Get("imports/:batchId")

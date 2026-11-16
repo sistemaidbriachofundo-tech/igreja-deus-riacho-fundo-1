@@ -17,7 +17,7 @@ export interface OfxParseResult {
  * Extrai lançamentos de um extrato OFX (SGML clássico ou XML-ish).
  * Aceita tags `<STMTTRN>…</STMTTRN>`; valores em unidades (ex. 123.45 → 12345 cents).
  */
-export function parseOfxLines(text: string): OfxParseResult {
+export function parseOfxLines(text: string, strict = false): OfxParseResult {
   const raw = text?.trim() ?? "";
   if (!raw) {
     return { ok: false, lines: [], reason: "EMPTY_OFX" };
@@ -32,17 +32,13 @@ export function parseOfxLines(text: string): OfxParseResult {
   for (const block of blocks) {
     const amountRaw = tagValue(block, "TRNAMT");
     const dateRaw = tagValue(block, "DTPOSTED") ?? tagValue(block, "DTUSER");
-    if (!amountRaw || !dateRaw) {
+    const amountCents = amountRaw ? parseOfxAmountToCents(amountRaw) : null;
+    const postedAt = dateRaw ? parseOfxDate(dateRaw) : null;
+    if (amountCents === null || !postedAt) {
+      if (strict) return { ok: false, lines: [], reason: "INVALID_TRN" };
       continue;
     }
-    const amountCents = parseOfxAmountToCents(amountRaw);
-    if (amountCents === null || amountCents === 0) {
-      continue;
-    }
-    const postedAt = parseOfxDate(dateRaw);
-    if (!postedAt) {
-      continue;
-    }
+    if (amountCents === 0) continue;
     const name = tagValue(block, "NAME") ?? "";
     const memo = tagValue(block, "MEMO") ?? "";
     const description =
@@ -50,7 +46,7 @@ export function parseOfxLines(text: string): OfxParseResult {
       "OFX sem descrição";
     const fitid = tagValue(block, "FITID");
     const checknum = tagValue(block, "CHECKNUM");
-    const externalRef = (fitid || checknum || null)?.trim() || null;
+    const externalRef = (fitid || (!strict && checknum) || null)?.trim() || null;
     lines.push({ postedAt, amountCents, description, externalRef });
   }
 
@@ -85,14 +81,15 @@ function tagValue(block: string, tag: string): string | null {
 
 export function parseOfxAmountToCents(raw: string): number | null {
   const cleaned = raw.trim().replace(/\s/g, "").replace(",", ".");
-  if (!cleaned || !/^-?\d+(\.\d+)?$/.test(cleaned)) {
+  if (!/^[+-]?\d+(\.\d{1,2})?$/.test(cleaned)) {
     return null;
   }
-  const n = Number.parseFloat(cleaned);
-  if (!Number.isFinite(n)) {
+  const [whole, fraction = ""] = cleaned.replace(/^[+-]/, "").split(".");
+  const cents = (Number(whole) * 100 + Number(fraction.padEnd(2, "0"))) * (cleaned.startsWith("-") ? -1 : 1);
+  if (!Number.isInteger(cents) || cents < -2147483648 || cents > 2147483647) {
     return null;
   }
-  return Math.round(n * 100);
+  return cents;
 }
 
 /** YYYYMMDD[HHMMSS…] → ISO date (UTC midnight of calendar day). */
@@ -110,7 +107,7 @@ export function parseOfxDate(raw: string): string | null {
   const d = digits.slice(6, 8);
   const iso = `${y}-${mo}-${d}`;
   const dt = new Date(`${iso}T00:00:00.000Z`);
-  if (Number.isNaN(dt.getTime())) {
+  if (Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== iso) {
     return null;
   }
   return iso;

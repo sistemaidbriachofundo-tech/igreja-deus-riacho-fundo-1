@@ -456,6 +456,10 @@ export function apiPostForm(path: string, token: string, form: FormData): Promis
   return settle("POST", path, token, form, undefined, true, async () => undefined);
 }
 
+export function apiPostFormJson<T>(path: string, token: string, form: FormData): Promise<T> {
+  return settle<T>("POST", path, token, form, undefined, true);
+}
+
 export function apiPutForm(path: string, token: string, form: FormData): Promise<void> {
   return settle("PUT", path, token, form, undefined, true, async () => undefined);
 }

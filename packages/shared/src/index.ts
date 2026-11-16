@@ -118,6 +118,7 @@ export {
   checkBalancedLines,
   nextDualApprovalStage,
   parseSyntheticCsvLines,
+  isBankStatementAccount,
   isValidCompetence,
   type LedgerAccountTypeCode,
   type LedgerEntryStatusCode,
