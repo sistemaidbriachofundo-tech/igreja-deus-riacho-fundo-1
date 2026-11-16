@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   BadRequestException,
   ConflictException,
@@ -14,6 +15,7 @@ import {
   hasAccess,
   ROLE_CODES,
   checkBalancedLines,
+  isBankStatementAccount,
   isValidCompetence,
   nextDualApprovalStage,
   parseOfxLines,
@@ -716,22 +718,69 @@ export class FinanceService {
     });
   }
 
-  // —— Import stubs ——
+  // —— Extratos bancários ——
 
-  async listImports(actor: AuthUser) {
+  async listImports(actor: AuthUser, bankStatementsOnly = false) {
     const pilot = await this.requireFinance(actor);
     const batches = await this.prisma.bankImportBatch.findMany({
       where: {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
+        ...(bankStatementsOnly ? { accountId: { not: null } } : {}),
       },
       orderBy: { createdAt: "desc" },
-      include: { lines: true },
+      include: { lines: !bankStatementsOnly },
     });
     return {
       churchId: pilot.churchId,
       batches: batches.map((b) => this.toImportDto(b)),
     };
+  }
+
+  async uploadBankStatement(
+    actor: AuthUser,
+    accountId: string,
+    file?: { originalname: string; buffer: Buffer },
+  ) {
+    const pilot = await this.requireFinance(actor);
+    if (typeof accountId !== "string" || !accountId.trim()) {
+      throw new BadRequestException("Selecione a conta bancária do extrato.");
+    }
+    const account = await this.requireAccountInPilot(pilot, accountId.trim());
+    if (!isBankStatementAccount(account)) {
+      throw new BadRequestException("Selecione uma conta bancária ativa.");
+    }
+    if (!file?.buffer?.length || !/\.ofx$/i.test(file.originalname)) {
+      throw new BadRequestException("Selecione um arquivo .ofx exportado pelo banco.");
+    }
+
+    let content = file.buffer.toString("utf8");
+    if (content.includes("\uFFFD")) {
+      content = new TextDecoder("windows-1252").decode(file.buffer);
+    }
+    const result = parseOfxLines(content, true);
+    const accountStatements = content.match(/<STMTRS\s*>/gi);
+    const currencies = [...content.matchAll(/<CURDEF>\s*([A-Z]{3})/gi)];
+    if (!/<OFX\s*>/i.test(content) || !result.ok || (accountStatements?.length ?? 0) > 1 ||
+        /<CCSTMTRS\s*>/i.test(content) || currencies.some(([, currency]) => currency.toUpperCase() !== "BRL")) {
+      throw new BadRequestException("O OFX precisa conter movimentos válidos de uma única conta em reais.");
+    }
+    const fileHash = createHash("sha256").update(file.buffer).digest("hex");
+    try {
+      const batch = await this.saveBankImport(actor, pilot, {
+        format: "OFX", filename: file.originalname, adapter: "FILE", status: "PARSED",
+        stubNote: null, parsed: result.lines, accountId: account.id, fileHash,
+      });
+      return { ...batch, alreadyImported: false };
+    } catch (error) {
+      if ((error as { code?: string } | null)?.code !== "P2002") throw error;
+      const existing = await this.prisma.bankImportBatch.findUnique({
+        where: { churchId_accountId_fileHash: { churchId: pilot.churchId, accountId: account.id, fileHash } },
+        include: { lines: true },
+      });
+      if (!existing) throw error;
+      return { ...this.toImportDto(existing), alreadyImported: true };
+    }
   }
 
   async createImport(
@@ -809,7 +858,41 @@ export class FinanceService {
         : "PDF_META: somente metadados do arquivo (META_ONLY) — 0 linhas; OCR/tabela não implementados";
     }
 
+    return this.saveBankImport(actor, pilot, { format, filename, adapter, status, stubNote, parsed });
+  }
+
+  private saveBankImport(actor: AuthUser, pilot: PilotScope, input: {
+    format: BankImportFormatCode;
+    filename: string;
+    adapter: BankImportAdapterCode;
+    status: "PARSED" | "PARSED_STUB" | "META_ONLY" | "FAILED";
+    stubNote: string | null;
+    parsed: Array<{ postedAt: string; amountCents: number; description: string; externalRef: string | null }>;
+    accountId?: string;
+    fileHash?: string;
+  }) {
+    const { format, filename, adapter, status, stubNote, accountId, fileHash } = input;
     return this.prisma.$transaction(async (tx) => {
+      let parsed = input.parsed;
+      if (accountId) {
+        const lock = "bank-import:" + accountId;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+        const existingRefs = await tx.bankStatementLine.findMany({
+          where: {
+            batch: { accountId, churchId: pilot.churchId },
+            externalRef: { in: input.parsed.flatMap(line => line.externalRef ? [line.externalRef] : []) },
+          },
+          select: { externalRef: true },
+          distinct: ["externalRef"],
+        });
+        const seen = new Set(existingRefs.map(line => line.externalRef));
+        parsed = parsed.filter(line => {
+          if (!line.externalRef) return true;
+          if (seen.has(line.externalRef)) return false;
+          seen.add(line.externalRef);
+          return true;
+        });
+      }
       const batch = await tx.bankImportBatch.create({
         data: {
           organizationId: pilot.organizationId,
@@ -817,6 +900,8 @@ export class FinanceService {
           format,
           status,
           adapter,
+          accountId,
+          fileHash,
           filename,
           stubNote,
           lineCount: parsed.length,
@@ -846,13 +931,15 @@ export class FinanceService {
             format,
             status,
             adapter,
+            accountId,
             lineCount: batch.lineCount,
+            skippedLineCount: input.parsed.length - parsed.length,
             liveBankApi: false,
           },
         },
       });
 
-      return this.toImportDto(batch);
+      return { ...this.toImportDto(batch), skippedLineCount: input.parsed.length - parsed.length };
     });
   }
 
@@ -1118,7 +1205,15 @@ export class FinanceService {
     }
 
     const entry = await this.requireEntryInPilot(pilot, entryId);
-    if (Math.abs(line.amountCents) !== Math.abs(entry.amountCents)) {
+    if (line.batch.accountId) {
+      const bankAmount = entry.lines.reduce((total, part) => {
+        if (part.accountId !== line.batch.accountId) return total;
+        return total + (part.side === "DEBIT" ? part.amountCents : -part.amountCents);
+      }, 0);
+      if (entry.status !== "APPROVED" || bankAmount !== line.amountCents) {
+        throw new ConflictException("O lançamento precisa estar aprovado e ter o mesmo movimento na conta do extrato.");
+      }
+    } else if (Math.abs(line.amountCents) !== Math.abs(entry.amountCents)) {
       throw new ConflictException({
         code: "BANK_LINE_AMOUNT_MISMATCH",
         message:
@@ -1126,20 +1221,7 @@ export class FinanceService {
       });
     }
 
-    const otherMatch = await this.prisma.bankStatementLine.findFirst({
-      where: {
-        matchedEntryId: entryId,
-        id: { not: lineId },
-        matchStatus: "MATCHED",
-      },
-      select: { id: true },
-    });
-    if (otherMatch) {
-      throw new ConflictException({
-        code: "LEDGER_ENTRY_ALREADY_MATCHED",
-        message: "Lançamento já casado com outra linha do extrato",
-      });
-    }
+    if (!line.batch.accountId) await this.requireAvailableBankMatch(this.prisma, lineId, entryId);
 
     let reconciliationId: string | null = input.reconciliationId?.trim() || null;
     if (reconciliationId) {
@@ -1158,12 +1240,27 @@ export class FinanceService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (line.batch.accountId) {
+        const lock = "bank-match:" + line.batch.accountId + ":" + entryId;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+        await this.requireAvailableBankMatch(tx, lineId, entryId, line.batch.accountId);
+      }
       const updated = await tx.bankStatementLine.update({
-        where: { id: lineId },
+        where: {
+          id: lineId,
+          ...(line.batch.accountId ? {
+            OR: [{ matchStatus: { in: ["UNMATCHED", "SUGGESTED"] } }, { matchStatus: "MATCHED", matchedEntryId: entryId }],
+          } : {}),
+        },
         data: {
           matchStatus: "MATCHED",
           matchedEntryId: entryId,
         },
+      }).catch((error: unknown) => {
+        if (line.batch.accountId && (error as { code?: string } | null)?.code === "P2025") {
+          throw new ConflictException("Este movimento já recebeu outro vínculo. Atualize o extrato.");
+        }
+        throw error;
       });
 
       if (reconciliationId && entry.reconciliationId !== reconciliationId) {
@@ -1191,6 +1288,29 @@ export class FinanceService {
 
       return this.toBankLineDto(updated);
     });
+  }
+
+  private async requireAvailableBankMatch(
+    db: Pick<Prisma.TransactionClient, "bankStatementLine">,
+    lineId: string,
+    entryId: string,
+    accountId?: string,
+  ) {
+    const otherMatch = await db.bankStatementLine.findFirst({
+      where: {
+        matchedEntryId: entryId,
+        id: { not: lineId },
+        matchStatus: "MATCHED",
+        ...(accountId ? { batch: { OR: [{ accountId }, { accountId: null }] } } : {}),
+      },
+      select: { id: true },
+    });
+    if (otherMatch) {
+      throw new ConflictException({
+        code: "LEDGER_ENTRY_ALREADY_MATCHED",
+        message: "Este lançamento já está vinculado a outro movimento do extrato.",
+      });
+    }
   }
 
   async unmatchBankLine(actor: AuthUser, lineId: string) {
@@ -2011,6 +2131,7 @@ export class FinanceService {
             id: true,
             organizationId: true,
             churchId: true,
+            accountId: true,
           },
         },
       },
@@ -2236,13 +2357,14 @@ export class FinanceService {
     format: string;
     status: string;
     adapter?: string;
+    accountId?: string | null;
     filename: string;
     stubNote: string | null;
     lineCount: number;
     createdByUserId: string;
     createdAt: Date;
     updatedAt: Date;
-    lines: Array<{
+    lines?: Array<{
       id: string;
       postedAt: Date;
       amountCents: number;
@@ -2258,12 +2380,13 @@ export class FinanceService {
       format: row.format,
       status: row.status,
       adapter: row.adapter ?? "FILE",
+      accountId: row.accountId ?? null,
       filename: row.filename,
       stubNote: row.stubNote,
       lineCount: row.lineCount,
       createdByUserId: row.createdByUserId,
       liveBankApi: false as const,
-      lines: row.lines.map((l) => ({
+      lines: (row.lines ?? []).map((l) => ({
         id: l.id,
         postedAt: l.postedAt.toISOString(),
         amountCents: l.amountCents,

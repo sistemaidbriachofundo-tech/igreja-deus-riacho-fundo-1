@@ -12,6 +12,7 @@ import { ApiRequestError, apiGet, apiPost, apiPostForm, loadStoredToken } from "
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
+import { TreasuryBankStatements } from "./TreasuryBankStatements";
 import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
 import { ExpenseApprovals } from "./ExpenseApprovals";
 import { PageHeader } from "./ui/PageHeader";
@@ -593,6 +594,9 @@ export function TreasuryPanel() {
             </div>
             {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
           </header>
+          {canWrite && token && <TreasuryBankStatements token={token}
+            accounts={banks}
+            entries={entries} />}
           <FilterDisclosure count={statementFilterCount} search={<WorkspaceSearch
             aria-label="Buscar movimento" value={query} placeholder="Buscar movimento"
             onChange={event => { setQuery(event.target.value); setPage(1); }} />}>
@@ -781,7 +785,7 @@ async function loadTreasury(token: string, centerId: string) {
       accounts = readDasRows(accountResult.value, "accounts").flatMap((row) => {
         const id = str(row.id);
         if (!id) return [];
-        return [{ id, code: str(row.code), name: str(row.name), type: str(row.type) }];
+        return [{ id, code: str(row.code), name: str(row.name), type: str(row.type), active: row.active !== false }];
       });
     } catch (error) {
       accountsNote = dasError(error);

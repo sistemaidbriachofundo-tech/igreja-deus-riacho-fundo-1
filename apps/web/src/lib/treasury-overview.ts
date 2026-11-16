@@ -1,6 +1,6 @@
 import { formatBRL } from "./das-operations";
 
-export type TreasuryAccount = { id: string; code: string; name: string; type: string };
+export type TreasuryAccount = { id: string; code: string; name: string; type: string; active?: boolean };
 export type TreasuryEntryLine = { accountId: string; side: "DEBIT" | "CREDIT"; cents: number };
 export type TreasuryEntry = {
   id: string;

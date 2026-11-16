@@ -292,6 +292,17 @@
 .receiptUpload form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 8px; }
 .receiptUpload input { max-width: 100%; }
 
+.bankStatements { margin-block: 14px; padding: 14px; border: 1px solid var(--color-line); border-radius: var(--radius-md); }
+.bankStatements summary { cursor: pointer; color: #215943; font-weight: 700; overflow-wrap: anywhere; }
+.bankStatements :is(p, ul) { margin-block: 8px; }
+.bankStatements form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-block: 10px; }
+.bankStatements label { display: grid; gap: 4px; min-width: 0; max-width: 100%; }
+.bankStatements :is(input, select) { min-width: 0; max-width: 100%; }
+.bankStatements ul { display: grid; gap: 8px; padding: 0; list-style: none; }
+.bankStatements li { border-top: 1px solid var(--color-line); padding-top: 8px; overflow-wrap: anywhere; }
+.bankStatements li small { display: block; }
+.bankStatements details { margin-top: 10px; }
+
 .statementHeader { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; }
 .statementTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .statementIcon { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border-radius: 50%; background: #e6f0e7; color: #24533e; }

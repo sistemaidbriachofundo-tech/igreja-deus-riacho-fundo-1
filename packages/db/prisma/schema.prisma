@@ -1952,6 +1952,7 @@ model LedgerAccount {
   lines        LedgerEntryLine[]
   budgetLines  BudgetLine[]
   receivingAccount ChurchReceivingAccount?
+  bankImportBatches BankImportBatch[]
 
   @@unique([churchId, code])
   @@index([organizationId, churchId])
@@ -2088,6 +2089,8 @@ model BankImportBatch {
   status          BankImportStatus  @default(RECEIVED)
   /// Adapter de origem: FILE (padrão), MOCK, ou rótulos SICOOB/BRB/CORA sem API live.
   adapter         BankImportAdapter @default(FILE)
+  accountId       String?           @map("account_id")
+  fileHash        String?           @map("file_hash")
   filename        String
   stubNote        String?           @map("stub_note")
   lineCount       Int               @default(0) @map("line_count")
@@ -2098,11 +2101,13 @@ model BankImportBatch {
   organization Organization        @relation(fields: [organizationId], references: [id])
   church       Church              @relation(fields: [churchId], references: [id])
   createdBy    User                @relation("BankImportCreator", fields: [createdByUserId], references: [id])
+  account      LedgerAccount?      @relation(fields: [accountId], references: [id])
   lines        BankStatementLine[]
   ledgerEntries LedgerEntry[]
 
   @@index([organizationId, churchId, status])
   @@index([adapter])
+  @@unique([churchId, accountId, fileHash], map: "bank_import_batches_account_file_key")
   @@map("bank_import_batches")
 }
 
