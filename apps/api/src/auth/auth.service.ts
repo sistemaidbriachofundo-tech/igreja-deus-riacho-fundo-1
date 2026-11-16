@@ -14,6 +14,7 @@ import {
   APP_NAME,
   type AuthGrant,
 } from "@idbrf/shared";
+import { canManageConnection } from "../discipleship/connection-access";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
@@ -149,6 +150,11 @@ export class AuthService {
     this.sessions = sessions ?? new InMemorySessionStore(this.clock);
     this.challenges = challenges ?? new InMemoryMfaChallengeStore(this.clock);
     this.attempts = attempts ?? new InMemoryAuthAttemptLimiter(this.clock);
+  }
+
+  async describeSession(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    return { ...actor, canManageConnection: await canManageConnection(this.prisma, actor, pilot) };
   }
 
   async login(input: LoginInput): Promise<LoginResult> {
@@ -502,6 +508,7 @@ export class AuthService {
     loaded: LoadedUser,
     opts: {
       mfaSatisfied: boolean;
+      mfaVerifiedAtMs?: number | null;
       organizationId?: string | null;
       churchId?: string | null;
       familyId?: string;
@@ -512,6 +519,10 @@ export class AuthService {
       organizationId: opts.organizationId,
       churchId: opts.churchId,
     }, pilot);
+    const canManageConnectionArea = await canManageConnection(this.prisma, {
+      userId: loaded.userId, personId: loaded.personId, email: loaded.email, grants: loaded.grants,
+      organizationId: place.organizationId, churchId: place.churchId,
+    }, pilot);
     const version = authzVersion(toMaterial(loaded));
     let created: { sessionId: string };
     try {
@@ -520,6 +531,7 @@ export class AuthService {
         familyId: opts.familyId ?? newPresentedId(),
         authzVersion: version,
         mfaSatisfied: opts.mfaSatisfied,
+        mfaVerifiedAtMs: opts.mfaVerifiedAtMs === undefined && opts.mfaSatisfied ? this.clock.now() : opts.mfaVerifiedAtMs,
         expiresAtMs: this.clock.now() + authLimits.accessTtlSeconds() * 1000,
       });
     } catch (error) {
@@ -552,7 +564,7 @@ export class AuthService {
       }),
       tokenType: "Bearer",
       expiresInSeconds: authLimits.accessTtlSeconds(),
-      user,
+      user: { ...user, canManageConnection: canManageConnectionArea },
       mfa: {
         enabled: loaded.factor?.status === "ENABLED",
         required: requiresStepUpMfa(loaded.grants, loaded.mfaRequired),
@@ -571,6 +583,7 @@ export class AuthService {
   ): Promise<SessionToken> {
     const next = await this.issueSession(loaded, {
       mfaSatisfied: previous.mfaSatisfied,
+      mfaVerifiedAtMs: previous.mfaVerifiedAtMs ?? null,
       organizationId: place.organizationId,
       churchId: place.churchId,
       familyId: previous.familyId,
@@ -595,6 +608,14 @@ export class AuthService {
       return { organizationId: actor.organizationId, churchId: actor.churchId };
     }
     return resolveDefaultActiveContext(grants, pilot);
+  }
+
+  async requireRecentMfa(actor: AuthUser): Promise<void> {
+    const session = await this.requireLiveSession(actor);
+    const age = this.clock.now() - (session.mfaVerifiedAtMs ?? 0);
+    if (!session.mfaSatisfied || !session.mfaVerifiedAtMs || age < 0 || age > 10 * 60_000) {
+      throw new ForbiddenException("Entre novamente com o autenticador para conceder o perfil.");
+    }
   }
 
   private async requireLiveSession(actor: AuthUser): Promise<SessionRecord> {

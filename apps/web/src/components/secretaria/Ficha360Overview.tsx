@@ -1,5 +1,4 @@
 import { dossierLabel, type PersonDossier, type PersonRecord } from "../secretary-dossier";
-import { registrationLabel } from "../credentials/credential-model";
 import type { PersonTimelineEvent } from "@idbrf/shared";
 import s from "./ficha360-overview.module.css";
 
@@ -38,9 +37,7 @@ function TimelinePreview({ events, onTab }: { events: PersonTimelineEvent[]; onT
   return <section className={s.story} aria-labelledby="ficha-story-title">
     <header className={s.sectionHeader}>
       <div>
-        <span className={s.eyebrow}>MEMÓRIA ECLESIÁSTICA</span>
-        <h3 id="ficha-story-title">A história desta pessoa na igreja</h3>
-        <p>Admissões, mudanças de situação, funções, relacionamentos e marcos registrados.</p>
+        <h3 id="ficha-story-title">Histórico na igreja</h3>
       </div>
       <button type="button" className={s.storyButton} onClick={()=>onTab("historico")}>Linha do tempo completa <span aria-hidden="true">↗</span></button>
     </header>
@@ -86,34 +83,26 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
 
   return <div className={s.overview}>
     <div className={s.introduction}>
-      <div className={s.introCopy}>
-        <span className={s.eyebrow}>VISÃO GERAL</span>
-        <h3>Contato e caminhada</h3>
-        <p>Os dados essenciais e o histórico da pessoa em um só lugar.</p>
-      </div>
       <div className={s.completeness} aria-label="Qualidade do cadastro">
         <div className={s.completenessTop}><strong>{completion}%</strong><span>Preenchimento da ficha</span></div>
         <div className={s.track} role="progressbar" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100} aria-label="Campos básicos preenchidos">
           <i style={{width: completion+"%"}}/>
         </div>
         <small>{filled} de {fields.length} dados básicos cadastrados</small>
-        {canEdit && completion < 100 && <button type="button" onClick={()=>onTab("cadastro")}>Completar informações <span aria-hidden="true">↗</span></button>}
       </div>
+      {canEdit && <button type="button" className={s.textAction} onClick={()=>onTab("cadastro")}>Editar cadastro <span aria-hidden="true">↗</span></button>}
     </div>
 
     <section className={s.quickSummary} aria-label="Resumo do vínculo">
       <div><span>Vínculo</span><strong>{membership ? dossierLabel(membership.status) : "Sem vínculo"}</strong></div>
       <div><span>Família</span><strong>{dossier.household?.label || "Não vinculada"}</strong></div>
-      <div><span>Primeira frequência</span><strong>{dateLabel(person.firstAttendedOn)}</strong></div>
+      <div><span>E-mail</span><strong>{person.email || "Não informado"}</strong></div>
     </section>
-
-    <TimelinePreview events={dossier.timeline ?? []} onTab={onTab}/>
 
     <div className={s.detailsGrid}>
       <section className={s.detailCard} aria-label="Dados cadastrais">
         <header className={s.sectionHeader}>
-          <div><span className={s.eyebrow}>DADOS DO MEMBRO</span><h3>Identificação e vida pessoal</h3></div>
-          <button type="button" className={s.textAction} onClick={()=>onTab("cadastro")}>{canEdit ? "Editar cadastro" : "Ver cadastro"} <span aria-hidden="true">↗</span></button>
+          <h3>Dados cadastrais</h3>
         </header>
         <dl className={s.facts}>
           {facts.map(f => <div key={f.label}>
@@ -123,7 +112,7 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
       </section>
       <div className={s.detailSide}>
         <section className={s.detailCard}>
-          <header className={s.sectionHeader}><div><span className={s.eyebrow}>FAMÍLIA E RELACIONAMENTOS</span><h3>Seu núcleo de cuidado</h3></div></header>
+          <header className={s.sectionHeader}><h3>Família e dependentes</h3></header>
           <p className={s.detailCaption}>{dossier.household?.label ? "Família "+dossier.household.label : "Família ainda não vinculada."}</p>
           {canEdit && dossier.household?.members.length ? <ul className={s.familyList}>
             {dossier.household.members.slice(0,12).map(member => <li key={member.id}>
@@ -144,7 +133,7 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
           <p className={s.detailCaption}>Dependentes vinculados: <strong>{dossier.dependents.length}</strong></p>
         </section>
         <section className={s.detailCard}>
-          <header className={s.sectionHeader}><div><span className={s.eyebrow}>SITUAÇÃO NA IGREJA</span><h3>Admissões e acesso</h3></div>
+          <header className={s.sectionHeader}><h3>Admissões e acesso</h3>
             <button type="button" className={s.textAction} onClick={()=>onTab("admissoes")}>Ver protocolos <span aria-hidden="true">↗</span></button></header>
           <dl className={s.quickFacts}>
             <div><dt>Protocolos de admissão</dt><dd>{dossier.admissionHistory.length}</dd></div>
@@ -155,5 +144,6 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
         </section>
       </div>
     </div>
+    <TimelinePreview events={dossier.timeline ?? []} onTab={onTab}/>
   </div>;
 }

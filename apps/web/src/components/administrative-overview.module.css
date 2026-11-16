@@ -61,7 +61,7 @@
 .metricTop > svg {
   margin-left: auto;
   flex: none;
-  color: #8a9b90;
+  color: #536858;
 }
 .metricIcon {
   display: grid;
@@ -109,8 +109,8 @@
 }
 .section {
   min-width: 0;
-  composes: workspaceSurface from "./ui/ui.module.css";
-  padding: var(--app-gutter, 24px);
+  border-top: 1px solid var(--line);
+  padding-block: var(--app-gutter, 24px) 12px;
 }
 .sectionHead {
   display: flex;
@@ -307,7 +307,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #7b8d7a;
+  color: #536858;
   cursor: pointer;
 }
 .monthHead button:hover {
@@ -327,7 +327,7 @@
   display: grid;
   place-items: center;
   height: 24px;
-  color: #687d60;
+  color: #536858;
   font-size: 10px;
 }
 .calendar button {
@@ -376,7 +376,7 @@
   border-top: 1px solid #edf1e9;
   font-size: 10px;
   font-weight: 550;
-  color: #7b8b75;
+  color: #536858;
 }
 .agendaHeading button {
   min-height: 44px;
@@ -449,7 +449,7 @@
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  color: #63785c;
+  color: #536858;
   font-size: 10px;
   line-height: 1.5;
 }
@@ -476,7 +476,7 @@
 }
 .empty {
   margin: 8px 0 20px;
-  color: #73856c;
+  color: #536858;
   font-size: 12px;
   line-height: 1.6;
 }
@@ -732,8 +732,8 @@
 .metric:first-child:hover { background: #e4f0e6; }
 .metrics .metric:focus-visible { outline-offset: -4px; }
 .priorities {
-  composes: workspaceSurface from "./ui/ui.module.css";
   overflow: hidden;
+  border-block: 1px solid var(--line);
   scroll-margin-top: 85px;
 }
 .priorityHeader { padding: 13px 18px; border-bottom: 1px solid var(--line); background: #edf3ed; }
@@ -756,7 +756,7 @@
 .priorityText { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; }
 .priorityValue { color: var(--accent); font-size: 23px; font-weight: 650; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .priorityList a > svg { flex: none; color: #698174; }
-.finance { background: linear-gradient(120deg, #edf5ee, #fff 74%); }
+.finance { background: #edf5ee; padding-inline: var(--app-gutter, 24px); }
 .financeValues {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

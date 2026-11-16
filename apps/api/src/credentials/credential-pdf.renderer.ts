@@ -14,12 +14,27 @@ export interface CredentialPdfInput {
   issuedAt: Date;
   credentialId: string;
   photo?: Buffer;
+  verificationBaseUrl?: string;
 }
 
 /**
  * Gera PDF real da carteirinha (dados sintéticos/demo).
  * QR = token opaco apenas; CPF/telefone/e-mail proibidos no conteúdo.
  */
+export function credentialPdfQrPayload(opaqueToken: string, base?: string): string {
+  assertOpaqueCredentialPayload(opaqueToken);
+  if (!base) return opaqueToken;
+  const url = new URL(base.endsWith("/") ? base : base + "/");
+  const local = ["localhost", "127.0.0.1"].includes(url.hostname);
+  if ((url.protocol !== "https:" && !(local && url.protocol === "http:")) ||
+      url.username || url.password || url.search || url.hash) {
+    throw new Error("CREDENTIAL_VERIFICATION_WEB_URL inválida");
+  }
+  const verification = new URL("validar-carteirinha/", url);
+  verification.hash = opaqueToken;
+  return verification.href;
+}
+
 export async function renderCredentialPdf(
   input: CredentialPdfInput,
 ): Promise<Buffer> {
@@ -27,11 +42,11 @@ export async function renderCredentialPdf(
   assertPdfTextSafe(input.displayName, "displayName");
   assertPdfTextSafe(input.churchName, "churchName");
 
-  const qrPng = await QRCode.toBuffer(input.opaqueToken, {
+  const qrPng = await QRCode.toBuffer(credentialPdfQrPayload(input.opaqueToken, input.verificationBaseUrl), {
     type: "png",
     errorCorrectionLevel: "M",
-    margin: 1,
-    width: 180,
+    margin: 4,
+    width: 384,
   });
 
   const doc = new PDFDocument({
@@ -69,7 +84,7 @@ export async function renderCredentialPdf(
   doc
     .fontSize(8)
     .fillColor("#777777")
-    .text("QR: token opaco (sem documento pessoal)", { width: 200 });
+    .text("Escaneie para verificar a carteirinha.", { width: 200 });
 
   doc.image(qrPng, 240, 40, { width: 96, height: 96 });
   if (input.photo) doc.image(input.photo, 24, 112, { fit: [80, 83] });
@@ -83,7 +98,7 @@ export async function renderCredentialPdf(
     input.churchName,
     input.opaqueToken,
     "Carteirinha de Membro",
-    "QR: token opaco (sem documento pessoal)",
+    "Escaneie para verificar a carteirinha.",
   ].join("\n");
   if (containsSensitiveCredentialPayload(intentionalText)) {
     throw new Error("PDF da carteirinha não pode conter CPF, telefone ou PII");

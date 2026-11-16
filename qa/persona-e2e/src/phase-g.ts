@@ -44,19 +44,18 @@ const MENU = {
   meuEspaco: "Meu Espaço",
   tesouraria: "Tesouraria",
   editorial: "Mídia e conteúdo",
-  site: "Gestão do site",
 } as const;
 
 /** Módulos compatíveis com o que o backend autoriza hoje. Tesouraria não entra no admin técnico. */
 export const MENU_ALLOW: Record<GPersonaId, readonly string[]> = {
-  ADMIN: [MENU.painel, MENU.membros, MENU.secretaria, MENU.carteirinhas, MENU.operacao, MENU.vinculo, MENU.editorial, MENU.site],
-  PASTOR: [MENU.painel, MENU.membros, MENU.secretaria, MENU.operacao, MENU.vinculo, MENU.escalas, MENU.meuEspaco, MENU.editorial, MENU.site],
-  SECRETARIA: [MENU.painel, MENU.membros, MENU.secretaria, MENU.carteirinhas, MENU.operacao, MENU.vinculo, MENU.escalas, MENU.meuEspaco, MENU.editorial, MENU.site],
+  ADMIN: [MENU.painel, MENU.membros, MENU.secretaria, MENU.carteirinhas, MENU.operacao, MENU.vinculo, MENU.editorial],
+  PASTOR: [MENU.painel, MENU.membros, MENU.secretaria, MENU.operacao, MENU.vinculo, MENU.escalas, MENU.meuEspaco, MENU.editorial],
+  SECRETARIA: [MENU.painel, MENU.membros, MENU.secretaria, MENU.carteirinhas, MENU.operacao, MENU.vinculo, MENU.escalas, MENU.meuEspaco, MENU.editorial],
   TESOURARIA: [MENU.painel, MENU.tesouraria],
   LIDER: [MENU.painel, MENU.operacao, MENU.vinculo, MENU.escalas, MENU.meuEspaco],
   MEMBRO: [MENU.painel, MENU.meuEspaco, MENU.carteirinhas],
-  EDITOR: [MENU.painel, MENU.editorial, MENU.site],
-  PUBLICADOR: [MENU.painel, MENU.editorial, MENU.site],
+  EDITOR: [MENU.painel, MENU.editorial],
+  PUBLICADOR: [MENU.painel, MENU.editorial],
 };
 
 export function codeOf(body: unknown): string {

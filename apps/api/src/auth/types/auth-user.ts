@@ -6,6 +6,7 @@ export interface AuthUser {
   personId: PersonId;
   email: string;
   grants: AuthGrant[];
+  canManageConnection?: boolean;
   /** Organização ativa no token (mobile / switch). Ausente em tokens legados. */
   organizationId?: string | null;
   /** Congregação ativa no token — default RF1 no login. */

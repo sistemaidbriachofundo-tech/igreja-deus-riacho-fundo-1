@@ -15,7 +15,9 @@ describe("Comunicação F5 — monitoramento sem disparos",()=>{
       {id:"t1",name:"TESTE lembrete",channel:"WHATSAPP",body:"SEGREDO-NÃO-RENDERIZAR"}
     ]} token="token-falso"/>);
     expect(html).toContain("Central de comunicação");
-    expect(html).toContain("Somente consulta");
+    expect(html).toContain("Consulta + WhatsApp no app");
+    expect(html).toContain("wa.me");
+    expect(html).toContain('data-contact-channel="whatsapp-deeplink"');
     expect(html).not.toContain("SEGREDO-NÃO-RENDERIZAR");
     expect(html).not.toContain("token-falso");
     expect(html).not.toContain("Disparar mensagens");

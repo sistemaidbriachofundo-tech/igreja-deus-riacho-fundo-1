@@ -118,6 +118,7 @@ export {
   checkBalancedLines,
   nextDualApprovalStage,
   parseSyntheticCsvLines,
+  isBankStatementAccount,
   isValidCompetence,
   type LedgerAccountTypeCode,
   type LedgerEntryStatusCode,
@@ -330,3 +331,12 @@ export {
   type AuditWriteInput,
 } from "./security-f11/audit-write";
 export type { RosterPreviewDto, RosterPreviewPosition } from "./roster-preview";
+export {
+  normalizeWhatsAppDigits,
+  containsEmailAddress,
+  buildWhatsAppUrl,
+  buildMailtoUrl,
+  rosterInviteWhatsAppText,
+  type WhatsAppLinkInput,
+  type MailtoLinkInput,
+} from "./contact-deep-links";

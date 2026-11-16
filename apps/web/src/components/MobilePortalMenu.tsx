@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { portalNavigationIcons } from "../lib/portal-navigation-icons";
+import { UIIcon } from "./ui/UIIcon";
 import { PortalGlyph } from "./PortalGlyph";
 import s from "./portal-design-system.module.css";
 import { PortalSectionLink, sectionIdFromHref, useActivePublicSection } from "./PublicSectionLink";
@@ -48,7 +50,7 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
         if (sectionId) {
           return <PortalSectionLink key={link.href} sectionId={sectionId} onNavigate={close}
             current={onHome && activeSection === sectionId}>
-            {link.label}<PortalGlyph name="arrow" width={18}/>
+            <span className={s.mobileItemLabel}><UIIcon name={portalNavigationIcons[sectionId]} size={20} />{link.label}</span><PortalGlyph name="arrow" width={17}/>
           </PortalSectionLink>;
         }
         return <Link key={link.href} href={link.href} onClick={close}

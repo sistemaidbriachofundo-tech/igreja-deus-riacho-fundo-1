@@ -97,6 +97,7 @@ export class ReportsService {
         },
       },
       include: {
+        tickets: { select: { checkedInAt: true } },
         event: {
           select: {
             id: true,
@@ -201,7 +202,7 @@ export class ReportsService {
         from: period.from?.toISOString() ?? null,
         to: period.to?.toISOString() ?? null,
       },
-      note: "Contagens de church_memberships no período informado. Nomes, e-mails e registros de menores não saem neste relatório.",
+      note: "Totais de membresia no período informado. Nomes, e-mails e registros de menores não saem neste relatório.",
     };
     await this.audit(actor, pilot, "report.membership.read", {
       byStatus,
@@ -657,6 +658,7 @@ export class ReportsService {
       eventId: string;
       displayName: string;
       partySize: number;
+      tickets?: { checkedInAt: Date | null }[];
       isMinor: boolean;
       guardianDisplayName?: string | null;
       status: string;
@@ -673,6 +675,7 @@ export class ReportsService {
         eventName: row.event?.name ?? "",
         displayName: row.displayName,
         partySize: row.partySize,
+        presentParticipants: row.tickets?.length ? row.tickets.filter(ticket => ticket.checkedInAt).length : undefined,
         isMinor: row.isMinor,
         guardianDisplayName: row.guardianDisplayName,
         status: row.status,

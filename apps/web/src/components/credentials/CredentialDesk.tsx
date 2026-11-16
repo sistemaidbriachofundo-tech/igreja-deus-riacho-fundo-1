@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { WorkspaceSearch } from "../ui/WorkspaceSearch";
+import ui from "../ui/ui.module.css";
 import { UIIcon } from "../AppShell";
 import { PersonPortrait } from "../PersonPortrait";
 import { Alert } from "../ui/Alert";
@@ -248,8 +250,10 @@ export function CredentialDesk({
   return (
     <section className={s.desk} aria-labelledby="credential-desk-title">
       <header className={s.deskHead}>
+        <span className={s.deskMark}><UIIcon name="badge" size={22} /></span>
         <div>
           <h2 id="credential-desk-title">Carteirinhas da congregação</h2>
+          <p role="status">{visible.length.toLocaleString("pt-BR")} {visible.length === 1 ? "cadastro encontrado" : "cadastros encontrados"}</p>
         </div>
       </header>
       {!open && (notice || banner || busy) && (
@@ -261,16 +265,9 @@ export function CredentialDesk({
       )}
 
       <div className={s.controls}>
-        <label className={s.search}>
-          <UIIcon name="search" size={18} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por nome ou matrícula"
-            aria-label="Pesquisar carteirinhas"
-          />
-        </label>
-        <div className={s.filters} role="group" aria-label="Filtrar carteirinhas">
+        <WorkspaceSearch value={query} onChange={event => setQuery(event.target.value)}
+          placeholder="Buscar por nome ou matrícula" aria-label="Pesquisar carteirinhas" />
+        <div className={`${ui.workspaceChoices} ${s.deskChoices}`} role="group" aria-label="Filtrar carteirinhas">
           {([
             ["ALL", "Todas"],
             ["ACTIVE", "Ativas"],
@@ -280,36 +277,35 @@ export function CredentialDesk({
               key={id}
               type="button"
               aria-pressed={filter === id}
-              className={filter === id ? s.filterOn : s.filter}
               onClick={() => setFilter(id)}
             >
-              {label}
+              <UIIcon name={id === "ALL" ? "layers" : id === "ACTIVE" ? "check" : "clock"} size={15} />{label}
             </button>
           ))}
         </div>
       </div>
 
       <div className={s.list}>
-        {visible.map((row) => (
-          <article key={row.membershipId} className={s.row}>
-            <button type="button" className={s.rowMain} disabled={!row.activeCredentialId} onClick={() => void show(row)}>
-              <PersonPortrait
-                name={row.displayName}
-                photoUrl={row.membershipId === ownCard?.membershipId ? ownCard.photoUrl : undefined}
-                size="medium"
-              />
-              <span>
-                <strong>{row.displayName}</strong>
-                <small>Matrícula {registrationLabel(row.membershipId)}</small>
-              </span>
-              <span className={row.activeCredentialId ? s.badgeOn : s.badgeOff}>{rowStatus(row.activeCredentialId)}</span>
-            </button>
+        {visible.map((row) => {
+          const details = <>
+            <PersonPortrait
+              name={row.displayName}
+              photoUrl={row.membershipId === ownCard?.membershipId ? ownCard.photoUrl : undefined}
+              size="medium"
+            />
+            <span><strong>{row.displayName}</strong><small>Matrícula {registrationLabel(row.membershipId)}</small></span>
+            <span className={row.activeCredentialId ? s.badgeOn : s.badgeOff}>{rowStatus(row.activeCredentialId)}</span>
+          </>;
+          return <article key={row.membershipId} className={s.row}>
+            {row.activeCredentialId
+              ? <button className={s.rowMain} type="button" onClick={() => void show(row)}>{details}</button>
+              : <div className={s.rowMain}>{details}</div>}
             <div className={s.rowActions}>
-              {row.activeCredentialId && <button type="button" onClick={() => void show(row)}>Visualizar</button>}
+              {row.activeCredentialId && <button type="button" className={ui.workspacePrimary} onClick={() => void show(row)}>Visualizar</button>}
               {canManage ? (
                 <button
                   type="button"
-                  className={row.activeCredentialId ? s.quiet : undefined}
+                  className={row.activeCredentialId ? ui.workspaceQuiet : ui.workspacePrimary}
                   disabled={busy}
                   onClick={() => void (row.activeCredentialId ? revoke(row.activeCredentialId, row.displayName) : issue(row.membershipId))}
                 >
@@ -317,8 +313,8 @@ export function CredentialDesk({
                 </button>
               ) : null}
             </div>
-          </article>
-        ))}
+          </article>;
+        })}
         {visible.length === 0 ? (
           <p className={s.empty}>
             {rows.length === 0

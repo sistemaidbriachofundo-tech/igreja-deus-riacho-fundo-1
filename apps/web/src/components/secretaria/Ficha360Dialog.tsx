@@ -1,5 +1,7 @@
 "use client";
 
+import { PersonPhotoInput } from "./PersonPhotoInput";
+import { accountProblem, savePersonPhoto } from "../../lib/my-account";
 import { PersonPortrait } from "../PersonPortrait";
 import type { PersonProfileDates, PersonSex, PersonTimelineEvent } from "@idbrf/shared";
 import { registrationLabel } from "../credentials/credential-model";
@@ -40,6 +42,9 @@ type Props = {
   state: FichaState;
   households: HouseholdOption[];
   canEdit: boolean;
+  photoToken?: string;
+  pendingPhoto?: File | null;
+  onPhotoSaved?: () => Promise<unknown>;
   canReadDocuments: boolean;
   credential: CredentialView;
   documents: AdmissionDocumentList[] | null;
@@ -102,6 +107,9 @@ export function Ficha360Dialog({
   state,
   households,
   canEdit,
+  photoToken,
+  pendingPhoto,
+  onPhotoSaved,
   canReadDocuments,
   credential,
   documents,
@@ -120,8 +128,30 @@ export function Ficha360Dialog({
   const [familyOpen, setFamilyOpen] = useState(false);
   const [creatingFamily, setCreatingFamily] = useState(false);
   const [familyFeedback, setFamilyFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  const [photo, setPhoto] = useState<File | null>(pendingPhoto ?? null);
+  const [savingPhoto, setSavingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState(pendingPhoto ? "A ficha foi salva. Envie a foto novamente." : "");
+  const [photoSaved, setPhotoSaved] = useState(false);
+
+  async function submitPhoto() {
+    if (!person || !photo || !photoToken || savingPhoto) return;
+    setPhotoError("");
+    setPhotoSaved(false);
+    setSavingPhoto(true);
+    try {
+      await savePersonPhoto(photoToken, person.id, photo);
+      setPhoto(null);
+      setPhotoSaved(true);
+      await onPhotoSaved?.();
+    } catch (error) {
+      setPhotoError(accountProblem(error, "photo"));
+    } finally {
+      setSavingPhoto(false);
+    }
+  }
+
   function close() {
-    if (!creatingFamily) onClose();
+    if (!creatingFamily && !savingPhoto) onClose();
   }
   useDialogLifecycle(true, close, dialogRef);
   const busy =
@@ -501,6 +531,17 @@ export function Ficha360Dialog({
               </dl>
             </section>
             </div>}
+
+            {canEdit && photoToken && person && !busy && (activeTab === "visao" || pendingPhoto) &&
+              <section className={s.context} aria-label="Retrato da pessoa">
+                <PersonPhotoInput photo={photo} onChange={setPhoto} disabled={savingPhoto} />
+                {photo && <button className={ui.workspacePrimary} type="button"
+                  onClick={() => void submitPhoto()} disabled={savingPhoto}>
+                  {savingPhoto ? "Enviando…" : "Salvar foto"}
+                </button>}
+                {photoError && <Alert appearance="workspace" tone="danger" title={photoError} />}
+                {photoSaved && <p role="status">Foto atualizada.</p>}
+              </section>}
 
             <section id={titleId+(activeTab==="admissoes"?"-admissoes":"-historico")} role="tabpanel"
               aria-labelledby={titleId+"-tab-"+(activeTab==="admissoes"?"admissoes":"historico")}

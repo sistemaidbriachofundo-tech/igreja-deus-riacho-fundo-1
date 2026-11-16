@@ -7,7 +7,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsOptional, IsString, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, Matches, MinLength } from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequireAccess } from "../auth/decorators/require-access.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -26,6 +26,20 @@ class AssignBody {
   @IsOptional()
   @IsString()
   coupleExceptionId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  fromMonthlyPreview?: boolean;
+}
+
+class MonthlyResponseBody {
+  @Matches(/^20\d{2}-(0[1-9]|1[0-2])$/)
+  month!: string;
+
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsString({ each: true })
+  rosterIds!: string[];
 }
 
 const RESPOND_ROLES = [
@@ -59,6 +73,26 @@ export class PersonalRostersController {
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
     return this.rosters.listMine(user);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Get("me/monthly-survey")
+  monthlySurvey(@CurrentUser() user: AuthUser) {
+    return this.rosters.monthlySurvey(user);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("me/monthly-survey")
+  answerMonthlySurvey(@CurrentUser() user: AuthUser, @Body() body: MonthlyResponseBody) {
+    return this.rosters.answerMonthlySurvey(user, body.month, body.rosterIds);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get("by-ministry/:ministryId/monthly-preview/:month")
+  monthlyPreview(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string) {
+    return this.rosters.monthlyPreview(user, ministryId, month);
   }
 
   @Roles(...LEAD_ROLES)

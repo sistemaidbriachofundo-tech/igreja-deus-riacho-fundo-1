@@ -25,8 +25,8 @@ export class CreateAdmissionBody {
   householdId?: string;
 
   @IsOptional()
-  @IsIn(["BATISMO", "TRANSFERENCIA", "RECONCILIACAO", "OUTRO"])
-  modality?: "BATISMO" | "TRANSFERENCIA" | "RECONCILIACAO" | "OUTRO";
+  @IsIn(["BATISMO", "TRANSFERENCIA", "RECONCILIACAO", "ACLAMACAO", "OUTRO"])
+  modality?: "BATISMO" | "TRANSFERENCIA" | "RECONCILIACAO" | "ACLAMACAO" | "OUTRO";
 
   @IsOptional()
   @IsString()
@@ -38,8 +38,8 @@ export class AdvanceAdmissionBody {
   completeStep!: "modality" | "documents" | "secretaria" | "pastor";
 
   @IsOptional()
-  @IsIn(["BATISMO", "TRANSFERENCIA", "RECONCILIACAO", "OUTRO"])
-  modality?: "BATISMO" | "TRANSFERENCIA" | "RECONCILIACAO" | "OUTRO";
+  @IsIn(["BATISMO", "TRANSFERENCIA", "RECONCILIACAO", "ACLAMACAO", "OUTRO"])
+  modality?: "BATISMO" | "TRANSFERENCIA" | "RECONCILIACAO" | "ACLAMACAO" | "OUTRO";
 
   @IsOptional()
   @IsString()

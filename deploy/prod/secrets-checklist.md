@@ -8,7 +8,7 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 
 | Variável | Regra |
 |----------|-------|
-| `SOURCE_SHA` | SHA completo do commit da API publicada, configurado no processo ou no build da imagem |
+| `SOURCE_SHA` | SHA completo do commit da API publicada. Passe no build da imagem se o checkout for disponibilizado sem metadados Git. O artefato compilado a partir do checkout já inclui o SHA. |
 | `IDBRF_RUNTIME_STAGE` | `production` |
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | Postgres prod, `sslmode=require` ou `verify-full` |
@@ -22,6 +22,7 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 | `RATE_LIMIT_STORE` | **não** `memory` (usar store compartilhado) |
 | `PRIVATE_BLOB_READ_WRITE_TOKEN` | bucket privado ≠ token público |
 | `STORAGE_ROOT` | path privado no volume (não exposto na web) |
+| `EVENT_MANUAL_PIX_KEY` | chave Pix da igreja (pagamento externo de eventos) |
 
 ## Proibidos em produção
 
@@ -32,6 +33,8 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 | Reusar `JWT_SECRET` / DB de HML ou Vercel | contaminação |
 | Expor `5432` na internet | firewall só loopback / rede Docker |
 | Commit de `.env` / chaves | vazamento |
+
+O webhook de pagamento simulado é bloqueado em produção. Em DEV/HML, configure `EVENT_PAYMENT_WEBHOOK_SECRET` com ao menos 32 caracteres quando precisar testar o webhook. A confirmação manual pelo painel usa autenticação e auditoria do operador.
 
 ## GitHub (pipeline)
 
@@ -46,7 +49,7 @@ Ambiente distinto de HML. Girar qualquer segredo que tenha aparecido em históri
 
 - [ ] Backup / ensaio de restore do Postgres prod (vazio ou sintético isolado)
 - [ ] `/health` e `/ready` OK na API interna
-- [ ] Após publicar a API, rodar `npm run release:preflight` com o SHA do artefato e confirmar `/meta` e `/ready`
+- [ ] Após publicar o portal e a API, rodar `npm run release:preflight` com o SHA do artefato e confirmar `/login/`, `/release.json`, `/meta` e `/ready`
 - [ ] Frontend do artefato `production-candidate-*` com `NEXT_PUBLIC_ADMIN_PRODUCTION=true`, `NEXT_PUBLIC_HML_ENABLED=false` e a API oficial
 - [ ] Conferir login, MFA e acesso por função com uma conta autorizada de produção
 - [ ] Autorização explícita para corte de DNS

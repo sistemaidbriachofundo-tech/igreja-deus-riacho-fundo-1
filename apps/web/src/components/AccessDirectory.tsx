@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { BUILTIN_ROLES, PERSONA_LABELS, parseMinistryNav, type BuiltinRole, type MinistryNavItem } from "../lib/persona-navigation";
@@ -16,7 +17,12 @@ type Account = {
   id: string; email: string; status: string; person: Person; invitationStatus?: "INVITED" | "PENDING_EMAIL" | null;
   profiles: { role: BuiltinRole; ministry: string | null }[];
 };
-type AccountPage = { accounts: Account[]; hasMore: boolean };
+type AccessLinkDelivery = { sent: boolean; previewUrl?: string };
+type AccountPage = { accounts: Account[]; hasMore: boolean; canInviteAdministrator?: boolean };
+
+export function accessInviteRoles(canInviteAdministrator: boolean): readonly BuiltinRole[] {
+  return canInviteAdministrator ? BUILTIN_ROLES : BUILTIN_ROLES.filter(role => role !== "PLATFORM_ADMIN");
+}
 
 export function AccessDirectory() {
   const { showFeedback } = useFeedback();
@@ -25,30 +31,61 @@ export function AccessDirectory() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [resending, setResending] = useState("");
+  const [sending, setSending] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
   const { confirm: confirmResend, confirmation: resendConfirmation } = useActionConfirmation();
-  async function resendInvite(account: Account) {
-    if (!token || resending) return;
+  async function grantAdministrator(account: Account) {
+    if (!token || sending) return;
     if (!(await confirmResend({
-      title: "Reenviar convite por e-mail?",
+      title: "Conceder perfil de administrador?",
       subject: account.person.displayName,
-      description: "Um novo link de uso único será enviado a " + account.email + ". O link anterior deixará de funcionar.",
-      action: "Reenviar convite",
+      description: "O acesso vale para esta congregação. A pessoa precisará entrar novamente e usar o autenticador.",
+      action: "Conceder perfil",
     }))) return;
-    setResending(account.id);
+    setSending(account.id);
     setError("");
     try {
-      await apiPost("/admin/access/" + encodeURIComponent(account.id) + "/invite/resend", token);
-      showFeedback({ tone: "success", title: "Convite reenviado", message: "O link de ativação foi enviado para " + account.email + ".", actionLabel: "Continuar" });
-      setRevision(v => v + 1);
-    } catch {
-      showFeedback({ tone: "error", title: "Não foi possível reenviar", message: "Confira a configuração do e-mail e a situação do acesso antes de tentar novamente." });
+      await apiPost("/admin/access/" + encodeURIComponent(account.id) + "/administrator", token);
+      showFeedback({ tone: "success", title: "Perfil de administrador concedido", message: "A pessoa precisa entrar novamente com o autenticador.", actionLabel: "Continuar" });
+      setRevision(value => value + 1);
+    } catch (error) {
+      setError(dasError(error));
     } finally {
-      setResending("");
+      setSending("");
+    }
+  }
+
+  async function sendLink(account: Account, recovery: boolean) {
+    if (!token || sending) return;
+    const action = recovery ? "Enviar recuperação" : "Reenviar convite";
+    if (!(await confirmResend({
+      title: recovery ? "Enviar link de recuperação?" : "Reenviar convite por e-mail?",
+      subject: account.person.displayName,
+      description: "Um novo link de uso único será criado para " + account.email + ".",
+      action,
+    }))) return;
+    setSending(account.id);
+    setPreviewUrl("");
+    setError("");
+    try {
+      const path = recovery ? "/password/reset" : "/invite/resend";
+      const delivery = await apiPost<AccessLinkDelivery>("/admin/access/" + encodeURIComponent(account.id) + path, token);
+      setPreviewUrl(delivery.previewUrl ?? "");
+      showFeedback({
+        tone: "success",
+        title: delivery.sent ? "Link enviado" : "Link de teste criado",
+        message: delivery.sent ? "O link foi enviado para " + account.email + "." : "Use o link de teste exibido em Acessos.",
+      });
+      setRevision(v => v + 1);
+    } catch (error) {
+      showFeedback({ tone: "error", title: "Não foi possível gerar o link", message: dasError(error) });
+    } finally {
+      setSending("");
     }
   }
   useEffect(() => setToken(loadStoredToken()), []);
@@ -58,52 +95,86 @@ export function AccessDirectory() {
     let current = true;
     setLoading(true);
     setError("");
-    void apiGet<AccountPage>("/admin/access?" + new URLSearchParams({ q: filter, page: String(page) }), token)
+    void apiGet<AccountPage>("/admin/access?" + new URLSearchParams({ q: filter, page: String(page), status }), token)
       .then(result => { if (current) setAccounts(result); })
       .catch(error => { if (current) { setAccounts(null); setError(dasError(error)); } })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [token, filter, page, revision]);
+  }, [token, filter, page, revision, status]);
 
   return (
     <section className={s.directory}>
       {resendConfirmation}
-      <PageHeader appearance="workspace" heading="h1" title="Acessos" description="Libere o acesso de pessoas já cadastradas. A pessoa recebe um link de ativação e define sua própria senha." />
-      <div className={s.actions}>
-        <button type="button" className={ui.workspacePrimary} aria-expanded={creating} disabled={!token} onClick={() => setCreating(value => !value)}>
-          <UIIcon name="shield" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
-        </button>
-      </div>
-      {creating && token && <AccessForm token={token} onCreated={name => {
+      {previewUrl && <p role="status">
+        <a href={previewUrl} target="_blank" rel="noreferrer">Abrir link de teste</a>
+        {" · "}
+        <button type="button" className={s.resend} onClick={() => setPreviewUrl("")}>Ocultar</button>
+      </p>}
+      <PageHeader appearance="workspace" heading="h1" title="Acessos"
+        description="Envie convites e acompanhe a ativação das contas."
+        actions={<button type="button" className={ui.workspacePrimary} aria-expanded={creating} disabled={!token} onClick={() => setCreating(value => !value)}>
+          <UIIcon name="plus" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
+        </button>}
+      />
+      {creating && token && <AccessForm token={token} canInviteAdministrator={accounts?.canInviteAdministrator === true} onCreated={(name, delivery) => {
         setCreating(false);
-        showFeedback({ tone: "success", title: "Convite enviado", message: "O convite para " + name + " foi enviado. A senha será definida pela própria pessoa.", actionLabel: "Continuar" });
+        setPreviewUrl(delivery.previewUrl ?? "");
+        showFeedback({ tone: "success", title: delivery.sent ? "Convite enviado" : "Convite de teste criado",
+          message: "A senha de " + name + " será definida no link individual.", actionLabel: "Continuar" });
         setPage(1);
         setRevision(value => value + 1);
       }} />}
       <div className={s.panel}>
-        <form className={s.filter} onSubmit={event => { event.preventDefault(); setPage(1); setFilter(search.trim()); }}>
-          <label>Buscar conta<input type="search" maxLength={100} placeholder="Nome ou e-mail" value={search} onChange={event => setSearch(event.target.value)} /></label>
-          <button className={ui.workspaceSecondary} type="submit"><UIIcon name="search" size={16} /> Buscar</button>
+        <form className={s.filter} aria-label="Buscar e filtrar contas" onSubmit={event => { event.preventDefault(); setPage(1); setFilter(search.trim()); }}>
+          <div className={s.searchGroup}>
+            <WorkspaceSearch aria-label="Buscar conta" maxLength={100} placeholder="Nome ou e-mail"
+              value={search} onChange={event => setSearch(event.target.value)} />
+            <button className={ui.workspaceSecondary} type="submit">Buscar</button>
+          </div>
+          <label className={s.statusFilter}>Situação<select value={status} onChange={event => { setPage(1); setStatus(event.target.value); }}>
+            <option value="">Todas</option><option value="ACTIVE">Ativas</option><option value="DISABLED">Sem acesso ativo</option>
+          </select></label>
         </form>
         {loading && <p role="status">Consultando contas…</p>}
-        {error && <p className={s.error} role="alert">{error}</p>}
+        {error && <p className={s.error} role="alert">{error} <button className={s.resend} type="button" onClick={() => setRevision(value => value + 1)}>Tentar novamente</button></p>}
         {!loading && accounts?.accounts.length === 0 && <p>Nenhuma conta encontrada.</p>}
         {!loading && Boolean(accounts?.accounts.length) && (
           <ul className={s.list} aria-label="Contas da congregação">
-            {accounts?.accounts.map(account => <li className={s.row} key={account.id}>
-              <div className={s.person}><UIIcon name="people" size={18} /><div><strong>{account.person.displayName}</strong><span>{account.email}</span></div></div>
-              <div className={s.profiles}>{account.profiles.length ? account.profiles.map((profile, index) => (
-                <span key={index}>{PERSONA_LABELS[profile.role] ?? profile.role}{profile.ministry && " · " + profile.ministry}</span>
-              )) : <span>Sem perfil nesta congregação</span>}</div>
-              <div className={s.accessState}><span className={s.state} data-active={account.status === "ACTIVE"}>
-                {account.status === "ACTIVE" ? "Ativo" : account.invitationStatus === "INVITED" ? "Aguardando ativação" : account.invitationStatus === "PENDING_EMAIL" ? "E-mail não enviado" : "Desativado"}
-              </span>
-              {(account.invitationStatus === "INVITED" || account.invitationStatus === "PENDING_EMAIL") &&
-                <button type="button" className={s.resend} disabled={Boolean(resending)} onClick={() => void resendInvite(account)}>
-                  {resending === account.id ? "Enviando…" : "Reenviar convite"}
-                </button>}
-              </div>
-            </li>)}
+            {accounts?.accounts.map(account => {
+              const active = account.status === "ACTIVE";
+              const invited = account.invitationStatus === "INVITED";
+              const pendingEmail = account.invitationStatus === "PENDING_EMAIL";
+              const canGrant = accounts.canInviteAdministrator && active
+                && !account.profiles.some(profile => profile.role === "PLATFORM_ADMIN");
+              return <li className={s.row} key={account.id}>
+                <div className={s.person}>
+                  <span className={s.avatar}><UIIcon name="people" size={19} /></span>
+                  <div><strong>{account.person.displayName}</strong><span className={s.email}>{account.email}</span></div>
+                </div>
+                <div className={s.profiles}>{account.profiles.length ? account.profiles.map((profile, index) => (
+                  <span key={index}>{PERSONA_LABELS[profile.role] ?? profile.role}{profile.ministry && " · " + profile.ministry}</span>
+                )) : <span>Sem perfil nesta congregação</span>}</div>
+                <div className={s.accessState}>
+                  <span className={s.state} data-tone={active ? "active" : invited || pendingEmail ? "pending" : "inactive"}>
+                    {active ? "Ativo" : invited ? "Aguardando ativação" : pendingEmail ? "E-mail não enviado" : "Desativado"}
+                  </span>
+                  {(active || invited || pendingEmail) && <details className={s.accountActions}>
+                    <summary aria-label={"Gerenciar acesso de " + account.person.displayName}><UIIcon name="more" size={17} /> Gerenciar</summary>
+                    <div>
+                      {(invited || pendingEmail) && <button type="button" className={ui.workspaceQuiet} disabled={Boolean(sending)} onClick={() => void sendLink(account, false)}>
+                        <UIIcon name="mail" size={16} /> {sending === account.id ? "Preparando…" : "Reenviar convite"}
+                      </button>}
+                      {active && <button type="button" className={ui.workspaceQuiet} disabled={Boolean(sending)} onClick={() => void sendLink(account, true)}>
+                        <UIIcon name="refresh" size={16} /> {sending === account.id ? "Preparando…" : "Recuperar senha"}
+                      </button>}
+                      {canGrant && <button type="button" className={ui.workspaceQuiet} disabled={Boolean(sending)} onClick={() => void grantAdministrator(account)}>
+                        <UIIcon name="shield" size={16} /> Conceder administração
+                      </button>}
+                    </div>
+                  </details>}
+                </div>
+              </li>;
+            })}
           </ul>
         )}
         {(page > 1 || accounts?.hasMore) && <div className={s.actions}>
@@ -116,14 +187,24 @@ export function AccessDirectory() {
   );
 }
 
-function AccessForm({ token, onCreated }: { token: string; onCreated: (name: string) => void }) {
+function AccessForm({ token, canInviteAdministrator = false, onCreated }: {
+  token: string;
+  canInviteAdministrator?: boolean;
+  onCreated: (name: string, delivery: AccessLinkDelivery) => void;
+}) {
   const { showFeedback } = useFeedback();
   const [term, setTerm] = useState("");
   const [people, setPeople] = useState<Person[]>([]);
   const [person, setPerson] = useState<Person | null>(null);
   const [searched, setSearched] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<BuiltinRole>("MEMBRO");
+  const [selectedRole, setRole] = useState<BuiltinRole>("MEMBRO");
+  const availableRoles = accessInviteRoles(canInviteAdministrator);
+  const role = availableRoles.includes(selectedRole) ? selectedRole : "MEMBRO";
+  const isChurchAdministrator = role === "PLATFORM_ADMIN";
+  const roleLabel = (value: BuiltinRole) => value === "PLATFORM_ADMIN"
+    ? "Administrador da igreja"
+    : PERSONA_LABELS[value];
   const [ministryId, setMinistryId] = useState("");
   const [ministries, setMinistries] = useState<MinistryNavItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -161,13 +242,13 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
     setBusy(true);
     try {
       if (!(await confirm({
-        title: "Criar acesso para esta pessoa?",
+        title: isChurchAdministrator ? "Convidar para a administração da igreja?" : "Criar acesso para esta pessoa?",
         subject: person.displayName,
-        description: "A conta terá o perfil " + PERSONA_LABELS[role] + " nesta congregação. Um convite será enviado ao e-mail cadastrado para que a pessoa escolha a própria senha.",
+        description: "A conta terá o perfil " + roleLabel(role) + " nesta congregação. Um convite será enviado ao e-mail cadastrado para que a pessoa escolha a própria senha.",
         action: "Criar acesso",
       }))) return;
-      await apiPost("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
-      onCreated(person.displayName);
+      const result = await apiPost<{ invite: AccessLinkDelivery }>("/admin/access", token, { personId: person.id, email, role, ...(role === "LIDER_MINISTERIO" ? { ministryId } : {}) });
+      onCreated(person.displayName, result.invite);
     } catch (error) {
       showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });
     } finally {
@@ -194,8 +275,9 @@ function AccessForm({ token, onCreated }: { token: string; onCreated: (name: str
           <div className={s.chosen}><strong>{person.displayName}</strong><button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => setPerson(null)}>Trocar pessoa</button></div>
           <label>E-mail cadastrado<input type="email" autoComplete="off" value={email} readOnly required/><small>Para alterar o destinatário, atualize o e-mail da ficha na Secretaria.</small></label>
           <label>Perfil<select value={role} onChange={event => void pickRole(event.target.value as BuiltinRole)}>
-            {BUILTIN_ROLES.filter(value => value !== "PLATFORM_ADMIN").map(value => <option key={value} value={value}>{PERSONA_LABELS[value]}</option>)}
+            {availableRoles.map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}
           </select></label>
+          {isChurchAdministrator && <p className={s.inviteInfo}>Este perfil administra os acessos e as rotinas desta congregação.</p>}
           {role === "LIDER_MINISTERIO" && <label>Ministério<select value={ministryId} onChange={event => setMinistryId(event.target.value)} required>
             <option value="">Selecione</option>{ministries.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select></label>}

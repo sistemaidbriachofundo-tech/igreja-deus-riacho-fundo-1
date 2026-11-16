@@ -1,12 +1,13 @@
 import { formatBRL } from "./das-operations";
 
-export type TreasuryAccount = { id: string; code: string; name: string; type: string };
+export type TreasuryAccount = { id: string; code: string; name: string; type: string; active?: boolean };
 export type TreasuryEntryLine = { accountId: string; side: "DEBIT" | "CREDIT"; cents: number };
 export type TreasuryEntry = {
   id: string;
   entryDate: string;
   description: string;
   status: string;
+  rejectionReason?: string;
   amountCents: number | null;
   createdByUserId: string;
   firstApprovedByUserId: string | null;
@@ -15,6 +16,19 @@ export type TreasuryEntry = {
   reconciliationId: string | null;
   lines: TreasuryEntryLine[];
 };
+
+export function statementCashEffect(entry: TreasuryEntry, accountIds: ReadonlySet<string>, accountId?: string) {
+  let movement = 0;
+  let hasCashLine = false;
+  for (const line of entry.lines) {
+    if (accountId ? line.accountId !== accountId : !accountIds.has(line.accountId)) continue;
+    hasCashLine = true;
+    movement += line.side === "DEBIT" ? line.cents : -line.cents;
+  }
+  if (!hasCashLine) return { kind: "ledger", amount: entry.amountCents } as const;
+  if (movement === 0) return { kind: "transfer", amount: entry.amountCents } as const;
+  return { kind: movement > 0 ? "credit" : "debit", amount: movement } as const;
+}
 
 export const treasuryChannels = [
   { id: "pix", name: "Pix", revenue: "4.2.10.01" },

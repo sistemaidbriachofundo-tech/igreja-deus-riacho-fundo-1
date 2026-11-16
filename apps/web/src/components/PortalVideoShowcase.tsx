@@ -2,17 +2,13 @@
 
 import { useState } from "react";
 import { youtubeChannelUrl } from "../lib/portal-content";
+import { usePublishedResource } from "../lib/use-published-resource";
+import { latestKnownRecordings, parseYoutubeRecordings } from "../lib/youtube-recordings";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import s from "./portal-video-showcase.module.css";
 
-const videos = [
-  { id: "lTjvE8G_YAE", title: "Culto de Santa Ceia", date: "08/11/2026", detail: "Culto da noite" },
-  { id: "0UfdJJmBU6o", title: "Quinta do Encontro", date: "05/11/2026", detail: "Culto de quinta" },
-  { id: "ssdJz_f7ZGs", title: "Som de Gerações", date: "01/11/2026", detail: "Culto de adoração · Pr. Édson Soares" },
-];
-
 function VideoThumbnail({ id, featured = false }: { id: string; featured?: boolean }) {
-  const file = featured ? "maxresdefault.jpg" : "mqdefault.jpg";
+  const file = featured ? "hqdefault.jpg" : "mqdefault.jpg";
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={"https://i.ytimg.com/vi/" + id + "/" + file} alt="" width={featured ? 1280 : 320} height={featured ? 720 : 180} loading="lazy" decoding="async" />
@@ -22,7 +18,10 @@ function VideoThumbnail({ id, featured = false }: { id: string; featured?: boole
 export function PortalVideoShowcase() {
   const layout = usePublishedSiteLayout();
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const featured = videos.find(video => video.id === playingId) ?? videos[0];
+  const { data } = usePublishedResource("/public/youtube-recordings", parseYoutubeRecordings, !layout.hidden.includes("videos"));
+  const videos = data ?? latestKnownRecordings;
+  const playing = videos.find(video => video.id === playingId) ?? latestKnownRecordings.find(video => video.id === playingId);
+  const featured = playing ?? videos[0];
   if (layout.hidden.includes("videos")) return null;
 
   return (
@@ -40,11 +39,11 @@ export function PortalVideoShowcase() {
         <div className={s.showcase}>
           <div className={s.featured}>
             <div className={s.screen}>
-              {playingId ? (
+              {playing ? (
                 <iframe
-                  key={playingId}
+                  key={playing.id}
                   ref={frame => frame?.focus()}
-                  src={"https://www.youtube-nocookie.com/embed/" + playingId + "?autoplay=1"}
+                  src={"https://www.youtube-nocookie.com/embed/" + playing.id + "?autoplay=1"}
                   title={featured.title + " no YouTube"}
                   allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                   allowFullScreen
@@ -59,7 +58,7 @@ export function PortalVideoShowcase() {
             </div>
             <div className={s.caption}>
               <div>
-                <p>{featured.detail} · {featured.date}</p>
+                {featured.date && <p>{featured.date}</p>}
                 <h3>{featured.title}</h3>
               </div>
               <a href={"https://www.youtube.com/watch?v=" + featured.id} target="_blank" rel="noopener noreferrer" className={s.watchLink}>
@@ -79,7 +78,7 @@ export function PortalVideoShowcase() {
                     onClick={() => setPlayingId(video.id)}
                   >
                     <span className={s.thumbnail}><VideoThumbnail id={video.id} /></span>
-                    <span className={s.videoDetails}><strong>{video.title}</strong><small>{video.date}</small></span>
+                    <span className={s.videoDetails}><strong>{video.title}</strong>{video.date && <small>{video.date}</small>}</span>
                     <span className={s.optionPlay} aria-hidden="true" />
                   </button>
                 </li>

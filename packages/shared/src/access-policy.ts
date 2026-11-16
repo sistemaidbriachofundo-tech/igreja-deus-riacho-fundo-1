@@ -3,7 +3,7 @@ import { grantMatchesScope, ROLE_CODES, type AuthGrant, type BuiltInRoleCode } f
 /**
  * Política A3 — matriz explícita papel × recurso × ação.
  * Célula ausente = negação. Nenhum papel herda o de outro.
- * PLATFORM_ADMIN pode consultar a tesouraria no escopo da congregação.
+ * PLATFORM_ADMIN pode consultar a tesouraria e importar extratos no escopo da congregação.
  * EDITOR_SITE e PUBLICADOR_SITE não recebem secretaria (persons).
  *
  * Rollback operacional: ACCESS_POLICY_MODE=legacy reativa só as
@@ -16,7 +16,7 @@ export const ACCESS_POLICY_MODE_ENV = "ACCESS_POLICY_MODE" as const;
 export const ACCESS_RESOURCES = [
   "persons",
   "pastoral",
-  "ledger",
+  "ledger", "expense_attachments", "bank_statements",
   "ministries",
   "cms",
   "admin",
@@ -153,8 +153,11 @@ export const ACCESS_MATRIX: readonly AccessRule[] = [
   ...rule("pastoral", "approve", "church", [ROLE_CODES.PASTOR]),
   ...rule("pastoral", "approve", "church", [ROLE_CODES.PLATFORM_ADMIN], true),
 
+  ...rule("expense_attachments", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN]),
   ...rule("ledger", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN]),
   ...rule("ledger", "write", "church", [ROLE_CODES.TESOURARIA]),
+  ...rule("bank_statements", "read", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN]),
+  ...rule("bank_statements", "write", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN]),
   // Aprovação de despesas: serviço valida a sequência tesoureiro → pastor e impede acesso a outros lançamentos.
   ...rule("ledger", "approve", "church", [ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR]),
 

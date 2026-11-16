@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -84,7 +85,7 @@ describe("CredentialsService", () => {
     buildCredentialPdfKey: jest.fn().mockReturnValue("credentials/org1/church/c1/x.pdf"),
     put: jest.fn(),
     get: jest.fn(),
-    remove: jest.fn(),
+    remove: jest.fn().mockResolvedValue(undefined),
     contentSha256: jest.fn().mockReturnValue("abc"),
   };
 
@@ -311,6 +312,8 @@ describe("CredentialsService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
       storage as never,
     );
+    await expect(service.lookupByOpaqueToken("inválido")).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.memberCredential.findUnique).not.toHaveBeenCalled();
     const hit = await service.lookupByOpaqueToken(opaqueToken);
     expect(hit.displayName).toBe("Bruno Demo");
 

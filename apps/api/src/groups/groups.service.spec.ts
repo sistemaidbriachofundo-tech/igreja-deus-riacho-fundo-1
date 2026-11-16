@@ -21,7 +21,7 @@ describe("GroupsService", () => {
     email: "ana.demo@example.test",
     grants: [
       {
-        roleCode: "SECRETARIA",
+        roleCode: "PASTOR",
         organizationId: "org1",
         churchId: "church-rf1",
       },

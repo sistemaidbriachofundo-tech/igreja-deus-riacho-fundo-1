@@ -61,7 +61,7 @@
 }
 
 /* Texto institucional com blocos editoriais, evitando cartões redundantes. */
-.identityCopy strong { color: #c44710; font-weight: 800; }
+.identityCopy strong { color: #9f390f; font-weight: 800; }
 .identityCopy .values { margin-top: 21px; padding-top: 18px; border-top: 1px solid #cdc5ba; }
 .identityCopy .values span { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 900; letter-spacing: .15em; color: #a63e13; }
 
@@ -74,7 +74,7 @@
 .purposesList{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));list-style:none;gap:0;margin:0;padding:0;border-block:1px solid #d8cfc8}
 .purposesList li{min-width:0;padding:21px 14px;display:grid;gap:8px;align-content:start}
 .purposesList li+li{border-left:1px solid #e5dcd3}
-.purposesList span{font-size:.72rem;font-weight:850;color:#d4561a}
+.purposesList span{font-size:.72rem;font-weight:850;color:#9f390f}
 .purposesList strong{font-size:clamp(.83rem,1.3vw,1.08rem);color:#242126;overflow-wrap:anywhere}
 .purposesList small{font-size:.78rem;line-height:1.45;color:#77706c}
 @media(max-width:900px){.purposesList{grid-template-columns:repeat(2,minmax(0,1fr))}.purposesList li:nth-child(odd){border-left:0}.purposesList li:nth-child(n+3){border-top:1px solid #e5dcd3}}

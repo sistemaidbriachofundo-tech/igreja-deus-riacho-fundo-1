@@ -28,6 +28,7 @@ type HouseholdOption = { id: string; label: string };
 type Props = {
   token: string;
   personId: string;
+  pendingPhoto?: File | null;
   households: HouseholdOption[];
   canEdit: boolean;
   canReadDocuments: boolean;
@@ -43,6 +44,7 @@ const client: DossierClient = { get: apiGet, patch: apiPatch };
 export function SecretaryDossier({
   token,
   personId,
+  pendingPhoto,
   households,
   canEdit,
   canReadDocuments,
@@ -210,6 +212,9 @@ export function SecretaryDossier({
       state={state}
       households={households}
       canEdit={canEdit}
+      photoToken={token}
+      pendingPhoto={pendingPhoto}
+      onPhotoSaved={() => reload("manual")}
       canReadDocuments={canReadDocuments}
       credential={credential}
       documents={documents}

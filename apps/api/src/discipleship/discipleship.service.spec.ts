@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { DiscipleshipService } from "./discipleship.service";
+import { CONNECTION_STAGES } from "./connection-rules";
 import type { AuthUser } from "../auth/types/auth-user";
 
 describe("DiscipleshipService", () => {
@@ -21,7 +22,7 @@ describe("DiscipleshipService", () => {
     email: "lider.demo@example.test",
     grants: [
       {
-        roleCode: "LIDER_MINISTERIO",
+        roleCode: "PASTOR",
         organizationId: "org1",
         churchId: "church-rf1",
       },
@@ -40,6 +41,28 @@ describe("DiscipleshipService", () => {
       },
     ],
   };
+
+  it("limits the member journey to their own enrollment and uses the latest event per stage", async () => {
+    const findMany = jest.fn().mockResolvedValue([{ id: "my-enrollment", status: "ACTIVE",
+      mentor: { displayName: "Mentoria" }, track: { name: "Trilha da Conexão", stages: [
+        { id: "welcome", title: "Boas-vindas", description: null },
+        { id: "next", title: "Primeiros Passos", description: "Participar do encontro." },
+      ] },
+    }]);
+    const progress = jest.fn().mockResolvedValue([{ stageId: "welcome", kind: "COMPLETED" },
+      { stageId: "next", kind: "COMPLETED" }, { stageId: "next", kind: "REOPENED" }]);
+    const service = new DiscipleshipService({
+      discipleshipEnrollment: { findMany }, discipleshipProgressEvent: { findMany: progress },
+    } as never, { getPilotChurch: async () => pilot } as never);
+    expect(await service.myConnectionJourney(membro)).toMatchObject({
+      journey: { currentStageId: "next", mentorName: "Mentoria", stages: [{ completed: true }, { completed: false }] },
+    });
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      personId: "p-mem", status: { not: "CANCELLED" }, track: { organizationId: "org1", churchId: "church-rf1" },
+    } }));
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ where: { enrollmentId: "my-enrollment" } }));
+    await expect(service.myConnectionJourney({ ...membro, churchId: "another" })).rejects.toBeInstanceOf(ForbiddenException);
+  });
 
   const now = new Date("2026-11-05T12:00:00Z");
 
@@ -73,6 +96,63 @@ describe("DiscipleshipService", () => {
     };
   }
 
+  it("bloqueia pular etapas, encerrar com pendências e aplicar dispensa sem validação pastoral", async () => {
+    const stages = CONNECTION_STAGES.map((stage, index) => ({ ...stage, id: stage.code, sortOrder: index + 1 }));
+    const enrollment = { ...enrollmentRow, track: { ...trackRow, name: "Trilha da Conexão" } };
+    const findMany = jest.fn().mockResolvedValue([]);
+    const admission = jest.fn().mockResolvedValue(null);
+    const tx = {
+      $queryRaw: jest.fn(),
+      discipleshipTrackStage: { findMany: jest.fn().mockResolvedValue(stages) },
+      discipleshipProgressEvent: { findMany, create: jest.fn() },
+      discipleshipEnrollment: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue(enrollment),
+        update: jest.fn().mockResolvedValue({ ...enrollment, status: "COMPLETED", completedAt: now }),
+      },
+      admissionProtocol: { findFirst: admission },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new DiscipleshipService({
+      ...withTx(tx),
+      discipleshipEnrollment: { findFirst: jest.fn().mockResolvedValue(enrollment) },
+      discipleshipTrackStage: { findFirst: jest.fn().mockResolvedValue(stages[8]) },
+    } as never, { getPilotChurch: async () => pilot } as never);
+
+    await expect(service.recordProgress(lider, "e1", { stageId: "dna-servico", kind: "COMPLETED" }))
+      .rejects.toMatchObject({ response: { code: "CONNECTION_STAGE_OUT_OF_ORDER" } });
+    await expect(service.updateEnrollmentStatus(lider, "e1", "COMPLETED"))
+      .rejects.toMatchObject({ response: { code: "CONNECTION_STAGES_PENDING" } });
+    expect(tx.discipleshipEnrollment.update).not.toHaveBeenCalled();
+    expect(tx.discipleshipProgressEvent.create).not.toHaveBeenCalled();
+
+    findMany.mockResolvedValue(stages.filter(stage => stage.sortOrder !== 4 && stage.sortOrder !== 5)
+      .map(stage => ({ stageId: stage.id, kind: "COMPLETED" })));
+    await expect(service.updateEnrollmentStatus(lider, "e1", "COMPLETED"))
+      .rejects.toMatchObject({ response: { code: "CONNECTION_STAGES_PENDING" } });
+    admission.mockResolvedValue({ modality: "ACLAMACAO" });
+    await expect(service.updateEnrollmentStatus(lider, "e1", "COMPLETED")).resolves.toMatchObject({ status: "COMPLETED" });
+    expect(admission).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ personId: "p1", churchId: pilot.churchId, status: "APPROVED", pastorApproved: true }),
+    }));
+  });
+
+  it("atualiza o mentor e rejeita a própria pessoa como mentor", async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: "new-mentor" });
+    const update = jest.fn().mockResolvedValue({ ...enrollmentRow, mentorPersonId: "new-mentor" });
+    const auditLog = { create: jest.fn() };
+    const service = new DiscipleshipService({
+      ...withTx({ discipleshipEnrollment: { update }, auditLog }),
+      discipleshipEnrollment: { findFirst: jest.fn().mockResolvedValue({ ...enrollmentRow, track: trackRow }) },
+      person: { findFirst },
+    } as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.updateMentor(lider, "e1", enrollmentRow.personId)).rejects.toBeInstanceOf(BadRequestException);
+    expect(findFirst).not.toHaveBeenCalled();
+    await expect(service.updateMentor(lider, "e1", "new-mentor")).resolves.toMatchObject({ mentorPersonId: "new-mentor" });
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: pilot.organizationId, isMinor: false }) }));
+    expect(update).toHaveBeenCalledWith({ where: { id: "e1" }, data: { mentorPersonId: "new-mentor" } });
+    expect(auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "discipleship.enrollment.mentor" }) }));
+  });
+
   it("forbids MEMBRO from creating tracks", async () => {
     const service = new DiscipleshipService(
       { $transaction: jest.fn() } as never,
@@ -83,7 +163,7 @@ describe("DiscipleshipService", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("creates track for líder and audits", async () => {
+  it("creates track for pastor and audits", async () => {
     const tx = {
       discipleshipTrack: {
         create: jest.fn().mockResolvedValue({ ...trackRow, description: null }),
@@ -103,6 +183,28 @@ describe("DiscipleshipService", () => {
     expect(result.id).toBe("t1");
     expect(result.name).toBe("Fundamentos");
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it("creates the official Connection track with all stages and returns the same track on retry", async () => {
+    const official = { ...trackRow, name: "Trilha da Conexão", code: "conexao" };
+    const findUnique = jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(official);
+    const create = jest.fn().mockResolvedValue(official);
+    const tx = { discipleshipTrack: { findUnique, create }, auditLog: { create: jest.fn() } };
+    const service = new DiscipleshipService(
+      withTx(tx) as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const first = await service.createTrack(lider, { name: "Trilha Conexao" });
+    const second = await service.createTrack(lider, { name: "Trilha da Conexão" });
+    expect(second).toEqual(first);
+    expect(first.code).toBe("conexao");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      code: "conexao",
+      stages: { create: CONNECTION_STAGES.map((stage, index) => ({ ...stage, sortOrder: index + 1 })) },
+    }) });
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
   });
 
   it("rejects empty track name", async () => {

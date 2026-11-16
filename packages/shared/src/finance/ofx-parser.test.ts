@@ -97,4 +97,12 @@ DATA:OFXSGML
     assert.equal(result.ok, false);
     assert.equal(result.reason, "NO_VALID_TRN");
   });
+
+  it("fails strict statements with invalid dates and only uses FITID for deduplication", () => {
+    const valid = "<STMTTRN><DTPOSTED>20261130<TRNAMT>-52.20<CHECKNUM>10</STMTTRN>";
+    const invalid = "<STMTTRN><DTPOSTED>20261131<TRNAMT>30.00<FITID>one</STMTTRN>";
+    assert.equal(parseOfxLines(valid + invalid, true).reason, "INVALID_TRN");
+    assert.equal(parseOfxLines(valid, true).lines[0]?.externalRef, null);
+    assert.equal(parseOfxLines(valid, true).lines[0]?.amountCents, -5220);
+  });
 });

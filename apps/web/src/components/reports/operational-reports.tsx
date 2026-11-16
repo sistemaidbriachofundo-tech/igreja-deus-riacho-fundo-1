@@ -1,6 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AppNavLink } from "../AppShell";
+import { PageHeader } from "../ui/PageHeader";
+import { FilterDisclosure } from "../ui/FilterDisclosure";
+import { UIIcon, type GlyphName } from "../ui/UIIcon";
+import ui from "../ui/ui.module.css";
 import { formatBRL } from "../../lib/das-operations";
 import { barsFromCounts, costBars, participationBars, type Bar } from "./report-charts";
 import s from "./management-reports.module.css";
@@ -96,8 +101,15 @@ function sumRecord(record: Record<string, number>): number {
   return Object.values(record).reduce((total, value) => total + value, 0);
 }
 
+const sections = {
+  people: { label: "Pessoas", icon: "people" },
+  ministries: { label: "Ministérios", icon: "layers" },
+  events: { label: "Eventos", icon: "calendar" },
+  costs: { label: "Custos por ministério", icon: "wallet" },
+} satisfies Record<string, { label: string; icon: GlyphName }>;
+
 export function OperationalReports(props: {
-  production?: boolean;
+  notice?: string;
   membership: Slot<MembershipReport>;
   ministries: Slot<MinistryReport>;
   participation: Slot<ParticipationReport>;
@@ -106,6 +118,8 @@ export function OperationalReports(props: {
   to: string;
   ministryId: string;
   status: string;
+  appliedFilterCount?: number;
+  ministryOptions?: Pick<MinistryReport["ministries"][number], "id" | "name">[];
   busy: boolean;
   onFrom: (value: string) => void;
   onTo: (value: string) => void;
@@ -114,46 +128,60 @@ export function OperationalReports(props: {
   onApply: () => void;
   onDownload: (report: "membership" | "ministries" | "participation" | "ministry-cost", format: "csv" | "pdf") => void;
 }) {
-  const ministryOptions = props.ministries.state === "ready" ? props.ministries.data.ministries : [];
+  const ministryOptions = props.ministryOptions ?? (props.ministries.state === "ready" ? props.ministries.data.ministries : []);
   return (
-    <main className={s.page}>
-      <header className={s.header}>
-        <div>
-          <p className={s.kicker}>{props.production ? "Relatórios" : "Relatórios · homologação"}</p>
-          <h1>Pessoas, ministérios e eventos</h1>
-          <p>Contagens e custos saem da API no período escolhido. Menores não são listados. Nada aqui é Pix ou banco.</p>
-        </div>
-      </header>
+    <div className={s.page}>
+      <PageHeader appearance="workspace" heading="h1" title="Relatórios"
+        description="Consulte pessoas, ministérios, inscrições em eventos e despesas por ministério."
+        actions={<AppNavLink className={ui.workspaceSecondary} href="/app/tesouraria/">
+          <UIIcon name="wallet" size={17} /> Tesouraria <UIIcon name="arrow" size={15} />
+        </AppNavLink>}
+      />
 
-      <form className={s.filters} onSubmit={(event) => { event.preventDefault(); props.onApply(); }}>
-        <label>De
-          <input type="date" value={props.from} onChange={(event) => props.onFrom(event.target.value)} />
-        </label>
-        <label>Até
-          <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
-        </label>
-        <label>Ministério
-          <select value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
-            <option value="">Escopo autorizado</option>
-            {ministryOptions.map((ministry) => (
-              <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>Situação do evento
-          <select value={props.status} onChange={(event) => props.onStatus(event.target.value)}>
-            <option value="">Todas</option>
-            <option value="PENDING_PAYMENT">Pagamento pendente</option>
-            <option value="CONFIRMED">Confirmado</option>
-            <option value="CHECKED_IN">Presente</option>
-            <option value="CANCELLED">Cancelado</option>
-          </select>
-        </label>
-        <button type="submit" disabled={props.busy}>Atualizar consulta</button>
-      </form>
+      <nav className={s.sectionLinks} aria-label="Relatórios disponíveis">
+        {Object.entries(sections).map(([id, section]) => <a href={`#report-${id}`} key={id}>
+          <span className={s.sectionIcon}><UIIcon name={section.icon} size={19} /></span>
+          <span>{section.label}</span><UIIcon name="chevron" size={14} />
+        </a>)}
+      </nav>
+
+      <FilterDisclosure mobileOnly closeOnSubmit count={props.appliedFilterCount}>
+        <form className={s.filters} aria-label="Filtros dos relatórios" onSubmit={(event) => { event.preventDefault(); props.onApply(); }}>
+          <fieldset className={s.period}>
+            <legend><UIIcon name="calendar" size={15} /> Período</legend>
+            <label>De
+              <input type="date" value={props.from} onChange={(event) => props.onFrom(event.target.value)} />
+            </label>
+            <label>Até
+              <input type="date" value={props.to} min={props.from || undefined} onChange={(event) => props.onTo(event.target.value)} />
+            </label>
+          </fieldset>
+          <label><span id="report-ministry-label">Ministério</span>
+            <select aria-labelledby="report-ministry-label" value={props.ministryId} onChange={(event) => props.onMinistry(event.target.value)}>
+              <option value="">Todos</option>
+              {ministryOptions.map((ministry) => (
+                <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+              ))}
+            </select>
+          </label>
+          <label><span id="report-status-label">Situação do evento</span>
+            <select aria-labelledby="report-status-label" value={props.status} onChange={(event) => props.onStatus(event.target.value)}>
+              <option value="">Todas</option>
+              <option value="PENDING_PAYMENT">Pagamento pendente</option>
+              <option value="CONFIRMED">Confirmado</option>
+              <option value="CHECKED_IN">Presente</option>
+              <option value="CANCELLED">Cancelado</option>
+            </select>
+          </label>
+          <button className={ui.workspacePrimary} type="submit" disabled={props.busy}>
+            <UIIcon name="filter" size={17} /> Aplicar filtros
+          </button>
+        </form>
+      </FilterDisclosure>
+      {props.notice && <p className={s.blocked} role="alert">{props.notice}</p>}
 
       <ReportFrame
-        title="Pessoas"
+        section="people"
         slot={props.membership}
         busy={props.busy}
         onCsv={() => props.onDownload("membership", "csv")}
@@ -161,7 +189,7 @@ export function OperationalReports(props: {
         render={(data) => <MembershipBody data={data} />}
       />
       <ReportFrame
-        title="Ministérios"
+        section="ministries"
         slot={props.ministries}
         busy={props.busy}
         onCsv={() => props.onDownload("ministries", "csv")}
@@ -169,7 +197,7 @@ export function OperationalReports(props: {
         render={(data) => <MinistryBody data={data} />}
       />
       <ReportFrame
-        title="Eventos"
+        section="events"
         slot={props.participation}
         busy={props.busy}
         onCsv={() => props.onDownload("participation", "csv")}
@@ -177,19 +205,19 @@ export function OperationalReports(props: {
         render={(data) => <ParticipationBody data={data} />}
       />
       <ReportFrame
-        title="Custo do ministério"
+        section="costs"
         slot={props.cost}
         busy={props.busy}
         onCsv={() => props.onDownload("ministry-cost", "csv")}
         onPdf={() => props.onDownload("ministry-cost", "pdf")}
         render={(data) => <CostBody data={data} />}
       />
-    </main>
+    </div>
   );
 }
 
 function ReportFrame<T>(props: {
-  title: string;
+  section: keyof typeof sections;
   slot: Slot<T>;
   busy: boolean;
   onCsv: () => void;
@@ -197,26 +225,37 @@ function ReportFrame<T>(props: {
   render: (data: T) => ReactNode;
 }) {
   const ready = props.slot.state === "ready";
+  const { label, icon } = sections[props.section];
+  const id = `report-${props.section}`;
   return (
-    <section className={s.panel} aria-label={props.title}>
-      <h2>{props.title}</h2>
-      {props.slot.state === "disabled" && <p className={s.blocked} role="status">Homologação desabilitada. Nenhum total foi inventado.</p>}
+    <section id={id} tabIndex={-1} className={s.panel} aria-labelledby={id + "-title"}>
+      <header className={s.panelHeader}>
+        <div className={s.panelTitle}>
+          <span className={s.panelIcon}><UIIcon name={icon} size={21} /></span>
+          <h2 id={id + "-title"}>{label}</h2>
+        </div>
+        <div className={s.exports} role="group" aria-label={`Exportar: ${label}`}>
+          <button className={ui.workspaceQuiet} type="button" aria-label="Exportar CSV" disabled={props.busy || !ready} onClick={props.onCsv}>
+            <UIIcon name="grid" size={16} /> CSV
+          </button>
+          <button className={ui.workspaceQuiet} type="button" aria-label="Exportar PDF" disabled={props.busy || !ready} onClick={props.onPdf}>
+            <UIIcon name="download" size={16} /> PDF
+          </button>
+        </div>
+      </header>
+      {props.slot.state === "disabled" && <p className={s.notice} role="status">Relatório indisponível neste endereço.</p>}
       {props.slot.state === "signed-out" && <p className={s.notice} role="status">Entre para consultar este relatório.</p>}
       {props.slot.state === "loading" && <p className={s.notice} role="status">Consultando…</p>}
       {props.slot.state === "forbidden" && <p className={s.blocked} role="alert">{props.slot.message}</p>}
-      {props.slot.state === "error" && <p className={s.blocked} role="alert">{props.slot.message} Nenhum número foi colocado no lugar da consulta.</p>}
+      {props.slot.state === "error" && <p className={s.blocked} role="alert">{props.slot.message}</p>}
       {props.slot.state === "ready" && props.render(props.slot.data)}
-      <div className={s.actions}>
-        <button type="button" disabled={props.busy || !ready} onClick={props.onCsv}>Exportar CSV</button>
-        <button type="button" disabled={props.busy || !ready} onClick={props.onPdf}>Exportar PDF</button>
-      </div>
     </section>
   );
 }
 
 function Chart(props: { bars: Bar[] | null; caption: string; format: (value: number) => string }) {
   if (!props.bars) return <p className={s.notice}>{props.caption}</p>;
-  if (props.bars.length === 0) return <p className={s.notice}>A API não devolveu agregação para o gráfico.</p>;
+  if (props.bars.length === 0) return <p className={s.notice}>Nenhum dado para este gráfico no período.</p>;
   const max = Math.max(...props.bars.map((bar) => Math.abs(bar.value)), 1);
   return (
     <div className={s.chart} aria-label={props.caption}>
@@ -242,11 +281,13 @@ function MembershipBody({ data }: { data: MembershipReport }) {
     <>
       {data.note && <p className={s.notice}>{data.note}</p>}
       {!data.countsMatch && <p className={s.blocked} role="alert">As contagens não fecham. O gráfico ficou de fora.</p>}
-      <Chart bars={bars} caption="Membresia por situação, como a API agregou." format={(value) => String(value)} />
+      <dl className={s.highlights}>
+        <div><dt>Total de membresias</dt><dd>{data.totalMemberships}</dd></div>
+        <div><dt>Visitantes adultos ativos</dt><dd>{data.adultVisitorsActive}</dd></div>
+        <div><dt>Menores omitidos</dt><dd>{data.minorsOmitted}</dd></div>
+      </dl>
+      <Chart bars={bars} caption="Membresia por situação" format={(value) => String(value)} />
       <ul className={s.lines}>
-        <li><span>Total de membresias</span><strong>{data.totalMemberships}</strong></li>
-        <li><span>Menores omitidos</span><strong>{data.minorsOmitted}</strong></li>
-        <li><span>Visitantes adultos ativos</span><strong>{data.adultVisitorsActive}</strong></li>
         {Object.entries(data.adultsByStatus).map(([status, value]) => (
           <li key={status}><span>Adultos · {labelOf(status)}</span><strong>{value}</strong></li>
         ))}
@@ -277,18 +318,19 @@ function MinistryBody({ data }: { data: MinistryReport }) {
             <p>Integrantes adultos: {sumRecord(ministry.formalMembers.adultsByStatus)} · Menores omitidos: {ministry.formalMembers.minorsOmitted}</p>
           </article>
         ))}
-        {data.ministries.length === 0 && <p>A API não devolveu ministérios neste escopo.</p>}
+        {data.ministries.length === 0 && <p>Nenhum ministério disponível nesta consulta.</p>}
       </div>
     </>
   );
 }
 
 function ParticipationBody({ data }: { data: ParticipationReport }) {
+  const bars = participationBars(data.counts);
   return (
     <>
       <Chart
-        bars={participationBars(data.counts)}
-        caption={participationBars(data.counts) ? "Situações das inscrições. A soma confere com o total." : "O gráfico ficou de fora porque a soma das situações não confere com o total."}
+        bars={bars}
+        caption={bars ? "Inscrições por situação" : "O gráfico ficou de fora porque a soma das situações não confere com o total."}
         format={(value) => String(value)}
       />
       <p className={s.notice}>Inscrições: {data.counts.registrations ?? "—"} · Menores omitidos: {data.counts.minorsOmitted ?? "—"}</p>

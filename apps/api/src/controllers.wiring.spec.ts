@@ -63,12 +63,13 @@ describe("controller wiring (delegates to services)", () => {
   it("AuthController", async () => {
     const auth = {
       login: jest.fn().mockResolvedValue({ accessToken: "t" }),
+      describeSession: jest.fn().mockResolvedValue({ ...user, canManageConnection: false }),
     };
     const c = new AuthController(auth as never);
     await expect(c.login({ email: "a", password: "b" })).resolves.toEqual({
       accessToken: "t",
     });
-    expect(c.me(user)).toBe(user);
+    await expect(c.me(user)).resolves.toEqual({ ...user, canManageConnection: false });
     expect(c.rbacSmoke(user)).toMatchObject({ ok: true, personId: "p1" });
   });
 
@@ -84,7 +85,7 @@ describe("controller wiring (delegates to services)", () => {
       getDossier: jest.fn().mockResolvedValue({ person: { id: "p1" } }),
       patch: jest.fn().mockResolvedValue({ id: "p1" }),
     };
-    const c = new PersonsController(persons as never);
+    const c = new PersonsController(persons as never, {} as never);
     await c.search(user, "an", "5");
     expect(persons.search).toHaveBeenCalledWith(user, "an", 5);
     await c.candidates(user, { displayName: "Ana Demo", email: "a@example.test" });
@@ -567,7 +568,13 @@ describe("controller wiring (delegates to services)", () => {
       setGuardianAuthorization: jest.fn(),
       handleMockPaymentWebhook: jest.fn(),
     };
-    const c = new EventsController(events as never, registrations as never);
+    const c = new EventsController(
+      events as never,
+      registrations as never,
+      { participation: jest.fn() } as never,
+      { reconcile: jest.fn() } as never,
+      { listForEvents: jest.fn() } as never,
+    );
     await c.create(user, {
       name: "Encontro",
       slug: "encontro",
@@ -630,11 +637,12 @@ describe("controller wiring (delegates to services)", () => {
       home: jest.fn().mockResolvedValue({ ministries: [] }),
       listMinistries: jest.fn(),
       getMinistryBySlug: jest.fn(),
-      listEvents: jest.fn(),
+      listEvents: jest.fn().mockResolvedValue({ events: [{ id: "e1", startsAt: "2099-01-01T13:00:00Z" }] }),
       getEventBySlug: jest.fn().mockResolvedValue({ id: "e1", slug: "encontro-jovens-demo" }),
       getContentBySlug: jest.fn(),
     };
     const registrations = {
+      openPublicRegistrationEvents: jest.fn().mockResolvedValue(new Set(["e1"])),
       publicCatalogForEvent: jest.fn().mockResolvedValue({
         modalities: [],
         lots: [],
@@ -660,7 +668,7 @@ describe("controller wiring (delegates to services)", () => {
     await c.home();
     await c.listMinistries();
     await c.getMinistry("jovens");
-    await c.listEvents();
+    await expect(c.listEvents()).resolves.toMatchObject({ events: [{ id: "e1", registrationOpen: true }] });
     await c.getEvent("encontro-jovens-demo");
     await c.createRegistration("encontro-jovens-demo", {
       displayName: "Demo",
