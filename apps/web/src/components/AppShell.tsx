@@ -37,6 +37,17 @@ export { UIIcon };
 
 const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "tesouraria", "ministerios"];
 
+const CONNECTION_SECTIONS = [
+  { title: "Trilha da Conexão", id: "trilha", icon: "layers" },
+  { title: "Grupos de Amizade", id: "grupos", icon: "people" },
+  { title: "Pedidos de entrada", id: "pedidos", icon: "mail" },
+] as const;
+const EVENT_SECTIONS = [{ title: "Cadastrar evento", id: "novo-evento", icon: "plus" }] as const;
+
+function searchable(text: string) {
+  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
+}
+
 export type PersonaAccessState = {
   kind: "preview" | "pending" | "anonymous" | "held" | "ready";
   roles: string[];
@@ -258,7 +269,9 @@ export function AppShell({
     (preview || active !== "conexao" || readyUser?.canManageConnection === true);
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
-  const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const query = searchable(term);
+  const matches = (label: string) => searchable(label).includes(query);
+  const filtered = menu.filter(item => matches(item.label + " " + item.hint));
   const phone = mobileItems(menu, memberShell);
   const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
   const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
@@ -309,7 +322,7 @@ export function AppShell({
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
   const atmosferaScales = ministryEntries.find(entry => entry.scales)?.scales;
-  const showAtmosferaSearch = Boolean(atmosferaScales && "atmosfera escalas".includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const showAtmosferaSearch = Boolean(atmosferaScales && matches("Atmosfera Escalas"));
   const secretaryMenu = menu.some(item => item.key === "secretaria");
   const credentialMenu = menu.find(item => item.key === "carteirinha");
   const secretaryChildren = [
@@ -320,6 +333,22 @@ export function AppShell({
     { key: "aniversariantes", title: "Aniversariantes", href: "/app/secretaria/aniversariantes/", icon: "birthday" as const },
     ...(credentialMenu ? [{ key: "carteirinha", title: "Carteirinhas", href: credentialMenu.href, icon: "badge" as const }] : []),
   ];
+  const canCreateEvents = preview || roles.some(role => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"].includes(role));
+  const sectionLinks = {
+    conexao: CONNECTION_SECTIONS,
+    "eventos-gestao": canCreateEvents ? EVENT_SECTIONS : [],
+  };
+  const commandSections = [
+    ...(secretaryMenu ? secretaryChildren.filter(item => item.key !== "carteirinha").map(item => ({
+      href: item.href, title: item.title, icon: item.icon, area: "Secretaria",
+    })) : []),
+    ...menu.flatMap(item => {
+      const sections = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
+      return sections.map(section => ({
+        href: item.href + "#" + section.id, title: section.title, icon: section.icon, area: item.label,
+      }));
+    }),
+  ].filter(item => matches(item.title + " " + item.area));
   const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "secretary" } | { kind: "treasury" } | { kind: "ministries" } | { kind: "divider" }> = [];
   let ministryInserted = false;
   let supportingSectionInserted = false;
@@ -346,9 +375,8 @@ export function AppShell({
     }
     menuBlocks.push({ kind: "link", item });
   }
-  const commandTreasury = treasuryChildren.filter(item =>
-    (`Tesouraria financeiro ${item.label}`).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
-  const commandMinistries = (ministries ?? []).filter(item => item.name.toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const commandTreasury = treasuryChildren.filter(item => matches(`Tesouraria financeiro ${item.label}`));
+  const commandMinistries = (ministries ?? []).filter(item => matches(item.name));
   const railCollapsed = viewport === "desktop" && collapsed;
   const menuExpanded = viewport === "mobile" ? drawerOpen : viewport === "desktop" ? !collapsed : false;
   const menuButtonLabel = viewport === "mobile"
@@ -592,13 +620,7 @@ export function AppShell({
             );
             if (block.kind === "link") {
               const item = block.item;
-              const children = item.key === "conexao" ? [
-                { title: "Trilha da Conexão", id: "trilha", icon: "layers" as const },
-                { title: "Grupos de Amizade", id: "grupos", icon: "people" as const },
-                { title: "Pedidos de entrada", id: "pedidos", icon: "mail" as const },
-              ] : item.key === "eventos-gestao" && (preview || roles.some(role => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"].includes(role))) ? [
-                { title: "Cadastrar evento", id: "novo-evento", icon: "plus" as const },
-              ] : [];
+              const children = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
               if (children.length) return (
                 <SidebarGroup key={item.key} label={item.label} href={item.href} icon={item.icon}
                   active={active === item.key} current={active === item.key && !children.some(child => child.id === sectionId)}
@@ -707,6 +729,10 @@ export function AppShell({
           </label>
           <div className={s.commandList}>
             {filtered.filter(item => item.key !== "atmosfera" || !atmosferaScales).map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {commandSections.map(item => <AppNavLink key={item.href} href={item.href} onNavigate={afterNavigate}>
+              <span className={s.commandListIcon}><UIIcon name={item.icon} /></span>
+              <span><strong>{item.title}</strong><small>{item.area}</small></span><UIIcon name="arrow" size={16} />
+            </AppNavLink>)}
             {commandTreasury.map(item =>
               <a key={`financeiro-${item.section}`} href={withBasePath(treasurySectionHref(item.section))}
                 onClick={afterNavigate}>
@@ -717,7 +743,7 @@ export function AppShell({
             )}
             {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
             {showAtmosferaSearch && atmosferaScales && <AppNavLink href={atmosferaScales.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="calendar"/></span><span><strong>Atmosfera · Escalas</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>}
-            {!showAtmosferaSearch && filtered.length === 0 && commandTreasury.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
+            {!showAtmosferaSearch && filtered.length === 0 && commandSections.length === 0 && commandTreasury.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
         </section>
       </div>}

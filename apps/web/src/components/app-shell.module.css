@@ -552,7 +552,8 @@
   color: #334d37;
   font: 500 16px/1.4 Inter, sans-serif;
 }
-.commandSearch:focus-within { border-color: #40785c; box-shadow: 0 0 0 2px #dcebe1; }
+.commandSearch:focus-within { border-color: #40785c; box-shadow: 0 0 0 2px #b0d0ba; }
+.frame .commandSearch input:focus-visible { outline: none; }
 .commandHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; }
 .commandHeader h2 { margin: 0; color: #173f31; font: 750 1.18rem/1.2 Montserrat, Inter, sans-serif; letter-spacing: -.025em; }
 .commandHeader button {
@@ -618,11 +619,11 @@
 }
 .commandList small {
   font-size: 10px;
-  color: #8a9e7d;
+  color: #536858;
 }
 .commandEmpty {
   padding: 14px;
-  color: #899c7c;
+  color: #536858;
   font-size: 12px;
 }
 .commandFooter {
