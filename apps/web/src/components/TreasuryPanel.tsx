@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiPost, apiPostForm, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
-import { ledgerChannel, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
+import { ledgerChannel, statementCashEffect, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
 import { TreasuryBankStatements } from "./TreasuryBankStatements";
 import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
@@ -283,7 +283,8 @@ export function TreasuryPanel() {
   const accountMap = new Map(accounts.map(account => [account.id, account]));
   const demoAccounts = accounts.some(account => /\(demo\)/i.test(account.name));
   const scopeEntries = entries.filter(entry => !activeCenter || entry.costCenterId === activeCenter);
-  const expenseRows = scopeEntries.filter(entry => entry.approvalFlow === "TREASURER_THEN_PASTOR");
+  const expenseRows = scopeEntries.filter(entry => entry.approvalFlow === "TREASURER_THEN_PASTOR" &&
+    (!from || entry.entryDate >= from) && (!to || entry.entryDate <= to));
   const summary = cards.kind === "ready" && cards.position.countedEntryIds && data?.entries && !data.accountsNote
     ? summarizeTreasury(accounts, entries, cards.position.countedEntryIds, { from, to })
     : null;
@@ -353,6 +354,7 @@ export function TreasuryPanel() {
 
   const payables = accounts.filter(account => matches(account, "payable"));
   const banks = accounts.filter(account => matches(account, "cash"));
+  const bankIds = new Set(banks.map(account => account.id));
   const expenses = accounts.filter(account => matches(account, "expense"));
   const channels = treasuryChannels.find(channel => channel.id === tab);
   const revenue = channels ? accounts.find(account => account.code === channels.revenue && account.type === "REVENUE") : undefined;
@@ -538,19 +540,11 @@ export function TreasuryPanel() {
             onReconciliation={() => openView("conciliacao")} />
         ) : <TreasuryPositionCards state={cards} />)}
 
-        {view === "despesas" && <section className={styles.card} aria-label="Despesas da congregação">
-          <header className={styles.expenseHeading}>
-            <div className={styles.statementTitle}>
-              <span className={styles.statementIcon}><UIIcon name="wallet" size={22} /></span>
-              <div><h2>Despesas da congregação</h2>
-                {data?.entries && <p className={styles.note}>{expenseRows.length} {expenseRows.length === 1 ? "despesa no período" : "despesas no período"}</p>}
-              </div>
-            </div>
-          </header>
+        {view === "despesas" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Despesas da congregação">
+          <FinancialHeading icon="wallet" title="Despesas da congregação">
+            {data?.entries && <span className={styles.statementCount}>{expenseRows.length} {expenseRows.length === 1 ? "despesa no período" : "despesas no período"}</span>}
+          </FinancialHeading>
           <FilterDisclosure count={[activeCenter, from || to].filter(Boolean).length}>{scopeFilters}</FilterDisclosure>
-          <p className={styles.approvalInfo}><UIIcon name="shield" size={19} />
-            <span>A despesa entra no saldo após a aprovação do pastor.</span>
-          </p>
           {demoAccounts && <p className={styles.unavailable} role="status">Este ambiente usa contas demonstrativas. Não registre despesas reais antes da configuração do plano de contas de produção.</p>}
           {!canCreateExpense && access.kind === "ready" && <p className={styles.unavailable} role="status">
             Seu perfil pode consultar as despesas, mas somente quem tem permissão de Tesouraria pode cadastrar uma nova.
@@ -586,14 +580,10 @@ export function TreasuryPanel() {
           })}
         </section>}
 
-        {view === "extrato" && <section className={styles.card} aria-label="Extrato e aprovações">
-          <header className={styles.statementHeader}>
-            <div className={styles.statementTitle}>
-              <span className={styles.statementIcon}><UIIcon name="book" size={22} /></span>
-              <h2>Extrato</h2>
-            </div>
+        {view === "extrato" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Extrato e aprovações">
+          <FinancialHeading icon="book" title="Extrato">
             {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
-          </header>
+          </FinancialHeading>
           {canWrite && token && <TreasuryBankStatements token={token}
             accounts={banks}
             entries={entries} />}
@@ -604,10 +594,10 @@ export function TreasuryPanel() {
               {scopeFilters}
               <div className={`${styles.toolbar} ${styles.statementFilters}`} role="group" aria-label="Filtros do extrato">
                   <label>Conta<select value={bankFilter} onChange={event => { setBankFilter(event.target.value); setPage(1); }}><option value="">Todas</option>{banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
-                  <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
+                  <label>Canal<select value={channelFilter} onChange={event => { setChannelFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{treasuryChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.name}</option>)}<option value="outras">Outras entradas</option><option value="movimentacao">Outros movimentos</option></select></label>
                   <label>Situação<select value={statementStatus} onChange={event => { setStatementStatus(event.target.value); setPage(1); }}>
                     <option value="">Todas</option><option value="APPROVED">Aprovados</option><option value="PENDING_APPROVAL">Aguardando aprovação</option>
-                    <option value="DRAFT">Rascunhos</option><option value="REJECTED">Recusados</option><option value="reconciled">Conciliados</option>
+                    <option value="DRAFT">Rascunhos</option><option value="REJECTED">Recusados</option><option value="REVERSED">Estornados</option><option value="reconciled">Conciliados</option>
                   </select></label>
               </div>
             </div>
@@ -622,14 +612,28 @@ export function TreasuryPanel() {
             {movements.map(entry => {
             const approval = approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []);
             const ledgerType = ledgerChannel(entry, accountMap);
+            const effect = statementCashEffect(entry, bankIds, bankFilter);
+            const direction = { credit: "Entrada", debit: "Saída", transfer: "Entre contas", ledger: "Lançamento contábil" }[effect.kind];
+            const bankNames = Array.from(new Set(entry.lines
+              .filter(line => bankIds.has(line.accountId))
+              .map(line => accountMap.get(line.accountId)?.name).filter(Boolean)));
+            const channel = treasuryChannels.find(item => item.id === ledgerType)?.name;
             return <article key={entry.id} className={styles.movement}>
               <div className={styles.movementInfo}>
-                <span className={styles.movementIcon}><UIIcon name={ledgerType === "movimentacao" ? "wallet" : "activity"} size={17} /></span>
-                <div><strong>{entry.description}</strong><small className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</small></div>
+                <span className={styles.movementIcon} data-direction={effect.kind}><UIIcon name={effect.kind === "credit" || effect.kind === "debit" ? "arrow" : effect.kind === "transfer" ? "refresh" : "book"} size={17} /></span>
+                <div><strong>{entry.description}</strong>
+                  {(channel || bankNames.length > 0) && <small>{[channel, ...bankNames].filter(Boolean).join(" · ")}</small>}
+                </div>
               </div>
-              <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
-              <details className={styles.movementDetails}><summary>Detalhes do movimento</summary>
-                {entry.lines.map((line, index) => <p key={index}>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"} · {formatBRL(line.cents)}</p>)}
+              <span className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</span>
+              <div className={styles.movementValue} data-direction={effect.kind}>
+                <strong className={styles.amount}>{effect.amount === null ? "—" : (effect.kind === "credit" ? "+" : effect.kind === "debit" ? "−" : "") + formatBRL(Math.abs(effect.amount))}</strong>
+                <small>{direction}</small>
+              </div>
+              <details className={styles.movementDetails}><summary aria-label={`Detalhes do movimento: ${entry.description}`}><UIIcon name="chevron" size={18} /></summary>
+                <dl>{entry.lines.map((line, index) => <div key={index}>
+                  <dt>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"}</dt><dd>{formatBRL(line.cents)}</dd>
+                </div>)}</dl>
                 {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
               </details>
               {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
@@ -643,13 +647,15 @@ export function TreasuryPanel() {
           </div>}
         </section>}
 
-        {view === "conciliacao" && <section className={styles.card} aria-label="Conciliações">
-          <h2>Conciliações</h2>
+        {view === "conciliacao" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Conciliações">
+          <FinancialHeading icon="check" title="Conciliações" />
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.reconciliationNote && <p role="status">{data.reconciliationNote}</p>}
           {data?.reconciliations && !reconciliations.length && <p>Nenhuma conciliação registrada.</p>}
           {reconciliations.map(item => <article key={item.id} className={styles.row}>
-            <div><strong>{item.title || "Conciliação"}</strong><small>{displayDate(item.periodStart)} a {displayDate(item.periodEnd)}</small></div>
+            <div className={styles.reconcileIdentity}><span className={styles.movementIcon}><UIIcon name={item.status === "CLOSED" ? "check" : "clock"} size={17} /></span>
+              <div><strong>{item.title || "Conciliação"}</strong><small>{displayDate(item.periodStart)} a {displayDate(item.periodEnd)}</small></div>
+            </div>
             <span className={styles.reconcileState} data-closed={item.status === "CLOSED"}>{item.status === "CLOSED" ? "Fechada" : "Em conferência"}</span>
           </article>)}
         </section>}
@@ -691,6 +697,18 @@ function AccountSelect({ label, name, accounts }: { label: string; name: string;
   return <label>{label}<select name={name} required defaultValue=""><option value="">Selecione</option>
     {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
   </select></label>;
+}
+
+function FinancialHeading({ icon, title, children }: {
+  icon: "wallet" | "book" | "check"; title: string; children?: React.ReactNode;
+}) {
+  return <header className={styles.statementHeader}>
+    <div className={styles.statementTitle}>
+      <span className={styles.statementIcon}><UIIcon name={icon} size={22} /></span>
+      <h2>{title}</h2>
+    </div>
+    {children}
+  </header>;
 }
 
 function displayDate(value: string) {

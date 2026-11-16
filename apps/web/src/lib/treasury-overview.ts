@@ -17,6 +17,19 @@ export type TreasuryEntry = {
   lines: TreasuryEntryLine[];
 };
 
+export function statementCashEffect(entry: TreasuryEntry, accountIds: ReadonlySet<string>, accountId?: string) {
+  let movement = 0;
+  let hasCashLine = false;
+  for (const line of entry.lines) {
+    if (accountId ? line.accountId !== accountId : !accountIds.has(line.accountId)) continue;
+    hasCashLine = true;
+    movement += line.side === "DEBIT" ? line.cents : -line.cents;
+  }
+  if (!hasCashLine) return { kind: "ledger", amount: entry.amountCents } as const;
+  if (movement === 0) return { kind: "transfer", amount: entry.amountCents } as const;
+  return { kind: movement > 0 ? "credit" : "debit", amount: movement } as const;
+}
+
 export const treasuryChannels = [
   { id: "pix", name: "Pix", revenue: "4.2.10.01" },
   { id: "cartao", name: "Cartão", revenue: "4.2.10.02", pending: "1.2.20.01" },

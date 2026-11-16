@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { isBankStatementAccount } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiPost, apiPostFormJson } from "../lib/api";
 import { dasError, formatBRL } from "../lib/das-operations";
-import type { TreasuryAccount, TreasuryEntry } from "../lib/treasury-overview";
+import { statementCashEffect, type TreasuryAccount, type TreasuryEntry } from "../lib/treasury-overview";
+import { UIIcon } from "./ui/UIIcon";
 import ui from "./ui/ui.module.css";
 import styles from "./treasury-panel.module.css";
 
@@ -46,9 +47,12 @@ function bankLineError(error: unknown) {
 
 function bankCandidates(line: BankLine, batch: BankBatch, entries: TreasuryEntry[]) {
   const postedAt = line.postedAt.slice(0, 10);
-  return entries.filter(entry => entry.status === "APPROVED" && entry.lines.reduce((total, part) =>
-    part.accountId === batch.accountId ? total + (part.side === "DEBIT" ? part.cents : -part.cents) : total,
-  0) === line.amountCents).sort((a, b) =>
+  const accountIds = new Set([batch.accountId]);
+  return entries.filter(entry => {
+    if (entry.status !== "APPROVED") return false;
+    const { kind, amount } = statementCashEffect(entry, accountIds);
+    return (kind === "credit" || kind === "debit") && amount === line.amountCents;
+  }).sort((a, b) =>
     Number(b.entryDate.slice(0, 10) === postedAt) - Number(a.entryDate.slice(0, 10) === postedAt));
 }
 
@@ -63,6 +67,8 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
   const [notice, setNotice] = useState("");
   const [failure, setFailure] = useState("");
   const [visible, setVisible] = useState(25);
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   const running = useRef(false);
   const eligibleAccounts = accounts.filter(isBankStatementAccount);
 
@@ -145,9 +151,15 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
   }
 
   return (
-    <details className={styles.bankStatements}>
-      <summary>Importar extrato bancário</summary>
-      <p className={styles.note}>Exporte o OFX no banco, escolha a conta que corresponde ao arquivo e confira os movimentos. O saldo segue os lançamentos aprovados.</p>
+    <div className={styles.bankStatements}>
+      <div className={styles.bankStatementBar}>
+        <div><strong>Extratos bancários</strong><small>Arquivos OFX por conta bancária</small></div>
+        <button type="button" className={ui.workspacePrimary} aria-controls={panelId} aria-expanded={open} onClick={() => setOpen(value => !value)}>
+          <UIIcon name="plus" size={17} /> Importar extrato bancário
+        </button>
+      </div>
+      <div id={panelId} hidden={!open} className={styles.bankStatementBody}>
+      <p className={styles.note}>Escolha a mesma conta do arquivo exportado pelo banco. Limite de 2 MB por arquivo.</p>
       {eligibleAccounts.length ? <form onSubmit={upload}>
         <label>Conta bancária
           <select name="accountId" defaultValue="" required disabled={pending}>
@@ -158,12 +170,13 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
         <label>Arquivo OFX<input type="file" name="file" accept=".ofx,application/x-ofx" required disabled={pending} /></label>
         <button type="submit" className={ui.workspacePrimary} disabled={pending}>{pending ? "Aguarde…" : "Importar OFX"}</button>
       </form> : <p className={styles.note}>Cadastre uma conta bancária ativa para importar.</p>}
-      {failure && <p role="alert">{failure}</p>}
-      {notice && <p role="status">{notice}</p>}
-      {batches.length > 0 && <details>
+      </div>
+      {failure && <p className={styles.feedback} data-error="true" role="alert">{failure}</p>}
+      {notice && <p className={styles.feedback} role="status">{notice}</p>}
+      {batches.length > 0 && <details className={styles.bankHistory}>
         <summary>Extratos importados ({batches.length})</summary>
         <ul>{batches.map(row => <li key={row.id}>
-          <button type="button" className={ui.workspaceQuiet} onClick={() => openBatch(row)} disabled={pending}>{row.filename}</button>
+          <button type="button" className={ui.workspaceQuiet} onClick={() => openBatch(row)} disabled={pending} aria-current={batch?.id === row.id ? "true" : undefined}>{row.filename}</button>
           <small>{accounts.find(account => account.id === row.accountId)?.name ?? "Conta bancária"} · {shortDate(row.createdAt)} · {row.lineCount} mov.</small>
         </li>)}</ul>
       </details>}
@@ -175,8 +188,10 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
             .filter(entry => !batch.lines.some(other => other.matchedEntryId === entry.id));
           const matched = entries.find(entry => entry.id === line.matchedEntryId);
           return <li key={line.id}>
-            <strong>{line.description}</strong>
-            <small>{shortDate(line.postedAt)} · {formatBRL(line.amountCents)}</small>
+            <div className={styles.importedMovement}>
+              <div><strong>{line.description}</strong><small>{shortDate(line.postedAt)}</small></div>
+              <div data-direction={line.amountCents > 0 ? "credit" : "debit"}><strong>{line.amountCents > 0 ? "+" : "−"}{formatBRL(Math.abs(line.amountCents))}</strong><small>{line.amountCents > 0 ? "Entrada" : "Saída"}</small></div>
+            </div>
             {line.matchedEntryId ? <>
               <small>Vinculado{matched ? " · " + matched.description : ""}</small>
               <button type="button" className={ui.workspaceQuiet} disabled={pending} onClick={() => match(line)}>Desfazer vínculo</button>
@@ -197,6 +212,6 @@ export function TreasuryBankStatements({ token, accounts, entries }: {
         })}</ul>
         {batch.lines.length > visible && <button type="button" className={ui.workspaceSecondary} onClick={() => setVisible(value => value + 25)}>Mostrar mais movimentos</button>}
       </section>}
-    </details>
+    </div>
   );
 }
