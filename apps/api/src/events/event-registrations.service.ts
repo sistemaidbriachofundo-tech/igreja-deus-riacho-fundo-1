@@ -2024,7 +2024,7 @@ export class EventRegistrationsService {
 function pilotMailbox(value: string | null | undefined): string | null {
   if (value == null || value === "") return null;
   const email = value.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+  if (email.length > 254 || !/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email)) {
     throw new BadRequestException("Informe um e-mail válido para receber a confirmação.");
   }
   const live = process.env.EMAIL_TRANSPORT === "smtp" && smtpSendEnabled();

@@ -1,8 +1,8 @@
+import { containsEmailAddress } from "../contact-deep-links";
 import { acceptRequestId } from "./token";
 
 const OUTCOMES = new Set(["SUCCESS", "DENIED", "ERROR"]);
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,96}$/;
-const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const CPF = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
 const JWT = /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const MAX_DEPTH = 4;
@@ -63,7 +63,7 @@ function isSecretKey(key: string): boolean {
 function sanitizeString(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > MAX_STRING) return undefined;
-  if (EMAIL.test(trimmed) || CPF.test(trimmed) || JWT.test(trimmed)) return undefined;
+  if (containsEmailAddress(trimmed) || CPF.test(trimmed) || JWT.test(trimmed)) return undefined;
   return trimmed;
 }
 

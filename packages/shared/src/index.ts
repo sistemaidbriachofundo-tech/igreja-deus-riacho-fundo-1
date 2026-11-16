@@ -333,6 +333,7 @@ export {
 export type { RosterPreviewDto, RosterPreviewPosition } from "./roster-preview";
 export {
   normalizeWhatsAppDigits,
+  containsEmailAddress,
   buildWhatsAppUrl,
   buildMailtoUrl,
   rosterInviteWhatsAppText,

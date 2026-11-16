@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canAdministerMinistries } from "@idbrf/shared";
+import { canAdministerMinistries, containsEmailAddress } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
@@ -319,7 +319,6 @@ function parseDate(value: string, field: string): Date {
   return d;
 }
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
@@ -341,7 +340,7 @@ export function eventPublicationBlockReason(event: {
     .filter((value): value is string => typeof value === "string" && value.length > 0)
     .join("\n");
   if (
-    PERSONAL_EMAIL.test(text) ||
+    containsEmailAddress(text) ||
     PERSONAL_CPF.test(text) ||
     PERSONAL_PHONE.test(text)
   ) {
