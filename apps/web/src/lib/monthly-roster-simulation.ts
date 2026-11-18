@@ -18,6 +18,7 @@ export type MonthlyPosition = Partial<MonthlyChoice> & {
   candidates?: MonthlyChoice[];
 };
 export type MonthlyCapacity = { id: string; label: string; count: number; minimumCount: number };
+export const MONTHLY_CAPACITY_MAX = 30;
 export type MonthlyRoster = {
   id: string;
   moduleId?: string;
@@ -32,8 +33,8 @@ export type MonthlyRoster = {
 export type MonthlyPreview = {
   month: string;
   revision?: string;
-  responses: number;
-  members: number;
+  responses?: number;
+  members?: number;
   rosters: MonthlyRoster[];
 };
 export type MonthlyDecision = { slotId: string; personId: string | null; partnerPersonId?: string; locked: boolean };
@@ -57,7 +58,7 @@ export function nextRosterMonth(now = new Date()) {
 }
 
 export function rosterEditable(roster: MonthlyRoster) {
-  return !roster.readOnly && (!roster.status || roster.status === "DRAFT");
+  return !roster.readOnly && (!roster.status || roster.status === "DRAFT" || roster.status === "MISSING");
 }
 
 export function monthlyChoiceKey(choice: MonthlyChoice) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  monthlyDecisions, monthlySlotChoice, monthlyVacancyMessage, nextRosterMonth,
+  monthlyDecisions, monthlySlotChoice, monthlyVacancyMessage, nextRosterMonth, rosterEditable,
   type MonthlyPreview,
 } from "./monthly-roster-simulation";
 
@@ -35,6 +35,13 @@ describe("simulação mensal de escalas", () => {
 
   it("lembra as escolhas fixadas retornadas pelo backend após recalcular", () => {
     expect(monthlySlotChoice(preview.rosters[0].positions[0], {})).toMatchObject({ choice: { personId: "a" }, locked: true });
+  });
+
+  it("permite editar um culto novo na simulação e protege cultos já publicados ou cancelados", () => {
+    const roster = preview.rosters[0];
+    expect(rosterEditable({ ...roster, status: "MISSING" })).toBe(true);
+    expect(rosterEditable({ ...roster, status: "PUBLISHED" })).toBe(false);
+    expect(rosterEditable({ ...roster, status: "CANCELLED" })).toBe(false);
   });
 
   it("distingue pesquisa sem resposta de indisponibilidade declarada", () => {

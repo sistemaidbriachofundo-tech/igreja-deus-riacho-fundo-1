@@ -6,7 +6,7 @@ import { dasError } from "../../lib/das-operations";
 import { type EscalaModule } from "../../lib/ministry-presentation";
 import {
   monthlyChoiceKey, monthlyDecisions, monthlySlotChoice, monthlyVacancyMessage, nextRosterMonth,
-  rosterEditable, saveRosterMonth, simulateRosterMonth,
+  MONTHLY_CAPACITY_MAX, rosterEditable, saveRosterMonth, simulateRosterMonth,
   type MonthlyDraftChoice, type MonthlyPosition, type MonthlyPreview, type MonthlyRoster,
 } from "../../lib/monthly-roster-simulation";
 import { churchDayKey } from "../../lib/serving-rosters";
@@ -44,7 +44,7 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
   const groups = rosters.filter(rosterEditable).flatMap(roster => (roster.capacity ?? []).map(group => {
     const value = quantities[capacityKey(roster.id, group.id)];
     const count = value === undefined ? group.count : value.trim() === "" ? NaN : Number(value);
-    return { rosterId: roster.id, groupId: group.id, count, valid: Number.isInteger(count) && count >= group.minimumCount && count <= 100 };
+    return { rosterId: roster.id, groupId: group.id, count, valid: Number.isInteger(count) && count >= group.minimumCount && count <= MONTHLY_CAPACITY_MAX };
   }));
   const invalidQuantity = groups.some(group => !group.valid);
   const capacities = groups.map(({ rosterId, groupId, count }) => ({ rosterId, groupId, count }));
@@ -199,7 +199,8 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
           <div data-tone={open ? "pending" : "ready"}><dt>Vagas abertas</dt><dd>{open}</dd></div>
           {revision && <div><dt>Fixadas</dt><dd>{locked}</dd></div>}
         </dl>
-        <p>{preview.responses} de {preview.members} integrantes responderam à pesquisa.</p>
+        {preview.responses !== undefined && preview.members !== undefined &&
+          <p>{preview.responses} de {preview.members} integrantes responderam à pesquisa.</p>}
         {!revision && <p role="status" className={s.compatibility}>Esta API oferece a prévia das escalas existentes. O salvamento do mês e a edição na simulação dependem da atualização do servidor.</p>}
       </header>
       {(rosters.length > 0 || onlyOpen) && <label className={s.checkbox}>
@@ -217,14 +218,15 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
                   <p><time dateTime={roster.serviceAt}>{clock.format(new Date(roster.serviceAt)).replace(":00", "h").replace(":", "h")}</time>{roster.moduleName && ` · ${roster.moduleName}`}</p>
                   <h4>{roster.title}</h4>
                 </div>
-                {!editable && <span className={s.badge}>{roster.status === "PUBLISHED" ? "Publicada" : roster.status === "CANCELED" ? "Cancelada" : "Somente leitura"}</span>}
+                {!editable && <span className={s.badge}>{roster.status === "PUBLISHED" ? "Publicada" :
+                  roster.status === "CANCELLED" || roster.status === "CANCELED" ? "Cancelada" : "Somente leitura"}</span>}
               </header>
               {revision && editable && Boolean(roster.capacity?.length) && <details className={s.capacity}>
                 <summary>Ajustar quantidade neste culto</summary>
                 <div>{roster.capacity?.map(group => {
                   const key = capacityKey(roster.id, group.id);
                   return <label key={key}>{group.label}
-                    <input type="number" min={group.minimumCount} max={100} step={1}
+                    <input type="number" min={group.minimumCount} max={MONTHLY_CAPACITY_MAX} step={1}
                       value={quantities[key] ?? group.count} disabled={Boolean(busy)}
                       onChange={event => {
                         const value = event.target.value;
