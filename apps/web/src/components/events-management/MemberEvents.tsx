@@ -10,6 +10,7 @@ import {
 import { currentPublishedEvents, formatPortalDate, parsePublishedEvents } from "../../lib/portal-live-data";
 import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert, Button, Loading, PageHeader } from "../ui";
+import { UIIcon } from "../ui/UIIcon";
 import { EventReceipt, EventRegistrationForm } from "./PublicEventRegistration";
 import s from "./public-event-registration.module.css";
 
@@ -108,10 +109,22 @@ export function MemberEvents() {
       <section className={s.panel} aria-labelledby="upcoming-member-events">
         <h2 id="upcoming-member-events">Próximos eventos</h2>
         {upcoming.length === 0 ? <p>Nenhum evento publicado para os próximos dias.</p> :
-          <ul className={s.eventList}>{upcoming.map(event => <li key={event.id}>
-            <div><strong>{event.name}</strong><span>{formatPortalDate(event.startsAt).dayAndTime}</span>
-              {event.locationText && <span>{event.locationText}</span>}</div>
-            <AppNavLink href={memberEventsHref(event.slug)}>Ver evento <span className={s.srOnly}>{event.name}</span></AppNavLink>
+          <ul className={s.catalog}>{upcoming.map(event => <li key={event.id}>
+            <div className={s.eventCover}>{event.imageUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+              : <UIIcon name="calendar" size={34} />}</div>
+            <div className={s.catalogDetails}>
+              <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
+              <h3>{event.name}</h3>
+              {event.locationText && <p>{event.locationText}</p>}
+              {typeof event.registrationOpen === "boolean" && <span className={s.catalogStatus}>
+                {event.registrationOpen ? "Inscrições abertas" : "Inscrições indisponíveis"}
+              </span>}
+              <AppNavLink href={memberEventsHref(event.slug)}>
+                {event.registrationOpen ? "Inscrever-se" : "Ver evento"} <span className={s.srOnly}>em {event.name}</span>
+              </AppNavLink>
+            </div>
           </li>)}</ul>}
       </section>
     </>}

@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 1180px;
+  max-width: var(--app-max, 1420px);
   color: var(--color-marrom, #4a2612);
 }
 
@@ -15,20 +15,20 @@
 .greeting {
   margin: 0;
   color: var(--color-bronze, #b8742d);
-  font: 700 0.78rem/1.3 var(--font-title, Montserrat, sans-serif);
+  font: 700 0.78rem/1.3 var(--font-title, "Source Sans Pro", sans-serif);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .intro h1 {
   margin: 4px 0 6px;
-  font: 750 clamp(1.35rem, 2vw, 1.75rem)/1.2 var(--font-title, Montserrat, sans-serif);
+  font: 750 clamp(1.35rem, 2vw, 1.75rem)/1.2 var(--font-title, "Source Sans Pro", sans-serif);
   letter-spacing: -0.03em;
 }
 .lede {
   margin: 0;
   max-width: 62ch;
   color: color-mix(in srgb, var(--color-marrom, #4a2612) 72%, transparent);
-  font: 500 0.98rem/1.5 var(--font-body, Inter, sans-serif);
+  font: 500 0.98rem/1.5 var(--font-body, "Source Sans Pro", sans-serif);
 }
 .introAside {
   display: flex;
@@ -46,7 +46,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-creme, #f7ede0) 72%, white);
   color: color-mix(in srgb, var(--color-marrom, #4a2612) 78%, transparent);
-  font: 700 0.75rem/1 var(--font-body, Inter, sans-serif);
+  font: 700 0.75rem/1 var(--font-body, "Source Sans Pro", sans-serif);
 }
 .refresh, .actions a, .panelHead a, .inlineLink {
   display: inline-flex;
@@ -59,7 +59,7 @@
   border-radius: 999px;
   background: var(--color-surface, #fff);
   color: var(--color-marrom, #4a2612);
-  font: 700 0.86rem/1 var(--font-body, Inter, sans-serif);
+  font: 700 0.86rem/1 var(--font-body, "Source Sans Pro", sans-serif);
   text-decoration: none;
   cursor: pointer;
 }
@@ -78,11 +78,8 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
-.board[data-layout="membro"] {
-  max-width: 40rem;
-}
-.board[data-layout="membro"] .columns {
-  grid-template-columns: 1fr;
+.board[data-layout="membro"] .actions {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
 }
 .actions a:hover, .refresh:hover, .panelHead a:hover, .inlineLink:hover {
   border-color: color-mix(in srgb, var(--color-dourado, #d4af37) 70%, var(--color-marrom, #4a2612));
@@ -107,8 +104,8 @@
   text-decoration: none;
   box-shadow: var(--shadow-soft, 0 8px 24px color-mix(in srgb, var(--color-marrom, #4a2612) 6%, transparent));
 }
-.metric span { color: color-mix(in srgb, var(--color-marrom, #4a2612) 72%, transparent); font: 650 0.82rem/1.3 var(--font-body, Inter, sans-serif); }
-.metric strong { font: 750 clamp(1.7rem, 2vw, 2.1rem)/1 var(--font-title, Montserrat, sans-serif); letter-spacing: -0.04em; }
+.metric span { color: color-mix(in srgb, var(--color-marrom, #4a2612) 72%, transparent); font: 650 0.82rem/1.3 var(--font-body, "Source Sans Pro", sans-serif); }
+.metric strong { font: 750 clamp(1.7rem, 2vw, 2.1rem)/1 var(--font-title, "Source Sans Pro", sans-serif); letter-spacing: -0.04em; }
 .metric small { color: color-mix(in srgb, var(--color-marrom, #4a2612) 58%, transparent); font-size: 0.75rem; }
 .skeleton {
   display: block;
@@ -139,7 +136,7 @@
 }
 .panelHead h2 {
   margin: 0;
-  font: 750 1.05rem/1.3 var(--font-title, Montserrat, sans-serif);
+  font: 750 1.05rem/1.3 var(--font-title, "Source Sans Pro", sans-serif);
   letter-spacing: -0.03em;
 }
 .empty {
@@ -164,8 +161,8 @@
   border-radius: 12px;
   background: color-mix(in srgb, var(--color-creme, #f7ede0) 70%, white);
 }
-.weekDay span, .weekToday span { font: 650 0.68rem/1 var(--font-body, Inter, sans-serif); }
-.weekDay strong, .weekToday strong { font: 750 1rem/1 var(--font-title, Montserrat, sans-serif); }
+.weekDay span, .weekToday span { font: 650 0.68rem/1 var(--font-body, "Source Sans Pro", sans-serif); }
+.weekDay strong, .weekToday strong { font: 750 1rem/1 var(--font-title, "Source Sans Pro", sans-serif); }
 .weekToday { background: var(--color-marrom, #4a2612); color: var(--color-on-dark, #f7ede0); }
 .weekDay[data-marked="true"] strong { color: var(--color-bronze, #b8742d); }
 
@@ -189,12 +186,12 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--color-dourado, #d4af37) 38%, white);
   color: var(--color-marrom, #4a2612);
-  font: 750 0.78rem/1 var(--font-title, Montserrat, sans-serif);
+  font: 750 0.78rem/1 var(--font-title, "Source Sans Pro", sans-serif);
 }
 .rowText, .agenda a > span:last-child { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .rowText strong, .agenda strong, .cardLine strong {
   overflow: hidden;
-  font: 700 0.92rem/1.3 var(--font-body, Inter, sans-serif);
+  font: 700 0.92rem/1.3 var(--font-body, "Source Sans Pro", sans-serif);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -202,7 +199,7 @@
   color: color-mix(in srgb, var(--color-marrom, #4a2612) 65%, transparent);
   font-size: 0.78rem;
 }
-.money { font: 700 0.92rem/1 var(--font-title, Montserrat, sans-serif); white-space: nowrap; }
+.money { font: 700 0.92rem/1 var(--font-title, "Source Sans Pro", sans-serif); white-space: nowrap; }
 .dateMark {
   display: flex;
   flex-direction: column;
@@ -210,9 +207,9 @@
   width: 42px;
   flex: none;
   color: var(--color-bronze, #b8742d);
-  font: 700 0.68rem/1 var(--font-body, Inter, sans-serif);
+  font: 700 0.68rem/1 var(--font-body, "Source Sans Pro", sans-serif);
 }
-.dateMark strong { color: var(--color-marrom, #4a2612); font: 750 1.1rem/1 var(--font-title, Montserrat, sans-serif); }
+.dateMark strong { color: var(--color-marrom, #4a2612); font: 750 1.1rem/1 var(--font-title, "Source Sans Pro", sans-serif); }
 
 .bars li {
   display: grid;

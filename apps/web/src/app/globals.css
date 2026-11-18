@@ -18,8 +18,8 @@
 
   --shadow-soft: 0 10px 28px color-mix(in srgb, var(--color-marrom) 10%, transparent);
 
-  --font-title: "Montserrat", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-title: "Source Sans Pro", system-ui, sans-serif;
+  --font-body: "Source Sans Pro", system-ui, sans-serif;
 
   --ds-gold: var(--color-dourado);
   --ds-brown: var(--color-marrom);

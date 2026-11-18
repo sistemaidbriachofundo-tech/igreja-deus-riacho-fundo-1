@@ -164,7 +164,39 @@ export class PersonalRosterService {
 
   async preview(actor: AuthUser, rosterId: string): Promise<RosterPreviewDto> {
     const pilot = await this.pilot.getPilotChurch();
-    const roster = await this.prisma.roster.findFirst({
+    return (await this.planPreview(actor, rosterId, pilot, this.prisma)).dto;
+  }
+
+  async applyPreview(actor: AuthUser, rosterId: string, fingerprint: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return writeRosterAssignment(this.prisma, async tx => {
+      const { dto, drafts } = await this.planPreview(actor, rosterId, pilot, tx);
+      if (!dto.fingerprint || dto.fingerprint !== fingerprint) {
+        throw new ConflictException("O rascunho ou as sugestões mudaram. Atualize a prévia antes de preencher.");
+      }
+
+      for (const draft of drafts) {
+        const assignment = await tx.rosterAssignment.create({ data: {
+          slotId: draft.slotId, personId: draft.personId, partnerPersonId: draft.partnerPersonId, status: "PENDING",
+        } });
+        await tx.auditLog.create({ data: {
+          actorUserId: actor.userId, action: "roster.assignment.create", resourceType: "roster_assignment",
+          resourceId: assignment.id, organizationId: pilot.organizationId, churchId: pilot.churchId,
+          metadata: { slotId: draft.slotId, personId: draft.personId, partnerPersonId: draft.partnerPersonId ?? null,
+            sameDay: true, notified: false, source: "preview" },
+        } });
+      }
+      return { applied: drafts.length, unfilled: dto.positions.filter(position => !position.personName) };
+    });
+  }
+
+  private async planPreview(
+    actor: AuthUser,
+    rosterId: string,
+    pilot: Awaited<ReturnType<PilotService["getPilotChurch"]>>,
+    db: Prisma.TransactionClient,
+  ) {
+    const roster = await db.roster.findFirst({
       where: { id: rosterId, organizationId: pilot.organizationId, churchId: pilot.churchId },
       include: {
         ministry: { select: { id: true, name: true, slug: true, leaderPersonId: true } },
@@ -180,20 +212,20 @@ export class PersonalRosterService {
     if (roster.status === "CLOSED") throw new ConflictException("A escala já foi encerrada.");
 
     const openSlots = roster.slots.filter(slot => !slot.assignments.length);
-    if (!openSlots.length) return { rosterId, positions: [] };
+    if (!openSlots.length) return { dto: { rosterId, positions: [] } as RosterPreviewDto, drafts: [] };
 
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
     const ministryId = roster.ministry.id;
     const configured = readModuleRules(roster.module?.rules);
-    const activeMembers = await this.prisma.ministryMembership.findMany({
+    const activeMembers = await db.ministryMembership.findMany({
       where: { ...scope, ministryId, status: "ATIVO", person: { status: "ACTIVE" } },
       select: { personId: true, role: true, person: { select: { displayName: true } } },
     });
     const members = activeMembers.filter(member => isModuleVolunteer(configured, member.personId));
     if (!members.length) {
-      return { rosterId, positions: openSlots.map(({ id, roleLabel }) => ({
+      return { dto: { rosterId, positions: openSlots.map(({ id, roleLabel }) => ({
         slotId: id, roleLabel, personName: null, partnerName: null, reasons: ["EMPTY_TEAM"],
-      })) };
+      })) } as RosterPreviewDto, drafts: [] };
     }
 
     const personIds = members.map(member => member.personId);
@@ -203,7 +235,7 @@ export class PersonalRosterService {
     const rules = { ...DEFAULT_RULES, minIntervalDays: configured.minIntervalDays, maxMonthlyAssignments: configured.maxMonthlyAssignments };
     const interval = rules.minIntervalDays * 86_400_000;
     const [history, availability, impediments] = await Promise.all([
-      this.prisma.rosterAssignment.findMany({
+      db.rosterAssignment.findMany({
         where: {
           status: { in: [...ACTIVE] },
           OR: [{ personId: { in: personIds } }, { partnerPersonId: { in: personIds } }],
@@ -214,11 +246,11 @@ export class PersonalRosterService {
           slot: { select: { id: true, roster: { select: { id: true, ministryId: true, serviceAt: true } } } },
         },
       }),
-      this.prisma.volunteerAvailability.findMany({
+      db.volunteerAvailability.findMany({
         where: { ...scope, personId: { in: personIds }, active: true },
         select: { personId: true, weekday: true, startMinute: true, endMinute: true },
       }),
-      this.prisma.volunteerImpediment.findMany({
+      db.volunteerImpediment.findMany({
         where: { ...scope, personId: { in: personIds }, startsAt: { lte: roster.serviceAt }, endsAt: { gt: roster.serviceAt } },
         select: { personId: true, startsAt: true, endsAt: true },
       }),
@@ -251,8 +283,13 @@ export class PersonalRosterService {
     })), candidates, existing, rules);
     const suggestions = new Map(plan.drafts.map(item => [item.slotId, item]));
     const unfilled = new Map(plan.unfilled.map(item => [item.slotId, item.reasons]));
-    return {
+    const canApply = roster.status === "DRAFT" && +roster.serviceAt > Date.now() && plan.drafts.length > 0;
+    const fingerprint = canApply ? createHash("sha256").update(JSON.stringify([
+      rosterId, roster.serviceAt, openSlots.map(slot => slot.id), plan.drafts,
+    ])).digest("hex") : undefined;
+    const dto: RosterPreviewDto = {
       rosterId,
+      ...(fingerprint ? { fingerprint } : {}),
       positions: openSlots.map(slot => {
         const suggestion = suggestions.get(slot.id);
         return {
@@ -263,6 +300,7 @@ export class PersonalRosterService {
         };
       }),
     };
+    return { dto, drafts: plan.drafts };
   }
 
   async monthlySurvey(actor: AuthUser, now = new Date()) {

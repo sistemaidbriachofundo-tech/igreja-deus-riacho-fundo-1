@@ -14,7 +14,7 @@ describe("web brand", () => {
     expect(officialLogoAsset).toBe("/images/idb-riacho-oficial-transparente.svg");
     const svg = readFileSync(join(__dirname, "../../public", officialLogoAsset.slice(1)), "utf8");
     expect(svg).toContain('viewBox="286 96 1664 1832"');
-    expect(svg).toContain('fill="#ff5700"');
+    expect(svg).toContain('fill="#000000"');
     expect(svg).toMatch(/<path\b/);
     expect(svg).not.toMatch(/<(?:rect|image|pattern|foreignObject)\b/i);
     expect(svg).not.toMatch(/<(?:script|style)\b/i);
@@ -67,9 +67,9 @@ describe("web brand", () => {
     expect(brandCssVars["--color-terracota"]).toBe("#C6583E");
   });
 
-  it("locks Montserrat for titles and Inter for body", () => {
-    expect(brandFonts.title).toBe("Montserrat");
-    expect(brandFonts.body).toBe("Inter");
+  it("uses Source Sans Pro for titles and body", () => {
+    expect(brandFonts.title).toBe("Source Sans Pro");
+    expect(brandFonts.body).toBe("Source Sans Pro");
   });
 
   it("declares the brand tokens in globals.css", () => {
@@ -78,7 +78,6 @@ describe("web brand", () => {
     }
     expect(globalsCss).toContain("--font-title:");
     expect(globalsCss).toContain("--font-body:");
-    expect(globalsCss).toContain("Montserrat");
-    expect(globalsCss).toContain("Inter");
+    expect(globalsCss).toContain("Source Sans Pro");
   });
 });

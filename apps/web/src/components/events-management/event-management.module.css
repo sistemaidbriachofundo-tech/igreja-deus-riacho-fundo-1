@@ -166,3 +166,5 @@
   .agenda .calendarControls { display: flex; flex-wrap: wrap; justify-content: space-between; }
   .agenda .toolbar { grid-template-columns: minmax(0, 1fr); }
 }
+
+.detailHeading, .page :global(:is(#agenda-de-eventos, #revisar-evento, #inscricoes-do-evento)) { scroll-margin-top: 90px; }

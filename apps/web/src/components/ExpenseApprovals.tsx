@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { UIIcon, usePersonaAccess } from "./AppShell";
+import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 import { ApiRequestError, apiGet, apiGetBlob, apiPost, loadStoredToken } from "../lib/api";
 import { formatBRL } from "../lib/das-operations";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
@@ -58,13 +58,14 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     if (!token || !permitted) return;
     try {
       setError("");
-      const response = await apiGet<{ entries: PendingExpense[] }>("/ledger/expense-approvals", token);
+      const query = target ? "?" + new URLSearchParams({ despesa: target }).toString() : "";
+      const response = await apiGet<{ entries: PendingExpense[] }>("/ledger/expense-approvals" + query, token);
       setRows(response.entries.filter(row => row.approvalFlow === "TREASURER_THEN_PASTOR"));
     } catch {
       setRows(null);
       setError("Não foi possível consultar os pedidos de aprovação. Tente novamente.");
     }
-  }, [token, permitted]);
+  }, [token, permitted, target]);
 
   useEffect(() => { void load(); }, [load, revision]);
 
@@ -144,7 +145,10 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
   return <section className={s.root} aria-label="Despesas aguardando aprovação">
     {confirmation}
     <PageHeader appearance="workspace" heading={embedded ? "h2" : "h1"} title="Despesas para aprovação"
-      description="Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa." />
+      description="Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa."
+      actions={roles.includes("PASTOR") && <AppNavLink className={ui.workspaceSecondary} href="/app/">
+        <UIIcon name="home" size={16} /> Voltar à Mesa Pastoral
+      </AppNavLink>} />
     {error && <p className={s.error} role="alert">{error}</p>}
     <div className={s.actions}>
       <strong>{rows === null ? (error ? "Consulta indisponível" : "Consultando…") : `${rows.length} ${rows.length === 1 ? "despesa pendente" : "despesas pendentes"}`}</strong>

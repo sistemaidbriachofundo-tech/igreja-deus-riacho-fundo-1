@@ -6,6 +6,7 @@ import { GroupRequestsService } from "../groups/group-requests.service";
 import { PilotService, type PilotChurch } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RosterNoticesService } from "../rosters/roster-notices.service";
+import { pastoralExpenseLines } from "../finance/pastoral-expense";
 
 type Scope = Pick<PilotChurch, "churchId" | "organizationId">;
 type Notice = {
@@ -22,9 +23,6 @@ const PORTAL = "/app/servir/meu-espaco/";
 const LIMIT = 50;
 const MONEY = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const WHEN = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
-const expenses = { some: { side: "DEBIT" as const, account: { type: "EXPENSE" as const, NOT: [
-  { code: "5.9" }, { code: { startsWith: "5.9." } },
-] } } };
 
 @Injectable()
 export class NotificationsService {
@@ -171,7 +169,7 @@ export class NotificationsService {
     const treasury = hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN] });
     if (!pastor && !treasury) return [];
     const rows = await this.db.ledgerEntry.findMany({
-      where: { ...scope, lines: expenses, OR: [
+      where: { ...scope, lines: pastoralExpenseLines, OR: [
         ...(pastor ? [{ firstApprovedByUserId: { not: actor.userId },
           OR: [{ status: "PENDING_APPROVAL" as const }, { firstApprovedAt: { gte: since } }] }] : []),
         ...(treasury ? [{ createdByUserId: actor.userId, OR: [{ secondApprovedAt: { gte: since } }, { rejectedAt: { gte: since } }] }] : []),
@@ -188,6 +186,7 @@ export class NotificationsService {
       if (personal) return [{ id: `expense-result:${row.id}`, category: "Tesouraria", title: outcome, detail, action: "Ver decisão",
         href: `/app/tesouraria/?despesa=${encodeURIComponent(row.id)}#despesas`, createdAt: personal, state: "Decisão registrada" }];
       if (!pastor || !row.firstApprovedAt || row.createdByUserId === actor.userId) return [];
+      if (!decision && row.status !== "PENDING_APPROVAL") return [];
       return [{ id: `expense-review:${row.id}`, category: "Tesouraria", title: decision ? outcome : "Despesa para aprovação",
         detail, action: decision ? "Ver aprovações" : "Revisar despesa",
         href: `/app/tesouraria/?despesa=${encodeURIComponent(row.id)}#aprovacoes`,

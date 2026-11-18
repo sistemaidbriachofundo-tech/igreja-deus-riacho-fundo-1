@@ -1,18 +1,18 @@
 .palette {
-  --portal-paper: #faf7f1;
-  --portal-ivory: #f5eee4;
-  --portal-sage: #eee7dd;
-  --portal-gallery-ground: #e9dfd4;
+  --portal-paper: #ffffff;
+  --portal-ivory: #f6f6f6;
+  --portal-sage: #eeeeee;
+  --portal-gallery-ground: #eaeaea;
   --portal-ink: #191a1d;
   --portal-muted: #57565a;
   --portal-green: #101113;
   --portal-green-hover: #28292d;
-  --portal-on-green: #fff7ed;
-  --portal-on-green-muted: #eee4d9;
-  --portal-green-line: #464347;
-  --portal-gold: #f36b20;
-  --portal-title-accent: #dc4c0d;
-  --portal-display: Montserrat, Inter, Arial, sans-serif;
+  --portal-on-green: #ffffff;
+  --portal-on-green-muted: #ebebeb;
+  --portal-green-line: #484848;
+  --portal-gold: #d6d6d6;
+  --portal-title-accent: #383838;
+  --portal-display: "Source Sans Pro", Arial, sans-serif;
 }
 
 .palette [data-appearance="verde"], .palette[data-appearance="verde"] {
@@ -31,11 +31,11 @@
   --portal-header: 72px;
   background: var(--portal-paper);
   color: var(--portal-ink);
-  font-family: Inter, Arial, sans-serif;
+  font-family: "Source Sans Pro", Arial, sans-serif;
 }
 
 .theme :is(a, button, summary, h1, h2):focus-visible {
-  outline: 2px solid #ee6216;
+  outline: 2px solid #5c5c5c;
   outline-offset: 4px;
 }
 
@@ -82,8 +82,8 @@
   letter-spacing: 0;
 }
 
-.brand strong { font: 700 14px/1.3 Inter, Arial, sans-serif; }
-.brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 Inter, Arial, sans-serif; }
+.brand strong { font: 700 14px/1.3 "Source Sans Pro", Arial, sans-serif; }
+.brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 "Source Sans Pro", Arial, sans-serif; }
 .masthead .brand, .masthead .brand strong { color: var(--portal-on-green); }
 .masthead .brand small { color: var(--portal-on-green-muted); }
 .masthead :is(a, summary):focus-visible { outline-color: var(--portal-gold); }
@@ -127,7 +127,7 @@
   border: 1px solid var(--portal-green-line);
   border-radius: 999px;
   color: var(--portal-on-green);
-  font: 650 13px/1 Inter, Arial, sans-serif;
+  font: 650 13px/1 "Source Sans Pro", Arial, sans-serif;
 }
 
 .headerLogin:hover, .mobileMenu > summary:hover { background: var(--portal-green-hover); }
@@ -177,7 +177,7 @@
   padding: 10px 15px;
   border: 1px solid #b78f57;
   border-radius: 6px;
-  font: 650 14px/1.3 Inter, Arial, sans-serif;
+  font: 650 14px/1.3 "Source Sans Pro", Arial, sans-serif;
 }
 
 .goldButton { background: #e9cd9c; color: #162c21; }

@@ -134,8 +134,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     const roleLabel = String(fields.get("roleLabel") ?? "").trim();
     const path = base + "/slots" + (position ? "/" + encodeURIComponent(position.id) : "");
     const requiresCouple = fields.has("requiresCouple");
-    const location = Object.fromEntries(Object.keys(ROSTER_LOCATION_LABELS).map(field => [field, String(fields.get(field) ?? "").trim() || null]));
-    void mutate(path, { roleLabel, ...location, ...(position ? {} : { requiresCouple }) }, position ? "PATCH" : "POST");
+    void mutate(path, { roleLabel, ...(position ? {} : { requiresCouple }) }, position ? "PATCH" : "POST");
   }
 
   function savePerson(event: FormEvent<HTMLFormElement>, position: EscalaPosition, assignment?: EscalaAssignment) {
@@ -169,8 +168,8 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
         <div><dt>Confirmadas</dt><dd>{summary.confirmed}</dd></div>
       </dl>}
       {open && Boolean(roster.positions?.length) && <details className={s.previewTools}>
-        <summary>Consultar sugestões de equipe</summary>
-        <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} />
+        <summary>Preencher escala com sugestões</summary>
+        <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} onApplied={draft ? onRefresh : undefined} />
       </details>}
       {roster.positions?.map(position => {
         const current = position.assignments.filter(item => item.status === "PENDING" || item.status === "CONFIRMED");
@@ -196,7 +195,6 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
           })}</div>
           {draft && <details><summary>Editar posição</summary><form className={s.form} onSubmit={event => savePosition(event, position)}>
             <label>Nome da posição<input name="roleLabel" defaultValue={position.label} maxLength={100} required /></label>
-            <PositionLocationInputs location={position} />
             <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Salvar posição</button>
           </form></details>}
           {listed.map(assignment => (
@@ -226,7 +224,6 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {draft && (
         <form className={s.form} onSubmit={savePosition}>
           <label>Nova posição<input name="roleLabel" placeholder="Ex. Recepção" maxLength={100} required /></label>
-          <PositionLocationInputs />
           <label className={s.checkbox}><input type="checkbox" name="requiresCouple" /> Posição para casal</label>
           <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Adicionar posição</button>
         </form>
@@ -234,12 +231,6 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {draft && Boolean(roster.positions?.length) && <button type="button" className={ui.workspacePrimary} disabled={busy} onClick={() => void publish()}>Publicar escala</button>}
       {error && <p className={s.error} role="alert">{error}</p>}
     </div>
-  );
-}
-
-function PositionLocationInputs({ location }: { location?: RosterLocation }) {
-  return Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) =>
-    <label key={field}>{label}<input name={field} maxLength={100} defaultValue={location?.[field as keyof RosterLocation] ?? ""} /></label>,
   );
 }
 

@@ -766,9 +766,10 @@ export function PersonaBoard() {
           {tasks.map(task => (
             <AppNavLink key={task.key} href={task.href}>{TASK_LABEL[task.key]}</AppNavLink>
           ))}
+          {memberView && <AppNavLink href="/app/servir/meu-espaco/#pesquisa-de-servico">Disponibilidade</AppNavLink>}
+          {memberView && <a href="#trilha-da-conexao">Trilha da Conexão</a>}
       </nav>
 
-      {memberView && <ConnectionJourney compact />}
       {(staff || leader) && <WorkspacePriorities showService={leader} showDecisions={staff} revision={reload} />}
 
       {visibleMetrics.length > 0 && (
@@ -782,9 +783,6 @@ export function PersonaBoard() {
           {mesa.assignments ? (pendingAssignments.length > 0
             ? <RowList rows={pendingAssignments} hrefFor={() => "/app/servir/meu-espaco/"} empty="" />
             : <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>) : !loading && <p className={s.empty}>Não foi possível consultar sua escala.</p>}
-          {!loading && mesa.card?.state === "absent" && (
-            <AppNavLink className={s.inlineLink} href="/app/membros/carteirinha/">Sua carteirinha ainda não foi emitida</AppNavLink>
-          )}
         </Panel>}
 
         <Panel title="Agenda" action={<AppNavLink href="/#agenda">Ver agenda</AppNavLink>}>
@@ -878,6 +876,7 @@ export function PersonaBoard() {
           </Panel>
         )}
       </div>
+      {memberView && <ConnectionJourney compact />}
     </div>
   );
 }

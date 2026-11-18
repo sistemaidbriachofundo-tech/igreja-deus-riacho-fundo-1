@@ -170,17 +170,13 @@ export function LoginScreen({ onAuthenticated }: Props) {
       {RouterBridge ? <RouterBridge /> : null}
       <Link className={styles.back} href="/">← Voltar ao site da igreja</Link>
       <div className={styles.layout}>
-        <aside className={styles.story} aria-label="Identidade da Igreja de Deus">
-          <div className={styles.brand}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={withBasePath(officialLogoAsset)} alt="Igreja de Deus — Riacho Fundo I" width={80} height={90}/>
-            <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={styles.facade} src={withBasePath("/images/fachada-igreja-riacho-fundo.jpg")} alt="Fachada da igreja" />
-        </aside>
         <section className={styles.panel} aria-labelledby="login-heading">
           <div className={styles.panelInner}>
+          <div className={styles.brand}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={withBasePath(officialLogoAsset)} alt="" width={48} height={54}/>
+            <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
+          </div>
             <div className={styles.heading}>
               <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
               <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Acesso ao ID Riacho 1"}</p>

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -109,6 +110,19 @@ export class PersonalRostersController {
   @Get(":rosterId/preview")
   preview(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string) {
     return this.rosters.preview(user, rosterId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post(":rosterId/preview/apply")
+  applyPreview(
+    @CurrentUser() user: AuthUser,
+    @Param("rosterId") rosterId: string,
+    @Body("fingerprint") fingerprint: unknown,
+  ) {
+    if (typeof fingerprint !== "string" || !/^[a-f0-9]{64}$/.test(fingerprint)) {
+      throw new BadRequestException("Gere uma prévia antes de preencher o rascunho.");
+    }
+    return this.rosters.applyPreview(user, rosterId, fingerprint);
   }
 
   @Roles(...LEAD_ROLES)

@@ -9,7 +9,7 @@
   --secretaria-gold: #bd9e68;
   width: 100%;
   margin: 0 auto;
-  font-family: Inter, Arial, sans-serif;
+  font-family: "Source Sans Pro", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   max-width: var(--app-max, 1420px);
   color: var(--app-ink, #22382e);
@@ -34,7 +34,7 @@
   min-height: 44px;
   padding: 10px 15px;
   border-radius: 999px;
-  font: 660 12px/1.25 Inter, Arial, sans-serif;
+  font: 660 12px/1.25 "Source Sans Pro", Arial, sans-serif;
   text-decoration: none;
   cursor: pointer;
   transition: background .17s, border-color .17s, box-shadow .17s;
@@ -60,7 +60,7 @@
   margin: 0;
   letter-spacing: -.035em;
   color: var(--app-ink, #22382e);
-  font: 650 18px/1.3 Inter, Arial, sans-serif;
+  font: 650 18px/1.3 "Source Sans Pro", Arial, sans-serif;
 }
 .panel > p, .footerNote, .empty {
   color: var(--secretaria-muted);
@@ -70,13 +70,13 @@
 .panel > p { margin: 10px 0 0; }
 .panelHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 17px; flex-wrap: wrap; }
 .panelHeadingCopy { display: grid; gap: 7px; }
-.panelHeadingCopy > span { font: 550 13px Inter, Arial, sans-serif; color: var(--app-muted, #5f7368); }
+.panelHeadingCopy > span { font: 550 13px "Source Sans Pro", Arial, sans-serif; color: var(--app-muted, #5f7368); }
 .panelHeading > input {
   width: min(360px, 100%);
   height: 46px;
   padding: 0 14px;
   color: #204737;
-  font: 520 13px Inter, Arial, sans-serif;
+  font: 520 13px "Source Sans Pro", Arial, sans-serif;
   min-height: 44px;
   border-radius: var(--app-control-radius, 8px);
   border: 1px solid var(--app-border, #dce6de);
@@ -84,7 +84,7 @@
 }
 .panelHeading > input:focus { border-color: #88ac97; background: #fff; outline: none; box-shadow: 0 0 0 3px #4a896026; }
 .peopleFilters { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 0 0 18px; flex-wrap: wrap; }
-.familySelect { display: grid; gap: 6px; color: #536858; font: 640 11px Inter, Arial, sans-serif; }
+.familySelect { display: grid; gap: 6px; color: #536858; font: 640 11px "Source Sans Pro", Arial, sans-serif; }
 .familySelect select {
   min-width: 210px;
   max-width: min(320px, 90vw);
@@ -94,10 +94,10 @@
   border-radius: 9px;
   background: #fff;
   color: #2c5340;
-  font: 530 12px Inter, Arial, sans-serif;
+  font: 530 12px "Source Sans Pro", Arial, sans-serif;
 }
 .personLookup { margin: 0 0 16px; border: 1px solid #e1eae4; border-radius: 10px; background: #fafcfb; overflow: hidden; }
-.personLookup > summary { padding: 12px 15px; color: #3b6d50; cursor: pointer; font: 630 12px Inter, Arial, sans-serif; }
+.personLookup > summary { padding: 12px 15px; color: #3b6d50; cursor: pointer; font: 630 12px "Source Sans Pro", Arial, sans-serif; }
 .personLookup[open] > summary { background: #f0f7f1; border-bottom: 1px solid #dce9e0; }
 .personLookupContent { display: grid; gap: 12px; padding: 15px; }
 .activeFilters {
@@ -111,13 +111,13 @@
   border-radius: 9px;
   background: #f0f7f1;
   color: #3b694b;
-  font: 550 12px Inter, Arial, sans-serif;
+  font: 550 12px "Source Sans Pro", Arial, sans-serif;
 }
 .activeFilters button {
   border: 0;
   background: transparent;
   color: #235e42;
-  font: 700 12px Inter, Arial, sans-serif;
+  font: 700 12px "Source Sans Pro", Arial, sans-serif;
   text-decoration: underline;
   cursor: pointer;
   min-height: 34px;
@@ -133,12 +133,12 @@
   text-transform: none;
   letter-spacing: normal;
   color: var(--app-muted, #5f7368);
-  font: 600 12px/1.4 Inter, Arial, sans-serif;
+  font: 600 12px/1.4 "Source Sans Pro", Arial, sans-serif;
 }
 .tableWrap td {
   padding: 14px 15px;
   border-top: 1px solid #edf1ee;
-  font: 500 13px/1.45 Inter, Arial, sans-serif;
+  font: 500 13px/1.45 "Source Sans Pro", Arial, sans-serif;
   vertical-align: middle;
   color: var(--app-ink, #22382e);
   overflow-wrap: anywhere;
@@ -156,7 +156,7 @@
   color: #32664b;
   border: 1px solid #dfe9e0;
   border-radius: 10px;
-  font: 740 11px Inter, Arial, sans-serif;
+  font: 740 11px "Source Sans Pro", Arial, sans-serif;
 }
 .statusPill {
   display: inline-flex;
@@ -166,7 +166,7 @@
   border-radius: 7px;
   background: #eff3ef;
   color: #63796a;
-  font: 670 11px Inter, Arial, sans-serif;
+  font: 670 11px "Source Sans Pro", Arial, sans-serif;
   white-space: nowrap;
 }
 .statusPill[data-status="ACTIVE"], .statusPill[data-status="APPROVED"] { background: #e2f1e6; color: #286b48; }
@@ -189,7 +189,7 @@
   gap: 13px;
   padding: 12px 16px;
   color: #536858;
-  font: 540 12px Inter, Arial, sans-serif;
+  font: 540 12px "Source Sans Pro", Arial, sans-serif;
 }
 .pagination button { min-height: 44px; background: #fff; border: 1px solid #dbe6dd; color: #3b654c; padding: 7px 12px; font-size: 11px; }
 .pagination button:hover { background: #f1f7f2; }
@@ -205,14 +205,14 @@
   background: #fff;
 }
 .admission > div:first-child { display: grid; gap: 6px; min-width: 0; }
-.admission strong { display: block; font: 660 13px/1.4 Inter, Arial, sans-serif; color: #254536; }
+.admission strong { display: block; font: 660 13px/1.4 "Source Sans Pro", Arial, sans-serif; color: #254536; }
 .admission small { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #536858; font-size: 11px; }
 .admissionActions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .admission button { border: 1px solid #2c6349; color: #fff; background: #2c6349; }
 .admission button:hover { background: #214d39; }
 .admission button:disabled { background: #f5f6f5; color: #8c9a91; border-color: #e3eae5; opacity: 1; }
 .form { display: grid; gap: 16px; margin-top: 20px; }
-.form label { display: grid; gap: 7px; color: #526f5c; font: 650 12px Inter, Arial, sans-serif; }
+.form label { display: grid; gap: 7px; color: #526f5c; font: 650 12px "Source Sans Pro", Arial, sans-serif; }
 .form input, .form select {
   width: 100%;
   min-height: 45px;
@@ -221,10 +221,10 @@
   border-radius: 9px;
   color: #214637;
   background: #fff;
-  font: 520 13px Inter, Arial, sans-serif;
+  font: 520 13px "Source Sans Pro", Arial, sans-serif;
 }
 .form input:focus, .form select:focus { border-color: #84b296; box-shadow: 0 0 0 3px #589b6d1d; outline: none; }
-.form p { margin: 0; color: #75897a; font: 480 12px/1.65 Inter, Arial, sans-serif; }
+.form p { margin: 0; color: #75897a; font: 480 12px/1.65 "Source Sans Pro", Arial, sans-serif; }
 .formActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .formActions button[type="submit"], .loginPanel .form button { border: 1px solid #276248; background: #276248; color: #fff; min-height: 46px; }
 .formActions button[type="submit"]:hover, .loginPanel .form button:hover { background: #1c4a36; }
@@ -232,7 +232,7 @@
   margin: 12px 0 17px;
   padding: 13px 16px;
   border-radius: 10px;
-  font: 590 12px/1.55 Inter, Arial, sans-serif;
+  font: 590 12px/1.55 "Source Sans Pro", Arial, sans-serif;
 }
 .notice { border: 1px solid #d0e7d3; background: #eef7ef; color: #306148; }
 .error { border: 1px solid #f0d0c5; background: #fff3ed; color: #99543f; }
@@ -248,8 +248,8 @@
   box-shadow: 0 16px 46px #193e2718;
 }
 .loginPanel .kicker { color: #7a8d78; }
-.loginPanel h1 { color: #244536; font: 720 27px/1.2 Montserrat, Inter, Arial, sans-serif; letter-spacing: -.045em; margin: 0; }
-.loginPanel > p { color: #698071; font: 480 13px/1.65 Inter, Arial, sans-serif; }
+.loginPanel h1 { color: #244536; font: 720 27px/1.2 "Source Sans Pro", Arial, sans-serif; letter-spacing: -.045em; margin: 0; }
+.loginPanel > p { color: #698071; font: 480 13px/1.65 "Source Sans Pro", Arial, sans-serif; }
 .loginPanel button { background: #285e47; border: 1px solid #285e47; color: #fff; }
 .loginPanel button:hover { background: #1d4b38; }
 
@@ -261,7 +261,7 @@
   .tableWrap thead { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
   .tableWrap tbody tr { display: grid; gap: 1px; margin-bottom: 10px; border: 1px solid #e0eae2; border-radius: 11px; padding: 10px; background: #fff; }
   .tableWrap td { display: grid; grid-template-columns: 115px minmax(0,1fr); gap: 11px; padding: 8px; border: 0; }
-  .tableWrap td::before { content: attr(data-label); color: #819187; font: 680 10px/1.3 Inter, Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  .tableWrap td::before { content: attr(data-label); color: #819187; font: 680 10px/1.3 "Source Sans Pro", Arial, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
   .tableWrap td:first-child { display: block; }
   .tableWrap td:first-child::before, .tableWrap td:last-child::before { display: none; }
   .tableWrap td:last-child { grid-template-columns: minmax(0, 1fr); }
@@ -303,7 +303,7 @@
 .admissionPipeline{display:grid;gap:22px;background:#fff;border:1px solid #e0e9e0;border-radius:20px;padding:clamp(19px,2.3vw,28px);box-shadow:0 8px 28px #113f3009;min-width:0}
 .pipelineHead{display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap}
 .pipelineEyebrow{color:#755627;font-size:.68rem;letter-spacing:.12em;font-weight:840}
-.pipelineHead h2{color:#174532;font:830 clamp(1.2rem,2vw,1.62rem)/1.3 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.04em;margin:5px 0}
+.pipelineHead h2{color:#174532;font:830 clamp(1.2rem,2vw,1.62rem)/1.3 "Source Sans Pro",Arial,sans-serif;letter-spacing:-.04em;margin:5px 0}
 .pipelineHead p{margin:0;color:#536858;font-size:.8rem;line-height:1.5}
 .pipelineAll{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-height:44px;padding:10px 13px;border:1px solid #cddfd1;border-radius:999px;background:#f2f8f2;text-decoration:none;color:#255943;font-size:.78rem;font-weight:800}
 .pipelineAll:hover{background:#e5f1e7}
@@ -311,7 +311,7 @@
 .pipelineStep{position:relative;display:grid;align-content:space-between;justify-items:start;gap:12px;min-width:0;min-height:173px;border:1px solid #e3eae1;border-radius:14px;background:linear-gradient(155deg,#f8fbf6,#fff);padding:16px;text-decoration:none;color:#234b38;transition:transform .15s,background .15s}
 .pipelineStep:hover{background:#edf6ed;transform:translateY(-2px)}
 .pipelineNumber{color:#a3b0a5;font-size:.7rem;letter-spacing:.09em;font-weight:820}
-.pipelineStep>strong{font:850 clamp(1.65rem,2.5vw,2.35rem)/1 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.06em;color:#246447}
+.pipelineStep>strong{font:850 clamp(1.65rem,2.5vw,2.35rem)/1 "Source Sans Pro",Arial,sans-serif;letter-spacing:-.06em;color:#246447}
 .pipelineStep:nth-child(4)>strong{color:#9a783d}
 .pipelineLabel{font-weight:810;font-size:.82rem;line-height:1.35}
 .pipelineStep small{color:#758777;font-size:.7rem;line-height:1.4}
@@ -333,7 +333,7 @@
 }
 .directoryPanel .panelHeadingCopy { display: flex; align-items: center; gap: 11px; }
 .directoryPanel .panelHeadingCopy > div { display: grid; gap: 5px; min-width: 0; }
-.directoryPanel .panelHeadingCopy h2 { font: 750 clamp(1rem, 2vw, 1.25rem)/1.2 Montserrat, Inter, sans-serif; }
+.directoryPanel .panelHeadingCopy h2 { font: 750 clamp(1rem, 2vw, 1.25rem)/1.2 "Source Sans Pro", sans-serif; }
 .directoryPanel .panelHeadingCopy div > span { color: #496456; font-size: .8rem; }
 .sectionMark { composes: workspaceMark from "./ui/ui.module.css"; background: #dcebe0; }
 .directorySearch { width: min(100%, 350px); background: #fff; }

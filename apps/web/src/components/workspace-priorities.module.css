@@ -16,7 +16,7 @@
 .service { background: linear-gradient(145deg, #235441, #102f27); color: #f7faf5; }
 .decisions { background: #fff; border: 1px solid #dce8df; color: #173e30; }
 .heading { display: flex; align-items: center; gap: 11px; }
-.heading h2 { margin: 0; font: 750 clamp(1.05rem, 2vw, 1.3rem)/1.2 Montserrat, Inter, sans-serif; letter-spacing: -.025em; }
+.heading h2 { margin: 0; font: 750 clamp(1.05rem, 2vw, 1.3rem)/1.2 "Source Sans Pro", sans-serif; letter-spacing: -.025em; }
 .icon { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 14px; background: #e4f0e7; color: #285b44; }
 .service .icon { background: #ffffff1d; color: #eddbb6; }
 .panel p { margin: 0; font-size: .88rem; line-height: 1.5; }

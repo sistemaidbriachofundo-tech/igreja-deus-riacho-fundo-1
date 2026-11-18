@@ -9,4 +9,5 @@ export type RosterPreviewPosition = {
 export type RosterPreviewDto = {
   rosterId: string;
   positions: RosterPreviewPosition[];
+  fingerprint?: string;
 };

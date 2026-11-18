@@ -139,3 +139,25 @@
 
 .announcement { display: flex; flex-wrap: wrap; gap: 5px 12px; width: fit-content; max-width: 100%; padding: 9px 12px; border-left: 2px solid #ffc29d; background: #191915eb; font-size: .84rem; overflow-wrap: anywhere; }
 .announcement strong { color: #ffc29d; }
+
+.hero { background: #121212; --hero-accent: #fff; color: #fff; }
+.hero[data-appearance="classico"] .headline { color: #fff; }
+.location, .visitLabel, .visit > svg, .visit a { color: #fff; }
+.mission, .serviceName, .address > span { color: #f1f1f1; }
+.primaryAction { color: #151515; background: #fff; }
+.primaryAction:hover { background: #e6e6e6; }
+.carousel { display: flex; align-items: center; gap: 8px; width: fit-content; }
+.carousel button { min-width: 44px; min-height: 44px; border: 1px solid #ffffff86; border-radius: 999px; background: #151515b0; color: #fff; font: inherit; cursor: pointer; }
+.carousel button:hover { background: #242424; }
+.carousel .play { padding-inline: 14px; }
+.carousel span { font-size: .9rem; }
+@media (min-width: 741px) {
+  .hero[data-campaign="true"] .photo::after { background: linear-gradient(270deg,#0e0e0ee8,#0c0c0ca3 36%,#0c0c0c15 68%),linear-gradient(0deg,#0c0c0c98,transparent 42%); }
+  .hero[data-campaign="true"] .layout { justify-items: end; }
+  .hero[data-campaign="true"] .intro { width: min(100%, 485px); }
+  .hero[data-campaign="true"] .headline { font-size: clamp(54px,6vw,94px); }
+}
+@media (max-width: 740px) {
+  .hero[data-campaign="true"] .photo img { object-position: 29% center; }
+  .hero[data-campaign="true"] .photo::after { background: linear-gradient(0deg,#101010 0%,#101010e6 31%,#10101048 73%,#1010103b 100%); }
+}

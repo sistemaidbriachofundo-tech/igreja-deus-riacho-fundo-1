@@ -1,7 +1,7 @@
 "use client";
 
 import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PageHeader } from "../ui/PageHeader";
 import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
@@ -26,6 +26,7 @@ import {
 } from "../../lib/event-management";
 import { parseMinistryNav, type MinistryNavItem } from "../../lib/persona-navigation";
 import { withBasePath } from "../../lib/paths";
+import { formatPortalDate } from "../../lib/portal-live-data";
 import { eventStatusLabel } from "./calendar";
 import { EventRegistrationDesk } from "./EventRegistrationDesk";
 import { EventAgenda } from "./EventAgenda";
@@ -50,7 +51,14 @@ export function EventManagementJourney() {
     form?.querySelector("input")?.focus({ preventScroll: true });
   }, [phase]);
   const [treasuryOnly, setTreasuryOnly] = useState(false);
-  const [leaderMinistries, setLeaderMinistries] = useState<MinistryNavItem[] | null>(null);
+  const [ministryOptions, setMinistryOptions] = useState<MinistryNavItem[]>([]);
+  const [ministryRequired, setMinistryRequired] = useState(false);
+  const selectedHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!selectedId) return;
+    selectedHeading.current?.focus({ preventScroll: true });
+    selectedHeading.current?.scrollIntoView({ block: "start" });
+  }, [selectedId]);
   const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);
   const [creating, setCreating] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<Draft>(EMPTY);
@@ -81,15 +89,16 @@ export function EventManagementJourney() {
         const staff = churchStaff || leader;
         setCanReconcile(treasury);
         setTreasuryOnly(treasury && !staff);
+        setMinistryRequired(leader && !churchStaff);
         const [body, ministries] = await Promise.all([
           apiGet<unknown>(treasury && !staff ? "/events/conciliacao" : "/events", stored),
-          leader && !churchStaff ? apiGet<unknown>("/ministries", stored) : Promise.resolve(null),
+          staff ? apiGet<unknown>("/ministries", stored).catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         if (ministries !== null) {
           const options = parseMinistryNav(ministries);
-          setLeaderMinistries(options);
-          if (options.length === 1) setCreating(draft => ({ ...draft, ministryId: options[0].id }));
+          setMinistryOptions(options);
+          if (leader && !churchStaff && options.length === 1) setCreating(draft => ({ ...draft, ministryId: options[0].id }));
         }
         setEvents(readDasRows(body, "events").flatMap((row) => {
           const event = toManagedEvent(row);
@@ -153,7 +162,7 @@ export function EventManagementJourney() {
       setNotice("Informe nome, identificador e data válidos.");
       return;
     }
-    if (leaderMinistries && !leaderMinistries.some(ministry => ministry.id === creating.ministryId)) {
+    if ((ministryRequired || creating.ministryId) && !ministryOptions.some(ministry => ministry.id === creating.ministryId)) {
       setNotice("Selecione um dos seus ministérios para cadastrar o evento.");
       return;
     }
@@ -207,6 +216,11 @@ export function EventManagementJourney() {
   }
 
   function choose(eventId: string) {
+    if (eventId === selectedId) {
+      selectedHeading.current?.focus({ preventScroll: true });
+      selectedHeading.current?.scrollIntoView({ block: "start" });
+      return;
+    }
     const event = events.find((item) => item.id === eventId) ?? null;
     setSelectedId(eventId);
     setReport(null);
@@ -324,7 +338,9 @@ export function EventManagementJourney() {
         phase={phase}
         production={production}
         treasuryOnly={treasuryOnly}
-        leaderMinistries={leaderMinistries}
+        ministryOptions={ministryOptions}
+        ministryRequired={ministryRequired}
+        selectedHeading={selectedHeading}
         notice={notice}
         events={events}
         selected={selected}
@@ -375,6 +391,9 @@ export function EventManagementView(props: {
   production?: boolean;
   treasuryOnly?: boolean;
   leaderMinistries?: MinistryNavItem[] | null;
+  ministryOptions?: MinistryNavItem[];
+  ministryRequired?: boolean;
+  selectedHeading?: React.RefObject<HTMLHeadingElement | null>;
   phase: Phase;
   notice: string;
   events: ManagedEvent[];
@@ -425,18 +444,30 @@ export function EventManagementView(props: {
     {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Tente novamente."}</p>}
     {props.notice && props.phase === "ready" && <p className={s.notice} role="status">{props.notice}</p>}
     {props.phase === "ready" && <>
-      <section className={s.panel}>
+      <section className={s.panel} id="agenda-de-eventos">
         <h2 className={s.agendaHeading}><span className={s.agendaMark}><UIIcon name="calendar" size={23} /></span>Agenda</h2>
         <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
       </section>
+      {props.selected && <section className={s.panel} aria-labelledby="evento-aberto">
+        <a className={s.link} href="#agenda-de-eventos">← Voltar à agenda de eventos</a>
+        <div>
+          <h2 id="evento-aberto" className={s.detailHeading} tabIndex={-1} ref={props.selectedHeading}>{props.selected.name}</h2>
+          <p className={s.lede}>{eventStatusLabel(props.selected.status)} · {formatPortalDate(props.selected.startsAt).dayAndTime}
+            {props.selected.locationText && " · " + props.selected.locationText}</p>
+        </div>
+        <div className={s.actions}>
+          {!props.treasuryOnly && <a className={s.link} href="#revisar-evento">Revisar e publicar</a>}
+          {props.registrationDesk && <a className={s.link} href="#inscricoes-do-evento">{props.treasuryOnly ? "Consultar Pix do evento" : "Inscrições, pagamentos e presença"}</a>}
+        </div>
+      </section>}
       {!props.treasuryOnly && <form id="novo-evento" className={s.panel} aria-labelledby="novo-evento-titulo" onSubmit={props.onCreate}>
         <h2 id="novo-evento-titulo">Cadastrar evento</h2>
         <div className={s.grid}>
           <label>Nome<input value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
-          {props.leaderMinistries && <label>Ministério
-            <select required value={props.creating.ministryId ?? ""} onChange={event => props.onCreating({ ...props.creating, ministryId: event.target.value })}>
-              <option value="">Selecione seu ministério</option>
-              {props.leaderMinistries.map(ministry => <option key={ministry.id} value={ministry.id}>{ministry.name}</option>)}
+          {(props.ministryOptions || props.leaderMinistries) && <label>Ministério responsável
+            <select required={props.ministryRequired ?? Boolean(props.leaderMinistries)} value={props.creating.ministryId ?? ""} onChange={event => props.onCreating({ ...props.creating, ministryId: event.target.value })}>
+              <option value="">{props.ministryRequired ? "Selecione seu ministério" : "Evento da congregação"}</option>
+              {(props.ministryOptions ?? props.leaderMinistries ?? []).map(ministry => <option key={ministry.id} value={ministry.id}>{ministry.name}</option>)}
             </select>
           </label>}
           <label>Endereço do evento (opcional)<input value={props.creating.slug} placeholder={eventSlugFromName(props.creating.name)} onChange={(event) => props.onCreating({ ...props.creating, slug: event.target.value })} pattern="[a-z0-9-]{3,80}" maxLength={80}/></label>
@@ -444,10 +475,10 @@ export function EventManagementView(props: {
           <label>Local público<input value={props.creating.locationText} onChange={(event) => props.onCreating({ ...props.creating, locationText: event.target.value })} maxLength={180}/></label>
           <label className={s.wide}>Descrição sem dados pessoais<textarea value={props.creating.description} onChange={(event) => props.onCreating({ ...props.creating, description: event.target.value })} maxLength={1200}/></label>
         </div>
-        {props.leaderMinistries?.length === 0 && <p className={s.notice}>Seu acesso ainda não está vinculado a um ministério. Fale com a Secretaria.</p>}
-        <button type="submit" disabled={props.busy || props.leaderMinistries?.length === 0}>Gravar rascunho</button>
+        {props.ministryRequired && !props.ministryOptions?.length && <p className={s.notice}>Seu acesso ainda não está vinculado a um ministério. Fale com a Secretaria.</p>}
+        <button type="submit" disabled={props.busy || (props.ministryRequired && !props.ministryOptions?.length)}>Gravar rascunho</button>
       </form>}
-      {!props.treasuryOnly && props.selected && <section className={s.panel}>
+      {!props.treasuryOnly && props.selected && <section className={s.panel} id="revisar-evento">
         <h2>Revisar e publicar</h2>
         <p className={s.lede}>{props.selected.name} · {eventStatusLabel(props.selected.status)}</p>
         {props.selected.status === "DRAFT" && <form className={s.grid} onSubmit={props.onSave}>
@@ -463,7 +494,7 @@ export function EventManagementView(props: {
           {props.production ? "Publicar evento" : "Publicar na homologação"}
         </button>
       </section>}
-      {props.registrationDesk}
+      {props.registrationDesk && <div id="inscricoes-do-evento">{props.registrationDesk}</div>}
       {published && props.selected && !props.registrationDesk && !props.treasuryOnly && <section className={s.panel}>
         <h2>Inscrições e presença</h2>
         {!props.production && <form className={s.grid} onSubmit={props.onRegister}>

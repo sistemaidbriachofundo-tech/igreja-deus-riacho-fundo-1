@@ -131,7 +131,7 @@ export function SiteManager() {
     return()=>{cancelled=true;};
   },[refresh]);
 
-  function update(next:SiteLayout){setLayout(next);setDirty(true);setNotice("");}
+  function update(next:SiteLayout){setLayout(next);setDirty(true);setNotice("");setPreviewMode("rascunho");}
   function setHero(field:keyof SiteLayout["hero"],value:string){
     update({...layout,hero:{...layout.hero,[field]:value}});
   }
@@ -331,10 +331,10 @@ export function SiteManager() {
               <SiteMediaLibrary token={token} onChoose={setPhoto}/>
             </div>}
             {tab==="aparencia"&&<div className={s.controls}>
-              <h2>Aparência</h2><p>Três opções seguras. Logo, tipografia, contrastes mínimos e estrutura técnica permanecem protegidos.</p>
+              <h2>Aparência</h2><p>Escolha a cor de destaque e confira o resultado ao lado.</p>
               <div className={s.palettes}>
                 {(["dourado","verde","marfim"] as const).map(key=><button key={key} type="button" aria-pressed={layout.appearance===key} className={layout.appearance===key?s.paletteSelected:s.palette}
-                  onClick={()=>update({...layout,appearance:key})}><span className={s.swatch} data-theme={key}/><strong>{key==="dourado"?"Dourado institucional":key==="verde"?"Verde acolhedor":"Marfim claro"}</strong><small>{layout.appearance===key?"Selecionado":"Aplicar paleta"}</small></button>)}
+                  onClick={()=>update({...layout,appearance:key})}><span className={s.swatch} data-theme={key}/><strong>{key==="dourado"?"Preto e branco":key==="verde"?"Verde acolhedor":"Marfim claro"}</strong><small>{layout.appearance===key?"Selecionado":"Aplicar paleta"}</small></button>)}
               </div>
             </div>}
             {tab==="estrutura"&&<div className={s.controls}>

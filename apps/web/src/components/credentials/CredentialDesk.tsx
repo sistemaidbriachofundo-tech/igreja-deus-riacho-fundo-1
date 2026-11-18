@@ -59,9 +59,9 @@ export function CredentialDesk({
   const [notice, setNotice] = useState("");
   const [banner, setBanner] = useState("");
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(initialOpen && Boolean(previewCard));
+  const [open, setOpen] = useState(initialOpen && Boolean(previewCard ?? ownCard));
   const [loading, setLoading] = useState(false);
-  const [card, setCard] = useState<CredentialCard | null>(initialOpen ? previewCard : null);
+  const [card, setCard] = useState<CredentialCard | null>(initialOpen ? previewCard ?? ownCard : null);
   const [viewerError, setViewerError] = useState("");
   const [verification, setVerification] = useState<QrCheck | null>(null);
 
@@ -252,8 +252,8 @@ export function CredentialDesk({
       <header className={s.deskHead}>
         <span className={s.deskMark}><UIIcon name="badge" size={22} /></span>
         <div>
-          <h2 id="credential-desk-title">Carteirinhas da congregação</h2>
-          <p role="status">{visible.length.toLocaleString("pt-BR")} {visible.length === 1 ? "cadastro encontrado" : "cadastros encontrados"}</p>
+          <h2 id="credential-desk-title">{canManage ? "Carteirinhas da congregação" : "Credencial de membro"}</h2>
+          {canManage && <p role="status">{visible.length.toLocaleString("pt-BR")} {visible.length === 1 ? "cadastro encontrado" : "cadastros encontrados"}</p>}
         </div>
       </header>
       {!open && (notice || banner || busy) && (
@@ -264,7 +264,7 @@ export function CredentialDesk({
         </div>
       )}
 
-      <div className={s.controls}>
+      {canManage && <div className={s.controls}>
         <WorkspaceSearch value={query} onChange={event => setQuery(event.target.value)}
           placeholder="Buscar por nome ou matrícula" aria-label="Pesquisar carteirinhas" />
         <div className={`${ui.workspaceChoices} ${s.deskChoices}`} role="group" aria-label="Filtrar carteirinhas">
@@ -283,7 +283,7 @@ export function CredentialDesk({
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       <div className={s.list}>
         {visible.map((row) => {
@@ -318,7 +318,8 @@ export function CredentialDesk({
         {visible.length === 0 ? (
           <p className={s.empty}>
             {rows.length === 0
-              ? "Nenhuma carteirinha disponível para este perfil."
+              ? canManage ? "Nenhuma carteirinha disponível para este perfil."
+                : "Sua carteirinha ainda não está disponível. Procure a Secretaria para confirmar sua matrícula e solicitar a emissão."
               : "Nenhuma carteirinha corresponde à pesquisa."}
           </p>
         ) : null}

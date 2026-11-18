@@ -92,6 +92,7 @@ describe("Gestão do Site — editor visual",()=>{
     expect(live).toContain('data-reader="published"');
     const hook=readFileSync(joinSource("use-published-site-layout.ts"),"utf8");
     expect(hook).toContain('NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED !== "true"');
+    expect(hook).toContain('NEXT_PUBLIC_HML_ENABLED !== "true"');
   });
 });
 

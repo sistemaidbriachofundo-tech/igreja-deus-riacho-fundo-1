@@ -38,7 +38,7 @@
   border-radius: 50%;
   background: #e0ebe0;
   color: #254f3c;
-  font: 750 .79rem/1 Montserrat, Inter, sans-serif;
+  font: 750 .79rem/1 "Source Sans Pro", sans-serif;
 }
 .personActions { flex-wrap: wrap; gap: 5px; }
 .whatsapp {
@@ -52,7 +52,7 @@
   border-radius: 999px;
   background: #e0eee0;
   color: #165231;
-  font: 700 .82rem/1.2 Inter, sans-serif;
+  font: 700 .82rem/1.2 "Source Sans Pro", sans-serif;
   text-align: center;
   cursor: pointer;
 }
@@ -85,7 +85,7 @@
 
 .directory { padding: clamp(12px, 2vw, 22px); border: 1px solid #dce8df; border-radius: 19px; background: #fff; }
 .directoryBar { padding: 11px; border: 0; border-radius: 14px; background: #edf5ef; }
-.directoryTitle { display: flex; align-items: center; gap: 10px; margin: 0; color: #1c4936; font: 750 clamp(1rem, 2vw, 1.22rem)/1.2 Montserrat, Inter, sans-serif; }
+.directoryTitle { display: flex; align-items: center; gap: 10px; margin: 0; color: #1c4936; font: 750 clamp(1rem, 2vw, 1.22rem)/1.2 "Source Sans Pro", sans-serif; }
 .directoryMark { composes: workspaceMark from "../ui/ui.module.css"; background: #dcebe0; }
 .person { padding-inline: 6px; }
 @media (max-width: 600px) {

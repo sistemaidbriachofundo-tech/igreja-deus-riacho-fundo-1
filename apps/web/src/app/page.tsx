@@ -5,6 +5,7 @@ import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
 import { PortalIdentityPhoto } from "../components/PortalIdentityPhoto";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
+import { instagramUrl } from "../lib/portal-content";
 import s from "./home-institutional.module.css";
 
 export default function HomePage() {
@@ -47,6 +48,13 @@ export default function HomePage() {
                 <li><span>05</span><strong>Evangelização e missão</strong><small>Compartilhar a esperança.</small></li>
               </ol>
             </div>
+          </section>
+          <section className={s.social} aria-labelledby="social-title">
+            <div>
+              <h2 id="social-title">Siga as nossas redes sociais</h2>
+              <p>Acompanhe os avisos e os encontros da igreja pelo Instagram.</p>
+            </div>
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram · @idbriacho_ <span aria-hidden="true">↗</span></a>
           </section>
         </PublishedSiteLayoutProvider>
       </main>

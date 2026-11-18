@@ -21,11 +21,16 @@ export function WorkspacePriorities({ showService, showDecisions, revision }: { 
     const token = loadStoredToken();
     if (!token) return;
     let mounted = true;
-    setFailure(false);
-    void readPanel(token, endpoint, () => apiGet<Priorities>(endpoint, token), { fresh: revision > 0 })
-      .then(value => { if (mounted) setData(value); })
-      .catch(() => { if (mounted) setFailure(true); });
-    return () => { mounted = false; };
+    const reload = () => {
+      setFailure(false);
+      void readPanel(token, endpoint, () => apiGet<Priorities>(endpoint, token), { fresh: true })
+        .then(value => { if (mounted) setData(value); })
+        .catch(() => { if (mounted) setFailure(true); });
+    };
+    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) reload(); };
+    reload();
+    window.addEventListener("pageshow", onPageShow);
+    return () => { mounted = false; window.removeEventListener("pageshow", onPageShow); };
   }, [revision]);
 
   const next = data?.nextService;

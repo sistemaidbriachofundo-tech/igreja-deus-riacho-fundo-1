@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatBRL } from "../lib/das-operations";
 import { compactMoney, summarizeTreasury, treasuryChannels } from "../lib/treasury-overview";
 import { UIIcon } from "./AppShell";
@@ -19,6 +20,8 @@ export function TreasuryOverview({ position, summary, onBank, onDeposits, onReco
   const periodGross = series.reduce((sum, item) => sum + summary.recognized[item.id], 0);
   const dayMax = Math.max(1, ...summary.byDay.map(([, value]) => Math.abs(value)));
   const bankTotal = summary.banks.reduce((sum, bank) => sum + bank.balance, 0);
+  const [bankId, setBankId] = useState("");
+  const bank = summary.banks.find(account => account.id === bankId);
 
   return (
     <div className={s.overview}>
@@ -40,7 +43,22 @@ export function TreasuryOverview({ position, summary, onBank, onDeposits, onReco
           <div><h2 id="bank-accounts-title">Contas e saldos</h2><p>Posição atual dos lançamentos aprovados</p></div>
           <span>Consolidado <strong>{formatBRL(bankTotal)}</strong></span>
         </header>
-        {summary.banks.length ? <div className={s.bankGrid}>
+        {summary.banks.length > 0 && <label className={s.bankFilter}>Exibir conta
+          <select value={bank?.id ?? ""} onChange={event => setBankId(event.target.value)}>
+            <option value="">Visão consolidada</option>
+            {summary.banks.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+          </select>
+        </label>}
+        {bank ? <div className={s.bankDetail}>
+          <h3>{bank.name}</h3>
+          <dl>
+            <div><dt>Saldo atual</dt><dd>{formatBRL(bank.balance)}</dd></div>
+            <div><dt>Entradas no período</dt><dd>{formatBRL(bank.incoming)}</dd></div>
+            <div><dt>Saídas no período</dt><dd>{formatBRL(bank.outgoing)}</dd></div>
+          </dl>
+          {bank.incoming === 0 && bank.outgoing === 0 && <p>Sem movimentos aprovados no período selecionado.</p>}
+          <button type="button" className={s.textAction} onClick={() => onBank(bank.id)}>Abrir extrato de {bank.name} <UIIcon name="arrow" size={16} /></button>
+        </div> : summary.banks.length ? <div className={s.bankGrid}>
           {summary.banks.map(bank => (
             <button className={s.bank} key={bank.id} type="button" onClick={() => onBank(bank.id)} aria-label={`${bank.name} ${formatBRL(bank.balance)} · Ver extrato`}>
               <span className={s.bankTop}><span className={s.bankIcon}><UIIcon name="wallet" size={18} /></span><UIIcon name="arrow" size={17} /></span>

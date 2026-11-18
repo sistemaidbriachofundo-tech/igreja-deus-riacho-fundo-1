@@ -33,6 +33,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
 import { listBankAdapters, requireBankAdapter } from "./bank-adapters";
+import { pastoralExpenseLines } from "./pastoral-expense";
 
 type PilotScope = {
   organizationId: string;
@@ -225,7 +226,7 @@ export class FinanceService {
       && !/^5\.9(\.|$)/.test(line.account.code));
   }
 
-  async listExpenseApprovals(actor: AuthUser) {
+  async listExpenseApprovals(actor: AuthUser, focusId?: string) {
     const pilot = await this.pilot.getPilotChurch();
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
     if ((actor.churchId && actor.churchId !== scope.churchId)
@@ -233,16 +234,18 @@ export class FinanceService {
       || !hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA] })) {
       throw new ForbiddenException("Somente tesoureiro e pastor da congregação consultam essas aprovações.");
     }
-    const rows = await this.prisma.ledgerEntry.findMany({
-      where: {
-        ...scope, status: "PENDING_APPROVAL",
-        lines: { some: { side: "DEBIT", account: { type: "EXPENSE", code: { not: { startsWith: "5.9" } } } } },
-      },
-      orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }],
-      take: 100,
+    const scopeFilter = { ...scope, status: "PENDING_APPROVAL" as const, lines: pastoralExpenseLines };
+    const include = {
       include: { lines: { include: { account: { select: { type: true, code: true } } } } },
-    });
-    return { entries: rows.map(row => this.toEntryDto(row)) };
+    } as const;
+    const [rows, focus] = await Promise.all([
+      this.prisma.ledgerEntry.findMany({
+        where: scopeFilter, orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }], take: 100, ...include,
+      }),
+      focusId ? this.prisma.ledgerEntry.findFirst({ where: { ...scopeFilter, id: focusId }, ...include }) : null,
+    ]);
+    const entries = focus && !rows.some(row => row.id === focus.id) ? [focus, ...rows] : rows;
+    return { entries: entries.map(row => this.toEntryDto(row)) };
   }
 
   // —— Lançamentos ——

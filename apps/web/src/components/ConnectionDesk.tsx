@@ -13,7 +13,7 @@ import s from "./connection-desk.module.css";
 type Track = { id: string; name: string; code?: string | null; description: string | null };
 type Group = { id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean; leader?: ConnectionPerson };
 type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
-type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
+type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string; currentStageId?: string | null };
 type Read<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 type Journey = { track: Track; stages: Stage[] | null; enrollments: Walk[] | null };
 
@@ -39,6 +39,7 @@ function ConnectionContent() {
   const [groupFeedback, setGroupFeedback] = useState("");
   const [groupError, setGroupError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState("");
   const roleKey = roles.join("|");
 
   useEffect(() => {
@@ -141,7 +142,7 @@ function ConnectionContent() {
 
     <section id="trilha" className={s.section} aria-labelledby="trilha-conexao">
       <div className={s.sectionTitle}>
-        <h2 id="trilha-conexao"><span className={s.sectionIcon}><UIIcon name="layers" size={22} /></span>Trilha Conexão</h2>
+        <h2 id="trilha-conexao"><span className={s.sectionIcon}><UIIcon name="layers" size={22} /></span>Trilha da Conexão</h2>
       </div>
       {journey.status === "loading" ? <div className={s.load} role="status" aria-label="Carregando trilha"><span/></div> :
       journey.status === "error" ? <p className={s.notice} role="alert">Não foi possível consultar a trilha.</p> :
@@ -152,9 +153,24 @@ function ConnectionContent() {
           <div><strong>{tracking.enrollments.filter(w => w.mentorPersonId).length}</strong><span>Com mentor registrado</span></div>
           <div><strong>{tracking.enrollments.filter(w => w.status === "COMPLETED").length}</strong><span>Trilhas concluídas</span></div>
         </div> : <p className={s.notice} role="alert">A lista de acompanhamentos está indisponível.</p>}
-        <ol className={s.steps}>
-          {tracking.stages?.map(stage => <li key={stage.id}><span>{stage.sortOrder}</span><strong>{stage.title}</strong></li>)}
-        </ol>
+        {tracking.stages && tracking.enrollments && <section className={s.stageBoard} aria-labelledby="conexao-por-etapa">
+          <h3 id="conexao-por-etapa">Pessoas por etapa</h3>
+          <div className={s.stageChoices} role="group" aria-label="Etapas em acompanhamento">
+            {tracking.stages.map(stage => {
+              const total = tracking.enrollments?.filter(walk => walk.currentStageId === stage.id).length ?? 0;
+              return <button className={s.retry} key={stage.id} type="button" aria-pressed={selectedStageId === stage.id}
+                onClick={() => setSelectedStageId(stage.id)}>{stage.title} <strong>{total}</strong></button>;
+            })}
+          </div>
+          {selectedStageId && <div aria-live="polite">
+            {tracking.enrollments.some(walk => walk.currentStageId === selectedStageId)
+              ? <ul className={s.operationList}>{tracking.enrollments.filter(walk => walk.currentStageId === selectedStageId).map(walk =>
+                <li key={walk.id}><strong>{walk.personName ?? "Pessoa matriculada"}</strong>
+                  <span>{walk.mentorName ?? "Mentor a definir"}</span></li>,
+              )}</ul>
+              : <p>Nenhuma pessoa nesta etapa.</p>}
+          </div>}
+        </section>}
         {tracking.stages === null && <p className={s.notice} role="alert">As etapas da trilha estão indisponíveis.</p>}
         {tracking.stages?.length === 0 && <p className={s.notice}>Nenhuma etapa cadastrada.</p>}
         {token && tracking.stages && tracking.enrollments && <JourneyOperations
@@ -250,6 +266,7 @@ export function parseWalks(value: unknown): Walk[] {
     return id ? [{
       id, personId: valueText(d?.personId), personName: valueText(d?.personName) || null,
       mentorPersonId: valueText(d?.mentorPersonId) || null, mentorName: valueText(d?.mentorName) || null,
+      currentStageId: valueText(d?.currentStageId) || null,
       status: valueText(d?.status),
     }] : [];
   });

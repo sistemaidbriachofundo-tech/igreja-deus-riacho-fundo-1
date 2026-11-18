@@ -23,6 +23,7 @@ export type SiteLayout = {
   sections: SiteSection[];
   hidden: SiteSection[];
 };
+export const PORTAL_CAMPAIGN_IMAGE = "/images/capa-igreja-riacho-fundo.jpg";
 export const PUBLIC_FACADE_IMAGE = "/images/fachada-igreja-riacho-fundo.jpg";
 
 export const defaultSiteLayout: SiteLayout = {
@@ -30,7 +31,7 @@ export const defaultSiteLayout: SiteLayout = {
   hero: {
     title: "Igreja de Deus", accent: "Riacho Fundo I",
     description: "Uma igreja para Deus, pelas famílias e enviada ao mundo.",
-    imageUrl: PUBLIC_FACADE_IMAGE,
+    imageUrl: PORTAL_CAMPAIGN_IMAGE,
   },
   identity: SITE_IDENTITY_PHOTO,
   gallery: {
@@ -84,6 +85,7 @@ export function parsePublicSiteLayout(value:unknown):{layout:SiteLayout|null}|nu
   return {layout:response.layout===null?null:parseSiteLayout(response.layout)};
 }
 export const siteMediaLibrary = [
+  { title: "Capa do Riacho Fundo I", src: PORTAL_CAMPAIGN_IMAGE },
   { title: "Fachada oficial do Riacho Fundo I", src: PUBLIC_FACADE_IMAGE },
   { title: "Quem somos", src: SITE_IDENTITY_PHOTO.imageUrl },
   ...SITE_GALLERY_PHOTOS.map(photo => ({ title: photo.title, src: photo.imageUrl })),

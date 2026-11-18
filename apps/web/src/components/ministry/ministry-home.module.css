@@ -6,7 +6,7 @@
   max-width: var(--app-max, 1420px);
   margin: 0 auto;
   color: var(--app-ink, #22382e);
-  font: 400 14px/1.5 Inter, Arial, sans-serif;
+  font: 400 14px/1.5 "Source Sans Pro", Arial, sans-serif;
 }
 
 .ministryPicker {
@@ -27,7 +27,7 @@
   border-radius: var(--app-control-radius, 8px);
   background: var(--app-surface, #fff);
   color: var(--app-ink, #22382e);
-  font: 600 13px/1.3 Inter, Arial, sans-serif;
+  font: 600 13px/1.3 "Source Sans Pro", Arial, sans-serif;
 }
 
 .panel {
@@ -64,7 +64,7 @@
 .stats span { color: var(--app-muted, #5f7368); font-size: 12px; font-weight: 550; }
 .stats strong {
   color: var(--app-accent, #255742);
-  font: 650 clamp(20px, 2vw, 28px)/1.15 Inter, Arial, sans-serif;
+  font: 650 clamp(20px, 2vw, 28px)/1.15 "Source Sans Pro", Arial, sans-serif;
   letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
@@ -90,7 +90,7 @@
 .split h2, .escala h2, .note h2, .cash h2 {
   margin: 0 0 8px;
   color: var(--app-ink, #22382e);
-  font: 650 17px/1.3 Inter, Arial, sans-serif;
+  font: 650 17px/1.3 "Source Sans Pro", Arial, sans-serif;
   letter-spacing: -0.025em;
 }
 
@@ -270,7 +270,7 @@
 }
 
 .directoryToolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-.directoryToolbar h2 { margin: 0; color: #23523e; font: 750 clamp(1rem, 2vw, 1.25rem)/1.25 Montserrat, Inter, sans-serif; }
+.directoryToolbar h2 { margin: 0; color: #23523e; font: 750 clamp(1rem, 2vw, 1.25rem)/1.25 "Source Sans Pro", sans-serif; }
 .directoryToolbar > label { width: min(100%, 320px); }
 .directoryList {
   display: grid;
@@ -292,7 +292,7 @@
   background: linear-gradient(155deg, #f5faf6, #fff 65%);
 }
 .directoryList .directoryName { padding: 8px; min-height: 64px; gap: 10px; border-radius: 13px; }
-.directoryName strong { font: 750 .9rem/1.3 Montserrat, Inter, sans-serif; }
+.directoryName strong { font: 750 .9rem/1.3 "Source Sans Pro", sans-serif; }
 .directoryIcon { width: 40px; height: 40px; border-radius: 13px; }
 .directoryList .directoryActions { justify-content: space-between; padding: 4px; border-top: 1px solid #e5eee6; }
 .directoryActions a span { padding: 2px 6px; border-radius: 999px; background: #e6f1e9; }

@@ -299,14 +299,40 @@ export class DiscipleshipService {
           churchId: pilot.churchId,
         },
       },
-      include: { person: { select: { displayName: true } }, mentor: { select: { displayName: true } } },
+      include: {
+        person: { select: { displayName: true } }, mentor: { select: { displayName: true } },
+        track: { select: { code: true, name: true, stages: { orderBy: { sortOrder: "asc" } } } },
+        progress: {
+          orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+          select: { stageId: true, kind: true },
+        },
+      },
       orderBy: { startedAt: "desc" },
     });
+    const active = rows.filter(row => row.status === "ACTIVE" || row.status === "PAUSED");
+    const peopleWithWaivableStage = active.filter(row => row.track && isConnectionTrack(row.track)
+      && row.track.stages.some(stage => baptismWaived(stage.code, "TRANSFERENCIA"))).map(row => row.personId);
+    const admissions = peopleWithWaivableStage.length ? await this.prisma.admissionProtocol.findMany({
+      where: { organizationId: pilot.organizationId, churchId: pilot.churchId, status: "APPROVED",
+        pastorApproved: true, personId: { in: peopleWithWaivableStage } },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      distinct: ["personId"],
+      select: { personId: true, modality: true },
+    }) : [];
+    const modalities = new Map(admissions.map(row => [row.personId, row.modality]));
+    const currentStages = new Map(active.map(row => {
+      const latest = new Map(row.progress?.map(event => [event.stageId, event.kind]));
+      const modality = modalities.get(row.personId) ?? null;
+      return [row.id, row.track?.stages.find(stage =>
+        latest.get(stage.id) !== "COMPLETED" && !baptismWaived(stage.code, modality),
+      )?.id ?? null] as const;
+    }));
 
     return {
       churchId: pilot.churchId,
       enrollments: rows.map((row) => ({
         ...this.toEnrollmentDto(row), personName: row.person?.displayName ?? null, mentorName: row.mentor?.displayName ?? null,
+        currentStageId: currentStages.get(row.id) ?? null,
       })),
     };
   }

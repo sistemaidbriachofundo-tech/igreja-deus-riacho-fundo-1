@@ -6,7 +6,7 @@
 }
 .available { display: grid; align-content: center; gap: 11px; min-width: 0; }
 .positionLabel { display: flex; align-items: center; gap: 8px; color: #c7ded0; font-size: 13px; font-weight: 640; }
-.available > strong { color: #f5e2b9; font: 670 clamp(31px, 4.4vw, 57px)/1.06 Inter, sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+.available > strong { color: #f5e2b9; font: 670 clamp(31px, 4.4vw, 57px)/1.06 "Source Sans Pro", sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
 .position dl { display: grid; gap: 10px; margin: 0; }
 .position dl > div { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #c4d7ca33; }
 .position dt { color: #c7ded0; font-size: 13px; }
@@ -55,3 +55,11 @@
   .bank { padding: 12px; }
   .position dl { gap: 3px; }
 }
+
+.bankFilter { display: grid; gap: 5px; width: min(100%,22rem); margin-block: 12px; color: #363636; font-weight: 700; }
+.bankFilter select { min-height: 44px; min-width: 0; padding: 8px 10px; border: 1px solid #b4b4b4; border-radius: 8px; background: #fff; color: #222; font: inherit; }
+.bankDetail { display: grid; justify-items: start; gap: 12px; padding: 16px; border: 1px solid #ddd; border-radius: 12px; background: #f6f6f6; color: #252525; }
+.bankDetail h3, .bankDetail p, .bankDetail dd { margin: 0; }
+.bankDetail dl { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; }
+.bankDetail dt { color: #575757; }
+.bankDetail dd { font-size: 1.15rem; font-weight: 700; }
