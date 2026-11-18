@@ -445,6 +445,7 @@ describe("CredentialsService", () => {
             ...base,
             pdfStorageKey: "credentials/c1.pdf",
             pdfContentType: "application/pdf",
+            pdfPortraitHash: "abc",
             pdfByteSize: 1200,
             pdfGeneratedAt: new Date("2026-11-06T12:00:00Z"),
           }),
