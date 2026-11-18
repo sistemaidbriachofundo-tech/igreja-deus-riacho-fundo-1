@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AppNavLink } from "../AppShell";
 import { PageHeader } from "../ui/PageHeader";
 import { FilterDisclosure } from "../ui/FilterDisclosure";
 import { UIIcon, type GlyphName } from "../ui/UIIcon";
@@ -133,9 +132,6 @@ export function OperationalReports(props: {
     <div className={s.page}>
       <PageHeader appearance="workspace" heading="h1" title="Relatórios"
         description="Consulte pessoas, ministérios, inscrições em eventos e despesas por ministério."
-        actions={<AppNavLink className={ui.workspaceSecondary} href="/app/tesouraria/">
-          <UIIcon name="wallet" size={17} /> Tesouraria <UIIcon name="arrow" size={15} />
-        </AppNavLink>}
       />
 
       <nav className={s.sectionLinks} aria-label="Relatórios disponíveis">

@@ -105,6 +105,8 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const access = actions && (!moduleOnly || modules.length > 0) && {
     ...actions, modules, moduleId: selectedModule?.id ?? (moduleOnly ? modules[0]?.id : undefined),
     allowGeneral: !moduleOnly,
+    requireModuleMembership: volunteerPortal || moduleOnly,
+    managedModuleMemberships: panel.permissions?.manageModuleMemberships,
     onOpen: (id: string, nextModuleId?: string) => {
       if (nextModuleId !== undefined) setModuleFilter(nextModuleId);
       onOpen(id);
@@ -347,10 +349,10 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         <div>{exportsFor(selected)}<button type="button" className={s.secondary} onClick={() => onOpen(undefined)}><UIIcon name="close" size={15} /> Fechar</button></div>
       </header>
       {access && <RosterActions key={selected.id} {...access} roster={selected} members={access.members.filter(member => {
-        const module = modules.find(item => item.id === selected.moduleId);
+        const rosterModule = modules.find(item => item.id === selected.moduleId);
         if (!selected.moduleId) return !moduleOnly;
-        return Boolean(module && rosterModuleContains(module, member.personId)) ||
-          (!volunteerPortal && !moduleOnly && !module?.rules?.volunteerIds);
+        return Boolean(rosterModule && rosterModuleContains(rosterModule, member.personId)) ||
+          (!access.requireModuleMembership && !rosterModule?.rules?.volunteerIds);
       })} />}
       {!access && <p>{selected.functions.join(" · ") || "Sem posições cadastradas."}</p>}
     </section>}
@@ -404,9 +406,11 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
 
 function CapacityLine({ single, singleFilled, couples, couplesFilled }: ReturnType<typeof rosterCapacitySummary>) {
   if (!single && !couples) return null;
+  const missing = (couples - couplesFilled) * 2 + single - singleFilled;
   const parts = [
     couples > 0 ? `${couplesFilled} de ${couples} ${couples === 1 ? "casal" : "casais"}` : "",
     single > 0 ? `${singleFilled} de ${single} ${single === 1 ? "vaga individual" : "vagas individuais"}` : "",
+    missing === 1 ? "falta 1 pessoa" : missing > 1 ? `faltam ${missing} pessoas` : "",
   ];
   return <p className={s.capacityLine}>{parts.filter(Boolean).join(" · ")}</p>;
 }

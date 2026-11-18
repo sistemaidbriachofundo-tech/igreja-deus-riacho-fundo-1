@@ -13,6 +13,7 @@ import s from "./roster-editor.module.css";
 export function RosterModuleRulesEditor({ module, actions }: { module: EscalaModule; actions: RosterActionsProps }) {
   const [rules, setRules] = useState<EscalaModuleRules>(() => ({
     positions: {}, qualifications: {}, couples: [], minIntervalDays: 10, maxMonthlyAssignments: 3, substituteInviteLimit: 0, ...module.rules,
+    ...(actions.requireModuleMembership ? { volunteerIds: module.rules?.volunteerIds ?? [] } : {}),
   }));
   const [type, setType] = useState<RosterServiceType>("sunday_morning");
   const [busy, setBusy] = useState(false);
@@ -36,8 +37,10 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
     setBusy(true);
     setNotice("");
     try {
-      const saved = await apiPatch<{ rules: EscalaModuleRules }>(`/ministries/${encodeURIComponent(actions.ministryId)}/roster-modules/${encodeURIComponent(module.id)}/rules`, actions.token, rules);
-      setNotice("Equipe e regras do módulo salvas.");
+      const { volunteerIds, ...otherRules } = rules;
+      const payload = actions.managedModuleMemberships ? otherRules : { ...otherRules, volunteerIds };
+      const saved = await apiPatch<{ rules: EscalaModuleRules }>(`/ministries/${encodeURIComponent(actions.ministryId)}/roster-modules/${encodeURIComponent(module.id)}/rules`, actions.token, payload);
+      setNotice(actions.managedModuleMemberships ? "Regras do módulo salvas." : "Equipe e regras do módulo salvas.");
       actions.onRulesSaved?.(saved.rules);
     } catch (error) { setNotice(dasError(error)); }
     finally { setBusy(false); }
@@ -45,10 +48,12 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
   return <details className={s.position}>
     <summary>Equipe e regras de {module.name}</summary>
     <form className={s.ruleForm} onSubmit={save}>
-      <fieldset className={s.moduleTeam}>
+      {actions.managedModuleMemberships ? <p>
+        <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Editar vínculos em Integrantes</a>
+      </p> : <fieldset className={s.moduleTeam}>
         <legend>Voluntários do módulo</legend>
         <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Gerenciar integrantes do ministério</a>
-        <label>Quem pode servir
+        {!actions.requireModuleMembership && <label>Quem pode servir
           <select value={team ? "team" : "ministry"} onChange={event => setRules(previous => ({
             ...previous,
             volunteerIds: event.target.value === "team"
@@ -58,7 +63,7 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
             <option value="ministry">Todos os integrantes ativos do ministério</option>
             <option value="team">Somente a equipe deste módulo</option>
           </select>
-        </label>
+        </label>}
         {team && <>
           <div className={s.form}>
             <label>Voluntário<select value={newVolunteer} onChange={event => setNewVolunteer(event.target.value)}>
@@ -86,7 +91,7 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
             </li>;
           })}</ul> : <p>A equipe do módulo está vazia. Adicione pelo menos um voluntário para preencher vagas.</p>}
         </>}
-      </fieldset>
+      </fieldset>}
       <div className={s.form}>
         <label>Tipo de culto<select value={type} onChange={event => setType(event.target.value as RosterServiceType)}>
           {Object.entries(ROSTER_SERVICE_TYPES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}

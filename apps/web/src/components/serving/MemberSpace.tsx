@@ -88,9 +88,10 @@ export function MemberSpace({
           {(item.locationName || legacyLocation.length > 0) &&
             <p>{[item.locationName, ...legacyLocation].filter(Boolean).join(" · ")}</p>}
         </div>
-        {(item.arrivalContactName || item.arrivalInstructions) && <div className={styles.arrival}>
+        {isUpcoming(item, now) && <div className={styles.arrival}>
           {item.arrivalContactName && <p><strong>Ao chegar, procure {item.arrivalContactName}.</strong></p>}
           {item.arrivalInstructions && <p>{item.arrivalInstructions}</p>}
+          {!item.arrivalContactName && !item.arrivalInstructions && <p>Ao chegar, procure a liderança da sua equipe.</p>}
         </div>}
         {item.companionName && <p className={styles.context}>
           <strong>Você serve com {item.companionName}.</strong>

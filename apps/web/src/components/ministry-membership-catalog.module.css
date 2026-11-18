@@ -452,3 +452,7 @@
 .moduleForm input { accent-color: #184f43; width: 21px; height: 21px; }
 .moduleForm button { justify-self: start; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .memberActions { grid-column: 2 / -1; justify-content: flex-start; }
+}

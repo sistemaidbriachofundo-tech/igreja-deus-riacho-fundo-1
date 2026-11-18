@@ -22,6 +22,8 @@ export type RosterActionsProps = {
   modules?: EscalaModule[];
   moduleId?: string;
   allowGeneral?: boolean;
+  requireModuleMembership?: boolean;
+  managedModuleMemberships?: boolean;
 };
 
 const churchDateTime = new Intl.DateTimeFormat("sv-SE", {
@@ -163,9 +165,9 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {confirmation}
       {notice && <p className={s.success} role="status">{notice}</p>}
       {open && new Date(roster.serviceAt).getTime() > Date.now() && <RosterEditor {...props} />}
-      {draft && Boolean(roster.capacity?.length) && <CapacityEditor
-        key={roster.capacity?.map(group => `${group.id}:${group.count}`).join("|")}
-        groups={roster.capacity!} busy={busy} onSave={groups => void mutate(base + "/capacity", { groups }, "PATCH", "Quantidade atualizada neste culto.")} />}
+      {draft && roster.capacity && <CapacityEditor
+        key={roster.capacity.map(group => `${group.id}:${group.count}`).join("|")}
+        groups={roster.capacity} busy={busy} onSave={groups => void mutate(base + "/capacity", { groups }, "PATCH", "Quantidade atualizada neste culto.")} />}
       {roster.moduleId && !members.length && <p className={s.vacancy}>Cadastre integrantes neste módulo para preencher as vagas.</p>}
       {Boolean(roster.positions?.length) && <dl className={s.counts} aria-label="Cobertura do culto">
         <div><dt>Vagas abertas</dt><dd>{summary.open}</dd></div>
@@ -257,7 +259,7 @@ function CapacityEditor({ groups, busy, onSave }: {
       onSave(groups.map(group => ({ id: group.id, count: Number(data.get(group.id)) })));
     }}>
       {groups.map(group => <label key={group.id}>{group.label}
-        <small>Padrão {group.defaultCount} · {group.minimumCount} já preenchidas</small>
+        <small>Padrão {group.defaultCount} · mínimo atual {group.minimumCount}</small>
         <input name={group.id} type="number" min={group.minimumCount} step={1} defaultValue={group.count} required />
       </label>)}
       <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => {
