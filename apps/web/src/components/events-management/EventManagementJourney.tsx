@@ -103,10 +103,17 @@ export function EventManagementJourney() {
           setMinistryOptions(options);
           if (leader && !churchStaff && options.length === 1) setCreating(draft => ({ ...draft, ministryId: options[0].id }));
         }
-        setEvents(readDasRows(body, "events").flatMap((row) => {
+        const available = readDasRows(body, "events").flatMap((row) => {
           const event = toManagedEvent(row);
           return event ? [event] : [];
-        }));
+        });
+        setEvents(available);
+        const fromMinistry = new URLSearchParams(window.location.search).get("evento");
+        const requested = available.find(event => event.id === fromMinistry);
+        if (requested) {
+          setEditing({ name: requested.name, slug: requested.slug, description: requested.description, locationText: requested.locationText, startsAt: "" });
+          setSelectedId(requested.id);
+        }
         setPhase("ready");
       })
       .catch((error: unknown) => {
@@ -129,6 +136,18 @@ export function EventManagementJourney() {
 
   const selected = events.find((event) => event.id === selectedId) ?? null;
   const blockReason = selected ? publicationBlockReason(selected) : null;
+  const selectedStatus = selected?.status;
+
+  useEffect(() => {
+    if (!token || treasuryOnly || (selectedStatus !== "PUBLISHED" && selectedStatus !== "CANCELLED")) return;
+    let active = true;
+    void loadRegistrations(selectedId, token).then(rows => {
+      if (active) setRegistrations(rows);
+    }).catch(error => {
+      if (active) setNotice(dasError(error));
+    });
+    return () => { active = false; };
+  }, [selectedId, selectedStatus, token, treasuryOnly]);
 
   async function reloadEvents(nextToken = token) {
     const body = await apiGet<unknown>("/events", nextToken);
@@ -141,11 +160,7 @@ export function EventManagementJourney() {
   }
 
   async function reloadRegistrations(eventId: string, nextToken = token) {
-    const body = await apiGet<unknown>(`/events/${encodeURIComponent(eventId)}/registrations`, nextToken);
-    setRegistrations(readDasRows(body, "registrations").flatMap((row) => {
-      const registration = toManagedRegistration(row);
-      return registration ? [registration] : [];
-    }));
+    setRegistrations(await loadRegistrations(eventId, nextToken));
   }
 
   async function run(task: () => Promise<void>) {
@@ -237,9 +252,6 @@ export function EventManagementJourney() {
       locationText: event.locationText,
       startsAt: "",
     });
-    if (event.status === "PUBLISHED" || event.status === "CANCELLED") {
-      if (!treasuryOnly) void run(() => reloadRegistrations(eventId));
-    }
   }
 
   function registerSynthetic(event: FormEvent) {
@@ -389,6 +401,14 @@ export function EventManagementJourney() {
   );
 }
 
+async function loadRegistrations(eventId: string, token: string) {
+  const body = await apiGet<unknown>("/events/" + encodeURIComponent(eventId) + "/registrations", token);
+  return readDasRows(body, "registrations").flatMap(row => {
+    const registration = toManagedRegistration(row);
+    return registration ? [registration] : [];
+  });
+}
+
 function textId(value: unknown) {
   return typeof value === "string" ? value : "";
 }
@@ -462,7 +482,7 @@ export function EventManagementView(props: {
           <p className={s.lede}>{eventStatusLabel(props.selected.status)} · {formatPortalDate(props.selected.startsAt).dayAndTime}
             {props.selected.locationText && " · " + props.selected.locationText}</p>
         </div>
-        <div className={s.actions}>
+        <div className={s.actions} aria-label="Ações do evento selecionado">
           {!props.treasuryOnly && <a className={s.link} href="#revisar-evento">Revisar e publicar</a>}
           {props.rosterDesk && <a className={s.link} href="#escala-do-evento">Escala da equipe</a>}
           {props.registrationDesk && <a className={s.link} href="#inscricoes-do-evento">{props.treasuryOnly ? "Consultar Pix do evento" : "Inscrições, pagamentos e presença"}</a>}

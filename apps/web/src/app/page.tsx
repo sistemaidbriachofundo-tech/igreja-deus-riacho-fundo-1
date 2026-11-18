@@ -5,6 +5,7 @@ import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
 import { PortalIdentityPhoto } from "../components/PortalIdentityPhoto";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
+import { PublishedFriendshipGroups } from "../components/PublishedFriendshipGroups";
 import { withBasePath } from "../lib/paths";
 import { instagramUrl } from "../lib/portal-content";
 import s from "./home-institutional.module.css";
@@ -60,6 +61,7 @@ export default function HomePage() {
               </ul>
             </div>
           </section>
+          <PublishedFriendshipGroups />
           <section className={s.social} aria-labelledby="social-title">
             <div className={s.socialContent}>
               <div>

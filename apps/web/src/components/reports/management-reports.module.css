@@ -98,7 +98,7 @@
   border-radius: 11px;
   background: var(--app-subtle, #f5f8f5);
   color: var(--app-ink, #22382e);
-  font: 500 .875rem/1.25 var(--font-geist-stack);
+  font: 500 .875rem/1.25 var(--site-font);
 }
 
 .panel {
@@ -155,7 +155,7 @@
 .panel h2, .header h1 {
   margin: 0;
   color: var(--app-ink, #22382e);
-  font-family: var(--font-title, var(--font-geist-stack));
+  font-family: var(--font-title, var(--site-font));
   letter-spacing: -.03em;
 }
 

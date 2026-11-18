@@ -120,6 +120,36 @@ export class DiscipleshipService {
     };
   }
 
+  async listMentors(actor: AuthUser, trackId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    await requireConnectionManagement(this.prisma, actor, pilot);
+    const track = await this.requireTrack(trackId, pilot);
+    const rows = await this.prisma.discipleshipMentorRegistration.findMany({
+      where: { trackId: track.id, person: { ...congregationPeople(pilot.organizationId, pilot.churchId), status: "ACTIVE", isMinor: false } },
+      select: { person: { select: { id: true, displayName: true } } },
+      orderBy: [{ person: { displayName: "asc" } }, { personId: "asc" }],
+    });
+    return { mentors: rows.map(row => row.person) };
+  }
+
+  async registerMentor(actor: AuthUser, trackId: string, personId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    await requireConnectionManagement(this.prisma, actor, pilot);
+    const track = await this.requireTrack(trackId, pilot);
+    await this.requireMentor(personId, "", pilot);
+    return this.prisma.$transaction(async tx => {
+      const inserted = await tx.discipleshipMentorRegistration.createMany({ data: [{ trackId: track.id, personId }], skipDuplicates: true });
+      if (inserted.count > 0) await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId, action: "discipleship.mentor.register",
+          resourceType: "discipleship_track", resourceId: track.id, metadata: { personId },
+          organizationId: pilot.organizationId, churchId: pilot.churchId,
+        },
+      });
+      return { personId };
+    });
+  }
+
   async searchPeople(actor: AuthUser, search: string) {
     const pilot = await this.pilot.getPilotChurch();
     await requireConnectionManagement(this.prisma, actor, pilot);

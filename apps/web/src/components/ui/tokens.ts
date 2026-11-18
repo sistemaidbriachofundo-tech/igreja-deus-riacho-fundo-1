@@ -23,8 +23,8 @@ export const dsColor = {
 } as const;
 
 export const dsType = {
-  title: '"Montserrat", system-ui, sans-serif',
-  body: '"Inter", system-ui, sans-serif',
+  title: 'var(--site-font)',
+  body: 'var(--site-font)',
   display: "clamp(1.45rem, 1.05rem + 1.2vw, 2rem)",
   h2: "clamp(1.35rem, 1.1rem + 1vw, 1.75rem)",
   bodySize: "1rem",

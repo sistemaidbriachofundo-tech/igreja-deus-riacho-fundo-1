@@ -28,7 +28,7 @@ import {
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useDialogLifecycle } from "./ui/dialog";
-import { dsColor, dsGrid } from "./ui/tokens";
+import { dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
 import { UIIcon, type GlyphName } from "./ui/UIIcon";
 
@@ -385,9 +385,6 @@ export function AppShell({
       ? (collapsed ? "Expandir menu" : "Recolher menu")
       : "Abrir menu";
   const shellStyle = {
-    "--shell-gold": dsColor.gold,
-    "--shell-cream": dsColor.cream,
-    "--shell-ink": dsColor.ink,
     "--shell-target": dsGrid.touchTarget,
   } as CSSProperties;
 

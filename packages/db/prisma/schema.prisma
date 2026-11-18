@@ -245,6 +245,7 @@ model Person {
   smallGroupJoinRequests SmallGroupJoinRequest[]
   discipleshipEnrollments DiscipleshipEnrollment[]
   discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
+  discipleshipMentorRegistrations DiscipleshipMentorRegistration[]
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
   volunteerInterests VolunteerInterest[]
@@ -715,11 +716,25 @@ model DiscipleshipTrack {
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
   enrollments  DiscipleshipEnrollment[]
+  mentorRegistrations DiscipleshipMentorRegistration[]
   stages       DiscipleshipTrackStage[]
 
   @@unique([churchId, code])
   @@index([organizationId, churchId])
   @@map("discipleship_tracks")
+}
+
+model DiscipleshipMentorRegistration {
+  trackId   String   @map("track_id")
+  personId  String   @map("person_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  track  DiscipleshipTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  person Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, personId])
+  @@index([personId])
+  @@map("discipleship_mentor_registrations")
 }
 
 /// Etapa ordenada de uma trilha (RF-010). Não pontua espiritualmente.
@@ -1367,6 +1382,10 @@ model SmallGroup {
   name           String
   leaderPersonId String?  @map("leader_person_id")
   meetsAtHint    String?  @map("meets_at_hint")
+  meetingAddress String?  @map("meeting_address")
+  photoUrl       String?  @map("photo_url")
+  contactWhatsApp String? @map("contact_whatsapp")
+  publicListed   Boolean  @default(false) @map("public_listed")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

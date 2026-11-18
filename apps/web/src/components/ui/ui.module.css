@@ -34,8 +34,8 @@
   --ds-on-dark: #f7ede0;
   --ds-bronze-text: #7a4a16;
   --ds-support: #243e42;
-  --ds-font-title: var(--font-geist-stack);
-  --ds-font-body: var(--font-geist-stack);
+  --ds-font-title: var(--site-font);
+  --ds-font-body: var(--site-font);
   --ds-space-2: 0.5rem;
   --ds-space-3: 0.75rem;
   --ds-space-4: 1rem;
@@ -1169,7 +1169,7 @@
 
 .workspaceHeader .pageTitle {
   color: var(--app-ink, #22382e);
-  font: 700 var(--app-title-size, clamp(1.5rem, 2.45vw, 2.05rem))/1.15 var(--font-geist-stack);
+  font: 700 var(--app-title-size, clamp(1.5rem, 2.45vw, 2.05rem))/1.15 var(--site-font);
   letter-spacing: -.04em;
 }
 
@@ -1177,7 +1177,7 @@
   max-width: 66ch;
   margin: 8px 0 0;
   color: var(--app-muted, #5f7368);
-  font: 400 14px/1.5 var(--font-geist-stack);
+  font: 400 14px/1.5 var(--site-font);
 }
 
 .workspaceHeader .pageActions {
@@ -1199,7 +1199,7 @@
   border-radius: 999px;
   background: var(--app-surface, #fff);
   color: var(--app-accent, #255742);
-  font: 600 14px/1.25 var(--font-geist-stack);
+  font: 600 14px/1.25 var(--site-font);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
@@ -1252,7 +1252,7 @@
   border-radius: 999px;
   background: transparent;
   color: #496557;
-  font: 600 13px/1.25 var(--font-geist-stack);
+  font: 600 13px/1.25 var(--site-font);
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
@@ -1293,7 +1293,7 @@
   border-radius: 999px;
   background: transparent;
   color: #3c5b4d;
-  font: 650 .8125rem/1.2 var(--font-geist-stack);
+  font: 650 .8125rem/1.2 var(--site-font);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
@@ -1323,8 +1323,8 @@
   color: #22382e;
 }
 .workspaceDialog .dialogHeader { gap: 14px; align-items: flex-start; }
-.workspaceDialog .dialogHeader h2 { margin: 0; color: #22382e; font: 650 21px/1.25 var(--font-geist-stack); letter-spacing: -0.03em; }
-.workspaceDialog .dialogCopy { margin: 16px 0 0; color: #5f7368; font: 400 14px/1.6 var(--font-geist-stack); }
+.workspaceDialog .dialogHeader h2 { margin: 0; color: #22382e; font: 650 21px/1.25 var(--site-font); letter-spacing: -0.03em; }
+.workspaceDialog .dialogCopy { margin: 16px 0 0; color: #5f7368; font: 400 14px/1.6 var(--site-font); }
 .workspaceDialog .dialogBody { margin-top: 20px; }
 @media (max-width: 540px) { .workspaceDialog { padding: 20px; } }
 
@@ -1343,7 +1343,7 @@
   background: #fcfaf6;
   color: #20372d;
   box-shadow: 0 24px 72px #102f2a38;
-  font-family: var(--font-geist-stack);
+  font-family: var(--site-font);
 }
 
 .actionConfirmation::backdrop {
@@ -1364,12 +1364,12 @@
   flex: none;
   place-items: center;
   border-radius: 50%;
-  font: 700 15px/1 var(--font-geist-stack);
+  font: 700 15px/1 var(--site-font);
 }
 
 .confirmationContent h2 {
   margin: 0;
-  font-family: var(--font-geist-stack);
+  font-family: var(--site-font);
   font-size: clamp(20px, 4vw, 24px);
   font-weight: 700;
   line-height: 1.2;
@@ -1432,7 +1432,7 @@
   border-radius: 10px;
   background: var(--alert-surface);
   color: var(--alert-ink);
-  font: 400 13px/1.55 var(--font-geist-stack);
+  font: 400 13px/1.55 var(--site-font);
 }
 
 .workspaceAlert[data-tone="success"] {
@@ -1462,7 +1462,7 @@
 }
 
 .workspaceAlert .alertCopy strong {
-  font: 650 14px/1.45 var(--font-geist-stack);
+  font: 650 14px/1.45 var(--site-font);
 }
 
 .workspaceAlert .alertCopy .workspaceSecondary {
@@ -1487,7 +1487,7 @@
   border-radius: 8px;
   background: transparent;
   color: inherit;
-  font: 500 21px/1 var(--font-geist-stack);
+  font: 500 21px/1 var(--site-font);
   cursor: pointer;
 }
 
@@ -1561,7 +1561,7 @@
   outline: none;
   background: transparent;
   color: #173c2d;
-  font: 500 .9rem/1.35 var(--font-geist-stack);
+  font: 500 .9rem/1.35 var(--site-font);
   box-shadow: none;
 }
 .workspaceSearch > input[type="search"]:focus-visible { outline: none; }

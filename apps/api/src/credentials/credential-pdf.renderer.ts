@@ -69,7 +69,7 @@ export async function renderCredentialPdf(
 
   doc
     .fontSize(11)
-    .fillColor("#4A2612")
+    .fillColor("#171717")
     .text(input.churchName, { align: "left", width: 200 });
   doc.moveDown(0.4);
   doc.fontSize(16).fillColor("#1a1a1a").text(input.displayName, { width: 200 });

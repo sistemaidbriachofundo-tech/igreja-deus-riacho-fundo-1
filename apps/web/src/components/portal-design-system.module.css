@@ -12,7 +12,7 @@
   --portal-green-line: #484848;
   --portal-gold: #d6d6d6;
   --portal-title-accent: #383838;
-  --portal-display: var(--font-geist-stack);
+  --portal-display: var(--site-font);
 }
 
 .palette [data-appearance="verde"], .palette[data-appearance="verde"] {
@@ -31,7 +31,7 @@
   --portal-header: 72px;
   background: var(--portal-paper);
   color: var(--portal-ink);
-  font-family: var(--font-geist-stack);
+  font-family: var(--site-font);
 }
 
 .theme :is(a, button, summary, h1, h2):focus-visible {
@@ -82,8 +82,8 @@
   letter-spacing: 0;
 }
 
-.brand strong { font: 700 14px/1.3 var(--font-geist-stack); }
-.brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 var(--font-geist-stack); }
+.brand strong { font: 700 14px/1.3 var(--site-font); }
+.brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 var(--site-font); }
 .masthead .brand, .masthead .brand strong { color: var(--portal-on-green); }
 .masthead .brand small { color: var(--portal-on-green-muted); }
 .masthead :is(a, summary):focus-visible { outline-color: var(--portal-gold); }
@@ -127,7 +127,7 @@
   border: 1px solid var(--portal-green-line);
   border-radius: 999px;
   color: var(--portal-on-green);
-  font: 650 13px/1 var(--font-geist-stack);
+  font: 650 13px/1 var(--site-font);
 }
 
 .headerLogin:hover, .mobileMenu > summary:hover { background: var(--portal-green-hover); }
@@ -177,7 +177,7 @@
   padding: 10px 15px;
   border: 1px solid #b78f57;
   border-radius: 6px;
-  font: 650 14px/1.3 var(--font-geist-stack);
+  font: 650 14px/1.3 var(--site-font);
 }
 
 .goldButton { background: #e9cd9c; color: #162c21; }

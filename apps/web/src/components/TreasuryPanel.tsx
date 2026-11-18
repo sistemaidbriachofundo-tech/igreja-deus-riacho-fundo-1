@@ -653,6 +653,7 @@ export function TreasuryPanel() {
 
         {view === "conciliacao" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Conciliações">
           <FinancialHeading icon="check" title="Conciliações" />
+          <p>Compare os lançamentos com o extrato da conta. Registre a conferência antes de fechar o período.</p>
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.reconciliationNote && <p role="status">{data.reconciliationNote}</p>}
           {data?.reconciliations && !reconciliations.length && <p>Nenhuma conciliação registrada.</p>}

@@ -22,13 +22,20 @@ export class GroupRequestsService {
     const groups = await this.db.smallGroup.findMany({
       where: { ...scope, leaderPersonId: { not: null } }, orderBy: { name: "asc" },
       select: { id: true, name: true, meetsAtHint: true, leaderPersonId: true,
+        photoUrl: true, publicListed: true, meetingAddress: true, leader: { select: { displayName: true } },
         members: { where: { personId: actor.personId }, select: { id: true } },
         joinRequests: { where: { personId: actor.personId }, select: { status: true } } },
     });
-    return { groups: groups.map(group => ({
-      id: group.id, name: group.name, meetsAtHint: group.meetsAtHint,
-      status: group.members.length || group.leaderPersonId === actor.personId ? "MEMBER" : group.joinRequests[0]?.status ?? null,
-    })) };
+    return { groups: groups.map(group => {
+      const leads = group.leaderPersonId === actor.personId;
+      const belongs = leads || group.members.length > 0;
+      return {
+        id: group.id, name: group.name, meetsAtHint: group.meetsAtHint, photoUrl: group.photoUrl,
+        leaderName: group.leader?.displayName ?? null, leads,
+        meetingAddress: belongs || group.publicListed ? group.meetingAddress : null,
+        status: belongs ? "MEMBER" : group.joinRequests[0]?.status ?? null,
+      };
+    }) };
   }
 
   async request(actor: AuthUser, groupId: string) {
@@ -55,7 +62,7 @@ export class GroupRequestsService {
   async inbox(actor: AuthUser, since?: Date) {
     const scope = await this.scope(actor);
     if (!actor.personId || !hasAccess(actor.grants, { ...scope,
-      roleCodes: [ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN] })) return [];
+      roleCodes: [ROLE_CODES.MEMBRO, ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN] })) return [];
     return this.db.smallGroupJoinRequest.findMany({
       where: { group: { ...scope, leaderPersonId: actor.personId },
         ...(since ? { OR: [{ status: "PENDING" }, { createdAt: { gte: since } }] } : {}) },
@@ -68,7 +75,7 @@ export class GroupRequestsService {
   async decide(actor: AuthUser, id: string, approved: boolean) {
     const scope = await this.scope(actor);
     if (!actor.personId || !hasAccess(actor.grants, { ...scope,
-      roleCodes: [ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN] })) throw new ForbiddenException();
+      roleCodes: [ROLE_CODES.MEMBRO, ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN] })) throw new ForbiddenException();
     return this.db.$transaction(async tx => {
       const row = await tx.smallGroupJoinRequest.findFirst({
         where: { id, group: { ...scope, leaderPersonId: actor.personId } },

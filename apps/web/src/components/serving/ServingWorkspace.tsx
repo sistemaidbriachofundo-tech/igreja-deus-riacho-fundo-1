@@ -222,7 +222,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
           <MonthlyServiceSurvey token={token} />
           <ConnectionJourney />
           <GroupRequests token={token} />
-          {user.canManageConnection !== true && roles.some(role => ["LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
+          {user.canManageConnection !== true && roles.some(role => ["MEMBRO", "LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
             <GroupRequests manage hideEmpty token={token} />}
         </>
       )}

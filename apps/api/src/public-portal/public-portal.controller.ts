@@ -26,6 +26,12 @@ export class PublicPortalController {
   }
 
   @Public()
+  @Get("groups")
+  listGroups() {
+    return this.portal.listGroups();
+  }
+
+  @Public()
   @Get("ministries")
   listMinistries() {
     return this.portal.listMinistries();

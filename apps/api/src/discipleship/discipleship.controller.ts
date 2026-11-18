@@ -93,6 +93,13 @@ class UpdateMentorBody {
   mentorPersonId!: string | null;
 }
 
+class RegisterMentorBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  personId!: string;
+}
+
 class RecordProgressBody {
   @IsString()
   @MinLength(1)
@@ -135,6 +142,18 @@ export class DiscipleshipController {
   @Get("people")
   searchPeople(@CurrentUser() user: AuthUser, @Query("q") q = "") {
     return this.discipleship.searchPeople(user, q);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get("tracks/:trackId/mentors")
+  listMentors(@CurrentUser() user: AuthUser, @Param("trackId") trackId: string) {
+    return this.discipleship.listMentors(user, trackId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post("tracks/:trackId/mentors")
+  registerMentor(@CurrentUser() user: AuthUser, @Param("trackId") trackId: string, @Body() body: RegisterMentorBody) {
+    return this.discipleship.registerMentor(user, trackId, body.personId);
   }
 
   @Roles(...LEAD_ROLES)

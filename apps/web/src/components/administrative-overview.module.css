@@ -4,28 +4,28 @@
   margin: 0 auto;
   color: var(--ink);
   font:
-    400 14px/1.5 var(--font-geist-stack);
-  --ink: var(--app-ink, #22382e);
-  --muted: var(--app-muted, #5f7368);
-  --app-border: #cdd9d0;
-  --line: var(--app-border, #dce6de);
-  --accent: var(--app-accent, #255742);
+    400 14px/1.5 var(--site-font);
+  --ink: var(--app-ink, #333333);
+  --muted: var(--app-muted, #6e6e6e);
+  --app-border: #d6d6d6;
+  --line: var(--app-border, #e3e3e3);
+  --accent: var(--app-accent, #4e4e4e);
   max-width: var(--app-max, 1420px);
   gap: 20px;
 }
 .dashboard > header {
-  --app-ink: #f8f4e9;
-  --app-accent: #f8f4e9;
-  --app-subtle: #315747;
-  background: #1c4033;
+  --app-ink: #f4f4f4;
+  --app-accent: #f4f4f4;
+  --app-subtle: #505050;
+  background: #393939;
   border-radius: var(--app-radius, 9px);
   padding: clamp(14px, 1.8vw, 24px) clamp(16px, 2.5vw, 34px);
 }
 .dashboard > header button {
-  border-color: #829e8d;
+  border-color: #979797;
 }
 .dashboard > header button:focus-visible {
-  outline-color: #e9d2a7;
+  outline-color: #d5d5d5;
 }
 .dashboard *,
 .dashboard *::before,
@@ -35,10 +35,10 @@
 .notice {
   margin: 0;
   padding: 12px 15px;
-  background: #fff7e7;
-  border: 1px solid #e9d9b6;
+  background: #f8f8f8;
+  border: 1px solid #dadada;
   border-radius: 9px;
-  color: #665136;
+  color: #555555;
 }
 .metrics {
   display: grid;
@@ -52,14 +52,14 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #586f61;
+  color: #6a6a6a;
   font-size: 13px;
   font-weight: 670;
 }
 .metricTop > svg {
   margin-left: auto;
   flex: none;
-  color: #536858;
+  color: #636363;
 }
 .metricIcon {
   display: grid;
@@ -68,20 +68,20 @@
   width: 31px;
   height: 31px;
   border-radius: 9px;
-  background: #eff4ee;
-  color: #4b7556;
+  background: #f3f3f3;
+  color: #6c6c6c;
 }
 .metricIcon[data-tone="slate"] {
-  background: #f0f3f4;
-  color: #697e8a;
+  background: #f2f2f2;
+  color: #7b7b7b;
 }
 .metricIcon[data-tone="gold"] {
-  background: #f9f1e1;
-  color: #967338;
+  background: #f2f2f2;
+  color: #797979;
 }
 .metricIcon[data-tone="blue"] {
-  background: #eff2f9;
-  color: #697da6;
+  background: #f2f2f2;
+  color: #7d7d7d;
 }
 .metricValue {
   position: relative;
@@ -130,7 +130,7 @@
   gap: 7px;
   min-height: 44px;
   text-decoration: none;
-  color: #3c6c50;
+  color: #626262;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -171,14 +171,14 @@
   gap: 2px;
 }
 .ring small {
-  color: #66785f;
+  color: #737373;
   font-size: 8px;
   letter-spacing: 0.06em;
   font-weight: 600;
   text-transform: uppercase;
 }
 .ring strong {
-  color: #244c39;
+  color: #444444;
   font-size: 39px;
   font-weight: 550;
   line-height: 1.2;
@@ -191,7 +191,7 @@
   margin: 0;
 }
 .memberLegend li + li {
-  border-top: 1px solid #edf1eb;
+  border-top: 1px solid #f0f0f0;
 }
 .memberLegend a {
   display: grid;
@@ -199,14 +199,14 @@
   align-items: center;
   gap: 9px;
   min-height: 49px;
-  color: #5c7164;
+  color: #6c6c6c;
   text-decoration: none;
   font-size: 12px;
   border-radius: 5px;
 }
 .memberLegend a:hover,
 .memberLegend a:focus-visible {
-  background: #f5f8f3;
+  background: #f7f7f7;
 }
 .memberLegend i {
   width: 7px;
@@ -214,12 +214,12 @@
   border-radius: 50%;
 }
 .memberLegend strong {
-  color: #314d3b;
+  color: #474747;
   font-size: 14px;
   font-weight: 600;
 }
 .memberLegend small {
-  color: #637763;
+  color: #727272;
   font-size: 11px;
   text-align: right;
 }
@@ -234,10 +234,10 @@
   font-weight: 550;
   line-height: 1;
   letter-spacing: -0.05em;
-  color: #345c43;
+  color: #545454;
 }
 .flowSummary > span {
-  color: #5a705f;
+  color: #6b6b6b;
   font-size: 12px;
   line-height: 1.6;
 }
@@ -250,7 +250,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #5d7161;
+  color: #6c6c6c;
   font-size: 12px;
   margin-bottom: 10px;
 }
@@ -258,23 +258,23 @@
   margin-left: auto;
   font-size: 13px;
   font-weight: 600;
-  color: #3d5b42;
+  color: #545454;
 }
 .stageTrack {
   display: block;
   height: 5px;
   border-radius: 4px;
   overflow: hidden;
-  background: #edf1e9;
+  background: #f0f0f0;
 }
 .stageTrack > span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #9bb298;
+  background: #acacac;
 }
 .stage:last-child .stageTrack > span {
-  background: #baa16d;
+  background: #a4a4a4;
 }
 .section.calendarSection {
   overflow: hidden;
@@ -290,7 +290,7 @@
 .monthHead > strong {
   font-size: 13px;
   font-weight: 600;
-  color: #4b6954;
+  color: #626262;
 }
 .monthHead > strong::first-letter { text-transform: uppercase; }
 .monthHead > div {
@@ -305,11 +305,11 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #536858;
+  color: #636363;
   cursor: pointer;
 }
 .monthHead button:hover {
-  background: #f1f5ed;
+  background: #f4f4f4;
 }
 .chevronBack {
   display: flex;
@@ -325,7 +325,7 @@
   display: grid;
   place-items: center;
   height: 24px;
-  color: #536858;
+  color: #636363;
   font-size: 10px;
 }
 .calendar button {
@@ -336,23 +336,23 @@
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: #587156;
+  color: #6a6a6a;
   font:
-    500 12px var(--font-geist-stack);
+    500 12px var(--site-font);
   cursor: pointer;
 }
 .calendar button:hover {
-  background: #f0f5e9;
+  background: #f3f3f3;
 }
 .calendar button[aria-current="date"] {
-  background: #396345;
+  background: #5a5a5a;
   color: #fff;
-  box-shadow: 0 3px 7px #39593c14;
+  box-shadow: 0 3px 7px #52525214;
 }
 .calendar button[aria-pressed="true"] {
-  background: #f6edd8;
-  border-color: #bea363;
-  color: #6e5935;
+  background: #eeeeee;
+  border-color: #a6a6a6;
+  color: #5c5c5c;
 }
 .calendar button[data-event]::after {
   content: "";
@@ -361,7 +361,7 @@
   left: calc(50% - 2px);
   height: 4px;
   width: 4px;
-  background: #c1a06a;
+  background: #a5a5a5;
   border-radius: 50%;
 }
 .agendaHeading {
@@ -370,19 +370,19 @@
   justify-content: space-between;
   gap: 7px;
   padding-top: 15px;
-  border-top: 1px solid #edf1e9;
+  border-top: 1px solid #f0f0f0;
   font-size: 10px;
   font-weight: 550;
-  color: #536858;
+  color: #636363;
 }
 .agendaHeading button {
   min-height: 44px;
   padding: 4px;
   border: 0;
   background: transparent;
-  color: #476e45;
+  color: #656565;
   font:
-    600 11px var(--font-geist-stack);
+    600 11px var(--site-font);
   cursor: pointer;
 }
 .agendaList {
@@ -391,7 +391,7 @@
   margin: 7px 0 10px;
 }
 .agendaList li + li {
-  border-top: 1px solid #edf1e9;
+  border-top: 1px solid #f0f0f0;
 }
 .agendaList a {
   display: flex;
@@ -399,12 +399,12 @@
   gap: 12px;
   min-height: 71px;
   padding: 10px 0;
-  color: #3b5d41;
+  color: #555555;
   text-decoration: none;
   border-radius: 7px;
 }
 .agendaList a:hover {
-  background: #f8faf5;
+  background: #f9f9f9;
 }
 .eventDate {
   display: flex;
@@ -415,10 +415,10 @@
   gap: 1px;
   width: 43px;
   height: 48px;
-  border: 1px solid #e6ede0;
+  border: 1px solid #ebebeb;
   border-radius: 9px;
-  color: #557247;
-  background: #f5f8ef;
+  color: #6a6a6a;
+  background: #f7f7f7;
 }
 .eventDate strong {
   font-size: 18px;
@@ -445,7 +445,7 @@
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  color: #536858;
+  color: #636363;
   font-size: 10px;
   line-height: 1.5;
 }
@@ -460,24 +460,24 @@
   gap: 8px;
   margin: 0 -24px;
   min-height: 48px;
-  border-top: 1px solid #e7ede0;
-  background: #f9fbf5;
-  color: #527447;
+  border-top: 1px solid #ebebeb;
+  background: #fafafa;
+  color: #6b6b6b;
   text-decoration: none;
   font-size: 11px;
   font-weight: 600;
 }
 .calendarLink:hover {
-  background: #eff5e7;
+  background: #f3f3f3;
 }
 .empty {
   margin: 8px 0 20px;
-  color: #536858;
+  color: #636363;
   font-size: 12px;
   line-height: 1.6;
 }
 .dashboard :is(a, button):focus-visible {
-  outline: 3px solid #b28d44;
+  outline: 3px solid #929292;
   outline-offset: 3px;
 }
 @media (min-width: 1600px) {
@@ -722,18 +722,18 @@
   text-decoration: none;
 }
 .metric + .metric { border-left: 1px solid var(--line); }
-.metric:first-child { background: #edf5ee; }
+.metric:first-child { background: #f3f3f3; }
 .metric:first-child .metricValue { color: var(--accent); }
-.metric:hover { background: var(--app-subtle, #f5f8f5); }
-.metric:first-child:hover { background: #e4f0e6; }
+.metric:hover { background: var(--app-subtle, #f7f7f7); }
+.metric:first-child:hover { background: #ededed; }
 .metrics .metric:focus-visible { outline-offset: -4px; }
 .priorities {
   overflow: hidden;
   border-block: 1px solid var(--line);
   scroll-margin-top: 85px;
 }
-.priorityHeader { padding: 13px 18px; border-bottom: 1px solid var(--line); background: #edf3ed; }
-.priorityHeader h2 { margin: 0; color: var(--ink); font: 650 15px/1.3 var(--font-geist-stack); }
+.priorityHeader { padding: 13px 18px; border-bottom: 1px solid var(--line); background: #f1f1f1; }
+.priorityHeader h2 { margin: 0; color: var(--ink); font: 650 15px/1.3 var(--site-font); }
 .priorityList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .priorityList a {
   display: flex;
@@ -746,13 +746,13 @@
   text-decoration: none;
 }
 .priorityList a + a { border-left: 1px solid var(--line); }
-.priorityList a:hover { background: var(--app-subtle, #f5f8f5); }
+.priorityList a:hover { background: var(--app-subtle, #f7f7f7); }
 .priorityList a:focus-visible { outline-offset: -4px; }
 .priorityIcon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; color: var(--accent); }
 .priorityText { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; }
 .priorityValue { color: var(--accent); font-size: 23px; font-weight: 650; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
-.priorityList a > svg { flex: none; color: #698174; }
-.finance { background: #edf5ee; padding-inline: var(--app-gutter, 24px); }
+.priorityList a > svg { flex: none; color: #7b7b7b; }
+.finance { background: #f3f3f3; padding-inline: var(--app-gutter, 24px); }
 .financeValues {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

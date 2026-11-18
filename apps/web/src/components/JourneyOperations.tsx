@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ApiRequestError, apiGet, apiPatch, apiPost } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { clearPanelReads } from "../lib/panel-read";
@@ -50,7 +50,10 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
   const [stageTitle, setStageTitle] = useState("");
   const [stageDescription, setStageDescription] = useState("");
   const [person, setPerson] = useState<ConnectionPerson | null>(null);
-  const [mentor, setMentor] = useState<ConnectionPerson | null>(null);
+  const [mentorId, setMentorId] = useState("");
+  const [mentorCandidate, setMentorCandidate] = useState<ConnectionPerson | null>(null);
+  const [mentors, setMentors] = useState<ConnectionPerson[]>();
+  const [mentorError, setMentorError] = useState("");
   const [selected, setSelected] = useState("");
   const [progress, setProgress] = useState<Progress>();
   const [busy, setBusy] = useState(false);
@@ -58,9 +61,20 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
   const [message, setMessage] = useState("");
   const track = encodeURIComponent(trackId);
   const stagePath = "/discipleship/tracks/" + track + "/stages";
+  const mentorPath = "/discipleship/tracks/" + track + "/mentors";
   const enrollmentPath = "/discipleship/enrollments/" + encodeURIComponent(selected);
   const current = people.find(item => item.id === selected);
   const progressPath = enrollmentPath + "/progress";
+
+  useEffect(() => {
+    let active = true;
+    apiGet<{ mentors: ConnectionPerson[] }>(mentorPath, token).then(result => {
+      if (active) setMentors(result.mentors);
+    }).catch(error => {
+      if (active) setMentorError(dasError(error));
+    });
+    return () => { active = false; };
+  }, [mentorPath, token]);
 
   async function operate(action: () => Promise<void>, success = "") {
     setBusy(true);
@@ -144,11 +158,27 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
           await reloadPeople();
         }, "Matrícula registrada.")}>Confirmar matrícula</button></div>}
     </details>
+    <details className={s.operationPanel}>
+      <summary>Cadastro de mentores</summary>
+      <PeopleSearch token={token} label="Buscar pessoa para cadastrar como mentor" onSelect={setMentorCandidate} />
+      {mentorCandidate && <div className={s.requestActions}>
+        <strong>{mentorCandidate.displayName}</strong>
+        <button type="button" className={s.primaryAction} disabled={busy} onClick={() => void operate(async () => {
+          await apiPost(mentorPath, token, { personId: mentorCandidate.id });
+          setMentors((await apiGet<{ mentors: ConnectionPerson[] }>(mentorPath, token)).mentors);
+          setMentorError("");
+          setMentorCandidate(null);
+        }, "Mentor cadastrado.")}>Cadastrar mentor</button>
+      </div>}
+      {mentorError && <p role="alert">{mentorError}</p>}
+      {mentors?.length === 0 && <p>Nenhum mentor cadastrado para esta trilha.</p>}
+      {Boolean(mentors?.length) && <ul className={s.operationList}>{mentors?.map(person => <li key={person.id}>{person.displayName}</li>)}</ul>}
+    </details>
     {people.length === 0 ? <p className={s.notice}>Nenhuma pessoa matriculada.</p> :
       <ul className={s.operationList}>{people.map(row => <li key={row.id}>
         <div><strong>{row.personName || "Participante da trilha"}</strong><span>{statusLabels[row.status] || "Situação não informada"} · {row.mentorName || "Mentor a definir"}</span></div>
         <button type="button" className={s.retry} aria-pressed={selected === row.id} disabled={busy} onClick={() => {
-          setSelected(row.id); setMentor(null); setProgress(undefined);
+          setSelected(row.id); setMentorId(row.mentorPersonId ?? ""); setProgress(undefined);
           void operate(async () => {
             setProgress(await apiGet<Progress>("/discipleship/enrollments/" + encodeURIComponent(row.id) + "/progress", token));
           });
@@ -156,15 +186,18 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
       </li>)}</ul>}
     {current && <div className={s.operationPanel}>
       <h4>{current.personName || "Acompanhamento individual"}</h4>
-      <PeopleSearch token={token} label="Nome do mentor" onSelect={setMentor} />
-      {mentor && <div className={s.requestActions}>
-        <strong>{mentor.displayName}</strong>
-        <button type="button" className={s.retry} disabled={busy || mentor.id === current.personId} onClick={() => void operate(async () => {
-          await apiPatch(enrollmentPath + "/mentor", token, { mentorPersonId: mentor.id });
-          setMentor(null);
+      <div className={s.operationForm}>
+        <label>Mentor da matrícula
+          <select value={mentorId} onChange={event => setMentorId(event.target.value)} disabled={!mentors || busy}>
+            <option value="">Mentor a definir</option>
+            {mentors?.filter(person => person.id !== current.personId).map(person => <option key={person.id} value={person.id}>{person.displayName}</option>)}
+          </select>
+        </label>
+        <button type="button" className={s.retry} disabled={!mentors || busy || mentorId === (current.mentorPersonId ?? "")} onClick={() => void operate(async () => {
+          await apiPatch(enrollmentPath + "/mentor", token, { mentorPersonId: mentorId || null });
           await reloadPeople();
         }, "Mentor atualizado.")}>Salvar mentor</button>
-      </div>}
+      </div>
       {stages.length > 0 && progress && <ul className={s.operationList}>{progress.stages.map(stage => <li key={stage.id}>
         <div><strong>{stage.title}</strong><span>{stage.completed ? "Concluída" : stage.waived ? "Não se aplica à modalidade de ingresso" : stage.id === progress.currentStageId ? "Próxima etapa" : "Em aberto"}</span></div>
         {!stage.waived && <button type="button" className={s.retry} disabled={busy || current.status !== "ACTIVE" ||

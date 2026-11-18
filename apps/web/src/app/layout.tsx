@@ -3,6 +3,18 @@ import { APP_NAME } from "@idbrf/shared";
 import { FeedbackProvider } from "../components/ui/FeedbackProvider";
 import { officialLogoAsset } from "../lib/brand";
 import { withBasePath } from "../lib/paths";
+import "@fontsource/source-sans-pro/latin-300.css";
+import "@fontsource/source-sans-pro/latin-400.css";
+import "@fontsource/source-sans-pro/latin-400-italic.css";
+import "@fontsource/source-sans-pro/latin-600.css";
+import "@fontsource/source-sans-pro/latin-700.css";
+import "@fontsource/source-sans-pro/latin-900.css";
+import "@fontsource/source-sans-pro/latin-ext-300.css";
+import "@fontsource/source-sans-pro/latin-ext-400.css";
+import "@fontsource/source-sans-pro/latin-ext-400-italic.css";
+import "@fontsource/source-sans-pro/latin-ext-600.css";
+import "@fontsource/source-sans-pro/latin-ext-700.css";
+import "@fontsource/source-sans-pro/latin-ext-900.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

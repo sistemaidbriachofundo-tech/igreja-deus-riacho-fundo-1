@@ -181,15 +181,23 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
     </li>)}</ul>}
     {canManage && <details><summary>Adicionar modalidade</summary>
       <form className={s.grid} onSubmit={createModality}>
-        <label>Nome da modalidade<input name="name" required maxLength={100} /></label>
-        <label>Identificador<input name="code" required pattern="[a-z0-9\\-]+" maxLength={40} /></label>
-        <label>Pessoas por inscrição<input name="maximum" type="number" defaultValue={1} min={1} max={20} required /></label>
+        <label>Nome da modalidade<input name="name" required maxLength={100} placeholder="Ex. Individual ou Família" />
+          <small>É a opção que o participante vai escolher ao se inscrever.</small>
+        </label>
+        <label>Identificador<input name="code" required pattern="[a-z0-9\\-]+" maxLength={40} placeholder="Ex. familia" />
+          <small>Use letras minúsculas, números e hífen.</small>
+        </label>
+        <label>Pessoas por inscrição<input name="maximum" type="number" defaultValue={1} min={1} max={20} required />
+          <small>Informe o máximo que entra no mesmo pedido.</small>
+        </label>
         <div className={s.actions}><button disabled={busy}>Cadastrar modalidade</button></div>
       </form>
     </details>}
     {canManage && <details open={lots.length === 0}><summary>Abrir lote de inscrições</summary>
       <form className={s.grid} onSubmit={createLot}>
-        <label>Nome do lote<input name="name" required maxLength={100} /></label>
+        <label>Nome do lote<input name="name" required maxLength={100} placeholder="Ex. Primeiro lote" />
+          <small>O lote define quantas vagas ficam disponíveis e o valor de cada inscrição.</small>
+        </label>
         <label>Identificador<input name="code" required pattern="[a-z0-9\\-]+" maxLength={40} /></label>
         <label>Modalidade<select name="modality">
           <option value="">Todas</option>
@@ -228,6 +236,7 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
     </section>}
     {published && canManage && <form className={s.grid} onSubmit={checkIn}>
       <h3 className={s.wide}>Check-in</h3>
+      <p className={s.wide}>Leia o QR do ingresso ou digite o código abaixo para registrar a chegada.</p>
       <label>Código do ingresso<input ref={code} name="checkInCode" autoComplete="off" minLength={8} maxLength={128} required /></label>
       <div className={s.actions}><button disabled={busy}>Registrar presença</button>
         {!busy && <EventQrScanner onRead={registerPresence} />}</div>

@@ -5,7 +5,7 @@
 .progress{height:3px;background:#ffffff21}.progress>span{height:100%;display:block;background:linear-gradient(90deg,#c79457,#f4da9f);transition:width .3s}
 .area{max-width:1120px;margin:auto;padding:62px clamp(22px,5vw,68px) 45px}
 .counter{color:#e6c38c;font-size:15px;letter-spacing:.16em;font-weight:800}.counter small{color:#c7d3d0}
-.intro{max-width:800px}.intro h2{font:800 clamp(43px,5vw,73px)/1.08 var(--font-geist-stack);letter-spacing:-.075em;margin:22px 0}.intro h2 em{color:#e7c48a;font-style:normal}
+.intro{max-width:800px}.intro h2{font:800 clamp(43px,5vw,73px)/1.08 var(--site-font);letter-spacing:-.075em;margin:22px 0}.intro h2 em{color:#e7c48a;font-style:normal}
 .intro>p{color:#c9d6d3;font-size:16px;line-height:1.8;max-width:670px;margin:0 0 36px}
 .choices{display:grid;grid-template-columns:1fr 1fr;gap:13px}.choice,.selected{cursor:pointer;text-align:left;display:flex;align-items:center;gap:17px;min-height:115px;padding:22px;background:#ffffff0c;color:#fff;border:1px solid #e2d6ad48;transition:transform .2s,background .2s,border-color .2s}
 .selected{border-color:#e8c68e;background:#d6ab6228}.choice:hover,.selected:hover{background:#ffffff17;transform:translateY(-2px)}

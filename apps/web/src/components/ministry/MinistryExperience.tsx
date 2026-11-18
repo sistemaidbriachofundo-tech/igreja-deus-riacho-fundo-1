@@ -408,7 +408,7 @@ function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: str
       </article>
       {panel.kind === "ready" ? (
         panel.items.length === 0 ? (
-          <p className={styles.note}>Nenhuma atividade publicada só deste ministério.</p>
+          <p className={styles.note}>Nenhum evento associado a este ministério.</p>
         ) : (
           panel.items.map((activity) => (
             <article key={activity.id} className={styles.escala}>
@@ -418,6 +418,9 @@ function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: str
               </header>
               <p>{formatChurchWhen(activity.startsAt)}</p>
               {activity.locationText ? <p>{activity.locationText}</p> : null}
+              <a className={ui.workspaceSecondary} href={withBasePath("/app/eventos-gestao/?evento=" + encodeURIComponent(activity.id))}>
+                Abrir na Gestão de eventos
+              </a>
             </article>
           ))
         )

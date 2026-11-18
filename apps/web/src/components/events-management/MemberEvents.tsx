@@ -77,7 +77,7 @@ export function MemberEvents() {
 
   const upcoming = currentPublishedEvents(events ?? []);
 
-  return <div className={s.page}>
+  return <div className={s.memberPage}>
     <PageHeader appearance="workspace" heading="h1" title="Eventos" />
     {(slug || registrationId) && <AppNavLink className={s.back} href={memberEventsHref()}>Voltar a Eventos e Minhas inscrições</AppNavLink>}
     {error ? <section className={s.panel}>
@@ -95,21 +95,10 @@ export function MemberEvents() {
       </header>
       <EventRegistrationForm key={slug} catalog={catalog} member={{ token, profile: data.profile }} />
     </> : slug || registrationId ? <Loading label="Carregando detalhes" /> : <>
-      <section className={s.panel} aria-labelledby="my-registrations">
-        <h2 id="my-registrations">Minhas inscrições</h2>
-        {data.registrations.length === 0 ? <p>Você ainda não tem inscrições vinculadas a esta conta.</p> :
-          <ul className={s.eventList}>{data.registrations.map(registration => <li key={registration.id}>
-            <div><strong>{registration.event.name}</strong><span>{formatPortalDate(registration.event.startsAt).dayAndTime}</span>
-              <span>{registrationStatus(registration)}</span></div>
-            <AppNavLink href={memberEventsHref() + "?" + new URLSearchParams({ inscricao: registration.id })}>
-              Ver inscrição <span className={s.srOnly}>em {registration.event.name}</span>
-            </AppNavLink>
-          </li>)}</ul>}
-      </section>
-      <section className={s.panel} aria-labelledby="upcoming-member-events">
+      <section className={s.memberCatalog} aria-labelledby="upcoming-member-events">
         <h2 id="upcoming-member-events">Próximos eventos</h2>
         {upcoming.length === 0 ? <p>Nenhum evento publicado para os próximos dias.</p> :
-          <ul className={s.catalog}>{upcoming.map(event => <li key={event.id}>
+          <ul className={s.catalog} aria-label="Cartões de eventos">{upcoming.map(event => <li key={event.id}>
             <div className={s.eventCover}>{event.imageUrl
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
@@ -125,6 +114,17 @@ export function MemberEvents() {
                 {event.registrationOpen ? "Inscrever-se" : "Ver evento"} <span className={s.srOnly}>em {event.name}</span>
               </AppNavLink>
             </div>
+          </li>)}</ul>}
+      </section>
+      <section className={s.panel} aria-labelledby="my-registrations">
+        <h2 id="my-registrations">Minhas inscrições</h2>
+        {data.registrations.length === 0 ? <p>Você ainda não tem inscrições vinculadas a esta conta.</p> :
+          <ul className={s.eventList}>{data.registrations.map(registration => <li key={registration.id}>
+            <div><strong>{registration.event.name}</strong><span>{formatPortalDate(registration.event.startsAt).dayAndTime}</span>
+              <span>{registrationStatus(registration)}</span></div>
+            <AppNavLink href={memberEventsHref() + "?" + new URLSearchParams({ inscricao: registration.id })}>
+              Ver inscrição <span className={s.srOnly}>em {registration.event.name}</span>
+            </AppNavLink>
           </li>)}</ul>}
       </section>
     </>}

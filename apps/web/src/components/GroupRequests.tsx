@@ -7,7 +7,10 @@ import s from "./connection-desk.module.css";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 
 type RequestStatus = "PENDING" | "APPROVED" | "DECLINED" | "MEMBER";
-type Group = { id: string; name: string; meetsAtHint: string | null; status: RequestStatus | null };
+type Group = {
+  id: string; name: string; meetsAtHint: string | null; status: RequestStatus | null;
+  photoUrl?: string | null; leaderName?: string | null; meetingAddress?: string | null; leads?: boolean;
+};
 type Request = { id: string; status: RequestStatus; group: { name: string }; person: { displayName: string } };
 const statusLabel: Record<RequestStatus, string> = {
   PENDING: "Aguardando resposta", APPROVED: "Pedido aceito", DECLINED: "Pedido recusado", MEMBER: "Você participa",
@@ -94,8 +97,14 @@ export function GroupRequests({ token, manage = false, hideEmpty = false }: { to
           <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, false)}>Recusar</button>
         </div>}
       </article>) : groups?.map(group => <article className={s.group} key={group.id}>
+        {group.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={s.groupPhoto} src={group.photoUrl} alt="" loading="lazy" />
+        )}
         <h3>{group.name}</h3>{group.meetsAtHint && <p>{group.meetsAtHint}</p>}
-        {group.status ? <p>{statusLabel[group.status]}</p> : <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void request(group)}>Pedir para participar</button>}
+        {group.leaderName && <p>Liderança · {group.leaderName}</p>}
+        {group.meetingAddress && <p>{group.meetingAddress}</p>}
+        {group.status ? <p>{group.leads ? "Você lidera este grupo" : statusLabel[group.status]}</p> : <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void request(group)}>Pedir para participar</button>}
       </article>)}
     </div>
   </section>;

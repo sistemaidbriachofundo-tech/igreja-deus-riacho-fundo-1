@@ -11,7 +11,10 @@ import { JourneyOperations, PeopleSearch, type ConnectionPerson } from "./Journe
 import s from "./connection-desk.module.css";
 
 type Track = { id: string; name: string; code?: string | null; description: string | null };
-type Group = { id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean; leader?: ConnectionPerson };
+type Group = {
+  id: string; name: string; meetsAtHint: string | null; memberCount: number; leaderAssigned: boolean;
+  leader?: ConnectionPerson; meetingAddress?: string; photoUrl?: string; contactWhatsApp?: string; publicListed?: boolean;
+};
 type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
 type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string; currentStageId?: string | null };
 type Read<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
@@ -106,6 +109,10 @@ function ConnectionContent() {
     const body = {
       name: String(form.get("name")).trim(),
       meetsAtHint: String(form.get("schedule")).trim(),
+      meetingAddress: String(form.get("address")).trim(),
+      photoUrl: String(form.get("photo")).trim(),
+      contactWhatsApp: String(form.get("contact")).replace(/\D/g, ""),
+      publicListed: form.get("publicListed") === "on",
       ...(groupLeader !== undefined ? { leaderPersonId: groupLeader?.id ?? null } : {}),
     };
     setBusy(true);
@@ -198,7 +205,14 @@ function ConnectionContent() {
         <h3>{groupEditor === "new" ? "Cadastrar grupo" : "Editar " + groupEditor.name}</h3>
         <form id="grupo-form" className={s.operationForm} onSubmit={saveGroup}>
         <label>Nome do grupo<input name="name" required maxLength={100} defaultValue={groupEditor === "new" ? "" : groupEditor.name} autoFocus /></label>
-        <label>Dia, hora e local<input name="schedule" maxLength={180} defaultValue={groupEditor === "new" ? "" : groupEditor.meetsAtHint ?? ""} placeholder="Ex. terças, 19h30 · Riacho Fundo I" /></label>
+        <label>Dia e horário<input name="schedule" maxLength={180} defaultValue={groupEditor === "new" ? "" : groupEditor.meetsAtHint ?? ""} placeholder="Ex. terças, 19h30" /></label>
+        <label>Endereço do encontro<input name="address" maxLength={200} defaultValue={groupEditor === "new" ? "" : groupEditor.meetingAddress} /></label>
+        <label>WhatsApp do grupo ou responsável<input name="contact" type="tel" maxLength={24} autoComplete="off" defaultValue={groupEditor === "new" ? "" : groupEditor.contactWhatsApp} /></label>
+        <label>URL da foto (HTTPS)<input name="photo" type="url" maxLength={500} defaultValue={groupEditor === "new" ? "" : groupEditor.photoUrl} /></label>
+        <label className={s.groupPublish}>
+          <input name="publicListed" type="checkbox" defaultChecked={groupEditor !== "new" && groupEditor.publicListed} />
+          <span>Publicar este grupo no site com o endereço e o WhatsApp autorizados</span>
+        </label>
         </form>
         <p><strong>Responsável</strong> · {groupLeader === undefined && groupEditor !== "new" ? groupEditor.leader?.displayName ?? "A definir" : groupLeader?.displayName ?? "A definir"}</p>
         <PeopleSearch token={token} label="Buscar responsável pelo nome" onSelect={setGroupLeader} />
@@ -210,11 +224,17 @@ function ConnectionContent() {
       {groups.status === "loading" ? <div className={s.load} role="status" aria-label="Carregando grupos"><span/></div> :
       groups.status === "error" ? <p className={s.notice} role="alert">Não foi possível consultar os grupos agora.</p> :
       groups.data.length ? <div className={s.groups}>{groups.data.map(group => <article key={group.id} className={s.group}>
+        {group.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={s.groupPhoto} src={group.photoUrl} alt="" loading="lazy" />
+        )}
         <h3>{group.name}</h3>
         <p><UIIcon name="calendar" size={16} />{group.meetsAtHint || "Horário ainda não informado"}</p>
+        {group.meetingAddress && <p>{group.meetingAddress}</p>}
         <div className={s.groupDetails}>
           <span><UIIcon name="people" size={16} />{group.memberCount} {group.memberCount === 1 ? "participante" : "participantes"}</span>
           <small><UIIcon name="badge" size={16} />{group.leader?.displayName ?? (group.leaderAssigned ? "Responsável cadastrado" : "Responsável a definir")}</small>
+          <small>{group.publicListed ? "Visível no portal" : "Exibido na área logada"}</small>
         </div>
         {token && <button className={s.retry} type="button" onClick={() => editGroup(group)}>Editar grupo <UIIcon name="arrow" size={15} /><span className={s.srOnly}> {group.name}</span></button>}
       </article>)}</div> :
@@ -246,6 +266,10 @@ export function parseGroups(value: unknown): Group[] {
     const leaderId = valueText(data?.leaderPersonId), leaderName = valueText(data?.leaderName);
     return [{ id, name, meetsAtHint: valueText(data?.meetsAtHint) || null,
       memberCount: Array.isArray(data?.members) ? data.members.length : 0,
+      ...(data?.meetingAddress ? { meetingAddress: valueText(data.meetingAddress) } : {}),
+      ...(data?.photoUrl ? { photoUrl: valueText(data.photoUrl) } : {}),
+      ...(data?.contactWhatsApp ? { contactWhatsApp: valueText(data.contactWhatsApp) } : {}),
+      ...(data?.publicListed === true ? { publicListed: true } : {}),
       leaderAssigned: Boolean(leaderId), ...(leaderId && leaderName ? { leader: { id: leaderId, displayName: leaderName } } : {}) }];
   });
 }

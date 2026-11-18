@@ -4,7 +4,7 @@
   background:
     radial-gradient(900px 420px at 100% -10%, rgba(166, 124, 45, 0.2), transparent 55%),
     #f3efe6;
-  font-family: var(--font-body, var(--font-geist-stack));
+  font-family: var(--font-body, var(--site-font));
 }
 
 .page :focus-visible {
@@ -38,7 +38,7 @@
 }
 
 .hero h1 {
-  font-family: var(--font-title, var(--font-geist-stack));
+  font-family: var(--font-title, var(--site-font));
   font-size: clamp(1.8rem, 4vw, 3.1rem);
   line-height: 1.05;
   margin: 0.35rem 0 0.75rem;
@@ -213,7 +213,7 @@
 
 .brand {
   margin: 0;
-  font-family: var(--font-title, var(--font-geist-stack));
+  font-family: var(--font-title, var(--site-font));
   letter-spacing: 0.04em;
 }
 
@@ -249,7 +249,7 @@
 }
 
 .story h2 {
-  font-family: var(--font-title, var(--font-geist-stack));
+  font-family: var(--font-title, var(--site-font));
   font-size: clamp(1.6rem, 3vw, 2.4rem);
   margin: 0.2rem 0 0.6rem;
 }

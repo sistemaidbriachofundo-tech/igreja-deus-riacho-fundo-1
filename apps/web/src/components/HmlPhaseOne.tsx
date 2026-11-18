@@ -678,25 +678,25 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : !loadedGroups.people ? (
                     <p className={s.empty} role="status">{checking ? "Carregando cadastros…" : "Não foi possível carregar os cadastros. Use Atualizar para tentar novamente."}</p>
                   ) : (
-                    <div className={s.tableWrap}>
-                      <table>
-                        <thead>
-                          <tr><th>Pessoa</th><th>Família</th><th>Situação</th><th>Contato</th><th></th></tr>
-                        </thead>
-                        <tbody>
-                          {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => (
-                            <tr key={membership.person.id}>
-                              <td data-label="Pessoa"><div className={s.personIdentity}><PersonPortrait name={membership.person.displayName} size="small" /><strong>{membership.person.displayName}</strong></div></td>
-                              <td data-label="Família">{membership.person.householdId ? householdById.get(membership.person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</td>
-                              <td data-label="Situação"><span className={s.statusPill} data-status={membership.status}>{label(membership.status)}</span></td>
-                              <td data-label="Contato">{membership.person.email ?? "Não informado"}</td>
-                              <td data-label="Ficha">
-                                <button type="button" className={s.openFicha} onClick={() => setFichaId(membership.person.id)} aria-label={"Ver ficha de " + membership.person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div>
+                      <ul className={s.peopleResults} aria-label="Pessoas encontradas">
+                        {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(({ person, status }) => (
+                          <li key={person.id}>
+                            <div className={s.personIdentity}>
+                              <PersonPortrait name={person.displayName} size="small" />
+                              <div>
+                                <strong>{person.displayName}</strong>
+                                {person.email && <small>{person.email}</small>}
+                              </div>
+                            </div>
+                            <div className={s.peopleMembership}>
+                              <span className={s.statusPill} data-status={status}>{label(status)}</span>
+                              <small>{person.householdId ? householdById.get(person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</small>
+                            </div>
+                            <button type="button" className={s.openFicha} onClick={() => setFichaId(person.id)} aria-label={"Ver ficha de " + person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
+                          </li>
+                        ))}
+                      </ul>
                       {filtered.length === 0 && !error && <p className={s.empty}>Nenhuma pessoa encontrada.</p>}
                       <ListPager total={filtered.length} page={visiblePage} onChange={setListPage} />
                     </div>
@@ -744,6 +744,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                               <PersonPortrait name={personName} size="small" />
                               <div><strong>{personName}</strong>
                                 <small><span className={s.statusPill} data-status={admission.status}>{label(admission.status)}</span> {label(admission.modality ?? "")}</small>
+                                {!done && <small className={s.admissionStage}>Etapa atual · {stepLabel}</small>}
                               </div>
                             </div>
                             <div className={s.admissionActions}>

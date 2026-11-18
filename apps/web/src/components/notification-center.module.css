@@ -24,7 +24,7 @@
   border-radius: 20px;
   background: #ffb782;
   color: #362111;
-  font: 750 10px/16px var(--font-geist-stack);
+  font: 750 10px/16px var(--site-font);
 }
 .overlay {
   position: fixed;
@@ -36,7 +36,7 @@
 }
 .drawer {
   box-sizing: border-box;
-  font-family: var(--font-geist-stack);
+  font-family: var(--site-font);
   display: grid;
   grid-template-rows: auto auto minmax(0,1fr);
   width: min(100%, 470px);
@@ -47,7 +47,7 @@
 }
 .header, .controls { padding: 16px clamp(16px, 4vw, 25px); border-bottom: 1px solid #dbe5df; }
 .header, .controls, .rowActions, .meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.header h2 { margin: 0; color: #162f25; font: 700 1.55rem/1.2 var(--font-geist-stack); }
+.header h2 { margin: 0; color: #162f25; font: 700 1.55rem/1.2 var(--site-font); }
 .header p { margin: 4px 0 0; color: #546b5e; font-size: .85rem; }
 .close { background: #eaf0eb; color: #234537; }
 .controls { flex-wrap: wrap; }
@@ -58,7 +58,7 @@
   border-radius: 8px;
   color: #234537;
   background: #edf2ed;
-  font: 650 .77rem var(--font-geist-stack);
+  font: 650 .77rem var(--site-font);
   cursor: pointer;
 }
 .controls .mark, .rowActions button { background: transparent; }
@@ -72,7 +72,7 @@
 .itemContent { min-width: 0; }
 .meta { flex-wrap: wrap; justify-content: flex-start; color: #526a5d; font-size: .74rem; }
 .meta span { font-weight: 740; }
-.list h3 { margin: 6px 0 4px; font: 700 1rem/1.27 var(--font-geist-stack); }
+.list h3 { margin: 6px 0 4px; font: 700 1rem/1.27 var(--site-font); }
 .list p { margin: 0 0 7px; color: #385446; font-size: .86rem; }
 .state { display: inline-block; padding: 3px 7px; border-radius: 6px; background: #e8efe7; color: #2b5040; font-size: .75rem; font-weight: 650; }
 .rowActions { margin-top: 5px; flex-wrap: wrap; }

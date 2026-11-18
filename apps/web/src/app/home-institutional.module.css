@@ -106,6 +106,40 @@
 .purposesList h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 700; line-height: 1.12; }
 .purposesList p { margin: 0; font-size: 1rem; color: #4e4946; line-height: 1.28; }
 
+.friendship {
+  padding: clamp(40px, 5vw, 72px) var(--portal-gutter);
+  background: #f5f5f5;
+}
+.friendship h2 {
+  margin: 0 0 24px;
+  font: 700 clamp(1.9rem, 4vw, 3rem)/1.12 var(--portal-display);
+}
+.friendship ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.friendship li {
+  padding: 18px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.friendship img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 7px;
+  margin-bottom: 14px;
+}
+.friendship h3, .friendship p { margin: 0 0 6px; }
+.friendship a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; text-decoration: underline; }
+
 .social {
   padding: clamp(36px, 6vw, 76px) var(--portal-gutter);
   background: #161616;
