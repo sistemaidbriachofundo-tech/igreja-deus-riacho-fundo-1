@@ -1,0 +1,9 @@
+{
+  "name": "rf1-v1-reteste",
+  "private": true,
+  "type": "module",
+  "description": "Classificação do reteste RF1/V1 no SHA 935fd53. Não chama API, banco nem SSO.",
+  "scripts": {
+    "test": "node --test src/contrast.test.mjs src/classify.test.mjs"
+  }
+}
