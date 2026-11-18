@@ -1,6 +1,7 @@
-:root { --site-font: "Source Sans Pro", Arial, sans-serif; }
-
 :root {
+  --site-font: "Source Sans Pro", Arial, sans-serif;
+  --site-heading-weight: 700;
+  --site-heading-tracking: -.02em;
   --color-dourado: #d4af37;
   --color-marrom: #4a2612;
   --color-creme: #f7ede0;
@@ -76,7 +77,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button, input, select, textarea {
+button, input, select, textarea, code, kbd, samp, pre {
+  font-family: inherit;
+}
+
+::file-selector-button {
   font-family: inherit;
 }
 

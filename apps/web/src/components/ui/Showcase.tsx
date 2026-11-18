@@ -32,7 +32,7 @@ const PRINCIPLES = [
   {
     eyebrow: "02",
     title: "Hierarquia",
-    body: "Montserrat conduz o título. Inter conduz a leitura. Cada página tem um único título principal.",
+    body: "Source Sans Pro em toda a interface, com peso e tamanho para distinguir títulos, texto e controles.",
   },
   {
     eyebrow: "03",
@@ -128,22 +128,21 @@ export function DesignSystemShowcase() {
           <div>
             <h2 id="ds-tipo">Tipografia</h2>
             <p className={styles.sectionIntro}>
-              Montserrat para títulos, indicadores e botões. Inter para formulários, tabelas e texto corrido.
+              Source Sans Pro para títulos, indicadores, botões, formulários, tabelas e texto corrido.
             </p>
           </div>
           <div className={styles.specimenGrid}>
             <article className={styles.specimen}>
               <strong>Título</strong>
               <p className={styles.displaySample}>Caminhar juntos, com clareza.</p>
-              <p className={styles.meta}>Montserrat · peso 700 · entrelinha curta</p>
+              <p className={styles.meta}>Source Sans Pro · peso 700 · entrelinha curta</p>
             </article>
             <article className={styles.specimen}>
               <strong>Leitura</strong>
               <p className={styles.bodySample}>
-                Inter carrega a frase longa, o rótulo do campo e a célula da tabela. O tamanho de corpo é 16 pixels,
-                com entrelinha 1,6.
+                O texto corrido usa 16 pixels com entrelinha 1,6. Rótulos de campos e células de tabela usam a mesma família.
               </p>
-              <p className={styles.meta}>Inter · peso 400–600 · 16 px</p>
+              <p className={styles.meta}>Source Sans Pro · peso 400–600 · 16 px</p>
             </article>
           </div>
         </section>

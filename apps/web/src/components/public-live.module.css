@@ -2,7 +2,7 @@
 .meta{font-size:10px;color:#b8a07e}
 .spotlight{background:#f8f7f4;color:#162d34;padding:108px clamp(23px,6vw,92px);scroll-margin-top:80px}
 .spotlightHeading{display:grid;grid-template-columns:1fr 350px;gap:70px;align-items:end;max-width:1380px;margin:0 auto 60px}
-.spotlightHeading h2,.agendaHeader h2,.ministryLiveHead h2,.newsPageIntro h2{font:850 clamp(1.5rem,8vw,88px)/1.15 var(--site-font);letter-spacing:-.04em;margin:20px 0 0;max-width:100%;overflow-wrap:break-word;text-wrap:balance}
+.spotlightHeading h2,.agendaHeader h2,.ministryLiveHead h2,.newsPageIntro h2{font:var(--site-heading-weight) clamp(1.5rem,8vw,88px)/1.15 var(--site-font);letter-spacing:var(--site-heading-tracking);margin:20px 0 0;max-width:100%;overflow-wrap:break-word;text-wrap:balance}
 .spotlightHeading h2 em,.agendaHeader h2 em,.ministryLiveHead h2 em,.newsPageIntro h2 em{font-style:normal;color:#b48850}
 .spotlightHeading>p,.agendaHeader>p,.ministryLiveHead>p,.newsPageIntro>p{color:var(--ds-support);font-size:16px;line-height:1.75;max-width:420px;margin:0}
 .spotlightGrid{display:grid;grid-template-columns:1.25fr .75fr;gap:clamp(50px,6vw,110px);max-width:1380px;margin:auto}

@@ -43,19 +43,22 @@ export default function HomePage() {
             <div className={s.agendaWrap}><PublishedAgenda /></div>
           </section>
           <PortalVideoShowcase />
-          <section className={s.purposes} aria-labelledby="purposes-title">
+          <section className={s.purposes} id="propositos" aria-labelledby="purposes-title">
             <div className={s.purposesWrap}>
               <div className={s.purposesIntro}>
-                <span>PORQUE EXISTIMOS</span>
+                <span>Por que existimos</span>
                 <h2 id="purposes-title">Nossa fé se transforma em cuidado.</h2>
                 <p>Os cinco propósitos da igreja dão direção à forma como nos reunimos, cuidamos e servimos.</p>
               </div>
-              <ul className={s.purposesList}>
+              <ul className={s.purposesList} role="list">
                 {purposes.map(({ title, description, photo }) => (
                   <li key={photo}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={withBasePath(`/images/${photo}.webp`)} width={512} height={512} loading="lazy" decoding="async" alt="" />
-                    <div><h3>{title}</h3><p>{description}</p></div>
+                    <div className={s.purposeCopy}>
+                      <h3>{title}</h3>
+                      <p>{description}</p>
+                    </div>
                   </li>
                 ))}
               </ul>

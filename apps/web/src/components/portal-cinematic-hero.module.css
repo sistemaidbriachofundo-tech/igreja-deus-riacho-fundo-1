@@ -56,9 +56,8 @@
 
 .headline {
   margin: 0;
-  font: 300 clamp(39px, 4.35vw, 66px)/.99 var(--portal-display);
-  letter-spacing: -.035em;
-  text-transform: uppercase;
+  font: var(--site-heading-weight) clamp(39px, 4.35vw, 66px)/1.02 var(--portal-display);
+  letter-spacing: var(--site-heading-tracking);
   overflow-wrap: break-word;
 }
 
