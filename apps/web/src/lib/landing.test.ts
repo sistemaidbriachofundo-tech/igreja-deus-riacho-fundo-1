@@ -60,7 +60,9 @@ describe("portal V1: Início, Quem somos, Agenda e Login", () => {
     // Capa real enviada para a homologação, mantendo o restante do cadastro do Work.
     expect(existsSync(join(images, "fachada-igreja-riacho-fundo.jpg"))).toBe(true);
     expect(read("lib/site-layout.ts")).toContain('"/images/fachada-igreja-riacho-fundo.jpg"');
-    expect(read("components/PortalCinematicHero.tsx")).toContain("PUBLIC_FACADE_IMAGE");
+    const hero = read("components/PortalCinematicHero.tsx");
+    expect(hero).toContain("resolveSitePhoto(hero.imageUrl)");
+    expect(hero).not.toContain("setSlide");
     expect(shell).toContain("officialLogoAsset");
     expect(css).toContain("prefers-reduced-motion");
     expect(shell).toContain("Pular para o conteúdo");

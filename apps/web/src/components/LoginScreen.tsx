@@ -239,7 +239,10 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 {checking||busy ? <span className={styles.submitSpinner} aria-hidden="true" /> : "Entrar no painel"}
               </button>
             </form>}
-            <p className={styles.bottom}>Não possui acesso ou esqueceu a senha? Procure a administração da igreja.</p>
+            {!challenge && <p className={styles.bottom}>
+              {enabled && <><Link className={styles.gateLink} href="/cadastro/">Criar conta como convidado</Link><br /></>}
+              Esqueceu a senha? Procure a Secretaria da igreja.
+            </p>}
           </div>
         </section>
       </div>

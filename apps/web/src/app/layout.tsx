@@ -3,6 +3,7 @@ import { APP_NAME } from "@idbrf/shared";
 import { FeedbackProvider } from "../components/ui/FeedbackProvider";
 import { officialLogoAsset } from "../lib/brand";
 import { withBasePath } from "../lib/paths";
+import "@fontsource/source-sans-pro/300.css";
 import "@fontsource/source-sans-pro/400.css";
 import "@fontsource/source-sans-pro/600.css";
 import "@fontsource/source-sans-pro/700.css";

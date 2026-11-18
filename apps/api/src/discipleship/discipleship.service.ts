@@ -493,7 +493,12 @@ export class DiscipleshipService {
       },
     });
     const journey = enrollments.find(row => isConnectionTrack(row.track));
-    if (!journey) return { journey: null };
+    if (!journey) {
+      const previewStages = actor.grants.some(grant => grantMatchesScope(grant, {
+        organizationId, churchId, roleCodes: [ROLE_CODES.CONVIDADO],
+      })) ? CONNECTION_STAGES.map(({ code, title, description }) => ({ id: code, title, description })) : undefined;
+      return { journey: null, ...(previewStages && { previewStages }) };
+    }
 
     const track = await this.prisma.discipleshipProgressEvent.findMany({
       where: { enrollmentId: journey.id }, orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],

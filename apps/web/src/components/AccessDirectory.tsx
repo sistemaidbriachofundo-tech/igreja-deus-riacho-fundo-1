@@ -145,6 +145,7 @@ export function AccessDirectory() {
               const invited = account.invitationStatus === "INVITED";
               const pendingEmail = account.invitationStatus === "PENDING_EMAIL";
               const canGrant = accounts.canInviteAdministrator && active
+                && !account.profiles.some(profile => profile.role === "CONVIDADO")
                 && !account.profiles.some(profile => profile.role === "PLATFORM_ADMIN");
               return <li className={s.row} key={account.id}>
                 <div className={s.person}>

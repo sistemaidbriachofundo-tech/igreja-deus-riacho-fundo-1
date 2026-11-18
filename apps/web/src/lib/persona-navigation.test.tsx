@@ -43,6 +43,7 @@ const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
   TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria"],
   LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao"],
   MEMBRO: ["visao", "carteirinha", "meu-espaco", "eventos-membro"],
+  CONVIDADO: ["convidado", "eventos-membro"],
   EDITOR_SITE: ["visao", "site"],
   PUBLICADOR_SITE: ["visao", "site"],
 };
@@ -54,7 +55,7 @@ describe("menu por persona", () => {
     for (const area of PERSONA_AREAS) {
       const visible = keys.includes(area.key);
       if (area.key === "visao") {
-        expect(visible).toBe(true);
+        expect(visible).toBe(role !== "CONVIDADO");
         continue;
       }
       expect(visible).toBe(area.roles.includes(role));
@@ -89,6 +90,8 @@ describe("menu por persona", () => {
     expect(landingForRoles(["EDITOR_SITE"])).toBe("/app/site/");
     expect(landingForRoles(["PUBLICADOR_SITE"])).toBe("/app/site/");
     expect(landingForRoles(["MEMBRO"])).toBe("/app/servir/meu-espaco/");
+    expect(landingForRoles(["CONVIDADO"])).toBe("/app/convidado/");
+    expect(shellAreasForRoles(["CONVIDADO"]).map(area => area.key)).toEqual(["convidado", "eventos-membro"]);
     expect(landingForRoles(["PLATFORM_ADMIN"])).toBe("/app/");
   });
 
@@ -338,7 +341,7 @@ describe("grupo Ministérios e ferramentas", () => {
   });
 });
 
-describe("shell colapsável para os oito papéis", () => {
+describe("shell colapsável por papel", () => {
   const shellSource = readFileSync(join(repoRoot, "apps/web/src/components/AppShell.tsx"), "utf8");
   const shellCss = readFileSync(join(repoRoot, "apps/web/src/components/app-shell.module.css"), "utf8");
 
@@ -361,7 +364,7 @@ describe("shell colapsável para os oito papéis", () => {
   it.each(BUILTIN_ROLES)("monta o menu de %s sem código de depuração nem centro de custo", role => {
     process.env.NEXT_PUBLIC_HML_ENABLED = "true";
     const html = renderToStaticMarkup(
-      <AppShell active="visao" meta="Início" viewer={account(role, `${role.toLowerCase()}@example.test`)}>
+      <AppShell active={role === "CONVIDADO" ? "convidado" : "visao"} meta="Início" viewer={account(role, `${role.toLowerCase()}@example.test`)}>
         <p>PAINEL-{role}</p>
       </AppShell>,
     );

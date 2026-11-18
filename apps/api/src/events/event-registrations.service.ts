@@ -583,7 +583,7 @@ export class EventRegistrationsService {
   }
 
   async createMemberRegistration(actor: AuthUser, eventSlug: string, input: RegistrationInput) {
-    const { pilot, person } = await this.requireMember(actor);
+    const { pilot, person } = await this.requireEventParticipant(actor);
     const event = await this.findPublishedEvent(pilot, eventSlug);
     return this.createRegistrationInternal({
       pilot, event, input: {
@@ -595,7 +595,7 @@ export class EventRegistrationsService {
   }
 
   async listMyRegistrations(actor: AuthUser) {
-    const { pilot, person } = await this.requireMember(actor);
+    const { pilot, person } = await this.requireEventParticipant(actor);
     const registrations = await this.prisma.eventRegistration.findMany({
       where: { ...pilot, registrantPersonId: person.id },
       select: {
@@ -608,7 +608,7 @@ export class EventRegistrationsService {
   }
 
   async getMyRegistration(actor: AuthUser, registrationId: string) {
-    const { pilot, person } = await this.requireMember(actor);
+    const { pilot, person } = await this.requireEventParticipant(actor);
     const row = await this.prisma.eventRegistration.findFirst({
       where: { ...pilot, registrantPersonId: person.id, id: registrationId },
       select: {
@@ -633,22 +633,26 @@ export class EventRegistrationsService {
     };
   }
 
-  private async requireMember(actor: AuthUser) {
+  private async requireEventParticipant(actor: AuthUser) {
     const { organizationId, churchId } = await this.pilot.getPilotChurch();
     const pilot = { organizationId, churchId };
-    if (!hasAccess(actor.grants, { ...pilot, roleCodes: [ROLE_CODES.MEMBRO] }) ||
+    const isMember = hasAccess(actor.grants, { ...pilot, roleCodes: [ROLE_CODES.MEMBRO] });
+    const isGuest = hasAccess(actor.grants, { ...pilot, roleCodes: [ROLE_CODES.CONVIDADO] });
+    if ((!isMember && !isGuest) ||
         (actor.organizationId && actor.organizationId !== organizationId) ||
         (actor.churchId && actor.churchId !== churchId)) {
-      throw new ForbiddenException("A área de eventos exige acesso de membro nesta congregação.");
+      throw new ForbiddenException("A área de eventos exige acesso nesta congregação.");
     }
     const person = await this.prisma.person.findFirst({
       where: {
         id: actor.personId, organizationId, status: "ACTIVE",
-        memberships: { some: { organizationId, churchId, status: "ACTIVE" } },
+        ...(isMember
+          ? { memberships: { some: { organizationId, churchId, status: "ACTIVE" as const } } }
+          : { homeChurchId: churchId, kind: "VISITOR" as const }),
       },
       select: { id: true, displayName: true, isMinor: true },
     });
-    if (!person) throw new ForbiddenException("Cadastro de membro indisponível nesta congregação.");
+    if (!person) throw new ForbiddenException("Cadastro indisponível nesta congregação.");
     return { pilot, person };
   }
 

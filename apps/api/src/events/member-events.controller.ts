@@ -7,7 +7,7 @@ import { EventRegistrationsService } from "./event-registrations.service";
 import { PublicRegistrationBody } from "./registration.dto";
 
 @Controller("member-events")
-@Roles(ROLE_CODES.MEMBRO)
+@Roles(ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO)
 export class MemberEventsController {
   constructor(private readonly registrations: EventRegistrationsService) {}
 

@@ -17,6 +17,20 @@ class LoginBody {
   password!: string;
 }
 
+class GuestRegistrationBody {
+  @IsString()
+  @Length(2, 100)
+  displayName!: string;
+
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+
+  @IsString()
+  @Length(14, 128)
+  password!: string;
+}
+
 class SwitchChurchBody {
   @IsString()
   @MinLength(1)
@@ -64,6 +78,13 @@ export class AuthController {
       password: body.password ?? "",
       clientIp: request ? clientAddress(request) : undefined,
     });
+  }
+
+  @Public()
+  @Header("Cache-Control", "no-store")
+  @Post("guest-registration")
+  registerGuest(@Body() body: GuestRegistrationBody, @Req() request: AddressableRequest) {
+    return this.authService.registerGuest({ ...body, clientIp: clientAddress(request) });
   }
 
   /** Conclui o login privilegiado. Não emite sessão antes deste passo. */

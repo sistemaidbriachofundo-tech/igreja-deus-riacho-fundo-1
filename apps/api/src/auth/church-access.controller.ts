@@ -189,7 +189,10 @@ export class ChurchAccessController {
     await this.auth.requireRecentMfa(actor);
     const grant = async (tx: Prisma.TransactionClient) => {
       const target = await tx.user.findFirst({
-        where: { id: userId, status: "ACTIVE", person: { organizationId, homeChurchId: churchId, status: "ACTIVE" } },
+        where: {
+          id: userId, status: "ACTIVE", person: { organizationId, homeChurchId: churchId, status: "ACTIVE" },
+          grants: { none: { role: { code: ROLE_CODES.CONVIDADO } } },
+        },
         select: { id: true },
       });
       if (!target) throw new NotFoundException("Conta ativa não encontrada nesta congregação.");

@@ -22,7 +22,7 @@ import { AdminSessionContext } from "./AdminAccessGate";
 import {
   SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
   accountInitials, areaAllowed, canListMinistries,
-  isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
+  isGuestOnly, isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
   personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
   type AppNavKey, type MinistryNavItem, type MinistrySubmenuEntry, type PersonaArea,
 } from "../lib/persona-navigation";
@@ -258,7 +258,8 @@ export function AppShell({
         : loaded?.kind === "held"
           ? "held"
           : "pending";
-  const memberShell = !preview && accessKind === "ready" && isMemberOnly(roles);
+  const guestShell = !preview && accessKind === "ready" && isGuestOnly(roles);
+  const memberShell = !preview && accessKind === "ready" && (isMemberOnly(roles) || guestShell);
   const menu = preview
     ? shellAreasForRoles(roles, true)
     : accessKind === "ready"
@@ -574,7 +575,7 @@ export function AppShell({
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
         <div className={s.railHeader}>
-          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — Governança Ministerial" onNavigate={afterNavigate}>
+          <AppNavLink href={guestShell ? "/app/convidado/" : "/app/"} className={s.brand} aria-label="ID Riacho 1" onNavigate={afterNavigate}>
             {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />

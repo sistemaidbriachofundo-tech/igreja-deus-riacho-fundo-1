@@ -65,33 +65,76 @@
 .identityCopy .values { margin-top: 21px; padding-top: 18px; border-top: 1px solid #cdc5ba; }
 .identityCopy .values span { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 900; letter-spacing: .15em; color: #a63e13; }
 
-.purposes{padding:clamp(48px,6vw,92px) var(--portal-gutter);background:#fffaf5;color:#202124}
-.purposesWrap{max-width:var(--portal-content);margin:auto;display:grid;gap:30px}
-.purposesIntro{max-width:650px}
-.purposesIntro>span{color:#bd4814;font:850 11px "Source Sans Pro",sans-serif;letter-spacing:.18em}
-.purposesIntro h2{margin:10px 0;font:800 clamp(1.6rem,3.3vw,3rem)/1.1 "Source Sans Pro",sans-serif;letter-spacing:-.05em}
-.purposesIntro p{color:#6a6260;line-height:1.6;margin:0}
-.purposesList{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));list-style:none;gap:0;margin:0;padding:0;border-block:1px solid #d8cfc8}
-.purposesList li{min-width:0;padding:21px 14px;display:grid;gap:8px;align-content:start}
-.purposesList li+li{border-left:1px solid #e5dcd3}
-.purposesList span{font-size:.72rem;font-weight:850;color:#9f390f}
-.purposesList strong{font-size:clamp(.83rem,1.3vw,1.08rem);color:#242126;overflow-wrap:anywhere}
-.purposesList small{font-size:.78rem;line-height:1.45;color:#77706c}
-@media(max-width:900px){.purposesList{grid-template-columns:repeat(2,minmax(0,1fr))}.purposesList li:nth-child(odd){border-left:0}.purposesList li:nth-child(n+3){border-top:1px solid #e5dcd3}}
-@media(max-width:520px){.purposesList{grid-template-columns:minmax(0,1fr)}.purposesList li+li{border-left:0;border-top:1px solid #e5dcd3}.purposesList li{padding:15px 5px}}
+.purposes {
+  padding: clamp(48px, 6vw, 92px) var(--portal-gutter);
+  background: #fffaf5;
+  color: #202124;
+}
+.purposesWrap { max-width: var(--portal-content); margin-inline: auto; }
+.purposesIntro { max-width: 650px; margin-bottom: 30px; }
+.purposesIntro > span { color: #994017; font-weight: 900; font-size: .76rem; letter-spacing: .15em; }
+.purposesIntro h2 {
+  margin: 8px 0;
+  font: 900 clamp(2rem, 4vw, 3.4rem)/1.06 var(--portal-display);
+  letter-spacing: -.035em;
+}
+.purposesIntro p { margin: 0; color: #4e4946; line-height: 1.55; font-size: 1.08rem; }
+.purposesList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 28px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.purposesList li {
+  display: grid;
+  grid-template-columns: clamp(76px, 7vw, 106px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(12px, 2vw, 22px);
+  padding-block: 15px;
+  border-top: 1px solid #ddd3ca;
+}
+.purposesList img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.purposesList h3 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 700; line-height: 1.12; }
+.purposesList p { margin: 0; font-size: 1rem; color: #4e4946; line-height: 1.28; }
 
 .social {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: clamp(36px, 6vw, 78px) var(--portal-gutter);
+  padding: clamp(36px, 6vw, 76px) var(--portal-gutter);
   background: #161616;
   color: #fff;
 }
-.social h2 { margin: 0 0 8px; font-size: clamp(1.9rem, 4vw, 3.3rem); line-height: 1.05; }
-.social p { margin: 0; color: #ededed; }
+.socialContent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 350px);
+  align-items: center;
+  gap: clamp(20px, 5vw, 64px);
+  max-width: var(--portal-content);
+  margin-inline: auto;
+}
+.socialContent img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 350px;
+  aspect-ratio: 6 / 5;
+  object-fit: cover;
+  object-position: center 64%;
+  border-radius: 16px;
+}
+.social h2 {
+  margin: 0 0 10px;
+  font: 900 clamp(2rem, 4vw, 3.35rem)/1.05 var(--portal-display);
+  letter-spacing: -.025em;
+}
+.social p { margin: 0 0 18px; color: #ededed; font-size: 1.08rem; }
 .social a {
   display: inline-flex;
   min-height: 48px;
@@ -102,4 +145,10 @@
   background: #fff;
   color: #141414;
   font-weight: 700;
+}
+@media (max-width: 920px) {
+  .purposesList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .purposesList, .socialContent { grid-template-columns: minmax(0, 1fr); }
 }
