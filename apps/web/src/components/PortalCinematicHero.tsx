@@ -16,6 +16,7 @@ const directions = "https://www.waze.com/pt-BR/live-map/directions/igreja-de-deu
 
 export function PortalCinematicHero() {
   const { hero, appearance } = usePublishedSiteLayout();
+  const isCampaignPhoto = hero.imageUrl === PORTAL_CAMPAIGN_IMAGE;
   const home = usePublishedResource("/public/home", parsePublishedHome);
   const notice = home.data?.banners.find(banner => banner.slug === "aviso-cultos" && banner.summary);
   const [next, setNext] = useState<ReturnType<typeof nextPublicService>>();
@@ -30,7 +31,13 @@ export function PortalCinematicHero() {
     <section id="inicio" className={s.hero} data-appearance={appearance} aria-labelledby="hero-title">
       <div className={s.photo}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={resolveSitePhoto(hero.imageUrl)} alt={hero.imageUrl === PORTAL_CAMPAIGN_IMAGE ? "Duas pessoas com microfones diante da Igreja de Deus no Riacho Fundo I" : ""} fetchPriority="high" />
+        <img
+          src={resolveSitePhoto(hero.imageUrl)}
+          alt={isCampaignPhoto ? "Duas pessoas com microfones diante da Igreja de Deus no Riacho Fundo I" : ""}
+          width={isCampaignPhoto ? 1678 : undefined}
+          height={isCampaignPhoto ? 937 : undefined}
+          fetchPriority="high"
+        />
       </div>
       <div className={s.layout}>
         <div className={s.intro}>

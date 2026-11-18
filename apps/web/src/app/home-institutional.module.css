@@ -81,25 +81,25 @@
 .purposesIntro p { max-width: 65ch; margin: 0; color: #4e4946; line-height: 1.55; font-size: 1.08rem; }
 .purposesList {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(24px, 4vw, 52px);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .purposesList li {
   display: grid;
-  grid-template-columns: clamp(76px, 7vw, 106px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
   align-items: center;
-  gap: clamp(12px, 2vw, 22px);
-  padding-block: 15px;
+  gap: clamp(16px, 2vw, 26px);
+  padding-block: clamp(18px, 2vw, 25px);
   border-top: 1px solid #ddd3ca;
 }
 .purposesList img {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 12px;
 }
@@ -146,9 +146,11 @@
   color: #141414;
   font-weight: 700;
 }
-@media (max-width: 920px) {
-  .purposesList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 740px) {
+  .purposesList { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .purposesList, .socialContent { grid-template-columns: minmax(0, 1fr); }
+  .purposesList li, .socialContent { grid-template-columns: minmax(0, 1fr); }
+  .purposesList li { gap: 14px; }
+  .socialContent img { max-width: 100%; }
 }
