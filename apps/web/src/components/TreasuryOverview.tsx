@@ -61,9 +61,10 @@ export function TreasuryOverview({ position, summary, onBank, onDeposits, onReco
         </div> : summary.banks.length ? <div className={s.bankGrid}>
           {summary.banks.map(bank => (
             <button className={s.bank} key={bank.id} type="button" onClick={() => onBank(bank.id)} aria-label={`${bank.name} ${formatBRL(bank.balance)} · Ver extrato`}>
-              <span className={s.bankTop}><span className={s.bankIcon}><UIIcon name="wallet" size={18} /></span><UIIcon name="arrow" size={17} /></span>
-              <span>{bank.name}</span>
-              <strong>{formatBRL(bank.balance)}</strong>
+              <span className={s.bankIcon}><UIIcon name="wallet" size={18} /></span>
+              <span className={s.bankName}>{bank.name}</span>
+              <strong data-negative={bank.balance < 0}>{formatBRL(bank.balance)}</strong>
+              <UIIcon name="arrow" size={17} />
             </button>
           ))}
         </div> : <p>Nenhuma conta de caixa com movimento no centro selecionado.</p>}

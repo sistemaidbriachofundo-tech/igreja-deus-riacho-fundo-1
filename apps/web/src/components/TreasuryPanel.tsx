@@ -230,6 +230,7 @@ export function TreasuryPanel() {
   const [page, setPage] = useState(1);
   const [statementStatus, setStatementStatus] = useState("");
   const [churchDate, setChurchDate] = useState("");
+  const [paymentEntryId, setPaymentEntryId] = useState<string>();
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const intent = useRef("");
@@ -353,9 +354,29 @@ export function TreasuryPanel() {
     }
   }
 
+  async function markPaid(entry: EntryView, form: FormData) {
+    if (!token || busy || !canWrite) return;
+    setBusy(true);
+    try {
+      const method = String(form.get("method"));
+      await apiPost("/ledger/entries/" + encodeURIComponent(entry.id) + "/mark-paid", token,
+        method === "EXISTING"
+          ? { method, settlementId: form.get("settlementId") }
+          : { method, cashAccountId: form.get("cashAccountId"), paidOn: form.get("paidOn") });
+      setPaymentEntryId(undefined);
+      setRevision(value => value + 1);
+      showFeedback({ tone: "success", title: "Pagamento registrado", message: "A conta a pagar foi baixada no extrato." });
+    } catch (error) {
+      showFeedback({ tone: "error", title: "O pagamento não foi registrado", message: dasError(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const payables = accounts.filter(account => matches(account, "payable"));
   const banks = accounts.filter(account => matches(account, "cash"));
   const bankIds = new Set(banks.map(account => account.id));
+  const linkedPayments = new Set(entries.flatMap(entry => entry.payment ? [entry.payment.settlementId] : []));
   const expenses = accounts.filter(account => matches(account, "expense"));
   const channels = treasuryChannels.find(channel => channel.id === tab);
   const revenue = channels ? accounts.find(account => account.code === channels.revenue && account.type === "REVENUE") : undefined;
@@ -630,17 +651,32 @@ export function TreasuryPanel() {
             </>} actions={<>
               {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
               {canWrite && approval.canApprove && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}
+              {canWrite && entry.payableAccountId && !entry.payment && (paymentEntryId === entry.id
+                ? <PayablePaymentForm
+                    accounts={banks} busy={busy} today={churchDate}
+                    candidates={entries.filter(candidate => candidate.status === "APPROVED"
+                      && !candidate.reversalOfEntryId && !linkedPayments.has(candidate.id)
+                      && candidate.amountCents === entry.amountCents && candidate.lines.length === 2
+                      && candidate.fundId === entry.fundId && candidate.costCenterId === entry.costCenterId
+                      && candidate.lines.some(line => line.side === "DEBIT" && line.accountId === entry.payableAccountId)
+                      && candidate.lines.some(line => line.side === "CREDIT" && bankIds.has(line.accountId)))}
+                    onSave={form => void markPaid(entry, form)} onCancel={() => setPaymentEntryId(undefined)} />
+                : <button type="button" className={styles.markPaid} disabled={busy} onClick={() => setPaymentEntryId(entry.id)}>Marcar como pago</button>)}
             </>}>
               <div className={styles.movementInfo}>
                 <span className={styles.movementIcon} data-direction={effect.kind}><UIIcon name={effect.kind === "credit" || effect.kind === "debit" ? "arrow" : effect.kind === "transfer" ? "refresh" : "book"} size={17} /></span>
                 <div><strong>{entry.description}</strong>
                   {(channel || bankNames.length > 0) && <small>{[channel, ...bankNames].filter(Boolean).join(" · ")}</small>}
-                  <span className={styles.statementState} data-status={entry.reconciliationId ? "reconciled" : entry.status}>{entry.reconciliationId ? "Conciliado" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}</span>
+                  {entry.payment
+                    ? <span className={styles.statementState} data-status="paid">Pago em {displayDate(entry.payment.paidOn)}</span>
+                    : <span className={styles.statementState} data-status={entry.payableAccountId ? "payable" : entry.reconciliationId ? "reconciled" : entry.status}>
+                        {entry.payableAccountId ? "A pagar · Aprovado" : entry.reconciliationId ? "Conciliado" : linkedPayments.has(entry.id) ? "Baixa de conta a pagar" : entry.approvalFlow === "TREASURER_THEN_PASTOR" ? approval.text : statusLabel(entry.status)}
+                      </span>}
                 </div>
               </div>
               <div className={styles.movementValue} data-direction={effect.kind}>
                 <strong className={styles.amount}>{effect.amount === null ? "—" : (effect.kind === "credit" ? "+" : effect.kind === "debit" ? "−" : "") + formatBRL(Math.abs(effect.amount))}</strong>
-                <small>{direction}</small>
+                <small>{entry.payableAccountId ? "Conta a pagar" : direction}</small>
               </div>
             </StatementMovement>;
             })}
@@ -696,6 +732,43 @@ export function TreasuryPanel() {
       </section>
     </section>
   );
+}
+
+function PayablePaymentForm({ accounts, candidates, busy, today, onSave, onCancel }: {
+  accounts: Account[];
+  candidates: EntryView[];
+  busy: boolean;
+  today: string;
+  onSave: (form: FormData) => void;
+  onCancel: () => void;
+}) {
+  const [method, setMethod] = useState(candidates.length ? "EXISTING" : "CASH");
+  return <form className={styles.paymentForm} aria-label="Registrar pagamento da conta" onSubmit={event => {
+    event.preventDefault();
+    onSave(new FormData(event.currentTarget));
+  }}>
+    <label>Como foi pago?
+      <select name="method" value={method} onChange={event => setMethod(event.target.value)}>
+        <option value="CASH">Em dinheiro</option>
+        <option value="EXTERNAL">Por fora do sistema</option>
+        <option value="EXISTING" disabled={!candidates.length}>Pagamento já lançado</option>
+      </select>
+    </label>
+    {method === "EXISTING" ? <label className={styles.wide}>Pagamento no extrato
+      <select name="settlementId" required defaultValue=""><option value="">Selecione o lançamento</option>
+        {candidates.map(candidate => <option key={candidate.id} value={candidate.id}>{displayDate(candidate.entryDate)} · {candidate.description}</option>)}
+      </select>
+    </label> : <>
+      <label>Data do pagamento<input type="date" name="paidOn" max={today || undefined} defaultValue={today} required /></label>
+      <AccountSelect label="Conta usada para pagar" name="cashAccountId" accounts={accounts.filter(account => account.active !== false)} />
+    </>}
+    <p className={styles.wide}>{method === "EXISTING" ? "O pagamento selecionado será vinculado a esta conta."
+      : "A baixa registra no caixa o pagamento que você já fez. Se ele já estiver lançado, selecione Pagamento já lançado."}</p>
+    <div className={styles.paymentButtons}>
+      <button type="submit" className={ui.workspacePrimary} disabled={busy}>{busy ? "Salvando…" : "Confirmar pagamento"}</button>
+      <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={onCancel}>Cancelar</button>
+    </div>
+  </form>;
 }
 
 function AccountSelect({ label, name, accounts }: { label: string; name: string; accounts: Account[] }) {
@@ -859,6 +932,8 @@ function readEntries(payload: unknown): EntryView[] | null {
     if (!id) return null;
     const amount = row.amountCents;
     if (amount !== undefined && amount !== null && (typeof amount !== "number" || !Number.isInteger(amount))) return null;
+    const payment = row.payment && typeof row.payment === "object" ? row.payment as DasRecord : null;
+    const method = payment?.method;
     entries.push({
       id,
       entryDate: str(row.entryDate),
@@ -870,6 +945,11 @@ function readEntries(payload: unknown): EntryView[] | null {
       firstApprovedByUserId: str(row.firstApprovedByUserId) || null,
       approvalFlow: row.approvalFlow === "TREASURER_THEN_PASTOR" ? "TREASURER_THEN_PASTOR" : "DUAL_APPROVAL",
       costCenterId: str(row.costCenterId) || null,
+      fundId: str(row.fundId) || null,
+      payableAccountId: str(row.payableAccountId) || null,
+      reversalOfEntryId: str(row.reversalOfEntryId) || null,
+      payment: payment && (method === "CASH" || method === "EXTERNAL" || method === "EXISTING")
+        ? { method, settlementId: str(payment.settlementId), paidOn: str(payment.paidOn) } : undefined,
       reconciliationId: str(row.reconciliationId) || null,
       lines: Array.isArray(row.lines) ? row.lines.flatMap(raw => {
         if (!raw || typeof raw !== "object") return [];

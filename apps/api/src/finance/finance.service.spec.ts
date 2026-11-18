@@ -385,11 +385,13 @@ describe("FinanceService", () => {
       .mockResolvedValueOnce({ ...fullyApproved, status: "REVERSED" });
 
     const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(0),
       ledgerEntry: {
+        findFirst,
         update,
         create: jest.fn().mockResolvedValue(reversal),
       },
-      auditLog: { create: jest.fn().mockResolvedValue({}) },
+      auditLog: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const service = new FinanceService(

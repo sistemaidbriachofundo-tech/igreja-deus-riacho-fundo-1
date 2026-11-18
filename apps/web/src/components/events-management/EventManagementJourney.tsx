@@ -563,9 +563,15 @@ export function EventManagementView(props: {
           <p className={s.lede}><span className={s.agendaTag} data-status={props.selected.status}>{eventStatusLabel(props.selected.status)}</span> · {formatPortalDate(props.selected.startsAt).dayAndTime}
             {props.selected.locationText && " · " + props.selected.locationText}</p>
         </div>
+        {!props.treasuryOnly && <p className={s.eventNextStep}>
+          {props.selected.status === "DRAFT"
+            ? <>Revise os dados do evento. Se houver inscrições, configure-as antes de publicar.</>
+            : <>Abra as inscrições para consultar participantes ou acesse a escala para organizar a equipe.</>}
+        </p>}
         <nav className={s.eventLinks} aria-label="Seções do evento">
           {!props.treasuryOnly && <a href="#revisar-evento"><UIIcon name="calendar" size={20} /><span>{props.selected.status === "DRAFT" ? "Dados e publicação" : "Dados do evento"}</span></a>}
-          {props.registrationDesk && <a href="#inscricoes-do-evento"><UIIcon name={props.treasuryOnly ? "wallet" : "check"} size={20} /><span>{props.treasuryOnly ? "Pix do evento" : "Inscrições e presença"}</span></a>}
+          {props.registrationDesk && <a href="#inscricoes-do-evento"><UIIcon name={props.treasuryOnly ? "wallet" : "check"} size={20} /><span>{props.treasuryOnly ? "Pix do evento" : props.selected.status === "DRAFT" ? "Configurar inscrições" : "Inscrições e presença"}</span></a>}
+          {!props.treasuryOnly && <a href="#relatorio-do-evento"><UIIcon name="book" size={20} /><span>Relatório de participação</span></a>}
           {props.rosterDesk && <a href="#escala-do-evento" onClick={() => {
             const roster = document.querySelector<HTMLDetailsElement>("details#escala-do-evento");
             if (roster) roster.open = true;
@@ -589,9 +595,9 @@ export function EventManagementView(props: {
           <div className={`${s.wide} ${s.actions}`}><button type="submit" disabled={props.busy}>Salvar alterações</button></div>
         </form>}
         {props.blockReason && <p className={s.blocked} role="alert">{props.blockReason}</p>}
-        <button type="button" disabled={props.busy || props.selected.status !== "DRAFT" || Boolean(props.blockReason)} onClick={props.onPublish}>
-          {props.production ? "Publicar evento" : "Publicar na homologação"}
-        </button>
+        {props.selected.status === "DRAFT" && <button type="button" disabled={props.busy || Boolean(props.blockReason)} onClick={props.onPublish}>
+          {props.production ? "Publicar evento" : "Publicar evento neste ambiente"}
+        </button>}
       </section>}
       {props.rosterDesk}
       {props.registrationDesk && <div id="inscricoes-do-evento">{props.registrationDesk}</div>}
@@ -612,7 +618,7 @@ export function EventManagementView(props: {
           </article>)}
         </div>
       </section>}
-      {!props.treasuryOnly && props.selected && <form className={s.panel} onSubmit={props.onReport}>
+      {!props.treasuryOnly && props.selected && <form className={s.panel} id="relatorio-do-evento" onSubmit={props.onReport}>
         <h2>Filtrar e exportar participação</h2>
         <div className={s.grid}>
           <label>Situação<select value={props.statusFilter} onChange={(event) => props.onStatus(event.target.value)}>

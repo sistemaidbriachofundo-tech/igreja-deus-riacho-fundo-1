@@ -67,27 +67,27 @@ export async function renderCredentialPdf(
     doc.on("error", reject);
   });
 
-  doc
-    .fontSize(11)
-    .fillColor("#171717")
-    .text(input.churchName, { align: "left", width: 200 });
-  doc.moveDown(0.4);
-  doc.fontSize(16).fillColor("#1a1a1a").text(input.displayName, { width: 200 });
-  doc.moveDown(0.3);
-  doc
-    .fontSize(9)
-    .fillColor("#555555")
-    .text(`Emitida: ${input.issuedAt.toISOString().slice(0, 10)}`, {
-      width: 200,
-    });
-  doc.moveDown(0.2);
-  doc
-    .fontSize(8)
-    .fillColor("#777777")
-    .text("Escaneie para verificar a carteirinha.", { width: 200 });
+  doc.rect(0, 0, 360, 220).fill("#f3f9f5");
+  doc.rect(0, 0, 224, 220).fill("#164a47");
+  doc.rect(0, 207, 224, 13).fill("#287365");
+  doc.fontSize(9).fillColor("#bfe5d6").text("CARTEIRINHA DE MEMBRO", 22, 24, { width: 180, lineBreak: false });
+  doc.fontSize(11).fillColor("#f4fbf7").text(input.churchName, 22, 42, { width: 180, height: 40, ellipsis: true });
+  doc.fontSize(17).fillColor("#ffffff").text(input.displayName, input.photo ? 88 : 22, 90, {
+    width: input.photo ? 115 : 181, height: 68, ellipsis: true,
+  });
+  doc.fontSize(9).fillColor("#d2efe3").text(`Emitida em ${input.issuedAt.toISOString().slice(0, 10).split("-").reverse().join("/")}`,
+    22, 181, { width: 180, lineBreak: false });
 
-  doc.image(qrPng, 240, 40, { width: 96, height: 96 });
-  if (input.photo) doc.image(input.photo, 24, 112, { fit: [80, 83] });
+  if (input.photo) {
+    doc.roundedRect(22, 88, 56, 69, 6).fill("#dcefe7");
+    doc.image(input.photo, 23, 89, { fit: [54, 67], align: "center", valign: "center" });
+  }
+
+  doc.fontSize(10).fillColor("#204f47").text("VERIFICAÇÃO", 236, 24, { width: 112, align: "center" });
+  doc.image(qrPng, 242, 49, { width: 100, height: 100 });
+  doc.fontSize(8).fillColor("#355c55").text("Escaneie para verificar a carteirinha.", 234, 162, {
+    width: 116, align: "center",
+  });
 
   doc.end();
   const pdf = await done;

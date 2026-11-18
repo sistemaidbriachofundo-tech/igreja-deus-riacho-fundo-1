@@ -42,6 +42,17 @@ type PilotScope = {
   churchId: string;
 };
 
+const PAYABLE_PAYMENT_ACTION = "ledger.payable.paid";
+type PayablePaymentMethod = "CASH" | "EXTERNAL" | "EXISTING";
+
+function isPayableAccount(account: { type: string; code: string }) {
+  return account.type === "LIABILITY" && /^2\.1(\.|$)/.test(account.code);
+}
+
+function isCashAccount(account: { type: string; code: string }) {
+  return account.type === "ASSET" && /^1\.1(\.|$)/.test(account.code);
+}
+
 const ATTACHMENT_SIGNATURES = new Map([
   ["application/pdf", Buffer.from("%PDF-")],
   ["image/jpeg", Buffer.from([0xff, 0xd8, 0xff])],
@@ -283,10 +294,143 @@ export class FinanceService {
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
       include: { lines: { include: { account: { select: { type: true, code: true } } } } },
     });
+    const payments = await this.approvedPayablePayments(this.prisma, pilot, rows.map(row => row.id));
     return {
       churchId: pilot.churchId,
-      entries: rows.map((r) => this.toEntryDto(r)),
+      entries: rows.map(row => ({
+        ...this.toEntryDto(row),
+        payment: payments.get(row.id) ?? null,
+        payableAccountId: this.payableAccountId(row),
+      })),
     };
+  }
+
+  private payableAccountId(row: {
+    status: string;
+    reversalOfEntryId: string | null;
+    lines: Array<{ side: string; accountId: string; account: { type: string; code: string } }>;
+  }) {
+    if (row.status !== "APPROVED" || row.reversalOfEntryId || row.lines.length !== 2) return null;
+    const expense = row.lines.find(line => line.side === "DEBIT" && line.account.type === "EXPENSE");
+    const payable = row.lines.find(line => line.side === "CREDIT" && isPayableAccount(line.account));
+    return expense && payable ? payable.accountId : null;
+  }
+
+  private async approvedPayablePayments(
+    db: Pick<Prisma.TransactionClient, "auditLog" | "ledgerEntry">,
+    pilot: PilotScope,
+    payableIds: string[],
+  ) {
+    const payments = new Map<string, { settlementId: string; paidOn: string; method: PayablePaymentMethod }>();
+    if (payableIds.length === 0) return payments;
+    const logs = await db.auditLog.findMany({
+      where: { ...pilot, action: PAYABLE_PAYMENT_ACTION, resourceId: { in: payableIds } },
+      select: { resourceId: true, metadata: true },
+    });
+    const links = logs.flatMap<{ payableId: string; settlementId: string; method: PayablePaymentMethod }>(log => {
+      const value = log.metadata;
+      if (!log.resourceId || value === null || typeof value !== "object" || Array.isArray(value)) return [];
+      const { settlementId, method } = value;
+      if (typeof settlementId !== "string" || (method !== "CASH" && method !== "EXTERNAL" && method !== "EXISTING")) return [];
+      return [{ payableId: log.resourceId, settlementId, method }];
+    });
+    if (!links.length) return payments;
+    const settlements = await db.ledgerEntry.findMany({
+      where: { ...pilot, id: { in: links.map(link => link.settlementId) }, status: "APPROVED" },
+      select: { id: true, entryDate: true },
+    });
+    const dates = new Map(settlements.map(row => [row.id, row.entryDate.toISOString().slice(0, 10)]));
+    for (const { payableId, settlementId, method } of links) {
+      const paidOn = dates.get(settlementId);
+      if (paidOn) payments.set(payableId, { settlementId, paidOn, method });
+    }
+    return payments;
+  }
+
+  async markPayablePaid(actor: AuthUser, entryId: string, input: {
+    method: PayablePaymentMethod;
+    paidOn?: string;
+    cashAccountId?: string;
+    settlementId?: string;
+  }) {
+    const pilot = await this.requireFinance(actor);
+    return this.prisma.$transaction(async tx => {
+      const entryIds = input.settlementId ? [entryId, input.settlementId].sort() : [entryId];
+      for (const id of new Set(entryIds)) {
+        await tx.$executeRaw`SELECT id FROM ledger_entries WHERE id = ${id} AND church_id = ${pilot.churchId} FOR UPDATE`;
+      }
+      const payable = await tx.ledgerEntry.findFirst({
+        where: { ...pilot, id: entryId },
+        include: { lines: { include: { account: true } } },
+      });
+      if (!payable) throw new NotFoundException("Conta a pagar não encontrada.");
+      const payableAccountId = this.payableAccountId(payable);
+      if (!payableAccountId) throw new BadRequestException("A baixa exige uma conta a pagar aprovada.");
+      const existing = (await this.approvedPayablePayments(tx, pilot, [entryId])).get(entryId);
+      if (existing) return existing;
+
+      let settlement;
+      if (input.method === "EXISTING") {
+        const candidate = input.settlementId && await tx.ledgerEntry.findFirst({
+          where: { ...pilot, id: input.settlementId, status: "APPROVED", reversalOfEntryId: null },
+          include: { lines: { include: { account: true } } },
+        });
+        if (!candidate || candidate.lines.length !== 2 || candidate.amountCents !== payable.amountCents
+          || candidate.fundId !== payable.fundId || candidate.costCenterId !== payable.costCenterId
+          || !candidate.lines.some(line => line.side === "DEBIT" && line.accountId === payableAccountId)
+          || !candidate.lines.some(line => line.side === "CREDIT" && isCashAccount(line.account))) {
+          throw new BadRequestException("Selecione um pagamento aprovado da mesma conta, valor e centro de custo.");
+        }
+        const previousLink = await tx.auditLog.findFirst({
+          where: { ...pilot, action: PAYABLE_PAYMENT_ACTION, metadata: { path: ["settlementId"], equals: candidate.id } },
+          select: { id: true },
+        });
+        if (previousLink) throw new ConflictException("Esse pagamento já está vinculado a uma conta.");
+        settlement = candidate;
+      } else {
+        const paidOn = input.paidOn ?? "";
+        const entryDate = this.parseDateOnly(paidOn, "Data do pagamento");
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn) || paidOn !== entryDate.toISOString().slice(0, 10) || paidOn > today) {
+          throw new BadRequestException("Informe uma data de pagamento válida, até hoje.");
+        }
+        const account = input.cashAccountId && await tx.ledgerAccount.findFirst({
+          where: { ...pilot, id: input.cashAccountId, active: true },
+        });
+        if (!account || !isCashAccount(account)) throw new BadRequestException("Selecione a conta de caixa ou banco usada no pagamento.");
+        const competenceYear = entryDate.getUTCFullYear();
+        const competenceMonth = entryDate.getUTCMonth() + 1;
+        await this.assertPeriodOpen(pilot, competenceYear, competenceMonth, tx);
+        settlement = await tx.ledgerEntry.create({
+          data: {
+            ...pilot,
+            entryDate,
+            description: `Pagamento · ${payable.description}`,
+            status: "APPROVED",
+            amountCents: payable.amountCents,
+            createdByUserId: actor.userId,
+            costCenterId: payable.costCenterId,
+            fundId: payable.fundId,
+            competenceYear,
+            competenceMonth,
+            lines: { create: [
+              { accountId: payableAccountId, side: "DEBIT", amountCents: payable.amountCents },
+              { accountId: account.id, side: "CREDIT", amountCents: payable.amountCents },
+            ] },
+          },
+        });
+      }
+
+      await tx.auditLog.create({ data: {
+        ...pilot,
+        actorUserId: actor.userId,
+        action: PAYABLE_PAYMENT_ACTION,
+        resourceType: "ledger_entry",
+        resourceId: entryId,
+        metadata: { settlementId: settlement.id, method: input.method },
+      } });
+      return { settlementId: settlement.id, method: input.method, paidOn: settlement.entryDate.toISOString().slice(0, 10) };
+    });
   }
 
   async createEntry(
@@ -660,21 +804,29 @@ export class FinanceService {
 
   async reverseEntry(actor: AuthUser, entryId: string) {
     const pilot = await this.requireFinance(actor);
-    const row = await this.requireEntryInPilot(pilot, entryId);
-    if (row.status !== "APPROVED") {
-      throw new ConflictException({
-        code: "LEDGER_ENTRY_NOT_APPROVED",
-        message: "Só lançamentos APPROVED podem ser estornados",
-      });
-    }
-    if (row.reversedBy || row.reversalOfEntryId) {
-      throw new ConflictException({
-        code: "LEDGER_ENTRY_ALREADY_REVERSED",
-        message: "Lançamento já estornado",
-      });
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM ledger_entries WHERE id = ${entryId} AND church_id = ${pilot.churchId} FOR UPDATE`;
+      const row = await tx.ledgerEntry.findFirst({
+        where: { ...pilot, id: entryId },
+        include: { lines: true, reversedBy: { select: { id: true } } },
+      });
+      if (!row) throw new NotFoundException("Lançamento não encontrado.");
+      if (row.status !== "APPROVED") {
+        throw new ConflictException({
+          code: "LEDGER_ENTRY_NOT_APPROVED",
+          message: "Só lançamentos APPROVED podem ser estornados",
+        });
+      }
+      if (row.reversedBy || row.reversalOfEntryId) {
+        throw new ConflictException({
+          code: "LEDGER_ENTRY_ALREADY_REVERSED",
+          message: "Lançamento já estornado",
+        });
+      }
+
+      if ((await this.approvedPayablePayments(tx, pilot, [entryId])).has(entryId)) {
+        throw new ConflictException("Estorne o pagamento antes de estornar a conta a pagar.");
+      }
       const reversal = await tx.ledgerEntry.create({
         data: {
           organizationId: pilot.organizationId,
@@ -2230,8 +2382,9 @@ export class FinanceService {
     pilot: PilotScope,
     year: number,
     month: number,
+    db: Pick<Prisma.TransactionClient, "accountingPeriod"> = this.prisma,
   ) {
-    const closed = await this.prisma.accountingPeriod.findFirst({
+    const closed = await db.accountingPeriod.findFirst({
       where: {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,

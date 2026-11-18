@@ -65,6 +65,8 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
   const mentorPath = "/discipleship/tracks/" + track + "/mentors";
   const enrollmentPath = "/discipleship/enrollments/" + encodeURIComponent(selected);
   const current = people.find(item => item.id === selected);
+  const activeEnrollments = people.filter(row => row.status === "ACTIVE");
+  const waitingForMentor = activeEnrollments.filter(row => !row.mentorPersonId).length;
   const progressPath = enrollmentPath + "/progress";
 
   useEffect(() => {
@@ -106,6 +108,20 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
     <h3 id="journey-operations">Acompanhamento da trilha</h3>
     {fault && <p className={s.notice} role="alert">{fault}</p>}
     {message && <p role="status">{message}</p>}
+    <dl className={s.mentorStats}>
+      <div><dt>Mentores cadastrados</dt><dd>{mentors?.length ?? "—"}</dd></div>
+      <div><dt>Pessoas em acompanhamento</dt><dd>{activeEnrollments.length - waitingForMentor}</dd></div>
+      <div><dt>Em andamento, sem mentor</dt><dd>{waitingForMentor}</dd></div>
+    </dl>
+    <section className={s.mentorDirectory} aria-labelledby="mentor-directory">
+      <h4 id="mentor-directory">Mentores da trilha</h4>
+      {mentorError ? <p role="alert">{mentorError}</p> : !mentors ? <p>Carregando mentores…</p>
+        : mentors.length === 0 ? <p>Nenhum mentor cadastrado para esta trilha.</p>
+        : <ul className={s.mentorNames}>{mentors.map(mentor => {
+          const count = activeEnrollments.filter(row => row.mentorPersonId === mentor.id).length;
+          return <li key={mentor.id}><strong>{mentor.displayName}</strong><span>{count} {count === 1 ? "pessoa acompanhada" : "pessoas acompanhadas"}</span></li>;
+        })}</ul>}
+    </section>
     <div className={s.operationGrid}>
       <details className={s.operationPanel}>
         <summary><UIIcon name="plus" size={18} /> Cadastrar etapa</summary>
@@ -172,11 +188,9 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
             setMentorCandidate(null);
           }, "Mentor cadastrado.")}>Cadastrar mentor</button>
         </div>}
-        {mentorError && <p role="alert">{mentorError}</p>}
-        {mentors?.length === 0 && <p>Nenhum mentor cadastrado para esta trilha.</p>}
-        {Boolean(mentors?.length) && <ul className={s.operationList}>{mentors?.map(person => <li key={person.id}>{person.displayName}</li>)}</ul>}
       </details>
     </div>
+    <h4 className={s.enrollmentHeading}>Pessoas na trilha</h4>
     {people.length === 0 ? <p className={s.notice}>Nenhuma pessoa matriculada.</p> :
       <ul className={s.operationList}>{people.map(row => <li key={row.id}>
         <div><strong>{row.personName || "Participante da trilha"}</strong><span>{statusLabels[row.status] || "Situação não informada"} · {row.mentorName || "Mentor a definir"}</span></div>

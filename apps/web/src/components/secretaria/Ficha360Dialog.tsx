@@ -214,7 +214,7 @@ export function Ficha360Dialog({
                 {person?.displayName ?? "Cadastro de pessoa"}
               </h2>
               {person && <div className={s.identityMeta}>
-                <span>{dossierLabel(person.kind)} · {dossierLabel(person.status)}</span>
+                <span data-active={person.status === "ACTIVE"}>{dossierLabel(person.kind)} · {dossierLabel(person.status)}</span>
                 {dossier?.memberships[0] && <span>Matrícula {registrationLabel(dossier.memberships[0].id)}</span>}
                 {dossier?.access && <span>{dossier.access.status === "ACTIVE" ? "Acesso ativo" : "Acesso desativado"}{dossier.access.roles.length ? ` · ${dossier.access.roles.join(", ")}` : ""}</span>}
                 {dossier?.access === null && <span>Sem conta de acesso</span>}

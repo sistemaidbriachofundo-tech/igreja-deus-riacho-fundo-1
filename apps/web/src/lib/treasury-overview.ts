@@ -13,6 +13,10 @@ export type TreasuryEntry = {
   firstApprovedByUserId: string | null;
   approvalFlow?: "TREASURER_THEN_PASTOR" | "DUAL_APPROVAL";
   costCenterId: string | null;
+  fundId?: string | null;
+  payableAccountId?: string | null;
+  payment?: { settlementId: string; paidOn: string; method: "CASH" | "EXTERNAL" | "EXISTING" };
+  reversalOfEntryId?: string | null;
   reconciliationId: string | null;
   lines: TreasuryEntryLine[];
 };

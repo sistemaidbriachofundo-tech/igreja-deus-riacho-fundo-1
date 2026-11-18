@@ -202,3 +202,12 @@
 .checkInPanel h3 { color: var(--app-success); }
 .paymentPanel { display: grid; gap: 12px; background: #fffbf2; border-color: #eee1c7; }
 .paymentPanel h3 { color: var(--app-warning); }
+
+.eventNextStep{margin:0;color:#245146;max-width:70ch}
+.eventLinks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,185px),1fr));gap:9px}
+.eventLinks a{justify-content:flex-start;background:#f5f9fc}
+.eventLinks a[href="#inscricoes-do-evento"]{background:#eef8f2}
+.eventLinks a[href="#escala-do-evento"]{background:#f7f2fb}
+.eventLinks a[href="#relatorio-do-evento"]{background:#fff7e7;border-color:#eddfbc;color:#6f4f1f}
+.eventLinks a:hover{border-color:currentColor}
+@media(max-width:510px){.eventLinks{grid-template-columns:1fr}}

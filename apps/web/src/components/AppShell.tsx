@@ -20,10 +20,10 @@ import { readPanel } from "../lib/panel-read";
 import { NotificationCenter } from "./NotificationCenter";
 import { AdminSessionContext } from "./AdminAccessGate";
 import {
-  SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
+  SHELL_RAIL_STORAGE_KEY,
   accountInitials, areaAllowed, canListMinistries,
   isGuestOnly, isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
-  personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
+  personaLabel, readRailPreference, shellAreasForRoles,
   type AppNavKey, type MinistryNavItem, type MinistrySubmenuEntry, type PersonaArea,
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
@@ -191,7 +191,6 @@ export function AppShell({
 }) {
   const personaMode = isAdminEnabled();
   const preview = !personaMode && !viewer;
-  const childActive = active === "ministerios" || active === "escalas" || active === "atmosfera";
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loaded, setLoaded] = useState<LoadedAccess | null>(viewer ? { kind: "ready", user: viewer } : null);
   const [term, setTerm] = useState("");
@@ -199,7 +198,7 @@ export function AppShell({
   const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [ministryOpen, setMinistryOpen] = useState(childActive);
+  const [ministryOpen, setMinistryOpen] = useState(false);
   const [treasurySection, setTreasurySection] = useState<TreasurySection>("visao");
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
@@ -404,11 +403,7 @@ export function AppShell({
     if (viewport === "desktop") {
       setCollapsed(value => {
         const next = !value;
-        if (next) {
-          setMinistryOpen(false);
-        } else {
-          setMinistryOpen(readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), childActive));
-        }
+        if (next) setMinistryOpen(false);
         window.localStorage.setItem(SHELL_RAIL_STORAGE_KEY, next ? "collapsed" : "expanded");
         return next;
       });
@@ -417,11 +412,7 @@ export function AppShell({
     setDrawerOpen(open => !open);
   }
   function toggleMinistries() {
-    setMinistryOpen(open => {
-      const next = !open;
-      window.localStorage.setItem(SHELL_MINISTRY_STORAGE_KEY, next ? "open" : "closed");
-      return next;
-    });
+    setMinistryOpen(open => !open);
   }
   async function askLogout() {
     const accepted = await confirm({
@@ -448,11 +439,10 @@ export function AppShell({
   }, []);
   useLayoutEffect(() => {
     const rail = readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY));
-    const storedGroup = window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY);
     setCollapsed(rail === "collapsed");
-    setMinistryOpen(childActive || (rail === "expanded" && readGroupPreference(storedGroup, false)));
     setRailReady(true);
-  }, [childActive]);
+  }, []);
+  useEffect(() => setMinistryOpen(false), [active]);
   useEffect(() => {
     function onLost() {
       setLoaded({ kind: "anonymous" });

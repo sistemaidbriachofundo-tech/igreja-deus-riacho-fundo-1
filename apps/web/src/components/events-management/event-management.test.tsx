@@ -57,7 +57,7 @@ describe("telas de eventos e relatórios", () => {
     expect(html).not.toContain("ana@example.test");
     expect(html).not.toContain("Registrar presença");
     expect(html).not.toMatch(/\bAPI\b|\bendpoint\b|\bdemo\b|501/);
-    expect(html).toContain("disabled");
+    expect(html).not.toContain("Publicar evento neste ambiente");
   });
 
   it("seleciona uma conta cadastrada e mantém visível a conta vinculada indisponível", () => {

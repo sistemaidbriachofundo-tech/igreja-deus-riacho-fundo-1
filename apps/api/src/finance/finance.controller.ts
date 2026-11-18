@@ -172,6 +172,26 @@ class CreateExpenseBody {
   costCenterId?: string;
 }
 
+class MarkPayablePaidBody {
+  @IsIn(["CASH", "EXTERNAL", "EXISTING"])
+  method!: "CASH" | "EXTERNAL" | "EXISTING";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  paidOn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  cashAccountId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  settlementId?: string;
+}
+
 class MatchBankLineBody {
   @IsString()
   @MinLength(1)
@@ -398,6 +418,11 @@ export class FinanceController {
     @Query("status") status?: string,
   ) {
     return this.finance.listEntries(user, status);
+  }
+
+  @Post("entries/:entryId/mark-paid")
+  markPayablePaid(@CurrentUser() user: AuthUser, @Param("entryId") entryId: string, @Body() body: MarkPayablePaidBody) {
+    return this.finance.markPayablePaid(user, entryId, body);
   }
 
   @Post("entries")
