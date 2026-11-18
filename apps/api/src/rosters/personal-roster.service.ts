@@ -427,7 +427,7 @@ export class PersonalRosterService {
 
   private assertModuleFilter(state: { modules: { id: string }[] }, moduleId?: string) {
     if (moduleId && !state.modules.some(module => module.id === moduleId)) {
-      throw new ConflictException({ code: "ROSTER_MODULE_FORBIDDEN", message: "Sem permissão neste módulo." });
+      throw new ForbiddenException({ code: "ROSTER_MODULE_FORBIDDEN", message: "Sem permissão neste módulo." });
     }
   }
 
