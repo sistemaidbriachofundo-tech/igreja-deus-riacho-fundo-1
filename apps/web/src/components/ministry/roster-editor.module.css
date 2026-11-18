@@ -79,3 +79,5 @@
 }
 
 .position, .person details { scroll-margin-top: 95px; }
+
+.partner { display: block; margin-block-start: 5px; }

@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGetBlob, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
-import { rosterPositionSummary, type EscalaModuleRules, type EscalaPanel, type MinistryEscala } from "../../lib/ministry-presentation";
+import { rosterCapacitySummary, rosterModuleContains, rosterPositionSummary, type EscalaModuleRules, type EscalaPanel, type MinistryEscala } from "../../lib/ministry-presentation";
 import { escalaStatusLabel, meuEspacoHref, ministryHref } from "../../lib/ministry-view";
-import { PUBLIC_FACADE_IMAGE } from "../../lib/site-layout";
 import { withBasePath } from "../../lib/paths";
 import { churchDayKey } from "../../lib/serving-rosters";
 import { UIIcon } from "../AppShell";
@@ -23,14 +22,6 @@ const dayLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, day: "
 const fullDate = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, weekday: "long", day: "numeric", month: "long" });
 const hourLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, hour: "2-digit", minute: "2-digit" });
 const monthLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, month: "long", year: "numeric" });
-
-function poster(module?: string) {
-  const name = module?.toLocaleLowerCase("pt-BR") ?? "";
-  const image = name.includes("recep") ? "comunidade" : name.includes("apoio") ? "intercessao" :
-    name.includes("conex") ? "comunidade" : name.includes("oferta") ? "adoracao" :
-    name.includes("ceia") || name.includes("diacon") ? "ceia" : "templo";
-  return { "--roster-poster": `url("${withBasePath(`/images/riacho/${image}.webp`)}")` } as CSSProperties;
-}
 
 function teamCoverage(roster: MinistryEscala) {
   const positions = roster.positions ?? [];
@@ -68,6 +59,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const [notice, setNotice] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0);
   const [more, setMore] = useState(false);
   const [tool, setTool] = useState<"modules" | "draw" | "availability" | null>(null);
   const [updatedRules, setUpdatedRules] = useState<Record<string, EscalaModuleRules>>({});
@@ -107,13 +99,16 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const upcoming = items.filter(roster => roster.status !== "CLOSED" && Date.parse(roster.serviceAt) >= now);
   const upcomingIds = new Set(upcoming.map(roster => roster.id));
   const previous = items.filter(roster => !upcomingIds.has(roster.id)).slice().reverse();
-  const featured = upcoming.find(roster => roster.status === "PUBLISHED") ?? upcoming[0] ?? previous[0];
+  const featured = upcoming[0] ?? previous[0];
   const selected = panel.items.find(roster => roster.id === escalaId);
-  const access = actions && {
-    ...actions, modules, moduleId: selectedModule?.id,
+  const moduleOnly = panel.permissions?.scope === "modules";
+  const access = actions && (!moduleOnly || modules.length > 0) && {
+    ...actions, modules, moduleId: selectedModule?.id ?? (moduleOnly ? modules[0]?.id : undefined),
+    allowGeneral: !moduleOnly,
+    requireModuleMembership: volunteerPortal || moduleOnly,
+    managedModuleMemberships: panel.permissions?.manageModuleMemberships,
     onOpen: (id: string, nextModuleId?: string) => {
-      setModuleFilter(nextModuleId ?? "");
-      setMonthFilter("");
+      if (nextModuleId !== undefined) setModuleFilter(nextModuleId);
       onOpen(id);
     },
   };
@@ -206,7 +201,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
     const date = new Date(roster.serviceAt);
     const moduleName = moduleNames.get(roster.moduleId ?? "") ?? "Geral";
     const coverage = teamCoverage(roster);
-    return <article className={s.card} style={poster(moduleName)} key={roster.id} aria-label={roster.title}>
+    return <article className={s.card} key={roster.id} aria-label={roster.title}>
       <div className={s.cardArt}>
         <time dateTime={roster.serviceAt}>{dayLabel.format(date)} · {hourLabel.format(date)}</time>
         <span className={s.status} data-status={roster.status}>{escalaStatusLabel(roster.status)}</span>
@@ -228,37 +223,49 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const priority = featuredPriority && teamCoverage(featuredPriority);
   const priorityTeam = featuredPriority && (moduleNames.get(featuredPriority.moduleId ?? "") ?? "Equipe geral");
   const grouped = new Map<string, MinistryEscala[]>();
-  for (const roster of upcoming) {
+  for (const roster of weekOffset === 0 ? upcoming : items) {
     const day = churchDayKey(roster.serviceAt);
     const sameDay = grouped.get(day) ?? [];
     sameDay.push(roster);
     grouped.set(day, sameDay);
   }
   const today = new Date(churchDayKey(new Date(now).toISOString()) + "T00:00:00Z");
+  today.setUTCDate(today.getUTCDate() + weekOffset * 7);
+  const start = today.toISOString().slice(0, 10);
   today.setUTCDate(today.getUTCDate() + 7);
   const end = today.toISOString().slice(0, 10);
-  const nextDays = [...grouped].filter(([day]) => day < end);
-  const later = [...grouped].filter(([day]) => day >= end).flatMap(([, rosters]) => rosters);
+  const nextDays = [...grouped].filter(([day]) => day >= start && day < end);
+  const later = weekOffset === 0 ? upcoming.filter(roster => churchDayKey(roster.serviceAt) >= end) : [];
+  const periodStart = dayLabel.format(new Date(start + "T12:00:00Z"));
+  today.setUTCDate(today.getUTCDate() - 1);
+  const periodEnd = dayLabel.format(new Date(today.toISOString().slice(0, 10) + "T12:00:00Z"));
+  const heroCapacity = featuredPriority && rosterCapacitySummary(featuredPriority.positions ?? []);
   const unfinishedTeams = nextTeams.filter(roster => roster.id !== featuredPriority?.id && teamCoverage(roster).tone !== "ready").length;
   const previousCards = previous.filter(roster => roster.id !== featured?.id);
-  const sitePhoto = { "--roster-poster": `url("${withBasePath(PUBLIC_FACADE_IMAGE)}")` } as CSSProperties;
+
+  if (tool === "draw" && access) return <MonthlyRosterPreview token={access.token} ministryId={ministryId}
+    modules={modules} initialModuleId={selectedModule?.id} onRefresh={access.onRefresh} onClose={() => setTool(null)} />;
 
   return <div className={s.showcase}>
     {confirmation}
     <div className={s.heroTop}>
-      <h2>{volunteerPortal ? "Escalas do Atmosfera" : "Escalas do ministério"}</h2>
+      <h2>{moduleOnly && modules.length === 1 ? `Escalas · ${modules[0].name}` : volunteerPortal ? "Escalas do Atmosfera" : "Escalas do ministério"}</h2>
       <div className={s.heroActions}>
         {volunteerPortal && <a className={s.secondary} href={withBasePath(meuEspacoHref())}>Portal do Voluntário <UIIcon name="arrow" size={15} /></a>}
         {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
-        {access && <RosterEditor key={selectedModule?.id ?? "general"} {...access} buttonClass={s.primary} />}
+        {access && modules.length > 0 && <button type="button" className={s.primary} onClick={() => setTool("draw")}>
+          <UIIcon name="spark" size={16} /> Simular mês inteiro
+        </button>}
+        {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={modules.length ? s.secondary : s.primary} />}
       </div>
     </div>
-    <section className={s.hero} style={sitePhoto} aria-label="Escalas do ministério" data-teams={nextTeams.length > 0}>
+    <section className={s.hero} aria-label="Escalas do ministério" data-teams={nextTeams.length > 0}>
       {featured && featuredDate ? <div className={s.heroCopy}>
         <div className={s.heroMeta}><span>{upcoming.length ? "Próximo culto" : "Último culto"}</span><span className={s.status} data-status={featured.status}>{escalaStatusLabel(featured.status)}</span></div>
         <h3>{featured.title}</h3>
         <p><UIIcon name="calendar" size={16} /> <time dateTime={featured.serviceAt}>{fullDate.format(featuredDate)} · {hourLabel.format(featuredDate)}</time>{featuredModule && <span>· {featuredModule}</span>}</p>
         {upcoming.length > 0 && priority && <div className={s.priority}>
+          {heroCapacity && <CapacityLine {...heroCapacity} />}
           <p>
           {priority.open ? <><strong>{priority.open} {priority.open === 1 ? "vaga aberta" : "vagas abertas"}</strong><span>· {priorityTeam}</span></> :
             priority.pending ? <><strong>{priority.pending} a confirmar</strong><span>· {priorityTeam}</span></> :
@@ -284,6 +291,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
           const name = moduleNames.get(roster.moduleId ?? "") ?? "Equipe geral";
           return <li key={roster.id} data-tone={coverage.tone}>
             <div className={s.teamName}><strong>{name}</strong><span className={s.teamBadge} data-tone={coverage.tone}>{coverage.label}</span></div>
+            <CapacityLine {...rosterCapacitySummary(roster.positions ?? [])} />
             <p>{coverageText(coverage)}</p>
             {names.length > 0 && <div className={s.avatars} aria-label={"Confirmaram: " + names.join(", ")} role="img">
               {names.slice(0, 4).map(person => <span key={person} title={person}>{initials(person)}</span>)}
@@ -295,9 +303,14 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
     </section>
     <section className={s.navigation} aria-label="Filtros e ferramentas de escalas">
       <div className={s.filters}>
-        <h2 id="roster-week-heading">Semana à frente</h2>
+        <h2 id="roster-week-heading">{weekOffset === 0 ? "Semana à frente" : "Cultos da semana"}</h2>
+        <div className={s.weekControls} role="group" aria-label="Navegar por semana">
+          <button type="button" className={s.secondary} onClick={() => setWeekOffset(value => value - 1)}>Semana anterior</button>
+          <span role="status">{periodStart} a {periodEnd}</span>
+          <button type="button" className={s.secondary} onClick={() => setWeekOffset(value => value + 1)}>Próxima semana</button>
+        </div>
         {modules.length > 0 && <div className={s.moduleFilters} role="group" aria-label="Módulo da escala">
-          <button type="button" aria-pressed={!moduleFilter} onClick={() => setModuleFilter("")}>Todos</button>
+          <button type="button" aria-pressed={!moduleFilter} onClick={() => setModuleFilter("")}>Todos os módulos</button>
           {modules.map(module => <button type="button" key={module.id} aria-pressed={moduleFilter === module.id}
             onClick={() => setModuleFilter(module.id)}>{module.name}</button>)}
         </div>}
@@ -315,8 +328,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
             <option value="">Todos os meses</option>
             {months.map(([value, name]) => <option value={value} key={value}>{name}</option>)}
           </select></label>}
-          <button type="button" aria-expanded={tool === "modules"} onClick={() => setTool(tool === "modules" ? null : "modules")}><UIIcon name="settings" size={16} /> Módulos e regras</button>
-          {modules.length > 0 && <button type="button" aria-expanded={tool === "draw"} onClick={() => setTool(tool === "draw" ? null : "draw")}><UIIcon name="spark" size={16} /> Sorteio mensal</button>}
+          {!moduleOnly && <button type="button" aria-expanded={tool === "modules"} onClick={() => setTool(tool === "modules" ? null : "modules")}><UIIcon name="settings" size={16} /> Módulos e regras</button>}
           <button type="button" aria-expanded={tool === "availability"} onClick={() => setTool(tool === "availability" ? null : "availability")}><UIIcon name="clock" size={16} /> Disponibilidade semanal</button>
         </div>}
         <button type="button" className={s.listExport} disabled={!items.length || Boolean(download)} onClick={() => void exportFile("xlsx")}>
@@ -324,7 +336,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         </button>
       </div>}
       {access && tool && <div className={s.toolbox} aria-label="Configuração da escala">
-        {tool === "modules" && <>
+        {tool === "modules" && !moduleOnly && <>
           <label className={s.month}>Módulo <select value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
             <option value="">Selecionar módulo</option>{modules.map(module => <option value={module.id} key={module.id}>{module.name}</option>)}
           </select></label>
@@ -332,7 +344,6 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
             if (selectedModule) setUpdatedRules(previousRules => ({ ...previousRules, [selectedModule.id]: rules }));
           } }} modules={modules} selectedId={selectedModule?.id ?? ""} />
         </>}
-        {tool === "draw" && <MonthlyRosterPreview token={access.token} ministryId={ministryId} onRefresh={access.onRefresh} />}
         {tool === "availability" && <RosterRecurringAvailability actions={access} />}
       </div>}
     </section>
@@ -341,9 +352,12 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
       <header><div><p>{moduleNames.get(selected.moduleId ?? "") ?? "Geral"}</p><h3>{selected.title}</h3></div>
         <div>{exportsFor(selected)}<button type="button" className={s.secondary} onClick={() => onOpen(undefined)}><UIIcon name="close" size={15} /> Fechar</button></div>
       </header>
-      {access && <RosterActions key={selected.id} {...access} roster={selected} members={access.members.filter(member =>
-        modules.find(module => module.id === selected.moduleId)?.rules?.volunteerIds?.includes(member.personId) ?? true,
-      )} />}
+      {access && <RosterActions key={selected.id} {...access} roster={selected} members={access.members.filter(member => {
+        const rosterModule = modules.find(item => item.id === selected.moduleId);
+        if (!selected.moduleId) return !moduleOnly;
+        return Boolean(rosterModule && rosterModuleContains(rosterModule, member.personId)) ||
+          (!access.requireModuleMembership && !rosterModule?.rules?.volunteerIds);
+      })} />}
       {!access && <p>{selected.functions.join(" · ") || "Sem posições cadastradas."}</p>}
     </section>}
     {notice && <p role="status" className={s.empty}>{notice}</p>}
@@ -363,7 +377,8 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
             return <li key={roster.id} data-tone={coverage.tone}>
               <header className={s.timelineHeader}>
                 <div><h4>{roster.title} <span>· <time dateTime={roster.serviceAt}>{hourLabel.format(new Date(roster.serviceAt))}</time></span></h4>
-                  <p>{moduleName && moduleName + " · "}{coverageText(coverage)}</p></div>
+                  <p>{moduleName && moduleName + " · "}{coverageText(coverage)}</p>
+                  <CapacityLine {...rosterCapacitySummary(roster.positions ?? [])} /></div>
                 <span className={s.teamBadge} data-tone={coverage.tone}>{coverage.label}</span>
               </header>
               {coverage.total > 0 && <progress className={s.progress} value={coverage.confirmed} max={coverage.total}
@@ -387,10 +402,21 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
           })}</ul>
         </section>;
       })}
-    </section> : <p role="status" className={s.empty}>Nenhum culto nos próximos sete dias{selectedModule ? " para " + selectedModule.name : ""}.</p>}
+    </section> : <p role="status" className={s.empty}>Nenhum culto neste período{selectedModule ? " para " + selectedModule.name : ""}.</p>}
     {later.length > 0 && <RosterRail title="Mais datas">{later.map(card)}</RosterRail>}
     {previousCards.length > 0 && <RosterRail title="Escalas anteriores">{previousCards.map(card)}</RosterRail>}
   </div>;
+}
+
+function CapacityLine({ single, singleFilled, couples, couplesFilled }: ReturnType<typeof rosterCapacitySummary>) {
+  if (!single && !couples) return null;
+  const missing = (couples - couplesFilled) * 2 + single - singleFilled;
+  const parts = [
+    couples > 0 ? `${couplesFilled} de ${couples} ${couples === 1 ? "casal" : "casais"}` : "",
+    single > 0 ? `${singleFilled} de ${single} ${single === 1 ? "vaga individual" : "vagas individuais"}` : "",
+    missing === 1 ? "falta 1 pessoa" : missing > 1 ? `faltam ${missing} pessoas` : "",
+  ];
+  return <p className={s.capacityLine}>{parts.filter(Boolean).join(" · ")}</p>;
 }
 
 function RosterRail({ title, children }: { title: string; children: ReactNode }) {
