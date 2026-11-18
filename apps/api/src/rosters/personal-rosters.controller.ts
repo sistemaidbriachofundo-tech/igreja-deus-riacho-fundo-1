@@ -8,7 +8,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, Matches, MinLength, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequireAccess } from "../auth/decorators/require-access.decorator";
@@ -32,6 +32,74 @@ class AssignBody {
   @IsOptional()
   @IsBoolean()
   fromMonthlyPreview?: boolean;
+}
+
+class SimulationDecisionBody {
+  @IsString()
+  @MinLength(1)
+  slotId!: string;
+
+  @IsOptional()
+  @IsString()
+  personId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  partnerPersonId?: string;
+
+  @IsBoolean()
+  locked!: boolean;
+}
+
+class SimulationCapacityBody {
+  @IsString()
+  @MinLength(1)
+  rosterId!: string;
+
+  @IsString()
+  @MinLength(1)
+  groupId!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  count!: number;
+}
+
+class MonthlySimulationBody {
+  @Matches(/^20\d{2}-(0[1-9]|1[0-2])$/)
+  month!: string;
+
+  @IsOptional()
+  @IsString()
+  moduleId?: string;
+
+  @IsOptional()
+  @Matches(/^[a-f0-9]{64}$/)
+  revision?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => SimulationDecisionBody)
+  decisions?: SimulationDecisionBody[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => SimulationCapacityBody)
+  capacities?: SimulationCapacityBody[];
+
+  @IsOptional()
+  @IsBoolean()
+  fillOnlyOpen?: boolean;
+}
+
+class SaveMonthlySimulationBody extends MonthlySimulationBody {
+  @Matches(/^[a-f0-9]{64}$/)
+  declare revision: string;
 }
 
 class MonthPinBody {
@@ -130,11 +198,25 @@ export class PersonalRostersController {
     return this.rosters.monthlyPreview(user, ministryId, month);
   }
 
+  /** Contrato do #239. Não grava cultos faltantes. `revision` identifica os dados, não as decisões. */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/monthly-simulation")
+  monthlySimulation(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Body() body: MonthlySimulationBody) {
+    return this.rosters.monthlySimulation(user, ministryId, { ...body, decisions: body.decisions?.map(decision => ({ ...decision, personId: decision.personId ?? null })) });
+  }
+
+  /** Grava o rascunho. 409 quando `revision` não confere. Não publica nem avisa. */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/monthly-simulation/save")
+  saveMonthlySimulation(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Body() body: SaveMonthlySimulationBody) {
+    return this.rosters.saveMonth(user, ministryId, body.month, { ...body, fingerprint: body.revision, decisions: body.decisions?.map(decision => ({ ...decision, personId: decision.personId ?? null })) });
+  }
+
   /** Simulação do mês. version 1. Não grava cultos faltantes. */
   @Roles(...LEAD_ROLES)
   @Get("by-ministry/:ministryId/month/:month")
   simulateMonth(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string) {
-    return this.rosters.simulateMonth(user, ministryId, month);
+    return this.rosters.monthlySimulation(user, ministryId, { month });
   }
 
   /**

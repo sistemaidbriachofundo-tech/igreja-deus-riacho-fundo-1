@@ -23,7 +23,7 @@ import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availab
 
 import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, type CultType } from "./roster-operating-rules";
 import { loadMonthState } from "./roster-month-load";
-import { decideMonthSave, draftsToPersist, planMonth, type MonthPin } from "./roster-month-plan";
+import { decideMonthSave, draftsToPersist, planMonth, presentMonthlySimulation, type MonthCapacityRequest, type MonthDecision, type MonthPin } from "./roster-month-plan";
 import { openVacancyText, responseStatuses, rosterInScope } from "./roster-module-policy";
 import {
   appendParticipantResponse,
@@ -360,31 +360,30 @@ export class PersonalRosterService {
     return { month, answered: true, availableRosterIds: ids };
   }
 
-  async simulateMonth(actor: AuthUser, ministryId: string, month: string) {
+  async monthlySimulation(actor: AuthUser, ministryId: string, request: { month: string; moduleId?: string; decisions?: MonthDecision[]; capacities?: MonthCapacityRequest[]; fillOnlyOpen?: boolean }) {
     const pilot = await this.pilot.getPilotChurch();
-    const ministry = await this.requireMinistry(ministryId, pilot);
-    this.assertCanOperateMinistry(actor, ministry, pilot);
-    const access = await loadRosterAccess(this.prisma as never, actor, ministry, pilot);
-    const state = await loadMonthState(this.prisma as never, pilot, ministryId, month);
-    if (!state) throw new ConflictException({ code: "ROSTER_PREVIEW_UNVERIFIED", message: "A simulação não pôde ser conferida com a pesquisa, a disponibilidade e o histórico." });
-    if (access.scope === "modules") state.modules = state.modules.filter(module => access.moduleIds.includes(module.id));
-    return planMonth(state);
+    const state = await this.monthState(actor, ministryId, request.month, pilot);
+    this.assertModuleFilter(state, request.moduleId);
+    return presentMonthlySimulation(request.moduleId ? { ...state, modules: state.modules.filter(module => module.id === request.moduleId) } : state, request);
   }
 
-  async saveMonth(actor: AuthUser, ministryId: string, month: string, request: { fingerprint: string; pins?: MonthPin[]; recalculate?: boolean }) {
+  async saveMonth(actor: AuthUser, ministryId: string, month: string, request: { fingerprint: string; pins?: MonthPin[]; decisions?: MonthDecision[]; capacities?: MonthCapacityRequest[]; recalculate?: boolean; fillOnlyOpen?: boolean; moduleId?: string }) {
     const pilot = await this.pilot.getPilotChurch();
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertCanOperateMinistry(actor, ministry, pilot);
-    const initial = await this.monthState(actor, ministryId, month, pilot);
+    const loaded = await this.monthState(actor, ministryId, month, pilot);
+    this.assertModuleFilter(loaded, request.moduleId);
+    const initial = request.moduleId ? { ...loaded, modules: loaded.modules.filter(module => module.id === request.moduleId) } : loaded;
     const decision = decideMonthSave(initial, request);
-    if (decision.action === "replay") return decision.simulation;
+    if (decision.action === "replay") return { savedRosters: decision.simulation.services.filter(service => service.persisted && service.status === "DRAFT").length };
     if (decision.action !== "write") {
       throw new ConflictException(decision);
     }
     return writeRosterAssignment(this.prisma, async tx => {
-      const fresh = await this.monthState(actor, ministryId, month, pilot, tx as never);
+      const reloaded = await this.monthState(actor, ministryId, month, pilot, tx as never);
+      const fresh = request.moduleId ? { ...reloaded, modules: reloaded.modules.filter(module => module.id === request.moduleId) } : reloaded;
       const again = decideMonthSave(fresh, request);
-      if (again.action === "replay") return again.simulation;
+      if (again.action === "replay") return { savedRosters: again.simulation.services.filter(service => service.persisted && service.status === "DRAFT").length };
       if (again.action !== "write") throw new ConflictException(again);
       const writes = draftsToPersist(again.simulation);
       for (const service of again.simulation.services) {
@@ -407,7 +406,8 @@ export class PersonalRosterService {
         if (existing) throw new ConflictException({ code: "ROSTER_PREVIEW_STALE", message: "A vaga foi preenchida por outra gravação. Atualize o mês e tente de novo." });
         await tx.rosterAssignment.create({ data: { slotId, personId: item.slot.personId, partnerPersonId: item.slot.partnerPersonId ?? null, status: "PENDING" } });
       }
-      return this.monthState(actor, ministryId, month, pilot, tx as never).then(state => planMonth(state));
+      const saved = await this.monthState(actor, ministryId, month, pilot, tx as never).then(state => planMonth(state));
+      return { savedRosters: saved.services.filter(service => service.persisted && service.status === "DRAFT").length };
     });
   }
 
@@ -421,19 +421,14 @@ export class PersonalRosterService {
   }
 
   async monthlyPreview(actor: AuthUser, ministryId: string, month: string) {
-    const simulation = await this.simulateMonth(actor, ministryId, month);
-    return {
-      month, version: simulation.version, fingerprint: simulation.fingerprint, timeZone: simulation.timeZone, limitScope: simulation.limitScope,
-      rosters: simulation.services.filter(service => service.persisted && service.status === "DRAFT").map(service => ({
-        id: service.rosterId, title: service.title, moduleName: service.moduleName, serviceAt: service.serviceAt,
-        positions: service.slots.filter(slot => !slot.locked).map(slot => ({
-          slotId: slot.id, roleLabel: slot.roleLabel, personId: slot.personId, partnerPersonId: slot.partnerPersonId ?? null,
-          personName: slot.personName ?? null, partnerName: slot.partnerName ?? null, reasons: slot.reasonCodes,
-          ...(slot.openVacancy ? { openVacancy: slot.openVacancy } : {}),
-        })),
-      })),
-      services: simulation.services,
-    };
+    const simulation = await this.monthlySimulation(actor, ministryId, { month });
+    return { ...simulation, fingerprint: simulation.revision };
+  }
+
+  private assertModuleFilter(state: { modules: { id: string }[] }, moduleId?: string) {
+    if (moduleId && !state.modules.some(module => module.id === moduleId)) {
+      throw new ConflictException({ code: "ROSTER_MODULE_FORBIDDEN", message: "Sem permissão neste módulo." });
+    }
   }
 
   async listMinistry(actor: AuthUser, ministryId: string) {

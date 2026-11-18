@@ -1,4 +1,4 @@
-import { decideMonthSave, draftsToPersist, mergeChurchCalendar, planMonth, type MonthModule, type MonthState } from "./roster-month-plan";
+import { decideMonthSave, draftsToPersist, mergeChurchCalendar, planMonth, presentMonthlySimulation, type MonthModule, type MonthState } from "./roster-month-plan";
 
 const sundayMorning = "2026-12-06T13:00:00.000Z";
 const sundayEvening = "2026-12-06T22:00:00.000Z";
@@ -42,6 +42,19 @@ function state(extra: Partial<MonthState> = {}): MonthState {
 }
 
 describe("simulação mensal do Atmosfera", () => {
+  it("entrega o contrato da tela mensal com ids estáveis e escolha travada", () => {
+    const current = state();
+    const first = presentMonthlySimulation(current);
+    const second = presentMonthlySimulation(current);
+    expect(first.revision).toBe(second.revision);
+    const morning = first.rosters.find(roster => roster.serviceAt === sundayMorning && roster.moduleId === "recepcao");
+    expect(morning?.positions[0].slotId).toBe(second.rosters.find(roster => roster.id === morning?.id)?.positions[0].slotId);
+    expect(morning?.capacity?.[0].id).toBe(second.rosters.find(roster => roster.id === morning?.id)?.capacity?.[0].id);
+    const locked = presentMonthlySimulation(current, { fillOnlyOpen: true, decisions: [{ slotId: morning!.positions[0].slotId, personId: "ana", locked: true }] });
+    expect(locked.rosters.find(roster => roster.id === morning?.id)?.positions[0]).toMatchObject({ personId: "ana", locked: true });
+    expect(locked.revision).toBe(first.revision);
+  });
+
   it("mostra o mês inteiro sem gravar culto faltante e preserva publicado e cancelado", () => {
     const current = state({
       calendar: [{ serviceAt: sundayEvening, serviceType: "sunday_evening", status: "CANCELLED", title: "Sem culto" }],

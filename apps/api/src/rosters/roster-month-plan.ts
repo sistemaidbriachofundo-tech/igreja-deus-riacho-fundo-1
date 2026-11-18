@@ -3,7 +3,7 @@ import { evaluateCandidate } from "./preview-domain/eligibility";
 import { previewSlots } from "./preview-domain/scheduler";
 import type { Candidate, ExistingAssignment, Rules } from "./preview-domain/types";
 import { DEFAULT_RULES } from "./preview-domain/types";
-import { cultsInMonth, moduleLookupKey, openVacancyText } from "./roster-module-policy";
+import { buildCapacityGroups, capacityGroupId, cultsInMonth, moduleLookupKey, openVacancyText } from "./roster-module-policy";
 import type { CultType, PositionRule } from "./roster-operating-rules";
 
 export const MONTH_SIMULATION_VERSION = 1;
@@ -78,6 +78,8 @@ export type MonthState = {
 };
 
 export type MonthPin = { serviceKey: string; slotKey: string; personId: string; partnerPersonId?: string | null };
+export type MonthDecision = { slotId: string; personId?: string | null; partnerPersonId?: string | null; locked?: boolean };
+export type MonthCapacityRequest = { rosterId: string; groupId: string; count: number };
 
 export type PlannedSlot = {
   key: string;
@@ -171,9 +173,13 @@ export function monthFingerprint(state: MonthState): string {
   return createHash("sha256").update(JSON.stringify(stable)).digest("hex");
 }
 
-export function planMonth(state: MonthState, options: { pins?: readonly MonthPin[]; recalculate?: boolean } = {}): MonthSimulation {
-  const pins = new Map((options.pins ?? []).map(pin => [`${pin.serviceKey}:${pin.slotKey}`, pin]));
-  const recalculate = options.recalculate !== false;
+export function planMonth(state: MonthState, options: { pins?: readonly MonthPin[]; decisions?: readonly MonthDecision[]; capacities?: readonly MonthCapacityRequest[]; recalculate?: boolean; fillOnlyOpen?: boolean } = {}): MonthSimulation {
+  const pins = new Map([
+    ...(options.pins ?? []).map(pin => [`${pin.serviceKey}:${pin.slotKey}`, pin] as const),
+    ...(options.decisions ?? []).filter(decision => decision.personId).map(decision => [`${decision.slotId}`, { serviceKey: "", slotKey: decision.slotId, personId: decision.personId as string, partnerPersonId: decision.partnerPersonId ?? null }] as const),
+  ]);
+  const heldOpen = new Set((options.decisions ?? []).filter(decision => decision.locked && !decision.personId).map(decision => decision.slotId));
+  const recalculate = options.fillOnlyOpen ?? options.recalculate ?? true;
   const names = new Map(state.people.map(person => [person.personId, person.name]));
   const history: ExistingAssignment[] = state.history.map(item => ({ ...item }));
   for (const roster of state.rosters) {
@@ -193,12 +199,12 @@ export function planMonth(state: MonthState, options: { pins?: readonly MonthPin
       const cancelled = cult.status === "CANCELLED";
       const status: ServiceStatus = cancelled ? "CANCELLED" : roster?.status ?? "MISSING";
       const locked = status === "PUBLISHED" || status === "CLOSED" || status === "CANCELLED";
-      const slots = roster ? slotsFromRoster(roster) : slotsFromPositions(module, cult.serviceType, key);
+      const slots = applyRequestedCapacity(roster ? slotsFromRoster(roster) : slotsFromPositions(module, cult.serviceType, key), module, cult.serviceType, key, roster?.id ?? null, options.capacities ?? []);
       const candidates = candidatesFor(module, state);
       const planned = slots.map(slot => placeSlot(slot, key, pins, names, locked));
       validatePins(planned, candidates, history, module, state, cult.serviceAt);
       for (const slot of planned.filter(item => item.pinned && item.personId)) history.push(assignmentFrom(slot, cult.serviceAt, state, module.id, roster?.id ?? key));
-      const free = planned.filter(slot => !slot.locked && !slot.pinned && !module.manual && status !== "CANCELLED");
+      const free = planned.filter(slot => !slot.locked && !slot.pinned && !heldOpen.has(slot.key) && !module.manual && status !== "CANCELLED");
       if (recalculate && free.length && module.volunteerIds.length) {
         const rules = rulesFor(module);
         const plan = previewSlots(free.map(slot => ({
@@ -254,9 +260,11 @@ export type SaveDecision =
   | { action: "ineligible"; code: "ROSTER_NOT_ELIGIBLE"; message: string; serviceKey: string; slotKey: string; reasonCodes: string[] }
   | { action: "published"; code: "ROSTER_PUBLISHED"; message: string; serviceKey: string };
 
-export function decideMonthSave(state: MonthState, request: { fingerprint: string; pins?: readonly MonthPin[]; recalculate?: boolean }): SaveDecision {
+export function decideMonthSave(state: MonthState, request: { fingerprint: string; pins?: readonly MonthPin[]; decisions?: readonly MonthDecision[]; capacities?: readonly MonthCapacityRequest[]; recalculate?: boolean; fillOnlyOpen?: boolean }): SaveDecision {
   const publishedPin = (request.pins ?? []).find(pin => state.rosters.some(roster =>
     `${roster.moduleId}:${roster.serviceAt}` === pin.serviceKey && roster.status !== "DRAFT"));
+  const publishedDecision = (request.decisions ?? []).find(decision => state.rosters.some(roster => roster.status !== "DRAFT" && roster.slots.some(slot => slot.id === decision.slotId)));
+  if (publishedDecision) return { action: "published", code: "ROSTER_PUBLISHED", message: "Culto publicado não muda nesta gravação.", serviceKey: publishedDecision.slotId };
   if (publishedPin) {
     return { action: "published", code: "ROSTER_PUBLISHED", message: "Culto publicado não muda nesta gravação.", serviceKey: publishedPin.serviceKey };
   }
@@ -294,6 +302,36 @@ function slotsFromRoster(roster: MonthRosterState): PlannedSlot[] {
   }));
 }
 
+function applyRequestedCapacity(slots: PlannedSlot[], module: MonthModule, cult: CultType, serviceKey: string, rosterId: string | null, capacities: readonly MonthCapacityRequest[]): PlannedSlot[] {
+  const mine = capacities.filter(item => item.rosterId === serviceKey || item.rosterId === rosterId);
+  if (!mine.length) return slots;
+  const groups = new Map<string, PlannedSlot[]>();
+  for (const slot of slots) {
+    const id = groupId(slot);
+    groups.set(id, [...(groups.get(id) ?? []), slot]);
+  }
+  for (const request of mine) {
+    const current = groups.get(request.groupId) ?? [];
+    const position = (module.positions[cult] ?? []).find(item => groupId({ roleLabel: item.label, requiresCouple: item.couple, requiredQualification: item.qualification ?? null }) === request.groupId);
+    const ordered = [...current.filter(slot => slot.locked || slot.personId), ...current.filter(slot => !slot.locked && !slot.personId)];
+    const next = Math.max(ordered.filter(slot => slot.locked || slot.personId).length, Math.min(30, request.count));
+    const kept = ordered.slice(0, next);
+    while (kept.length < next && position) {
+      kept.push({
+        key: `${serviceKey}:${position.label}:${position.couple ? "casal" : "pessoa"}:${position.qualification ?? ""}:${kept.length}`,
+        id: null, roleLabel: position.label, requiresCouple: position.couple, requiredQualification: position.qualification ?? null,
+        locked: false, pinned: false, reasonCodes: [],
+      });
+    }
+    groups.set(request.groupId, kept);
+  }
+  return [...groups.values()].flat();
+}
+
+function groupId(slot: { roleLabel: string; requiresCouple: boolean; requiredQualification?: string | null }): string {
+  return capacityGroupId(slot.roleLabel, slot.requiresCouple, slot.requiredQualification);
+}
+
 function slotsFromPositions(module: MonthModule, cult: CultType, serviceKey: string): PlannedSlot[] {
   const positions = module.positions[cult] ?? [];
   return positions.flatMap(position => Array.from({ length: position.count }, (_, index) => ({
@@ -305,7 +343,7 @@ function slotsFromPositions(module: MonthModule, cult: CultType, serviceKey: str
 
 function placeSlot(slot: PlannedSlot, serviceKey: string, pins: ReadonlyMap<string, MonthPin>, names: ReadonlyMap<string, string>, blockPin: boolean): PlannedSlot {
   if (slot.locked) return { ...slot, personName: slot.personId ? names.get(slot.personId) ?? null : null, partnerName: slot.partnerPersonId ? names.get(slot.partnerPersonId) ?? null : null };
-  const pin = pins.get(`${serviceKey}:${slot.key}`);
+  const pin = pins.get(`${serviceKey}:${slot.key}`) ?? pins.get(slot.key);
   if (!pin || blockPin) return { ...slot };
   return { ...slot, pinned: true, personId: pin.personId, partnerPersonId: pin.partnerPersonId ?? null, personName: names.get(pin.personId) ?? null, partnerName: pin.partnerPersonId ? names.get(pin.partnerPersonId) ?? null : null };
 }
@@ -355,6 +393,66 @@ function assignmentFrom(slot: PlannedSlot, serviceAt: string, state: MonthState,
     assignmentId: `plan:${slot.key}`, churchId: state.churchId, ministryId: state.ministryId, positionId: slot.roleLabel,
     rosterId, slotId: slot.key, serviceAt, status: "PENDING", personId: slot.personId ?? "", partnerPersonId: slot.partnerPersonId,
   };
+}
+
+export function presentMonthlySimulation(state: MonthState, options: { moduleId?: string; pins?: readonly MonthPin[]; decisions?: readonly MonthDecision[]; capacities?: readonly MonthCapacityRequest[]; recalculate?: boolean; fillOnlyOpen?: boolean } = {}) {
+  const scoped = options.moduleId ? { ...state, modules: state.modules.filter(module => module.id === options.moduleId) } : state;
+  const simulation = planMonth(scoped, options);
+  return {
+    month: simulation.month,
+    revision: simulation.fingerprint,
+    version: simulation.version,
+    timeZone: simulation.timeZone,
+    limitScope: simulation.limitScope,
+    rosters: simulation.services.map(service => {
+      const module = scoped.modules.find(item => item.id === service.moduleId);
+      const readOnly = service.status === "PUBLISHED" || service.status === "CLOSED" || service.status === "CANCELLED";
+      return {
+        id: service.rosterId ?? service.key,
+        moduleId: service.moduleId,
+        moduleName: service.moduleName,
+        title: service.title,
+        serviceAt: service.serviceAt,
+        status: service.status,
+        readOnly,
+        capacity: module ? buildCapacityGroups({
+          positions: module.positions[service.serviceType as CultType] ?? [],
+          overrides: new Map(),
+          slots: service.slots.map(slot => ({ id: slot.key, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple, requiredQualification: slot.requiredQualification, active: Boolean(slot.personId && (slot.locked || slot.pinned)) })),
+        }).map(group => ({ id: group.id, label: group.label, count: service.slots.filter(slot => groupId(slot) === group.id).length, minimumCount: group.minimumCount })) : [],
+        positions: service.slots.map(slot => ({
+          slotId: slot.key,
+          roleLabel: slot.roleLabel,
+          requiresCouple: slot.requiresCouple,
+          requiredQualification: slot.requiredQualification,
+          locked: slot.locked || slot.pinned,
+          readOnly,
+          personId: slot.personId ?? null,
+          personName: slot.personName ?? null,
+          partnerPersonId: slot.partnerPersonId ?? null,
+          partnerName: slot.partnerName ?? null,
+          reasons: slot.reasonCodes,
+          ...(slot.openVacancy ? { openVacancy: slot.openVacancy } : {}),
+          candidates: readOnly || !module ? [] : listSlotCandidates(scoped, module, service.serviceAt, slot),
+        })),
+      };
+    }),
+  };
+}
+
+function listSlotCandidates(state: MonthState, module: MonthModule, serviceAt: string, slot: PlannedSlot) {
+  const people = candidatesFor(module, state);
+  const history = state.history.filter(item => item.slotId !== slot.key);
+  return people.flatMap(person => {
+    const decision = evaluateCandidate(person, {
+      slotId: slot.key, rosterId: state.ministryId, churchId: state.churchId, ministryId: state.ministryId,
+      positionId: slot.roleLabel, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple,
+      requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [], serviceAt, serviceType: "special_event",
+    }, people, history, rulesFor(module));
+    if (!decision.eligible) return [];
+    const partnerPersonId = decision.personIds[1] ?? null;
+    return [{ personId: person.personId, personName: state.people.find(item => item.personId === person.personId)?.name ?? person.personId, partnerPersonId, partnerName: partnerPersonId ? state.people.find(item => item.personId === partnerPersonId)?.name ?? null : null }];
+  }).slice(0, 40);
 }
 
 export function draftsToPersist(simulation: MonthSimulation): Array<{ service: PlannedService; slot: PlannedSlot }> {
