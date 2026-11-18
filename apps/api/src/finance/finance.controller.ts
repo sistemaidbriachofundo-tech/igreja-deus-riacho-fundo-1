@@ -545,6 +545,19 @@ export class FinanceController {
   }
 
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Post("imports/mercado-pago")
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 1 },
+  }))
+  uploadMercadoPagoReleases(
+    @CurrentUser() user: AuthUser,
+    @Body("accountId") accountId: string,
+    @UploadedFile() file?: { originalname: string; buffer: Buffer },
+  ) {
+    return this.finance.uploadBankStatement(user, accountId, file, "CSV");
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("imports/:batchId")
   getImport(@CurrentUser() user: AuthUser, @Param("batchId") batchId: string) {
     return this.finance.getImport(user, batchId);

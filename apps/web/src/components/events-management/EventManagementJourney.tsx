@@ -29,6 +29,7 @@ import { withBasePath } from "../../lib/paths";
 import { formatPortalDate } from "../../lib/portal-live-data";
 import { eventStatusLabel } from "./calendar";
 import { EventRegistrationDesk } from "./EventRegistrationDesk";
+import { EventRosterDesk } from "./EventRosterDesk";
 import { EventAgenda } from "./EventAgenda";
 import s from "./event-management.module.css";
 
@@ -41,6 +42,7 @@ export function EventManagementJourney() {
   const production = isProductionAdmin();
   const [phase, setPhase] = useState<Phase>(enabled ? "loading" : "disabled");
   const [token, setToken] = useState("");
+  const [viewer, setViewer] = useState<LoginResult["user"]>();
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [canReconcile, setCanReconcile] = useState(false);
@@ -83,6 +85,7 @@ export function EventManagementJourney() {
       .then(async user => {
         if (cancelled) return;
         setToken(stored);
+        setViewer(user);
         const treasury = user.grants.some(grant => grant.roleCode === "TESOURARIA");
         const churchStaff = user.grants.some(grant => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR"].includes(grant.roleCode));
         const leader = user.grants.some(grant => grant.roleCode === "LIDER_MINISTERIO");
@@ -345,6 +348,9 @@ export function EventManagementJourney() {
         events={events}
         selected={selected}
         creating={creating}
+        rosterDesk={selected && viewer && token && !treasuryOnly ? (
+          <EventRosterDesk key={selected.id} event={selected} token={token} viewer={viewer} />
+        ) : null}
         registrationDesk={selected && token && paymentAccounts !== null ? (
           <EventRegistrationDesk key={selected.id} event={selected} token={token}
             accounts={paymentAccounts} canReconcile={canReconcile} canManage={!treasuryOnly}
@@ -400,6 +406,7 @@ export function EventManagementView(props: {
   selected: ManagedEvent | null;
   creating: Draft;
   registrationDesk?: React.ReactNode;
+  rosterDesk?: React.ReactNode;
   editing: Draft;
   registrations: ManagedRegistration[];
   report: ParticipationView | null;
@@ -457,6 +464,7 @@ export function EventManagementView(props: {
         </div>
         <div className={s.actions}>
           {!props.treasuryOnly && <a className={s.link} href="#revisar-evento">Revisar e publicar</a>}
+          {props.rosterDesk && <a className={s.link} href="#escala-do-evento">Escala da equipe</a>}
           {props.registrationDesk && <a className={s.link} href="#inscricoes-do-evento">{props.treasuryOnly ? "Consultar Pix do evento" : "Inscrições, pagamentos e presença"}</a>}
         </div>
       </section>}
@@ -494,6 +502,7 @@ export function EventManagementView(props: {
           {props.production ? "Publicar evento" : "Publicar na homologação"}
         </button>
       </section>}
+      {props.rosterDesk}
       {props.registrationDesk && <div id="inscricoes-do-evento">{props.registrationDesk}</div>}
       {published && props.selected && !props.registrationDesk && !props.treasuryOnly && <section className={s.panel}>
         <h2>Inscrições e presença</h2>

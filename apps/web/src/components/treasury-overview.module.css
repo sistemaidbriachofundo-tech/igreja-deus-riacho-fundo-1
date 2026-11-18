@@ -6,7 +6,7 @@
 }
 .available { display: grid; align-content: center; gap: 11px; min-width: 0; }
 .positionLabel { display: flex; align-items: center; gap: 8px; color: #c7ded0; font-size: 13px; font-weight: 640; }
-.available > strong { color: #f5e2b9; font: 670 clamp(31px, 4.4vw, 57px)/1.06 "Source Sans Pro", sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+.available > strong { color: #f5e2b9; font: 670 clamp(31px, 4.4vw, 57px)/1.06 var(--font-geist-stack); letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
 .position dl { display: grid; gap: 10px; margin: 0; }
 .position dl > div { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #c4d7ca33; }
 .position dt { color: #c7ded0; font-size: 13px; }

@@ -460,6 +460,24 @@ export class RostersController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Get("by-event/:eventId")
+  eventRoster(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.ministries.listEventRoster(user, eventId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post("by-event/:eventId")
+  createEventRoster(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.ministries.createEventRoster(user, eventId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get("by-event/:eventId/people")
+  eventRosterPeople(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Query("q") query = "") {
+    return this.ministries.searchEventRosterPeople(user, eventId, query);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Patch(":rosterId")
   update(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string, @Body() body: EditRosterBody) {
     return this.ministries.editRoster(user, rosterId, body);

@@ -1,3 +1,21 @@
+@font-face {
+  font-family: "Geist";
+  src: url("../fonts/geist.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("../fonts/geist-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root { --font-geist-stack: "Geist", Arial, sans-serif; }
+
 :root {
   --color-dourado: #d4af37;
   --color-marrom: #4a2612;
@@ -18,8 +36,8 @@
 
   --shadow-soft: 0 10px 28px color-mix(in srgb, var(--color-marrom) 10%, transparent);
 
-  --font-title: "Source Sans Pro", system-ui, sans-serif;
-  --font-body: "Source Sans Pro", system-ui, sans-serif;
+  --font-title: var(--font-geist-stack);
+  --font-body: var(--font-geist-stack);
 
   --ds-gold: var(--color-dourado);
   --ds-brown: var(--color-marrom);

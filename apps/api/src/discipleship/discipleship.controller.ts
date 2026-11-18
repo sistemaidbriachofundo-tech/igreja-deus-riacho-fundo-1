@@ -184,6 +184,13 @@ export class DiscipleshipController {
     });
   }
 
+  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO)
+  @Header("Cache-Control", "private, no-store")
+  @Post("me/connection")
+  enrollInConnection(@CurrentUser() user: AuthUser) {
+    return this.discipleship.enrollInConnection(user);
+  }
+
   @Get("me/connection")
   myConnection(@CurrentUser() user: AuthUser) {
     return this.discipleship.myConnectionJourney(user);

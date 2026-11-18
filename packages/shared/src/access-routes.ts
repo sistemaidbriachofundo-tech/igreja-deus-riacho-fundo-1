@@ -58,7 +58,7 @@ export function classifyAccessRoute(
     return { resource: "admin", action: "administer" };
   }
 
-  if (verb === "POST" && path === "/ledger/imports/ofx") {
+  if (verb === "POST" && ["/ledger/imports/ofx", "/ledger/imports/mercado-pago"].includes(path)) {
     return { resource: "bank_statements", action: "write" };
   }
   if (read && (path === "/ledger/imports" || /^\/ledger\/imports\/[^/]+$/.test(path))) {

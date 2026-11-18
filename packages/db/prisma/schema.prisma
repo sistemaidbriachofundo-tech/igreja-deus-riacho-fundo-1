@@ -912,6 +912,7 @@ model PortalEvent {
   lodgingOptions   EventLodgingOption[]
   mealOptions      EventMealOption[]
   transportOptions EventTransportOption[]
+  teamRoster Roster?
 
   @@unique([churchId, slug])
   @@index([organizationId, churchId])
@@ -1484,6 +1485,7 @@ model Roster {
   churchId       String       @map("church_id")
   ministryId     String?      @map("ministry_id")
   moduleId       String?      @map("module_id")
+  portalEventId  String?      @unique @map("portal_event_id")
   title          String
   serviceAt      DateTime     @map("service_at")
   serviceType    String?      @map("service_type")
@@ -1495,6 +1497,7 @@ model Roster {
   church       Church       @relation(fields: [churchId], references: [id])
   ministry     Ministry?    @relation(fields: [ministryId], references: [id])
   module       MinistryRosterModule? @relation(fields: [moduleId, ministryId], references: [id, ministryId], onDelete: Restrict)
+  portalEvent  PortalEvent? @relation(fields: [portalEventId], references: [id], onDelete: Restrict)
   slots        RosterSlot[]
 
   @@index([churchId, serviceAt])

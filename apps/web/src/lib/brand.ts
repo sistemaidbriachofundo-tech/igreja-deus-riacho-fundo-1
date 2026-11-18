@@ -13,8 +13,8 @@ export const brandColors = {
 } as const;
 
 export const brandFonts = {
-  title: "Source Sans Pro",
-  body: "Source Sans Pro",
+  title: "Geist",
+  body: "Geist",
 } as const;
 
 export const brandCssVars = {

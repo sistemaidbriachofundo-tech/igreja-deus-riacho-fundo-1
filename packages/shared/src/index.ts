@@ -119,6 +119,7 @@ export {
   nextDualApprovalStage,
   parseSyntheticCsvLines,
   isBankStatementAccount,
+  isMercadoPagoStatementAccount,
   isValidCompetence,
   type LedgerAccountTypeCode,
   type LedgerEntryStatusCode,

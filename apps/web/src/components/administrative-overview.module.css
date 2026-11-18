@@ -4,9 +4,7 @@
   margin: 0 auto;
   color: var(--ink);
   font:
-    400 14px/1.5 "Source Sans Pro",
-    Arial,
-    sans-serif;
+    400 14px/1.5 var(--font-geist-stack);
   --ink: var(--app-ink, #22382e);
   --muted: var(--app-muted, #5f7368);
   --app-border: #cdd9d0;
@@ -340,8 +338,7 @@
   background: transparent;
   color: #587156;
   font:
-    500 12px "Source Sans Pro",
-    sans-serif;
+    500 12px var(--font-geist-stack);
   cursor: pointer;
 }
 .calendar button:hover {
@@ -385,8 +382,7 @@
   background: transparent;
   color: #476e45;
   font:
-    600 11px "Source Sans Pro",
-    sans-serif;
+    600 11px var(--font-geist-stack);
   cursor: pointer;
 }
 .agendaList {
@@ -737,7 +733,7 @@
   scroll-margin-top: 85px;
 }
 .priorityHeader { padding: 13px 18px; border-bottom: 1px solid var(--line); background: #edf3ed; }
-.priorityHeader h2 { margin: 0; color: var(--ink); font: 650 15px/1.3 "Source Sans Pro", Arial, sans-serif; }
+.priorityHeader h2 { margin: 0; color: var(--ink); font: 650 15px/1.3 var(--font-geist-stack); }
 .priorityList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .priorityList a {
   display: flex;

@@ -21,7 +21,9 @@ import {
 import styles from "./serving.module.css";
 
 type Props = {
-  surface: ServingSurfaceId;
+  surface: ServingSurfaceId | "event";
+  eventPeoplePath?: string;
+  eventName?: string;
   ministry: MinistryView | null;
   rosters: RosterView[];
   blocks: SimultaneousBlock[];
@@ -30,7 +32,7 @@ type Props = {
   token: string;
   busy: boolean;
   notice: string;
-  onCreate: (input: { title: string; serviceAtLocal: string }) => void;
+  onCreate?: (input: { title: string; serviceAtLocal: string }) => void;
   onAddSlot: (rosterId: string, roleLabel: string, requiresCouple: boolean) => void;
   onAssign: (slotId: string, personId: string, partnerPersonId: string) => void;
   onConfirm: (assignmentId: string) => void;
@@ -42,6 +44,8 @@ type Props = {
 
 export function MinistryRosterDesk({
   surface,
+  eventPeoplePath,
+  eventName,
   ministry,
   rosters,
   blocks,
@@ -66,7 +70,7 @@ export function MinistryRosterDesk({
   const [assignDraft, setAssignDraft] = useState<Record<string, { personId: string; partnerPersonId: string }>>({});
   const [replacement, setReplacement] = useState<Record<string, string>>({});
 
-  if (!ministry) {
+  if (!ministry && !eventName) {
     return (
       <section className={styles.blocked} role="status" data-blocked="ministry">
         <h2>Ministério ainda não disponível nesta conta</h2>
@@ -78,7 +82,7 @@ export function MinistryRosterDesk({
   function createRoster(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!lead || title.trim().length < 1 || !serviceAtLocal) return;
-    onCreate({ title: title.trim(), serviceAtLocal });
+    onCreate?.({ title: title.trim(), serviceAtLocal });
   }
 
   return (
@@ -89,8 +93,8 @@ export function MinistryRosterDesk({
         </p>
       )}
       <section className={styles.card}>
-        <h2>{ministry.name}</h2>
-        {ministry.scheduleText && (
+        <h2>{eventName ?? ministry?.name}</h2>
+        {ministry?.scheduleText && (
           <p>{ministry.scheduleText}</p>
         )}
         {surface === "louvor" && (
@@ -102,7 +106,7 @@ export function MinistryRosterDesk({
 
       {rosters.length === 0 ? (
         <p className={styles.card} role="status">
-          Nenhuma escala cadastrada para este ministério.
+          {eventName ? "Nenhuma escala cadastrada para este evento." : "Nenhuma escala cadastrada para este ministério."}
         </p>
       ) : (
         <div className={styles.schedule}>
@@ -117,7 +121,7 @@ export function MinistryRosterDesk({
                   </div>
                   <span className={styles.badge}>{rosterStatusLabel[roster.status]}</span>
                 </div>
-                {lead && roster.status !== "CLOSED" && roster.slots.length > 0 && <RosterPreviewPanel token={token} rosterId={roster.id} />}
+                {lead && roster.status !== "CLOSED" && roster.slots.length > 0 && (surface !== "event" || roster.ministryId) && <RosterPreviewPanel token={token} rosterId={roster.id} />}
                 {roster.slots.map((slot) => (
                   <section className={styles.slot} key={slot.id}>
                     <div className={styles.slotHeader}>
@@ -179,7 +183,7 @@ export function MinistryRosterDesk({
                                 appearance="button"
                                 invite={{
                                   personName: assignment.personName,
-                                  ministryName: ministry.name,
+                                  ministryName: ministry?.name ?? eventName ?? "Equipe do evento",
                                   serviceLabel: `${roster.title} · ${formatChurchDate(roster.serviceAt)}`,
                                   roleLabel: slot.roleLabel,
                                 }}
@@ -202,6 +206,7 @@ export function MinistryRosterDesk({
                               >
                                 <PersonField
                                   token={token}
+                                searchPath={eventPeoplePath}
                                   roles={roles}
                                   label="Pessoa substituta"
                                   value={replacement[assignment.id] ?? ""}
@@ -236,6 +241,7 @@ export function MinistryRosterDesk({
                       >
                         <PersonField
                           token={token}
+                          searchPath={eventPeoplePath}
                           roles={roles}
                           label="Designar pessoa nesta função"
                           value={assignDraft[slot.id]?.personId ?? ""}
@@ -252,6 +258,7 @@ export function MinistryRosterDesk({
                         {slot.requiresCouple && (
                           <PersonField
                             token={token}
+                            searchPath={eventPeoplePath}
                             roles={roles}
                             label="Par, se a regra exigir"
                             value={assignDraft[slot.id]?.partnerPersonId ?? ""}
@@ -355,7 +362,7 @@ export function MinistryRosterDesk({
         </div>
       )}
 
-      {lead && (
+      {lead && onCreate && (
         <form className={`${styles.card} ${styles.form}`} onSubmit={createRoster}>
           <h2>Nova escala</h2>
           <div className={styles.formGrid}>
@@ -385,21 +392,24 @@ export function MinistryRosterDesk({
 
 function PersonField({
   token,
+  searchPath,
   roles,
   label,
   value,
   onChange,
 }: {
   token: string;
+  searchPath?: string;
   roles: readonly string[];
   label: string;
   value: string;
   onChange: (next: string) => void;
 }) {
-  if (canSearchPersons(roles)) {
+  if (searchPath || canSearchPersons(roles)) {
     return (
       <PersonPicker
         token={token}
+        searchPath={searchPath}
         roles={roles}
         label={label}
         value={value}

@@ -162,7 +162,7 @@
 
 /* V7 — design system institucional */
 .page{color:#143438}
-.pageHeader h1{color:#103338}.pageHeader h1 em{font-family:Georgia,serif;font-weight:600;color:#a77a43}
+.pageHeader h1{color:#103338}.pageHeader h1 em{font-family:var(--font-geist-stack);font-weight:600;color:#a77a43}
 .pageHeader p{color:#72827e}.eyebrow{color:#a37d4c}
 .exportButton{border-color:#dae5de;color:#285259;border-radius:999px;background:#fffefa}
 .addButton{background:#12393e;color:#fffaeb;border-color:#12393e;border-radius:999px}

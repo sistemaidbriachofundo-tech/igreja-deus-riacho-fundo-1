@@ -67,9 +67,9 @@ describe("web brand", () => {
     expect(brandCssVars["--color-terracota"]).toBe("#C6583E");
   });
 
-  it("uses Source Sans Pro for titles and body", () => {
-    expect(brandFonts.title).toBe("Source Sans Pro");
-    expect(brandFonts.body).toBe("Source Sans Pro");
+  it("uses Geist for titles and body", () => {
+    expect(brandFonts.title).toBe("Geist");
+    expect(brandFonts.body).toBe("Geist");
   });
 
   it("declares the brand tokens in globals.css", () => {
@@ -78,6 +78,6 @@ describe("web brand", () => {
     }
     expect(globalsCss).toContain("--font-title:");
     expect(globalsCss).toContain("--font-body:");
-    expect(globalsCss).toContain("Source Sans Pro");
+    expect(globalsCss).toContain("Geist");
   });
 });

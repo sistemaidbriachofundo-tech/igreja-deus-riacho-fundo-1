@@ -2,7 +2,7 @@
 .meta{font-size:10px;color:#b8a07e}
 .spotlight{background:#f8f7f4;color:#162d34;padding:108px clamp(23px,6vw,92px);scroll-margin-top:80px}
 .spotlightHeading{display:grid;grid-template-columns:1fr 350px;gap:70px;align-items:end;max-width:1380px;margin:0 auto 60px}
-.spotlightHeading h2,.agendaHeader h2,.ministryLiveHead h2,.newsPageIntro h2{font:850 clamp(1.5rem,8vw,88px)/1.15 "Source Sans Pro",Arial,sans-serif;letter-spacing:-.04em;margin:20px 0 0;max-width:100%;overflow-wrap:break-word;text-wrap:balance}
+.spotlightHeading h2,.agendaHeader h2,.ministryLiveHead h2,.newsPageIntro h2{font:850 clamp(1.5rem,8vw,88px)/1.15 var(--font-geist-stack);letter-spacing:-.04em;margin:20px 0 0;max-width:100%;overflow-wrap:break-word;text-wrap:balance}
 .spotlightHeading h2 em,.agendaHeader h2 em,.ministryLiveHead h2 em,.newsPageIntro h2 em{font-style:normal;color:#b48850}
 .spotlightHeading>p,.agendaHeader>p,.ministryLiveHead>p,.newsPageIntro>p{color:var(--ds-support);font-size:16px;line-height:1.75;max-width:420px;margin:0}
 .spotlightGrid{display:grid;grid-template-columns:1.25fr .75fr;gap:clamp(50px,6vw,110px);max-width:1380px;margin:auto}
@@ -11,9 +11,9 @@
 .columnHeading a{color:#3d5156;font-size:12px;font-weight:800}
 .eventLine{display:grid;grid-template-columns:85px minmax(0,1fr) 35px;gap:21px;border-bottom:1px solid #d3dcd8;padding:29px 0;align-items:start}
 .eventCalendar{display:flex;flex-direction:column;align-items:center;justify-content:center;width:75px;height:79px;background:#eae4d6;color:#1d3439}
-.eventCalendar strong{font:800 36px/1 "Source Sans Pro",Arial,sans-serif;letter-spacing:-.06em}
+.eventCalendar strong{font:800 36px/1 var(--font-geist-stack);letter-spacing:-.06em}
 .eventCalendar span{font-size:10px;letter-spacing:.18em;font-weight:800;color:#9f7847;margin-top:4px}
-.eventBody h3{font:800 clamp(21px,2.4vw,32px)/1.2 "Source Sans Pro",Arial,sans-serif;letter-spacing:-.045em;margin:10px 0}
+.eventBody h3{font:800 clamp(21px,2.4vw,32px)/1.2 var(--font-geist-stack);letter-spacing:-.045em;margin:10px 0}
 .eventBody p{font-size:14px;line-height:1.7;color:#64777a;margin:0 0 12px}
 .place{display:block;color:#7a694d;font-size:11px;line-height:1.4;letter-spacing:.08em;font-weight:800}
 .confirmed{font-size:17px;color:#9d7b4a;border:1px solid #bfa479;border-radius:50%;height:31px;width:31px;display:grid;place-items:center}
@@ -244,7 +244,7 @@
   font-weight: 700;
   text-decoration: none;
 }
-.agendaEventStatus { align-self: start; margin-top: auto; padding-block: 9px; color: var(--portal-on-green-muted); font: 600 .81rem/1.35 "Source Sans Pro", sans-serif; }
+.agendaEventStatus { align-self: start; margin-top: auto; padding-block: 9px; color: var(--portal-on-green-muted); font: 600 .81rem/1.35 var(--font-geist-stack); }
 .agendaEventContent > :is(.agendaEventAction, .agendaEventStatus) { margin-block-start: auto; }
 .agendaEventAction:hover { color: #18120e; background: #ffad7b; border-color: #ffad7b; }
 .agendaEventAction:focus-visible { outline: 2px solid #ffad7b; outline-offset: 4px; }

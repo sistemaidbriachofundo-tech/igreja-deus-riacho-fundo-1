@@ -47,6 +47,16 @@ export type MinistryProfileInput = {
   publishStatus?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 };
 
+function eventRosterPeople(scope: { organizationId: string; churchId: string; ministryId: string | null }): Prisma.PersonWhereInput {
+  return {
+    organizationId: scope.organizationId,
+    status: "ACTIVE",
+    ...(scope.ministryId
+      ? { ministryMemberships: { some: { churchId: scope.churchId, ministryId: scope.ministryId, status: "ATIVO" } } }
+      : { memberships: { some: { churchId: scope.churchId, status: "ACTIVE" } } }),
+  };
+}
+
 @Injectable()
 export class MinistriesService {
   constructor(
@@ -279,6 +289,108 @@ export class MinistriesService {
       } });
       return { id: moduleId, rules };
     });
+  }
+
+  private async requireRosterEvent(
+    actor: AuthUser,
+    eventId: string,
+    pilot: { organizationId: string; churchId: string },
+    db: Pick<Prisma.TransactionClient, "portalEvent"> = this.prisma,
+  ) {
+    const event = await db.portalEvent.findFirst({ where: { ...pilot, id: eventId } });
+    if (!event) throw new NotFoundException("Evento não encontrado.");
+    await this.assertRosterScope(actor, event, pilot);
+    return event;
+  }
+
+  async createEventRoster(actor: AuthUser, eventId: string) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const scope = { organizationId, churchId };
+    try {
+      return await this.prisma.$transaction(async tx => {
+        const event = await this.requireRosterEvent(actor, eventId, scope, tx);
+        if (event.status === "CANCELLED" || event.status === "ARCHIVED") {
+          throw new ConflictException("Este evento está encerrado.");
+        }
+        const existing = await tx.roster.findUnique({ where: { portalEventId: event.id } });
+        if (existing) return this.toRosterDto(existing);
+        const roster = await tx.roster.create({ data: {
+          ...scope, portalEventId: event.id, ministryId: event.ministryId,
+          title: event.name, serviceAt: event.startsAt, serviceType: "special_event",
+        } });
+        await tx.auditLog.create({ data: {
+          ...scope, actorUserId: actor.userId, action: "roster.event.create",
+          resourceType: "roster", resourceId: roster.id, metadata: { eventId },
+        } });
+        return this.toRosterDto(roster);
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && ["P2002", "P2034"].includes(String(error.code))) {
+        const loaded = await this.listEventRoster(actor, eventId);
+        if (loaded.rosters[0]) return loaded.rosters[0];
+        throw new ConflictException("O evento mudou. Atualize a tela e tente novamente.");
+      }
+      throw error;
+    }
+  }
+
+  async listEventRoster(actor: AuthUser, eventId: string) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const scope = { organizationId, churchId };
+    const event = await this.requireRosterEvent(actor, eventId, scope);
+    const roster = await this.prisma.roster.findFirst({
+      where: { ...scope, portalEventId: event.id },
+      include: {
+        slots: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            assignments: { include: {
+              person: { select: { displayName: true } },
+              partner: { select: { displayName: true } },
+            } },
+          },
+        },
+      },
+    });
+    return { canCreate: !roster && event.status !== "CANCELLED" && event.status !== "ARCHIVED",
+      rosters: roster ? [{
+        ...this.toRosterDto(roster),
+        slots: roster.slots.map(slot => ({
+          ...this.toSlotDto(slot),
+          assignments: slot.assignments.map(assignment => ({
+            ...this.toAssignmentDto(assignment),
+            personName: assignment.person.displayName,
+            partnerName: assignment.partner?.displayName ?? null,
+          })),
+        })),
+      }] : [] };
+  }
+
+  async searchEventRosterPeople(actor: AuthUser, eventId: string, query: string) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const event = await this.requireRosterEvent(actor, eventId, { organizationId, churchId });
+    const term = typeof query === "string" ? query.trim().slice(0, 100) : "";
+    if (term.length < 2) return { hits: [] };
+    const people = await this.prisma.person.findMany({
+      where: {
+        ...eventRosterPeople({ organizationId, churchId, ministryId: event.ministryId }),
+        displayName: { contains: term, mode: "insensitive" },
+      },
+      select: { id: true, displayName: true },
+      orderBy: [{ displayName: "asc" }, { id: "asc" }],
+      take: 8,
+    });
+    return { hits: people.map(person => ({ person })) };
+  }
+
+  private async assertEventRosterPeople(
+    db: Pick<Prisma.TransactionClient, "person">,
+    roster: { portalEventId?: string | null; organizationId: string; churchId: string; ministryId: string | null },
+    ids: string[],
+  ) {
+    if (!roster.portalEventId) return;
+    const count = await db.person.count({ where: { ...eventRosterPeople(roster), id: { in: ids } } });
+    if (count !== ids.length) throw new BadRequestException("Selecione pessoas ativas na equipe deste evento.");
   }
 
   async createRoster(
@@ -775,6 +887,7 @@ export class MinistriesService {
       }
       await assertOpenModuleSlot(tx, current);
       await assertSlotEligibility(tx, current, personIds);
+      await this.assertEventRosterPeople(tx, current.roster, personIds);
       await assertNoRosterDayConflict(tx, {
         churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds, conflictCode: "ROSTER_SERVICE_CONFLICT",
       });
@@ -930,6 +1043,7 @@ export class MinistriesService {
       const slot = { ...current.slot, roster: current.roster };
       await assertOpenModuleSlot(tx, slot, assignmentId);
       await assertSlotEligibility(tx, slot, personIds);
+      await this.assertEventRosterPeople(tx, slot.roster, personIds);
       await assertNoRosterDayConflict(tx, {
         churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds,
         excludeAssignmentId: assignmentId, conflictCode: "ROSTER_SERVICE_CONFLICT",
@@ -1973,6 +2087,7 @@ export class MinistriesService {
     churchId: string;
     ministryId: string | null;
     moduleId?: string | null;
+    portalEventId?: string | null;
     title: string;
     serviceAt: Date;
     status: string;
@@ -1985,6 +2100,7 @@ export class MinistriesService {
       churchId: row.churchId,
       ministryId: row.ministryId,
       ...(row.moduleId ? { moduleId: row.moduleId } : {}),
+      ...(row.portalEventId ? { portalEventId: row.portalEventId } : {}),
       title: row.title,
       serviceAt: row.serviceAt.toISOString(),
       status: row.status,

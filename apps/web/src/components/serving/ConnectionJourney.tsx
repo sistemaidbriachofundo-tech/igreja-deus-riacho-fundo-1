@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, loadStoredToken } from "../../lib/api";
+import { apiGet, apiPost, loadStoredToken } from "../../lib/api";
+import { dasError } from "../../lib/das-operations";
 import { withBasePath } from "../../lib/paths";
 import { readPanel } from "../../lib/panel-read";
 import { UIIcon } from "../ui/UIIcon";
@@ -9,13 +10,32 @@ import styles from "./connection-journey.module.css";
 
 type Stage = { id: string; title: string; description: string | null; completed: boolean; waived?: boolean };
 type Journey = { name: string; status: string; mentorName: string | null; stages: Stage[]; currentStageId: string | null };
-type JourneyResponse = { journey: Journey | null; previewStages?: Pick<Stage, "id" | "title" | "description">[] };
+type JourneyResponse = { journey: Journey | null; canSelfEnroll?: boolean; previewStages?: Pick<Stage, "id" | "title" | "description">[] };
 const path = "/discipleship/me/connection";
 
 export function ConnectionJourney({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<JourneyResponse>();
   const [failure, setFailure] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [enrolling, setEnrolling] = useState(false);
+  const [message, setMessage] = useState("");
+  const [enrollmentError, setEnrollmentError] = useState("");
+
+  async function enroll() {
+    const token = loadStoredToken();
+    if (!token || enrolling) return;
+    setEnrolling(true);
+    setEnrollmentError("");
+    try {
+      setData(await apiPost<JourneyResponse>(path, token));
+      setAttempt(value => value + 1);
+      setMessage("Inscrição confirmada.");
+    } catch (error) {
+      setEnrollmentError(dasError(error));
+    } finally {
+      setEnrolling(false);
+    }
+  }
 
   useEffect(() => {
     const token = loadStoredToken();
@@ -40,10 +60,16 @@ export function ConnectionJourney({ compact = false }: { compact?: boolean }) {
     <header><h2><UIIcon name="layers" size={20} /> Trilha da Conexão</h2>
       {compact && <a href={withBasePath("/app/servir/meu-espaco/#trilha-da-conexao")}>Abrir minha trilha</a>}
     </header>
+    {message && <p role="status">{message}</p>}
+    {enrollmentError && <p role="alert">{enrollmentError}</p>}
     {failure ? <p role="alert">A trilha está indisponível. <button type="button" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button></p> :
       data === undefined ? <p role="status">Carregando trilha…</p> :
       !journey ? <>
-        <p>Procure a equipe da Conexão para começar sua trilha.</p>
+        {data.canSelfEnroll && !compact
+          ? <button type="button" className={styles.enroll} onClick={() => void enroll()} disabled={enrolling}>
+            {enrolling ? "Inscrevendo…" : "Inscrever-me na Trilha"}
+          </button>
+          : <p>{data.canSelfEnroll ? "Você pode se inscrever pela sua área." : "Procure a equipe da Conexão para começar sua trilha."}</p>}
         {data.previewStages && <details className={styles.steps}>
           <summary>Conhecer as etapas da trilha</summary>
           <ol>{data.previewStages.map(item => <li key={item.id}><strong>{item.title}</strong><span>{item.description}</span></li>)}</ol>

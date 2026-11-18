@@ -35,6 +35,13 @@ function congregationPeople(organizationId: string, churchId: string): Prisma.Pe
   };
 }
 
+function canSelfEnroll(actor: AuthUser, organizationId: string, churchId: string): boolean {
+  return Boolean(actor.personId) && actor.organizationId === organizationId && actor.churchId === churchId &&
+    actor.grants.some(grant => grantMatchesScope(grant, {
+      organizationId, churchId, roleCodes: [ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO],
+    }));
+}
+
 @Injectable()
 export class DiscipleshipService {
   constructor(
@@ -477,6 +484,60 @@ export class DiscipleshipService {
     });
   }
 
+  async enrollInConnection(actor: AuthUser) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    if (!canSelfEnroll(actor, organizationId, churchId)) throw new ForbiddenException();
+
+    const person = await this.prisma.person.findFirst({
+      where: { id: actor.personId, ...congregationPeople(organizationId, churchId), status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!person) throw new ForbiddenException("O cadastro precisa estar ativo nesta congregação.");
+
+    await this.prisma.$transaction(async tx => {
+      // Cria o registro oficial uma vez, inclusive no primeiro uso da congregação.
+      await tx.discipleshipTrack.createMany({
+        data: [{ organizationId, churchId, code: CONNECTION_TRACK_CODE, name: CONNECTION_TRACK_NAME }],
+        skipDuplicates: true,
+      });
+      const track = await tx.discipleshipTrack.findFirstOrThrow({
+        where: { organizationId, churchId, code: CONNECTION_TRACK_CODE },
+        select: { id: true, stages: { select: { code: true } } },
+      });
+      if (track.stages.length === 0) {
+        await tx.discipleshipTrackStage.createMany({
+          data: CONNECTION_STAGES.map((stage, index) => ({ ...stage, trackId: track.id, sortOrder: index + 1 })),
+          skipDuplicates: true,
+        });
+      } else {
+        this.requireOfficialStages(CONNECTION_STAGES.every(stage => track.stages.some(current => current.code === stage.code)));
+      }
+
+      const result = await tx.discipleshipEnrollment.createMany({
+        data: [{ trackId: track.id, personId: person.id }],
+        skipDuplicates: true,
+      });
+      if (!result.count) {
+        const previous = await tx.discipleshipEnrollment.findUniqueOrThrow({
+          where: { trackId_personId: { trackId: track.id, personId: person.id } },
+          select: { status: true },
+        });
+        if (previous.status === "CANCELLED") throw new ConflictException("Procure a equipe da Conexão para retomar sua trilha.");
+        return;
+      }
+      const enrollment = await tx.discipleshipEnrollment.findUniqueOrThrow({
+        where: { trackId_personId: { trackId: track.id, personId: person.id } },
+        select: { id: true },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, organizationId, churchId, action: "discipleship.enrollment.self",
+        resourceType: "discipleship_enrollment", resourceId: enrollment.id,
+      }});
+    });
+
+    return this.myConnectionJourney(actor);
+  }
+
   async myConnectionJourney(actor: AuthUser) {
     const { organizationId, churchId } = await this.pilot.getPilotChurch();
     const scope = { organizationId, churchId, roleCodes: Object.values(ROLE_CODES) };
@@ -494,10 +555,16 @@ export class DiscipleshipService {
     });
     const journey = enrollments.find(row => isConnectionTrack(row.track));
     if (!journey) {
-      const previewStages = actor.grants.some(grant => grantMatchesScope(grant, {
-        organizationId, churchId, roleCodes: [ROLE_CODES.CONVIDADO],
-      })) ? CONNECTION_STAGES.map(({ code, title, description }) => ({ id: code, title, description })) : undefined;
-      return { journey: null, ...(previewStages && { previewStages }) };
+      if (!canSelfEnroll(actor, organizationId, churchId)) return { journey: null };
+      const cancelled = await this.prisma.discipleshipEnrollment.findFirst({
+        where: { personId: actor.personId, status: "CANCELLED", track: { organizationId, churchId, code: CONNECTION_TRACK_CODE } },
+        select: { id: true },
+      });
+      return {
+        journey: null,
+        canSelfEnroll: !cancelled,
+        previewStages: CONNECTION_STAGES.map(({ code, title, description }) => ({ id: code, title, description })),
+      };
     }
 
     const track = await this.prisma.discipleshipProgressEvent.findMany({

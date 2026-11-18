@@ -16,6 +16,7 @@ import {
   ROLE_CODES,
   checkBalancedLines,
   isBankStatementAccount,
+  isMercadoPagoStatementAccount,
   isValidCompetence,
   nextDualApprovalStage,
   parseOfxLines,
@@ -33,6 +34,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
 import { listBankAdapters, requireBankAdapter } from "./bank-adapters";
+import { parseMercadoPagoReleases } from "./mercado-pago-releases";
 import { pastoralExpenseLines } from "./pastoral-expense";
 
 type PilotScope = {
@@ -744,6 +746,7 @@ export class FinanceService {
     actor: AuthUser,
     accountId: string,
     file?: { originalname: string; buffer: Buffer },
+    format: "OFX" | "CSV" = "OFX",
   ) {
     const pilot = await this.requireFinance(actor, "import-statements");
     if (typeof accountId !== "string" || !accountId.trim()) {
@@ -753,26 +756,23 @@ export class FinanceService {
     if (!isBankStatementAccount(account)) {
       throw new BadRequestException("Selecione uma conta bancária ativa.");
     }
-    if (!file?.buffer?.length || !/\.ofx$/i.test(file.originalname)) {
-      throw new BadRequestException("Selecione um arquivo .ofx exportado pelo banco.");
+    if (format === "CSV" && !isMercadoPagoStatementAccount(account)) {
+      throw new BadRequestException("Selecione uma conta ativa do Mercado Pago.");
+    }
+    if (!file?.buffer?.length || !(format === "CSV" ? /\.csv$/i : /\.ofx$/i).test(file.originalname)) {
+      throw new BadRequestException(format === "CSV" ? "Selecione o relatório de liberações em CSV." : "Selecione um arquivo .ofx exportado pelo banco.");
     }
 
     let content = file.buffer.toString("utf8");
     if (content.includes("\uFFFD")) {
       content = new TextDecoder("windows-1252").decode(file.buffer);
     }
-    const result = parseOfxLines(content, true);
-    const accountStatements = content.match(/<STMTRS\s*>/gi);
-    const currencies = [...content.matchAll(/<CURDEF>\s*([A-Z]{3})/gi)];
-    if (!/<OFX\s*>/i.test(content) || !result.ok || (accountStatements?.length ?? 0) > 1 ||
-        /<CCSTMTRS\s*>/i.test(content) || currencies.some(([, currency]) => currency.toUpperCase() !== "BRL")) {
-      throw new BadRequestException("O OFX precisa conter movimentos válidos de uma única conta em reais.");
-    }
+    const parsed = format === "CSV" ? await parseMercadoPagoReleases(content) : this.readBankOfx(content);
     const fileHash = createHash("sha256").update(file.buffer).digest("hex");
     try {
       const batch = await this.saveBankImport(actor, pilot, {
-        format: "OFX", filename: file.originalname, adapter: "FILE", status: "PARSED",
-        stubNote: null, parsed: result.lines, accountId: account.id, fileHash,
+        format, filename: file.originalname, adapter: "FILE", status: "PARSED",
+        stubNote: null, parsed, accountId: account.id, fileHash,
       });
       return { ...batch, alreadyImported: false };
     } catch (error) {
@@ -784,6 +784,17 @@ export class FinanceService {
       if (!existing) throw error;
       return { ...this.toImportDto(existing), alreadyImported: true };
     }
+  }
+
+  private readBankOfx(content: string) {
+    const result = parseOfxLines(content, true);
+    const accountStatements = content.match(/<STMTRS\s*>/gi);
+    const currencies = [...content.matchAll(/<CURDEF>\s*([A-Z]{3})/gi)];
+    if (!/<OFX\s*>/i.test(content) || !result.ok || (accountStatements?.length ?? 0) > 1 ||
+        /<CCSTMTRS\s*>/i.test(content) || currencies.some(([, currency]) => currency.toUpperCase() !== "BRL")) {
+      throw new BadRequestException("O OFX precisa conter movimentos válidos de uma única conta em reais.");
+    }
+    return result.lines;
   }
 
   async createImport(

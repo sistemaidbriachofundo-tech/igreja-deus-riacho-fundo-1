@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -161,10 +162,20 @@ export class EventsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (input.ministryId !== undefined && input.ministryId !== existing.ministryId &&
+          await tx.roster.findUnique({ where: { portalEventId: eventId }, select: { id: true } })) {
+        throw new ConflictException("O ministério deste evento já tem uma escala vinculada.");
+      }
       const event = await tx.portalEvent.update({
         where: { id: eventId },
         data,
       });
+      if (input.status === "CANCELLED" || input.status === "ARCHIVED") {
+        await tx.roster.updateMany({
+          where: { portalEventId: eventId, status: { not: "CLOSED" } },
+          data: { status: "CLOSED" },
+        });
+      }
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -177,6 +188,11 @@ export class EventsService {
         },
       });
       return this.toDto(event);
+    }, { isolationLevel: "Serializable" }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("O evento mudou. Atualize a tela e tente novamente.");
+      }
+      throw error;
     });
   }
 

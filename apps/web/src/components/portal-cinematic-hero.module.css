@@ -137,7 +137,7 @@
   .photo::after {
     background: linear-gradient(0deg, #0d100ff5 0%, #0d100fbc 43%, #0d100f51 72%, #0d100f56 100%);
   }
-  .headline { font-size: clamp(32px, 10vw, 63px); }
+  .headline { font-size: clamp(26px, 8.7vw, 57px); }
   .layout { gap: 21px; padding-top: calc(var(--portal-header) + 54px); }
   .location { margin-bottom: 10px; }
 }
@@ -162,8 +162,8 @@
       linear-gradient(0deg, #0c0c0c84, transparent 38%);
   }
   .layout { justify-items: end; }
-  .intro { width: min(100%, 485px); }
-  .headline { font-size: clamp(46px, 4.6vw, 74px); }
+  .intro { width: min(100%, 570px); }
+  .headline { font-size: clamp(39px, 4.35vw, 66px); }
 }
 @media (max-width: 740px) {
   .photo img { object-position: 10% center; }

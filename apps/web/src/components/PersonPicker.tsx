@@ -24,6 +24,7 @@ type Props = {
   help?: string;
   selectedPerson?: PersonOption | null;
   options?: readonly PersonOption[];
+  searchPath?: string;
   excludeIds?: readonly string[];
   adultsOnly?: boolean;
 };
@@ -66,6 +67,7 @@ export function PersonPicker({
   help,
   selectedPerson,
   options,
+  searchPath,
   excludeIds = [],
   adultsOnly = false,
 }: Props) {
@@ -81,7 +83,7 @@ export function PersonPicker({
   const [expanded, setExpanded] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [attempt, setAttempt] = useState(0);
-  const canSearch = canSearchPersons(roles);
+  const canSearch = Boolean(searchPath) || canSearchPersons(roles);
   const term = query.trim();
   const selectedName =
     selection?.id === value
@@ -132,7 +134,7 @@ export function PersonPicker({
     const timer = setTimeout(() => {
       setStatus("loading");
       void apiGet<SearchResponse>(
-        `/persons/search?q=${encodeURIComponent(term)}&limit=8`,
+        `${searchPath ?? "/persons/search"}?q=${encodeURIComponent(term)}&limit=8`,
         token,
       )
         .then((payload) => {
@@ -158,7 +160,7 @@ export function PersonPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [canSearch, token, term, value, attempt, options]);
+  }, [canSearch, token, term, value, attempt, options, searchPath]);
 
   if (!canSearch && options === undefined) {
     return (

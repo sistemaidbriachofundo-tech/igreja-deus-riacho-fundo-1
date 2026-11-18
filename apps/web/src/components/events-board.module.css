@@ -1,7 +1,7 @@
 .board{display:grid;gap:18px;min-width:0;color:#3e2b1f}
 .intro{display:grid;gap:6px}
 .intro span{color:#966a36;font-size:.78rem;font-weight:800;letter-spacing:.08em}
-.intro h2{margin:0;font-family:"Source Sans Pro",sans-serif;font-size:1.45rem;letter-spacing:-.03em;color:#432719}
+.intro h2{margin:0;font-family:var(--font-geist-stack);font-size:1.45rem;letter-spacing:-.03em;color:#432719}
 .intro p{margin:0;color:#6d5644;line-height:1.55;max-width:68ch}
 .notice{margin:0;border-radius:12px;padding:12px 14px;background:#fbf2dd;border:1px solid #dfcea8;color:#754f21}
 .stack{display:grid;gap:12px}
