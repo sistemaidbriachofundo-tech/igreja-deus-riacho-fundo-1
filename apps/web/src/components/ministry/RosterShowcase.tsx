@@ -243,6 +243,9 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const unfinishedTeams = nextTeams.filter(roster => roster.id !== featuredPriority?.id && teamCoverage(roster).tone !== "ready").length;
   const previousCards = previous.filter(roster => roster.id !== featured?.id);
 
+  if (tool === "draw" && access) return <MonthlyRosterPreview token={access.token} ministryId={ministryId}
+    modules={modules} initialModuleId={selectedModule?.id} onRefresh={access.onRefresh} onClose={() => setTool(null)} />;
+
   return <div className={s.showcase}>
     {confirmation}
     <div className={s.heroTop}>
@@ -250,7 +253,10 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
       <div className={s.heroActions}>
         {volunteerPortal && <a className={s.secondary} href={withBasePath(meuEspacoHref())}>Portal do Voluntário <UIIcon name="arrow" size={15} /></a>}
         {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
-        {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.primary} />}
+        {access && modules.length > 0 && <button type="button" className={s.primary} onClick={() => setTool("draw")}>
+          <UIIcon name="spark" size={16} /> Simular mês inteiro
+        </button>}
+        {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={modules.length ? s.secondary : s.primary} />}
       </div>
     </div>
     <section className={s.hero} aria-label="Escalas do ministério" data-teams={nextTeams.length > 0}>
@@ -323,7 +329,6 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
             {months.map(([value, name]) => <option value={value} key={value}>{name}</option>)}
           </select></label>}
           {!moduleOnly && <button type="button" aria-expanded={tool === "modules"} onClick={() => setTool(tool === "modules" ? null : "modules")}><UIIcon name="settings" size={16} /> Módulos e regras</button>}
-          {modules.length > 0 && <button type="button" aria-expanded={tool === "draw"} onClick={() => setTool(tool === "draw" ? null : "draw")}><UIIcon name="spark" size={16} /> Sorteio mensal</button>}
           <button type="button" aria-expanded={tool === "availability"} onClick={() => setTool(tool === "availability" ? null : "availability")}><UIIcon name="clock" size={16} /> Disponibilidade semanal</button>
         </div>}
         <button type="button" className={s.listExport} disabled={!items.length || Boolean(download)} onClick={() => void exportFile("xlsx")}>
@@ -339,7 +344,6 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
             if (selectedModule) setUpdatedRules(previousRules => ({ ...previousRules, [selectedModule.id]: rules }));
           } }} modules={modules} selectedId={selectedModule?.id ?? ""} />
         </>}
-        {tool === "draw" && <MonthlyRosterPreview token={access.token} ministryId={ministryId} onRefresh={access.onRefresh} />}
         {tool === "availability" && <RosterRecurringAvailability actions={access} />}
       </div>}
     </section>
