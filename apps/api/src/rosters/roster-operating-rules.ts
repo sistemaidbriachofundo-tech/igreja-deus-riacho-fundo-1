@@ -101,7 +101,18 @@ export async function assertSlotEligibility(tx: Prisma.TransactionClient, slot: 
   const module = slot.roster.moduleId ? await tx.ministryRosterModule.findFirst({
     where: { id: slot.roster.moduleId, ministryId: slot.roster.ministryId ?? "" }, select: { rules: true },
   }) : null;
-  const rules = readModuleRules(module?.rules);
+  let rules = readModuleRules(module?.rules);
+  const links = (tx as unknown as { ministryRosterModuleMembership?: { findMany: (args: unknown) => Promise<Array<{ personId: string }>> } }).ministryRosterModuleMembership;
+  if (links?.findMany && slot.roster.moduleId) {
+    const rows = await links.findMany({
+      where: {
+        moduleId: slot.roster.moduleId, status: "ATIVO", endedAt: null,
+        person: { status: "ACTIVE" }, membership: { status: "ATIVO", endedAt: null },
+      },
+      select: { personId: true },
+    });
+    rules = { ...rules, volunteerIds: [...new Set(rows.map(row => row.personId))] };
+  }
   if (!rules.volunteerIds && !slot.requiredQualification && (!slot.requiresCouple || people.length < 2)) return;
   const active = await tx.ministryMembership.count({ where: {
     churchId: slot.roster.churchId, ministryId: slot.roster.ministryId ?? "", status: "ATIVO", personId: { in: people }, person: { status: "ACTIVE" },

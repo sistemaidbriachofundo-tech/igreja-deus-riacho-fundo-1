@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -140,6 +141,38 @@ class RosterModuleBody {
   @MinLength(1)
   @MaxLength(100)
   name!: string;
+}
+
+class RosterMembershipModulesBody {
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  addModuleIds!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  removeModuleIds!: string[];
+}
+
+class CapacityGroupBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  id!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  count!: number;
+}
+
+class RosterCapacityBody {
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => CapacityGroupBody)
+  groups!: CapacityGroupBody[];
 }
 
 class EditRosterBody {
@@ -354,6 +387,17 @@ export class MinistriesController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/memberships/:membershipId/roster-modules")
+  updateRosterModules(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("membershipId") membershipId: string,
+    @Body() body: RosterMembershipModulesBody,
+  ) {
+    return this.ministries.updateRosterModules(user, ministryId, membershipId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Patch(":ministryId/roster-modules/:moduleId")
   renameRosterModule(
     @CurrentUser() user: AuthUser,
@@ -475,6 +519,12 @@ export class RostersController {
   @Get("by-event/:eventId/people")
   eventRosterPeople(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Query("q") query = "") {
     return this.ministries.searchEventRosterPeople(user, eventId, query);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":rosterId/capacity")
+  capacity(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string, @Body() body: RosterCapacityBody) {
+    return this.ministries.updateRosterCapacity(user, rosterId, body.groups);
   }
 
   @Roles(...LEAD_ROLES)

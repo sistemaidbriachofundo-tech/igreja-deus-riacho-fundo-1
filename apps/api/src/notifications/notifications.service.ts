@@ -135,13 +135,14 @@ export class NotificationsService {
   private async declines(actor: AuthUser, scope: Scope, since: Date, now: Date): Promise<Notice[]> {
     const ids = await this.managedMinistries(actor, scope);
     if (!ids.length) return [];
+    const allowedModules = await this.restrictedModules(actor, scope);
     const rows = await this.db.rosterAssignment.findMany({
       where: { declinedAt: { gte: since }, status: { in: ["DECLINED", "SUBSTITUTED"] },
         slot: { roster: { ...scope, ministryId: { in: ids }, status: { in: ["PUBLISHED", "CLOSED"] } } } },
       orderBy: { declinedAt: "desc" }, take: LIMIT,
       select: { id: true, declinedAt: true, slot: { select: {
         id: true, roleLabel: true,
-        roster: { select: { id: true, ministryId: true, title: true, serviceAt: true, status: true, module: { select: { name: true } } } },
+        roster: { select: { id: true, ministryId: true, title: true, serviceAt: true, status: true, module: { select: { id: true, name: true } } } },
         assignments: { where: { status: { in: ["PENDING", "CONFIRMED"] } }, select: { status: true } },
       } } },
     });
@@ -149,6 +150,7 @@ export class NotificationsService {
       const { slot } = row;
       const { roster } = slot;
       if (!row.declinedAt || !roster.ministryId) return [];
+      if (allowedModules && roster.module?.id && !allowedModules.has(roster.module.id)) return [];
       const confirmed = slot.assignments.some(assignment => assignment.status === "CONFIRMED");
       const pending = slot.assignments.some(assignment => assignment.status === "PENDING");
       const closed = roster.status === "CLOSED" || roster.serviceAt <= now;
@@ -162,6 +164,22 @@ export class NotificationsService {
         state: confirmed ? "Vaga preenchida" : closed ? "Culto encerrado" : pending ? "Substituto a confirmar" : "Vaga aberta",
       };
     });
+  }
+
+  private async restrictedModules(actor: AuthUser, scope: Scope): Promise<Set<string> | null> {
+    const leaders = (this.db as unknown as { ministryRosterModuleLeader?: { findMany: (args: unknown) => Promise<Array<{ moduleId: string; ministryId: string }>> } }).ministryRosterModuleLeader;
+    if (!leaders?.findMany || !actor.personId) return null;
+    const links = await leaders.findMany({
+      where: { personId: actor.personId, churchId: scope.churchId, organizationId: scope.organizationId },
+      select: { moduleId: true, ministryId: true },
+    });
+    if (!links.length) return null;
+    const ministries = await this.db.ministry.findMany({
+      where: { id: { in: [...new Set(links.map(link => link.ministryId))] } },
+      select: { id: true, leaderPersonId: true },
+    });
+    const restricted = links.filter(link => ministries.find(item => item.id === link.ministryId)?.leaderPersonId !== actor.personId);
+    return restricted.length ? new Set(restricted.map(link => link.moduleId)) : null;
   }
 
   private async finance(actor: AuthUser, scope: Scope, since: Date): Promise<Notice[]> {

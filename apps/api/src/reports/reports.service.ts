@@ -22,6 +22,7 @@ import {
   renderParticipationPdf,
 } from "./report-files";
 import { attributeMinistryCost } from "./ministry-cost";
+import { assertModuleLeaderCash } from "../rosters/roster-module-runtime";
 import {
   assertMembershipAccess,
   assertMinisterialAccess,
@@ -416,6 +417,7 @@ export class ReportsService {
   ) {
     const pilot = await this.pilot.getPilotChurch();
     assertMinistryCostAccess(actor, pilot);
+    await assertModuleLeaderCash(this.prisma as never, actor, pilot);
     const period = this.normalizePeriod(query);
     const requested = query.ministryId?.trim() || undefined;
     const scope = ministryCostScope(actor, pilot);

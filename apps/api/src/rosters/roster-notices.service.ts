@@ -7,6 +7,8 @@ import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { churchDayKey } from "./church-day";
 import { writeRosterAssignment } from "./roster-assignment-transaction";
+import { effectiveInviteLimit, leadershipSummaryDue, weeklyConfirmationDue } from "./roster-module-policy";
+import { maintainRosterCycle, recordNoticeDeliveries } from "./roster-module-runtime";
 import { isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
 import { acceptSubstitute, inviteAssignment, inviteKey, substitutionCandidates } from "./roster-substitution-invites";
 
@@ -134,6 +136,7 @@ export class RosterNoticesService {
 
   async run(now: Date) {
     const { churchId, organizationId } = await this.pilot.getPilotChurch();
+    await maintainRosterCycle(this.db as never, { churchId, organizationId }, now);
     const [year, month, day] = churchDayKey(now).split("-").map(Number);
     const surveyMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7);
     const notices: { id: string; churchId: string; personId: string; kind: string; title: string; body: string; path: string }[] = [];
@@ -174,10 +177,57 @@ export class RosterNoticesService {
     }, select: { id: true } });
     let invitations = 0;
     for (const { id } of declined) invitations += await this.inviteNextGroup(churchId, id, now);
+    if (leadershipSummaryDue(now)) await this.pushLeadershipSummary(notices, churchId, organizationId, now);
+    if (weeklyConfirmationDue(now)) this.pushWeeklyConfirmation(notices, assignments, churchId, now);
     const saved = notices.length ? await this.db.rosterNotice.createMany({
       data: notices.map(notice => ({ ...notice, createdAt: now })), skipDuplicates: true,
     }) : { count: 0 };
+    await recordNoticeDeliveries(this.db as never, notices.map(notice => ({ id: notice.id, churchId })), now);
     return { created: saved.count + invitations, invitations, delivered: await this.deliver(churchId, now) };
+  }
+
+  private async pushLeadershipSummary(
+    notices: { id: string; churchId: string; personId: string; kind: string; title: string; body: string; path: string }[],
+    churchId: string,
+    organizationId: string,
+    now: Date,
+  ) {
+    const ministries = (this.db as unknown as { ministry?: { findMany: (args: unknown) => Promise<Array<{ leaderPersonId: string | null }>> } }).ministry;
+    if (!ministries?.findMany) return;
+    const rows = await ministries.findMany({ where: { churchId, organizationId }, select: { leaderPersonId: true } });
+    const people = new Set(rows.flatMap(row => row.leaderPersonId ? [row.leaderPersonId] : []));
+    const leaders = (this.db as unknown as { ministryRosterModuleLeader?: { findMany: (args: unknown) => Promise<Array<{ personId: string }>> } }).ministryRosterModuleLeader;
+    if (leaders?.findMany) {
+      for (const link of await leaders.findMany({ where: { churchId }, select: { personId: true } })) people.add(link.personId);
+    }
+    const day = churchDayKey(now);
+    for (const personId of people) {
+      notices.push({
+        id: ["summary", churchId, day, personId].join(":"), churchId, personId, kind: "summary",
+        title: "Resumo da liderança", body: "Veja confirmações, recusas e vagas abertas das escalas.", path: "/app/ministerios/",
+      });
+    }
+  }
+
+  private pushWeeklyConfirmation(
+    notices: { id: string; churchId: string; personId: string; kind: string; title: string; body: string; path: string }[],
+    assignments: Array<{ status: string; personId: string; partnerPersonId: string | null; slot: { roster: { serviceAt: Date } } }>,
+    churchId: string,
+    now: Date,
+  ) {
+    const people = new Set<string>();
+    for (const assignment of assignments) {
+      if (assignment.status !== "PENDING" || +assignment.slot.roster.serviceAt > +now + 7 * DAY) continue;
+      people.add(assignment.personId);
+      if (assignment.partnerPersonId) people.add(assignment.partnerPersonId);
+    }
+    const day = churchDayKey(now);
+    for (const personId of people) {
+      notices.push({
+        id: ["weekly", churchId, day, personId].join(":"), churchId, personId, kind: "weekly",
+        title: "Confirme sua escala da semana", body: "Há cultos desta semana ainda sem a sua resposta.", path: PORTAL,
+      });
+    }
   }
 
   private async inviteNextGroup(churchId: string, assignmentId: string, now: Date) {
@@ -188,14 +238,15 @@ export class RosterNoticesService {
       if (!assignment || assignment.status !== "DECLINED") return 0;
       const { slot } = assignment;
       const rules = readModuleRules(slot.roster.module?.rules);
-      if (!rules.substituteInviteLimit || slot.roster.serviceAt <= now) return 0;
+      const inviteLimit = effectiveInviteLimit(slot.roster.module?.name, slot.roster.module?.rules, rules.substituteInviteLimit);
+      if (!inviteLimit || slot.roster.serviceAt <= now) return 0;
       const history = await tx.rosterNotice.findMany({ where: {
         churchId, kind: "substitute", id: { startsWith: inviteKey(assignmentId, "") },
       }, select: { personId: true, expiresAt: true, declinedAt: true } });
       if (history.some(invite => !invite.declinedAt && invite.expiresAt && invite.expiresAt > now)) return 0;
       const invited = new Set(history.map(invite => invite.personId));
       const candidates = (await substitutionCandidates(tx, assignment, now))
-        .filter(personId => !invited.has(personId)).slice(0, rules.substituteInviteLimit);
+        .filter(personId => !invited.has(personId)).slice(0, inviteLimit);
       if (!candidates.length) return 0;
       const expiresAt = new Date(Math.min(+slot.roster.serviceAt, +now + rules.substituteInviteHours * HOUR));
       const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });

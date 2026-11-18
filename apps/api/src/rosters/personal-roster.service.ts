@@ -21,7 +21,18 @@ import { previewSlots } from "./preview-domain/scheduler";
 import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
 
-import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, readModuleRules, type CultType } from "./roster-operating-rules";
+import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, type CultType } from "./roster-operating-rules";
+import { openVacancyText, responseStatuses, rosterInScope } from "./roster-module-policy";
+import {
+  appendParticipantResponse,
+  assertRosterModuleAllowed,
+  capacityView,
+  describePermissions,
+  loadRosterAccess,
+  responseHistory,
+  rulesWithTeam,
+  volunteerIdsByModule,
+} from "./roster-module-runtime";
 
 function monthRange(month: string) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) throw new BadRequestException("Informe o mês no formato AAAA-MM.");
@@ -121,9 +132,11 @@ export class PersonalRosterService {
         },
       },
       include: {
+        person: { select: { displayName: true } },
+        partner: { select: { displayName: true } },
         slot: {
           include: {
-            roster: { include: { ministry: true } },
+            roster: { include: { ministry: true, module: { select: { name: true, locationName: true, arrivalContactName: true, arrivalInstructions: true } } } },
           },
         },
       },
@@ -144,9 +157,11 @@ export class PersonalRosterService {
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
 
+    const history = await responseHistory(this.prisma as never, mine.map(row => row.id));
+    const invites = await this.openInvites(actor.personId, pilot.churchId);
     const assignments = mine.flatMap((row) => {
       if (!row.slot) return [];
-      return [this.toMineDto(row as AssignmentRow & { slot: SlotRef }, actor.personId, counts)];
+      return [this.toMineDto(row as AssignmentRow & { slot: SlotRef }, actor.personId, counts, history.get(row.id) ?? [])];
     })
       .sort(
         (a, b) =>
@@ -159,6 +174,7 @@ export class PersonalRosterService {
       source: "jwt" as const,
       notified: false,
       assignments,
+      invites,
     };
   }
 
@@ -200,7 +216,7 @@ export class PersonalRosterService {
       where: { id: rosterId, organizationId: pilot.organizationId, churchId: pilot.churchId },
       include: {
         ministry: { select: { id: true, name: true, slug: true, leaderPersonId: true } },
-        module: { select: { rules: true } },
+        module: { select: { id: true, rules: true } },
         slots: {
           orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           include: { assignments: { where: { status: { in: [...ACTIVE] } }, select: { id: true }, take: 1 } },
@@ -209,6 +225,7 @@ export class PersonalRosterService {
     });
     if (!roster?.ministry) throw new NotFoundException("Escala de ministério não encontrada.");
     this.assertCanOperateMinistry(actor, roster.ministry, pilot, roster);
+    await assertRosterModuleAllowed(db as never, actor, roster.ministry, roster.moduleId, pilot);
     if (roster.status === "CLOSED") throw new ConflictException("A escala já foi encerrada.");
 
     const openSlots = roster.slots.filter(slot => !slot.assignments.length);
@@ -216,7 +233,8 @@ export class PersonalRosterService {
 
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
     const ministryId = roster.ministry.id;
-    const configured = readModuleRules(roster.module?.rules);
+    const teams = roster.module?.id ? await volunteerIdsByModule(db as never, [roster.module.id]) : null;
+    const configured = rulesWithTeam(roster.module?.rules, roster.module?.id, teams);
     const activeMembers = await db.ministryMembership.findMany({
       where: { ...scope, ministryId, status: "ATIVO", person: { status: "ACTIVE" } },
       select: { personId: true, role: true, person: { select: { displayName: true } } },
@@ -297,6 +315,7 @@ export class PersonalRosterService {
           personName: suggestion ? names.get(suggestion.personId) ?? null : null,
           partnerName: suggestion?.partnerPersonId ? names.get(suggestion.partnerPersonId) ?? null : null,
           reasons: unfilled.get(slot.id) ?? [],
+          ...(unfilled.get(slot.id)?.length ? { openVacancy: openVacancyText(unfilled.get(slot.id) ?? []) } : {}),
         };
       }),
     };
@@ -314,10 +333,11 @@ export class PersonalRosterService {
     const [rows, response] = await Promise.all([
       this.prisma.roster.findMany({ where: {
         ...scope, ministryId: { in: memberships.map(item => item.ministryId) }, serviceAt: monthRange(month), status: { in: ["DRAFT", "PUBLISHED"] },
-      }, select: { id: true, title: true, serviceAt: true, module: { select: { name: true, rules: true } } }, orderBy: { serviceAt: "asc" } }),
+      }, select: { id: true, title: true, serviceAt: true, moduleId: true, module: { select: { id: true, name: true, rules: true } } }, orderBy: { serviceAt: "asc" } }),
       this.prisma.rosterAvailabilityResponse.findUnique({ where: { churchId_personId_month: { churchId: scope.churchId, personId: actor.personId, month } } }),
     ]);
-    const rosters = rows.filter(row => isModuleVolunteer(readModuleRules(row.module?.rules), actor.personId!))
+    const teams = await volunteerIdsByModule(this.prisma as never, rows.flatMap(row => row.module?.id ? [row.module.id] : []));
+    const rosters = rows.filter(row => isModuleVolunteer(rulesWithTeam(row.module?.rules, row.module?.id, teams), actor.personId!))
       .map(row => ({ ...row, module: row.module ? { name: row.module.name } : null }));
     const allowed = new Set(rosters.map(roster => roster.id));
     return { month, open, answered: Boolean(response), availableRosterIds: response?.rosterIds.filter(id => allowed.has(id)) ?? [], rosters };
@@ -344,6 +364,7 @@ export class PersonalRosterService {
     const scope = { churchId, organizationId };
     const ministry = await this.requireMinistry(ministryId, scope);
     this.assertCanOperateMinistry(actor, ministry, scope);
+    const access = await loadRosterAccess(this.prisma as never, actor, ministry, scope);
     const [rosters, members, responses, history] = await Promise.all([
       this.prisma.roster.findMany({ where: { ...scope, ministryId, status: "DRAFT", serviceAt: range }, include: {
         module: true, slots: { include: { assignments: { where: { status: { in: [...ACTIVE] } }, select: { id: true } } }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
@@ -368,8 +389,10 @@ export class PersonalRosterService {
       slotId: row.slotId, rosterId: row.slot.rosterId, serviceAt: row.slot.roster.serviceAt.toISOString(), status: row.status,
       personId: row.personId, partnerPersonId: row.partnerPersonId,
     }));
-    const result = rosters.map(roster => {
-      const module = readModuleRules(roster.module?.rules);
+    const visible = rosters.filter(roster => rosterInScope(roster.moduleId, access));
+    const teams = await volunteerIdsByModule(this.prisma as never, visible.flatMap(roster => roster.moduleId ? [roster.moduleId] : []));
+    const result = visible.map(roster => {
+      const module = rulesWithTeam(roster.module?.rules, roster.moduleId, teams);
       const open = roster.slots.filter(slot => !slot.assignments.length);
       const partners = new Map(module.couples.flatMap(([a, b]) => [[a, b], [b, a]] as const));
       const candidates: Candidate[] = members.filter(member => isModuleVolunteer(module, member.personId) && response.get(member.personId)?.has(roster.id)).map(member => ({
@@ -395,9 +418,10 @@ export class PersonalRosterService {
       return { id: roster.id, title: roster.title, moduleName: roster.module?.name, serviceAt: roster.serviceAt,
         positions: open.map(slot => {
           const pick = picks.get(slot.id);
+          const reasonList = candidates.length ? reasons.get(slot.id) ?? [] : ["MONTHLY_UNANSWERED"];
           return { slotId: slot.id, roleLabel: slot.roleLabel, personId: pick?.personId, partnerPersonId: pick?.partnerPersonId,
             personName: names.get(pick?.personId ?? ""), partnerName: names.get(pick?.partnerPersonId ?? ""),
-            reasons: candidates.length ? reasons.get(slot.id) ?? [] : ["MONTHLY_UNANSWERED"], };
+            reasons: reasonList, ...(pick ? {} : { openVacancy: openVacancyText(reasonList) }), };
         }),
       };
     });
@@ -408,6 +432,7 @@ export class PersonalRosterService {
     const pilot = await this.pilot.getPilotChurch();
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertCanOperateMinistry(actor, ministry, pilot);
+    const access = await loadRosterAccess(this.prisma as never, actor, ministry, pilot);
 
     const [rows, modules] = await Promise.all([
       this.prisma.roster.findMany({
@@ -418,6 +443,7 @@ export class PersonalRosterService {
         },
         orderBy: { serviceAt: "asc" },
         include: {
+          module: { select: { name: true, rules: true } },
           slots: {
             orderBy: { sortOrder: "asc" },
             include: {
@@ -430,18 +456,25 @@ export class PersonalRosterService {
         where: { ministryId: ministry.id }, select: { id: true, name: true, rules: true }, orderBy: { name: "asc" },
       }),
     ]);
+    const visibleModules = modules.filter(module => rosterInScope(module.id, access));
+    const teams = await volunteerIdsByModule(this.prisma as never, visibleModules.map(module => module.id));
+    const visibleRosters = rows.filter(row => rosterInScope(row.moduleId, access));
 
     return {
       ministryId: ministry.id,
-      modules,
+      permissions: describePermissions(access),
+      modules: visibleModules.map(module => ({ ...module, rules: teams ? { ...(module.rules && typeof module.rules === "object" ? module.rules as object : {}), volunteerIds: teams.get(module.id) ?? [] } : module.rules })),
       notified: false,
-      rosters: rows.map((row) => ({
+      rosters: await Promise.all(visibleRosters.map(async (row) => {
+        const capacity = await capacityView(this.prisma as never, row, true);
+        return {
         id: row.id,
         ministryId: row.ministryId,
         moduleId: row.moduleId,
         title: row.title,
         serviceAt: row.serviceAt.toISOString(),
         status: row.status,
+        ...(capacity ? { capacity } : {}),
         slots: row.slots.map((slot) => ({
           id: slot.id,
           roleLabel: slot.roleLabel,
@@ -457,6 +490,7 @@ export class PersonalRosterService {
             partnerName: assignment.partner?.displayName ?? null,
           })),
         })),
+        };
       })),
     };
   }
@@ -474,6 +508,7 @@ export class PersonalRosterService {
     const pilot = await this.pilot.getPilotChurch();
     const slot = await this.requireSlot(slotId, pilot);
     this.assertCanOperateMinistry(actor, slot.roster.ministry, pilot, slot.roster);
+    await assertRosterModuleAllowed(this.prisma as never, actor, slot.roster.ministry, slot.roster.moduleId, pilot);
     this.assertRosterOpen(slot.roster);
 
     const personId = requiredPersonId(input.personId);
@@ -579,6 +614,7 @@ export class PersonalRosterService {
       pilot,
       loaded.slot.roster,
     );
+    await assertRosterModuleAllowed(this.prisma as never, actor, loaded.slot.roster.ministry, loaded.slot.roster.moduleId, pilot);
     this.assertRosterOpen(loaded.slot.roster);
     this.assertNotSubstituted(loaded);
 
@@ -681,12 +717,16 @@ export class PersonalRosterService {
           excludeAssignmentId: loaded.id, conflictCode: "ROSTER_SAME_DAY",
         });
       }
+      const aggregate = await appendParticipantResponse(tx as never, loaded, actor.personId, status, now);
+      const next = aggregate ?? status;
       const row = await tx.rosterAssignment.update({
         where: { id: loaded.id },
         data:
-          status === "CONFIRMED"
-            ? { status, confirmedAt: now, declinedAt: null }
-            : { status, declinedAt: now, confirmedAt: null },
+          next === "CONFIRMED"
+            ? { status: next, confirmedAt: now, declinedAt: null }
+            : next === "DECLINED"
+              ? { status: next, declinedAt: now, confirmedAt: null }
+              : { status: "PENDING", confirmedAt: null, declinedAt: null },
       });
       await tx.auditLog.create({
         data: {
@@ -699,7 +739,7 @@ export class PersonalRosterService {
           resourceId: loaded.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { notified: false },
+          metadata: { notified: false, personId: actor.personId, response: aggregate ?? status },
         },
       });
       return row;
@@ -935,12 +975,44 @@ export class PersonalRosterService {
     }
   }
 
+  private async openInvites(personId: string, churchId: string) {
+    const notices = (this.prisma as unknown as { rosterNotice?: { findMany?: (args: unknown) => Promise<Array<{ id: string; kind: string; title: string; body: string; expiresAt: Date | null; declinedAt: Date | null }>> } }).rosterNotice;
+    if (!notices?.findMany) return [];
+    const rows = await notices.findMany({
+      where: { personId, churchId, kind: "substitute" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    return rows.map(notice => ({
+      assignmentId: notice.id.split(":")[1] ?? notice.id,
+      title: notice.title,
+      body: notice.body,
+      expiresAt: notice.expiresAt,
+      inviteStatus: notice.declinedAt ? "declined" : !notice.expiresAt || notice.expiresAt <= new Date() ? "expired" : "open",
+    }));
+  }
+
   private toMineDto(
     row: AssignmentRow & { slot: SlotRef },
     actorPersonId: string,
     dayCounts: Map<string, number>,
+    history: Array<{ personId: string; status: string; createdAt: Date }> = [],
   ) {
     const key = churchDayKey(row.slot.roster.serviceAt);
+    const roster = row.slot.roster as SlotRef["roster"] & {
+      locationName?: string | null;
+      arrivalContactName?: string | null;
+      arrivalInstructions?: string | null;
+      module?: { name?: string | null; locationName?: string | null; arrivalContactName?: string | null; arrivalInstructions?: string | null } | null;
+    };
+    const named = row as AssignmentRow & { person?: { displayName?: string | null } | null; partner?: { displayName?: string | null } | null };
+    const companionName = row.partnerPersonId
+      ? (row.personId === actorPersonId ? named.partner?.displayName : named.person?.displayName) ?? undefined
+      : undefined;
+    const responses = responseStatuses({
+      actorId: actorPersonId, personId: row.personId, partnerPersonId: row.partnerPersonId,
+      assignmentStatus: row.status, history,
+    });
     return {
       id: row.id,
       status: row.status,
@@ -950,9 +1022,15 @@ export class PersonalRosterService {
       ...(row.slot.sector ? { sector: row.slot.sector } : {}),
       ...(row.slot.zone ? { zone: row.slot.zone } : {}),
       ...(row.slot.side ? { side: row.slot.side } : {}),
-      rosterId: row.slot.roster.id,
-      title: row.slot.roster.title,
-      serviceAt: row.slot.roster.serviceAt.toISOString(),
+      rosterId: roster.id,
+      title: roster.title,
+      serviceAt: roster.serviceAt.toISOString(),
+      ...(roster.module?.name ? { moduleName: roster.module.name } : {}),
+      ...((roster.locationName ?? roster.module?.locationName) ? { locationName: roster.locationName ?? roster.module?.locationName } : {}),
+      ...((roster.arrivalContactName ?? roster.module?.arrivalContactName) ? { arrivalContactName: roster.arrivalContactName ?? roster.module?.arrivalContactName } : {}),
+      ...((roster.arrivalInstructions ?? roster.module?.arrivalInstructions) ? { arrivalInstructions: roster.arrivalInstructions ?? roster.module?.arrivalInstructions } : {}),
+      ...(companionName ? { companionName } : {}),
+      ...responses,
       rosterStatus: row.slot.roster.status,
       ministryId: row.slot.roster.ministryId,
       ministryName: row.slot.roster.ministry?.name ?? null,

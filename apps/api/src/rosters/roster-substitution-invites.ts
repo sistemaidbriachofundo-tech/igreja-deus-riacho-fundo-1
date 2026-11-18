@@ -7,6 +7,16 @@ import { DEFAULT_RULES } from "./preview-domain/types";
 import { evaluateCandidate } from "./preview-domain/eligibility";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
 
+export function concurrentAcceptDecision(
+  filled: { personId: string; status: string; substituteForId: string | null } | null,
+  personId: string,
+  assignmentId: string,
+): "open" | "idempotent" | "taken" {
+  if (!filled) return "open";
+  if (filled.personId === personId && filled.substituteForId === assignmentId && filled.status === "CONFIRMED") return "idempotent";
+  return "taken";
+}
+
 export const inviteKey = (assignmentId: string, personId: string) => `substitute:${assignmentId}:${personId}`;
 export const inviteAssignment = {
   slot: { include: { roster: { include: { module: true } } } },
@@ -66,6 +76,13 @@ export async function acceptSubstitute(tx: Prisma.TransactionClient, assignment:
   if (!(await substitutionCandidates(tx, assignment, now)).includes(personId)) {
     throw new ConflictException("Este convite não está mais disponível.");
   }
+  const filled = await tx.rosterAssignment.findFirst({
+    where: { slotId: slot.id, status: { in: ["PENDING", "CONFIRMED"] }, id: { not: assignment.id } },
+    select: { id: true, personId: true, status: true, substituteForId: true },
+  });
+  const decision = concurrentAcceptDecision(filled, personId, assignment.id);
+  if (decision === "idempotent" && filled) return filled;
+  if (decision === "taken") throw new ConflictException("Este convite não está mais disponível.");
   await assertSlotEligibility(tx, slot, [personId]);
   await assertNoRosterDayConflict(tx, { churchId: roster.churchId, serviceAt: roster.serviceAt, personIds: [personId], conflictCode: "ROSTER_SAME_DAY" });
   await tx.rosterAssignment.update({ where: { id: assignment.id }, data: { status: "SUBSTITUTED" } });

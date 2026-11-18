@@ -117,6 +117,8 @@ model Organization {
   pushDeviceTokens PushDeviceToken[]
   ministryMemberships MinistryMembership[]
   securityPolicies SecurityPolicy[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
   @@map("organizations")
 }
 
@@ -180,6 +182,9 @@ model Church {
 
   @@unique([organizationId, slug])
   ministryMemberships MinistryMembership[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterNoticeDeliveries RosterNoticeDelivery[]
   @@map("churches")
 }
 
@@ -270,6 +275,9 @@ model Person {
   rosterAvailabilityResponses RosterAvailabilityResponse[]
   rosterNotices RosterNotice[]
   rosterPushSubscriptions RosterPushSubscription[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterAssignmentResponses RosterAssignmentResponse[]
   @@map("persons")
 }
 
@@ -863,6 +871,8 @@ model Ministry {
   @@index([organizationId, churchId])
   @@index([churchId, publishStatus, visibility])
   ministryMemberships MinistryMembership[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
   @@map("ministries")
 }
 
@@ -888,6 +898,7 @@ model MinistryMembership {
   ministry     Ministry           @relation(fields: [ministryId], references: [id])
   person       Person             @relation(fields: [personId], references: [id])
   interest     VolunteerInterest? @relation(fields: [volunteerInterestId], references: [id])
+  rosterModules MinistryRosterModuleMembership[]
 
   @@unique([ministryId, personId])
   @@index([organizationId, churchId, ministryId])
@@ -1487,11 +1498,16 @@ model MinistryRosterModule {
   name        String
   nameKey     String   @map("name_key")
   rules       Json     @default("{}")
+  locationName String? @map("location_name")
+  arrivalContactName String? @map("arrival_contact_name")
+  arrivalInstructions String? @map("arrival_instructions")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   ministry Ministry @relation(fields: [ministryId], references: [id], onDelete: Restrict)
   rosters  Roster[]
+  leaders MinistryRosterModuleLeader[]
+  memberships MinistryRosterModuleMembership[]
 
   @@unique([ministryId, nameKey])
   @@unique([id, ministryId])
@@ -1507,6 +1523,9 @@ model Roster {
   portalEventId  String?      @unique @map("portal_event_id")
   title          String
   serviceAt      DateTime     @map("service_at")
+  locationName   String?      @map("location_name")
+  arrivalContactName String?  @map("arrival_contact_name")
+  arrivalInstructions String? @map("arrival_instructions")
   serviceType    String?      @map("service_type")
   status         RosterStatus @default(DRAFT)
   createdAt      DateTime     @default(now()) @map("created_at")
@@ -1518,6 +1537,7 @@ model Roster {
   module       MinistryRosterModule? @relation(fields: [moduleId, ministryId], references: [id, ministryId], onDelete: Restrict)
   portalEvent  PortalEvent? @relation(fields: [portalEventId], references: [id], onDelete: Restrict)
   slots        RosterSlot[]
+  capacityOverrides RosterCapacityOverride[]
 
   @@index([churchId, serviceAt])
   @@index([ministryId])
@@ -1560,10 +1580,110 @@ model RosterAssignment {
   partner       Person?    @relation("RosterPartner", fields: [partnerPersonId], references: [id])
   substituteFor RosterAssignment?  @relation("RosterSubstitution", fields: [substituteForId], references: [id])
   substitutes   RosterAssignment[] @relation("RosterSubstitution")
+  responses     RosterAssignmentResponse[]
 
   @@index([slotId, status])
   @@index([personId])
   @@map("roster_assignments")
+}
+
+enum RosterModuleLinkStatus {
+  ATIVO
+  ENCERRADO
+}
+
+/// Liderança de um módulo do Atmosfera. Não decorre de cargo eclesiástico na ficha.
+model MinistryRosterModuleLeader {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  ministryId     String   @map("ministry_id")
+  moduleId       String   @map("module_id")
+  personId       String   @map("person_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  ministry     Ministry             @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, personId])
+  @@index([personId, ministryId])
+  @@index([churchId, ministryId])
+  @@map("ministry_roster_module_leaders")
+}
+
+/// Integrante ativo do Atmosfera em um ou mais módulos, com vigência.
+model MinistryRosterModuleMembership {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  churchId       String                 @map("church_id")
+  ministryId     String                 @map("ministry_id")
+  membershipId   String                 @map("membership_id")
+  moduleId       String                 @map("module_id")
+  personId       String                 @map("person_id")
+  status         RosterModuleLinkStatus @default(ATIVO)
+  startedAt      DateTime               @default(now()) @map("started_at")
+  endedAt        DateTime?              @map("ended_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  ministry     Ministry             @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  membership   MinistryMembership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, moduleId])
+  @@index([moduleId, status])
+  @@index([personId, ministryId, status])
+  @@map("ministry_roster_module_memberships")
+}
+
+/// Histórico de aceite individual. O estado vigente é a última linha da pessoa.
+model RosterAssignmentResponse {
+  id           String                 @id @default(cuid())
+  assignmentId String                 @map("assignment_id")
+  personId     String                 @map("person_id")
+  status       RosterAssignmentStatus
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  assignment RosterAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  person     Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, personId, createdAt])
+  @@map("roster_assignment_responses")
+}
+
+/// Ajuste de quantidade só deste culto. Não altera o padrão do módulo.
+model RosterCapacityOverride {
+  rosterId  String   @map("roster_id")
+  groupKey  String   @map("group_key")
+  count     Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  roster Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@id([rosterId, groupKey])
+  @@map("roster_capacity_overrides")
+}
+
+/// Registro deduplicado de entrega. WhatsApp só entra quando o canal de DEV está aprovado.
+model RosterNoticeDelivery {
+  id         String   @id @default(cuid())
+  churchId   String   @map("church_id")
+  noticeId   String   @map("notice_id")
+  channel    String
+  dedupeKey  String   @unique @map("dedupe_key")
+  status     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+
+  @@index([noticeId])
+  @@map("roster_notice_deliveries")
 }
 
 /// RF-014 — janela recorrente de disponibilidade (UTC weekday + minutos do dia).
