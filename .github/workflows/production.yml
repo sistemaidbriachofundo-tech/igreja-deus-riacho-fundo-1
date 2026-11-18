@@ -200,7 +200,7 @@ jobs:
       url: https://igrejadeusrf1.com.br
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: production-candidate-${{ github.sha }}
           path: dist/prod
