@@ -169,7 +169,7 @@
 
 .detailHeading, .page :global(:is(#agenda-de-eventos, #revisar-evento, #inscricoes-do-evento)) { scroll-margin-top: 90px; }
 
-.eventDetail { border-color: #cddfeb; background: #f2f7fb; }
+.eventDetail { scroll-margin-block-start: 84px; border-color: #cddfeb; background: #f2f7fb; }
 .eventDetail h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); color: var(--app-info); overflow-wrap: anywhere; }
 .backToAgenda { display: inline-flex; align-items: center; min-height: 44px; width: fit-content; color: var(--app-info); font-weight: 700; }
 .backToAgenda:hover { text-decoration: underline; }

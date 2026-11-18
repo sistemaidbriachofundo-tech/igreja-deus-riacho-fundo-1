@@ -60,6 +60,11 @@ function cancelEventCreation() {
   document.getElementById("acao-novo-evento")?.focus();
 }
 
+function focusEventDetails(heading: HTMLHeadingElement | null) {
+  heading?.focus({ preventScroll: true });
+  heading?.closest("section")?.scrollIntoView({ block: "start" });
+}
+
 export function EventManagementJourney() {
   const enabled = isAdminEnabled();
   const production = isProductionAdmin();
@@ -91,8 +96,7 @@ export function EventManagementJourney() {
   const selectedHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (!selectedId) return;
-    selectedHeading.current?.focus({ preventScroll: true });
-    selectedHeading.current?.scrollIntoView({ block: "start" });
+    focusEventDetails(selectedHeading.current);
   }, [selectedId]);
   const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);
   const [creating, setCreating] = useState<Draft>(EMPTY);
@@ -273,8 +277,7 @@ export function EventManagementJourney() {
 
   function choose(eventId: string) {
     if (eventId === selectedId) {
-      selectedHeading.current?.focus({ preventScroll: true });
-      selectedHeading.current?.scrollIntoView({ block: "start" });
+      focusEventDetails(selectedHeading.current);
       return;
     }
     const event = events.find((item) => item.id === eventId) ?? null;
