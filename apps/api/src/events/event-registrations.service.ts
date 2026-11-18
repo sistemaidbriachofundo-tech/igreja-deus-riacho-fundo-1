@@ -1245,7 +1245,7 @@ export class EventRegistrationsService {
       if (lot.modalityId && lot.modalityId !== modality.id) {
         throw new BadRequestException("lote não pertence à modalidade");
       }
-      if (params.source === "public" && lot.status !== "OPEN") {
+      if (params.source !== "staff" && lot.status !== "OPEN") {
         throw new BadRequestException("lote indisponível");
       }
       if (lot.status === "CLOSED") {
