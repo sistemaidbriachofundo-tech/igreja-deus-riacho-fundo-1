@@ -200,8 +200,8 @@
 }
 
 /* Identidade IDB Riacho 2026. Branding público somente; não altera o verde do painel. */
-.theme .headerLogin { border-color: #ed641f; color: #fffaf3; background: #b53a0c; border-radius: 999px; gap: 6px; }
-.theme .headerLogin:hover { background: #d64a11; }
+.theme .headerLogin { border-color: #fff; color: #151515; background: #fff; border-radius: 999px; gap: 6px; }
+.theme .headerLogin:hover { background: #e6e6e6; border-color: #e6e6e6; }
 .theme .masthead { box-shadow: 0 5px 24px #07070816; }
 .theme .brand strong { letter-spacing: .035em; }
 .theme .brand img { border-radius: 0; }

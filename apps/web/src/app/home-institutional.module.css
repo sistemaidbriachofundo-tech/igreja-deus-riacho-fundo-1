@@ -71,14 +71,14 @@
   color: #202124;
 }
 .purposesWrap { max-width: var(--portal-content); margin-inline: auto; }
-.purposesIntro { max-width: 650px; margin-bottom: 30px; }
+.purposesIntro { max-width: 830px; margin-bottom: 30px; }
 .purposesIntro > span { color: #994017; font-weight: 900; font-size: .76rem; letter-spacing: .15em; }
 .purposesIntro h2 {
   margin: 8px 0;
   font: 900 clamp(2rem, 4vw, 3.4rem)/1.06 var(--portal-display);
   letter-spacing: -.035em;
 }
-.purposesIntro p { margin: 0; color: #4e4946; line-height: 1.55; font-size: 1.08rem; }
+.purposesIntro p { max-width: 65ch; margin: 0; color: #4e4946; line-height: 1.55; font-size: 1.08rem; }
 .purposesList {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
