@@ -1,0 +1,34 @@
+{
+  "schema": "idbrf.finance.card-cycle.v1",
+  "synthetic": true,
+  "provider": null,
+  "note": "mdrBps 250 é dado do fixture, não cotação de mercado. A venda bruta não vira saldo bancário.",
+  "sale": {
+    "acquirerTransactionId": "SYN-CARD-TX-0001",
+    "terminalId": "TERM-SYN-01",
+    "nsu": "NSU-SYN-0001",
+    "authCode": "AUTHSYN1",
+    "capturedAt": "2026-11-09T14:00:00Z",
+    "grossCents": 10000,
+    "installments": 2,
+    "mdrBps": 250,
+    "status": "AUTHORIZED"
+  },
+  "anticipation": {
+    "installments": [2],
+    "feeCentsByInstallment": { "2": 50 }
+  },
+  "settlementWithoutAnticipation": {
+    "eventId": "SYN-EVT-PAYOUT-0001",
+    "payoutId": "SYN-PAYOUT-0001",
+    "netCents": 9750,
+    "receivableIds": ["SYN-CARD-TX-0001:1", "SYN-CARD-TX-0001:2"],
+    "bankExternalRef": "SYN-OFX-CARD-001"
+  },
+  "settlementWithAnticipation": {
+    "eventId": "SYN-EVT-PAYOUT-0002",
+    "payoutId": "SYN-PAYOUT-0002",
+    "netCents": 9700,
+    "receivableIds": ["SYN-CARD-TX-0001:1", "SYN-CARD-TX-0001:2"]
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "schema": "idbrf.finance.provider-hypotheses.v1",
+  "synthetic": true,
+  "liveIntegration": "BLOCKED",
+  "chosenProvider": null,
+  "chosenAcquirer": null,
+  "accountHolderDocument": null,
+  "pixKey": null,
+  "codeLabelsAlreadyInRepo": [
+    {
+      "code": "FILE",
+      "live": false,
+      "mode": "file",
+      "evidence": "BankImportAdapter e listBankAdapters(): parse de arquivo, sem HTTP"
+    },
+    {
+      "code": "MOCK",
+      "live": false,
+      "mode": "mock",
+      "evidence": "mesmo parser de arquivo, rótulo explícito de HML"
+    },
+    {
+      "code": "SICOOB",
+      "live": false,
+      "mode": "mock",
+      "evidence": "enum e adapter existem; a nota do código diz que credencial bancária não é lida"
+    },
+    {
+      "code": "BRB",
+      "live": false,
+      "mode": "mock",
+      "evidence": "rótulo de arquivo no enum; sem cliente HTTP"
+    },
+    {
+      "code": "CORA",
+      "live": false,
+      "mode": "mock",
+      "evidence": "rótulo de arquivo no enum; sem cliente HTTP"
+    }
+  ],
+  "pixApiLimits": {
+    "source": "https://github.com/bacen/pix-api/blob/master/openapi.yaml",
+    "manual": "https://www.bcb.gov.br/content/estabilidadefinanceira/pix/Regulamento_Pix/II_ManualdePadroesparaIniciacaodoPix.pdf",
+    "txidDynamicMin": 26,
+    "txidDynamicMax": 35,
+    "txidStaticMax": 25,
+    "txidStaticAbsentToken": "***",
+    "e2eidLength": 32,
+    "infoPagadorMax": 140,
+    "pageDefault": 100,
+    "pageMax": 1000,
+    "devolucaoIdMax": 35,
+    "webhookAuth": "mTLS",
+    "webhookNotifiesOnlyWithTxid": true,
+    "oauthScopesCited": ["cob.write", "cob.read", "pix.read", "webhook.write"]
+  },
+  "limitsNotInvented": [
+    "teto diário ou noturno de Pix da conta da igreja",
+    "MDR, prazo D+N e taxa de antecipação da maquininha",
+    "rate limit HTTP específico de Sicoob, BRB, Cora ou de qualquer adquirente"
+  ],
+  "hypotheses": [
+    {
+      "id": "H-FILE",
+      "family": "arquivo",
+      "status": "AVAILABLE_TODAY_IN_REPO",
+      "channels": ["CSV", "OFX"],
+      "needsCredential": false,
+      "covers": ["extrato importado por tesouraria"],
+      "doesNotCover": ["QR dinâmico", "webhook", "venda de cartão", "PDF tabular"]
+    },
+    {
+      "id": "H-PIX-API-PSP",
+      "family": "api_pix_bcb",
+      "status": "HYPOTHESIS_NOT_A_CHOICE",
+      "summary": "A igreja seria usuário recebedor. A API é a do PSP da conta, no contrato do BCB. O PSP não foi indicado.",
+      "auth": ["OAuth2", "mTLS ICP-Brasil"],
+      "needsCredential": true
+    },
+    {
+      "id": "H-SICOOB",
+      "family": "psp_conta",
+      "status": "HYPOTHESIS_NOT_A_CHOICE",
+      "whyListed": "O rótulo SICOOB já está no enum sem API live. Isso não confirma que a igreja tenha conta nesse PSP."
+    },
+    {
+      "id": "H-BRB",
+      "family": "psp_conta",
+      "status": "HYPOTHESIS_NOT_A_CHOICE",
+      "whyListed": "O rótulo BRB já está no enum sem API live. Presença regional no DF não escolhe o fornecedor."
+    },
+    {
+      "id": "H-CORA",
+      "family": "psp_conta",
+      "status": "HYPOTHESIS_NOT_A_CHOICE",
+      "whyListed": "O rótulo CORA já está no enum sem API live. Conta PJ digital é hipótese, não decisão."
+    },
+    {
+      "id": "H-OUTRO-PSP",
+      "family": "psp_conta",
+      "status": "BLOCKED",
+      "whyListed": "BB, Caixa, Itaú, Bradesco, Santander, Inter e equivalentes só entram se a instituição nomear a conta. Não há curto-circuito por popularidade."
+    },
+    {
+      "id": "H-ADQUIRENTE",
+      "family": "maquininha",
+      "status": "HYPOTHESIS_NOT_A_CHOICE",
+      "whyListed": "Stone, Cielo, Rede, Getnet, PagBank, Mercado Pago, SafraPay e equivalentes compartilham o ciclo venda/recebível/liquidação. A marca do terminal não foi informada.",
+      "needsCredential": true
+    },
+    {
+      "id": "H-OPEN-FINANCE",
+      "family": "open_finance",
+      "status": "BLOCKED",
+      "whyListed": "Leitura de extrato por Open Finance exige receptor regulado e consentimento. Este sistema não deve se tornar iniciador de transação de pagamento."
+    }
+  ]
+}

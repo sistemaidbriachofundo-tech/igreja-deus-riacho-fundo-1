@@ -1,0 +1,26 @@
+{
+  "schema": "idbrf.finance.statement-lines.v1",
+  "synthetic": true,
+  "note": "Reimportar SYN-OFX-PIX-001 não pode gerar segunda linha. O serviço atual ainda não aplica esta regra.",
+  "existingExternalRefs": ["SYN-OFX-PIX-001"],
+  "incoming": [
+    {
+      "externalRef": "SYN-OFX-PIX-001",
+      "amountCents": 5000,
+      "description": "PIX DEMO — culto sintetico",
+      "referenceMatch": true
+    },
+    {
+      "externalRef": "SYN-OFX-CARD-001",
+      "amountCents": 9750,
+      "description": "LIQ MAQUININHA DEMO — liquidacao liquida sintetica",
+      "referenceMatch": false
+    },
+    {
+      "externalRef": null,
+      "amountCents": 1000,
+      "description": "DEPOSITO SEM FITID dizimo",
+      "referenceMatch": false
+    }
+  ]
+}
