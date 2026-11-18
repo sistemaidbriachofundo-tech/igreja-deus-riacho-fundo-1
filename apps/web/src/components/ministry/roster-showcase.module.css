@@ -284,7 +284,7 @@
   .teamBoard li { scroll-snap-align: start; }
 }
 
-.featureActions .openCard { padding: 7px 12px; background: #ffffff12; border-color: #f0f0f055; color: #fdfdfd; }
+.featureActions .openCard { padding: 7px 12px; background: #fff; border-color: #a9c3b7; color: #184f43; }
 .moreActions { margin-right: auto; }
 .timeline { display: grid; min-width: 0; gap: 12px; }
 .timelineDay { display: grid; grid-template-columns: clamp(42px, 7vw, 78px) minmax(0, 1fr); align-items: start; gap: 10px; }

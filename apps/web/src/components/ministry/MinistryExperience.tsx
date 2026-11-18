@@ -166,7 +166,7 @@ function ReadyExperience({
         heading="h1"
         title={desk.ministry.name}
         description={desk.ministry.description || undefined}
-        actions={
+        actions={!moduleOnly || desk.ministries.length > 1 ? (
           <div className={styles.ministryActions}>
           <AppNavLink className={ui.workspaceQuiet} href="/app/ministerios/">
             <UIIcon name="layers" size={16} /> Todos os ministérios
@@ -185,7 +185,7 @@ function ReadyExperience({
             </select>
           </label>
           </div>
-        }
+        ) : undefined}
       />
       <article
         className={styles.panel}

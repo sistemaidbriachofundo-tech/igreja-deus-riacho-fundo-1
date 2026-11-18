@@ -116,7 +116,6 @@ export function MemberSpace({
     <div data-surface="membro" className={styles.workspace}>
       {confirmation}
       {notice && <p className={styles.notice} role="status" data-persist="roster">{notice}</p>}
-      {invitations}
       <section aria-labelledby="member-next-roster">
         <h2 id="member-next-roster">Próxima escala</h2>
         {upcoming[0] ? renderAssignment(upcoming[0], true) : <div className={styles.empty} role="status" data-agenda="empty">
@@ -124,6 +123,7 @@ export function MemberSpace({
           <p>Quando a liderança publicar seu próximo compromisso, ele aparecerá aqui.</p>
         </div>}
       </section>
+      {invitations}
       {availability}
       {upcoming.length > 1 && <section aria-labelledby="member-other-rosters">
         <h2 id="member-other-rosters">Outras escalas</h2>
