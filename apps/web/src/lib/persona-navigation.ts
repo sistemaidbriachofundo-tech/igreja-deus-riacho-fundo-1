@@ -28,6 +28,7 @@ export type AppNavKey =
   | "site"
   | "operacao"
   | "tesouraria"
+  | "relatorios"
   | "acessos"
   | "ministerios"
   | "escalas"
@@ -79,6 +80,8 @@ export type PersonaArea = {
   ribbon: { code: string; title: string; detail: string };
   /** Papéis para os quais a leitura principal não é um 403 previsível. */
   roles: readonly BuiltinRole[];
+  /** Quando definido, restringe a entrada no menu sem alterar o acesso à rota. */
+  menuRoles?: readonly BuiltinRole[];
   probe: PersonaProbe | null;
   additionalProbes?: readonly PersonaProbe[];
   surface: NavSurface;
@@ -286,6 +289,19 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     surface: "admin",
   },
   {
+    key: "relatorios",
+    href: "/app/relatorios/",
+    label: "Relatórios",
+    short: "Relatórios",
+    icon: "book",
+    hint: "Pessoas, ministérios, eventos e custos por ministério",
+    ribbon: { code: "Relatórios", title: "Relatórios de gestão", detail: "Consultas e exportações no escopo de cada perfil." },
+    roles: OPERATION,
+    menuRoles: ["PLATFORM_ADMIN"],
+    probe: null,
+    surface: "admin",
+  },
+  {
     key: "acessos",
     href: "/app/acessos/",
     label: "Acessos",
@@ -461,7 +477,10 @@ export function shellAreasForRoles(roles: readonly string[], preview = false): P
   if (isMemberOnly(roles)) {
     return allowed.filter(area => (MEMBER_SHELL_KEYS as readonly string[]).includes(area.key));
   }
-  return allowed.filter(area => area.surface === "admin" || area.key === "eventos-membro");
+  return allowed.filter(area =>
+    (area.surface === "admin" || area.key === "eventos-membro") &&
+    (!area.menuRoles || area.menuRoles.some(role => roles.includes(role))),
+  );
 }
 
 export function landingForRoles(roles: readonly string[]): AppDestination {

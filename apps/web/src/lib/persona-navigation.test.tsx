@@ -37,11 +37,11 @@ function hrefs(html: string): string[] {
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
-  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "acessos", "site"],
-  SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "site"],
-  PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "site"],
-  TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria"],
-  LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao"],
+  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "acessos", "site"],
+  SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "relatorios", "site"],
+  PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "site"],
+  TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria", "relatorios"],
+  LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "relatorios"],
   MEMBRO: ["visao", "carteirinha", "meu-espaco", "eventos-membro"],
   CONVIDADO: ["convidado", "eventos-membro"],
   EDITOR_SITE: ["visao", "site"],
@@ -389,6 +389,21 @@ describe("shell colapsável por papel", () => {
       expect(html).not.toContain("/app/ministerios/");
     }
     expect(hrefs(html).includes("/app/tesouraria/")).toBe(areaAllowed([role], "tesouraria"));
+    expect(hrefs(html).includes("/app/relatorios/")).toBe(role === "PLATFORM_ADMIN");
+  });
+
+  it("dá ao administrador uma entrada independente e selecionada para Relatórios", () => {
+    process.env.NEXT_PUBLIC_HML_ENABLED = "true";
+    const screen = (role: string) => renderToStaticMarkup(
+      <AppShell active="relatorios" meta="Relatórios" viewer={account(role)}><p>CONTEÚDO DO RELATÓRIO</p></AppShell>,
+    );
+    const admin = screen("PLATFORM_ADMIN");
+    const reportsLink = admin.match(/<a[^>]*data-section="relatorios"[^>]*>/)?.[0];
+    expect(reportsLink).toContain('aria-current="page"');
+    expect(hrefs(admin)).toContain("/app/relatorios/");
+    expect(screen("SECRETARIA")).toContain("CONTEÚDO DO RELATÓRIO");
+    expect(hrefs(screen("SECRETARIA"))).not.toContain("/app/relatorios/");
+    expect(screen("MEMBRO")).not.toContain("CONTEÚDO DO RELATÓRIO");
   });
 
   it("não escreve status técnico no vínculo quando o grupo está na página do ministério", () => {
