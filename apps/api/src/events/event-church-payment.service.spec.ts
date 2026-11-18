@@ -105,4 +105,64 @@ describe("conciliação Pix do evento", () => {
     expect(mail.deliverOnce.mock.calls[0][0].idempotencyKey).toBe("event-checkin:reg1");
     expect(JSON.stringify(tx.auditLog.create.mock.calls)).not.toContain("inscrito@example.test");
   });
+
+  it("recusa pedido ausente, status encerrado, conta inativa e plano sem receita", async () => {
+    const db = {
+      eventPaymentIntent: { findFirst: jest.fn() },
+      ledgerAccount: { findFirst: jest.fn() },
+    };
+    const service = new EventChurchPaymentService(db as never, { getPilotChurch: async () => pilot } as never);
+    db.eventPaymentIntent.findFirst.mockResolvedValueOnce(null);
+    await expect(service.reconcile(treasury, "pi1", true)).rejects.toThrow(/não encontrado/);
+    db.eventPaymentIntent.findFirst.mockResolvedValueOnce(intent({ status: "CANCELLED" }));
+    await expect(service.reconcile(treasury, "pi1", true)).rejects.toMatchObject({
+      response: { code: "PAYMENT_NOT_PENDING" },
+    });
+    db.eventPaymentIntent.findFirst.mockResolvedValueOnce(intent({
+      receivingAccount: { id: "acc1", active: false, ledgerAccountId: "bank", ledgerAccount: { active: true } },
+    }));
+    await expect(service.reconcile(treasury, "pi1", true)).rejects.toMatchObject({
+      response: { code: "RECEIVING_ACCOUNT_INACTIVE" },
+    });
+    db.eventPaymentIntent.findFirst.mockResolvedValueOnce(intent());
+    db.ledgerAccount.findFirst.mockResolvedValueOnce(null);
+    await expect(service.reconcile(treasury, "pi1", true)).rejects.toMatchObject({
+      response: { code: "REVENUE_ACCOUNT_MISSING" },
+    });
+    expect(service.pixFor({
+      pixKey: "evento.teste@example.test",
+      merchantName: "Igreja",
+      merchantCity: "Brasilia",
+      amountCents: 1000,
+    }).copiaECola).toContain("evento.teste@example.test");
+  });
+
+  it("não cria segundo lançamento se a corrida já gravou o crédito", async () => {
+    const row = intent({ status: "CONFIRMED_PIX" });
+    const tx = {
+      eventPaymentIntent: {
+        findUnique: jest.fn().mockResolvedValue({ ledgerEntryId: "entry-pronta" }),
+        updateMany: jest.fn(),
+      },
+      ledgerEntry: { create: jest.fn() },
+      eventRegistration: { updateMany: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const db = {
+      eventPaymentIntent: { findFirst: jest.fn().mockResolvedValue(row) },
+      ledgerAccount: { findFirst: jest.fn().mockResolvedValue({ id: "revenue" }) },
+      $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
+    };
+    const service = new EventChurchPaymentService(db as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.reconcile(treasury, "pi1", true)).resolves.toMatchObject({
+      idempotentReplay: true,
+      ledgerEntryId: "entry-pronta",
+    });
+    expect(tx.ledgerEntry.create).not.toHaveBeenCalled();
+    tx.eventPaymentIntent.findUnique.mockResolvedValue({ ledgerEntryId: null, status: "PENDING" });
+    tx.eventPaymentIntent.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(service.reconcile(treasury, "pi1", true)).rejects.toMatchObject({
+      response: { code: "PAYMENT_ALREADY_RECORDED" },
+    });
+  });
 });

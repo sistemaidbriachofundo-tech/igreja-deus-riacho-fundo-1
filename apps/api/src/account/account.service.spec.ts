@@ -1,4 +1,5 @@
-import { ValidationPipe } from "@nestjs/common";
+import { StreamableFile, ValidationPipe } from "@nestjs/common";
+import sharp from "sharp";
 import { hashPassword } from "../auth/auth.service";
 import { IS_PUBLIC_KEY } from "../auth/auth.constants";
 import { InMemorySessionStore } from "../auth/session/session-store";
@@ -207,5 +208,111 @@ describe("Minha Conta", () => {
     await expect(service.readPhoto(other)).rejects.toMatchObject({
       response: { code: "ACCOUNT_PERSON_UNLINKED" },
     });
+  });
+
+  it("recusa telefone se a pessoa saiu da congregação durante a gravação", async () => {
+    const { db, service } = setup();
+    db.person.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.updatePhone(actor, null)).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PERSON_UNLINKED" },
+    });
+  });
+
+  it("recusa repetir a senha atual e uma troca concorrente", async () => {
+    const passwordHash = await hashPassword("GardeRio-9931_Forte");
+    const { db, service } = setup();
+    db.user.findUnique.mockResolvedValue({
+      id: actor.userId, email: actor.email, personId: actor.personId, passwordHash,
+    });
+    await expect(service.changePassword(actor, "GardeRio-9931_Forte", "GardeRio-9931_Forte")).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PASSWORD_REUSE" },
+    });
+    db.user.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.changePassword(actor, "GardeRio-9931_Forte", "OutraChave-8844_Forte")).rejects.toThrow(/outra sessão/);
+    db.user.findUnique.mockResolvedValue(null);
+    await expect(service.changePassword(actor, "x", "OutraChave-8844_Forte")).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PASSWORD_CURRENT_INVALID" },
+    });
+  });
+
+  it("grava a foto normalizada, remove a anterior e lê o arquivo privado", async () => {
+    const png = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 1, g: 2, b: 3 } },
+    }).png().toBuffer();
+    const { db, storage, service } = setup(personRow({
+      photoStorageKey: "persons/antiga.jpg",
+      photo: { personId: "person-1" },
+    }));
+    storage.remove.mockRejectedValue(new Error("sumiu"));
+    await service.replacePhoto(actor, png);
+    expect(storage.put).toHaveBeenCalled();
+    expect(db.personPhoto.upsert).toHaveBeenCalled();
+    expect(storage.remove).toHaveBeenCalledWith("persons/antiga.jpg");
+    db.person.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.replacePhoto(actor, png)).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PERSON_UNLINKED" },
+    });
+
+    db.user.findUnique.mockResolvedValue({
+      id: actor.userId,
+      email: actor.email,
+      personId: actor.personId,
+      person: personRow({ photoStorageKey: "persons/org/photo.jpg", photo: null }),
+    });
+    db.personPhoto.findUnique.mockResolvedValue({ jpeg: Buffer.from("nao-jpeg") });
+    const recovered = Buffer.from([0xff, 0xd8, 0xff, 0x22]);
+    storage.get.mockResolvedValueOnce(recovered);
+    expect((await service.readPhoto(actor)).equals(recovered)).toBe(true);
+    storage.get.mockRejectedValueOnce(new Error("ausente"));
+    await expect(service.readPhoto(actor)).rejects.toMatchObject({
+      response: { code: "ACCOUNT_PHOTO_MISSING" },
+    });
+  });
+
+  it("trata sessão sem pessoa e pessoa inativa como sem vínculo", async () => {
+    const missing = setup();
+    missing.db.user.findUnique.mockResolvedValue(null);
+    await expect(missing.service.getProfile(actor)).resolves.toMatchObject({
+      name: null, email: actor.email, canEditProfilePhoto: false,
+    });
+    const inactive = setup(personRow({ status: "INACTIVE" }));
+    await expect(inactive.service.getProfile(actor)).resolves.toMatchObject({ name: null });
+    const otherOrg = setup(personRow({ organizationId: "outra" }));
+    await expect(otherOrg.service.getProfile({ ...actor, organizationId: undefined, churchId: undefined }))
+      .resolves.toMatchObject({ name: null });
+  });
+});
+
+describe("rotas de Minha Conta", () => {
+  const account = {
+    getProfile: jest.fn().mockResolvedValue({ name: "Ana" }),
+    updatePhone: jest.fn().mockResolvedValue({ phone: null }),
+    changePassword: jest.fn(),
+    replacePhoto: jest.fn(),
+    readPhoto: jest.fn().mockResolvedValue(Buffer.from([0xff, 0xd8, 0xff])),
+  };
+  const controller = new AccountController(account as never);
+
+  it("encaminha perfil, senha e telefone ausente", async () => {
+    await expect(controller.me(actor)).resolves.toEqual({ name: "Ana" });
+    expect(() => controller.patch(actor, {})).toThrow(BusinessException);
+    await controller.patch(actor, { phone: null });
+    expect(account.updatePhone).toHaveBeenCalledWith(actor, null);
+    await controller.password(actor, { currentPassword: "atual", newPassword: "nova" });
+    expect(account.changePassword).toHaveBeenCalledWith(actor, "atual", "nova");
+  });
+
+  it("recusa foto ausente ou grande e devolve o JPEG privado", async () => {
+    await expect(controller.upload(actor, undefined)).rejects.toThrow(/campo photo/);
+    const big = Buffer.alloc(6 * 1024 * 1024, 1);
+    await expect(controller.upload(actor, { buffer: big, size: big.length })).rejects.toThrow(/5 MiB/);
+    const small = Buffer.from([0xff, 0xd8, 0xff]);
+    await controller.upload(actor, { buffer: small });
+    expect(account.replacePhoto).toHaveBeenCalledWith(actor, small);
+    const headers: Record<string, string> = {};
+    const file = await controller.photo(actor, { setHeader: (key: string, value: string) => { headers[key] = value; } } as never);
+    expect(headers["Cache-Control"]).toBe("private, no-store");
+    expect(headers["Content-Type"]).toBe("image/jpeg");
+    expect(file).toBeInstanceOf(StreamableFile);
   });
 });

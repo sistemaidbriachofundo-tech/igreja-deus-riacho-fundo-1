@@ -35,6 +35,7 @@ describe("check-in no evento certo", () => {
       where: expect.objectContaining({ eventId: "evt-b", checkInCode: registration.checkInCode }),
     }));
     await expect(service.checkInOnEvent(membro, "evt-b", registration.checkInCode)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.checkInOnEvent(secretaria, "evt-b", "curto")).rejects.toThrow(/checkInCode/);
   });
 
   it("a repetição devolve a presença já registrada, sem outro lançamento", async () => {
