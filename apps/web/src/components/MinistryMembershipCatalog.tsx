@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiPatch } from "../lib/api";
+import { dasError } from "../lib/das-operations";
+import { rosterModuleContains, type EscalaModule } from "../lib/ministry-presentation";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import type {
   ConversionResult,
@@ -41,6 +44,10 @@ type Props = {
   onConvert: (interestId: string) => void;
   onAdmit: (personId: string, role: FormalRole) => void;
   onEnd: (membershipId: string) => void;
+  rosterModules?: EscalaModule[];
+  manageRosterModules?: boolean;
+  moduleOnly?: boolean;
+  onModulesSaved?: () => void;
 };
 
 export function MinistryMembershipCatalog({
@@ -54,13 +61,22 @@ export function MinistryMembershipCatalog({
   onConvert,
   onAdmit,
   onEnd,
+  rosterModules,
+  manageRosterModules,
+  moduleOnly,
+  onModulesSaved,
 }: Props) {
   const { confirm, confirmation } = useActionConfirmation();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [moduleFilter, setModuleFilter] = useState("");
+  const [editingModules, setEditingModules] = useState("");
+  const [moduleFeedback, setModuleFeedback] = useState("");
   const [openedPerson, setOpenedPerson] = useState<FormalMember | null>(null);
-  const members =
-    desk.membership.kind === "ready" ? desk.membership.members : [];
+  const members = desk.membership.kind === "ready"
+    ? desk.membership.members.filter(member =>
+      !moduleOnly || rosterModules?.some(module => rosterModuleContains(module, member.personId)))
+    : [];
   const active = activeFormalMembers(members);
   const schedule = visibleSchedule(desk);
   const canWrite = desk.membership.kind === "ready";
@@ -69,8 +85,10 @@ export function MinistryMembershipCatalog({
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
       .toLocaleLowerCase("pt-BR");
-  const filtered = members.filter((member) =>
-    normalize(member.displayName).includes(normalize(query.trim())),
+  const filteredModule = rosterModules?.find(module => module.id === moduleFilter);
+  const filtered = members.filter(member =>
+    normalize(member.displayName).includes(normalize(query.trim())) &&
+    (!filteredModule || rosterModuleContains(filteredModule, member.personId)),
   );
   const pageSize = 12;
   const visiblePage = Math.min(
@@ -102,8 +120,8 @@ export function MinistryMembershipCatalog({
       >
         <h2 id="formal-members-title">Pessoas da equipe</h2>
         <p>
-          Integrantes cadastrados neste ministério, com sua função e situação
-          atual.
+          {rosterModules?.length ? "Consulte a função e os módulos em que cada integrante serve." :
+            "Integrantes cadastrados neste ministério, com sua função e situação atual."}
         </p>
         {schedule ? (
           <p className={styles.schedule}>Encontro habitual: {schedule}</p>
@@ -129,7 +147,7 @@ export function MinistryMembershipCatalog({
         )}
         {canWrite ? (
           <>
-            <AdmitForm
+            {!moduleOnly && <AdmitForm
               token={token ?? ""}
               roles={roles}
               pending={pending}
@@ -144,7 +162,15 @@ export function MinistryMembershipCatalog({
               savedPersonId={
                 change?.applied ? change.member?.personId : undefined
               }
-            />
+            />}
+            {moduleFeedback && <p role="status">{moduleFeedback}</p>}
+            {rosterModules && rosterModules.length > 0 && <label className={styles.moduleFilter}>
+              Módulo da equipe
+              <select value={moduleFilter} onChange={event => { setModuleFilter(event.target.value); setPage(0); }}>
+                <option value="">Todos os módulos</option>
+                {rosterModules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
+              </select>
+            </label>}
             {active.length === 0 ? (
               <div className={styles.invite} data-region="invite">
                 <strong>
@@ -163,7 +189,9 @@ export function MinistryMembershipCatalog({
             )}
             {filtered.length > 0 ? (
               <div className={styles.people}>
-                {filtered.slice(firstRow, firstRow + pageSize).map((member) => (
+                {filtered.slice(firstRow, firstRow + pageSize).map(member => {
+                  const linkedModules = rosterModules?.filter(module => rosterModuleContains(module, member.personId));
+                  return (
                   <div className={styles.row} key={member.id}>
                     <PersonPortrait name={member.displayName} />
                     <div>
@@ -173,10 +201,19 @@ export function MinistryMembershipCatalog({
                         {roleLabel(member.role)} ·{" "}
                         {memberStatusLabel(member.status)}
                       </small>
+                      {linkedModules && <small className={styles.memberModules}>
+                        {linkedModules.length ? linkedModules.map(module => module.name).join(" · ") : "Módulo a definir"}
+                      </small>}
                     </div>
+                    <div className={styles.memberActions}>
+                    {Boolean(rosterModules?.length) && manageRosterModules && token && member.status === "ATIVO" &&
+                      <button type="button" className={ui.workspaceSecondary} aria-expanded={editingModules === member.id}
+                        onClick={() => { setModuleFeedback(""); setEditingModules(current => current === member.id ? "" : member.id); }}>
+                        Editar módulos <span className={styles.srOnly}>de {member.displayName}</span>
+                      </button>}
                     {member.status === "ENCERRADO" ? (
                       <span className={styles.tag}>Encerrado</span>
-                    ) : (
+                    ) : !moduleOnly ? (
                       <button
                         className={styles.endAction}
                         type="button"
@@ -185,13 +222,21 @@ export function MinistryMembershipCatalog({
                       >
                         Retirar da equipe
                       </button>
-                    )}
+                    ) : null}
+                    </div>
+                    {editingModules === member.id && token && rosterModules && manageRosterModules &&
+                      <MemberModuleForm key={member.id} member={member} modules={rosterModules} token={token}
+                        ministryId={desk.ministry.id} onSaved={() => {
+                          setEditingModules("");
+                          setModuleFeedback("Os módulos de " + member.displayName + " foram atualizados.");
+                          onModulesSaved?.();
+                        }} />}
                   </div>
-                ))}
+                ); })}
               </div>
             ) : members.length > 0 ? (
               <p className={styles.emptySearch} role="status">
-                Nenhum integrante encontrado. Tente outro nome.
+                Nenhum integrante encontrado. Revise o nome ou o módulo selecionado.
               </p>
             ) : null}
             {filtered.length > pageSize && (
@@ -227,7 +272,7 @@ export function MinistryMembershipCatalog({
         )}
       </section>
 
-      <section
+      {!moduleOnly && <section
         className={styles.panel}
         data-region="volunteer-interests"
         aria-labelledby="interests-title"
@@ -268,7 +313,7 @@ export function MinistryMembershipCatalog({
             </Alert>
           </div>
         )}
-      </section>
+      </section>}
       {confirmation}
     </div>
   );
@@ -397,4 +442,49 @@ function InterestLine({
       ) : null}
     </div>
   );
+}
+
+function MemberModuleForm({ member, modules, token, ministryId, onSaved }: {
+  member: FormalMember;
+  modules: EscalaModule[];
+  token: string;
+  ministryId: string;
+  onSaved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const initial = modules.filter(module => rosterModuleContains(module, member.personId));
+  const initialIds = new Set(initial.map(module => module.id));
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const selected = new Set(new FormData(event.currentTarget).getAll("moduleId"));
+    const addModuleIds = modules.filter(module => selected.has(module.id) && !initialIds.has(module.id)).map(module => module.id);
+    const removeModuleIds = initial.filter(module => !selected.has(module.id)).map(module => module.id);
+    if (!addModuleIds.length && !removeModuleIds.length) { onSaved(); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await apiPatch(`/ministries/${encodeURIComponent(ministryId)}/memberships/${encodeURIComponent(member.id)}/roster-modules`,
+        token, { addModuleIds, removeModuleIds });
+      onSaved();
+    } catch (failure) {
+      setError(dasError(failure));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <form className={styles.moduleForm} onSubmit={save}>
+    <fieldset disabled={saving}>
+      <legend>Módulos de {member.displayName}</legend>
+      {modules.map(module => <label key={module.id}>
+        <input type="checkbox" name="moduleId" value={module.id} defaultChecked={initialIds.has(module.id)} />
+        {module.name}
+      </label>)}
+      <button type="submit" className={ui.workspacePrimary}>{saving ? "Salvando…" : "Salvar módulos"}</button>
+    </fieldset>
+    {error && <p role="alert">{error}</p>}
+  </form>;
 }

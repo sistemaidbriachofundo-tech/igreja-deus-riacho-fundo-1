@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadMinistryBoard, readScopedActivities, readScopedEscalas, rosterPositionSummary } from "./ministry-presentation";
+import { loadMinistryBoard, readScopedActivities, readScopedEscalas, rosterCapacitySummary, rosterPositionSummary } from "./ministry-presentation";
 
 const token = "token-sintetico";
 const base = "http://api.test";
@@ -150,6 +150,40 @@ describe("escalas e atividades no escopo do ministério", () => {
     expect(board.activities).toMatchObject({ kind: "ready", items: [{ id: "evt" }] });
     expect(board.desk).toMatchObject({ kind: "ready", finance: { kind: "unconfigured" }, interests: [{ id: "int" }] });
     expect(calls.some(url => url.endsWith("/events") || url.includes("/volunteer-interests"))).toBe(false);
+  });
+
+  it("separa casais de vagas individuais e só conta um casal completo", () => {
+    const assignment = { id: "a", personId: "joao", partnerPersonId: "", status: "PENDING" as const, personName: "João", partnerName: "" };
+    expect(rosterCapacitySummary([
+      { id: "single", label: "Recepção", requiresCouple: false, assignments: [assignment] },
+      { id: "partial", label: "Ofertas", requiresCouple: true, assignments: [assignment] },
+      { id: "pair", label: "Ofertas", requiresCouple: true, assignments: [{ ...assignment, partnerPersonId: "maria" }] },
+    ])).toEqual({ single: 1, singleFilled: 1, couples: 2, couplesFilled: 1 });
+  });
+
+  it("ignora escalas gerais e de outro módulo para uma liderança de módulo", async () => {
+    const fetchImpl = async (url: string) => {
+      if (url.endsWith("/ministries")) return json(200, { ministries: [{ id: "min", name: "Atmosfera", slug: "atmosfera" }] });
+      if (url.endsWith("/formal-memberships")) return json(200, { blocked: false, members: [] });
+      if (url.endsWith("/rosters/by-ministry/min")) return json(200, {
+        ministryId: "min",
+        permissions: { scope: "modules", manageModuleMemberships: true },
+        modules: [{ id: "reception", name: "Recepção" }],
+        rosters: [["correct", "reception"], ["unscoped"], ["other", "connection"]].map(([id, moduleId]) => ({
+          id, ministryId: "min", moduleId, title: id, serviceAt: "2026-11-22T13:00:00Z", slots: [],
+          capacity: [{ id: "individual", label: "Recepção", defaultCount: 3, count: 4, minimumCount: 1 }],
+        })),
+      });
+      return json(403, {});
+    };
+    const board = await loadMinistryBoard({ token, baseUrl: base, fetchImpl });
+    expect(board.escalas).toMatchObject({
+      kind: "ready",
+      permissions: { scope: "modules", manageModuleMemberships: true },
+      items: [{ id: "correct", capacity: [{ id: "individual", count: 4 }] }],
+    });
+    if (board.escalas.kind !== "ready") throw new Error("Escalas indisponíveis");
+    expect(board.escalas.items.map(item => item.id)).toEqual(["correct"]);
   });
 
   it("no ministério autorizado lê a escala pelo id e ignora saldo", async () => {

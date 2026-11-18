@@ -9,6 +9,9 @@ import { useActionConfirmation } from "../ui/ActionConfirmation";
 import styles from "./serving.module.css";
 
 const PATH = "/rosters/notifications";
+const inviteDeadline = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo", dateStyle: "long", timeStyle: "short",
+});
 type Feed = { publicKey: string | null; testEnabled?: boolean; notices: {
   id: string; kind: string; title: string; body: string;
   expiresAt?: string | null; inviteStatus?: "open" | "expired" | "accepted" | "closed" | "declined";
@@ -174,13 +177,15 @@ export function RosterNotifications({ token, mode, onAccepted }: {
     {confirmation}
     <h2><UIIcon name="mail" size={19} /> Convites de substituição</h2>
     {notice && <p role="status">{notice}</p>}
-    {invitations.length > 0 && <ul>{invitations.map(({ id, anchor, status, title, body }) =>
+    {invitations.length > 0 && <ul>{invitations.map(({ id, anchor, status, title, body, expiresAt }) =>
       <li key={id} id={anchor} className={styles.inviteItem} data-targeted={anchor === target || undefined}>
         <h3>{title}</h3>
         <p>{body}</p>
+        {status === "open" && expiresAt && Number.isFinite(Date.parse(expiresAt)) &&
+          <p><strong>Responda até <time dateTime={expiresAt}>{inviteDeadline.format(new Date(expiresAt))}</time>.</strong></p>}
         {status === "open" ? <div className={styles.actions}>
           <button className={styles.primary} type="button" disabled={busy} onClick={() => void respond(id, "accept")}>Aceitar substituição</button>
-          <button className={styles.agendaDecline} type="button" disabled={busy} onClick={() => void respond(id, "decline")}>Recusar convite</button>
+          <button className={styles.agendaDecline} type="button" disabled={busy} onClick={() => void respond(id, "decline")}>Não posso substituir</button>
         </div> : <strong>{status === "accepted" ? "Substituição confirmada" : status === "expired" ? "Prazo encerrado" : status === "declined" ? "Convite recusado" : "Convite encerrado"}</strong>}
       </li>)}</ul>}
   </section>;
