@@ -1,3 +1,4 @@
+import { capacityGroupId } from "./roster-module-policy";
 import { decideMonthSave, draftsToPersist, mergeChurchCalendar, planMonth, presentMonthlySimulation, type MonthModule, type MonthState } from "./roster-month-plan";
 
 const sundayMorning = "2026-12-06T13:00:00.000Z";
@@ -51,7 +52,17 @@ describe("simulação mensal do Atmosfera", () => {
     expect(morning?.positions[0].slotId).toBe(second.rosters.find(roster => roster.id === morning?.id)?.positions[0].slotId);
     expect(morning?.capacity?.[0].id).toBe(second.rosters.find(roster => roster.id === morning?.id)?.capacity?.[0].id);
     const locked = presentMonthlySimulation(current, { fillOnlyOpen: true, decisions: [{ slotId: morning!.positions[0].slotId, personId: "ana", locked: true }] });
-    expect(locked.rosters.find(roster => roster.id === morning?.id)?.positions[0]).toMatchObject({ personId: "ana", locked: true });
+    expect(locked.rosters.find(roster => roster.id === morning?.id)?.positions[0]).toMatchObject({ personId: "ana", locked: true, readOnly: false });
+    const occupied = presentMonthlySimulation(state({ rosters: [{ id: "rascunho", moduleId: "recepcao", serviceAt: sundayMorning, status: "DRAFT", title: "Rascunho", slots: [{ id: "ocupada", roleLabel: "Recepção", requiresCouple: false, personId: "ana" }] }] }));
+    const occupiedPosition = occupied.rosters.find(roster => roster.id === "rascunho")?.positions.find(position => position.slotId === "ocupada");
+    expect(occupiedPosition).toMatchObject({ readOnly: true, locked: false, personId: "ana", candidates: [] });
+    const reduced = presentMonthlySimulation(state({ rosters: [{ id: "rascunho", moduleId: "recepcao", serviceAt: sundayMorning, status: "DRAFT", title: "Rascunho", slots: [
+      { id: "ocupada", roleLabel: "Recepção", requiresCouple: false, personId: "ana" },
+      { id: "livre", roleLabel: "Recepção", requiresCouple: false },
+    ] }] }), { capacities: [{ rosterId: "rascunho", groupId: capacityGroupId("Recepção", false), count: 0 }] });
+    expect(reduced.rosters.find(roster => roster.id === "rascunho")?.positions.map(position => position.slotId)).toEqual(["ocupada"]);
+    const capped = presentMonthlySimulation(current, { capacities: [{ rosterId: morning!.id, groupId: capacityGroupId("Recepção", false), count: 40 }] });
+    expect(capped.rosters.find(roster => roster.id === morning?.id)?.capacity?.find(group => group.id === capacityGroupId("Recepção", false))?.count).toBe(30);
     expect(locked.revision).toBe(first.revision);
   });
 

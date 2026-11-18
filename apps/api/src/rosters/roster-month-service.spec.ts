@@ -34,8 +34,16 @@ function database() {
     ministryMembership: { findMany: async () => ["ana", "bruno", "carla", "gabi", "hugo"].map(personId => ({ personId, person: { displayName: personId, householdId: null, status: "ACTIVE" } })) },
     roster: {
       findMany: async () => [published, draft],
-      create: async ({ data }: { data: { moduleId: string } }) => { writes.push(`roster:${data.moduleId}`); return { id: "novo", slots: [] }; },
+      create: async ({ data }: { data: { moduleId: string; slots?: { create?: unknown[] } } }) => {
+        const id = `novo-${writes.length}`;
+        writes.push(`roster:${data.moduleId}`);
+        return { id, slots: (data.slots?.create ?? []).map((_, index) => ({ id: `${id}-slot-${index}` })) };
+      },
       update: async () => { writes.push("roster-update"); throw new Error("culto publicado não pode ser reescrito aqui"); },
+    },
+    rosterSlot: {
+      create: async ({ data }: { data: { rosterId: string } }) => { writes.push(`slot:${data.rosterId}`); return { id: `slot-${writes.length}` }; },
+      deleteMany: async ({ where }: { where: { id: { in: string[] } } }) => { writes.push(`slot-delete:${where.id.in.join(",")}`); return { count: where.id.in.length }; },
     },
     rosterAssignment: {
       findFirst: async () => null,
@@ -79,5 +87,49 @@ describe("endpoints da simulação mensal", () => {
     expect(writes).toEqual([]);
     expect(published.status).toBe("PUBLISHED");
     expect(published.slots[0].assignments[0]).toMatchObject({ personId: "gabi", partnerPersonId: "hugo" });
+    await expect(service.monthlySimulation(user("lider-recepcao"), "atmosfera", { month: "2026-12", moduleId: "recepcao", revision: "b".repeat(64) })).rejects.toMatchObject({ response: { code: "ROSTER_PREVIEW_STALE" } });
+  });
+
+  it("aumenta a capacidade de um rascunho existente e conta só os cultos gravados", async () => {
+    const { db, writes, published } = database();
+    const service = serviceFor(db);
+    const leader = user("lider-recepcao");
+    const simulation = await service.monthlySimulation(leader, "atmosfera", { month: "2026-12", moduleId: "recepcao" });
+    const draft = simulation.rosters.find(roster => roster.id === "rascunho");
+    const group = draft?.capacity?.[0];
+    expect(group).toBeTruthy();
+    const saved = await service.saveMonth(leader, "atmosfera", "2026-12", {
+      fingerprint: simulation.revision, moduleId: "recepcao", fillOnlyOpen: true,
+      capacities: [{ rosterId: "rascunho", groupId: group!.id, count: Math.min(30, group!.count + 1) }],
+    });
+    expect(writes).toContain("slot:rascunho");
+    expect(writes.indexOf("assignment")).toBeGreaterThan(writes.indexOf("slot:rascunho"));
+    expect(writes.some(item => item.startsWith("roster:conexao") || item === "roster-update")).toBe(false);
+    const created = writes.filter(item => item.startsWith("roster:")).length;
+    expect(saved.savedRosters).toBe(created + 1);
+    expect(published.slots[0].assignments[0].personId).toBe("gabi");
+    const open = simulation.rosters.find(roster => roster.id === "rascunho")?.positions[0];
+    await expect(service.monthlySimulation(leader, "atmosfera", {
+      month: "2026-12", moduleId: "recepcao", revision: simulation.revision,
+      decisions: [{ slotId: open!.slotId, personId: "carla", locked: true }],
+    })).rejects.toMatchObject({ response: expect.objectContaining({ code: "ROSTER_NOT_ELIGIBLE", reasonCodes: expect.any(Array) }) });
+  });
+
+  it("reduz só a vaga vazia de um rascunho que já existe", async () => {
+    const { db, writes, published } = database();
+    const draft = (await db.roster.findMany()).find(roster => roster.id === "rascunho");
+    draft?.slots.push({ id: "ocupada", roleLabel: "Recepção", requiresCouple: true, requiredQualification: null, assignments: [{ personId: "ana", partnerPersonId: "bruno", status: "CONFIRMED" }] });
+    const service = serviceFor(db);
+    const leader = user("lider-recepcao");
+    const simulation = await service.monthlySimulation(leader, "atmosfera", { month: "2026-12", moduleId: "recepcao" });
+    const group = simulation.rosters.find(roster => roster.id === "rascunho")?.capacity?.[0];
+    const saved = await service.saveMonth(leader, "atmosfera", "2026-12", {
+      fingerprint: simulation.revision, moduleId: "recepcao", fillOnlyOpen: true,
+      capacities: [{ rosterId: "rascunho", groupId: group!.id, count: 0 }],
+    });
+    expect(writes).toContain("slot-delete:vaga-rascunho");
+    expect(writes.some(item => item.includes("ocupada"))).toBe(false);
+    expect(saved.savedRosters).toBe(writes.filter(item => item.startsWith("roster:")).length + 1);
+    expect(published.status).toBe("PUBLISHED");
   });
 });

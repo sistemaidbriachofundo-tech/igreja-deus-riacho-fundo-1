@@ -314,7 +314,7 @@ function applyRequestedCapacity(slots: PlannedSlot[], module: MonthModule, cult:
     const current = groups.get(request.groupId) ?? [];
     const position = (module.positions[cult] ?? []).find(item => groupId({ roleLabel: item.label, requiresCouple: item.couple, requiredQualification: item.qualification ?? null }) === request.groupId);
     const ordered = [...current.filter(slot => slot.locked || slot.personId), ...current.filter(slot => !slot.locked && !slot.personId)];
-    const next = Math.max(ordered.filter(slot => slot.locked || slot.personId).length, Math.min(30, request.count));
+    const next = Math.max(ordered.filter(slot => slot.locked || slot.personId).length, Math.min(30, Math.max(0, Math.trunc(request.count))));
     const kept = ordered.slice(0, next);
     while (kept.length < next && position) {
       kept.push({
@@ -420,21 +420,24 @@ export function presentMonthlySimulation(state: MonthState, options: { moduleId?
           overrides: new Map(),
           slots: service.slots.map(slot => ({ id: slot.key, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple, requiredQualification: slot.requiredQualification, active: Boolean(slot.personId && (slot.locked || slot.pinned)) })),
         }).map(group => ({ id: group.id, label: group.label, count: service.slots.filter(slot => groupId(slot) === group.id).length, minimumCount: group.minimumCount })) : [],
-        positions: service.slots.map(slot => ({
-          slotId: slot.key,
-          roleLabel: slot.roleLabel,
-          requiresCouple: slot.requiresCouple,
-          requiredQualification: slot.requiredQualification,
-          locked: slot.locked || slot.pinned,
-          readOnly,
-          personId: slot.personId ?? null,
-          personName: slot.personName ?? null,
-          partnerPersonId: slot.partnerPersonId ?? null,
-          partnerName: slot.partnerName ?? null,
-          reasons: slot.reasonCodes,
-          ...(slot.openVacancy ? { openVacancy: slot.openVacancy } : {}),
-          candidates: readOnly || !module ? [] : listSlotCandidates(scoped, module, service.serviceAt, slot),
-        })),
+        positions: service.slots.map(slot => {
+          const positionReadOnly = readOnly || slot.locked;
+          return {
+            slotId: slot.key,
+            roleLabel: slot.roleLabel,
+            requiresCouple: slot.requiresCouple,
+            requiredQualification: slot.requiredQualification,
+            locked: slot.pinned,
+            readOnly: positionReadOnly,
+            personId: slot.personId ?? null,
+            personName: slot.personName ?? null,
+            partnerPersonId: slot.partnerPersonId ?? null,
+            partnerName: slot.partnerName ?? null,
+            reasons: slot.reasonCodes,
+            openVacancy: slot.openVacancy ?? null,
+            candidates: positionReadOnly || !module ? [] : listSlotCandidates(scoped, module, service.serviceAt, slot),
+          };
+        }),
       };
     }),
   };
@@ -453,6 +456,14 @@ function listSlotCandidates(state: MonthState, module: MonthModule, serviceAt: s
     const partnerPersonId = decision.personIds[1] ?? null;
     return [{ personId: person.personId, personName: state.people.find(item => item.personId === person.personId)?.name ?? person.personId, partnerPersonId, partnerName: partnerPersonId ? state.people.find(item => item.personId === partnerPersonId)?.name ?? null : null }];
   }).slice(0, 40);
+}
+
+export function capacitySlotChanges(service: PlannedService, existingIds: readonly string[]) {
+  const kept = new Set(service.slots.flatMap(slot => slot.id ? [slot.id] : []));
+  return {
+    removeIds: existingIds.filter(id => !kept.has(id)),
+    create: service.slots.filter(slot => !slot.id),
+  };
 }
 
 export function draftsToPersist(simulation: MonthSimulation): Array<{ service: PlannedService; slot: PlannedSlot }> {

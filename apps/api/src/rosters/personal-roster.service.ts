@@ -23,7 +23,7 @@ import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availab
 
 import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, type CultType } from "./roster-operating-rules";
 import { loadMonthState } from "./roster-month-load";
-import { decideMonthSave, draftsToPersist, planMonth, presentMonthlySimulation, type MonthCapacityRequest, type MonthDecision, type MonthPin } from "./roster-month-plan";
+import { capacitySlotChanges, decideMonthSave, draftsToPersist, monthFingerprint, presentMonthlySimulation, type MonthCapacityRequest, type MonthDecision, type MonthPin } from "./roster-month-plan";
 import { openVacancyText, responseStatuses, rosterInScope } from "./roster-module-policy";
 import {
   appendParticipantResponse,
@@ -360,11 +360,21 @@ export class PersonalRosterService {
     return { month, answered: true, availableRosterIds: ids };
   }
 
-  async monthlySimulation(actor: AuthUser, ministryId: string, request: { month: string; moduleId?: string; decisions?: MonthDecision[]; capacities?: MonthCapacityRequest[]; fillOnlyOpen?: boolean }) {
+  async monthlySimulation(actor: AuthUser, ministryId: string, request: { month: string; moduleId?: string; revision?: string; decisions?: MonthDecision[]; capacities?: MonthCapacityRequest[]; fillOnlyOpen?: boolean }) {
     const pilot = await this.pilot.getPilotChurch();
-    const state = await this.monthState(actor, ministryId, request.month, pilot);
-    this.assertModuleFilter(state, request.moduleId);
-    return presentMonthlySimulation(request.moduleId ? { ...state, modules: state.modules.filter(module => module.id === request.moduleId) } : state, request);
+    const loaded = await this.monthState(actor, ministryId, request.month, pilot);
+    this.assertModuleFilter(loaded, request.moduleId);
+    const state = request.moduleId ? { ...loaded, modules: loaded.modules.filter(module => module.id === request.moduleId) } : loaded;
+    if (request.revision && request.revision !== monthFingerprint(state)) {
+      throw new ConflictException({ code: "ROSTER_PREVIEW_STALE", message: "A prévia mudou. Atualize o mês e tente de novo." });
+    }
+    const simulation = presentMonthlySimulation(state, request);
+    const refused = (request.decisions ?? []).find(decision => decision.personId && simulation.rosters.some(roster => roster.positions.some(position => position.slotId === decision.slotId && !position.personId)));
+    if (refused) {
+      const position = simulation.rosters.flatMap(roster => roster.positions).find(item => item.slotId === refused.slotId);
+      throw new ConflictException({ code: "ROSTER_NOT_ELIGIBLE", message: position?.openVacancy ?? "A pessoa fixada não pode ocupar esta vaga.", reasonCodes: position?.reasons ?? [], slotId: refused.slotId });
+    }
+    return simulation;
   }
 
   async saveMonth(actor: AuthUser, ministryId: string, month: string, request: { fingerprint: string; pins?: MonthPin[]; decisions?: MonthDecision[]; capacities?: MonthCapacityRequest[]; recalculate?: boolean; fillOnlyOpen?: boolean; moduleId?: string }) {
@@ -375,7 +385,7 @@ export class PersonalRosterService {
     this.assertModuleFilter(loaded, request.moduleId);
     const initial = request.moduleId ? { ...loaded, modules: loaded.modules.filter(module => module.id === request.moduleId) } : loaded;
     const decision = decideMonthSave(initial, request);
-    if (decision.action === "replay") return { savedRosters: decision.simulation.services.filter(service => service.persisted && service.status === "DRAFT").length };
+    if (decision.action === "replay") return { savedRosters: 0 };
     if (decision.action !== "write") {
       throw new ConflictException(decision);
     }
@@ -383,31 +393,51 @@ export class PersonalRosterService {
       const reloaded = await this.monthState(actor, ministryId, month, pilot, tx as never);
       const fresh = request.moduleId ? { ...reloaded, modules: reloaded.modules.filter(module => module.id === request.moduleId) } : reloaded;
       const again = decideMonthSave(fresh, request);
-      if (again.action === "replay") return { savedRosters: again.simulation.services.filter(service => service.persisted && service.status === "DRAFT").length };
+      if (again.action === "replay") return { savedRosters: 0 };
       if (again.action !== "write") throw new ConflictException(again);
-      const writes = draftsToPersist(again.simulation);
+      const touched = new Set<string>();
       for (const service of again.simulation.services) {
-        if (service.persisted || service.status === "CANCELLED" || service.status === "PUBLISHED" || service.status === "CLOSED") continue;
-        const created = await tx.roster.create({
-          data: {
-            organizationId: pilot.organizationId, churchId: pilot.churchId, ministryId, moduleId: service.moduleId,
-            title: service.title, serviceAt: new Date(service.serviceAt), serviceType: service.serviceType, status: "DRAFT",
-            slots: { create: service.slots.map((slot, sortOrder) => ({ roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple, requiredQualification: slot.requiredQualification, sortOrder })) },
-          },
-          include: { slots: { orderBy: { sortOrder: "asc" } } },
-        });
-        created.slots.forEach((slot, index) => { if (service.slots[index]) service.slots[index].id = slot.id; });
+        if (service.status === "CANCELLED" || service.status === "PUBLISHED" || service.status === "CLOSED") continue;
+        if (!service.persisted) {
+          const created = await tx.roster.create({
+            data: {
+              organizationId: pilot.organizationId, churchId: pilot.churchId, ministryId, moduleId: service.moduleId,
+              title: service.title, serviceAt: new Date(service.serviceAt), serviceType: service.serviceType, status: "DRAFT",
+              slots: { create: service.slots.map((slot, sortOrder) => ({ roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple, requiredQualification: slot.requiredQualification, sortOrder })) },
+            },
+            include: { slots: { orderBy: { sortOrder: "asc" } } },
+          });
+          created.slots.forEach((slot, index) => { if (service.slots[index]) service.slots[index].id = slot.id; });
+          service.rosterId = created.id;
+          touched.add(created.id);
+          continue;
+        }
+        if (service.status !== "DRAFT" || !service.rosterId) continue;
+        const existing = fresh.rosters.find(roster => roster.id === service.rosterId);
+        const changes = capacitySlotChanges(service, existing?.slots.map(slot => slot.id) ?? []);
+        if (changes.removeIds.length) {
+          await tx.rosterSlot.deleteMany({ where: { id: { in: changes.removeIds }, rosterId: service.rosterId, assignments: { none: { status: { in: ["PENDING", "CONFIRMED"] } } } } });
+          touched.add(service.rosterId);
+        }
+        let sortOrder = existing?.slots.length ?? 0;
+        for (const slot of changes.create) {
+          const created = await tx.rosterSlot.create({ data: { rosterId: service.rosterId, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple, requiredQualification: slot.requiredQualification, sortOrder } });
+          slot.id = created.id;
+          sortOrder += 1;
+          touched.add(service.rosterId);
+        }
       }
-      for (const item of writes) {
+      for (const item of draftsToPersist(again.simulation)) {
         const slotId = item.slot.id;
-        if (!slotId || !item.slot.personId) continue;
+        const rosterId = item.service.rosterId;
+        if (!slotId || !item.slot.personId || !rosterId) continue;
         const existing = await tx.rosterAssignment.findFirst({ where: { slotId, status: { in: ["PENDING", "CONFIRMED"] } }, select: { personId: true } });
         if (existing?.personId === item.slot.personId) continue;
         if (existing) throw new ConflictException({ code: "ROSTER_PREVIEW_STALE", message: "A vaga foi preenchida por outra gravação. Atualize o mês e tente de novo." });
         await tx.rosterAssignment.create({ data: { slotId, personId: item.slot.personId, partnerPersonId: item.slot.partnerPersonId ?? null, status: "PENDING" } });
+        touched.add(rosterId);
       }
-      const saved = await this.monthState(actor, ministryId, month, pilot, tx as never).then(state => planMonth(state));
-      return { savedRosters: saved.services.filter(service => service.persisted && service.status === "DRAFT").length };
+      return { savedRosters: touched.size };
     });
   }
 
