@@ -1,0 +1,15 @@
+{
+  "name": "@idbrf/qa-rf1-v1c",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Auditoria independente RF1/V1-C (issue #171). Não altera produto, schema, CI nem deploy.",
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test src/inventory.test.mjs src/judge.test.mjs",
+    "test:live": "playwright test",
+    "audit": "node --test src/inventory.test.mjs src/judge.test.mjs && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
