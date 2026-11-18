@@ -148,6 +148,7 @@ export function SiteManager() {
     });
     setDirty(true);
     setNotice("");
+    setPreviewMode("rascunho");
     setError("");
   }
   function changePhotoText(index:number,field:"title"|"subtitle"|"alt",value:string){
