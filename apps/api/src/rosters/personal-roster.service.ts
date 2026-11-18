@@ -22,6 +22,8 @@ import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./previe
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
 
 import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, type CultType } from "./roster-operating-rules";
+import { loadMonthState } from "./roster-month-load";
+import { decideMonthSave, draftsToPersist, planMonth, type MonthPin } from "./roster-month-plan";
 import { openVacancyText, responseStatuses, rosterInScope } from "./roster-module-policy";
 import {
   appendParticipantResponse,
@@ -358,74 +360,80 @@ export class PersonalRosterService {
     return { month, answered: true, availableRosterIds: ids };
   }
 
-  async monthlyPreview(actor: AuthUser, ministryId: string, month: string) {
-    const range = monthRange(month);
-    const { churchId, organizationId } = await this.pilot.getPilotChurch();
-    const scope = { churchId, organizationId };
-    const ministry = await this.requireMinistry(ministryId, scope);
-    this.assertCanOperateMinistry(actor, ministry, scope);
-    const access = await loadRosterAccess(this.prisma as never, actor, ministry, scope);
-    const [rosters, members, responses, history] = await Promise.all([
-      this.prisma.roster.findMany({ where: { ...scope, ministryId, status: "DRAFT", serviceAt: range }, include: {
-        module: true, slots: { include: { assignments: { where: { status: { in: [...ACTIVE] } }, select: { id: true } } }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
-      }, orderBy: [{ serviceAt: "asc" }, { id: "asc" }] }),
-      this.prisma.ministryMembership.findMany({ where: { ...scope, ministryId, status: "ATIVO", person: { status: "ACTIVE" } }, select: {
-        personId: true, person: { select: { displayName: true } },
-      } }),
-      this.prisma.rosterAvailabilityResponse.findMany({ where: { churchId: scope.churchId, month } }),
-      this.prisma.rosterAssignment.findMany({ where: { status: { in: [...ACTIVE] }, slot: { roster: {
-        ...scope, serviceAt: { gte: new Date(+range.gte - 60 * 86400000), lt: new Date(+range.lt + 60 * 86400000) },
-      } } }, include: { slot: { include: { roster: true } } } }),
-    ]);
-    const ids = members.map(member => member.personId);
-    const [windows, impediments] = await Promise.all([
-      this.prisma.volunteerAvailability.findMany({ where: { ...scope, personId: { in: ids }, active: true } }),
-      this.prisma.volunteerImpediment.findMany({ where: { ...scope, personId: { in: ids }, startsAt: { lt: range.lt }, endsAt: { gt: range.gte } } }),
-    ]);
-    const response = new Map(responses.map(row => [row.personId, new Set(row.rosterIds)]));
-    const names = new Map(members.map(row => [row.personId, row.person.displayName]));
-    const existing: ExistingAssignment[] = history.map(row => ({
-      assignmentId: row.id, churchId: scope.churchId, ministryId: row.slot.roster.ministryId ?? "", positionId: row.slot.roleLabel,
-      slotId: row.slotId, rosterId: row.slot.rosterId, serviceAt: row.slot.roster.serviceAt.toISOString(), status: row.status,
-      personId: row.personId, partnerPersonId: row.partnerPersonId,
-    }));
-    const visible = rosters.filter(roster => rosterInScope(roster.moduleId, access));
-    const teams = await volunteerIdsByModule(this.prisma as never, visible.flatMap(roster => roster.moduleId ? [roster.moduleId] : []));
-    const result = visible.map(roster => {
-      const module = rulesWithTeam(roster.module?.rules, roster.moduleId, teams);
-      const open = roster.slots.filter(slot => !slot.assignments.length);
-      const partners = new Map(module.couples.flatMap(([a, b]) => [[a, b], [b, a]] as const));
-      const candidates: Candidate[] = members.filter(member => isModuleVolunteer(module, member.personId) && response.get(member.personId)?.has(roster.id)).map(member => ({
-        personId: member.personId, active: true, churchIds: [scope.churchId], ministryIds: [ministryId],
-        qualifiedPositionIds: open.map(slot => slot.roleLabel), spousePersonId: partners.get(member.personId),
-        approvedRoleTags: Object.keys(module.qualifications).filter(tag => module.qualifications[tag].includes(member.personId)),
-        availability: utcWeeklyWindowsToRiachoLocal(windows.filter(window => window.personId === member.personId)),
-        impediments: impediments.filter(item => item.personId === member.personId).map(item => ({ startsAt: item.startsAt.toISOString(), endsAt: item.endsAt.toISOString() })),
-      }));
-      const draw = (id: string) => createHash("sha256").update(`${month}:${roster.id}:${id}`).digest("hex");
-      const plan = previewSlots(open.map(slot => ({ slotId: slot.id, rosterId: roster.id, churchId: scope.churchId, ministryId,
-        positionId: slot.roleLabel, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple,
-        requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [],
-        priority: slot.requiresCouple || slot.requiredQualification ? 0 : 1,
-        serviceAt: roster.serviceAt.toISOString(), serviceType: rosterCultType(roster),
-      })), candidates, existing, { ...DEFAULT_RULES, minIntervalDays: module.minIntervalDays, maxMonthlyAssignments: module.maxMonthlyAssignments }, draw);
-      const picks = new Map(plan.drafts.map(item => [item.slotId, item]));
-      const reasons = new Map(plan.unfilled.map(item => [item.slotId, item.reasons]));
-      for (const draft of plan.drafts) existing.push({
-        ...draft, assignmentId: draft.slotId, churchId: scope.churchId, ministryId,
-        positionId: open.find(slot => slot.id === draft.slotId)!.roleLabel, serviceAt: roster.serviceAt.toISOString(), status: "PENDING",
-      });
-      return { id: roster.id, title: roster.title, moduleName: roster.module?.name, serviceAt: roster.serviceAt,
-        positions: open.map(slot => {
-          const pick = picks.get(slot.id);
-          const reasonList = candidates.length ? reasons.get(slot.id) ?? [] : ["MONTHLY_UNANSWERED"];
-          return { slotId: slot.id, roleLabel: slot.roleLabel, personId: pick?.personId, partnerPersonId: pick?.partnerPersonId,
-            personName: names.get(pick?.personId ?? ""), partnerName: names.get(pick?.partnerPersonId ?? ""),
-            reasons: reasonList, ...(pick ? {} : { openVacancy: openVacancyText(reasonList) }), };
-        }),
-      };
+  async simulateMonth(actor: AuthUser, ministryId: string, month: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    this.assertCanOperateMinistry(actor, ministry, pilot);
+    const access = await loadRosterAccess(this.prisma as never, actor, ministry, pilot);
+    const state = await loadMonthState(this.prisma as never, pilot, ministryId, month);
+    if (!state) throw new ConflictException({ code: "ROSTER_PREVIEW_UNVERIFIED", message: "A simulação não pôde ser conferida com a pesquisa, a disponibilidade e o histórico." });
+    if (access.scope === "modules") state.modules = state.modules.filter(module => access.moduleIds.includes(module.id));
+    return planMonth(state);
+  }
+
+  async saveMonth(actor: AuthUser, ministryId: string, month: string, request: { fingerprint: string; pins?: MonthPin[]; recalculate?: boolean }) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    this.assertCanOperateMinistry(actor, ministry, pilot);
+    const initial = await this.monthState(actor, ministryId, month, pilot);
+    const decision = decideMonthSave(initial, request);
+    if (decision.action === "replay") return decision.simulation;
+    if (decision.action !== "write") {
+      throw new ConflictException(decision);
+    }
+    return writeRosterAssignment(this.prisma, async tx => {
+      const fresh = await this.monthState(actor, ministryId, month, pilot, tx as never);
+      const again = decideMonthSave(fresh, request);
+      if (again.action === "replay") return again.simulation;
+      if (again.action !== "write") throw new ConflictException(again);
+      const writes = draftsToPersist(again.simulation);
+      for (const service of again.simulation.services) {
+        if (service.persisted || service.status === "CANCELLED" || service.status === "PUBLISHED" || service.status === "CLOSED") continue;
+        const created = await tx.roster.create({
+          data: {
+            organizationId: pilot.organizationId, churchId: pilot.churchId, ministryId, moduleId: service.moduleId,
+            title: service.title, serviceAt: new Date(service.serviceAt), serviceType: service.serviceType, status: "DRAFT",
+            slots: { create: service.slots.map((slot, sortOrder) => ({ roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple, requiredQualification: slot.requiredQualification, sortOrder })) },
+          },
+          include: { slots: { orderBy: { sortOrder: "asc" } } },
+        });
+        created.slots.forEach((slot, index) => { if (service.slots[index]) service.slots[index].id = slot.id; });
+      }
+      for (const item of writes) {
+        const slotId = item.slot.id;
+        if (!slotId || !item.slot.personId) continue;
+        const existing = await tx.rosterAssignment.findFirst({ where: { slotId, status: { in: ["PENDING", "CONFIRMED"] } }, select: { personId: true } });
+        if (existing?.personId === item.slot.personId) continue;
+        if (existing) throw new ConflictException({ code: "ROSTER_PREVIEW_STALE", message: "A vaga foi preenchida por outra gravação. Atualize o mês e tente de novo." });
+        await tx.rosterAssignment.create({ data: { slotId, personId: item.slot.personId, partnerPersonId: item.slot.partnerPersonId ?? null, status: "PENDING" } });
+      }
+      return this.monthState(actor, ministryId, month, pilot, tx as never).then(state => planMonth(state));
     });
-    return { month, rosters: result, responses: members.filter(member => response.has(member.personId)).length, members: members.length };
+  }
+
+  private async monthState(actor: AuthUser, ministryId: string, month: string, pilot: { organizationId: string; churchId: string }, db: unknown = this.prisma) {
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    const access = await loadRosterAccess(db as never, actor, ministry, pilot);
+    const state = await loadMonthState(db as never, pilot, ministryId, month);
+    if (!state) throw new ConflictException({ code: "ROSTER_PREVIEW_UNVERIFIED", message: "A simulação não pôde ser conferida com a pesquisa, a disponibilidade e o histórico." });
+    if (access.scope === "modules") state.modules = state.modules.filter(module => access.moduleIds.includes(module.id));
+    return state;
+  }
+
+  async monthlyPreview(actor: AuthUser, ministryId: string, month: string) {
+    const simulation = await this.simulateMonth(actor, ministryId, month);
+    return {
+      month, version: simulation.version, fingerprint: simulation.fingerprint, timeZone: simulation.timeZone, limitScope: simulation.limitScope,
+      rosters: simulation.services.filter(service => service.persisted && service.status === "DRAFT").map(service => ({
+        id: service.rosterId, title: service.title, moduleName: service.moduleName, serviceAt: service.serviceAt,
+        positions: service.slots.filter(slot => !slot.locked).map(slot => ({
+          slotId: slot.id, roleLabel: slot.roleLabel, personId: slot.personId, partnerPersonId: slot.partnerPersonId ?? null,
+          personName: slot.personName ?? null, partnerName: slot.partnerName ?? null, reasons: slot.reasonCodes,
+          ...(slot.openVacancy ? { openVacancy: slot.openVacancy } : {}),
+        })),
+      })),
+      services: simulation.services,
+    };
   }
 
   async listMinistry(actor: AuthUser, ministryId: string) {

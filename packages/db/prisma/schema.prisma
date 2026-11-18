@@ -119,6 +119,8 @@ model Organization {
   securityPolicies SecurityPolicy[]
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
+  serviceOccurrences ChurchServiceOccurrence[]
+  servingPreferences VolunteerServingPreference[]
   @@map("organizations")
 }
 
@@ -185,6 +187,8 @@ model Church {
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
   rosterNoticeDeliveries RosterNoticeDelivery[]
+  serviceOccurrences ChurchServiceOccurrence[]
+  servingPreferences VolunteerServingPreference[]
   @@map("churches")
 }
 
@@ -278,6 +282,7 @@ model Person {
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
   rosterAssignmentResponses RosterAssignmentResponse[]
+  servingPreferences VolunteerServingPreference[]
   @@map("persons")
 }
 
@@ -1668,6 +1673,45 @@ model RosterCapacityOverride {
 
   @@id([rosterId, groupKey])
   @@map("roster_capacity_overrides")
+}
+
+/// Agenda da congregação. A simulação lê estes cultos e não grava ao abrir a prévia.
+model ChurchServiceOccurrence {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  serviceAt      DateTime @map("service_at")
+  serviceType    String   @map("service_type")
+  status         String   @default("SCHEDULED")
+  title          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+
+  @@unique([churchId, serviceAt])
+  @@index([churchId, serviceAt])
+  @@map("church_service_occurrences")
+}
+
+/// Preferências de horário. Ausência da linha não impede a escala.
+model VolunteerServingPreference {
+  id               String  @id @default(cuid())
+  organizationId   String  @map("organization_id")
+  churchId         String  @map("church_id")
+  personId         String  @map("person_id")
+  onlyMorning      Boolean @default(false) @map("only_morning")
+  onlyEvening      Boolean @default(false) @map("only_evening")
+  onlyFirstSunday  Boolean @default(false) @map("only_first_sunday")
+  onlySecondSunday Boolean @default(false) @map("only_second_sunday")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@unique([churchId, personId])
+  @@map("volunteer_serving_preferences")
 }
 
 /// Registro deduplicado de entrega. WhatsApp só entra quando o canal de DEV está aprovado.

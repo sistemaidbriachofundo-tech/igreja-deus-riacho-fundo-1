@@ -8,7 +8,8 @@ import {
   Post,
 } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, Matches, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, Matches, MinLength, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequireAccess } from "../auth/decorators/require-access.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -31,6 +32,39 @@ class AssignBody {
   @IsOptional()
   @IsBoolean()
   fromMonthlyPreview?: boolean;
+}
+
+class MonthPinBody {
+  @IsString()
+  @MinLength(1)
+  serviceKey!: string;
+
+  @IsString()
+  @MinLength(1)
+  slotKey!: string;
+
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsOptional()
+  @IsString()
+  partnerPersonId?: string;
+}
+
+class SaveMonthBody {
+  @Matches(/^[a-f0-9]{64}$/)
+  fingerprint!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  recalculate?: boolean;
+
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => MonthPinBody)
+  pins: MonthPinBody[] = [];
 }
 
 class MonthlyResponseBody {
@@ -94,6 +128,23 @@ export class PersonalRostersController {
   @Get("by-ministry/:ministryId/monthly-preview/:month")
   monthlyPreview(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string) {
     return this.rosters.monthlyPreview(user, ministryId, month);
+  }
+
+  /** Simulação do mês. version 1. Não grava cultos faltantes. */
+  @Roles(...LEAD_ROLES)
+  @Get("by-ministry/:ministryId/month/:month")
+  simulateMonth(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string) {
+    return this.rosters.simulateMonth(user, ministryId, month);
+  }
+
+  /**
+   * Grava o mês como rascunho. 409 ROSTER_PREVIEW_STALE pede para atualizar.
+   * 409 ROSTER_NOT_ELIGIBLE devolve reasonCodes. Não publica nem dispara aviso.
+   */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/month/:month")
+  saveMonth(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string, @Body() body: SaveMonthBody) {
+    return this.rosters.saveMonth(user, ministryId, month, body);
   }
 
   @Roles(...LEAD_ROLES)

@@ -30,7 +30,7 @@ function evaluateSingle(candidate: Candidate, slot: SlotDemand, assignments: rea
   if ((slot.rotationRule === 'NO_REPEAT_SAME_MONTH' || slot.rotationRule === 'ONCE_PER_MONTH') && samePositionMonth > 0) reasons.push('ROTATION_LIMIT');
   if (rules.familySameDayBlock && candidate.familyGroupId) {
     const relatives = [...byId.values()].filter(c=>c.personId !== candidate.personId && c.familyGroupId && c.familyGroupId === candidate.familyGroupId).map(c=>c.personId);
-    if (active.length === 0 && assignments.some(a => isActiveStatus(a.status) && (relatives.includes(a.personId) || !!a.partnerPersonId && relatives.includes(a.partnerPersonId)) && localParts(a.serviceAt,rules.timeZone).date === local.date && a.serviceAt !== slot.serviceAt)) reasons.push('FAMILY_DAY_CONFLICT');
+    if (assignments.some(a => isActiveStatus(a.status) && (relatives.includes(a.personId) || (!!a.partnerPersonId && relatives.includes(a.partnerPersonId))) && localParts(a.serviceAt,rules.timeZone).date === local.date && a.serviceAt !== slot.serviceAt)) reasons.push('FAMILY_DAY_CONFLICT');
   }
   if (!ignoreCouple && (slot.requiresCouple || (rules.enforceCouples && candidate.serveAsCouple))) {
     if (!candidate.spousePersonId && !candidate.coupleExceptionApproved) reasons.push('COUPLE_REQUIRED');

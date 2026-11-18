@@ -1,8 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { canAccessFinance, canAdministerMinistries } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
-import { previewSlots } from "./preview-domain/scheduler";
-import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
 import {
   aggregateResponses,
   buildCapacityGroups,
@@ -50,6 +48,9 @@ type Db = Record<string, unknown> & {
   };
   rosterSlot?: { create?: (args: unknown) => Promise<unknown>; deleteMany?: (args: unknown) => Promise<unknown> };
   rosterAssignment?: { create?: (args: unknown) => Promise<unknown>; findMany?: (args: unknown) => Promise<unknown[]> };
+  rosterAvailabilityResponse?: { findMany: (args: unknown) => Promise<unknown[]> };
+  volunteerAvailability?: { findMany: (args: unknown) => Promise<unknown[]> };
+  volunteerImpediment?: { findMany: (args: unknown) => Promise<unknown[]> };
   ministry?: { findMany: (args: unknown) => Promise<Array<{ id: string; leaderPersonId: string | null }>> };
   ministryMembership?: { findMany: (args: unknown) => Promise<Array<Record<string, unknown>>> };
   person?: { findMany?: (args: unknown) => Promise<Array<{ id: string }>> };
@@ -423,76 +424,29 @@ export async function maintainRosterCycle(db: Db, pilot: { organizationId: strin
       }
     }
   }
-  const generated = await fillClosedDrafts(db, pilot, modules, existing, now);
+  const generated = await fillVerifiedDrafts(db, pilot, modules, now);
   return { prepared, generated };
 }
 
-async function fillClosedDrafts(
-  db: Db,
-  pilot: { organizationId: string; churchId: string },
-  modules: Array<Record<string, unknown>>,
-  rosters: Array<Record<string, unknown>>,
-  now: Date,
-) {
-  if (!db.rosterAssignment?.create) return 0;
-  const teams = await volunteerIdsByModule(db, modules.map(module => String(module.id)), now);
-  if (!teams) return 0;
-  const ready = new Set(monthsReadyToFill(now));
-  const history: ExistingAssignment[] = [];
+async function fillVerifiedDrafts(db: Db, pilot: { organizationId: string; churchId: string }, modules: Array<Record<string, unknown>>, now: Date) {
+  if (!db.rosterAssignment?.create || !db.rosterAvailabilityResponse?.findMany || !db.volunteerAvailability?.findMany || !db.volunteerImpediment?.findMany) return 0;
+  const { loadMonthState } = await import("./roster-month-load");
+  const { draftsToPersist, planMonth } = await import("./roster-month-plan");
   let created = 0;
-  for (const roster of rosters) {
-    if (roster.status !== "DRAFT") continue;
-    const serviceAt = new Date(String(roster.serviceAt));
-    const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(serviceAt);
-    if (!ready.has(month)) continue;
-    const module = modules.find(item => item.id === roster.moduleId);
-    if (isManualCommunion(module?.name, module?.rules)) continue;
-    const rules = rulesWithTeam(module?.rules, String(roster.moduleId ?? ""), teams);
-    const open = Array.isArray(roster.slots) ? roster.slots as Array<Record<string, unknown>> : [];
-    const empty = open.filter(slot => !Array.isArray(slot.assignments) || !(slot.assignments as unknown[]).length);
-    if (!empty.length) continue;
-    const members = rules.volunteerIds ?? [];
-    if (!members.length) {
-      for (const slot of empty) slot.openReason = openVacancyText(["EMPTY_TEAM"]);
-      continue;
-    }
-    const candidates: Candidate[] = members.map(personId => ({
-      personId, active: true, churchIds: [pilot.churchId], ministryIds: [String(module?.ministryId ?? "")],
-      qualifiedPositionIds: empty.map(slot => String(slot.id)),
-      approvedRoleTags: Object.keys(rules.qualifications).filter(tag => rules.qualifications[tag].includes(personId)),
-      spousePersonId: rules.couples.find(pair => pair.includes(personId))?.find(id => id !== personId) ?? null,
-      availability: [],
-    }));
-    const plan = previewSlots(empty.map(slot => ({
-      slotId: String(slot.id), rosterId: String(roster.id), churchId: pilot.churchId, ministryId: String(module?.ministryId ?? ""),
-      positionId: String(slot.roleLabel), roleLabel: String(slot.roleLabel), requiresCouple: Boolean(slot.requiresCouple),
-      requiredRoleTags: slot.requiredQualification ? [String(slot.requiredQualification)] : [],
-      serviceAt: serviceAt.toISOString(), serviceType: String(roster.serviceType ?? "special_event") as CultType,
-    })), candidates, history, { ...DEFAULT_RULES, minIntervalDays: rules.minIntervalDays, maxMonthlyAssignments: rules.maxMonthlyAssignments, requireExplicitAvailability: false });
-    for (const draft of plan.drafts) {
-      await db.rosterAssignment.create({ data: { slotId: draft.slotId, personId: draft.personId, partnerPersonId: draft.partnerPersonId, status: "PENDING" } });
-      history.push({
-        assignmentId: draft.slotId, churchId: pilot.churchId, ministryId: String(module?.ministryId ?? ""),
-        positionId: draft.slotId, slotId: draft.slotId, rosterId: draft.rosterId, serviceAt: serviceAt.toISOString(),
-        status: "PENDING", personId: draft.personId, partnerPersonId: draft.partnerPersonId,
-      });
-      const slot = empty.find(item => item.id === draft.slotId);
-      if (slot) slot.assignments = [{ id: draft.slotId }];
-      created += 1;
-    }
-    for (const gap of plan.unfilled) {
-      const slot = empty.find(item => item.id === gap.slotId);
-      if (slot) slot.openReason = openVacancyText(gap.reasons);
+  for (const month of monthsReadyToFill(now)) {
+    for (const ministryId of [...new Set(modules.map(module => String(module.ministryId)))]) {
+      const monthState = await loadMonthState(db as never, pilot, ministryId, month);
+      if (!monthState) return created;
+      for (const item of draftsToPersist(planMonth(monthState, { recalculate: true }))) {
+        if (!item.slot.id || !item.slot.personId) continue;
+        await db.rosterAssignment.create({ data: { slotId: item.slot.id, personId: item.slot.personId, partnerPersonId: item.slot.partnerPersonId ?? null, status: "PENDING" } });
+        created += 1;
+      }
     }
   }
   return created;
 }
 
-function isManualCommunion(name: unknown, raw: unknown): boolean {
-  const label = typeof name === "string" ? name : "";
-  return label.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("pt-BR").trim() === "ceia"
-    && effectiveInviteLimit(label, raw, 0) === 0;
-}
 
 export async function recordNoticeDeliveries(db: Db, notices: Array<{ id: string; churchId: string }>, now = new Date()) {
   if (!db.rosterNoticeDelivery?.createMany || !notices.length) return { recorded: 0, whatsapp: "skipped" as const };
