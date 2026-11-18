@@ -170,16 +170,28 @@
 .detailHeading, .page :global(:is(#agenda-de-eventos, #revisar-evento, #inscricoes-do-evento)) { scroll-margin-top: 90px; }
 
 .eventDetail { border-color: #cddfeb; background: #f2f7fb; }
-.eventDetail h2 { font-size: clamp(1.4rem, 2.2vw, 1.9rem); color: var(--app-info); }
-.eventDetail .link { color: var(--app-info); }
-.eventDetail .actions .link { padding: 5px 12px; border: 1px solid #cddfeb; border-radius: 9px; background: #fff; }
-.eventDetail .actions .link:hover { background: var(--app-info-bg); }
+.eventDetail h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); color: var(--app-info); overflow-wrap: anywhere; }
+.backToAgenda { display: inline-flex; align-items: center; min-height: 44px; width: fit-content; color: var(--app-info); font-weight: 700; }
+.backToAgenda:hover { text-decoration: underline; }
+.eventLinks { display: flex; flex-wrap: wrap; gap: 9px; }
+.eventLinks a { display: inline-flex; min-height: 48px; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid #cddfeb; border-radius: 11px; background: #fff; color: var(--app-info); font-weight: 700; }
+.eventLinks a:hover { background: var(--app-info-bg); }
+.eventLinks a[href="#inscricoes-do-evento"] { color: var(--app-success); border-color: #cde3db; }
+.eventLinks a[href="#escala-do-evento"] { color: var(--app-violet); border-color: #ddd2e8; }
+.eventLinks a svg { flex: none; }
 .createPanel { scroll-margin-top: 88px; border: 1px solid #cde3db; background: #f3f9f6; border-radius: 13px; min-width: 0; }
-.createPanel > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 9px 16px; cursor: pointer; color: var(--app-success); font-weight: 750; }
-.createPanel > summary::after { content: '+'; margin-inline-start: auto; }
-.createPanel[open] > summary::after { content: '−'; }
+.createPanel:not([open]), .createPanel[hidden], .agendaPanel[hidden], .createPanel[open]:not([hidden]) + .agendaPanel { display: none; }
+.createPanel > summary { display: flex; align-items: center; gap: 9px; min-height: 55px; padding: 10px 16px; cursor: pointer; color: var(--app-success); font-size: 1.15rem; font-weight: 750; }
+.closeCreation { margin-inline-start: auto; flex: none; }
 .createPanel > form { margin: 0 10px 10px; }
-.createPanel > form > button { justify-self: start; }
+.creationHint { margin: 0; color: var(--app-muted); font-size: .9rem; }
+.linkSettings { background: #f2f7fb; border: 1px solid #dce6ef; border-radius: 10px; padding: 4px 12px 8px; }
+.linkSettings > summary { color: var(--app-info); }
+.linkSettings label { margin-bottom: 5px; }
+.agendaResults .agendaRow { padding-inline: clamp(9px, 2vw, 18px); }
+.agendaResults .agendaRow:focus-within { background: #f2f8f5; }
+.agendaResults .agendaIcon { color: var(--app-info); background: var(--app-info-bg); }
+.viewToggle button[aria-pressed="true"] { color: #fff; background: var(--app-info); border-color: var(--app-info); }
 .panel button:where(:not(.calendarControls button, .agendaRow button, .secondary, .chip, .chipOn)) { background: var(--app-accent); border-color: var(--app-accent); }
 .panel button:where(:not(.calendarControls button, .agendaRow button, .secondary, .chip, .chipOn)):hover { background: var(--app-accent-hover); }
 .registrationStep, .checkInPanel, .paymentPanel { min-width: 0; padding: 14px; border: 1px solid var(--app-border); border-radius: 12px; }

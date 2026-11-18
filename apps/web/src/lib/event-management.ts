@@ -65,6 +65,13 @@ export function eventSlugFromName(name: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80).replace(/-$/, "");
 }
 
+export function generateEventCode(name: string, maxLength = 80): string {
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+    .replace(/[0-9]/g, digit => "ghijklmnop"[Number(digit)]);
+  const base = eventSlugFromName(name).slice(0, maxLength - suffix.length - 1).replace(/-$/, "") || "evento";
+  return `${base}-${suffix}`;
+}
+
 export function publicationBlockReason(event: {
   name: string;
   slug: string;

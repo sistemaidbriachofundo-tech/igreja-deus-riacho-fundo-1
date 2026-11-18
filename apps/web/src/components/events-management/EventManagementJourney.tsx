@@ -11,7 +11,7 @@ import { dasError, churchLocalToISO, readDasRows } from "../../lib/das-operation
 import { isSyntheticLabel } from "../../lib/event-registrations";
 import {
   canRecordPresence,
-  eventSlugFromName,
+  generateEventCode,
   participationQuery,
   publicationBlockReason,
   readEventPaymentAccounts,
@@ -45,6 +45,21 @@ function revealEventCreation() {
   panel.querySelector("input")?.focus({ preventScroll: true });
 }
 
+function closeEventCreation() {
+  const panel = document.querySelector<HTMLDetailsElement>("details#novo-evento");
+  if (panel) panel.open = false;
+  if (window.location.hash === "#novo-evento") {
+    const url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(window.history.state, "", url);
+  }
+}
+
+function cancelEventCreation() {
+  closeEventCreation();
+  document.getElementById("acao-novo-evento")?.focus();
+}
+
 export function EventManagementJourney() {
   const enabled = isAdminEnabled();
   const production = isProductionAdmin();
@@ -57,7 +72,14 @@ export function EventManagementJourney() {
   useEffect(() => {
     if (phase !== "ready") return;
     const openCreation = () => {
-      if (window.location.hash === "#novo-evento") revealEventCreation();
+      if (window.location.hash !== "#novo-evento") return;
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("evento")) {
+        url.searchParams.delete("evento");
+        window.history.replaceState(window.history.state, "", url);
+      }
+      setSelectedId("");
+      requestAnimationFrame(revealEventCreation);
     };
     openCreation();
     window.addEventListener("hashchange", openCreation);
@@ -186,9 +208,8 @@ export function EventManagementJourney() {
   function createDraft(event: FormEvent) {
     event.preventDefault();
     const startsAt = churchLocalToISO(creating.startsAt);
-    const slug = creating.slug || eventSlugFromName(creating.name);
-    if (creating.name.trim().length < 3 || !/^[a-z0-9-]{3,80}$/.test(slug) || !startsAt) {
-      setNotice("Informe nome, identificador e data válidos.");
+    if (creating.name.trim().length < 3 || !startsAt) {
+      setNotice("Informe o nome, a data e o horário de início do evento.");
       return;
     }
     if ((ministryRequired || creating.ministryId) && !ministryOptions.some(ministry => ministry.id === creating.ministryId)) {
@@ -196,6 +217,7 @@ export function EventManagementJourney() {
       return;
     }
     void run(async () => {
+      const slug = generateEventCode(creating.name);
       const created = await apiPost<{ id: string }>("/events", token, {
         name: creating.name.trim(),
         slug,
@@ -205,7 +227,8 @@ export function EventManagementJourney() {
         ...(creating.ministryId ? { ministryId: creating.ministryId } : {}),
       });
       setCreating({ ...EMPTY, ministryId: creating.ministryId });
-      setNotice("Rascunho gravado. Configure as modalidades e os lotes antes de publicar.");
+      closeEventCreation();
+      setNotice("Rascunho salvo. Se o evento tiver inscrições, configure os tipos e as vagas antes de publicar.");
       const updated = await reloadEvents();
       const draft = updated.find(item => item.id === created.id);
       if (draft) {
@@ -222,6 +245,10 @@ export function EventManagementJourney() {
     if (!selected || selected.status !== "DRAFT") return;
     const startsAt = editing.startsAt ? churchLocalToISO(editing.startsAt) : null;
     if (editing.startsAt && !startsAt) { setNotice("Data inválida."); return; }
+    if (!/^[a-z0-9-]{3,80}$/.test(editing.slug.trim())) {
+      setNotice("Confira o final do link da inscrição. Use letras minúsculas, números e hífens.");
+      return;
+    }
     void run(async () => {
       await apiPatch(`/events/${encodeURIComponent(selected.id)}`, token, {
         name: editing.name.trim(),
@@ -251,6 +278,7 @@ export function EventManagementJourney() {
       return;
     }
     const event = events.find((item) => item.id === eventId) ?? null;
+    setNotice("");
     setSelectedId(eventId);
     setReport(null);
     setIssuedCode("");
@@ -263,6 +291,16 @@ export function EventManagementJourney() {
       locationText: event.locationText,
       startsAt: "",
     });
+  }
+
+  function returnToAgenda() {
+    setSelectedId("");
+    setNotice("");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("evento");
+    url.hash = "agenda-de-eventos";
+    window.history.replaceState(window.history.state, "", url);
+    requestAnimationFrame(() => document.getElementById("titulo-agenda-eventos")?.focus());
   }
 
   function registerSynthetic(event: FormEvent) {
@@ -397,6 +435,7 @@ export function EventManagementJourney() {
         onSave={saveDraft}
         onPublish={publish}
         onChoose={choose}
+        onReturnToAgenda={returnToAgenda}
         onParticipant={setParticipant}
         onPartySize={setPartySize}
         onRegister={registerSynthetic}
@@ -456,6 +495,7 @@ export function EventManagementView(props: {
   onSave: (event: FormEvent) => void;
   onPublish: () => void;
   onChoose: (eventId: string) => void;
+  onReturnToAgenda?: () => void;
   onParticipant: (value: string) => void;
   onPartySize: (value: number) => void;
   onRegister: (event: FormEvent) => void;
@@ -469,10 +509,10 @@ export function EventManagementView(props: {
 }) {
   const published = props.selected?.status === "PUBLISHED";
   return <div className={s.page}>
-    <PageHeader appearance="workspace" heading="h1" title="Agenda, presença e participação"
-      description="Organize eventos, acompanhe inscrições e registre a presença."
+    <PageHeader appearance="workspace" heading="h1" title="Gestão de eventos"
+      description={props.selected ? undefined : "Veja a agenda, cadastre eventos e acompanhe as inscrições."}
       actions={<>
-        {props.phase === "ready" && !props.treasuryOnly && <a className={ui.workspacePrimary} href="#novo-evento" onClick={revealEventCreation}><UIIcon name="plus" size={18} /> Novo evento</a>}
+        {props.phase === "ready" && !props.treasuryOnly && !props.selected && <a id="acao-novo-evento" className={ui.workspacePrimary} href="#novo-evento" onClick={revealEventCreation}><UIIcon name="plus" size={18} /> Novo evento</a>}
         <a className={ui.workspaceSecondary} href={withBasePath("/app/relatorios/")}><UIIcon name="activity" size={18} /> Relatórios de gestão</a>
       </>} />
     {props.phase === "disabled" && <p className={s.blocked} role="status">O acesso à gestão de eventos está indisponível neste endereço.</p>}
@@ -482,53 +522,68 @@ export function EventManagementView(props: {
     {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Tente novamente."}</p>}
     {props.notice && props.phase === "ready" && <p className={s.notice} role="status">{props.notice}</p>}
     {props.phase === "ready" && <>
-      <section className={s.panel} id="agenda-de-eventos">
-        <h2 className={s.agendaHeading}><span className={s.agendaMark}><UIIcon name="calendar" size={23} /></span>Agenda</h2>
-        <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
-      </section>
-      {props.selected && <section className={`${s.panel} ${s.eventDetail}`} aria-labelledby="evento-aberto">
-        <a className={s.link} href="#agenda-de-eventos">← Voltar à agenda de eventos</a>
-        <div>
-          <h2 id="evento-aberto" className={s.detailHeading} tabIndex={-1} ref={props.selectedHeading}>{props.selected.name}</h2>
-          <p className={s.lede}><span className={s.agendaTag} data-status={props.selected.status}>{eventStatusLabel(props.selected.status)}</span> · {formatPortalDate(props.selected.startsAt).dayAndTime}
-            {props.selected.locationText && " · " + props.selected.locationText}</p>
-        </div>
-        <div className={s.actions} aria-label="Ações do evento selecionado">
-          {!props.treasuryOnly && <a className={s.link} href="#revisar-evento">Revisar e publicar</a>}
-          {props.rosterDesk && <a className={s.link} href="#escala-do-evento">Escala da equipe</a>}
-          {props.registrationDesk && <a className={s.link} href="#inscricoes-do-evento">{props.treasuryOnly ? "Consultar Pix do evento" : "Inscrições, pagamentos e presença"}</a>}
-        </div>
-      </section>}
-      {!props.treasuryOnly && <details id="novo-evento" className={s.createPanel}>
-        <summary id="novo-evento-titulo"><UIIcon name="plus" size={18} /> Cadastrar evento</summary>
-        <form className={s.panel} aria-labelledby="novo-evento-titulo" onSubmit={props.onCreate}>
+      {!props.treasuryOnly && <details id="novo-evento" className={s.createPanel} hidden={Boolean(props.selected)}>
+        <summary aria-label="Fechar cadastro de evento" onClick={event => { event.preventDefault(); cancelEventCreation(); }}>
+          <UIIcon name="plus" size={18} /> Cadastrar evento <span className={s.closeCreation}><UIIcon name="close" size={19} /></span>
+        </summary>
+        <form className={s.panel} aria-label="Cadastrar evento" onSubmit={props.onCreate}>
           <div className={s.grid}>
-            <label>Nome<input value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
+            <label>Nome<input placeholder="Ex. Encontro de jovens" value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
             {(props.ministryOptions || props.leaderMinistries) && <label>Ministério responsável
               <select required={props.ministryRequired ?? Boolean(props.leaderMinistries)} value={props.creating.ministryId ?? ""} onChange={event => props.onCreating({ ...props.creating, ministryId: event.target.value })}>
                 <option value="">{props.ministryRequired ? "Selecione seu ministério" : "Evento da congregação"}</option>
                 {(props.ministryOptions ?? props.leaderMinistries ?? []).map(ministry => <option key={ministry.id} value={ministry.id}>{ministry.name}</option>)}
               </select>
             </label>}
-            <label>Endereço no site (opcional)<input value={props.creating.slug} placeholder={eventSlugFromName(props.creating.name)} onChange={(event) => props.onCreating({ ...props.creating, slug: event.target.value })} pattern="[a-z0-9-]{3,80}" maxLength={80}/></label>
-            <label>Início<input type="datetime-local" value={props.creating.startsAt} onChange={(event) => props.onCreating({ ...props.creating, startsAt: event.target.value })} required/></label>
-            <label>Local público<input value={props.creating.locationText} onChange={(event) => props.onCreating({ ...props.creating, locationText: event.target.value })} maxLength={180}/></label>
-            <label className={s.wide}>Descrição sem dados pessoais<textarea value={props.creating.description} onChange={(event) => props.onCreating({ ...props.creating, description: event.target.value })} maxLength={1200}/></label>
+            <label>Data e horário de início<input type="datetime-local" value={props.creating.startsAt} onChange={(event) => props.onCreating({ ...props.creating, startsAt: event.target.value })} required/></label>
+            <label>Local do evento<input placeholder="Ex. Auditório da igreja" value={props.creating.locationText} onChange={(event) => props.onCreating({ ...props.creating, locationText: event.target.value })} maxLength={180}/></label>
+            <label className={s.wide}>Descrição para a agenda<textarea value={props.creating.description} onChange={(event) => props.onCreating({ ...props.creating, description: event.target.value })} maxLength={1200}/></label>
           </div>
           {props.ministryRequired && !props.ministryOptions?.length && <p className={s.notice}>Seu acesso ainda não está vinculado a um ministério. Fale com a Secretaria.</p>}
-          <button type="submit" disabled={props.busy || (props.ministryRequired && !props.ministryOptions?.length)}>Gravar rascunho</button>
+          <p className={s.creationHint}>O link da inscrição é gerado a partir do nome. Você pode configurar as vagas e revisar o evento antes de publicar.</p>
+          <div className={s.actions}>
+            <button type="submit" disabled={props.busy || (props.ministryRequired && !props.ministryOptions?.length)}>Salvar rascunho</button>
+            <button type="button" className={s.secondary} onClick={cancelEventCreation}>Voltar à agenda</button>
+          </div>
         </form>
       </details>}
+      <section className={`${s.panel} ${s.agendaPanel}`} id="agenda-de-eventos" hidden={Boolean(props.selected)}>
+        <h2 className={s.agendaHeading} id="titulo-agenda-eventos" tabIndex={-1}><span className={s.agendaMark}><UIIcon name="calendar" size={23} /></span>Agenda</h2>
+        <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
+      </section>
+      {props.selected && <section className={`${s.panel} ${s.eventDetail}`} aria-labelledby="evento-aberto">
+        <a className={s.backToAgenda} href="#agenda-de-eventos" onClick={event => {
+          if (props.onReturnToAgenda) { event.preventDefault(); props.onReturnToAgenda(); }
+        }}>← Voltar à agenda de eventos</a>
+        <div>
+          <h2 id="evento-aberto" className={s.detailHeading} tabIndex={-1} ref={props.selectedHeading}>{props.selected.name}</h2>
+          <p className={s.lede}><span className={s.agendaTag} data-status={props.selected.status}>{eventStatusLabel(props.selected.status)}</span> · {formatPortalDate(props.selected.startsAt).dayAndTime}
+            {props.selected.locationText && " · " + props.selected.locationText}</p>
+        </div>
+        <nav className={s.eventLinks} aria-label="Seções do evento">
+          {!props.treasuryOnly && <a href="#revisar-evento"><UIIcon name="calendar" size={20} /><span>{props.selected.status === "DRAFT" ? "Dados e publicação" : "Dados do evento"}</span></a>}
+          {props.registrationDesk && <a href="#inscricoes-do-evento"><UIIcon name={props.treasuryOnly ? "wallet" : "check"} size={20} /><span>{props.treasuryOnly ? "Pix do evento" : "Inscrições e presença"}</span></a>}
+          {props.rosterDesk && <a href="#escala-do-evento" onClick={() => {
+            const roster = document.querySelector<HTMLDetailsElement>("details#escala-do-evento");
+            if (roster) roster.open = true;
+          }}><UIIcon name="people" size={20} /><span>Escala da equipe</span></a>}
+        </nav>
+      </section>}
       {!props.treasuryOnly && props.selected && <section className={s.panel} id="revisar-evento">
-        <h2>Revisar e publicar</h2>
-        <p className={s.lede}>{props.selected.name} · {eventStatusLabel(props.selected.status)}</p>
+        <h2>{props.selected.status === "DRAFT" ? "Dados e publicação" : "Dados do evento"}</h2>
+        {props.selected.status !== "DRAFT" && !props.blockReason && props.selected.description && <p className={s.lede}>{props.selected.description}</p>}
         {props.selected.status === "DRAFT" && <form className={s.grid} onSubmit={props.onSave}>
           <label>Nome<input value={props.editing.name} onChange={(event) => props.onEditing({ ...props.editing, name: event.target.value })} required/></label>
-          <label>Endereço no site<input value={props.editing.slug} onChange={(event) => props.onEditing({ ...props.editing, slug: event.target.value })} required pattern="[a-z0-9-]{3,80}"/><small className={s.paymentHint}>Use letras minúsculas, números e hífens. Exemplo: encontro-de-jovens.</small></label>
           <label>Novo início, se precisar<input type="datetime-local" value={props.editing.startsAt} onChange={(event) => props.onEditing({ ...props.editing, startsAt: event.target.value })}/></label>
           <label>Local<input value={props.editing.locationText} onChange={(event) => props.onEditing({ ...props.editing, locationText: event.target.value })}/></label>
           <label className={s.wide}>Descrição<textarea value={props.editing.description} onChange={(event) => props.onEditing({ ...props.editing, description: event.target.value })}/></label>
-          <button type="submit" disabled={props.busy}>Salvar rascunho</button>
+          <details className={`${s.wide} ${s.linkSettings}`}>
+            <summary>Personalizar link da inscrição</summary>
+            <label>Final do link<input value={props.editing.slug} onChange={(event) => props.onEditing({ ...props.editing, slug: event.target.value })} required pattern={"[a-z0-9\\-]{3,80}"} maxLength={80} />
+              <small>O último trecho do endereço que você compartilha. Exemplo: encontro-de-jovens.</small>
+            </label>
+          </details>
+          <div className={`${s.wide} ${s.actions}`}><button type="submit" disabled={props.busy}>Salvar alterações</button></div>
         </form>}
         {props.blockReason && <p className={s.blocked} role="alert">{props.blockReason}</p>}
         <button type="button" disabled={props.busy || props.selected.status !== "DRAFT" || Boolean(props.blockReason)} onClick={props.onPublish}>

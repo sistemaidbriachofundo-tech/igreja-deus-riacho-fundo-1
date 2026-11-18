@@ -1,13 +1,13 @@
 .frame {
   --shell-target: 44px;
-  --shell-forest: #191919;
-  --shell-forest-deep: #101010;
+  --shell-forest: #17342f;
+  --shell-forest-deep: #122823;
   --shell-text: #f7f7f7;
-  --shell-muted: #d0d0d0;
+  --shell-muted: #d1e3dd;
   --shell-line: #ffffff26;
   --shell-hover: #ffffff15;
-  --shell-selected: #444444;
-  --shell-gold: #e0e0e0;
+  --shell-selected: #285448;
+  --shell-highlight: #aedbc6;
   --app-ink: #222222;
   --app-muted: #535353;
   --app-accent: #246051;
@@ -119,13 +119,13 @@
   margin: 0 6px 27px;
   padding: 11px;
   border-radius: 8px;
-  border: 1px solid #434343;
-  background: #2f2f2f;
+  border: 1px solid var(--shell-line);
+  background: var(--shell-hover);
 }
 .railOnline {
   width: 6px;
   height: 6px;
-  background: #afafaf;
+  background: var(--shell-highlight);
   border-radius: 50%;
   flex: none;
 }
@@ -185,12 +185,19 @@
   flex: 1;
   min-width: 0;
 }
-.menuActive {
+.menuActive, .ministryToggle[data-current="true"] {
   background: var(--shell-selected);
   color: var(--shell-text);
-  box-shadow: inset 3px 0 var(--shell-gold);
+  box-shadow: inset 3px 0 var(--module-icon, var(--shell-highlight));
   font-weight: 700;
 }
+.menu :is(.menuItem,.menuActive,.ministryToggle,.subItem,.subSelected) > svg:first-child {
+  color: var(--module-icon, var(--shell-highlight));
+}
+.frame :is([data-section="secretaria"], [data-section="carteirinha"]) { --module-icon: #a8d7ff; --mobile-icon: var(--app-info); --mobile-tint: var(--app-info-bg); }
+.frame :is([data-section="eventos-gestao"], [data-section="eventos-membro"]) { --module-icon: #f5cf8f; --mobile-icon: var(--app-warning); --mobile-tint: var(--app-warning-bg); }
+.frame :is([data-section="ministerios"], [data-section="meu-espaco"]) { --module-icon: #d8bef9; --mobile-icon: var(--app-violet); --mobile-tint: var(--app-violet-bg); }
+.frame [data-section="tesouraria"] { --module-icon: #b9e3a1; --mobile-icon: var(--app-success); --mobile-tint: var(--app-success-bg); }
 .activeIndicator {
   display: none;
 }
@@ -245,7 +252,7 @@
   color: var(--shell-text);
   font: 700 12px/1.3 var(--site-font);
   text-decoration: none;
-  box-shadow: inset 2px 0 var(--shell-gold);
+  box-shadow: inset 2px 0 var(--module-icon, var(--shell-highlight));
 }
 .subSelected svg { flex: none; }
 .subSelected:hover { color: var(--shell-text); }
@@ -281,7 +288,7 @@
   gap: 22px;
   min-height: 66px;
   padding: 10px 28px;
-  background: linear-gradient(100deg, var(--shell-forest), #343434 90%);
+  background: linear-gradient(100deg, var(--shell-forest), #233e51 95%);
   border-bottom: 1px solid var(--shell-line);
 }
 .toolbarIdentity {
@@ -424,7 +431,7 @@
   text-decoration: none;
 }
 .profileLink:hover { background: var(--shell-hover); }
-.profileLink:focus-visible { outline: 2px solid var(--shell-gold); outline-offset: 2px; }
+.profileLink:focus-visible { outline: 2px solid var(--shell-highlight); outline-offset: 2px; }
 .account {
   display: grid;
   place-items: center;
@@ -432,7 +439,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--shell-gold);
+  background: var(--shell-highlight);
   color: var(--shell-forest-deep);
   font-size: 10px;
   font-weight: 650;
@@ -725,7 +732,7 @@
   padding: 8px;
   margin: 0;
   border: 1px solid #545454;
-  background: #2e2e2e;
+  background: var(--shell-forest-deep);
   border-radius: 10px;
   box-shadow: 0 15px 35px #2b2b2b40;
 }
@@ -973,7 +980,8 @@
   .mobileItem, .mobileActive { min-height: 46px; border-radius: 15px; font-size: 11px; }
   .mobileActive { color: #464646; background: transparent; }
   .mobileNav :is(.mobileItem, .mobileActive) svg { box-sizing: content-box; padding: 3px 12px; border-radius: 999px; }
-  .mobileNav .mobileActive svg { background: #eaeaea; }
+  .mobileNav :is(.mobileItem, .mobileActive) svg { color: var(--mobile-icon, var(--app-accent)); }
+  .mobileNav .mobileActive svg { background: var(--mobile-tint, var(--app-success-bg)); }
   .modalBackdrop { inset: var(--visible-top, 0px) 0 auto; height: var(--visible-height, 100dvh); align-items: stretch; padding: 0; }
   .commandModal { width: 100%; max-height: 100%; border: 0; border-radius: 0; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
   .commandList { flex: 1; padding: 2px 14px 16px; }
@@ -1015,7 +1023,7 @@
     text-align: center;
   }
   .mobileNav[data-member] .mobileActive { color: #424242; font-weight: 760; }
-  .mobileNav[data-member] .mobileActive svg { background: #e7e7e7; }
+  .mobileNav[data-member] .mobileActive svg { background: var(--mobile-tint, var(--app-success-bg)); }
 }
 
 .brandEmblem, .smallLogo { filter: invert(1); }

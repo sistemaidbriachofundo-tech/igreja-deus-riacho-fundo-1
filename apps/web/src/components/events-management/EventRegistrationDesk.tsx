@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { apiGet, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
-import type { EventPaymentAccount, ManagedEvent } from "../../lib/event-management";
+import { generateEventCode, type EventPaymentAccount, type ManagedEvent } from "../../lib/event-management";
 import { withBasePath } from "../../lib/paths";
 import { EventQrScanner } from "./EventQrScanner";
 import { Alert } from "../ui";
@@ -106,23 +106,25 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
     submit.preventDefault();
     const form = submit.currentTarget;
     const data = new FormData(form);
+    const name = field(data, "name");
     void perform(() => apiPost(path + "/modalities", token, {
-      code: field(data, "code"), name: field(data, "name"), kind: "CUSTOM",
+      code: generateEventCode(name, 40), name, kind: "CUSTOM",
       minPartySize: 1, maxPartySize: Number(field(data, "maximum")),
-    }), "Modalidade cadastrada.", () => form.reset());
+    }), "Tipo de inscrição salvo.", () => form.reset());
   }
 
   function createLot(submit: FormEvent<HTMLFormElement>) {
     submit.preventDefault();
     const form = submit.currentTarget;
     const data = new FormData(form);
+    const name = field(data, "name");
     const price = Math.round(Number(field(data, "price")) * 100);
     if (paid && (!Number.isSafeInteger(price) || price < 1 || !accounts.some(account => account.id === accountId))) {
       setNotice({ text: "Informe o valor e selecione uma conta da igreja.", error: true });
       return;
     }
     void perform(() => apiPost(path + "/lots", token, {
-      code: field(data, "code"), name: field(data, "name"),
+      code: generateEventCode(name, 40), name,
       modalityId: field(data, "modality") || null, capacity: Number(field(data, "capacity")),
       status: "OPEN", currency: "BRL", priceCents: paid ? price : 0,
       receivingAccountId: paid ? accountId : null,
@@ -179,18 +181,15 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
     {lots.length > 0 && <ul className={s.lotList}>{lots.map(lot => <li key={lot.id}>
       <strong>{lot.name}</strong><span>{lot.priceCents > 0 ? formatEventPrice(lot.priceCents) : "Gratuito"} · {lot.status === "OPEN" ? "Aberto" : "Fechado"}</span>
     </li>)}</ul>}
-    {canManage && <details className={s.registrationStep} open={modalities.length === 0}><summary>Adicionar modalidade</summary>
+    {canManage && <details className={s.registrationStep} open={modalities.length === 0}><summary>Adicionar tipo de inscrição</summary>
       <form className={s.grid} onSubmit={createModality}>
-        <label>Nome da modalidade<input name="name" required maxLength={100} placeholder="Ex. Individual ou Família" />
+        <label>Nome do tipo de inscrição<input name="name" required maxLength={100} placeholder="Ex. Individual ou Família" />
           <small>É a opção que o participante vai escolher ao se inscrever.</small>
-        </label>
-        <label>Identificador<input name="code" required pattern="[a-z0-9\\-]+" maxLength={40} placeholder="Ex. familia" />
-          <small>Use letras minúsculas, números e hífen.</small>
         </label>
         <label>Pessoas por inscrição<input name="maximum" type="number" defaultValue={1} min={1} max={20} required />
           <small>Informe o máximo que entra no mesmo pedido.</small>
         </label>
-        <div className={s.actions}><button disabled={busy}>Cadastrar modalidade</button></div>
+        <div className={s.actions}><button disabled={busy}>Salvar tipo de inscrição</button></div>
       </form>
     </details>}
     {canManage && <details className={s.registrationStep} open={modalities.length > 0 && lots.length === 0}><summary>Abrir lote de inscrições</summary>
@@ -198,13 +197,12 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
         <label>Nome do lote<input name="name" required maxLength={100} placeholder="Ex. Primeiro lote" />
           <small>O lote define quantas vagas ficam disponíveis e o valor de cada inscrição.</small>
         </label>
-        <label>Identificador<input name="code" required pattern="[a-z0-9\\-]+" maxLength={40} /></label>
-        <label>Modalidade<select name="modality">
-          <option value="">Todas</option>
+        <label>Para quem é este lote<select name="modality">
+          <option value="">Todos os tipos de inscrição</option>
           {modalities.map(modality => <option key={modality.id} value={modality.id}>{modality.name}</option>)}
         </select></label>
         <label>Vagas<input name="capacity" type="number" min={1} required /></label>
-        <label>Tipo de inscrição<select value={paid ? "paid" : "free"} onChange={e => setPaid(e.target.value === "paid")}>
+        <label>Cobrança<select value={paid ? "paid" : "free"} onChange={e => setPaid(e.target.value === "paid")}>
           <option value="free">Gratuita</option><option value="paid">Paga por Pix</option>
         </select></label>
         {paid && <>
@@ -276,8 +274,9 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
           { bankCreditConfirmed: true, bankCreditReference: field(data, "creditReference"),
             bankCreditAmountCents: statementAmount }), "Crédito conciliado e inscrição confirmada.", () => setPending(null));
       }}>
-        <label>Identificador do crédito no extrato
+        <label>Referência da transação no extrato
           <input name="creditReference" minLength={6} maxLength={80} autoComplete="off" required />
+          <small>Copie o código que aparece nos detalhes do Pix recebido no banco.</small>
         </label>
         <label>Valor creditado em reais
           <input name="creditAmount" type="number" min="0.01" step="0.01" inputMode="decimal" required />

@@ -96,7 +96,8 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
-function SidebarGroup({ label, href, icon, active, current = active, compact, onNavigate, children }: {
+function SidebarGroup({ section, label, href, icon, active, current = active, compact, onNavigate, children }: {
+  section: AppNavKey;
   label: string;
   href: string;
   icon: GlyphName;
@@ -113,7 +114,7 @@ function SidebarGroup({ label, href, icon, active, current = active, compact, on
     const value = window.localStorage.getItem(key);
     setExpanded(active || value === "open");
   }, [key, active]);
-  return <div>
+  return <div data-section={section}>
     <div className={s.groupHeading}>
       <AppNavLink href={href} className={active ? s.menuActive : s.menuItem} aria-current={current ? "page" : undefined} title={compact ? label : undefined} onNavigate={onNavigate}>
         <UIIcon name={icon} size={19} /><span className={s.menuLabel}>{label}</span>
@@ -591,7 +592,7 @@ export function AppShell({
           {menuBlocks.map(block => {
             if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
             if (block.kind === "secretary") return (
-              <SidebarGroup key="secretaria" label="Secretaria" href="/app/secretaria/" icon="layers"
+              <SidebarGroup key="secretaria" section="secretaria" label="Secretaria" href="/app/secretaria/" icon="layers"
                 active={active === "secretaria" || active === "carteirinha"} current={active === "secretaria" && (!secretarySection || secretarySection === "resumo")} compact={railCollapsed} onNavigate={afterNavigate}>
                 {secretaryChildren.map(item => {
                   const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
@@ -603,7 +604,7 @@ export function AppShell({
               </SidebarGroup>
             );
             if (block.kind === "treasury") return (
-              <SidebarGroup key="tesouraria" label="Tesouraria" href="/app/tesouraria/" icon="wallet"
+              <SidebarGroup key="tesouraria" section="tesouraria" label="Tesouraria" href="/app/tesouraria/" icon="wallet"
                 active={active === "tesouraria"} current={false} compact={railCollapsed} onNavigate={afterNavigate}>
                 {treasuryChildren.map(item => {
                   const selected = active === "tesouraria" && treasurySection === item.section;
@@ -619,7 +620,7 @@ export function AppShell({
               const item = block.item;
               const children = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
               if (children.length) return (
-                <SidebarGroup key={item.key} label={item.label} href={item.href} icon={item.icon}
+                <SidebarGroup key={item.key} section={item.key} label={item.label} href={item.href} icon={item.icon}
                   active={active === item.key} current={active === item.key && !children.some(child => child.id === sectionId)}
                   compact={railCollapsed} onNavigate={afterNavigate}>
                   {children.map(child => {
@@ -631,11 +632,11 @@ export function AppShell({
                 </SidebarGroup>
               );
               const label = itemLabel(item);
-              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
+              return <AppNavLink key={item.key} data-section={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
                 <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
               </AppNavLink>;
             }
-            return <div key="ministerios" className={s.ministryBlock} data-open={ministryOpen ? "true" : "false"}>
+            return <div key="ministerios" className={s.ministryBlock} data-section="ministerios" data-open={ministryOpen ? "true" : "false"}>
               <button type="button" className={s.ministryToggle} data-nav-group="ministerios" data-current={active != null && isMinistryGroupKey(active) ? "true" : "false"} aria-expanded={ministryOpen} aria-controls={ministryListId} title={railCollapsed ? "Ministérios" : undefined} onClick={toggleMinistries}>
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
@@ -701,7 +702,7 @@ export function AppShell({
       </div>
 
       {menu.length > 0 && <nav className={s.mobileNav} data-member={memberShell || undefined} aria-label="Navegação principal no celular">
-        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
+        {phone.map(item => <AppNavLink key={item.key} data-section={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
