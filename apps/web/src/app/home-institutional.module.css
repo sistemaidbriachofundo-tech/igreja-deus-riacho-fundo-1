@@ -97,7 +97,7 @@
 }
 .purposesList li {
   display: grid;
-  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  grid-template-columns: minmax(0, min(45%, 10.75rem)) minmax(0, 1fr);
   align-items: center;
   min-inline-size: 0;
   overflow: hidden;
