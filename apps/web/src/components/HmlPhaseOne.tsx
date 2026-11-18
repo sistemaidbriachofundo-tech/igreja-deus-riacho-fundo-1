@@ -739,7 +739,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                             ? "secretaria"
                             : "documentação";
                         return (
-                          <article key={admission.id} className={s.admission}>
+                          <article key={admission.id} className={s.admission} data-step={done ? undefined : admission.currentStep}>
                             <div className={s.admissionIdentity}>
                               <PersonPortrait name={personName} size="small" />
                               <div><strong>{personName}</strong>

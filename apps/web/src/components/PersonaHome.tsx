@@ -534,9 +534,9 @@ function Metric({ label, value, href, hint, icon, loading }: { label: string; va
     </>
   );
   if (!href || value === null) {
-    return <article className={s.metric} aria-busy={value === null && loading}>{body}</article>;
+    return <article className={s.metric} data-icon={icon} aria-busy={value === null && loading}>{body}</article>;
   }
-  return <AppNavLink className={s.metric} href={href}>{body}</AppNavLink>;
+  return <AppNavLink className={s.metric} href={href} data-icon={icon}>{body}</AppNavLink>;
 }
 
 function RowList({ rows, hrefFor, empty }: {
@@ -764,10 +764,10 @@ export function PersonaBoard() {
 
       <nav className={s.actions} aria-label="Ações rápidas">
           {tasks.map(task => (
-            <AppNavLink key={task.key} href={task.href}>{TASK_LABEL[task.key]}</AppNavLink>
+            <AppNavLink key={task.key} href={task.href}><UIIcon name={task.icon} size={17} />{TASK_LABEL[task.key]}</AppNavLink>
           ))}
-          {memberView && <AppNavLink href="/app/servir/meu-espaco/#pesquisa-de-servico">Disponibilidade</AppNavLink>}
-          {memberView && <a href="#trilha-da-conexao">Trilha da Conexão</a>}
+          {memberView && <AppNavLink href="/app/servir/meu-espaco/#pesquisa-de-servico"><UIIcon name="calendar" size={17} /> Disponibilidade</AppNavLink>}
+          {memberView && <a href="#trilha-da-conexao"><UIIcon name="layers" size={17} /> Trilha da Conexão</a>}
       </nav>
 
       {(staff || leader) && <WorkspacePriorities showService={leader} showDecisions={staff} revision={reload} />}

@@ -155,9 +155,9 @@
 .agendaResults .agendaRow { padding-block: 9px; }
 .agendaIdentity { min-width: 0; overflow-wrap: anywhere; }
 .agendaTag { display: inline-flex; width: fit-content; margin-top: 4px; padding: 3px 7px; border-radius: 999px; font-size: .72rem; font-weight: 650; color: #636363; background: #f1f1f1; }
-.agendaTag[data-status="PUBLISHED"] { background: #eeeeee; color: #515151; }
-.agendaTag[data-status="DRAFT"] { background: #f1f1f1; color: #575757; }
-.agendaTag[data-status="CANCELLED"] { background: #f2f2f2; color: #4e4e4e; }
+.agendaTag[data-status="PUBLISHED"] { background: var(--app-success-bg); color: var(--app-success); }
+.agendaTag[data-status="DRAFT"] { background: var(--app-warning-bg); color: var(--app-warning); }
+.agendaTag[data-status="CANCELLED"] { background: var(--app-danger-bg); color: var(--app-danger); }
 @media (max-width: 760px) {
   .calendar .dayContent { min-height: 42px; }
   .calendar :is(.day,.dayOutside) { padding: 4px 2px; }
@@ -168,3 +168,25 @@
 }
 
 .detailHeading, .page :global(:is(#agenda-de-eventos, #revisar-evento, #inscricoes-do-evento)) { scroll-margin-top: 90px; }
+
+.eventDetail { border-color: #cddfeb; background: #f2f7fb; }
+.eventDetail h2 { font-size: clamp(1.4rem, 2.2vw, 1.9rem); color: var(--app-info); }
+.eventDetail .link { color: var(--app-info); }
+.eventDetail .actions .link { padding: 5px 12px; border: 1px solid #cddfeb; border-radius: 9px; background: #fff; }
+.eventDetail .actions .link:hover { background: var(--app-info-bg); }
+.createPanel { scroll-margin-top: 88px; border: 1px solid #cde3db; background: #f3f9f6; border-radius: 13px; min-width: 0; }
+.createPanel > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 9px 16px; cursor: pointer; color: var(--app-success); font-weight: 750; }
+.createPanel > summary::after { content: '+'; margin-inline-start: auto; }
+.createPanel[open] > summary::after { content: '−'; }
+.createPanel > form { margin: 0 10px 10px; }
+.createPanel > form > button { justify-self: start; }
+.panel button:where(:not(.calendarControls button, .agendaRow button, .secondary, .chip, .chipOn)) { background: var(--app-accent); border-color: var(--app-accent); }
+.panel button:where(:not(.calendarControls button, .agendaRow button, .secondary, .chip, .chipOn)):hover { background: var(--app-accent-hover); }
+.registrationStep, .checkInPanel, .paymentPanel { min-width: 0; padding: 14px; border: 1px solid var(--app-border); border-radius: 12px; }
+.registrationStep { background: #f5f8fb; }
+.registrationStep > summary { color: var(--app-info); }
+.checkInPanel { align-items: end; background: #f3faf6; border-color: #d4e7de; }
+.checkInPanel :is(h3, p), .paymentPanel h3 { margin: 0; }
+.checkInPanel h3 { color: var(--app-success); }
+.paymentPanel { display: grid; gap: 12px; background: #fffbf2; border-color: #eee1c7; }
+.paymentPanel h3 { color: var(--app-warning); }

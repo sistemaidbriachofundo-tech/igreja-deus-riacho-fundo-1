@@ -179,7 +179,7 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
     {lots.length > 0 && <ul className={s.lotList}>{lots.map(lot => <li key={lot.id}>
       <strong>{lot.name}</strong><span>{lot.priceCents > 0 ? formatEventPrice(lot.priceCents) : "Gratuito"} · {lot.status === "OPEN" ? "Aberto" : "Fechado"}</span>
     </li>)}</ul>}
-    {canManage && <details><summary>Adicionar modalidade</summary>
+    {canManage && <details className={s.registrationStep} open={modalities.length === 0}><summary>Adicionar modalidade</summary>
       <form className={s.grid} onSubmit={createModality}>
         <label>Nome da modalidade<input name="name" required maxLength={100} placeholder="Ex. Individual ou Família" />
           <small>É a opção que o participante vai escolher ao se inscrever.</small>
@@ -193,7 +193,7 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
         <div className={s.actions}><button disabled={busy}>Cadastrar modalidade</button></div>
       </form>
     </details>}
-    {canManage && <details open={lots.length === 0}><summary>Abrir lote de inscrições</summary>
+    {canManage && <details className={s.registrationStep} open={modalities.length > 0 && lots.length === 0}><summary>Abrir lote de inscrições</summary>
       <form className={s.grid} onSubmit={createLot}>
         <label>Nome do lote<input name="name" required maxLength={100} placeholder="Ex. Primeiro lote" />
           <small>O lote define quantas vagas ficam disponíveis e o valor de cada inscrição.</small>
@@ -234,14 +234,14 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
         </div>
       </form>}
     </section>}
-    {published && canManage && <form className={s.grid} onSubmit={checkIn}>
+    {published && canManage && <form className={`${s.grid} ${s.checkInPanel}`} onSubmit={checkIn}>
       <h3 className={s.wide}>Check-in</h3>
       <p className={s.wide}>Leia o QR do ingresso ou digite o código abaixo para registrar a chegada.</p>
       <label>Código do ingresso<input ref={code} name="checkInCode" autoComplete="off" minLength={8} maxLength={128} required /></label>
       <div className={s.actions}><button disabled={busy}>Registrar presença</button>
         {!busy && <EventQrScanner onRead={registerPresence} />}</div>
     </form>}
-    {published && canReconcile && <section aria-label="Pix pendentes">
+    {published && canReconcile && <section className={s.paymentPanel} aria-label="Pix pendentes">
       <h3>Pix pendentes</h3>
       <div className={s.actions}>
         <button type="button" className={s.secondary} disabled={busy || configuringAccount}

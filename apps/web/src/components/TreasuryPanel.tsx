@@ -667,7 +667,7 @@ export function TreasuryPanel() {
 
         {view === "lancar" && canCreateExpense && <section className={styles.card} aria-label="Registrar lançamento">
           <h2>{tab === "despesa" ? "Registrar nova despesa" : tab === "compromisso" ? "Cadastrar conta a pagar" : "Novo lançamento"}</h2>
-          {tab === "despesa" && <p className={styles.approvalInfo}>Preencha os dados, revise o lançamento e envie para o pastor. A despesa entra no saldo depois da aprovação.</p>}
+          {tab === "despesa" && <p className={styles.approvalInfo}><UIIcon name="activity" size={18} /> Preencha os dados, revise o lançamento e envie para o pastor. A despesa entra no saldo depois da aprovação.</p>}
           {tab === "despesa" && data && (!expenses.length || !banks.length) && <p className={styles.unavailable} role="alert">Não há categorias de despesas ou contas de caixa/banco disponíveis. Configure o plano de contas antes de registrar a despesa.</p>}
           {tab === "despesa" && demoAccounts && <p className={styles.unavailable} role="status">As categorias e contas bancárias deste ambiente são demonstrativas. Use apenas dados de teste até a homologação do financeiro de produção.</p>}
           {tab === "compromisso" && <p className={styles.approvalInfo}>A conta a pagar passa por conferência da Tesouraria e aprovação do pastor.</p>}
@@ -680,7 +680,7 @@ export function TreasuryPanel() {
             </select>
           </label>
           {transfer && pendingBalance !== undefined && <p className={styles.note}>Valor em aberto para baixa: <strong>{formatBRL(pendingBalance)}</strong></p>}
-          <form key={tab} className={styles.form} onSubmit={onSubmit} onChange={() => { if (tab === "despesa" && !busy) intent.current = ""; }}>
+          <form key={tab} className={`${styles.form} ${styles.entryForm}`} onSubmit={onSubmit} onChange={() => { if (tab === "despesa" && !busy) intent.current = ""; }}>
             <label>Data <input type="date" name="date" defaultValue={tab === "despesa" ? churchDate : undefined} required /></label>
             <label>Valor (R$) <input name="amount" inputMode="decimal" required placeholder="0,00" /></label>
             <label className={styles.wide}>Descrição ou referência do comprovante <input name="description" minLength={4} maxLength={180} placeholder={tab === "despesa" ? "Ex. Material para o culto" : undefined} required /></label>

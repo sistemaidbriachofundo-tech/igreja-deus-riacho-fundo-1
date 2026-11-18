@@ -211,13 +211,13 @@
 .movementDetails p { margin: 3px 0; }
 .entryAction { grid-column: 1 / -1; justify-self: start; }
 .pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #585858; font-size: 13px; }
-.reconcileState { padding: 6px 9px; border-radius: 7px; background: #eeeeee; color: #4d4d4d; font-size: 12px; font-weight: 650; white-space: nowrap; }
-.reconcileState[data-closed="true"] { background: #ececec; color: #4e4e4e; }
+.reconcileState { padding: 6px 9px; border-radius: 999px; background: var(--app-warning-bg); color: var(--app-warning); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.reconcileState[data-closed="true"] { background: var(--app-success-bg); color: var(--app-success); }
 .feedback { margin: 0; padding: 12px; border-radius: 8px; background: #ececec; color: #4e4e4e; }
 .feedback[data-error="true"] { background: #f3f3f3; color: #515151; }
 
 /* Lançamentos financeiros: ações visíveis, informação de governança e foco em despesa. */
-.approvalInfo{padding:14px 18px;margin:0;background:#f5f5f5;border:1px solid #dadada;color:#515151;border-radius:10px;font-size:.83rem;line-height:1.6}
+.approvalInfo{padding:14px 18px;margin:0;background:var(--app-info-bg);border:1px solid #d3e4f2;color:var(--app-info);border-radius:10px;font-size:.91rem;line-height:1.5}
 @media(max-width:680px){.views{display:flex;overflow-x:auto;scrollbar-width:thin;padding-bottom:5px}.views button{flex-shrink:0}.tabs{display:flex;overflow-x:auto}.tabs button{flex-shrink:0}}
 
 .movementType {
@@ -262,8 +262,9 @@
 .expenseInfo strong { overflow-wrap: anywhere; font-size: 14px; color: #474747; }
 .expenseInfo small { color: #7b7b7b; font-size: 12px; }
 .expenseState { width: fit-content; max-width: 100%; padding: 5px 9px; border-radius: 7px; background: #efefef; color: #5b5b5b; font-size: 12px; font-weight: 700; }
-.expenseState[data-status="APPROVED"] { background: #f0f0f0; color: #555555; }
-.expenseState[data-status="REJECTED"], .expenseState[data-status="REVERSED"] { background: #ededed; color: #5a5a5a; }
+.expenseState[data-status="APPROVED"] { background: var(--app-success-bg); color: var(--app-success); }
+.expenseState[data-status="PENDING_APPROVAL"] { background: var(--app-warning-bg); color: var(--app-warning); }
+.expenseState[data-status="REJECTED"], .expenseState[data-status="REVERSED"] { background: var(--app-danger-bg); color: var(--app-danger); }
 .expenseItem .entryAction { grid-column: 1 / -1; }
 @media (max-width: 620px) {
   .expenseItem { grid-template-columns: minmax(0, 1fr); }
@@ -272,7 +273,7 @@
 
 .expenseItem[data-target="true"] { outline: 2px solid #7b7b7b; outline-offset: 2px; }
 
-.expenseQueue { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding: 13px 16px; border-left: 3px solid #939393; border-radius: 9px; background: #efefef; }
+.expenseQueue { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding: 13px 16px; border-left: 3px solid #be8331; border-radius: 9px; background: #fff8e9; }
 .expenseQueue > div, .receiptUpload label { display: grid; gap: 4px; }
 .expenseQueue span { font-size: .85rem; color: #626262; }
 .receiptUpload { grid-column: 1 / -1; }
@@ -339,14 +340,14 @@
 .movement:last-child { border-bottom: 0; }
 .movementInfo { grid-column: 1; grid-row: 1; }
 .movementIcon { border-radius: 11px; }
-.movementIcon[data-direction="credit"] { background: #efefef; color: #555555; }
+.movementIcon[data-direction="credit"] { background: var(--app-success-bg); color: var(--app-success); }
 .movementIcon[data-direction="credit"] svg { transform: rotate(135deg); }
-.movementIcon[data-direction="debit"] { background: #ececec; color: #595959; }
+.movementIcon[data-direction="debit"] { background: var(--app-danger-bg); color: var(--app-danger); }
 .movementIcon[data-direction="debit"] svg { transform: rotate(-45deg); }
 .movementValue { grid-column: 2; grid-row: 1; display: grid; gap: 3px; min-width: 0; text-align: right; }
 .movementValue small { font-size: .7rem; color: #585858; }
-.movementValue[data-direction="credit"] strong { color: #585858; }
-.movementValue[data-direction="debit"] strong { color: #565656; }
+.movementValue[data-direction="credit"] strong, .importedMovement [data-direction="credit"] strong { color: var(--app-success); }
+.movementValue[data-direction="debit"] strong, .importedMovement [data-direction="debit"] strong { color: var(--app-danger); }
 .movementDetails { margin: 0; grid-column: 1 / -1; }
 .movementToggle { grid-column: 3; grid-row: 1; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #f3f3f3; color: #4d4d4d; cursor: pointer; }
 .movementToggle:hover { background: #eaeaea; }
@@ -382,9 +383,9 @@
 @media (max-width: 350px) {
   .movementIcon { display: none; }
 }
-.statementState[data-status="PENDING_APPROVAL"] { background: #efefef; color: #4a4a4a; }
-.statementState:is([data-status="APPROVED"],[data-status="reconciled"]) { background: #ededed; color: #484848; }
-.statementState[data-status="REJECTED"] { background: #ececec; color: #515151; }
+.statementState[data-status="PENDING_APPROVAL"] { background: var(--app-warning-bg); color: var(--app-warning); }
+.statementState:is([data-status="APPROVED"],[data-status="reconciled"]) { background: var(--app-success-bg); color: var(--app-success); }
+.statementState[data-status="REJECTED"] { background: var(--app-danger-bg); color: var(--app-danger); }
 .expenseReview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; padding: 12px 0 0; border-top: 1px solid #dedede; }
 .expenseReview dt { font-size: .75rem; color: #5e5e5e; }
 .expenseReview dd { margin: 3px 0 0; font-size: .88rem; font-weight: 700; overflow-wrap: anywhere; }
@@ -431,6 +432,8 @@
 .expenseInfo { overflow-wrap: anywhere; }
 .approvalInfo { display: flex; gap: 8px; align-items: flex-start; border-radius: 13px; }
 .approvalInfo > svg { flex: none; }
+.entryForm { padding: clamp(12px, 2vw, 22px); border: 1px solid var(--app-border); border-radius: 13px; background: #f8fbf9; }
+.entryForm > button { justify-self: start; }
 @media (max-width: 540px) {
   .expenseMark { width: 30px; height: 30px; }
   .expenseIdentity { gap: 8px; }

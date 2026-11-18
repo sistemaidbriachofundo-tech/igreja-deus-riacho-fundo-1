@@ -91,9 +91,10 @@ export function GroupRequests({ token, manage = false, hideEmpty = false }: { to
     {!manage && groups?.length === 0 && <p className={s.notice}>Nenhum grupo recebe pedidos neste momento.</p>}
     <div className={s.groups}>
       {manage ? requests?.map(item => <article className={s.group} key={item.id} id={"pedido-" + item.id}>
-        <h3>{item.person.displayName}</h3><p>{item.group.name}</p><p>{statusLabel[item.status]}</p>
+        <h3>{item.person.displayName}</h3><p>{item.group.name}</p>
+        <span className={s.groupState} data-status={item.status}>{statusLabel[item.status]}</span>
         {item.status === "PENDING" && <div className={s.requestActions}>
-          <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, true)}>Aceitar</button>
+          <button className={s.primaryAction} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, true)}>Aceitar</button>
           <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, false)}>Recusar</button>
         </div>}
       </article>) : groups?.map(group => <article className={s.group} key={group.id}>
@@ -104,7 +105,7 @@ export function GroupRequests({ token, manage = false, hideEmpty = false }: { to
         <h3>{group.name}</h3>{group.meetsAtHint && <p>{group.meetsAtHint}</p>}
         {group.leaderName && <p>Liderança · {group.leaderName}</p>}
         {group.meetingAddress && <p>{group.meetingAddress}</p>}
-        {group.status ? <p>{group.leads ? "Você lidera este grupo" : statusLabel[group.status]}</p> : <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void request(group)}>Pedir para participar</button>}
+        {group.status ? <span className={s.groupState} data-status={group.status}>{group.leads ? "Você lidera este grupo" : statusLabel[group.status]}</span> : <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void request(group)}>Pedir para participar</button>}
       </article>)}
     </div>
   </section>;

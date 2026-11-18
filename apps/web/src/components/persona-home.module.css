@@ -21,7 +21,7 @@
 }
 .intro h1 {
   margin: 4px 0 6px;
-  font: 750 clamp(1.35rem, 2vw, 1.75rem)/1.2 var(--font-title, var(--site-font));
+  font: 750 clamp(1.6rem, 3vw, 2.3rem)/1.15 var(--font-title, var(--site-font));
   letter-spacing: -0.03em;
 }
 .lede {
@@ -84,6 +84,8 @@
 .actions a:hover, .refresh:hover, .panelHead a:hover, .inlineLink:hover {
   border-color: color-mix(in srgb, var(--color-dourado, #b3b3b3) 70%, var(--color-marrom, #2f2f2f));
 }
+.actions a > svg { flex: none; color: var(--app-accent); }
+.actions a:hover { background: var(--app-success-bg); }
 
 .metrics {
   display: grid;
@@ -261,6 +263,13 @@
 
 .metricLabel { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .metricLabel svg { flex: none; }
+.metric .metricLabel svg { color: var(--app-success); background: var(--app-success-bg); box-sizing: content-box; padding: 6px; border-radius: 8px; }
+.metric[data-icon="layers"] .metricLabel svg { color: var(--app-warning); background: var(--app-warning-bg); }
+.metric[data-icon="calendar"] .metricLabel svg { color: var(--app-info); background: var(--app-info-bg); }
+.metric[data-icon="family"] .metricLabel svg { color: var(--app-violet); background: var(--app-violet-bg); }
+.board[data-layout="membro"] .intro { padding: clamp(14px, 2.4vw, 25px); background: #edf6f2; border: 1px solid #d8e9e1; border-radius: 16px; }
+.board[data-layout="membro"] .greeting, .board[data-layout="membro"] .weekToday { color: var(--app-accent); }
+.board[data-layout="membro"] .weekToday { background: var(--app-success-bg); }
 
 .board[data-layout="membro"] .columns { grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
 .board[data-layout="membro"] .panel { padding: clamp(14px, 2.2vw, 26px); }

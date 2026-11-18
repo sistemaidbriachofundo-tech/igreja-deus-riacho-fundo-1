@@ -169,9 +169,10 @@
   font: 670 11px var(--site-font);
   white-space: nowrap;
 }
-.statusPill[data-status="ACTIVE"], .statusPill[data-status="APPROVED"] { background: #ededed; color: #5f5f5f; }
-.statusPill[data-status="INACTIVE"], .statusPill[data-status="REJECTED"], .statusPill[data-status="CANCELLED"] { background: #f3f3f3; color: #636363; }
-.statusPill[data-status^="AWAITING"], .statusPill[data-status="PENDING_ADMISSION"] { background: #f1f1f1; color: #575757; }
+.statusPill:is([data-status="ACTIVE"], [data-status="APPROVED"]) { background: var(--app-success-bg); color: var(--app-success); }
+.statusPill:is([data-status="REJECTED"], [data-status="CANCELLED"]) { background: var(--app-danger-bg); color: var(--app-danger); }
+.statusPill:is([data-status^="AWAITING"], [data-status="PENDING_ADMISSION"]) { background: var(--app-warning-bg); color: var(--app-warning); }
+.statusPill[data-status="TRANSFERRED"] { background: var(--app-info-bg); color: var(--app-info); }
 .openFicha {
   min-height: 37px;
   padding: 7px 11px;
@@ -335,15 +336,16 @@
 .directoryPanel .panelHeadingCopy > div { display: grid; gap: 5px; min-width: 0; }
 .directoryPanel .panelHeadingCopy h2 { font: 750 clamp(1rem, 2vw, 1.25rem)/1.2 var(--site-font); }
 .directoryPanel .panelHeadingCopy div > span { color: #5e5e5e; font-size: .8rem; }
-.sectionMark { composes: workspaceMark from "./ui/ui.module.css"; background: #e7e7e7; }
+.sectionMark { composes: workspaceMark from "./ui/ui.module.css"; }
 .directorySearch { width: min(100%, 350px); background: #fff; }
 .directoryPanel .familySelect select { border-radius: 12px; background: #f8f8f8; }
 .directoryPanel .tableWrap { border-radius: 13px; }
 .directoryPanel .tableWrap th { background: #f2f2f2; color: #595959; font-weight: 700; }
 .directoryPanel .personIdentity { gap: 10px; }
-.directoryPanel .admissions { gap: 0; }
-.directoryPanel .admission { border: 0; border-bottom: 1px solid #e8e8e8; border-radius: 0; padding-block: 13px; }
-.directoryPanel .admission:nth-of-type(even) { background: #f9f9f9; }
+.directoryPanel .admissions { gap: 10px; }
+.directoryPanel .admission { border: 1px solid var(--app-border); border-radius: 13px; padding: 14px; background: var(--app-surface); }
+.directoryPanel .admission[data-step="pastor"] { border-inline-start: 3px solid #bf812a; }
+.directoryPanel .admission[data-step="secretaria"] { border-inline-start: 3px solid #4579a4; }
 .admissionIdentity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .admissionIdentity > div { min-width: 0; }
 .admissionIdentity strong { overflow-wrap: anywhere; }
@@ -358,24 +360,38 @@
 }
 
 .peopleResults {
+  display: grid;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .peopleResults li {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr) auto;
   align-items: center;
   gap: 8px 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--app-border);
+  padding: 10px 13px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface);
 }
+.peopleResults li:focus-within { border-color: var(--app-accent); }
+.peopleResults .personIdentity strong, .admissionIdentity strong { font-size: .98rem; }
+.directoryPanel .openFicha { color: var(--app-accent); }
+.admission button:not(:disabled) { background: var(--app-accent); border-color: var(--app-accent); }
+.admission button:not(:disabled):hover { background: var(--app-accent-hover); }
 .peopleResults .personIdentity { overflow-wrap: anywhere; }
 .peopleResults :is(.personIdentity, .peopleMembership) small,
 .admissionStage { color: var(--app-muted); font-size: .85rem; }
 .peopleResults .personIdentity > div, .peopleMembership { display: grid; gap: 4px; min-width: 0; }
 .peopleMembership { justify-items: start; }
 .admissionStage { display: block; margin-top: 4px; }
+@media (min-width: 1180px) {
+  .peopleResults { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .peopleResults li { grid-template-columns: minmax(0, 1fr) auto; padding: 12px; }
+  .peopleResults .personIdentity { grid-column: 1 / -1; }
+}
 @media (max-width: 590px) {
   .peopleResults li { grid-template-columns: minmax(0, 1fr) auto; }
   .peopleResults .personIdentity { grid-column: 1 / -1; }

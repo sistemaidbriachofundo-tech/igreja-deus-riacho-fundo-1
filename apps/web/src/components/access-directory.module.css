@@ -10,24 +10,24 @@
 .searchGroup { display: flex; align-items: center; gap: 8px; flex: 1 1 230px; min-width: 0; }
 .panel .searchGroup > label { flex: 1; min-width: 0; }
 .statusFilter { flex: 0 1 11rem; }
-.list, .people { display: grid; margin: 14px 0 0; padding: 0; list-style: none; }
+.list, .people { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
 .people { gap: 8px; }
 .row {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr) minmax(14rem, .8fr);
-  align-items: start; gap: 8px 14px; padding: 13px 0; border-bottom: 1px solid #e7e7e7;
+  align-items: center; gap: 8px 14px; padding: 9px 13px; border: 1px solid var(--app-border); border-radius: 12px;
 }
-.row:last-child { border-bottom: 0; }
+.row:focus-within { border-color: var(--app-accent); }
 .person { display: flex; align-items: center; gap: 9px; min-width: 0; overflow-wrap: anywhere; }
 .avatar {
   display: grid; place-items: center; flex: none; width: 38px; height: 38px;
-  border-radius: 50%; background: #eeeeee; color: #575757;
+  border-radius: 50%; background: var(--app-info-bg); color: var(--app-info);
 }
 .person strong, .email { display: block; }
 .email { margin-top: 3px; color: #606060; font-size: .77rem; }
 .profiles { display: flex; flex-wrap: wrap; gap: 5px; }
 .profiles span, .state { padding: 4px 8px; border-radius: 999px; background: #f1f1f1; color: #424242; font-size: .75rem; overflow-wrap: anywhere; }
-.state[data-tone="active"] { background: #eaeaea; color: #4b4b4b; }
-.state[data-tone="pending"] { background: #eeeeee; color: #565656; }
+.state[data-tone="active"] { background: var(--app-success-bg); color: var(--app-success); }
+.state[data-tone="pending"] { background: var(--app-warning-bg); color: var(--app-warning); }
 .accessState { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px 9px; align-items: center; }
 .accountActions { min-width: 0; }
 .accountActions[open] { flex-basis: 100%; }
@@ -45,8 +45,8 @@
 .chosen { grid-column: 1 / -1; align-items: center; }
 .form > button { justify-self: start; grid-column: 1 / -1; }
 .notice, .error { margin: 0; padding: 10px; border-radius: 7px; }
-.notice { background: #eeeeee; color: #494949; }
-.error { margin-top: 10px; background: #f3f3f3; color: #4b4b4b; }
+.notice { background: var(--app-info-bg); color: var(--app-info); }
+.error { margin-top: 10px; background: var(--app-danger-bg); color: var(--app-danger); }
 @media (max-width: 680px) {
   .filter { gap: 8px; }
   .filter .statusFilter { display: flex; align-items: center; }

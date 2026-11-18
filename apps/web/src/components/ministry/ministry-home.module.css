@@ -169,7 +169,7 @@
   text-decoration: none;
 }
 .card:hover, .cardCurrent { border-color: #9a9a9a; background: #f4f4f4; }
-.catalogIcon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: #eeeeee; color: #575757; }
+.catalogIcon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: var(--app-violet-bg); color: var(--app-violet); }
 .card strong, .cardCurrent strong { overflow-wrap: anywhere; font-size: 14px; font-weight: 650; }
 
 .board [role="tabpanel"]:focus-visible { outline: 3px solid #9e9e9e; outline-offset: -4px; }

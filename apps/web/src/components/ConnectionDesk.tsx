@@ -165,11 +165,14 @@ function ConnectionContent() {
           <div className={s.stageChoices} role="group" aria-label="Etapas em acompanhamento">
             {tracking.stages.map(stage => {
               const total = tracking.enrollments?.filter(walk => walk.currentStageId === stage.id).length ?? 0;
-              return <button className={s.retry} key={stage.id} type="button" aria-pressed={selectedStageId === stage.id}
-                onClick={() => setSelectedStageId(stage.id)}>{stage.title} <strong>{total}</strong></button>;
+              return <button className={s.stageChoice} key={stage.id} type="button" aria-pressed={selectedStageId === stage.id}
+                onClick={() => setSelectedStageId(stage.id)}>
+                <span>{stage.title}</span><strong>{total}</strong>
+              </button>;
             })}
           </div>
-          {selectedStageId && <div aria-live="polite">
+          {selectedStageId && <div className={s.stagePeople} aria-live="polite">
+            <h4>{tracking.stages.find(stage => stage.id === selectedStageId)?.title}</h4>
             {tracking.enrollments.some(walk => walk.currentStageId === selectedStageId)
               ? <ul className={s.operationList}>{tracking.enrollments.filter(walk => walk.currentStageId === selectedStageId).map(walk =>
                 <li key={walk.id}><strong>{walk.personName ?? "Pessoa matriculada"}</strong>

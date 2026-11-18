@@ -107,7 +107,7 @@ export function MemberEvents() {
               <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
               <h3>{event.name}</h3>
               {event.locationText && <p>{event.locationText}</p>}
-              {typeof event.registrationOpen === "boolean" && <span className={s.catalogStatus}>
+              {typeof event.registrationOpen === "boolean" && <span className={s.catalogStatus} data-open={event.registrationOpen}>
                 {event.registrationOpen ? "Inscrições abertas" : "Inscrições indisponíveis"}
               </span>}
               <AppNavLink href={memberEventsHref(event.slug)}>
