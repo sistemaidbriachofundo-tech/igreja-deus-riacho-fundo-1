@@ -23,6 +23,7 @@ export type RosterActionsProps = {
   modules?: EscalaModule[];
   moduleId?: string;
   allowGeneral?: boolean;
+  allowPublish?: boolean;
   requireModuleMembership?: boolean;
   managedModuleMemberships?: boolean;
 };
@@ -246,7 +247,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
           <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Adicionar posição</button>
         </form>
       )}
-      {draft && Boolean(roster.positions?.length) && <button type="button" className={ui.workspacePrimary} disabled={busy} onClick={() => void publish()}>Publicar escala</button>}
+      {props.allowPublish !== false && draft && Boolean(roster.positions?.length) && <button type="button" className={ui.workspacePrimary} disabled={busy} onClick={() => void publish()}>Publicar escala</button>}
       {error && <p className={s.error} role="alert">{error}</p>}
     </div>
   );

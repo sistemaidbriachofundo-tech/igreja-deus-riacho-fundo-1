@@ -15,7 +15,7 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
-import { churchDayKey } from "./church-day";
+import { churchDayKey, churchMonthRange } from "./church-day";
 import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "./roster-assignment-transaction";
 import { previewSlots } from "./preview-domain/scheduler";
 import { DEFAULT_RULES, type Candidate, type ExistingAssignment } from "./preview-domain/types";
@@ -28,7 +28,9 @@ import { openVacancyText, responseStatuses, rosterInScope } from "./roster-modul
 import { inviteSlotCandidate, listMyRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation } from "./roster-team";
 import {
   appendParticipantResponse,
+  assertCanManageRosterMonth,
   assertRosterModuleAllowed,
+  canManageRosterMonth,
   capacityView,
   describePermissions,
   loadRosterAccess,
@@ -39,8 +41,7 @@ import {
 
 function monthRange(month: string) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) throw new BadRequestException("Informe o mês no formato AAAA-MM.");
-  const [year, value] = month.split("-").map(Number);
-  return { gte: new Date(Date.UTC(year, value - 1, 1, 3)), lt: new Date(Date.UTC(year, value, 1, 3)) };
+  return churchMonthRange(month);
 }
 
 function surveyPeriod(now = new Date()) {
@@ -391,7 +392,7 @@ export class PersonalRosterService {
       throw new ConflictException(decision);
     }
     return writeRosterAssignment(this.prisma, async tx => {
-      const reloaded = await this.monthState(actor, ministryId, month, pilot, tx as never);
+      const reloaded = await this.monthState(actor, ministryId, month, pilot, tx);
       const fresh = request.moduleId ? { ...reloaded, modules: reloaded.modules.filter(module => module.id === request.moduleId) } : reloaded;
       const again = decideMonthSave(fresh, request);
       if (again.action === "replay") return { savedRosters: 0 };
@@ -442,8 +443,10 @@ export class PersonalRosterService {
     });
   }
 
-  private async monthState(actor: AuthUser, ministryId: string, month: string, pilot: { organizationId: string; churchId: string }, db: unknown = this.prisma) {
-    const ministry = await this.requireMinistry(ministryId, pilot);
+  private async monthState(actor: AuthUser, ministryId: string, month: string, pilot: Pilot, db: Pick<Prisma.TransactionClient, "ministry"> = this.prisma) {
+    const ministry = await this.requireMinistry(ministryId, pilot, db);
+    this.assertCanOperateMinistry(actor, ministry, pilot);
+    if (ministry.slug === "atmosfera") assertCanManageRosterMonth(actor, ministry, pilot);
     const access = await loadRosterAccess(db as never, actor, ministry, pilot);
     const state = await loadMonthState(db as never, pilot, ministryId, month);
     if (!state) throw new ConflictException({ code: "ROSTER_PREVIEW_UNVERIFIED", message: "A simulação não pôde ser conferida com a pesquisa, a disponibilidade e o histórico." });
@@ -496,7 +499,7 @@ export class PersonalRosterService {
 
     return {
       ministryId: ministry.id,
-      permissions: describePermissions(access),
+      permissions: { ...describePermissions(access), manageRosterMonth: canManageRosterMonth(actor, ministry, pilot) },
       modules: visibleModules.map(module => ({ ...module, rules: teams ? { ...(module.rules && typeof module.rules === "object" ? module.rules as object : {}), volunteerIds: teams.get(module.id) ?? [] } : module.rules })),
       notified: false,
       rosters: await Promise.all(visibleRosters.map(async (row) => {
@@ -594,6 +597,7 @@ export class PersonalRosterService {
     const created = await writeRosterAssignment(this.prisma, async (tx) => {
       const current = await this.requireSlot(slotId, pilot, tx);
       this.assertCanOperateMinistry(actor, current.roster.ministry, pilot, current.roster);
+      await assertRosterModuleAllowed(tx as never, actor, current.roster.ministry, current.roster.moduleId, pilot);
       this.assertRosterOpen(current.roster);
       if (+current.roster.serviceAt !== +slot.roster.serviceAt) {
         throw new ConflictException("O horário do culto mudou. Atualize a escala e tente novamente.");
@@ -861,8 +865,8 @@ export class PersonalRosterService {
     }
   }
 
-  private async requireMinistry(ministryId: string, pilot: Pilot): Promise<MinistryRef> {
-    const ministry = await this.prisma.ministry.findFirst({
+  private async requireMinistry(ministryId: string, pilot: Pilot, db: Pick<Prisma.TransactionClient, "ministry"> = this.prisma): Promise<MinistryRef> {
+    const ministry = await db.ministry.findFirst({
       where: {
         id: ministryId,
         organizationId: pilot.organizationId,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiGetBlob, apiPost } from "../../lib/api";
+import { apiGetBlob, apiPost, ApiRequestError } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import { rosterModuleContains, rosterPositionSummary, type EscalaModuleRules, type EscalaPanel, type MinistryEscala } from "../../lib/ministry-presentation";
 import { escalaStatusLabel, meuEspacoHref, ministryHref } from "../../lib/ministry-view";
@@ -107,9 +107,15 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   }, { open: 0, pending: 0 });
   const selected = panel.items.find(roster => roster.id === escalaId);
   const moduleOnly = panel.permissions?.scope === "modules";
+  const canPublishMonth = panel.permissions?.manageRosterMonth === true;
+  const canGenerateMonth = !volunteerPortal || (panel.permissions?.manageRosterMonth ?? !moduleOnly);
+  const canPublishRoster = canGenerateMonth;
+  const monthDrafts = panel.items.filter(roster => roster.status === "DRAFT" && roster.positions?.length &&
+    churchDayKey(roster.serviceAt).slice(0, 7) === monthFilter);
   const access = actions && (!moduleOnly || modules.length > 0) && {
     ...actions, modules, moduleId: selectedModule?.id ?? (moduleOnly ? modules[0]?.id : undefined),
     allowGeneral: !moduleOnly,
+    allowPublish: canPublishRoster,
     requireModuleMembership: volunteerPortal || moduleOnly,
     managedModuleMemberships: panel.permissions?.manageModuleMemberships,
     onOpen: (id: string, nextModuleId?: string) => {
@@ -119,7 +125,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   };
 
   async function publish(roster: MinistryEscala) {
-    if (!actions || publishing) return;
+    if (!actions || !canPublishRoster || publishing) return;
     setPublishing(roster.id);
     setNotice("");
     setDownloadError("");
@@ -131,6 +137,34 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
       actions.onRefresh();
     } catch (error) {
       setDownloadError(dasError(error));
+    } finally {
+      setPublishing("");
+    }
+  }
+
+  async function publishMonth() {
+    if (!actions || !canPublishMonth || !monthDrafts.length || publishing) return;
+    setPublishing("month");
+    setNotice("");
+    setDownloadError("");
+    const label = monthLabel.format(new Date(monthFilter + "-15T12:00:00Z"));
+    const count = monthDrafts.length === 1 ? "1 escala em rascunho" : `${monthDrafts.length} escalas em rascunho`;
+    try {
+      if (!(await confirm({
+        title: "Publicar escala do mês?",
+        subject: `${label} · ${count}`,
+        description: "A publicação inclui todas as equipes do mês. As pessoas escaladas recebem o aviso no portal e as vagas sem designação ficam abertas.",
+        action: "Publicar mês",
+      }))) return;
+      const result = await apiPost<{ publishedRosters: number }>(
+        `/rosters/by-ministry/${encodeURIComponent(ministryId)}/month/${monthFilter}/publish`, actions.token,
+      );
+      setNotice(result.publishedRosters === 0 ? "Este mês já está em dia, sem rascunhos para publicar." :
+        result.publishedRosters === 1 ? "1 escala do mês publicada." : `${result.publishedRosters} escalas do mês publicadas.`);
+      actions.onRefresh();
+    } catch (error) {
+      setDownloadError(error instanceof ApiRequestError && error.status === 409
+        ? "Atualize o mês e revise as designações em conflito antes de publicar." : dasError(error));
     } finally {
       setPublishing("");
     }
@@ -202,7 +236,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
     }}>WhatsApp <span aria-hidden="true">↗</span></button>;
   }
 
-  if (tool === "draw" && access) return <MonthlyRosterPreview token={access.token} ministryId={ministryId}
+  if (tool === "draw" && access && canGenerateMonth) return <MonthlyRosterPreview token={access.token} ministryId={ministryId}
     modules={modules} initialModuleId={selectedModule?.id} initialMonth={monthFilter}
     onRefresh={access.onRefresh} onClose={() => setTool(null)} />;
 
@@ -213,8 +247,13 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
       <div className={s.heroActions}>
         {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
         {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.secondary} />}
-        {access && modules.length > 0 && <button type="button" className={s.lime} onClick={() => setTool("draw")}>
+        {access && canGenerateMonth && modules.length > 0 && <button type="button" className={s.lime} disabled={Boolean(publishing)} onClick={() => setTool("draw")}>
           <UIIcon name="spark" size={17} /> Gerar escala do mês
+        </button>}
+        {access && canPublishMonth && <button type="button" className={s.lime} disabled={Boolean(publishing) || !monthDrafts.length}
+          title={!monthDrafts.length ? "Este mês não tem rascunhos com vagas para publicar" : undefined}
+          onClick={() => void publishMonth()}>
+          <UIIcon name="check" size={17} /> {publishing === "month" ? "Publicando mês…" : "Publicar escala do mês"}
         </button>}
       </div>
     </header>
@@ -295,7 +334,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
                 <span className={s.status} data-status={roster.status}>{escalaStatusLabel(roster.status)}</span>
                 <p>{coverage.open > 0 && <b>{coverage.open} {coverage.open === 1 ? "vaga aberta" : "vagas abertas"}</b>} {coverage.open > 0 && "· "}{summary}</p>
                 <div className={s.teamActions}>
-                  {access && roster.status === "DRAFT" && Boolean(roster.positions?.length) &&
+                  {access && canPublishRoster && roster.status === "DRAFT" && Boolean(roster.positions?.length) &&
                     <button type="button" className={s.secondary} disabled={Boolean(publishing)} onClick={() => void publish(roster)}>Publicar</button>}
                   {openLink(roster, false, undefined, "Abrir")}
                   {access && roster.status === "PUBLISHED" && <details className={s.rowMenu}><summary aria-label={"Compartilhar " + roster.title}>Compartilhar</summary><div>{whatsAppLink(roster)}</div></details>}

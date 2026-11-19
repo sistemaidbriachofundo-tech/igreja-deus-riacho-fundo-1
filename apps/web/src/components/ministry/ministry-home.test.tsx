@@ -114,13 +114,15 @@ describe("experiência de ministérios", () => {
       desk={{ ...ready, ministry: atmosfera, ministries: [atmosfera, ...ready.ministries] }}
       tab="escalas"
       escalaId="antiga"
-      escalas={{ kind: "ready", modules: [{ id: "recepcao", name: "Recepção" }], items: [
+      escalas={{ kind: "ready", permissions: { scope: "ministry", manageRosterMonth: true, manageModuleMemberships: true },
+        modules: [{ id: "recepcao", name: "Recepção" }], items: [
         { id: "antiga", title: "Culto geral existente", serviceAt: currentMonth + "-15T13:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
         { id: "nova", moduleId: "recepcao", title: "Culto de domingo à noite", serviceAt: currentMonth + "-15T22:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
       ] }}
       activities={{ kind: "hidden" }}
     />);
     expect(html).toContain("Gerar escala do mês");
+    expect(html).toContain("Publicar escala do mês");
     expect(html).toContain('value="recepcao">Recepção');
     expect(html).toContain("Baixar PDF da escala Culto geral existente");
     expect(html).toContain("Baixar Excel da escala Culto geral existente");

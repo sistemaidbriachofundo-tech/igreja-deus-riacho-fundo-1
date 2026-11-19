@@ -14,6 +14,7 @@
   font: inherit; font-size: .84rem; font-weight: 740; text-decoration: none; cursor: pointer;
 }
 .lime { background: #d7fa75; border-color: #b9df59; color: #183525; }
+.lime:disabled { opacity: .62; cursor: not-allowed; }
 .openCard { background: transparent; border-color: transparent; }
 .monthlyFilters {
   display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; margin: -21px 12px 0;

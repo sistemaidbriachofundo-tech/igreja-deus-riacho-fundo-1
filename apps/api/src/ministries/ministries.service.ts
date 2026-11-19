@@ -25,10 +25,11 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
+import { churchDayKey, churchMonthRange } from "../rosters/church-day";
 
 import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, readPositionLocation, type CultType, type PositionLocation } from "../rosters/roster-operating-rules";
 import { canonicalModuleKey, canonicalModuleName, effectiveCultCapacities, resolveRosterAccess, rosterInScope, rulesWithCultCapacity } from "../rosters/roster-module-policy";
-import { appendParticipantResponse, applyCapacity, assertRosterModuleAllowed, patchMembershipModules, positionsForModule, publishAssignmentNotices, syncExplicitLinks } from "../rosters/roster-module-runtime";
+import { appendParticipantResponse, applyCapacity, assertCanManageRosterMonth, assertRosterModuleAllowed, patchMembershipModules, positionsForModule, publishAssignmentNotices, syncExplicitLinks } from "../rosters/roster-module-runtime";
 import { createRosterMemberInvitation, listRosterMemberInvitations, searchRosterInvitationPeople } from "../rosters/roster-team";
 
 export type LeadershipPublicEntry = {
@@ -522,6 +523,9 @@ export class MinistriesService {
     if (published && input.moduleId !== undefined && input.moduleId !== roster.moduleId) {
       throw new ConflictException("O módulo fica definido após a publicação.");
     }
+    if (input.moduleId !== undefined && input.moduleId !== roster.moduleId) {
+      await this.enforceModule(actor, { ministryId: roster.ministryId, moduleId: input.moduleId }, pilot);
+    }
 
     return writeRosterAssignment(this.prisma, async tx => {
       await this.assertRosterModule(tx, roster.ministryId, input.moduleId);
@@ -727,6 +731,10 @@ export class MinistriesService {
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const roster = await this.requireRoster(rosterId, pilot);
     await this.assertRosterScope(actor, roster, pilot);
+    if (roster.ministryId && !canAdministerMinistries(actor.grants, pilot)) {
+      const ministry = await this.requireMinistry(roster.ministryId, pilot);
+      if (ministry.slug === "atmosfera") assertCanManageRosterMonth(actor, ministry, pilot);
+    }
 
     if (roster.status !== "DRAFT") {
       throw new ConflictException({
@@ -835,6 +843,89 @@ export class MinistriesService {
     }
 
     return dto;
+  }
+
+  async publishRosterMonth(actor: AuthUser, ministryId: string, month: string) {
+    if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month)) {
+      throw new BadRequestException("Informe o mês no formato AAAA-MM.");
+    }
+    const pilot = await this.pilot.getPilotChurch();
+    this.assertLead(actor, pilot.organizationId, pilot.churchId);
+    const serviceAt = churchMonthRange(month);
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    const activeStatuses = { in: ["PENDING", "CONFIRMED"] as ("PENDING" | "CONFIRMED")[] };
+
+    const result = await writeRosterAssignment(this.prisma, async tx => {
+      const ministry = await tx.ministry.findFirst({ where: { ...scope, id: ministryId }, select: { leaderPersonId: true } });
+      if (!ministry) throw new NotFoundException("Ministério não encontrado");
+      assertCanManageRosterMonth(actor, ministry, pilot);
+
+      const drafts = await tx.roster.findMany({
+        where: { ...scope, ministryId, serviceAt, status: "DRAFT", slots: { some: {} } },
+        orderBy: [{ serviceAt: "asc" }, { id: "asc" }],
+        select: { id: true, title: true, serviceAt: true, slots: { select: {
+          assignments: { where: { status: activeStatuses }, select: { id: true, personId: true, partnerPersonId: true, status: true } },
+        } } },
+      });
+      const ids = drafts.map(roster => roster.id);
+      const assignedDays = new Map<string, Set<string>>();
+      const alerts = [];
+      for (const roster of drafts) {
+        const day = churchDayKey(roster.serviceAt);
+        for (const assignment of roster.slots.flatMap(slot => slot.assignments)) {
+          for (const personId of [assignment.personId, assignment.partnerPersonId]) {
+            if (!personId) continue;
+            const days = assignedDays.get(personId) ?? new Set<string>();
+            if (days.has(day)) throw this.rosterMonthConflict();
+            days.add(day);
+            assignedDays.set(personId, days);
+          }
+          if (assignment.status === "PENDING") alerts.push({ ...assignment, title: roster.title });
+        }
+      }
+      if (assignedDays.size) {
+        const people = [...assignedDays.keys()];
+        const otherAssignments = await tx.rosterAssignment.findMany({
+          where: { status: activeStatuses, OR: [{ personId: { in: people } }, { partnerPersonId: { in: people } }],
+            slot: { roster: { ...scope, serviceAt, id: { notIn: ids } } } },
+          select: { personId: true, partnerPersonId: true, slot: { select: { roster: { select: { serviceAt: true } } } } },
+        });
+        for (const assignment of otherAssignments) {
+          const day = churchDayKey(assignment.slot.roster.serviceAt);
+          if (assignedDays.get(assignment.personId)?.has(day) ||
+              (assignment.partnerPersonId && assignedDays.get(assignment.partnerPersonId)?.has(day))) {
+            throw this.rosterMonthConflict();
+          }
+        }
+      }
+      if (ids.length) {
+        const updated = await tx.roster.updateMany({ where: { id: { in: ids }, status: "DRAFT" }, data: { status: "PUBLISHED" } });
+        if (updated.count !== ids.length) {
+          throw new ConflictException("As escalas do mês foram alteradas. Atualize a agenda antes de publicar.");
+        }
+        await tx.auditLog.createMany({ data: drafts.map(roster => ({
+          ...scope, actorUserId: actor.userId, action: "roster.publish", resourceType: "roster", resourceId: roster.id,
+          metadata: { from: "DRAFT", to: "PUBLISHED", month, slotCount: roster.slots.length,
+            activeAssignmentCount: roster.slots.reduce((count, slot) => count + slot.assignments.length, 0) },
+        })) });
+        await publishAssignmentNotices(tx as never, pilot, alerts);
+      }
+      return { count: ids.length, alerts };
+    });
+
+    for (const assignment of result.alerts) {
+      await this.softRosterAlert(actor, {
+        assignmentId: assignment.id, kind: "confirm_request", personId: assignment.personId, rosterTitle: assignment.title,
+      });
+    }
+    return { publishedRosters: result.count };
+  }
+
+  private rosterMonthConflict() {
+    return new ConflictException({
+      code: "ROSTER_SERVICE_CONFLICT",
+      message: "Revise as escalas do mês: uma pessoa tem mais de uma designação no mesmo dia.",
+    });
   }
 
   async closeRoster(actor: AuthUser, rosterId: string) {
@@ -2080,17 +2171,19 @@ export class MinistriesService {
       where: { personId: actor.personId, churchId: pilot.churchId, organizationId: pilot.organizationId },
       select: { ministryId: true, moduleId: true },
     });
-    if (!links.length) return rows;
+    const ministriesInResults = [...new Set(rows.flatMap(row => row.ministryId ? [row.ministryId] : []))];
+    if (!ministriesInResults.length) return rows;
     const ministries = await this.prisma.ministry.findMany({
-      where: { id: { in: [...new Set(links.map(link => link.ministryId))] }, churchId: pilot.churchId },
-      select: { id: true, leaderPersonId: true },
+      where: { id: { in: ministriesInResults }, churchId: pilot.churchId },
+      select: { id: true, slug: true, leaderPersonId: true },
     });
     return rows.filter(row => {
-      if (!row.ministryId || !links.some(link => link.ministryId === row.ministryId)) return true;
-      const ministryLeader = ministries.some(item => item.id === row.ministryId && item.leaderPersonId === actor.personId);
+      if (!row.ministryId) return true;
+      const ministry = ministries.find(item => item.id === row.ministryId);
       const access = resolveRosterAccess({
         churchWide: false,
-        ministryLeader,
+        ministryLeader: ministry?.leaderPersonId === actor.personId,
+        requireAssignment: ministry?.slug === "atmosfera",
         ledModuleIds: links.filter(link => link.ministryId === row.ministryId).map(link => link.moduleId),
       });
       return rosterInScope(row.moduleId, access);

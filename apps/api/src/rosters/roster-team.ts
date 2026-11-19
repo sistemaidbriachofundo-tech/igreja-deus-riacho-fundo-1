@@ -32,13 +32,13 @@ function envelope(invitations: MemberInvitationView[]) {
 async function ministryOf(db: Tx, ministryId: string, pilot: Pilot) {
   const ministry = await db.ministry.findFirst({
     where: { id: ministryId, churchId: pilot.churchId, organizationId: pilot.organizationId },
-    select: { id: true, leaderPersonId: true },
+    select: { id: true, slug: true, leaderPersonId: true },
   });
   if (!ministry) throw new NotFoundException("Ministério não encontrado.");
   return ministry;
 }
 
-async function assertModule(db: Tx, actor: AuthUser, ministry: { id: string; leaderPersonId: string | null }, moduleId: string, pilot: Pilot) {
+async function assertModule(db: Tx, actor: AuthUser, ministry: { id: string; slug?: string; leaderPersonId: string | null }, moduleId: string, pilot: Pilot) {
   const access = await loadRosterAccess(db as never, actor, ministry, pilot);
   if (!rosterInScope(moduleId, access)) {
     throw new ForbiddenException({ code: "ROSTER_MODULE_FORBIDDEN", message: "Sem permissão neste módulo." });
@@ -193,7 +193,7 @@ type SlotRow = {
     moduleId: string | null;
     organizationId: string;
     churchId: string;
-    ministry: { id: string; leaderPersonId: string | null } | null;
+    ministry: { id: string; slug?: string; leaderPersonId: string | null } | null;
     module: { id: string; name: string; rules: unknown } | null;
   };
 };
@@ -208,7 +208,7 @@ async function loadSlot(db: Tx, slotId: string, pilot: Pilot): Promise<SlotRow> 
     where: { id: slotId, roster: { churchId: pilot.churchId, organizationId: pilot.organizationId } },
     include: {
       assignments: { select: { id: true, personId: true, partnerPersonId: true, status: true } },
-      roster: { include: { ministry: { select: { id: true, leaderPersonId: true } }, module: true } },
+      roster: { include: { ministry: { select: { id: true, slug: true, leaderPersonId: true } }, module: true } },
     },
   });
   if (!slot) throw new NotFoundException("Vaga não encontrada.");

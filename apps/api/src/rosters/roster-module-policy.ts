@@ -22,13 +22,14 @@ export function resolveRosterAccess(input: {
   churchWide: boolean;
   ministryLeader: boolean;
   ledModuleIds: readonly string[];
+  requireAssignment?: boolean;
 }): RosterAccess {
-  if (input.churchWide || input.ministryLeader || input.ledModuleIds.length === 0) {
+  if (input.churchWide || input.ministryLeader || (!input.requireAssignment && input.ledModuleIds.length === 0)) {
     return { scope: "ministry", manageModuleMemberships: true, moduleIds: [] };
   }
   return {
     scope: "modules",
-    manageModuleMemberships: true,
+    manageModuleMemberships: input.ledModuleIds.length > 0,
     moduleIds: [...new Set(input.ledModuleIds)],
   };
 }

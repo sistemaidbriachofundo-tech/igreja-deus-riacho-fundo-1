@@ -623,6 +623,16 @@ export class RostersController {
     return this.ministries.listRosters(user);
   }
 
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/month/:month/publish")
+  publishMonth(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("month") month: string,
+  ) {
+    return this.ministries.publishRosterMonth(user, ministryId, month);
+  }
+
   @Roles(
     ROLE_CODES.SECRETARIA,
     ROLE_CODES.PASTOR,

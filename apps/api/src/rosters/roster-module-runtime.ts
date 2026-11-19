@@ -58,10 +58,28 @@ type Db = Record<string, unknown> & {
 
 const ACTIVE = ["PENDING", "CONFIRMED"] as const;
 
+export function canManageRosterMonth(
+  actor: AuthUser,
+  ministry: { leaderPersonId: string | null },
+  pilot: { organizationId: string; churchId: string },
+): boolean {
+  return canAdministerMinistries(actor.grants, pilot) || Boolean(actor.personId && ministry.leaderPersonId === actor.personId);
+}
+
+export function assertCanManageRosterMonth(
+  actor: AuthUser,
+  ministry: { leaderPersonId: string | null },
+  pilot: { organizationId: string; churchId: string },
+) {
+  if (!canManageRosterMonth(actor, ministry, pilot)) {
+    throw new ForbiddenException({ code: "ROSTER_MONTH_LEADERSHIP_REQUIRED", message: "Esta ação exige a liderança do ministério ou a administração da congregação." });
+  }
+}
+
 export async function loadRosterAccess(
   db: Db,
   actor: AuthUser,
-  ministry: { id: string; leaderPersonId: string | null },
+  ministry: { id: string; slug?: string; leaderPersonId: string | null },
   pilot: { organizationId: string; churchId: string },
 ): Promise<RosterAccess> {
   const churchWide = canAdministerMinistries(actor.grants, pilot);
@@ -72,13 +90,14 @@ export async function loadRosterAccess(
       select: { moduleId: true },
     })
     : [];
-  return resolveRosterAccess({ churchWide, ministryLeader, ledModuleIds: led.map(row => row.moduleId) });
+  return resolveRosterAccess({ churchWide, ministryLeader, ledModuleIds: led.map(row => row.moduleId),
+    requireAssignment: ministry.slug === "atmosfera" });
 }
 
 export async function assertRosterModuleAllowed(
   db: Db,
   actor: AuthUser,
-  ministry: { id: string; leaderPersonId: string | null } | null,
+  ministry: { id: string; slug?: string; leaderPersonId: string | null } | null,
   moduleId: string | null | undefined,
   pilot: { organizationId: string; churchId: string },
 ): Promise<void> {

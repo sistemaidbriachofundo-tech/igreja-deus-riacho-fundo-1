@@ -64,17 +64,21 @@ function serviceFor(db: object) {
 }
 
 describe("endpoints da simulação mensal", () => {
-  it("simula sem gravar, devolve casal elegível e restringe o líder a um módulo", async () => {
+  it("reserva a simulação do Atmosfera ao líder do ministério e devolve casal elegível", async () => {
     const { db, writes } = database();
     const service = serviceFor(db);
-    const leader = user("lider-recepcao");
-    const simulation = await service.monthlySimulation(leader, "atmosfera", { month: "2026-12", fillOnlyOpen: true });
+    const leader = user("lider-atmosfera");
+    const simulation = await service.monthlySimulation(leader, "atmosfera", { month: "2026-12", moduleId: "recepcao", fillOnlyOpen: true });
     expect(writes).toEqual([]);
     expect(simulation.rosters.every(roster => roster.moduleId === "recepcao")).toBe(true);
     expect(simulation.revision).toMatch(/^[a-f0-9]{64}$/);
     const choice = simulation.rosters.flatMap(roster => roster.positions).find(position => position.requiresCouple && !position.readOnly);
     expect(choice?.candidates.some(candidate => candidate.personId === "ana" && candidate.partnerPersonId === "bruno")).toBe(true);
-    await expect(service.monthlySimulation(leader, "atmosfera", { month: "2026-12", moduleId: "conexao" })).rejects.toBeInstanceOf(ForbiddenException);
+    const moduleLeader = user("lider-recepcao");
+    await expect(service.monthlySimulation(moduleLeader, "atmosfera", { month: "2026-12" })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.monthlySimulation(moduleLeader, "atmosfera", { month: "2026-12", moduleId: "recepcao" })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.saveMonth(moduleLeader, "atmosfera", "2026-12", { fingerprint: simulation.revision, moduleId: "recepcao" })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.monthlySimulation(user("lider-outro", "louvor"), "atmosfera", { month: "2026-12" })).rejects.toBeInstanceOf(ForbiddenException);
     const whole = await service.monthlySimulation(user("lider-atmosfera"), "atmosfera", { month: "2026-12" });
     expect(whole.rosters.find(roster => roster.status === "PUBLISHED")?.positions[0]).toMatchObject({ personId: "gabi", partnerPersonId: "hugo", readOnly: true });
     expect(writes).toEqual([]);
@@ -87,13 +91,13 @@ describe("endpoints da simulação mensal", () => {
     expect(writes).toEqual([]);
     expect(published.status).toBe("PUBLISHED");
     expect(published.slots[0].assignments[0]).toMatchObject({ personId: "gabi", partnerPersonId: "hugo" });
-    await expect(service.monthlySimulation(user("lider-recepcao"), "atmosfera", { month: "2026-12", moduleId: "recepcao", revision: "b".repeat(64) })).rejects.toMatchObject({ response: { code: "ROSTER_PREVIEW_STALE" } });
+    await expect(service.monthlySimulation(user("lider-atmosfera"), "atmosfera", { month: "2026-12", moduleId: "recepcao", revision: "b".repeat(64) })).rejects.toMatchObject({ response: { code: "ROSTER_PREVIEW_STALE" } });
   });
 
   it("aumenta a capacidade de um rascunho existente e conta só os cultos gravados", async () => {
     const { db, writes, published } = database();
     const service = serviceFor(db);
-    const leader = user("lider-recepcao");
+    const leader = user("lider-atmosfera");
     const simulation = await service.monthlySimulation(leader, "atmosfera", { month: "2026-12", moduleId: "recepcao" });
     const draft = simulation.rosters.find(roster => roster.id === "rascunho");
     const group = draft?.capacity?.[0];
@@ -120,7 +124,7 @@ describe("endpoints da simulação mensal", () => {
     const draft = (await db.roster.findMany()).find(roster => roster.id === "rascunho");
     draft?.slots.push({ id: "ocupada", roleLabel: "Recepção", requiresCouple: true, requiredQualification: null, assignments: [{ personId: "ana", partnerPersonId: "bruno", status: "CONFIRMED" }] });
     const service = serviceFor(db);
-    const leader = user("lider-recepcao");
+    const leader = user("lider-atmosfera");
     const simulation = await service.monthlySimulation(leader, "atmosfera", { month: "2026-12", moduleId: "recepcao" });
     const group = simulation.rosters.find(roster => roster.id === "rascunho")?.capacity?.[0];
     const saved = await service.saveMonth(leader, "atmosfera", "2026-12", {

@@ -39,7 +39,7 @@ export type RosterCapacityGroup = {
   minimumCount: number;
 };
 
-export type RosterPermissions = { scope: "ministry" | "modules"; manageModuleMemberships: boolean };
+export type RosterPermissions = { scope: "ministry" | "modules"; manageModuleMemberships: boolean; manageRosterMonth?: boolean };
 
 export type MinistryEscala = {
   id: string;
@@ -229,7 +229,9 @@ function readRosterPermissions(body: unknown, ministryId: string): RosterPermiss
   const permissions = asRecord(result.permissions);
   const scope = permissions?.scope;
   if (scope === "ministry" || scope === "modules") {
-    return { scope, manageModuleMemberships: permissions?.manageModuleMemberships === true };
+    const manageRosterMonth = permissions?.manageRosterMonth;
+    return { scope, manageModuleMemberships: permissions?.manageModuleMemberships === true,
+      ...(typeof manageRosterMonth === "boolean" && { manageRosterMonth }) };
   }
 }
 
