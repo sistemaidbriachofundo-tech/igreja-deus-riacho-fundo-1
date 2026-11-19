@@ -680,20 +680,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
                   </div>
 
-                  {secretary && <section className={s.churchFunctionSummary} aria-labelledby="church-functions-title">
-                    <h3 id="church-functions-title">Funções eclesiásticas</h3>
-                    <p>Totais de membros ativos nesta congregação.</p>
-                    <div className={s.churchFunctionCards}>
-                      {churchFunctionCounts.map(({ role, total }) => (
-                        <button type="button" key={role} aria-pressed={churchFunction === role} disabled={!loadedGroups.people}
-                          onClick={() => { setChurchFunction(churchFunction === role ? null : role); setMembershipStatus(""); setListPage(0); }}>
-                          <span>{ECCLESIASTICAL_ROLE_TOTAL_LABELS[role]}</span>
-                          <strong>{total === null ? "—" : total.toLocaleString("pt-BR")}</strong>
-                        </button>
-                      ))}
-                    </div>
-                  </section>}
-                  {secretary && <div className={s.peopleFilters}>
+                  {secretary && <div className={s.peopleFilters} role="group" aria-label="Filtrar cadastro de pessoas">
                     <div className={ui.workspaceChoices} role="group" aria-label="Situação das pessoas">
                       {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"], ["TRANSFERRED", "Transferidos"]].map(([status, title]) =>
                         <button key={status} type="button" aria-pressed={membershipStatus === status}
@@ -711,6 +698,19 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <span>{churchFunction ? ECCLESIASTICAL_ROLE_TOTAL_LABELS[churchFunction] : selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
                     <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); setChurchFunction(null); updateQuery(""); }}>Limpar filtros</button>
                   </div>}
+                  {secretary && <section className={s.churchFunctionSummary} aria-labelledby="church-functions-title">
+                    <h3 id="church-functions-title">Funções eclesiásticas</h3>
+                    <p>Totais de membros ativos nesta congregação.</p>
+                    <div className={s.churchFunctionCards}>
+                      {churchFunctionCounts.map(({ role, total }) => (
+                        <button type="button" key={role} aria-pressed={churchFunction === role} disabled={!loadedGroups.people}
+                          onClick={() => { setChurchFunction(churchFunction === role ? null : role); setMembershipStatus(""); setListPage(0); }}>
+                          <span>{ECCLESIASTICAL_ROLE_TOTAL_LABELS[role]}</span>
+                          <strong>{total === null ? "—" : total.toLocaleString("pt-BR")}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </section>}
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : !loadedGroups.people ? (
                     <p className={s.empty} role="status">{checking ? "Carregando cadastros…" : "Não foi possível carregar os cadastros. Use Atualizar para tentar novamente."}</p>
                   ) : (

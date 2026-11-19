@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, apiPost } from "../../lib/api";
+import { apiGet, apiPost, ApiRequestError } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import { withBasePath } from "../../lib/paths";
 import { UIIcon } from "../ui/UIIcon";
@@ -12,10 +12,12 @@ const PATH = "/rosters/notifications";
 const inviteDeadline = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo", dateStyle: "long", timeStyle: "short",
 });
-type Feed = { publicKey: string | null; testEnabled?: boolean; notices: {
+type InvitationStatus = "open" | "expired" | "accepted" | "closed" | "declined";
+type RosterNotice = {
   id: string; kind: string; title: string; body: string;
-  expiresAt?: string | null; inviteStatus?: "open" | "expired" | "accepted" | "closed" | "declined";
-}[] };
+  expiresAt?: string | null; inviteStatus?: InvitationStatus;
+};
+type Feed = { publicKey: string | null; testEnabled?: boolean; notices: RosterNotice[] };
 
 function keyBytes(key: string) {
   return Uint8Array.from(atob(key.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(key.length / 4) * 4, "=")), byte => byte.charCodeAt(0));
@@ -126,23 +128,34 @@ export function RosterNotifications({ token, mode, onAccepted }: {
     }
   }
 
-  async function respond(id: string, action: "accept" | "decline") {
+  async function respond(item: RosterNotice, action: "accept" | "decline") {
+    const slotInvite = item.kind === "slot-invite";
+    const invitationId = item.id.slice(item.id.indexOf(":") + 1);
+    const route = slotInvite ? "/slot-invites/" : "/invites/";
+    const updateStatus = (inviteStatus: InvitationStatus) => setFeed(current => current && {
+      ...current, notices: current.notices.map(notice => notice.id === item.id ? { ...notice, inviteStatus } : notice),
+    });
     setBusy(true);
     setNotice("");
     try {
       if (action === "decline" && !(await confirm({
-        title: "Recusar o convite de substituição?",
-        subject: feed?.notices.find(item => item.id === id)?.body,
+        title: slotInvite ? "Recusar o convite para este culto?" : "Recusar o convite de substituição?",
+        subject: item.body,
         description: "A vaga segue disponível para outro voluntário.",
         action: "Recusar convite", cancel: "Voltar", tone: "danger",
       }))) return;
-      await apiPost(PATH + "/invites/" + encodeURIComponent(id.split(":")[1]) + "/" + action, token);
-      setFeed(current => current && { ...current, notices: current.notices.map(item =>
-        item.id === id ? { ...item, inviteStatus: action === "accept" ? "accepted" : "declined" } : item) });
+      await apiPost(PATH + route + encodeURIComponent(invitationId) + "/" + action, token);
+      updateStatus(action === "accept" ? "accepted" : "declined");
       if (action === "accept") onAccepted?.();
-      setNotice(action === "accept" ? "Substituição confirmada. Veja o culto em Minha escala." : "Convite recusado.");
+      const accepted = slotInvite ? "Presença confirmada." : "Substituição confirmada.";
+      setNotice(action === "accept" ? accepted + " Veja o culto em Minha escala." : "Convite recusado.");
     } catch (error) {
-      setNotice(dasError(error));
+      if (slotInvite && error instanceof ApiRequestError && error.status === 409 && /ROSTER_SLOT_FILLED|vaga já foi preenchida/i.test(error.message)) {
+        updateStatus("closed");
+        setNotice("Esta vaga já foi preenchida.");
+      } else {
+        setNotice(dasError(error));
+      }
     } finally {
       setBusy(false);
     }
@@ -164,29 +177,39 @@ export function RosterNotifications({ token, mode, onAccepted }: {
   }
 
   const invitations = (feed?.notices ?? [])
-    .filter(item => item.kind === "substitute")
+    .filter(item => item.kind === "substitute" || item.kind === "slot-invite")
     .map(item => ({
       ...item,
-      anchor: "convite-" + item.id.split(":")[1],
+      anchor: (item.kind === "slot-invite" ? "convite-vaga-" : "convite-") + item.id.slice(item.id.indexOf(":") + 1),
       status: item.inviteStatus === "open" && item.expiresAt && Date.parse(item.expiresAt) <= Date.now() ? "expired" : item.inviteStatus,
     }))
     .filter(item => item.status === "open" || item.anchor === target);
   if (!invitations.length && !notice) return null;
 
-  return <section className={styles.invites} aria-label="Convites de substituição">
+  return <section className={styles.invites} aria-label="Convites para cultos">
     {confirmation}
-    <h2><UIIcon name="mail" size={19} /> Convites de substituição</h2>
+    <h2><UIIcon name="mail" size={19} /> Convites para cultos</h2>
     {notice && <p role="status">{notice}</p>}
-    {invitations.length > 0 && <ul>{invitations.map(({ id, anchor, status, title, body, expiresAt }) =>
-      <li key={id} id={anchor} className={styles.inviteItem} data-targeted={anchor === target || undefined}>
+    {invitations.length > 0 && <ul>{invitations.map(item => {
+      const { id, anchor, status, title, body, expiresAt } = item;
+      const slotInvite = item.kind === "slot-invite";
+      const statusLabel = {
+        accepted: slotInvite ? "Presença confirmada" : "Substituição confirmada",
+        expired: "Prazo encerrado",
+        declined: "Convite recusado",
+        closed: "Convite encerrado",
+        open: "Aguardando resposta",
+      };
+      return (<li key={id} id={anchor} className={styles.inviteItem} data-targeted={anchor === target || undefined}>
         <h3>{title}</h3>
         <p>{body}</p>
         {status === "open" && expiresAt && Number.isFinite(Date.parse(expiresAt)) &&
           <p><strong>Responda até <time dateTime={expiresAt}>{inviteDeadline.format(new Date(expiresAt))}</time>.</strong></p>}
         {status === "open" ? <div className={styles.actions}>
-          <button className={styles.primary} type="button" disabled={busy} onClick={() => void respond(id, "accept")}>Aceitar substituição</button>
-          <button className={styles.agendaDecline} type="button" disabled={busy} onClick={() => void respond(id, "decline")}>Não posso substituir</button>
-        </div> : <strong>{status === "accepted" ? "Substituição confirmada" : status === "expired" ? "Prazo encerrado" : status === "declined" ? "Convite recusado" : "Convite encerrado"}</strong>}
-      </li>)}</ul>}
+          <button className={styles.primary} type="button" disabled={busy} onClick={() => void respond(item, "accept")}>{slotInvite ? "Aceitar convite" : "Aceitar substituição"}</button>
+          <button className={styles.agendaDecline} type="button" disabled={busy} onClick={() => void respond(item, "decline")}>{slotInvite ? "Não posso servir" : "Não posso substituir"}</button>
+        </div> : <strong>{statusLabel[status ?? "closed"]}</strong>}
+      </li>);
+    })}</ul>}
   </section>;
 }
