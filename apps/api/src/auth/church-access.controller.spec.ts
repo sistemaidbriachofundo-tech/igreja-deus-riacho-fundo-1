@@ -12,6 +12,8 @@ function setup() {
   const records = {
     person: { findFirst: jest.fn().mockResolvedValue({ id: "person-test", displayName: "Pessoa de teste", email: "person@example.test" }) },
     ministry: { findFirst: jest.fn().mockResolvedValue(null) },
+    ministryRosterModule: { findFirst: jest.fn().mockResolvedValue(null) },
+    ministryRosterModuleLeader: { upsert: jest.fn() },
     role: { findUnique: jest.fn().mockResolvedValue({ id: "role-test" }) },
     user: {
       create: jest.fn().mockResolvedValue({ id: "user-test", email: "person@example.test", status: "DISABLED" }),
@@ -106,6 +108,27 @@ describe("Acessos da congregação — convite ao titular", () => {
       ministryId: "other-ministry",
     })).rejects.toBeInstanceOf(NotFoundException);
     expect(db.user.create).not.toHaveBeenCalled();
+  });
+
+  it("cria liderança de módulo com o grant do Atmosfera e rejeita módulos fora dele", async () => {
+    const { db, controller } = setup();
+    const profile = {
+      personId: "person-test", email: "person@example.test", role: "LIDER_MODULO" as const,
+      ministryId: "atmosfera", moduleId: "recepcao",
+    };
+    db.ministry.findFirst.mockResolvedValue({ slug: "atmosfera", leaderPersonId: "responsavel" });
+    await expect(controller.create(admin, profile)).rejects.toBeInstanceOf(NotFoundException);
+    expect(db.user.create).not.toHaveBeenCalled();
+
+    db.ministryRosterModule.findFirst.mockResolvedValue({ id: "recepcao" });
+    await controller.create(admin, profile);
+    expect(db.ministryRosterModule.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "recepcao", ministryId: "atmosfera" },
+    }));
+    expect(db.role.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { code: "LIDER_MINISTERIO" } }));
+    expect(db.ministryRosterModuleLeader.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: { ...pilot, ministryId: "atmosfera", moduleId: "recepcao", personId: "person-test" },
+    }));
   });
 
   it("falha fechado sem provedor de e-mail, sem tocar na base", async () => {

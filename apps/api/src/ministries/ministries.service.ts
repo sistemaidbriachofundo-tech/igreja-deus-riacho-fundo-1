@@ -161,6 +161,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const existing = await this.requireMinistry(ministryId, pilot);
     this.assertManageMinistry(actor, existing);
+    if (existing.slug === "atmosfera") assertCanManageRosterMonth(actor, existing, pilot);
 
     const data: Record<string, unknown> = {};
     if (input.name !== undefined) {
@@ -265,6 +266,10 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertManageMinistry(actor, ministry);
+    if (ministry.slug === "atmosfera") {
+      if (moduleId) await assertRosterModuleAllowed(this.prisma as never, actor, ministry, moduleId, pilot);
+      else assertCanManageRosterMonth(actor, ministry, pilot);
+    }
     const name = input.trim().replace(/\s+/g, " ");
     if (!name || name.length > 100) throw new BadRequestException("Informe um nome de módulo com até 100 caracteres.");
     const nameKey = canonicalModuleKey(name);
@@ -331,6 +336,9 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertManageMinistry(actor, ministry);
+    if (ministry.slug === "atmosfera") {
+      await assertRosterModuleAllowed(this.prisma as never, actor, ministry, moduleId, pilot);
+    }
     const rules = readModuleRules(input);
     const ids = [...new Set([...(rules.volunteerIds ?? []), ...Object.values(rules.qualifications).flat(), ...rules.couples.flat()])];
     return this.prisma.$transaction(async tx => {
@@ -1294,6 +1302,7 @@ export class MinistriesService {
     const pilot = await this.pilot.getPilotChurch();
     this.assertLead(actor, pilot.organizationId, pilot.churchId);
     const loaded = await this.requireAssignmentInChurch(assignmentId, pilot);
+    await this.assertRosterScope(actor, loaded.roster, pilot);
     if (!this.channels) {
       return { notified: 0, outbox: [], reused: false };
     }
