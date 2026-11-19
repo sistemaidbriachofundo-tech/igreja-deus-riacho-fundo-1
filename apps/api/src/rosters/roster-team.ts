@@ -275,7 +275,7 @@ export async function eligibleSlotCandidates(db: Tx, slot: SlotRow, now = new Da
 export async function listSlotCandidates(db: Db, actor: AuthUser, pilot: Pilot, slotId: string, now = new Date()) {
   const slot = await loadSlot(txOf(db), slotId, pilot);
   if (slot.roster.ministry && slot.roster.moduleId) await assertModule(txOf(db), actor, slot.roster.ministry, slot.roster.moduleId, pilot);
-  return { candidates: await eligibleSlotCandidates(txOf(db), slot, now) };
+  return { invitationKeepsVacancyOpen: true as const, candidates: await eligibleSlotCandidates(txOf(db), slot, now) };
 }
 
 function slotInviteView(invitation: { id: string; personId: string; partnerPersonId: string | null; status: "PENDING" | "ACCEPTED" | "DECLINED" }) {

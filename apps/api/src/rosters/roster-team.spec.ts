@@ -133,6 +133,7 @@ describe("convite de equipe e cobertura de vaga", () => {
   it("não cobre vaga preenchida, não vaza Ofertas e repete o mesmo convite", async () => {
     const { db, assignments, slotInvites } = database();
     const open = await listSlotCandidates(db as never, leader, pilot, "vaga", new Date("2026-11-01T12:00:00.000Z"));
+    expect(open).toMatchObject({ invitationKeepsVacancyOpen: true });
     expect(open.candidates.map(item => item.personId)).toEqual(["ana"]);
     const when = new Date("2026-11-01T12:00:00.000Z");
     const invited = await inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, when);
