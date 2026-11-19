@@ -23,6 +23,12 @@ export class MemberEventsController {
     return this.registrations.getMyRegistration(actor, registrationId);
   }
 
+  @Post("registrations/:registrationId/cancel")
+  @Header("Cache-Control", "private, no-store")
+  cancel(@CurrentUser() actor: AuthUser, @Param("registrationId") registrationId: string) {
+    return this.registrations.cancelMyRegistration(actor, registrationId);
+  }
+
   @Post(":slug/registrations")
   @Header("Cache-Control", "private, no-store")
   create(@CurrentUser() actor: AuthUser, @Param("slug") slug: string, @Body() body: PublicRegistrationBody) {

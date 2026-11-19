@@ -245,6 +245,7 @@ export const API_ENDPOINT_STATUS = {
   "GET /events/:eventId/transport-options": "implemented",
   "GET /events/:eventId/registrations": "implemented",
   "POST /events/:eventId/registrations": "implemented",
+  "POST /member-events/registrations/:registrationId/cancel": "implemented",
   "POST /registrations/:registrationId/check-in": "implemented",
   "POST /registrations/:registrationId/cancel": "implemented",
   "POST /registrations/:registrationId/guardian-authorization": "implemented",
