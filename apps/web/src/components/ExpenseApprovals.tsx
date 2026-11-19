@@ -146,7 +146,7 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     {confirmation}
     <PageHeader appearance="workspace" heading={embedded ? "h2" : "h1"} title="Despesas para aprovação"
       description="Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa."
-      actions={roles.includes("PASTOR") && <AppNavLink className={ui.workspaceSecondary} href="/app/">
+      actions={roles.includes("PASTOR") && <AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/">
         <UIIcon name="home" size={16} /> Voltar à Mesa Pastoral
       </AppNavLink>} />
     {error && <p className={s.error} role="alert">{error}</p>}

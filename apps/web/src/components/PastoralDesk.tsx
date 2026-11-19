@@ -12,6 +12,8 @@ import ui from "./ui/ui.module.css";
 
 export function PastoralDesk() {
   const access = usePersonaAccess();
+  if (access.kind === "preview") return <PageHeader appearance="workspace" heading="h1" title="Mesa pastoral"
+    description="Disponível na área autenticada para contas com perfil de pastor." />;
   if (access.kind !== "ready" || !access.roles.includes("PASTOR")) return null;
   return <PastoralWorkspace roles={access.roles} />;
 }

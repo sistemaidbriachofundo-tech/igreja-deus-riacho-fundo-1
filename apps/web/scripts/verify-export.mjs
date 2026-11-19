@@ -18,7 +18,7 @@ const base = (
 // redirect to sections. QA/engineering/demo routes are intentionally absent.
 const requiredPages = [
   "index.html", "a-igreja/index.html", "eventos/index.html", "eventos/inscricao/index.html", "login/index.html",
-  "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
+  "app/index.html", "app/membros/index.html", "app/secretaria/index.html", "app/pastoral/index.html",
   "app/membros/carteirinha/index.html", "app/minha-conta/index.html", "app/eventos/index.html", "validar-carteirinha/index.html",
   "app/editorial/index.html", "app/site/index.html",
 ];
@@ -26,7 +26,7 @@ const forbiddenPages = [
   "contato/index.html", "visita/index.html", "ministerios/index.html",
   ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
   "novidades/index.html", "status/index.html", "app/demo/index.html",
-  "app/operacao/index.html", "app/pastoral/index.html", "design-system/index.html", "w1-estudio/index.html",
+  "app/operacao/index.html", "design-system/index.html", "w1-estudio/index.html",
 ];
 const requiredGalleryAssets = ["louvor", "juventude", "oracao", "palavra"].map((name) => `images/galeria-${name}.webp`);
 const failures = [];
