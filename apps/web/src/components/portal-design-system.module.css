@@ -218,3 +218,14 @@
 }
 
 @media (max-width: 340px) { .headerLogin svg { display: none; } }
+
+@media (max-width: 360px) {
+  .mastheadInner:has([data-broadcast-indicator]) .brand > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

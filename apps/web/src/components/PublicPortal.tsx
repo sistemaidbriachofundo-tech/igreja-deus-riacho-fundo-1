@@ -8,6 +8,7 @@ import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
 import { UIIcon } from "./ui/UIIcon";
 import { PortalButton } from "./PortalButton";
+import { PortalBroadcastHeaderLink, PortalBroadcastProvider } from "./PortalBroadcast";
 import { PublicHashFocus, PortalSectionLink } from "./PublicSectionLink";
 import d from "./portal-design-system.module.css";
 
@@ -36,6 +37,7 @@ export function PortalHeader({ light = false, overlay = false }: { light?: boole
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
+          <PortalBroadcastHeaderLink home={overlay} />
           <Link href="/login/" className={d.headerLogin}><UIIcon name="badge" size={17} />Login</Link>
           <MobilePortalMenu links={navigation} />
         </div>
@@ -71,7 +73,17 @@ export function PortalFooter() {
 }
 
 export function PublicPage({ children, lightHeader = false, overlayHeader = false }: { children: ReactNode; lightHeader?: boolean; overlayHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} overlay={overlayHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
+  return (
+    <PortalBroadcastProvider>
+      <div className={`${s.portal} ${d.theme}`}>
+        <a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a>
+        <PortalHeader light={lightHeader} overlay={overlayHeader} />
+        <PublicHashFocus />
+        {children}
+        <PortalFooter />
+      </div>
+    </PortalBroadcastProvider>
+  );
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {

@@ -2,7 +2,8 @@ import { Controller, Get, Injectable, ServiceUnavailableException } from "@nestj
 import { Public } from "../auth/decorators/public.decorator";
 
 const CHANNEL = "UCpd6-RQKVIKfje5usHzYiiA";
-const LIVE_PAGE = "https://www.youtube.com/channel/" + CHANNEL + "/live";
+const LIVE_PAGE = "https://www.youtube.com/c/IDBRiachoFundo1IDB/live";
+const CHANNEL_LIVE_PAGE = "https://www.youtube.com/channel/" + CHANNEL + "/live";
 const REFRESH_MS = 30_000;
 
 type Broadcast = { id: string; title: string; embeddable: boolean };
@@ -12,6 +13,15 @@ function youtubeVideoId(address: string): string | null {
   const url = new URL(address);
   const id = url.searchParams.get("v");
   return url.origin === "https://www.youtube.com" && url.pathname === "/watch" && id && /^[\w-]{11}$/.test(id) ? id : null;
+}
+
+async function fetchYoutubePage(url: string, signal: AbortSignal) {
+  const response = await fetch(url, { signal, headers: { Accept: "text/html" } });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error("Página do YouTube indisponível");
+  }
+  return { url: response.url, html: await response.text() };
 }
 
 type YoutubePlayer = {
@@ -61,27 +71,20 @@ export class YoutubeLiveService {
 
   private async refresh(): Promise<State> {
     try {
-      const options = { signal: AbortSignal.timeout(6_000), headers: { Accept: "text/html" } };
-      const response = await fetch(LIVE_PAGE, options);
-      if (!response.ok) {
-        await response.body?.cancel();
-        throw new Error("Canal indisponível");
-      }
-
-      const html = await response.text();
-      const redirectedVideo = youtubeVideoId(response.url);
+      const budget = AbortSignal.timeout(6_500);
+      // The channel's public custom URL generally includes its complete live player.
+      const firstAttempt = AbortSignal.any([budget, AbortSignal.timeout(4_000)]);
+      const { url, html } = await fetchYoutubePage(LIVE_PAGE, firstAttempt)
+        .catch(() => fetchYoutubePage(CHANNEL_LIVE_PAGE, budget));
+      const redirectedVideo = youtubeVideoId(url);
       const canonical = html.match(/<link rel="canonical" href="([^"]+)"/i)?.[1];
       const videoId = redirectedVideo ?? (canonical ? youtubeVideoId(canonical) : null);
       let broadcast = videoId ? activeYoutubeBroadcast(html, videoId) : null;
 
-      // YouTube can keep the /live URL and advertise the watch URL only in the HTML.
+      // Some channel pages contain a video ID before the complete player metadata loads.
       if (videoId && !broadcast && !redirectedVideo) {
-        const watch = await fetch("https://www.youtube.com/watch?v=" + videoId, options);
-        if (!watch.ok) {
-          await watch.body?.cancel();
-          throw new Error("Transmissão indisponível");
-        }
-        broadcast = activeYoutubeBroadcast(await watch.text(), videoId);
+        const watch = await fetchYoutubePage("https://www.youtube.com/watch?v=" + videoId, budget);
+        broadcast = activeYoutubeBroadcast(watch.html, videoId);
       }
       this.current = { broadcast };
       return this.current;

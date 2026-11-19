@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { withBasePath } from "../lib/paths";
 import { usePublishedResource } from "../lib/use-published-resource";
 import s from "./portal-broadcast.module.css";
 
@@ -33,6 +34,17 @@ export function PortalBroadcastProvider({ children }: { children: ReactNode }) {
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
+export function PortalBroadcastHeaderLink({ home }: { home: boolean }) {
+  const state = useContext(Context);
+  if (!state) return null;
+  const target = "#culto-ao-vivo";
+  const href = home ? target : withBasePath(state.test ? `/?teste-live=${state.video.id}${target}` : `/${target}`);
+  return <a className={s.headerLink} href={href} data-broadcast-indicator data-test={state.test || undefined}
+    aria-label={state.test ? "Abrir teste de transmissão" : "Ao vivo: assistir ao culto"}>
+    <span className={s.light} aria-hidden="true" /> {state.test ? "Teste" : "Ao vivo"}
+  </a>;
+}
+
 export function PortalBroadcastHeroLink() {
   const state = useContext(Context);
   if (!state) return null;
@@ -45,10 +57,19 @@ export function PortalBroadcastHeroLink() {
 export function PortalBroadcastSection() {
   const state = useContext(Context);
   const [playingId, setPlayingId] = useState<string>();
+  const section = useRef<HTMLElement>(null);
+  const visible = state !== null;
+  useEffect(() => {
+    const target = section.current;
+    // When coming from another page the section appears after the live status loads.
+    if (!target || window.location.hash !== "#culto-ao-vivo") return;
+    target.scrollIntoView();
+    target.focus({ preventScroll: true });
+  }, [visible]);
   if (!state) return null;
   const { video, test } = state;
 
-  return <section className={s.section} id="culto-ao-vivo" tabIndex={-1} aria-labelledby="portal-broadcast-title">
+  return <section ref={section} className={s.section} id="culto-ao-vivo" tabIndex={-1} aria-labelledby="portal-broadcast-title">
     <div className={s.inner}>
       <div className={s.heading}>
         <div>

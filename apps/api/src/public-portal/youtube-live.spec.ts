@@ -45,11 +45,23 @@ describe("Culto ao vivo no portal", () => {
     expect(fetcher).toHaveBeenNthCalledWith(2, watchUrl, expect.anything());
   });
 
+  it("consulta pelo ID oficial do canal se a URL personalizada responder com erro", async () => {
+    const customUrl = "https://www.youtube.com/c/IDBRiachoFundo1IDB/live";
+    const canonicalUrl = "https://www.youtube.com/channel/" + channel + "/live";
+    const fetcher = jest.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(response(null, customUrl, 503))
+      .mockResolvedValueOnce(response(page(), watchUrl));
+    await expect(new YoutubeLiveService().getStatus()).resolves.toMatchObject({ broadcast: { id: videoId } });
+    expect(fetcher).toHaveBeenNthCalledWith(1, customUrl, expect.anything());
+    expect(fetcher).toHaveBeenNthCalledWith(2, canonicalUrl, expect.anything());
+  });
+
   it("remove o destaque após o encerramento e em erro de consulta", async () => {
     jest.useFakeTimers();
     const fetcher = jest.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(response(page(), watchUrl))
       .mockResolvedValueOnce(response(null, "https://www.youtube.com/channel/" + channel + "/live"))
+      .mockResolvedValueOnce(response(null, watchUrl, 503))
       .mockResolvedValueOnce(response(null, watchUrl, 503));
     const service = new YoutubeLiveService();
     const [active, concurrent] = await Promise.all([service.getStatus(), service.getStatus()]);

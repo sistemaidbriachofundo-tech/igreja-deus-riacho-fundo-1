@@ -49,3 +49,31 @@
 }
 .play i { width: 0; height: 0; border: 6px solid transparent; border-left: 9px solid #fff; border-right: 0; }
 .play:focus-visible { outline-offset: -4px; }
+
+.headerLink {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding-inline: 10px;
+  border: 1px solid #f7b7ae;
+  border-radius: 999px;
+  background: #a42925;
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.headerLink:hover { background: #8e2621; }
+.headerLink[data-test] { border-color: #ead19f; background: #765323; }
+.headerLink[data-test]:hover { background: #65451b; }
+.headerLink .light { width: 7px; height: 7px; }
+
+@media (max-width: 390px) {
+  .headerLink { gap: 4px; padding-inline: 7px; font-size: .74rem; }
+}
