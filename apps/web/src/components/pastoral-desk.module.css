@@ -29,3 +29,25 @@
 .cases {
   padding: 0 var(--app-gutter, 22px) var(--app-gutter, 22px);
 }
+
+.queues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+
+.queue {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 72px;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--app-ink);
+  text-decoration: none;
+}
+
+.queue > svg { color: var(--app-accent); }
+.queue div { display: grid; gap: 4px; }
+.queue span { color: var(--app-muted); font-size: .875rem; }
+.queue:hover { border-color: var(--app-accent); }

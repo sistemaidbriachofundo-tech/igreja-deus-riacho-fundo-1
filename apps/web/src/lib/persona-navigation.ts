@@ -118,8 +118,8 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     icon: "family",
     hint: "Acompanhamentos e aprovações do pastor",
     ribbon: { code: "Pastoral", title: "Mesa pastoral", detail: "Cuidado da congregação e decisões pendentes." },
-    roles: ["PASTOR"],
-    probe: { method: "GET", path: "/pastoral-cases", source: "apps/api/src/pastoral/pastoral.controller.ts", marker: "return this.pastoral.list" },
+    roles: ["PASTOR", "PLATFORM_ADMIN"],
+    probe: null,
     surface: "admin",
   },
   {
@@ -484,7 +484,7 @@ export function isMemberOnly(roles: readonly string[]): boolean {
  * A autorização da rota direta continua em `areaAllowed`.
  */
 export function shellAreasForRoles(roles: readonly string[], preview = false): PersonaArea[] {
-  if (preview) return PERSONA_AREAS.filter(area => area.surface === "admin" && (area.key !== "pastoral" || roles.includes("PASTOR")));
+  if (preview) return PERSONA_AREAS.filter(area => area.surface === "admin" && (area.key !== "pastoral" || area.roles.some(role => roles.includes(role))));
   const allowed = areasForRoles(roles);
   if (isGuestOnly(roles)) return allowed;
   if (isMemberOnly(roles)) {

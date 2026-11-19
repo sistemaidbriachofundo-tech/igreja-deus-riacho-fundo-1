@@ -37,7 +37,7 @@ function hrefs(html: string): string[] {
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
-  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "acessos", "site"],
+  PLATFORM_ADMIN: ["visao", "pastoral", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "acessos", "site"],
   SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "relatorios", "site"],
   PASTOR: ["visao", "pastoral", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "site"],
   TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria", "relatorios"],
@@ -95,12 +95,11 @@ describe("menu por persona", () => {
     expect(landingForRoles(["PLATFORM_ADMIN"])).toBe("/app/");
   });
 
-  it("mostra a Pastoral somente para quem tem o perfil de pastor", () => {
-    expect(shellAreasForRoles(["PASTOR"]).map(area => area.key)).toContain("pastoral");
-    expect(areaAllowed(["PLATFORM_ADMIN", "PASTOR"], "pastoral")).toBe(true);
-    for (const role of BUILTIN_ROLES.filter(role => role !== "PASTOR")) {
-      expect(shellAreasForRoles([role]).map(area => area.key)).not.toContain("pastoral");
-      expect(areaAllowed([role], "pastoral")).toBe(false);
+  it("mostra Pastoral ao pastor e à administração", () => {
+    for (const role of BUILTIN_ROLES) {
+      const permitted = role === "PASTOR" || role === "PLATFORM_ADMIN";
+      expect(shellAreasForRoles([role]).some(area => area.key === "pastoral")).toBe(permitted);
+      expect(areaAllowed([role], "pastoral")).toBe(permitted);
     }
     expect(shellAreasForRoles([], true).map(area => area.key)).not.toContain("pastoral");
   });
