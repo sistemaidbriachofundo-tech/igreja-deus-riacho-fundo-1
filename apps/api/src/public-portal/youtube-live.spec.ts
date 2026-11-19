@@ -63,14 +63,15 @@ describe("Culto ao vivo no portal", () => {
       .mockResolvedValueOnce(response(null, watchUrl, 503))
       .mockResolvedValueOnce(response(null, watchUrl, 503))
       .mockResolvedValueOnce(response(feed, "https://www.youtube.com/feeds/videos.xml"))
-      .mockResolvedValueOnce(response(page({active:false}), watchUrl));
+      .mockResolvedValueOnce(response(page({ active: false }), watchUrl));
     await expect(new YoutubeLiveService().getStatus()).resolves.toEqual({ broadcast: null });
     expect(fetcher).toHaveBeenNthCalledWith(4, "https://www.youtube.com/live/" + videoId, expect.anything());
   });
 
   it("remove o destaque após o encerramento e em erro de consulta", async () => {
     jest.useFakeTimers();
-    const fetcher = jest.spyOn(globalThis, "fetch")
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetcher = jest.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Sem conexão no teste"))
       .mockResolvedValueOnce(response(page(), watchUrl))
       .mockResolvedValueOnce(response(null, "https://www.youtube.com/channel/" + channel + "/live"))
       .mockResolvedValueOnce(response(null, watchUrl, 503))
