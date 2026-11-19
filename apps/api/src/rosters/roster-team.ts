@@ -21,6 +21,7 @@ export type MemberInvitationView = {
   personId: string;
   personName: string | null;
   moduleId: string;
+  moduleName: string | null;
   status: "PENDING" | "ACCEPTED" | "DECLINED";
 };
 
@@ -46,8 +47,13 @@ async function assertModule(db: Tx, actor: AuthUser, ministry: { id: string; lea
 
 async function present(db: Tx, rows: Array<{ id: string; personId: string; moduleId: string; status: MemberInvitationView["status"] }>) {
   const people = rows.length ? await db.person.findMany({ where: { id: { in: rows.map(row => row.personId) } }, select: { id: true, displayName: true } }) : [];
+  const modules = rows.length ? await db.ministryRosterModule.findMany({ where: { id: { in: rows.map(row => row.moduleId) } }, select: { id: true, name: true } }) : [];
   const names = new Map(people.map(person => [person.id, person.displayName]));
-  return envelope(rows.map(row => ({ id: row.id, personId: row.personId, personName: names.get(row.personId) ?? null, moduleId: row.moduleId, status: row.status })));
+  const moduleNames = new Map(modules.map(module => [module.id, module.name]));
+  return envelope(rows.map(row => ({
+    id: row.id, personId: row.personId, personName: names.get(row.personId) ?? null,
+    moduleId: row.moduleId, moduleName: moduleNames.get(row.moduleId) ?? null, status: row.status,
+  })));
 }
 
 const txOf = (db: Db) => db as unknown as Tx;
@@ -272,40 +278,87 @@ export async function listSlotCandidates(db: Db, actor: AuthUser, pilot: Pilot, 
   return { candidates: await eligibleSlotCandidates(txOf(db), slot, now) };
 }
 
+function slotInviteView(invitation: { id: string; personId: string; partnerPersonId: string | null; status: "PENDING" | "ACCEPTED" | "DECLINED" }) {
+  return { id: invitation.id, status: invitation.status, personId: invitation.personId, partnerPersonId: invitation.partnerPersonId };
+}
+
 export async function inviteSlotCandidate(db: Db, actor: AuthUser, pilot: Pilot, slotId: string, input: { personId: string; partnerPersonId?: string | null }, now = new Date()) {
   const slot = await loadSlot(txOf(db), slotId, pilot);
   if (!slot.roster.ministry || !slot.roster.moduleId) throw new ConflictException({ code: "ROSTER_SLOT_NOT_PUBLIC", message: "A cobertura vale para uma vaga publicada de um módulo." });
   await assertModule(txOf(db), actor, slot.roster.ministry, slot.roster.moduleId, pilot);
-  const active = slot.assignments.filter(item => item.status === "PENDING" || item.status === "CONFIRMED");
-  const same = active.find(item => item.personId === input.personId && (item.partnerPersonId ?? null) === (input.partnerPersonId ?? null));
-  if (same) return { assignmentId: same.id, personId: same.personId, partnerPersonId: same.partnerPersonId ?? null, status: same.status };
   if (slot.roster.status !== "PUBLISHED" || slot.roster.serviceAt <= now) {
     throw new ConflictException({ code: "ROSTER_SLOT_NOT_PUBLIC", message: "A cobertura vale para uma vaga publicada." });
   }
-  if (active.length) throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
+  if (slot.assignments.some(item => item.status === "PENDING" || item.status === "CONFIRMED")) {
+    throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
+  }
   const partnerPersonId = input.partnerPersonId ?? null;
   assertDistinctRosterPartners(input.personId, partnerPersonId);
   const candidates = await eligibleSlotCandidates(txOf(db), slot, now);
   const match = candidates.find(item => item.personId === input.personId && (item.partnerPersonId ?? null) === partnerPersonId);
   if (!match) throw new ConflictException({ code: "ROSTER_NOT_ELIGIBLE", message: "A pessoa não pode cobrir esta vaga.", reasonCodes: ["NOT_ELIGIBLE"] });
-  const created = await writeRosterAssignment(db as never, async tx => {
+  return db.$transaction(async tx => {
     const current = await loadSlot(tx, slotId, pilot);
-    const active = current.assignments.filter(item => item.status === "PENDING" || item.status === "CONFIRMED");
-    const same = active.find(item => item.personId === input.personId && (item.partnerPersonId ?? null) === partnerPersonId);
-    if (same) return same;
-    if (active.length) throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
-    await assertOpenModuleSlot(tx, current);
-    await assertSlotEligibility(tx, current, [input.personId, partnerPersonId].filter((id): id is string => Boolean(id)));
-    await assertNoRosterDayConflict(tx, { churchId: pilot.churchId, serviceAt: current.roster.serviceAt, personIds: [input.personId, partnerPersonId].filter((id): id is string => Boolean(id)), conflictCode: "ROSTER_SAME_DAY" });
-    const assignment = await tx.rosterAssignment.create({ data: { slotId, personId: input.personId, partnerPersonId, status: "PENDING" } });
+    if (!isPublicVacancy(current, now)) throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
+    const pending = await tx.rosterSlotInvitation.findFirst({
+      where: { slotId, personId: input.personId, partnerPersonId, status: "PENDING" },
+      select: { id: true, personId: true, partnerPersonId: true, status: true },
+    });
+    if (pending) return slotInviteView(pending);
+    const invitation = await tx.rosterSlotInvitation.create({
+      data: {
+        organizationId: pilot.organizationId, churchId: pilot.churchId, slotId, personId: input.personId, partnerPersonId,
+        status: "PENDING", expiresAt: current.roster.serviceAt,
+      },
+      select: { id: true, personId: true, partnerPersonId: true, status: true },
+    });
     await tx.rosterNotice.createMany({
       data: [{
-        id: `cover:${slotId}:${input.personId}`, churchId: pilot.churchId, personId: input.personId, kind: "cover",
-        title: "Convite para cobrir uma vaga", body: `${current.roster.title}. Responda pelo portal.`, path: PORTAL,
+        id: `slot-invite:${invitation.id}`, churchId: pilot.churchId, personId: input.personId, kind: "slot-invite",
+        title: "Convite para este culto", body: `${current.roster.title}. A vaga continua aberta até você aceitar.`,
+        path: `${PORTAL}#convite-vaga-${invitation.id}`, expiresAt: current.roster.serviceAt,
       }],
       skipDuplicates: true,
     });
-    return assignment;
+    return slotInviteView(invitation);
   });
-  return { assignmentId: created.id, personId: created.personId, partnerPersonId: created.partnerPersonId ?? null, status: created.status };
+}
+
+export async function acceptSlotInvitation(db: Db, actor: AuthUser, pilot: Pilot, invitationId: string, now = new Date()) {
+  if (!actor.personId) throw new ForbiddenException("A sessão precisa estar vinculada a uma pessoa.");
+  return writeRosterAssignment(db as never, async tx => {
+    const invitation = await tx.rosterSlotInvitation.findFirst({ where: { id: invitationId, churchId: pilot.churchId } });
+    if (!invitation || invitation.personId !== actor.personId) throw new NotFoundException("Convite não encontrado.");
+    const existing = await tx.rosterAssignment.findFirst({
+      where: { slotId: invitation.slotId, personId: invitation.personId, partnerPersonId: invitation.partnerPersonId, status: { in: ["PENDING", "CONFIRMED"] } },
+      select: { id: true },
+    });
+    if (invitation.status === "ACCEPTED" && existing) return { id: invitation.id, status: "ACCEPTED" as const, assignmentId: existing.id };
+    if (invitation.status !== "PENDING") throw new ConflictException({ code: "ROSTER_INVITATION_CLOSED", message: "Este convite já foi respondido." });
+    if (invitation.expiresAt <= now) throw new ConflictException({ code: "ROSTER_INVITATION_EXPIRED", message: "O prazo deste convite terminou." });
+    const slot = await loadSlot(tx, invitation.slotId, pilot);
+    if (!isPublicVacancy(slot, now)) throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
+    const match = (await eligibleSlotCandidates(tx, slot, now)).find(item => item.personId === invitation.personId && (item.partnerPersonId ?? null) === (invitation.partnerPersonId ?? null));
+    if (!match) throw new ConflictException({ code: "ROSTER_NOT_ELIGIBLE", message: "A pessoa não pode mais cobrir esta vaga.", reasonCodes: ["NOT_ELIGIBLE"] });
+    const people = [invitation.personId, invitation.partnerPersonId].filter((id): id is string => Boolean(id));
+    await assertOpenModuleSlot(tx, slot);
+    await assertSlotEligibility(tx, slot, people);
+    await assertNoRosterDayConflict(tx, { churchId: pilot.churchId, serviceAt: slot.roster.serviceAt, personIds: people, conflictCode: "ROSTER_SAME_DAY" });
+    const assignment = await tx.rosterAssignment.create({
+      data: { slotId: invitation.slotId, personId: invitation.personId, partnerPersonId: invitation.partnerPersonId, status: "CONFIRMED", confirmedAt: now },
+    });
+    await tx.rosterSlotInvitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED", respondedAt: now } });
+    return { id: invitation.id, status: "ACCEPTED" as const, assignmentId: assignment.id };
+  });
+}
+
+export async function declineSlotInvitation(db: Db, actor: AuthUser, pilot: Pilot, invitationId: string, now = new Date()) {
+  if (!actor.personId) throw new ForbiddenException("A sessão precisa estar vinculada a uma pessoa.");
+  const invitation = await db.rosterSlotInvitation.findFirst({ where: { id: invitationId, churchId: pilot.churchId } });
+  if (!invitation || invitation.personId !== actor.personId) throw new NotFoundException("Convite não encontrado.");
+  if (invitation.status === "DECLINED") return { id: invitation.id, status: "DECLINED" as const };
+  if (invitation.status !== "PENDING") throw new ConflictException({ code: "ROSTER_INVITATION_CLOSED", message: "Este convite já foi respondido." });
+  await db.rosterSlotInvitation.update({ where: { id: invitation.id }, data: { status: "DECLINED", respondedAt: now } });
+  await db.rosterNotice.updateMany({ where: { id: `slot-invite:${invitation.id}`, personId: actor.personId }, data: { declinedAt: now } });
+  return { id: invitation.id, status: "DECLINED" as const };
 }

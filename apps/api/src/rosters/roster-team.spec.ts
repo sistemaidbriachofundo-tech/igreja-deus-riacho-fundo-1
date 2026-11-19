@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
 import type { AuthUser } from "../auth/types/auth-user";
-import { createRosterMemberInvitation, inviteSlotCandidate, listRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation, searchRosterInvitationPeople } from "./roster-team";
+import { acceptSlotInvitation, createRosterMemberInvitation, inviteSlotCandidate, listRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation, searchRosterInvitationPeople } from "./roster-team";
 
 const pilot = { organizationId: "org", churchId: "riacho" };
 const leader = { userId: "u", personId: "lider-recepcao", grants: [{ roleCode: "LIDER_MINISTERIO", organizationId: "org", churchId: "riacho", ministryId: "atmosfera" }] } as AuthUser;
@@ -14,6 +14,7 @@ function database() {
     { moduleId: "ofertas", personId: "ofertas", membershipId: "mem-ofertas", status: "ATIVO", endedAt: null },
   ];
   const notices: Array<{ id: string; kind: string; personId: string }> = [];
+  const slotInvites: Array<{ id: string; churchId: string; slotId: string; personId: string; partnerPersonId: string | null; status: "PENDING" | "ACCEPTED" | "DECLINED"; expiresAt: Date }> = [];
   const assignments: Array<{ id: string; slotId: string; personId: string; partnerPersonId: string | null; status: string }> = [];
   let upserts = 0;
   const slot = {
@@ -28,7 +29,10 @@ function database() {
   const db = {
     ministry: { findFirst: async () => ({ id: "atmosfera", leaderPersonId: "lider-atmosfera" }) },
     ministryRosterModuleLeader: { findMany: async ({ where }: { where: { personId: string } }) => where.personId === "lider-recepcao" ? [{ moduleId: "recepcao" }] : [] },
-    ministryRosterModule: { findFirst: async ({ where }: { where: { id: string } }) => ({ id: where.id, name: where.id === "conexao" ? "Conexão" : "Recepção", rules: {} }) },
+    ministryRosterModule: {
+      findFirst: async ({ where }: { where: { id: string } }) => ({ id: where.id, name: where.id === "conexao" ? "Conexão" : "Recepção", rules: {} }),
+      findMany: async ({ where }: { where?: { id?: { in?: string[] } } }) => (where?.id?.in ?? []).map(id => ({ id, name: id === "recepcao" ? "Recepção" : "Conexão" })),
+    },
     ministryMembership: {
       findFirst: async ({ where }: { where: { personId: string } }) => ({ id: `mem-${where.personId}`, personId: where.personId }),
       count: async () => 1,
@@ -65,6 +69,21 @@ function database() {
       },
     },
     person: { findMany: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map(id => ({ id, displayName: id })) },
+    rosterSlotInvitation: {
+      findFirst: async ({ where }: { where: { id?: string; slotId?: string; personId?: string; status?: string; partnerPersonId?: string | null } }) =>
+        slotInvites.find(item => (!where.id || item.id === where.id) && (!where.slotId || item.slotId === where.slotId) && (!where.personId || item.personId === where.personId) && (!where.status || item.status === where.status) && (where.partnerPersonId === undefined || item.partnerPersonId === where.partnerPersonId)) ?? null,
+      create: async ({ data }: { data: { slotId: string; personId: string; partnerPersonId: string | null; status: "PENDING"; expiresAt: Date } }) => {
+        const row = { id: `vaga-convite-${slotInvites.length + 1}`, churchId: "riacho", ...data };
+        slotInvites.push(row);
+        return row;
+      },
+      update: async ({ where, data }: { where: { id: string }; data: { status: "ACCEPTED" | "DECLINED" } }) => {
+        const row = slotInvites.find(item => item.id === where.id);
+        if (!row) throw new Error("missing slot invite");
+        row.status = data.status;
+        return row;
+      },
+    },
     rosterNotice: { createMany: async ({ data, skipDuplicates }: { data: Array<{ id: string; kind: string; personId: string }>; skipDuplicates?: boolean }) => {
       let count = 0;
       for (const row of data) {
@@ -91,7 +110,7 @@ function database() {
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
   };
-  return { db, invitations, notices, assignments, links, upserts: () => upserts, slot };
+  return { db, invitations, notices, assignments, links, slotInvites, upserts: () => upserts, slot };
 }
 
 describe("convite de equipe e cobertura de vaga", () => {
@@ -103,7 +122,7 @@ describe("convite de equipe e cobertura de vaga", () => {
     await expect(createRosterMemberInvitation(db as never, leader, pilot, "atmosfera", { personId: "bruno", moduleId: "recepcao" })).resolves.toMatchObject({ id: first.id, status: "PENDING" });
     expect(notices.filter(item => item.kind === "module-invite")).toHaveLength(1);
     const accepted = await respondRosterMemberInvitation(db as never, { ...ana, personId: "bruno" } as AuthUser, pilot, first.id, "ACCEPTED");
-    expect(accepted.status).toBe("ACCEPTED");
+    expect(accepted).toMatchObject({ status: "ACCEPTED", moduleName: "Recepção" });
     expect(upserts()).toBe(1);
     await respondRosterMemberInvitation(db as never, { ...ana, personId: "bruno" } as AuthUser, pilot, first.id, "ACCEPTED");
     expect(upserts()).toBe(1);
@@ -112,17 +131,25 @@ describe("convite de equipe e cobertura de vaga", () => {
   });
 
   it("não cobre vaga preenchida, não vaza Ofertas e repete o mesmo convite", async () => {
-    const { db, assignments, slot } = database();
+    const { db, assignments, slotInvites } = database();
     const open = await listSlotCandidates(db as never, leader, pilot, "vaga", new Date("2026-11-01T12:00:00.000Z"));
     expect(open.candidates.map(item => item.personId)).toEqual(["ana"]);
-    const invited = await inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, new Date("2026-11-01T12:00:00.000Z"));
-    expect(invited).toMatchObject({ personId: "ana", status: "PENDING" });
-    const again = await inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, new Date("2026-11-01T12:00:00.000Z"));
-    expect(again.assignmentId).toBe(invited.assignmentId);
+    const when = new Date("2026-11-01T12:00:00.000Z");
+    const invited = await inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, when);
+    expect(invited).toEqual({ id: "vaga-convite-1", status: "PENDING", personId: "ana", partnerPersonId: null });
+    expect(invited).not.toHaveProperty("assignmentId");
+    expect(assignments).toHaveLength(0);
+    const again = await inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, when);
+    expect(again).toEqual(invited);
+    expect((await listSlotCandidates(db as never, leader, pilot, "vaga", when)).candidates.map(item => item.personId)).toEqual(["ana"]);
+    const accepted = await acceptSlotInvitation(db as never, ana, pilot, invited.id, when);
+    expect(accepted).toMatchObject({ id: invited.id, status: "ACCEPTED" });
     expect(assignments).toHaveLength(1);
-    assignments[0].personId = "outra";
-    slot.assignments = assignments;
-    await expect(inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, new Date("2026-11-01T12:00:00.000Z"))).rejects.toBeInstanceOf(ConflictException);
+    await expect(acceptSlotInvitation(db as never, ana, pilot, invited.id, when)).resolves.toMatchObject({ assignmentId: accepted.assignmentId });
+    expect(assignments).toHaveLength(1);
+    slotInvites.push({ id: "outro", churchId: "riacho", slotId: "vaga", personId: "bruno", partnerPersonId: null, status: "PENDING", expiresAt: future });
+    await expect(acceptSlotInvitation(db as never, { ...ana, personId: "bruno" } as AuthUser, pilot, "outro", when)).rejects.toBeInstanceOf(ConflictException);
+    await expect(inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, when)).rejects.toBeInstanceOf(ConflictException);
     await expect(listSlotCandidates(db as never, leader, pilot, "conexao", new Date("2026-11-01T12:00:00.000Z"))).rejects.toBeInstanceOf(ForbiddenException);
   });
 

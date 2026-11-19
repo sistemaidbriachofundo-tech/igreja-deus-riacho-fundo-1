@@ -48,6 +48,16 @@ export class RosterNoticesController {
 
   @Roles(...VOLUNTEERS)
   @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("slot-invites/:invitationId/accept")
+  acceptSlot(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) { return this.notices.acceptSlotInvite(user, invitationId); }
+
+  @Roles(...VOLUNTEERS)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("slot-invites/:invitationId/decline")
+  declineSlot(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) { return this.notices.declineSlotInvite(user, invitationId); }
+
+  @Roles(...VOLUNTEERS)
+  @RequireAccess({ resource: "ministries", action: "respond" })
   @Post("invites/:assignmentId/accept")
   accept(@CurrentUser() user: AuthUser, @Param("assignmentId") assignmentId: string) { return this.notices.acceptInvite(user, assignmentId); }
 

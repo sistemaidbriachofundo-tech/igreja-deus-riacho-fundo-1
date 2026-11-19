@@ -11,6 +11,7 @@ import { effectiveInviteLimit, leadershipSummaryDue, weeklyConfirmationDue } fro
 import { maintainRosterCycle, recordNoticeDeliveries, rulesWithTeam, volunteerIdsByModule } from "./roster-module-runtime";
 import { isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
 import { acceptSubstitute, inviteAssignment, inviteKey, substitutionCandidates } from "./roster-substitution-invites";
+import { acceptSlotInvitation, declineSlotInvitation } from "./roster-team";
 
 const PORTAL = "/app/servir/meu-espaco/";
 const DAY = 86_400_000;
@@ -36,8 +37,23 @@ export class RosterNoticesService {
       } } },
     }) : [];
     const byId = new Map(assignments.map(assignment => [assignment.id, assignment]));
+    const slotInviteIds = notices.filter(notice => notice.kind === "slot-invite").map(notice => notice.id.slice("slot-invite:".length));
+    const slotTable = (this.db as unknown as { rosterSlotInvitation?: { findMany: (args: unknown) => Promise<Array<{ id: string; status: string; expiresAt: Date; slot: { assignments: Array<{ personId: string }>; roster: { status: string; serviceAt: Date } } }>> } }).rosterSlotInvitation;
+    const slotInvites = slotInviteIds.length && slotTable?.findMany ? await slotTable.findMany({
+      where: { id: { in: slotInviteIds }, churchId: scope.churchId },
+      select: { id: true, status: true, expiresAt: true, slot: { select: { assignments: { where: { status: { in: ["PENDING", "CONFIRMED"] } }, select: { personId: true } }, roster: { select: { status: true, serviceAt: true } } } } },
+    }) : [];
+    const slotById = new Map(slotInvites.map(item => [item.id, item]));
     return {
       notices: notices.map(notice => {
+        if (notice.kind === "slot-invite") {
+          const invitation = slotById.get(notice.id.slice("slot-invite:".length));
+          const roster = invitation?.slot.roster;
+          const taken = Boolean(invitation?.slot.assignments.some(row => row.personId !== scope.personId));
+          const accepted = invitation?.status === "ACCEPTED";
+          const closed = !invitation || !roster || roster.status !== "PUBLISHED" || roster.serviceAt <= now || taken;
+          return { ...notice, inviteStatus: accepted ? "accepted" : notice.declinedAt || invitation?.status === "DECLINED" ? "declined" : closed ? "closed" : invitation.expiresAt <= now ? "expired" : "open" };
+        }
         if (notice.kind !== "substitute") return notice;
         const assignment = byId.get(notice.id.split(":")[1]);
         const roster = assignment?.slot.roster;
@@ -73,6 +89,16 @@ export class RosterNoticesService {
     const scope = await this.personScope(actor);
     await this.db.rosterPushSubscription.deleteMany({ where: { ...scope, endpoint } });
     return { subscribed: false };
+  }
+
+  async acceptSlotInvite(actor: AuthUser, invitationId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return acceptSlotInvitation(this.db, actor, pilot, invitationId);
+  }
+
+  async declineSlotInvite(actor: AuthUser, invitationId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return declineSlotInvitation(this.db, actor, pilot, invitationId);
   }
 
   async acceptInvite(actor: AuthUser, assignmentId: string, now = new Date()) {

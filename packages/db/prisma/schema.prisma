@@ -120,6 +120,7 @@ model Organization {
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
   rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   @@map("organizations")
@@ -188,6 +189,7 @@ model Church {
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
   rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
   rosterNoticeDeliveries RosterNoticeDelivery[]
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
@@ -284,6 +286,8 @@ model Person {
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
   rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  rosterSlotInvitationsAsPartner RosterSlotInvitation[] @relation("RosterSlotInvitationPartner")
   rosterAssignmentResponses RosterAssignmentResponse[]
   servingPreferences VolunteerServingPreference[]
   @@map("persons")
@@ -1569,6 +1573,7 @@ model RosterSlot {
 
   roster       Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
   assignments  RosterAssignment[]
+  slotInvitations RosterSlotInvitation[]
 
   @@index([rosterId])
   @@map("roster_slots")
@@ -2856,6 +2861,36 @@ model RosterNotice {
 
   @@index([churchId, personId, createdAt])
   @@map("roster_notices")
+}
+
+enum RosterSlotInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Convite para um culto. A vaga permanece aberta até o aceite.
+model RosterSlotInvitation {
+  id              String                     @id @default(cuid())
+  organizationId  String                     @map("organization_id")
+  churchId        String                     @map("church_id")
+  slotId          String                     @map("slot_id")
+  personId        String                     @map("person_id")
+  partnerPersonId String?                    @map("partner_person_id")
+  status          RosterSlotInvitationStatus @default(PENDING)
+  expiresAt       DateTime                   @map("expires_at")
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  respondedAt     DateTime?                  @map("responded_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  slot         RosterSlot   @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  partner      Person?      @relation("RosterSlotInvitationPartner", fields: [partnerPersonId], references: [id])
+
+  @@index([slotId, status])
+  @@index([personId, status])
+  @@map("roster_slot_invitations")
 }
 
 model RosterPushSubscription {
