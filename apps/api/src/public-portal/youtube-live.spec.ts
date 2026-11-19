@@ -56,6 +56,18 @@ describe("Culto ao vivo no portal", () => {
     expect(fetcher).toHaveBeenNthCalledWith(2, canonicalUrl, expect.anything());
   });
 
+  it("confirma o estado do vídeo mais recente do feed quando as páginas do canal falham", async () => {
+    const feed = '<entry><yt:videoId>' + videoId + '</yt:videoId><yt:channelId>' + channel +
+      '</yt:channelId><title>Culto da Família</title><published>2026-11-01T11:00:00Z</published></entry>';
+    const fetcher = jest.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(response(null, watchUrl, 503))
+      .mockResolvedValueOnce(response(null, watchUrl, 503))
+      .mockResolvedValueOnce(response(feed, "https://www.youtube.com/feeds/videos.xml"))
+      .mockResolvedValueOnce(response(page({active:false}), watchUrl));
+    await expect(new YoutubeLiveService().getStatus()).resolves.toEqual({ broadcast: null });
+    expect(fetcher).toHaveBeenNthCalledWith(4, "https://www.youtube.com/live/" + videoId, expect.anything());
+  });
+
   it("remove o destaque após o encerramento e em erro de consulta", async () => {
     jest.useFakeTimers();
     const fetcher = jest.spyOn(globalThis, "fetch")

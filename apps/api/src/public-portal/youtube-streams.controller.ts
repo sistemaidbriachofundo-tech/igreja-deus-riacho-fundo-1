@@ -2,7 +2,7 @@ import { Controller, Get, Injectable, ServiceUnavailableException } from "@nestj
 import { Public } from "../auth/decorators/public.decorator";
 
 const CHANNEL_ID = "UCpd6-RQKVIKfje5usHzYiiA";
-const FEED_URL = "https://www.youtube.com/feeds/videos.xml?playlist_id=UULVpd6-RQKVIKfje5usHzYiiA";
+export const YOUTUBE_STREAMS_FEED = "https://www.youtube.com/feeds/videos.xml?playlist_id=UULVpd6-RQKVIKfje5usHzYiiA";
 const REFRESH_MS = 5 * 60_000;
 const RETRY_MS = 60_000;
 type Recording = { id: string; title: string; publishedAt: string };
@@ -54,7 +54,7 @@ export class YoutubeStreamsService {
 
   private async refresh() {
     try {
-      const response = await fetch(FEED_URL, {
+      const response = await fetch(YOUTUBE_STREAMS_FEED, {
         signal: AbortSignal.timeout(5_000),
         headers: { Accept: "application/atom+xml" },
       });
