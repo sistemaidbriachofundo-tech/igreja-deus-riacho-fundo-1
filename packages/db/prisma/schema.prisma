@@ -119,6 +119,7 @@ model Organization {
   securityPolicies SecurityPolicy[]
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   @@map("organizations")
@@ -186,6 +187,7 @@ model Church {
   ministryMemberships MinistryMembership[]
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
   rosterNoticeDeliveries RosterNoticeDelivery[]
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
@@ -281,6 +283,7 @@ model Person {
   rosterPushSubscriptions RosterPushSubscription[]
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
   rosterAssignmentResponses RosterAssignmentResponse[]
   servingPreferences VolunteerServingPreference[]
   @@map("persons")
@@ -878,6 +881,7 @@ model Ministry {
   ministryMemberships MinistryMembership[]
   rosterModuleLeaders MinistryRosterModuleLeader[]
   rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
   @@map("ministries")
 }
 
@@ -904,6 +908,7 @@ model MinistryMembership {
   person       Person             @relation(fields: [personId], references: [id])
   interest     VolunteerInterest? @relation(fields: [volunteerInterestId], references: [id])
   rosterModules MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
 
   @@unique([ministryId, personId])
   @@index([organizationId, churchId, ministryId])
@@ -1513,6 +1518,7 @@ model MinistryRosterModule {
   rosters  Roster[]
   leaders MinistryRosterModuleLeader[]
   memberships MinistryRosterModuleMembership[]
+  memberInvitations MinistryRosterMemberInvitation[]
 
   @@unique([ministryId, nameKey])
   @@unique([id, ministryId])
@@ -1645,6 +1651,38 @@ model MinistryRosterModuleMembership {
   @@index([moduleId, status])
   @@index([personId, ministryId, status])
   @@map("ministry_roster_module_memberships")
+}
+
+enum RosterMemberInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Convite para entrar na equipe de um módulo. Não é vínculo formal nem escala de culto.
+model MinistryRosterMemberInvitation {
+  id             String                       @id @default(cuid())
+  organizationId String                       @map("organization_id")
+  churchId       String                       @map("church_id")
+  ministryId     String                       @map("ministry_id")
+  moduleId       String                       @map("module_id")
+  membershipId   String                       @map("membership_id")
+  personId       String                       @map("person_id")
+  status         RosterMemberInvitationStatus @default(PENDING)
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  respondedAt    DateTime?                    @map("responded_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  ministry     Ministry           @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  membership   MinistryMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  person       Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([ministryId, status])
+  @@index([personId, status])
+  @@index([moduleId, personId, status])
+  @@map("ministry_roster_member_invitations")
 }
 
 /// Histórico de aceite individual. O estado vigente é a última linha da pessoa.

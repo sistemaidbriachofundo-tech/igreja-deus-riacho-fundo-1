@@ -16,6 +16,16 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PersonalRosterService } from "./personal-roster.service";
 
+class SlotInviteBody {
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsOptional()
+  @IsString()
+  partnerPersonId?: string;
+}
+
 class AssignBody {
   @IsString()
   @MinLength(1)
@@ -180,6 +190,27 @@ export class PersonalRostersController {
 
   @Roles(...RESPOND_ROLES)
   @RequireAccess({ resource: "ministries", action: "respond" })
+  @Get("membership-invitations/me")
+  myMembershipInvitations(@CurrentUser() user: AuthUser) {
+    return this.rosters.listMyMembershipInvitations(user);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("membership-invitations/:invitationId/accept")
+  acceptMembershipInvitation(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) {
+    return this.rosters.acceptMembershipInvitation(user, invitationId);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("membership-invitations/:invitationId/decline")
+  declineMembershipInvitation(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) {
+    return this.rosters.declineMembershipInvitation(user, invitationId);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
   @Get("me/monthly-survey")
   monthlySurvey(@CurrentUser() user: AuthUser) {
     return this.rosters.monthlySurvey(user);
@@ -256,6 +287,18 @@ export class PersonalRostersController {
       throw new BadRequestException("Gere uma prévia antes de preencher o rascunho.");
     }
     return this.rosters.applyPreview(user, rosterId, fingerprint);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get("slots/:slotId/candidates")
+  slotCandidates(@CurrentUser() user: AuthUser, @Param("slotId") slotId: string) {
+    return this.rosters.slotCandidates(user, slotId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post("slots/:slotId/invite")
+  inviteSlot(@CurrentUser() user: AuthUser, @Param("slotId") slotId: string, @Body() body: SlotInviteBody) {
+    return this.rosters.inviteSlot(user, slotId, body);
   }
 
   @Roles(...LEAD_ROLES)

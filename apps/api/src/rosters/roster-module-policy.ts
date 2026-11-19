@@ -1,5 +1,8 @@
 import { churchDayKey } from "./church-day";
+import { canonicalModuleKey } from "./roster-module-key";
 import type { CultType, PositionRule } from "./roster-operating-rules";
+
+export { canonicalModuleKey, canonicalModuleName } from "./roster-module-key";
 
 /** Cargo na ficha ou no vínculo formal não abre módulo, caixa nem escala. */
 export function formalRoleGrantsRosterAccess(role: string | null | undefined): boolean {
@@ -45,12 +48,7 @@ export function moduleLeaderBlockedFromFinance(access: RosterAccess, financeGran
 }
 
 export function moduleLookupKey(name: string | null | undefined): string {
-  return (name ?? "")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLocaleLowerCase("pt-BR")
-    .replace(/\s+/g, " ")
-    .trim();
+  return canonicalModuleKey(name);
 }
 
 const WEEKLY = ["thursday_evening", "sunday_morning", "sunday_evening"] as const;

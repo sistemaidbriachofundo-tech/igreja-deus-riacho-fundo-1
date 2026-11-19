@@ -136,6 +136,16 @@ class CreateRosterBody {
   serviceType?: CultType;
 }
 
+class RosterMemberInvitationBody {
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsString()
+  @MinLength(1)
+  moduleId!: string;
+}
+
 class RosterModuleBody {
   @IsString()
   @MinLength(1)
@@ -374,6 +384,18 @@ export class MinistriesController {
     @Body() body: Record<string, unknown>,
   ) {
     return this.ministries.saveRosterModuleRules(user, ministryId, moduleId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-member-invitations")
+  listRosterMemberInvitations(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string) {
+    return this.ministries.listRosterMemberInvitations(user, ministryId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post(":ministryId/roster-member-invitations")
+  createRosterMemberInvitation(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Body() body: RosterMemberInvitationBody) {
+    return this.ministries.createRosterMemberInvitation(user, ministryId, body);
   }
 
   @Roles(...LEAD_ROLES)

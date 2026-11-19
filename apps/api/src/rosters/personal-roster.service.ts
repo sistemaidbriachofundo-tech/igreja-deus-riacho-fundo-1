@@ -25,6 +25,7 @@ import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, is
 import { loadMonthState } from "./roster-month-load";
 import { capacitySlotChanges, decideMonthSave, draftsToPersist, monthFingerprint, presentMonthlySimulation, type MonthCapacityRequest, type MonthDecision, type MonthPin } from "./roster-month-plan";
 import { openVacancyText, responseStatuses, rosterInScope } from "./roster-module-policy";
+import { inviteSlotCandidate, listMyRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation } from "./roster-team";
 import {
   appendParticipantResponse,
   assertRosterModuleAllowed,
@@ -526,6 +527,31 @@ export class PersonalRosterService {
         };
       })),
     };
+  }
+
+  async listMyMembershipInvitations(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    return listMyRosterMemberInvitations(this.prisma, actor, pilot);
+  }
+
+  async acceptMembershipInvitation(actor: AuthUser, invitationId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return respondRosterMemberInvitation(this.prisma, actor, pilot, invitationId, "ACCEPTED");
+  }
+
+  async declineMembershipInvitation(actor: AuthUser, invitationId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return respondRosterMemberInvitation(this.prisma, actor, pilot, invitationId, "DECLINED");
+  }
+
+  async slotCandidates(actor: AuthUser, slotId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return listSlotCandidates(this.prisma, actor, pilot, slotId);
+  }
+
+  async inviteSlot(actor: AuthUser, slotId: string, input: { personId: string; partnerPersonId?: string }) {
+    const pilot = await this.pilot.getPilotChurch();
+    return inviteSlotCandidate(this.prisma, actor, pilot, slotId, input);
   }
 
   async assign(

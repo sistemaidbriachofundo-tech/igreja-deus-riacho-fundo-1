@@ -2,6 +2,7 @@ import { ForbiddenException } from "@nestjs/common";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AuthUser } from "../auth/types/auth-user";
+import { planModuleConsolidation } from "./roster-module-key";
 import { concurrentAcceptDecision } from "./roster-substitution-invites";
 import {
   aggregateResponses,
@@ -249,6 +250,22 @@ describe("escalas do Atmosfera", () => {
     expect(result.rosterId).toBe("culto");
     expect(removed).toEqual([]);
     expect(created.length + roster.slots.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("une Recepção, Conexão e Santa Ceia sem perder a escala mais antiga", () => {
+    const plan = planModuleConsolidation([
+      { id: "b", ministryId: "atmosfera", name: "Recepcao", nameKey: "recepcao", rules: {}, rosterCount: 0 },
+      { id: "a", ministryId: "atmosfera", name: "Recepção", nameKey: "recepção", rules: { volunteerIds: ["ana"] }, rosterCount: 2 },
+      { id: "c", ministryId: "atmosfera", name: "Conexao", nameKey: "conexao", rules: {}, rosterCount: 1 },
+      { id: "d", ministryId: "atmosfera", name: "Conexão", nameKey: "conexão", rules: { couples: [["c", "d"]] }, rosterCount: 0 },
+      { id: "e", ministryId: "atmosfera", name: "Diaconia", nameKey: "diaconia", rules: {}, rosterCount: 1 },
+      { id: "f", ministryId: "atmosfera", name: "Santa Ceia", nameKey: "santa ceia", rules: { communionStages: 2 }, rosterCount: 4 },
+    ]);
+    expect(plan.find(item => item.nameKey === "recepcao")).toMatchObject({ keepId: "a", name: "Recepção", dropIds: ["b"], rules: { volunteerIds: ["ana"] } });
+    expect(plan.find(item => item.nameKey === "conexao")).toMatchObject({ keepId: "d", name: "Conexão", dropIds: ["c"] });
+    expect(plan.find(item => item.nameKey === "ceia")).toMatchObject({ keepId: "f", name: "Santa Ceia", dropIds: ["e"], rules: { communionStages: 2 } });
+    expect(standardPositions("Recepcao", "sunday_morning", {}).length).toBeGreaterThan(0);
+    expect(standardPositions("Diaconia", "sunday_morning", { communionStages: 1 })).toHaveLength(1);
   });
 
   it("documenta a migração aditiva", () => {

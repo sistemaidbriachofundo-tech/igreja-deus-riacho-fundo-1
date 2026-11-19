@@ -27,8 +27,9 @@ import { PilotService } from "../pilot/pilot.service";
 import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
 
 import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, readPositionLocation, type CultType, type PositionLocation } from "../rosters/roster-operating-rules";
-import { resolveRosterAccess, rosterInScope } from "../rosters/roster-module-policy";
+import { canonicalModuleKey, canonicalModuleName, resolveRosterAccess, rosterInScope } from "../rosters/roster-module-policy";
 import { appendParticipantResponse, applyCapacity, assertRosterModuleAllowed, patchMembershipModules, positionsForModule, publishAssignmentNotices, syncExplicitLinks } from "../rosters/roster-module-runtime";
+import { createRosterMemberInvitation, listRosterMemberInvitations } from "../rosters/roster-team";
 
 export type LeadershipPublicEntry = {
   displayName: string;
@@ -242,20 +243,36 @@ export class MinistriesService {
     });
   }
 
+  async listRosterMemberInvitations(actor: AuthUser, ministryId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    return listRosterMemberInvitations(this.prisma, actor, pilot, ministryId);
+  }
+
+  async createRosterMemberInvitation(actor: AuthUser, ministryId: string, input: { personId: string; moduleId: string }) {
+    const pilot = await this.pilot.getPilotChurch();
+    return createRosterMemberInvitation(this.prisma, actor, pilot, ministryId, input);
+  }
+
   async saveRosterModule(actor: AuthUser, ministryId: string, input: string, moduleId?: string) {
     const pilot = await this.pilot.getPilotChurch();
     const ministry = await this.requireMinistry(ministryId, pilot);
     this.assertManageMinistry(actor, ministry);
     const name = input.trim().replace(/\s+/g, " ");
     if (!name || name.length > 100) throw new BadRequestException("Informe um nome de módulo com até 100 caracteres.");
-    const nameKey = name.normalize("NFC").toLocaleLowerCase("pt-BR");
+    const nameKey = canonicalModuleKey(name);
+    const display = canonicalModuleName(nameKey) ?? name;
     const select = { id: true, name: true } as const;
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        const current = await tx.ministryRosterModule.findUnique({ where: { ministryId_nameKey: { ministryId, nameKey } }, select: { id: true, name: true } });
+        if (!moduleId && current) {
+          return current.name === display ? current : tx.ministryRosterModule.update({ where: { id: current.id }, data: { name: display }, select });
+        }
+        if (moduleId && current && current.id !== moduleId) throw new ConflictException("Já existe um módulo com esse nome neste ministério.");
         const module = moduleId
-          ? await tx.ministryRosterModule.update({ where: { id: moduleId, ministryId }, data: { name, nameKey }, select })
-          : await tx.ministryRosterModule.create({ data: { ministryId, name, nameKey }, select });
+          ? await tx.ministryRosterModule.update({ where: { id: moduleId, ministryId }, data: { name: display, nameKey }, select })
+          : await tx.ministryRosterModule.create({ data: { ministryId, name: display, nameKey }, select });
         await tx.auditLog.create({ data: {
           actorUserId: actor.userId,
           action: moduleId ? "ministry.roster_module.rename" : "ministry.roster_module.create",
