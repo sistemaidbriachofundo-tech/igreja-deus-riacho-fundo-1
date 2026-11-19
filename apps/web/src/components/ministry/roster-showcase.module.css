@@ -31,6 +31,12 @@
 .monthlyControls span[data-tone="attention"] { color: #725016; background: #fff1d5; }
 .monthlyList { display: grid; gap: 8px; min-width: 0; }
 .cultGroup, .detail, .toolbox, .empty, .error { min-width: 0; border: 1px solid #dce8dd; border-radius: 12px; padding: 10px; background: #fff; }
+.capacity { display: grid; gap: 10px; padding: 6px; }
+.capacity :is(h3, p) { margin: 0; }
+.capacity form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.capacity label { display: grid; gap: 5px; max-width: 100%; font-size: .875rem; font-weight: 700; }
+.capacity :is(select, input) { min-height: 43px; max-width: 100%; padding: 5px 8px; border: 1px solid #cfdfd0; border-radius: 8px; background: #f6faf4; color: #18382c; font: inherit; }
+.capacity input { width: 9rem; }
 .cultGroup { display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: start; gap: 10px; }
 .dateTile { display: grid; min-height: 56px; place-content: center; text-align: center; border-radius: 9px; background: #e4f3df; color: #204632; line-height: 1; }
 .dateTile span { font-size: .69rem; text-transform: uppercase; font-weight: 730; }
