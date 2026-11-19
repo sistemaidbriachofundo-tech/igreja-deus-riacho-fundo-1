@@ -4,6 +4,7 @@
   --accent: #184f43;
   --line: #cdded6;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(14px, 2.4vw, 22px);
   min-width: 0;
   color: var(--ink);
@@ -74,14 +75,19 @@
 .metrics > div[data-tone="ready"] { background: #e5f3ea; }
 .metrics dt { font-weight: 700; }
 .metrics dd { margin: 0; font-size: 1.65rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.results .compatibility, .notice, .error, .empty {
+.results :is(.compatibility, .availability), .notice, .error, .empty {
   margin: 0;
   padding: 11px 13px;
   border-radius: 9px;
   border: 1px solid var(--line);
   background: #f1f7f4;
 }
-.results .compatibility { margin-top: 10px; border-color: #ecd398; background: #fff6e2; color: #5c420e; }
+.results :is(.compatibility, .availability) {
+  margin-top: 10px;
+  border-color: #ecd398;
+  background: #fff6e2;
+  color: #5c420e;
+}
 .error { background: #fbeae7; color: #7d3026; border-color: #ebc8c0; }
 .days, .rosters { display: grid; gap: 13px; min-width: 0; }
 .rosters { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); align-items: start; }

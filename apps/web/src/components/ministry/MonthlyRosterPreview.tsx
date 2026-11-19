@@ -34,13 +34,16 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
   const preview = session?.preview;
   const revision = preview?.revision;
   const scope = modules.find(item => item.id === session?.moduleId);
-  const rosters = [...(preview?.rosters ?? [])].filter(roster => !scope || (roster.moduleId
-    ? roster.moduleId === scope.id
-    : roster.moduleName === scope.name)).sort((a, b) => a.serviceAt.localeCompare(b.serviceAt));
+  const rosters = (preview?.rosters ?? []).filter(roster => {
+    if (roster.status === "MISSING" && roster.positions.length === 0) return false;
+    return !scope || (roster.moduleId ? roster.moduleId === scope.id : roster.moduleName === scope.name);
+  }).sort((a, b) => a.serviceAt.localeCompare(b.serviceAt));
   const positions = rosters.filter(rosterEditable).flatMap(roster => roster.positions.filter(position => !position.readOnly));
   const choices = positions.map(position => monthlySlotChoice(position, edits));
   const open = choices.filter(choice => !choice.choice).length;
   const locked = choices.filter(choice => choice.locked).length;
+  const waitingForAvailability = open === positions.length &&
+    positions.some(position => position.reasons?.includes("MONTHLY_UNANSWERED"));
   const groups = rosters.filter(rosterEditable).flatMap(roster => (roster.capacity ?? []).map(group => {
     const value = quantities[capacityKey(roster.id, group.id)];
     const count = value === undefined ? group.count : value.trim() === "" ? NaN : Number(value);
@@ -201,6 +204,9 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
         </dl>
         {preview.responses !== undefined && preview.members !== undefined &&
           <p>{preview.responses} de {preview.members} integrantes responderam à pesquisa.</p>}
+        {waitingForAvailability && <p role="status" className={s.availability}>
+          Faltam respostas de disponibilidade do mês para sugerir nomes. Confira a pesquisa mensal e gere a simulação novamente.
+        </p>}
         {!revision && <p role="status" className={s.compatibility}>Esta API oferece a prévia das escalas existentes. O salvamento do mês e a edição na simulação dependem da atualização do servidor.</p>}
       </header>
       {(rosters.length > 0 || onlyOpen) && <label className={s.checkbox}>
