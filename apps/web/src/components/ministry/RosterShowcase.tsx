@@ -1,12 +1,10 @@
 "use client";
 
-import { sortByName } from "@idbrf/shared";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiGetBlob, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
-import { rosterPositionSummary, type EscalaModuleRules, type EscalaPanel, type MinistryEscala } from "../../lib/ministry-presentation";
+import { rosterModuleContains, rosterPositionSummary, type EscalaModuleRules, type EscalaPanel, type MinistryEscala } from "../../lib/ministry-presentation";
 import { escalaStatusLabel, meuEspacoHref, ministryHref } from "../../lib/ministry-view";
-import { PUBLIC_FACADE_IMAGE } from "../../lib/site-layout";
 import { withBasePath } from "../../lib/paths";
 import { churchDayKey } from "../../lib/serving-rosters";
 import { UIIcon } from "../AppShell";
@@ -20,36 +18,25 @@ import s from "./roster-showcase.module.css";
 const churchZone = "America/Sao_Paulo";
 const weekday = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, weekday: "short" });
 const dayNumber = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, day: "2-digit" });
-const dayLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, day: "numeric", month: "short" });
 const fullDate = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, weekday: "long", day: "numeric", month: "long" });
 const hourLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, hour: "2-digit", minute: "2-digit" });
 const monthLabel = new Intl.DateTimeFormat("pt-BR", { timeZone: churchZone, month: "long", year: "numeric" });
 
-function poster(module?: string) {
-  const name = module?.toLocaleLowerCase("pt-BR") ?? "";
-  const image = name.includes("recep") ? "comunidade" : name.includes("apoio") ? "intercessao" :
-    name.includes("conex") ? "comunidade" : name.includes("oferta") ? "adoracao" :
-    name.includes("ceia") || name.includes("diacon") ? "ceia" : "templo";
-  return { "--roster-poster": `url("${withBasePath(`/images/riacho/${image}.webp`)}")` } as CSSProperties;
-}
-
 function teamCoverage(roster: MinistryEscala) {
-  const positions = roster.positions ?? [];
-  const { confirmed, pending, open } = rosterPositionSummary(positions);
-  const total = positions.length;
-  const tone = roster.status === "DRAFT" ? "draft" : open > 0 ? "open" : pending > 0 ? "pending" : total ? "ready" : "empty";
-  const label = tone === "draft" ? "Rascunho" : tone === "open" ? (open === 1 ? "1 vaga" : open + " vagas") :
-    tone === "pending" ? "A confirmar" : tone === "ready" ? "Completa" : "Sem postos";
-  return { confirmed, pending, open, total, tone, label };
+  return rosterPositionSummary(roster.positions ?? []);
 }
 
-function coverageText({ confirmed, pending, total }: ReturnType<typeof teamCoverage>) {
-  return total ? confirmed + " de " + total + " confirmadas" + (pending ? " · " + pending + " a confirmar" : "") : "Sem postos cadastrados";
+function shiftMonth(month: string, step: number) {
+  const [year, value] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, value - 1 + step, 1)).toISOString().slice(0, 7);
 }
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : name.trim().slice(0, 2)).toLocaleUpperCase("pt-BR");
+function cultTitle(when: Date) {
+  const day = weekday.format(when).toLocaleLowerCase("pt-BR");
+  const hour = Number(hourLabel.format(when).split(":")[0]);
+  if (day.startsWith("qui")) return "Culto da Família";
+  if (day.startsWith("dom")) return hour < 12 ? "Culto da manhã" : "Culto da noite";
+  return "Culto";
 }
 
 type Props = {
@@ -68,8 +55,8 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const [publishing, setPublishing] = useState("");
   const [notice, setNotice] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
-  const [monthFilter, setMonthFilter] = useState("");
-  const [more, setMore] = useState(false);
+  const [monthFilter, setMonthFilter] = useState(() => churchDayKey(new Date().toISOString()).slice(0, 7));
+  const [statusFilter, setStatusFilter] = useState("");
   const [tool, setTool] = useState<"modules" | "draw" | "availability" | null>(null);
   const [updatedRules, setUpdatedRules] = useState<Record<string, EscalaModuleRules>>({});
   const [download, setDownload] = useState("");
@@ -100,21 +87,32 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const modules = (panel.modules ?? []).map(module => updatedRules[module.id] ? { ...module, rules: updatedRules[module.id] } : module);
   const selectedModule = modules.find(module => module.id === moduleFilter);
   const moduleNames = new Map(modules.map(module => [module.id, module.name]));
-  const months = [...new Map(panel.items.map(roster => [churchDayKey(roster.serviceAt).slice(0, 7), monthLabel.format(new Date(roster.serviceAt))]))];
-  const items = panel.items.filter(roster =>
-    (!selectedModule || roster.moduleId === selectedModule.id) && (!monthFilter || churchDayKey(roster.serviceAt).startsWith(monthFilter)),
-  );
-  const now = Date.now();
-  const upcoming = items.filter(roster => roster.status !== "CLOSED" && Date.parse(roster.serviceAt) >= now);
-  const upcomingIds = new Set(upcoming.map(roster => roster.id));
-  const previous = items.filter(roster => !upcomingIds.has(roster.id)).slice().reverse();
-  const featured = upcoming.find(roster => roster.status === "PUBLISHED") ?? upcoming[0] ?? previous[0];
+  const grouped = new Map<string, MinistryEscala[]>();
+  const items = panel.items.filter(roster => {
+    if (selectedModule && roster.moduleId !== selectedModule.id) return false;
+    if (!churchDayKey(roster.serviceAt).startsWith(monthFilter)) return false;
+    if (statusFilter === "OPEN") return roster.status !== "CLOSED" && teamCoverage(roster).open > 0;
+    return !statusFilter || roster.status === statusFilter;
+  }).sort((left, right) => Date.parse(left.serviceAt) - Date.parse(right.serviceAt));
+  for (const roster of items) {
+    const key = new Date(roster.serviceAt).toISOString();
+    const existing = grouped.get(key);
+    if (existing) existing.push(roster);
+    else grouped.set(key, [roster]);
+  }
+  const totals = items.filter(roster => roster.status !== "CLOSED").reduce((sum, roster) => {
+    const coverage = teamCoverage(roster);
+    return { open: sum.open + coverage.open, pending: sum.pending + (roster.status === "PUBLISHED" ? coverage.pending : 0) };
+  }, { open: 0, pending: 0 });
   const selected = panel.items.find(roster => roster.id === escalaId);
-  const access = actions && {
-    ...actions, modules, moduleId: selectedModule?.id,
+  const moduleOnly = panel.permissions?.scope === "modules";
+  const access = actions && (!moduleOnly || modules.length > 0) && {
+    ...actions, modules, moduleId: selectedModule?.id ?? (moduleOnly ? modules[0]?.id : undefined),
+    allowGeneral: !moduleOnly,
+    requireModuleMembership: volunteerPortal || moduleOnly,
+    managedModuleMemberships: panel.permissions?.manageModuleMemberships,
     onOpen: (id: string, nextModuleId?: string) => {
-      setModuleFilter(nextModuleId ?? "");
-      setMonthFilter("");
+      if (nextModuleId !== undefined) setModuleFilter(nextModuleId);
       onOpen(id);
     },
   };
@@ -203,224 +201,105 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
     }}>WhatsApp <span aria-hidden="true">↗</span></button>;
   }
 
-  function card(roster: MinistryEscala) {
-    const date = new Date(roster.serviceAt);
-    const moduleName = moduleNames.get(roster.moduleId ?? "") ?? "Geral";
-    const coverage = teamCoverage(roster);
-    return <article className={s.card} style={poster(moduleName)} key={roster.id} aria-label={roster.title}>
-      <div className={s.cardArt}>
-        <time dateTime={roster.serviceAt}>{dayLabel.format(date)} · {hourLabel.format(date)}</time>
-        <span className={s.status} data-status={roster.status}>{escalaStatusLabel(roster.status)}</span>
-        <div><p>{moduleName}</p><h3>{roster.title}</h3></div>
-      </div>
-      <div className={s.cardBody}>
-        <p>{coverageText(coverage)}{coverage.open > 0 ? " · " + coverage.label : ""}</p>
-        <div className={s.cardActions}>{openLink(roster)}<div>{exportsFor(roster)}</div></div>
-      </div>
-    </article>;
-  }
-
-  const featuredDate = featured && new Date(featured.serviceAt);
-  const featuredModule = moduleNames.get(featured?.moduleId ?? "");
-  const nextTeams = featured && upcoming.length ? upcoming.filter(roster => Date.parse(roster.serviceAt) === Date.parse(featured.serviceAt)) : [];
-  const featuredPriority = nextTeams.find(roster => teamCoverage(roster).open > 0) ??
-    nextTeams.find(roster => teamCoverage(roster).pending > 0) ?? featured;
-  const featuredOpen = featuredPriority?.positions?.find(position => !position.assignments.some(item => item.status === "PENDING" || item.status === "CONFIRMED"));
-  const priority = featuredPriority && teamCoverage(featuredPriority);
-  const priorityTeam = featuredPriority && (moduleNames.get(featuredPriority.moduleId ?? "") ?? "Equipe geral");
-  const grouped = new Map<string, MinistryEscala[]>();
-  for (const roster of upcoming) {
-    const day = churchDayKey(roster.serviceAt);
-    const sameDay = grouped.get(day) ?? [];
-    sameDay.push(roster);
-    grouped.set(day, sameDay);
-  }
-  const today = new Date(churchDayKey(new Date(now).toISOString()) + "T00:00:00Z");
-  today.setUTCDate(today.getUTCDate() + 7);
-  const end = today.toISOString().slice(0, 10);
-  const nextDays = [...grouped].filter(([day]) => day < end);
-  const later = [...grouped].filter(([day]) => day >= end).flatMap(([, rosters]) => rosters);
-  const unfinishedTeams = nextTeams.filter(roster => roster.id !== featuredPriority?.id && teamCoverage(roster).tone !== "ready").length;
-  const previousCards = previous.filter(roster => roster.id !== featured?.id);
-  const sitePhoto = { "--roster-poster": `url("${withBasePath(PUBLIC_FACADE_IMAGE)}")` } as CSSProperties;
+  if (tool === "draw" && access) return <MonthlyRosterPreview token={access.token} ministryId={ministryId}
+    modules={modules} initialModuleId={selectedModule?.id} initialMonth={monthFilter}
+    onRefresh={access.onRefresh} onClose={() => setTool(null)} />;
 
   return <div className={s.showcase}>
     {confirmation}
-    <div className={s.heroTop}>
-      <h2>{volunteerPortal ? "Escalas do Atmosfera" : "Escalas do ministério"}</h2>
+    <header className={s.monthlyHero}>
+      <div><p>{volunteerPortal ? "Ministérios / Atmosfera" : ministryName}</p><h2>Escalas</h2></div>
       <div className={s.heroActions}>
-        {volunteerPortal && <a className={s.secondary} href={withBasePath(meuEspacoHref())}>Portal do Voluntário <UIIcon name="arrow" size={15} /></a>}
         {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
-        {access && <RosterEditor key={selectedModule?.id ?? "general"} {...access} buttonClass={s.primary} />}
+        {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.secondary} />}
+        {access && modules.length > 0 && <button type="button" className={s.lime} onClick={() => setTool("draw")}>
+          <UIIcon name="spark" size={17} /> Gerar escala do mês
+        </button>}
       </div>
-    </div>
-    <section className={s.hero} style={sitePhoto} aria-label="Escalas do ministério" data-teams={nextTeams.length > 0}>
-      {featured && featuredDate ? <div className={s.heroCopy}>
-        <div className={s.heroMeta}><span>{upcoming.length ? "Próximo culto" : "Último culto"}</span><span className={s.status} data-status={featured.status}>{escalaStatusLabel(featured.status)}</span></div>
-        <h3>{featured.title}</h3>
-        <p><UIIcon name="calendar" size={16} /> <time dateTime={featured.serviceAt}>{fullDate.format(featuredDate)} · {hourLabel.format(featuredDate)}</time>{featuredModule && <span>· {featuredModule}</span>}</p>
-        {upcoming.length > 0 && priority && <div className={s.priority}>
-          <p>
-          {priority.open ? <><strong>{priority.open} {priority.open === 1 ? "vaga aberta" : "vagas abertas"}</strong><span>· {priorityTeam}</span></> :
-            priority.pending ? <><strong>{priority.pending} a confirmar</strong><span>· {priorityTeam}</span></> :
-              priority.total ? "Equipe confirmada" : "Postos a definir"}
-          </p>
-          {unfinishedTeams > 0 && <p>{unfinishedTeams === 1 ? "Outra equipe precisa de atenção." : `${unfinishedTeams} outras equipes precisam de atenção.`}</p>}
-        </div>}
-        <div className={s.featureActions}>
-          {access && featuredPriority && featuredOpen && openLink(featuredPriority, true, featuredOpen.id, featuredPriority.status === "DRAFT" ? "Completar escala" : "Preencher vaga")}
-          {openLink(featured, !featuredOpen || !access)}
-          {exportsFor(featured)}
+    </header>
+    <section className={s.monthlyFilters} aria-label="Filtros de escala">
+      <div><span id="month-label">Mês</span>
+        <div className={s.monthNavigation} role="group" aria-labelledby="month-label">
+          <button type="button" aria-label="Mês anterior" onClick={() => setMonthFilter(shiftMonth(monthFilter, -1))}>‹</button>
+          <strong aria-live="polite">{monthLabel.format(new Date(monthFilter + "-15T12:00:00Z"))}</strong>
+          <button type="button" aria-label="Próximo mês" onClick={() => setMonthFilter(shiftMonth(monthFilter, 1))}>›</button>
         </div>
-      </div> : <div className={s.heroCopy}>
-        <h3>Nenhuma escala encontrada</h3>
-        <p>{panel.items.length ? "Ajuste os filtros para consultar outras escalas." : "Use Nova escala para organizar o próximo culto."}</p>
-      </div>}
-      {nextTeams.length > 0 && <aside className={s.teamBoard} aria-labelledby="roster-team-heading">
-        <h3 id="roster-team-heading">Equipes do culto</h3>
-        <ul>{nextTeams.map(roster => {
-          const coverage = teamCoverage(roster);
-          const names = [...new Set((roster.positions ?? []).flatMap(position => position.assignments
-            .filter(item => item.status === "CONFIRMED").flatMap(item => [item.personName, item.partnerName].filter(Boolean))))];
-          const name = moduleNames.get(roster.moduleId ?? "") ?? "Equipe geral";
-          return <li key={roster.id} data-tone={coverage.tone}>
-            <div className={s.teamName}><strong>{name}</strong><span className={s.teamBadge} data-tone={coverage.tone}>{coverage.label}</span></div>
-            <p>{coverageText(coverage)}</p>
-            {names.length > 0 && <div className={s.avatars} aria-label={"Confirmaram: " + names.join(", ")} role="img">
-              {sortByName(names, name => name).slice(0, 4).map(person => <span key={person} title={person}>{initials(person)}</span>)}
-              {names.length > 4 && <span>+{names.length - 4}</span>}
-            </div>}
-          </li>;
-        })}</ul>
-      </aside>}
+      </div>
+      {modules.length > 0 && <label>Equipe<select value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
+        {<option value="" disabled={moduleOnly && modules.length === 1}>{moduleOnly && modules.length === 1 ? modules[0].name : "Todas as equipes autorizadas"}</option>}
+        {!(moduleOnly && modules.length === 1) && modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
+      </select></label>}
+      <label>Situação<select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+        <option value="">Todas as situações</option><option value="OPEN">Com vagas abertas</option>
+        <option value="DRAFT">Rascunhos</option><option value="PUBLISHED">Publicadas</option><option value="CLOSED">Encerradas</option>
+      </select></label>
     </section>
-    <section className={s.navigation} aria-label="Filtros e ferramentas de escalas">
-      <div className={s.filters}>
-        <h2 id="roster-week-heading">Semana à frente</h2>
-        {modules.length > 0 && <div className={s.moduleFilters} role="group" aria-label="Módulo da escala">
-          <button type="button" aria-pressed={!moduleFilter} onClick={() => setModuleFilter("")}>Todos</button>
-          {modules.map(module => <button type="button" key={module.id} aria-pressed={moduleFilter === module.id}
-            onClick={() => setModuleFilter(module.id)}>{module.name}</button>)}
-        </div>}
-        {!access && months.length > 0 && <label className={s.month}>Mês <select value={monthFilter} onChange={event => setMonthFilter(event.target.value)}>
-          <option value="">Todos os meses</option>
-          {months.map(([value, name]) => <option value={value} key={value}>{name}</option>)}
-        </select></label>}
+    <div className={s.monthlyControls}>
+      <div><h3>Cultos do mês</h3>
+        {totals.open > 0 && <span data-tone="attention">{totals.open} {totals.open === 1 ? "vaga aberta" : "vagas abertas"}</span>}
+        {totals.pending > 0 && <span>{totals.pending} {totals.pending === 1 ? "resposta pendente" : "respostas pendentes"}</span>}
       </div>
-      {access && <div className={s.tools}>
-        <div role="group" aria-label="Ferramentas de escala">
-          <button type="button" aria-expanded={more} onClick={() => { setMore(!more); if (more) setTool(null); }}><UIIcon name="more" size={16} /> Mais{monthFilter ? " · " + months.find(([value]) => value === monthFilter)?.[1] : ""}</button>
-        </div>
-        {more && <div className={s.moreActions}>
-          {months.length > 0 && <label className={s.month}>Mês <select value={monthFilter} onChange={event => setMonthFilter(event.target.value)}>
-            <option value="">Todos os meses</option>
-            {months.map(([value, name]) => <option value={value} key={value}>{name}</option>)}
-          </select></label>}
-          <button type="button" aria-expanded={tool === "modules"} onClick={() => setTool(tool === "modules" ? null : "modules")}><UIIcon name="settings" size={16} /> Módulos e regras</button>
-          {modules.length > 0 && <button type="button" aria-expanded={tool === "draw"} onClick={() => setTool(tool === "draw" ? null : "draw")}><UIIcon name="spark" size={16} /> Sorteio mensal</button>}
-          <button type="button" aria-expanded={tool === "availability"} onClick={() => setTool(tool === "availability" ? null : "availability")}><UIIcon name="clock" size={16} /> Disponibilidade semanal</button>
-        </div>}
-        <button type="button" className={s.listExport} disabled={!items.length || Boolean(download)} onClick={() => void exportFile("xlsx")}>
-          <UIIcon name="download" size={16} /> {download === "list-xlsx" ? "Gerando…" : "Excel da lista"}
+      {access && <div>
+        <details className={s.rowMenu}><summary>Configurar</summary><div>
+          {!moduleOnly && <button type="button" className={s.secondary} aria-expanded={tool === "modules"}
+            onClick={() => setTool(tool === "modules" ? null : "modules")}>Módulos e regras</button>}
+          <button type="button" className={s.secondary} aria-expanded={tool === "availability"}
+            onClick={() => setTool(tool === "availability" ? null : "availability")}>Disponibilidade semanal</button>
+        </div></details>
+        <button type="button" className={s.secondary} disabled={!items.length || Boolean(download)} onClick={() => void exportFile("xlsx")}>
+          <UIIcon name="download" size={16} /> {download === "list-xlsx" ? "Gerando…" : "Exportar Excel"}
         </button>
       </div>}
-      {access && tool && <div className={s.toolbox} aria-label="Configuração da escala">
-        {tool === "modules" && <>
-          <label className={s.month}>Módulo <select value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}>
-            <option value="">Selecionar módulo</option>{modules.map(module => <option value={module.id} key={module.id}>{module.name}</option>)}
-          </select></label>
-          <RosterModuleCatalog actions={{ ...access, onRulesSaved: rules => {
-            if (selectedModule) setUpdatedRules(previousRules => ({ ...previousRules, [selectedModule.id]: rules }));
-          } }} modules={modules} selectedId={selectedModule?.id ?? ""} />
-        </>}
-        {tool === "draw" && <MonthlyRosterPreview token={access.token} ministryId={ministryId} onRefresh={access.onRefresh} />}
-        {tool === "availability" && <RosterRecurringAvailability actions={access} />}
-      </div>}
-    </section>
+    </div>
+    {access && tool && <section className={s.toolbox} aria-label="Configuração da escala">
+      {tool === "modules" && !moduleOnly && <RosterModuleCatalog actions={{ ...access, onRulesSaved: rules => {
+        if (selectedModule) setUpdatedRules(previous => ({ ...previous, [selectedModule.id]: rules }));
+      } }} modules={modules} selectedId={selectedModule?.id ?? ""} />}
+      {tool === "availability" && <RosterRecurringAvailability actions={access} />}
+    </section>}
     {downloadError && <p role="alert" className={s.error}>{downloadError}</p>}
     {selected && <section ref={details} tabIndex={-1} id="roster-selected" className={s.detail} aria-label="Detalhes da escala">
       <header><div><p>{moduleNames.get(selected.moduleId ?? "") ?? "Geral"}</p><h3>{selected.title}</h3></div>
         <div>{exportsFor(selected)}<button type="button" className={s.secondary} onClick={() => onOpen(undefined)}><UIIcon name="close" size={15} /> Fechar</button></div>
       </header>
-      {access && <RosterActions key={selected.id} {...access} roster={selected} members={access.members.filter(member =>
-        modules.find(module => module.id === selected.moduleId)?.rules?.volunteerIds?.includes(member.personId) ?? true,
-      )} />}
+      {access && <RosterActions key={selected.id} {...access} roster={selected} members={access.members.filter(member => {
+        const rosterModule = modules.find(item => item.id === selected.moduleId);
+        if (!selected.moduleId) return !moduleOnly;
+        return Boolean(rosterModule && rosterModuleContains(rosterModule, member.personId)) ||
+          (!access.requireModuleMembership && !rosterModule?.rules?.volunteerIds);
+      })} />}
       {!access && <p>{selected.functions.join(" · ") || "Sem posições cadastradas."}</p>}
     </section>}
     {notice && <p role="status" className={s.empty}>{notice}</p>}
-    {nextDays.length > 0 ? <section className={s.timeline} aria-label="Próximos cultos">
-      {nextDays.map(([day, rosters]) => {
-        const date = new Date(rosters[0].serviceAt);
-        return <section key={day} className={s.timelineDay} aria-label={fullDate.format(date)}>
-          <h3 className={s.timelineDate}><time dateTime={day}><span>{weekday.format(date).replace(".", "")}</span><strong>{dayNumber.format(date)}</strong></time></h3>
-          <ul className={s.timelineList}>{rosters.map(roster => {
-            const coverage = teamCoverage(roster);
-            const vacant = roster.positions?.find(position => !position.assignments.some(item => item.status === "PENDING" || item.status === "CONFIRMED"));
-            const staffed = roster.positions?.find(position => position.assignments.some(item =>
-              item.status === "PENDING" || item.status === "CONFIRMED",
-            ));
-            const moduleName = moduleNames.get(roster.moduleId ?? "");
-            const firstAction = roster.status === "DRAFT" ? "Completar escala" : "Preencher vaga";
-            return <li key={roster.id} data-tone={coverage.tone}>
-              <header className={s.timelineHeader}>
-                <div><h4>{roster.title} <span>· <time dateTime={roster.serviceAt}>{hourLabel.format(new Date(roster.serviceAt))}</time></span></h4>
-                  <p>{moduleName && moduleName + " · "}{coverageText(coverage)}</p></div>
-                <span className={s.teamBadge} data-tone={coverage.tone}>{coverage.label}</span>
-              </header>
-              {coverage.total > 0 && <progress className={s.progress} value={coverage.confirmed} max={coverage.total}
-                aria-label={roster.title + " · postos confirmados"} />}
-              <div className={s.timelineActions}>
-                {access && vacant && openLink(roster, true, vacant.id, firstAction)}
-                {access && roster.status === "DRAFT" && !vacant && openLink(roster, true, undefined, firstAction)}
-                {access && roster.status === "DRAFT" && coverage.total > 0 &&
-                  <button type="button" className={s.secondary} disabled={Boolean(publishing)} onClick={() => void publish(roster)}>Publicar</button>}
-                {(roster.status !== "DRAFT" || vacant || !access) && openLink(roster)}
-                {access && <details className={s.rowMenu}>
-                  <summary aria-label={`Mais ações · ${roster.title}`}>Mais <UIIcon name="more" size={15} /></summary>
-                  <div>
-                    {roster.status === "PUBLISHED" && staffed && openLink(roster, false, staffed.id, "Trocar")}
-                    {roster.status === "PUBLISHED" && whatsAppLink(roster)}
-                    {exportsFor(roster)}
-                  </div>
-                </details>}
-              </div>
-            </li>;
-          })}</ul>
+    {grouped.size === 0 && <p role="status" className={s.empty}>Nenhum culto para os filtros selecionados.</p>}
+    <div className={s.monthlyList}>
+      {[...grouped].map(([stamp, rosters]) => {
+        const date = new Date(stamp);
+        const title = rosters.every(roster => roster.title === rosters[0].title) ? rosters[0].title : cultTitle(date);
+        return <section className={s.cultGroup} key={stamp} aria-label={fullDate.format(date) + " às " + hourLabel.format(date)}>
+          <time className={s.dateTile} dateTime={stamp}><span>{weekday.format(date).replace(".", "")}</span><strong>{dayNumber.format(date)}</strong></time>
+          <div>
+            <header className={s.cultHeader}><h4>{title}</h4><time dateTime={stamp}>{hourLabel.format(date)}</time></header>
+            {rosters.map(roster => {
+              const coverage = teamCoverage(roster);
+              const summary = roster.status === "DRAFT"
+                ? (coverage.confirmed + coverage.pending) + " designadas"
+                : coverage.confirmed + " confirmadas" + (coverage.pending ? " · " + coverage.pending + " a confirmar" : "");
+              return <div key={roster.id} className={s.teamLine}>
+                <strong>{moduleNames.get(roster.moduleId ?? "") ?? roster.title}</strong>
+                <span className={s.status} data-status={roster.status}>{escalaStatusLabel(roster.status)}</span>
+                <p>{coverage.open > 0 && <b>{coverage.open} {coverage.open === 1 ? "vaga aberta" : "vagas abertas"}</b>} {coverage.open > 0 && "· "}{summary}</p>
+                <div className={s.teamActions}>
+                  {access && roster.status === "DRAFT" && Boolean(roster.positions?.length) &&
+                    <button type="button" className={s.secondary} disabled={Boolean(publishing)} onClick={() => void publish(roster)}>Publicar</button>}
+                  {openLink(roster, false, undefined, "Abrir")}
+                  {access && roster.status === "PUBLISHED" && <details className={s.rowMenu}><summary aria-label={"Compartilhar " + roster.title}>Compartilhar</summary><div>{whatsAppLink(roster)}</div></details>}
+                </div>
+              </div>;
+            })}
+          </div>
         </section>;
       })}
-    </section> : <p role="status" className={s.empty}>Nenhum culto nos próximos sete dias{selectedModule ? " para " + selectedModule.name : ""}.</p>}
-    {later.length > 0 && <RosterRail title="Mais datas">{later.map(card)}</RosterRail>}
-    {previousCards.length > 0 && <RosterRail title="Escalas anteriores">{previousCards.map(card)}</RosterRail>}
+    </div>
   </div>;
-}
-
-function RosterRail({ title, children }: { title: string; children: ReactNode }) {
-  const track = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ start: true, end: true });
-  useEffect(() => {
-    const row = track.current;
-    if (!row) return;
-    function measure() {
-      if (row) setEdges({ start: row.scrollLeft < 2, end: row.scrollLeft + row.clientWidth >= row.scrollWidth - 2 });
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(row);
-    measure();
-    row.addEventListener("scroll", measure, { passive: true });
-    return () => { observer.disconnect(); row.removeEventListener("scroll", measure); };
-  }, [children]);
-
-  function scroll(direction: number) {
-    const row = track.current;
-    if (row) row.scrollBy({ left: direction * (row.clientWidth * .82),
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
-  }
-
-  return <section className={s.rail} aria-label={title}>
-    <header><h2>{title}</h2>{!(edges.start && edges.end) && <div>
-      <button type="button" className={s.previous} disabled={edges.start} onClick={() => scroll(-1)} aria-label={`Voltar em ${title.toLowerCase()}`}><UIIcon name="chevron" size={17} /></button>
-      <button type="button" disabled={edges.end} onClick={() => scroll(1)} aria-label={`Avançar em ${title.toLowerCase()}`}><UIIcon name="chevron" size={17} /></button>
-    </div>}</header>
-    <div className={s.track} ref={track} tabIndex={0} aria-label={`Lista de ${title.toLowerCase()}`}>{children}</div>
-  </section>;
 }
