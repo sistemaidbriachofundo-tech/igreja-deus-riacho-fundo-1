@@ -2,12 +2,12 @@
  * Ficha 360 da Secretaria contra o contrato já publicado.
  * PATCH /persons/:id grava displayName, email, isMinor, legalGuardianPersonId,
  * householdId e expectedUpdatedAt.
- * PATCH /memberships/:id grava a observação do vínculo mais recente.
+ * PATCH /memberships/:id grava observação e funções eclesiásticas do vínculo da congregação.
  * Situação, tipo e telefones continuam fora da edição direta.
  * Casos pastorais não são pedidos por esta ficha.
  */
 
-import { PERSON_PROFILE_DATES, type PersonProfileDates, type PersonProfileFields, type PersonSex, type PersonTimelineEvent } from "@idbrf/shared";
+import { ECCLESIASTICAL_ROLES, PERSON_PROFILE_DATES, type EcclesiasticalRole, type PersonProfileDates, type PersonProfileFields, type PersonSex, type PersonTimelineEvent } from "@idbrf/shared";
 
 export const PATCHABLE_PERSON_FIELDS = [
   "displayName",
@@ -47,6 +47,7 @@ export type PersonRecord = PersonProfileFields & {
 };
 
 export type DossierMembership = {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   id: string;
   status: string;
   joinedAt: string;
@@ -85,6 +86,7 @@ export type AdmissionDocumentList = {
 };
 
 export type PersonDossier = {
+  ministryLeader?: boolean;
   person: PersonRecord;
   legalGuardian: {
     id: string;
@@ -104,6 +106,7 @@ export type PersonDossier = {
 };
 
 export type EditablePersonFields = Partial<Record<PersonProfileDates, string>> & {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   sex?: PersonSex | "";
   displayName: string;
   email: string;
@@ -125,7 +128,8 @@ export type PersonPatchBody = PersonProfileFields & {
 };
 
 export type MembershipNotesBody = {
-  notes: string | null;
+  notes?: string | null;
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   expectedUpdatedAt?: string;
 };
 
@@ -202,6 +206,7 @@ export function toEditable(
     | "sex"
   >,
   notes: string | null | undefined,
+  ecclesiasticalRoles?: EcclesiasticalRole[],
 ): EditablePersonFields {
   const profile: Partial<Record<PersonProfileDates, string>> = {};
   for (const key of PERSON_PROFILE_DATES) {
@@ -217,6 +222,7 @@ export function toEditable(
     legalGuardianPersonId: person.legalGuardianPersonId ?? "",
     householdId: person.householdId ?? "",
     notes: notes ?? "",
+    ...(ecclesiasticalRoles === undefined ? {} : { ecclesiasticalRoles }),
   };
 }
 
@@ -272,9 +278,14 @@ export function buildMembershipNotesPatch(
 ): { membershipId: string; body: MembershipNotesBody } | null {
   const notes = current.notes.trim();
   const previous = baseline.notes.trim();
-  if (notes === previous) return null;
-  if (!versions.membershipId) return null;
-  const body: MembershipNotesBody = { notes: notes.length > 0 ? notes : null };
+  const roles = current.ecclesiasticalRoles;
+  const oldRoles = baseline.ecclesiasticalRoles ?? [];
+  const rolesChanged = roles !== undefined &&
+    (roles.length !== oldRoles.length || roles.some(role => !oldRoles.includes(role)));
+  if (!versions.membershipId || (notes === previous && !rolesChanged)) return null;
+  const body: MembershipNotesBody = {};
+  if (notes !== previous) body.notes = notes.length > 0 ? notes : null;
+  if (rolesChanged) body.ecclesiasticalRoles = ECCLESIASTICAL_ROLES.filter(role => roles.includes(role));
   if (versions.membershipUpdatedAt)
     body.expectedUpdatedAt = versions.membershipUpdatedAt;
   return { membershipId: versions.membershipId, body };
@@ -532,7 +543,7 @@ export async function savePersonDossier(
   baseline: EditablePersonFields,
   versions: DossierVersions,
 ): Promise<
-  | { ok: true; person: PersonRecord | null }
+  | { ok: true; person: PersonRecord | null; membershipRoles?: { id: string; roles: EcclesiasticalRole[] } }
   | { ok: false; unchanged: true }
   | { ok: false; failure: DossierFailure; partialPerson?: PersonRecord }
 > {
@@ -603,7 +614,9 @@ export async function savePersonDossier(
           failure: {
             ...failure,
             message:
-              "Os dados da pessoa foram gravados. A observação do vínculo não foi gravada. " +
+              "Os dados da pessoa foram gravados. " +
+              (notesPatch.body.ecclesiasticalRoles === undefined
+                ? "A observação do vínculo não foi gravada. " : "As mudanças no vínculo não foram gravadas. ") +
               failure.message,
           },
         };
@@ -612,7 +625,12 @@ export async function savePersonDossier(
     }
   }
 
-  return { ok: true, person: savedPerson };
+  return {
+    ok: true, person: savedPerson,
+    ...(notesPatch?.body.ecclesiasticalRoles === undefined ? {} : {
+      membershipRoles: { id: notesPatch.membershipId, roles: notesPatch.body.ecclesiasticalRoles },
+    }),
+  };
 }
 
 export type FichaPhase = "loading" | "ready" | "saving" | "reopening";
@@ -699,13 +717,14 @@ function applyLoaded(
   notice: DossierNotice | null,
   saveMs: number | null,
 ): FichaState {
-  const notes = primaryMembership(data.dossier)?.notes ?? "";
+  const membership = primaryMembership(data.dossier);
+  const notes = membership?.notes ?? "";
   return {
     phase: "ready",
     person: data.person,
     dossier: data.dossier,
-    form: toEditable(data.person, notes),
-    baseline: toEditable(data.person, notes),
+    form: toEditable(data.person, notes, membership?.ecclesiasticalRoles),
+    baseline: toEditable(data.person, notes, membership?.ecclesiasticalRoles),
     versions: versionsFrom(data.person, data.dossier),
     loadError: null,
     saveError: null,
@@ -767,9 +786,9 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         ...state,
         phase: "ready",
         person: { ...(state.person ?? event.person), ...event.person },
-        form: { ...toEditable(event.person, notes), notes },
+        form: { ...toEditable(event.person, notes, state.form?.ecclesiasticalRoles), notes },
         baseline: {
-          ...toEditable(event.person, baselineNotes),
+          ...toEditable(event.person, baselineNotes, state.baseline?.ecclesiasticalRoles),
           notes: baselineNotes,
         },
         versions: {
@@ -796,8 +815,8 @@ export function fichaReducer(state: FichaState, event: FichaEvent): FichaState {
         ...state,
         phase: "reopening",
         person: { ...(state.person ?? event.person), ...event.person },
-        form: toEditable(event.person, state.form?.notes ?? ""),
-        baseline: toEditable(event.person, state.baseline?.notes ?? ""),
+        form: toEditable(event.person, state.form?.notes ?? "", state.form?.ecclesiasticalRoles),
+        baseline: toEditable(event.person, state.baseline?.notes ?? "", state.baseline?.ecclesiasticalRoles),
         versions: {
           ...state.versions,
           personUpdatedAt:

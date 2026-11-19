@@ -416,6 +416,13 @@ model Grant {
   @@map("grants")
 }
 
+enum EcclesiasticalRole {
+  PASTOR
+  EVANGELIST
+  DEACON
+  MINISTRY_LEADER
+}
+
 model ChurchMembership {
   id             String           @id @default(cuid())
   personId       String           @map("person_id")
@@ -425,6 +432,7 @@ model ChurchMembership {
   joinedAt       DateTime         @default(now()) @map("joined_at")
   leftAt         DateTime?        @map("left_at")
   notes          String?
+  ecclesiasticalRoles EcclesiasticalRole[] @default([]) @map("ecclesiastical_roles")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 

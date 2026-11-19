@@ -9,6 +9,8 @@ export {
   ADMISSION_MODALITIES,
   ADMISSION_STEP_ORDER,
   MEMBERSHIP_STATUSES,
+  ECCLESIASTICAL_ROLES,
+  type EcclesiasticalRole,
   CREDENTIAL_STATUSES,
   type AdmissionStatus,
   type AdmissionModality,

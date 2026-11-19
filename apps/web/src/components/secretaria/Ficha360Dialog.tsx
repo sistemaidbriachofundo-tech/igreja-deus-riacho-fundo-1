@@ -1,5 +1,6 @@
 "use client";
 
+import { EcclesiasticalRoleFields } from "./EcclesiasticalRoleFields";
 import { PersonPhotoInput } from "./PersonPhotoInput";
 import { accountProblem, savePersonPhoto } from "../../lib/my-account";
 import { PersonPortrait } from "../PersonPortrait";
@@ -288,6 +289,11 @@ export function Ficha360Dialog({
               <button className={s.secondary} type="button" onClick={() => setActiveTab("historico")}>Ver linha do tempo</button>
             </div>
             <form className={s.form} onSubmit={onSubmit}>
+              {form.ecclesiasticalRoles !== undefined && <fieldset disabled={busy || !canEdit || creatingFamily}>
+                <legend>Funções eclesiásticas</legend>
+                <EcclesiasticalRoleFields value={form.ecclesiasticalRoles} ministryLeader={dossier?.ministryLeader}
+                  onChange={ecclesiasticalRoles => onEdit({ ...form, ecclesiasticalRoles })} />
+              </fieldset>}
               <fieldset disabled={busy || !canEdit || creatingFamily}>
                 <legend>Dados pessoais</legend>
                 <label>

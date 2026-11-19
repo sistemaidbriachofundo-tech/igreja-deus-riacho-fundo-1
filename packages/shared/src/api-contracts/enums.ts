@@ -54,3 +54,6 @@ export const CREDENTIAL_STATUSES = {
 
 export type CredentialStatusContract =
   (typeof CREDENTIAL_STATUSES)[keyof typeof CREDENTIAL_STATUSES];
+
+export const ECCLESIASTICAL_ROLES = ["PASTOR", "EVANGELIST", "DEACON", "MINISTRY_LEADER"] as const;
+export type EcclesiasticalRole = (typeof ECCLESIASTICAL_ROLES)[number];

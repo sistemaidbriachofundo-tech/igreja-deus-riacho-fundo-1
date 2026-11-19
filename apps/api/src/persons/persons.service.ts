@@ -23,6 +23,7 @@ import { portraitDataUrl } from "./person-photo";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { buildSecretaryOverview, secretaryPeriod } from "./secretary-overview";
+import { membershipLeadershipSelect } from "../memberships/membership-patch";
 import {
   collectNameDedupeAlerts,
   normalizeDisplayName,
@@ -346,6 +347,7 @@ export class PersonsService {
             joinedAt: true,
             leftAt: true,
             notes: true,
+            ecclesiasticalRoles: true,
             updatedAt: true,
           },
           orderBy: { joinedAt: "desc" },
@@ -374,9 +376,10 @@ export class PersonsService {
           },
           select: { id: true, completedAt: true, fromChurchId: true, fromChurch: { select: { name: true } }, toChurch: { select: { name: true } } },
         },
+        ministryLeads: membershipLeadershipSelect(pilot).ministryLeads,
         ministryMemberships: {
           where: { organizationId: pilot.organizationId, churchId: pilot.churchId },
-          select: { id: true, role: true, startedAt: true, endedAt: true, ministry: { select: { name: true } } },
+          select: { id: true, role: true, status: true, startedAt: true, endedAt: true, ministry: { select: { name: true } } },
         },
         user: {
           select: {
@@ -471,11 +474,15 @@ export class PersonsService {
             members: person.household.persons,
           }
         : null,
+      ministryLeader: Boolean(person.ministryLeads?.length || person.ministryMemberships?.some(
+        link => link.role === "LIDER" && link.status === "ATIVO" && !link.endedAt,
+      )),
       memberships: person.memberships.map((m) => ({
         id: m.id,
         status: m.status,
         joinedAt: m.joinedAt.toISOString(),
         notes: isStaff ? m.notes : null,
+        ecclesiasticalRoles: m.ecclesiasticalRoles ?? [],
         ...this.updatedAtField(m.updatedAt),
       })),
       admissionHistory: person.admissions.map((a) => ({

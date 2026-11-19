@@ -1,5 +1,7 @@
 "use client";
 
+import { ECCLESIASTICAL_ROLES, type EcclesiasticalRole } from "@idbrf/shared";
+
 import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
@@ -10,12 +12,13 @@ import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { PersonPhotoInput } from "./secretaria/PersonPhotoInput";
 import { savePersonPhoto } from "../lib/my-account";
-import { NewPersonIntake } from "./secretaria/NewPersonIntake";
+import { ECCLESIASTICAL_ROLE_LABELS } from "./secretaria/EcclesiasticalRoleFields";
+import { NewPersonIntake, type NewPersonProfile } from "./secretaria/NewPersonIntake";
 import { personUnder18 } from "./secretaria/new-person-intake-model";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiPost, clearToken, isInvalidSession, loadStoredToken, type LoginResult } from "../lib/api";
 import { LoginScreen } from "./LoginScreen";
-import { readPanel } from "../lib/panel-read";
+import { clearPanelReads, readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
 import { Modal } from "./ui/Modal";
 import { useFeedback } from "./ui/FeedbackProvider";
@@ -35,7 +38,20 @@ type Membership = {
   notes: string | null;
   person: { id: string; displayName: string; email: string | null; status: string; householdId: string | null };
   activeCredentialId: string | null;
+  ecclesiasticalRoles?: EcclesiasticalRole[];
+  ministryLeader?: boolean;
 };
+const churchFunctionTotals = {
+  PASTOR: "Pastores",
+  EVANGELIST: "Evangelistas",
+  DEACON: "Diáconos",
+  MINISTRY_LEADER: "Líderes de ministério",
+} satisfies Record<EcclesiasticalRole, string>;
+
+function memberHasFunction(membership: Membership, role: EcclesiasticalRole) {
+  return Boolean(membership.ecclesiasticalRoles?.includes(role) || (role === "MINISTRY_LEADER" && membership.ministryLeader));
+}
+
 type Admission = {
   id: string;
   personId: string;
@@ -185,6 +201,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState("");
+  const [churchFunction, setChurchFunction] = useState<EcclesiasticalRole | null>(null);
   const [familyFilter, setFamilyFilter] = useState("");
   const [secretarySection, setSecretarySection] = useState<SecretarySection>(initialSecretarySection);
   const [showHistory, setShowHistory] = useState(false);
@@ -199,7 +216,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const emptyNewProfile = () => ({
+  const emptyNewProfile = (): NewPersonProfile => ({
     address: "", birthDate: "", baptismDate: "", firstAttendedOn: "",
     weddingDate: "", sex: "", isMinor: false,
     legalGuardianPersonId: "", householdId: "", householdLabel: "",
@@ -311,7 +328,9 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const householdById = useMemo(() => new Map(households.map(household => [household.id, household.label])), [households]);
   const pending = admissions.filter(admission => !CLOSED_ADMISSIONS.includes(admission.status));
   const q = query.trim().toLocaleLowerCase("pt-BR");
+  const activeMembers = memberships.filter(row => row.status === "ACTIVE" && row.person.status === "ACTIVE");
   const filtered = memberships.filter(membership =>
+    (!churchFunction || (membership.status === "ACTIVE" && membership.person.status === "ACTIVE" && memberHasFunction(membership, churchFunction))) &&
     (!familyFilter || membership.person.householdId === familyFilter) &&
     (!membershipStatus || membership.status === membershipStatus) &&
     [membership.person.displayName, membership.person.email ?? "", label(membership.status)].join(" ").toLocaleLowerCase("pt-BR").includes(q)
@@ -490,6 +509,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             weddingDate: newProfile.weddingDate || undefined,
             firstAttendedOn: newProfile.firstAttendedOn || undefined,
             sex: newProfile.sex || undefined,
+            ecclesiasticalRoles: newProfile.ecclesiasticalRoles,
             isMinor: computedMinor,
             legalGuardianPersonId: newProfile.legalGuardianPersonId || undefined,
             householdId: newProfile.householdId || undefined,
@@ -657,11 +677,24 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
                   </div>
 
+                  {secretary && <section className={s.churchFunctionSummary} aria-labelledby="church-functions-title">
+                    <h3 id="church-functions-title">Funções eclesiásticas</h3>
+                    <p>Totais de membros ativos nesta congregação.</p>
+                    <div className={s.churchFunctionCards}>
+                      {ECCLESIASTICAL_ROLES.map(role => (
+                        <button type="button" key={role} aria-pressed={churchFunction === role} disabled={!loadedGroups.people}
+                          onClick={() => { setChurchFunction(churchFunction === role ? null : role); setMembershipStatus(""); setListPage(0); }}>
+                          <span>{churchFunctionTotals[role]}</span>
+                          <strong>{loadedGroups.people ? activeMembers.filter(member => memberHasFunction(member, role)).length.toLocaleString("pt-BR") : "—"}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </section>}
                   {secretary && <div className={s.peopleFilters}>
                     <div className={ui.workspaceChoices} role="group" aria-label="Situação das pessoas">
                       {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"], ["TRANSFERRED", "Transferidos"]].map(([status, title]) =>
                         <button key={status} type="button" aria-pressed={membershipStatus === status}
-                          onClick={() => { setMembershipStatus(status); setListPage(0); }}><UIIcon name={status === "ACTIVE" ? "check" : status === "PENDING_ADMISSION" ? "clock" : status === "TRANSFERRED" ? "arrow" : status === "INACTIVE" ? "close" : "people"} size={15} />{title}</button>
+                          onClick={() => { setMembershipStatus(status); setChurchFunction(null); setListPage(0); }}><UIIcon name={status === "ACTIVE" ? "check" : status === "PENDING_ADMISSION" ? "clock" : status === "TRANSFERRED" ? "arrow" : status === "INACTIVE" ? "close" : "people"} size={15} />{title}</button>
                       )}
                     </div>
                     <label className={s.familySelect}>Família
@@ -671,22 +704,25 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       </select>
                     </label>
                   </div>}
-                  {secretary && (familyFilter || query || membershipStatus) && <div className={s.activeFilters}>
-                    <span>{selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
-                    <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); updateQuery(""); }}>Limpar filtros</button>
+                  {secretary && (familyFilter || query || membershipStatus || churchFunction) && <div className={s.activeFilters}>
+                    <span>{churchFunction ? churchFunctionTotals[churchFunction] : selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
+                    <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); setChurchFunction(null); updateQuery(""); }}>Limpar filtros</button>
                   </div>}
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : !loadedGroups.people ? (
                     <p className={s.empty} role="status">{checking ? "Carregando cadastros…" : "Não foi possível carregar os cadastros. Use Atualizar para tentar novamente."}</p>
                   ) : (
                     <div>
                       <ul className={s.peopleResults} aria-label="Pessoas encontradas">
-                        {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(({ person, status }) => (
-                          <li key={person.id}>
+                        {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => {
+                          const { person, status } = membership;
+                          const roles = ECCLESIASTICAL_ROLES.filter(role => memberHasFunction(membership, role));
+                          return <li key={person.id}>
                             <div className={s.personIdentity}>
                               <PersonPortrait name={person.displayName} size="small" />
                               <div>
                                 <strong>{person.displayName}</strong>
                                 {person.email && <small>{person.email}</small>}
+                                {roles.length > 0 && <small className={s.personFunctions}>{roles.map(role => ECCLESIASTICAL_ROLE_LABELS[role]).join(" · ")}</small>}
                               </div>
                             </div>
                             <div className={s.peopleMembership}>
@@ -694,8 +730,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                               <small>{person.householdId ? householdById.get(person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</small>
                             </div>
                             <button type="button" className={s.openFicha} onClick={() => setFichaId(person.id)} aria-label={"Ver ficha de " + person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
-                          </li>
-                        ))}
+                          </li>;
+                        })}
                       </ul>
                       {filtered.length === 0 && !error && <p className={s.empty}>Nenhuma pessoa encontrada.</p>}
                       <ListPager total={filtered.length} page={visiblePage} onChange={setListPage} />
@@ -845,6 +881,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     url.searchParams.delete("pessoa");
                     window.history.replaceState(null, "", url);
                   }
+                }}
+                onMembershipRolesSaved={(membershipId, ecclesiasticalRoles) => {
+                  clearPanelReads();
+                  setMemberships(rows => rows.map(row => row.id === membershipId ? { ...row, ecclesiasticalRoles } : row));
                 }}
                 onPersonSaved={person => {
                   setMemberships(rows => rows.map(row => row.person.id === person.id ? { ...row, person } : row));

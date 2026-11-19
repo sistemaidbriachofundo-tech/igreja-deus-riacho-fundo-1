@@ -157,6 +157,17 @@ describe("contrato de PATCH da ficha 360", () => {
     )).toBeNull();
   });
 
+  it("grava funções no vínculo e preserva observações que não foram editadas", () => {
+    const form: EditablePersonFields = { ...baseline, ecclesiasticalRoles: ["EVANGELIST"] };
+    expect(buildMembershipNotesPatch(
+      { ...form, ecclesiasticalRoles: ["DEACON", "EVANGELIST"] }, form, versions,
+    )).toEqual({
+      membershipId: "m-ana",
+      body: { ecclesiasticalRoles: ["EVANGELIST", "DEACON"], expectedUpdatedAt: versions.membershipUpdatedAt },
+    });
+    expect(buildMembershipNotesPatch({ ...form, ecclesiasticalRoles: [] }, form, versions)?.body.ecclesiasticalRoles).toEqual([]);
+  });
+
   it("recusa situação, tipo e telefone mesmo que o chamador os force", () => {
     expect(() => assertSupportedPatch({ status: "INACTIVE" } as PersonPatchBody)).toThrow(/contrato de PATCH/);
     expect(() => assertSupportedPatch({ phone: "61999990000" } as PersonPatchBody)).toThrow(/contrato de PATCH/);

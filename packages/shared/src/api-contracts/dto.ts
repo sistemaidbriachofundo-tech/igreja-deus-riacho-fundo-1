@@ -4,6 +4,7 @@ import type {
   AdmissionStatus,
   AdmissionStep,
   CredentialStatusContract,
+  EcclesiasticalRole,
   MembershipStatusContract,
 } from "./enums";
 
@@ -66,6 +67,8 @@ export interface PersonSummaryDto {
 }
 
 export interface MembershipDto {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
+  ministryLeader?: boolean;
   id: string;
   status: MembershipStatusContract | string;
   joinedAt: string;
@@ -83,6 +86,7 @@ export interface MembershipListResponse {
 
 /** Cadastro rápido legado (v0.1) — preferir fluxo /admissions no 0.2. */
 export interface RegisterMembershipRequest {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   displayName: string;
   email?: string;
   notes?: string;
@@ -321,6 +325,7 @@ export interface PatchPersonRequest extends PersonProfileFields {
 }
 
 export interface PersonDossierResponse {
+  ministryLeader?: boolean;
   person: PersonSummaryDto & PersonProfileFields & {
     address?: string | null;
     kind: string;
@@ -339,6 +344,7 @@ export interface PersonDossierResponse {
     status: string;
     joinedAt: string;
     notes: string | null;
+    ecclesiasticalRoles?: EcclesiasticalRole[];
   }>;
   admissionHistory: Array<{
     id: string;

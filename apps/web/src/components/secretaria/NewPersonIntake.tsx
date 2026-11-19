@@ -1,10 +1,13 @@
 "use client";
 
+import type { EcclesiasticalRole } from "@idbrf/shared";
+import { EcclesiasticalRoleFields } from "./EcclesiasticalRoleFields";
 import { PersonPicker } from "../PersonPicker";
 import s from "./new-person-intake.module.css";
 import { personUnder18 } from "./new-person-intake-model";
 
 export type NewPersonProfile = {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   address: string;
   birthDate: string;
   baptismDate: string;
@@ -109,6 +112,11 @@ export function NewPersonIntake({
         </div>
       </fieldset>
       <p className={s.note}><strong>Importante:</strong> cadastrar não concede membresia automaticamente. Admissão, transferências e aprovação pastoral seguem os fluxos oficiais da Secretaria. Nenhum dado real deve ser usado em HML.</p>
+      <fieldset className={s.section} disabled={busy}>
+        <legend>Funções eclesiásticas</legend>
+        <EcclesiasticalRoleFields value={profile.ecclesiasticalRoles ?? []}
+          onChange={ecclesiasticalRoles => update({ ecclesiasticalRoles })} />
+      </fieldset>
     </div>
   );
 }

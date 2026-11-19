@@ -396,3 +396,15 @@
   .peopleResults li { grid-template-columns: minmax(0, 1fr) auto; }
   .peopleResults .personIdentity { grid-column: 1 / -1; }
 }
+
+.peopleWorkspace .churchFunctionSummary { order: 1; margin: 0 0 18px; }
+.churchFunctionSummary h3 { font-size: 1rem; color: #1d5146; margin: 0 0 3px; }
+.churchFunctionSummary p { margin: 0 0 9px; font-size: .85rem; color: #526762; }
+.churchFunctionCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.churchFunctionCards button { display: grid; gap: 3px; min-width: 0; text-align: left; padding: 9px 12px; background: #f0f8f4; color: #234a40; border: 1px solid #d2e6dd; border-radius: 9px; font: inherit; cursor: pointer; }
+.churchFunctionCards button[aria-pressed="true"] { background: #205a4c; color: #fff; border-color: #205a4c; }
+.churchFunctionCards button span { font-size: .82rem; }
+.churchFunctionCards button strong { font-size: 1.36rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.churchFunctionCards button:disabled { cursor: default; opacity: .7; }
+.personFunctions { color: #235d4c; font-weight: 650; }
+@media (max-width: 650px) { .churchFunctionCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

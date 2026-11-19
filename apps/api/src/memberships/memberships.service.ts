@@ -5,12 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canManageMemberships } from "@idbrf/shared";
+import { canManageMemberships, type EcclesiasticalRole } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
+  membershipLeadershipSelect,
+  normalizeEcclesiasticalRoles,
   normalizeMembershipNotes,
   parseExpectedUpdatedAt,
   rejectMembershipRegulatedPatch,
@@ -21,6 +23,7 @@ export interface RegisterMembershipInput {
   displayName: string;
   email?: string;
   notes?: string;
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   householdLabel?: string;
   householdId?: string;
   address?: string;
@@ -81,6 +84,7 @@ export class MembershipsService {
             householdId: true,
             kind: true,
             isMinor: true,
+            ...membershipLeadershipSelect(pilot),
           },
         },
         credentials: {
@@ -102,14 +106,19 @@ export class MembershipsService {
         slug: pilot.churchSlug,
         name: pilot.churchName,
       },
-      memberships: rows.map((row) => ({
-        id: row.id,
-        status: row.status,
-        joinedAt: row.joinedAt.toISOString(),
-        notes: row.notes,
-        person: row.person,
-        activeCredentialId: row.credentials[0]?.id ?? null,
-      })),
+      memberships: rows.map((row) => {
+        const { ministryLeads, ministryMemberships, ...person } = row.person;
+        return {
+          id: row.id,
+          status: row.status,
+          joinedAt: row.joinedAt.toISOString(),
+          notes: row.notes,
+          ecclesiasticalRoles: row.ecclesiasticalRoles,
+          ministryLeader: Boolean(ministryLeads?.length || ministryMemberships?.length),
+          person,
+          activeCredentialId: row.credentials[0]?.id ?? null,
+        };
+      }),
     };
   }
 
@@ -122,6 +131,8 @@ export class MembershipsService {
       throw new BadRequestException("displayName é obrigatório");
     }
 
+    const ecclesiasticalRoles = input.ecclesiasticalRoles === undefined
+      ? undefined : normalizeEcclesiasticalRoles(input.ecclesiasticalRoles);
     let personId = input.personId?.trim();
 
     // Regras de dados apenas para novos cadastros; pessoas existentes não são
@@ -223,6 +234,7 @@ export class MembershipsService {
         organizationId: pilot.organizationId,
         status: "PENDING_ADMISSION",
         notes: input.notes?.trim() || null,
+        ...(ecclesiasticalRoles === undefined ? {} : { ecclesiasticalRoles }),
       },
       include: {
         person: {
@@ -300,14 +312,18 @@ export class MembershipsService {
         }
       }
 
-      if (input.notes === undefined) {
-        return this.toMembershipPatch(row);
+      const data: { notes?: string | null; ecclesiasticalRoles?: EcclesiasticalRole[] } = {};
+      if (input.notes !== undefined) {
+        const notes = normalizeMembershipNotes(input.notes);
+        if (notes !== row.notes) data.notes = notes;
       }
-
-      const notes = normalizeMembershipNotes(input.notes);
-      if (notes === row.notes) {
-        return this.toMembershipPatch(row);
+      if (input.ecclesiasticalRoles !== undefined) {
+        const next = normalizeEcclesiasticalRoles(input.ecclesiasticalRoles);
+        const stored = row.ecclesiasticalRoles ?? [];
+        if (next.length !== stored.length || next.some(role => !stored.includes(role))) data.ecclesiasticalRoles = next;
       }
+      const fields = Object.keys(data);
+      if (!fields.length) return this.toMembershipPatch(row);
 
       if (
         !(row.updatedAt instanceof Date) ||
@@ -327,7 +343,7 @@ export class MembershipsService {
           churchId: pilot.churchId,
           updatedAt: row.updatedAt,
         },
-        data: { notes },
+        data,
       });
       if (written.count !== 1) {
         throw new BusinessException(
@@ -351,15 +367,21 @@ export class MembershipsService {
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
-          action: "membership.notes.patch",
+          action: data.ecclesiasticalRoles === undefined ? "membership.notes.patch" : "membership.ecclesiastical-roles.patch",
           resourceType: "church_membership",
           resourceId: membershipId,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
           metadata: {
-            fields: ["notes"],
-            before: { notes: row.notes },
-            after: { notes: updated.notes },
+            fields,
+            before: {
+              ...(data.notes !== undefined ? { notes: row.notes } : {}),
+              ...(data.ecclesiasticalRoles !== undefined ? { ecclesiasticalRoles: row.ecclesiasticalRoles ?? [] } : {}),
+            },
+            after: {
+              ...(data.notes !== undefined ? { notes: updated.notes } : {}),
+              ...(data.ecclesiasticalRoles !== undefined ? { ecclesiasticalRoles: updated.ecclesiasticalRoles } : {}),
+            },
             status: updated.status,
           },
         },
@@ -378,6 +400,7 @@ export class MembershipsService {
     joinedAt: Date;
     leftAt?: Date | null;
     notes: string | null;
+    ecclesiasticalRoles?: EcclesiasticalRole[];
     updatedAt?: Date | null;
   }) {
     return {
@@ -389,6 +412,7 @@ export class MembershipsService {
       joinedAt: row.joinedAt.toISOString(),
       leftAt: row.leftAt instanceof Date ? row.leftAt.toISOString() : null,
       notes: row.notes,
+      ...(row.ecclesiasticalRoles === undefined ? {} : { ecclesiasticalRoles: row.ecclesiasticalRoles }),
       ...(row.updatedAt instanceof Date
         ? { updatedAt: row.updatedAt.toISOString() }
         : {}),
