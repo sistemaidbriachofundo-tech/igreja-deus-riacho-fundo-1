@@ -193,7 +193,7 @@ export function publicApiBase(configured: string | undefined): string | null {
 
 export async function fetchPublished<T>(
   path: string, parse: (value: unknown) => T | null,
-  { signal, apiUrl }: { signal?: AbortSignal; apiUrl?: string } = {},
+  { signal, apiUrl, timeoutMs = 8_000 }: { signal?: AbortSignal; apiUrl?: string; timeoutMs?: number } = {},
 ): Promise<T> {
   // Opt-in prevents published-looking seed/demo records from reaching production.
   if (apiUrl === undefined && process.env.NEXT_PUBLIC_PORTAL_LIVE_ENABLED !== "true") {
@@ -205,7 +205,7 @@ export async function fetchPublished<T>(
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   signal?.addEventListener("abort", onAbort, { once:true });
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(base + path, {
       method:"GET", mode:"cors", credentials:"omit", cache:"no-store",

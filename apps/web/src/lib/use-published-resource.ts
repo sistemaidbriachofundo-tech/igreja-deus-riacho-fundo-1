@@ -21,7 +21,7 @@ export function usePublishedResource<T>(path:string, parser:(value:unknown)=>T|n
     if (!active) { setState({ status:"unavailable", data:null }); return; }
     const controller = new AbortController();
     const reload = () => {
-      void fetchPublished(path, parser, { signal:controller.signal, apiUrl })
+      void fetchPublished(path, parser, { signal:controller.signal, apiUrl, timeoutMs: live ? 21_000 : undefined })
         .then(data => { if (!controller.signal.aborted) setState({ status:"ready",data }); })
         .catch(() => { if (!controller.signal.aborted) setState(current => !live && current.status === "ready" ? current : { status:"unavailable", data:null }); });
     };

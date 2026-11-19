@@ -71,9 +71,9 @@ export class YoutubeLiveService {
 
   private async refresh(): Promise<State> {
     try {
-      const budget = AbortSignal.timeout(6_500);
+      const budget = AbortSignal.timeout(18_000);
       // The channel's public custom URL generally includes its complete live player.
-      const firstAttempt = AbortSignal.any([budget, AbortSignal.timeout(4_000)]);
+      const firstAttempt = AbortSignal.any([budget, AbortSignal.timeout(10_000)]);
       const { url, html } = await fetchYoutubePage(LIVE_PAGE, firstAttempt)
         .catch(() => fetchYoutubePage(CHANNEL_LIVE_PAGE, budget));
       const redirectedVideo = youtubeVideoId(url);
