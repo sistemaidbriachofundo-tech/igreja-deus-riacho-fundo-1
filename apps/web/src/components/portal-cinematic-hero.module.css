@@ -59,7 +59,7 @@
   text-transform: uppercase;
 }
 .headline {
-  --mission-display-size: clamp(2rem, 5.3vw, 4.7rem);
+  --mission-display-size: clamp(1.5rem, 4.2vw, 3.8rem);
   margin: 0;
   color: var(--hero-accent);
   font: 400 clamp(2.2rem, 4.65vw, 4.75rem)/.98 var(--portal-display);
@@ -71,7 +71,7 @@
 }
 
 @supports (font-size: 1cqw) {
-  .headline { --mission-display-size: min(11.2cqw, 4.7rem); }
+  .headline { --mission-display-size: min(9.25cqw, 3.8rem); }
 }
 
 .visit {
