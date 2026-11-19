@@ -79,3 +79,15 @@
 }
 
 .position, .person details { scroll-margin-top: 95px; }
+
+.partner { display: block; margin-block-start: 5px; }
+
+.coverPanel { display: grid; gap: 10px; border: 1px solid #dce8db; border-radius: 10px; padding: 12px; color: #18382c; background: #f6faf3; }
+.coverPanel p { margin: 3px 0 0; }
+.coverPanel fieldset { display: grid; gap: 5px; min-width: 0; border: 0; padding: 0; margin: 0; }
+.coverPanel legend { font-weight: 700; padding: 0 0 5px; }
+.coverPanel label { display: flex; align-items: center; gap: 7px; background: #fff; min-height: 40px; padding: 5px 8px; border: 1px solid #dfeae0; border-radius: 7px; cursor: pointer; }
+.coverPanel input { accent-color: #1f5742; }
+.coverPanel footer { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
+.coverPrimary { min-height: 42px; color: #183525; background: #d7fa75; border: 1px solid #b6d665; border-radius: 8px; padding: 7px 10px; font: inherit; font-weight: 730; cursor: pointer; }
+.coverPrimary:disabled { opacity: .62; cursor: default; }

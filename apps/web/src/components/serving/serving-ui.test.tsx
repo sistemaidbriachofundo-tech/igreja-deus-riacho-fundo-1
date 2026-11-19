@@ -246,7 +246,11 @@ describe("telas de escala — o que a pessoa vê", () => {
       participation: "assignee",
       roleLabel: "Voz",
       title: "Louvor domingo",
-      serviceAt: "2026-11-15T21:00:00.000Z",
+      serviceAt: new Date(Date.now() + 86400000).toISOString(),
+      moduleName: "Equipe de Louvor",
+      arrivalContactName: "Camila",
+      companionName: "Rafael",
+      companionResponseStatus: "CONFIRMED",
       rosterStatus: "PUBLISHED",
       ministryName: "Louvor",
       ministrySlug: "louvor",
@@ -263,7 +267,11 @@ describe("telas de escala — o que a pessoa vê", () => {
     );
     expect(html).toContain("Louvor domingo");
     expect(html).toContain("data-status=\"PENDING\"");
-    expect(html).toContain("Confirmar");
+    expect(html).toContain("Confirmar presença");
+    expect(html).toContain("Não posso servir");
+    expect(html).toContain("Ao chegar, procure Camila.");
+    expect(html).toContain("Você serve com Rafael.");
+    expect(html).toContain("Equipe de Louvor");
     expect(html).toContain("data-persist=\"roster\"");
     expect(html).toContain("Você tem outra posição na escala deste dia.");
     expect(html).not.toContain("Permissão de listagem");

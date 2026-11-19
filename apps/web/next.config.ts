@@ -10,9 +10,15 @@ const basePath =
     ? ""
     : (process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1"));
 
+const isRiachoDevPreview = process.env.VERCEL_ENV === "preview" &&
+  process.env.VERCEL_GIT_COMMIT_REF === "feat/rf1-revisao-18-11";
+
 const nextConfig: NextConfig = {
   output: "export",
-  env: { NEXT_PUBLIC_BASE_PATH: basePath },
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+    ...(isRiachoDevPreview && { NEXT_PUBLIC_API_URL: "https://id-riacho1-api-qa.vercel.app" }),
+  },
   trailingSlash: true,
   transpilePackages: ["@idbrf/shared"],
   images: {

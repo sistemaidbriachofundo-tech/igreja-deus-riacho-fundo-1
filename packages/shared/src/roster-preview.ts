@@ -4,6 +4,7 @@ export type RosterPreviewPosition = {
   personName: string | null;
   partnerName: string | null;
   reasons: string[];
+  openVacancy?: string;
 };
 
 export type RosterPreviewDto = {

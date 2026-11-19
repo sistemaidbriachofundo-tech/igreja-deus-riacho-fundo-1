@@ -447,6 +447,13 @@ export type PersonalAssignment = {
   rosterStatus: RosterStatus;
   ministryName: string | null;
   ministrySlug: string | null;
+  moduleName?: string;
+  locationName?: string;
+  arrivalContactName?: string;
+  arrivalInstructions?: string;
+  companionName?: string;
+  ownResponseStatus?: "PENDING" | "CONFIRMED" | "DECLINED";
+  companionResponseStatus?: "PENDING" | "CONFIRMED" | "DECLINED";
   sameDayConflict: boolean;
 };
 
@@ -467,6 +474,10 @@ export function parseMyAgenda(payload: unknown): {
     personId: requiredString(body.personId, "pessoa da sessão"),
     assignments: rows.map(parsePersonalAssignment),
   };
+}
+
+function isResponseStatus(value: unknown): value is "PENDING" | "CONFIRMED" | "DECLINED" {
+  return value === "PENDING" || value === "CONFIRMED" || value === "DECLINED";
 }
 
 function parsePersonalAssignment(value: unknown): PersonalAssignment {
@@ -498,6 +509,12 @@ function parsePersonalAssignment(value: unknown): PersonalAssignment {
     rosterStatus: oneOf(row.rosterStatus, ROSTER_STATUSES, "estado da escala"),
     ministryName: optionalString(row.ministryName),
     ministrySlug: optionalString(row.ministrySlug),
+    ...Object.fromEntries(
+      (["moduleName", "locationName", "arrivalContactName", "arrivalInstructions", "companionName"] as const)
+        .flatMap(key => { const value = optionalString(row[key]); return value ? [[key, value]] : []; }),
+    ),
+    ...(isResponseStatus(row.ownResponseStatus) ? { ownResponseStatus: row.ownResponseStatus } : {}),
+    ...(isResponseStatus(row.companionResponseStatus) ? { companionResponseStatus: row.companionResponseStatus } : {}),
     sameDayConflict: row.sameDayConflict,
   };
 }

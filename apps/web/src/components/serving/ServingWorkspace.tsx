@@ -22,6 +22,7 @@ import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
 import { RosterNotifications } from "./RosterNotifications";
 import { GroupRequests } from "../GroupRequests";
 import { MemberSpace } from "./MemberSpace";
+import { ServingTeamInvitations } from "./ServingTeamInvitations";
 import { MinistryRosterDesk } from "./MinistryRosterDesk";
 import { ServingFrame } from "./ServingFrame";
 import styles from "./serving.module.css";
@@ -205,21 +206,24 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
             assignments={agenda}
             busy={busy}
             notice={notice}
+            invitations={<>
+              <ServingTeamInvitations token={token} onAccepted={() => setReload(value => value + 1)} />
+              <RosterNotifications token={token} mode="invites" onAccepted={() => setReload(value => value + 1)} />
+            </>}
+            availability={<MonthlyServiceSurvey token={token} />}
             onConfirm={(assignmentId) =>
               void run(
                 () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-                "Participação confirmada.",
+                "Presença confirmada.",
               )
             }
             onDecline={(assignmentId) =>
               void run(
                 () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
-                "Você recusou esta escala.",
+                "Recusa registrada.",
               )
             }
           />
-          <RosterNotifications token={token} mode="invites" onAccepted={() => setReload(value => value + 1)} />
-          <MonthlyServiceSurvey token={token} />
           <ConnectionJourney />
           <GroupRequests token={token} />
           {user.canManageConnection !== true && roles.some(role => ["MEMBRO", "LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
@@ -283,7 +287,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
           onConfirm={(assignmentId) =>
             void run(
               () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-              "Participação confirmada.",
+              "Presença confirmada.",
             )
           }
           onDecline={(assignmentId) =>

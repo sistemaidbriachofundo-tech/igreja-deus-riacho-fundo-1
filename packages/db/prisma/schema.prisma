@@ -117,6 +117,12 @@ model Organization {
   pushDeviceTokens PushDeviceToken[]
   ministryMemberships MinistryMembership[]
   securityPolicies SecurityPolicy[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  serviceOccurrences ChurchServiceOccurrence[]
+  servingPreferences VolunteerServingPreference[]
   @@map("organizations")
 }
 
@@ -180,6 +186,13 @@ model Church {
 
   @@unique([organizationId, slug])
   ministryMemberships MinistryMembership[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  rosterNoticeDeliveries RosterNoticeDelivery[]
+  serviceOccurrences ChurchServiceOccurrence[]
+  servingPreferences VolunteerServingPreference[]
   @@map("churches")
 }
 
@@ -270,6 +283,13 @@ model Person {
   rosterAvailabilityResponses RosterAvailabilityResponse[]
   rosterNotices RosterNotice[]
   rosterPushSubscriptions RosterPushSubscription[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  rosterSlotInvitationsAsPartner RosterSlotInvitation[] @relation("RosterSlotInvitationPartner")
+  rosterAssignmentResponses RosterAssignmentResponse[]
+  servingPreferences VolunteerServingPreference[]
   @@map("persons")
 }
 
@@ -871,6 +891,9 @@ model Ministry {
   @@index([organizationId, churchId])
   @@index([churchId, publishStatus, visibility])
   ministryMemberships MinistryMembership[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
   @@map("ministries")
 }
 
@@ -896,6 +919,8 @@ model MinistryMembership {
   ministry     Ministry           @relation(fields: [ministryId], references: [id])
   person       Person             @relation(fields: [personId], references: [id])
   interest     VolunteerInterest? @relation(fields: [volunteerInterestId], references: [id])
+  rosterModules MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
 
   @@unique([ministryId, personId])
   @@index([organizationId, churchId, ministryId])
@@ -1495,11 +1520,17 @@ model MinistryRosterModule {
   name        String
   nameKey     String   @map("name_key")
   rules       Json     @default("{}")
+  locationName String? @map("location_name")
+  arrivalContactName String? @map("arrival_contact_name")
+  arrivalInstructions String? @map("arrival_instructions")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   ministry Ministry @relation(fields: [ministryId], references: [id], onDelete: Restrict)
   rosters  Roster[]
+  leaders MinistryRosterModuleLeader[]
+  memberships MinistryRosterModuleMembership[]
+  memberInvitations MinistryRosterMemberInvitation[]
 
   @@unique([ministryId, nameKey])
   @@unique([id, ministryId])
@@ -1515,6 +1546,9 @@ model Roster {
   portalEventId  String?      @unique @map("portal_event_id")
   title          String
   serviceAt      DateTime     @map("service_at")
+  locationName   String?      @map("location_name")
+  arrivalContactName String?  @map("arrival_contact_name")
+  arrivalInstructions String? @map("arrival_instructions")
   serviceType    String?      @map("service_type")
   status         RosterStatus @default(DRAFT)
   createdAt      DateTime     @default(now()) @map("created_at")
@@ -1526,6 +1560,7 @@ model Roster {
   module       MinistryRosterModule? @relation(fields: [moduleId, ministryId], references: [id, ministryId], onDelete: Restrict)
   portalEvent  PortalEvent? @relation(fields: [portalEventId], references: [id], onDelete: Restrict)
   slots        RosterSlot[]
+  capacityOverrides RosterCapacityOverride[]
 
   @@index([churchId, serviceAt])
   @@index([ministryId])
@@ -1546,6 +1581,7 @@ model RosterSlot {
 
   roster       Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
   assignments  RosterAssignment[]
+  slotInvitations RosterSlotInvitation[]
 
   @@index([rosterId])
   @@map("roster_slots")
@@ -1568,10 +1604,181 @@ model RosterAssignment {
   partner       Person?    @relation("RosterPartner", fields: [partnerPersonId], references: [id])
   substituteFor RosterAssignment?  @relation("RosterSubstitution", fields: [substituteForId], references: [id])
   substitutes   RosterAssignment[] @relation("RosterSubstitution")
+  responses     RosterAssignmentResponse[]
 
   @@index([slotId, status])
   @@index([personId])
   @@map("roster_assignments")
+}
+
+enum RosterModuleLinkStatus {
+  ATIVO
+  ENCERRADO
+}
+
+/// Liderança de um módulo do Atmosfera. Não decorre de cargo eclesiástico na ficha.
+model MinistryRosterModuleLeader {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  ministryId     String   @map("ministry_id")
+  moduleId       String   @map("module_id")
+  personId       String   @map("person_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  ministry     Ministry             @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, personId])
+  @@index([personId, ministryId])
+  @@index([churchId, ministryId])
+  @@map("ministry_roster_module_leaders")
+}
+
+/// Integrante ativo do Atmosfera em um ou mais módulos, com vigência.
+model MinistryRosterModuleMembership {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  churchId       String                 @map("church_id")
+  ministryId     String                 @map("ministry_id")
+  membershipId   String                 @map("membership_id")
+  moduleId       String                 @map("module_id")
+  personId       String                 @map("person_id")
+  status         RosterModuleLinkStatus @default(ATIVO)
+  startedAt      DateTime               @default(now()) @map("started_at")
+  endedAt        DateTime?              @map("ended_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  ministry     Ministry             @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  membership   MinistryMembership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, moduleId])
+  @@index([moduleId, status])
+  @@index([personId, ministryId, status])
+  @@map("ministry_roster_module_memberships")
+}
+
+enum RosterMemberInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Convite para entrar na equipe de um módulo. Não é vínculo formal nem escala de culto.
+model MinistryRosterMemberInvitation {
+  id             String                       @id @default(cuid())
+  organizationId String                       @map("organization_id")
+  churchId       String                       @map("church_id")
+  ministryId     String                       @map("ministry_id")
+  moduleId       String                       @map("module_id")
+  membershipId   String                       @map("membership_id")
+  personId       String                       @map("person_id")
+  status         RosterMemberInvitationStatus @default(PENDING)
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  respondedAt    DateTime?                    @map("responded_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  ministry     Ministry           @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  membership   MinistryMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  person       Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([ministryId, status])
+  @@index([personId, status])
+  @@index([moduleId, personId, status])
+  @@map("ministry_roster_member_invitations")
+}
+
+/// Histórico de aceite individual. O estado vigente é a última linha da pessoa.
+model RosterAssignmentResponse {
+  id           String                 @id @default(cuid())
+  assignmentId String                 @map("assignment_id")
+  personId     String                 @map("person_id")
+  status       RosterAssignmentStatus
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  assignment RosterAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  person     Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, personId, createdAt])
+  @@map("roster_assignment_responses")
+}
+
+/// Ajuste de quantidade só deste culto. Não altera o padrão do módulo.
+model RosterCapacityOverride {
+  rosterId  String   @map("roster_id")
+  groupKey  String   @map("group_key")
+  count     Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  roster Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@id([rosterId, groupKey])
+  @@map("roster_capacity_overrides")
+}
+
+/// Agenda da congregação. A simulação lê estes cultos e não grava ao abrir a prévia.
+model ChurchServiceOccurrence {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  serviceAt      DateTime @map("service_at")
+  serviceType    String   @map("service_type")
+  status         String   @default("SCHEDULED")
+  title          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+
+  @@unique([churchId, serviceAt])
+  @@index([churchId, serviceAt])
+  @@map("church_service_occurrences")
+}
+
+/// Preferências de horário. Ausência da linha não impede a escala.
+model VolunteerServingPreference {
+  id               String  @id @default(cuid())
+  organizationId   String  @map("organization_id")
+  churchId         String  @map("church_id")
+  personId         String  @map("person_id")
+  onlyMorning      Boolean @default(false) @map("only_morning")
+  onlyEvening      Boolean @default(false) @map("only_evening")
+  onlyFirstSunday  Boolean @default(false) @map("only_first_sunday")
+  onlySecondSunday Boolean @default(false) @map("only_second_sunday")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@unique([churchId, personId])
+  @@map("volunteer_serving_preferences")
+}
+
+/// Registro deduplicado de entrega. WhatsApp só entra quando o canal de DEV está aprovado.
+model RosterNoticeDelivery {
+  id         String   @id @default(cuid())
+  churchId   String   @map("church_id")
+  noticeId   String   @map("notice_id")
+  channel    String
+  dedupeKey  String   @unique @map("dedupe_key")
+  status     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+
+  @@index([noticeId])
+  @@map("roster_notice_deliveries")
 }
 
 /// RF-014 — janela recorrente de disponibilidade (UTC weekday + minutos do dia).
@@ -2662,6 +2869,36 @@ model RosterNotice {
 
   @@index([churchId, personId, createdAt])
   @@map("roster_notices")
+}
+
+enum RosterSlotInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Convite para um culto. A vaga permanece aberta até o aceite.
+model RosterSlotInvitation {
+  id              String                     @id @default(cuid())
+  organizationId  String                     @map("organization_id")
+  churchId        String                     @map("church_id")
+  slotId          String                     @map("slot_id")
+  personId        String                     @map("person_id")
+  partnerPersonId String?                    @map("partner_person_id")
+  status          RosterSlotInvitationStatus @default(PENDING)
+  expiresAt       DateTime                   @map("expires_at")
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  respondedAt     DateTime?                  @map("responded_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  slot         RosterSlot   @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  partner      Person?      @relation("RosterSlotInvitationPartner", fields: [partnerPersonId], references: [id])
+
+  @@index([slotId, status])
+  @@index([personId, status])
+  @@map("roster_slot_invitations")
 }
 
 model RosterPushSubscription {

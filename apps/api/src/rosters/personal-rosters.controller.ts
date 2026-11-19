@@ -8,12 +8,23 @@ import {
   Post,
 } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, Matches, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min, MinLength, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequireAccess } from "../auth/decorators/require-access.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PersonalRosterService } from "./personal-roster.service";
+
+class SlotInviteBody {
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsOptional()
+  @IsString()
+  partnerPersonId?: string;
+}
 
 class AssignBody {
   @IsString()
@@ -31,6 +42,107 @@ class AssignBody {
   @IsOptional()
   @IsBoolean()
   fromMonthlyPreview?: boolean;
+}
+
+class SimulationDecisionBody {
+  @IsString()
+  @MinLength(1)
+  slotId!: string;
+
+  @IsOptional()
+  @IsString()
+  personId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  partnerPersonId?: string;
+
+  @IsBoolean()
+  locked!: boolean;
+}
+
+class SimulationCapacityBody {
+  @IsString()
+  @MinLength(1)
+  rosterId!: string;
+
+  @IsString()
+  @MinLength(1)
+  groupId!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  count!: number;
+}
+
+class MonthlySimulationBody {
+  @Matches(/^20\d{2}-(0[1-9]|1[0-2])$/)
+  month!: string;
+
+  @IsOptional()
+  @IsString()
+  moduleId?: string;
+
+  @IsOptional()
+  @Matches(/^[a-f0-9]{64}$/)
+  revision?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => SimulationDecisionBody)
+  decisions?: SimulationDecisionBody[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => SimulationCapacityBody)
+  capacities?: SimulationCapacityBody[];
+
+  @IsOptional()
+  @IsBoolean()
+  fillOnlyOpen?: boolean;
+}
+
+class SaveMonthlySimulationBody extends MonthlySimulationBody {
+  @Matches(/^[a-f0-9]{64}$/)
+  declare revision: string;
+}
+
+class MonthPinBody {
+  @IsString()
+  @MinLength(1)
+  serviceKey!: string;
+
+  @IsString()
+  @MinLength(1)
+  slotKey!: string;
+
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsOptional()
+  @IsString()
+  partnerPersonId?: string;
+}
+
+class SaveMonthBody {
+  @Matches(/^[a-f0-9]{64}$/)
+  fingerprint!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  recalculate?: boolean;
+
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => MonthPinBody)
+  pins: MonthPinBody[] = [];
 }
 
 class MonthlyResponseBody {
@@ -78,6 +190,27 @@ export class PersonalRostersController {
 
   @Roles(...RESPOND_ROLES)
   @RequireAccess({ resource: "ministries", action: "respond" })
+  @Get("membership-invitations/me")
+  myMembershipInvitations(@CurrentUser() user: AuthUser) {
+    return this.rosters.listMyMembershipInvitations(user);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("membership-invitations/:invitationId/accept")
+  acceptMembershipInvitation(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) {
+    return this.rosters.acceptMembershipInvitation(user, invitationId);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
+  @Post("membership-invitations/:invitationId/decline")
+  declineMembershipInvitation(@CurrentUser() user: AuthUser, @Param("invitationId") invitationId: string) {
+    return this.rosters.declineMembershipInvitation(user, invitationId);
+  }
+
+  @Roles(...RESPOND_ROLES)
+  @RequireAccess({ resource: "ministries", action: "respond" })
   @Get("me/monthly-survey")
   monthlySurvey(@CurrentUser() user: AuthUser) {
     return this.rosters.monthlySurvey(user);
@@ -94,6 +227,37 @@ export class PersonalRostersController {
   @Get("by-ministry/:ministryId/monthly-preview/:month")
   monthlyPreview(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string) {
     return this.rosters.monthlyPreview(user, ministryId, month);
+  }
+
+  /** Contrato do #239. Não grava cultos faltantes. `revision` identifica os dados, não as decisões. */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/monthly-simulation")
+  monthlySimulation(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Body() body: MonthlySimulationBody) {
+    return this.rosters.monthlySimulation(user, ministryId, { ...body, decisions: body.decisions?.map(decision => ({ ...decision, personId: decision.personId ?? null })) });
+  }
+
+  /** Grava o rascunho. 409 quando `revision` não confere. Não publica nem avisa. */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/monthly-simulation/save")
+  saveMonthlySimulation(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Body() body: SaveMonthlySimulationBody) {
+    return this.rosters.saveMonth(user, ministryId, body.month, { ...body, fingerprint: body.revision, decisions: body.decisions?.map(decision => ({ ...decision, personId: decision.personId ?? null })) });
+  }
+
+  /** Simulação do mês. version 1. Não grava cultos faltantes. */
+  @Roles(...LEAD_ROLES)
+  @Get("by-ministry/:ministryId/month/:month")
+  simulateMonth(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string) {
+    return this.rosters.monthlySimulation(user, ministryId, { month });
+  }
+
+  /**
+   * Grava o mês como rascunho. 409 ROSTER_PREVIEW_STALE pede para atualizar.
+   * 409 ROSTER_NOT_ELIGIBLE devolve reasonCodes. Não publica nem dispara aviso.
+   */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/month/:month")
+  saveMonth(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("month") month: string, @Body() body: SaveMonthBody) {
+    return this.rosters.saveMonth(user, ministryId, month, body);
   }
 
   @Roles(...LEAD_ROLES)
@@ -123,6 +287,18 @@ export class PersonalRostersController {
       throw new BadRequestException("Gere uma prévia antes de preencher o rascunho.");
     }
     return this.rosters.applyPreview(user, rosterId, fingerprint);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get("slots/:slotId/candidates")
+  slotCandidates(@CurrentUser() user: AuthUser, @Param("slotId") slotId: string) {
+    return this.rosters.slotCandidates(user, slotId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post("slots/:slotId/invite")
+  inviteSlot(@CurrentUser() user: AuthUser, @Param("slotId") slotId: string, @Body() body: SlotInviteBody) {
+    return this.rosters.inviteSlot(user, slotId, body);
   }
 
   @Roles(...LEAD_ROLES)
