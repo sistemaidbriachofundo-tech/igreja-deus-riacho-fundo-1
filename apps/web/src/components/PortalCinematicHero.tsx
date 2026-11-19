@@ -7,6 +7,7 @@ import { familyService, nextPublicService, sundayServices } from "../lib/public-
 import { parsePublishedHome } from "../lib/portal-live-data";
 import { usePublishedResource } from "../lib/use-published-resource";
 import { PortalGlyph } from "./PortalGlyph";
+import { PortalBroadcastHeroLink } from "./PortalBroadcast";
 import { PortalMissionText } from "./PortalMissionText";
 import s from "./portal-cinematic-hero.module.css";
 
@@ -40,6 +41,7 @@ export function PortalCinematicHero() {
       <div className={s.layout}>
         <div className={s.intro}>
           <h1 id="hero-title" tabIndex={-1} className={s.headline}><PortalMissionText text={hero.description} /></h1>
+          <PortalBroadcastHeroLink />
         </div>
         <div className={s.visit} aria-label="Horários dos cultos e endereço">
           <PortalGlyph name="calendar" width={23} height={23} />

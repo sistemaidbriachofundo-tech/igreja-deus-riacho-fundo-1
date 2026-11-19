@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
     ...(isRiachoDevPreview && {
       NEXT_PUBLIC_API_URL: "https://id-riacho1-api-qa.vercel.app",
       NEXT_PUBLIC_MEMBERSHIP_MAP_DEMO: "1",
+      NEXT_PUBLIC_YOUTUBE_LIVE_TEST: "1",
     }),
   },
   trailingSlash: true,

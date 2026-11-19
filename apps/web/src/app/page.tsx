@@ -1,5 +1,6 @@
 import { PublicPage } from "../components/PublicPortal";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
+import { PortalBroadcastProvider, PortalBroadcastSection } from "../components/PortalBroadcast";
 import { PublishedAgenda } from "../components/PublicLiveSections";
 import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
@@ -23,7 +24,10 @@ export default function HomePage() {
     <PublicPage overlayHeader>
       <main id="conteudo" tabIndex={-1}>
         <PublishedSiteLayoutProvider>
-          <PortalCinematicHero />
+          <PortalBroadcastProvider>
+            <PortalCinematicHero />
+            <PortalBroadcastSection />
+          </PortalBroadcastProvider>
           <section className={s.identity} id="quem-somos" aria-labelledby="identity-title">
             <div className={s.identityContent}>
               <figure className={s.identityFigure}>
