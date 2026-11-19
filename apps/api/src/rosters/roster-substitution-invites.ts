@@ -2,7 +2,9 @@ import { ConflictException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { churchDayKey } from "./church-day";
 import { assertNoRosterDayConflict } from "./roster-assignment-transaction";
-import { assertSlotEligibility, isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
+import { effectiveInviteLimit } from "./roster-module-policy";
+import { rulesWithTeam, volunteerIdsByModule } from "./roster-module-runtime";
+import { assertSlotEligibility, isModuleVolunteer } from "./roster-operating-rules";
 import { DEFAULT_RULES } from "./preview-domain/types";
 import { evaluateCandidate } from "./preview-domain/eligibility";
 import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availability";
@@ -27,8 +29,10 @@ export async function substitutionCandidates(db: Prisma.TransactionClient, assig
   const { slot } = assignment;
   const { roster } = slot;
   const { organizationId, churchId, ministryId } = roster;
-  const rules = readModuleRules(roster.module?.rules);
-  if (!ministryId || !rules.substituteInviteLimit || slot.requiresCouple || assignment.status !== "DECLINED" ||
+  const teams = await volunteerIdsByModule(db as never, roster.moduleId ? [roster.moduleId] : []);
+  const rules = rulesWithTeam(roster.module?.rules, roster.moduleId, teams);
+  const inviteLimit = effectiveInviteLimit(roster.module?.name, roster.module?.rules, rules.substituteInviteLimit);
+  if (!ministryId || !inviteLimit || slot.requiresCouple || assignment.status !== "DECLINED" ||
       roster.status !== "PUBLISHED" || roster.serviceAt <= now) return [];
   if (await db.rosterAssignment.findFirst({ where: { slotId: slot.id, status: { in: ["PENDING", "CONFIRMED"] } } })) return [];
   const scope = { organizationId, churchId };

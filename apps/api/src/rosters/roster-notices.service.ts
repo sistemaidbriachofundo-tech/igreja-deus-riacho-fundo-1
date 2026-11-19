@@ -8,7 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { churchDayKey } from "./church-day";
 import { writeRosterAssignment } from "./roster-assignment-transaction";
 import { effectiveInviteLimit, leadershipSummaryDue, weeklyConfirmationDue } from "./roster-module-policy";
-import { maintainRosterCycle, recordNoticeDeliveries } from "./roster-module-runtime";
+import { maintainRosterCycle, recordNoticeDeliveries, rulesWithTeam, volunteerIdsByModule } from "./roster-module-runtime";
 import { isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
 import { acceptSubstitute, inviteAssignment, inviteKey, substitutionCandidates } from "./roster-substitution-invites";
 
@@ -144,13 +144,14 @@ export class RosterNoticesService {
       const surveyRosters = await this.db.roster.findMany({ where: {
         churchId, organizationId, ministryId: { not: null }, status: { in: ["DRAFT", "PUBLISHED"] },
         serviceAt: { gte: new Date(Date.UTC(year, month, 1, 3)), lt: new Date(Date.UTC(year, month + 1, 1, 3)) },
-      }, distinct: ["ministryId", "moduleId"], select: { ministryId: true, module: { select: { rules: true } } } });
+      }, distinct: ["ministryId", "moduleId"], select: { ministryId: true, moduleId: true, module: { select: { id: true, rules: true } } } });
       const volunteers = await this.db.ministryMembership.findMany({ where: {
         churchId, organizationId, ministryId: { in: [...new Set(surveyRosters.flatMap(item => item.ministryId ? [item.ministryId] : []))] },
         status: "ATIVO", person: { status: "ACTIVE" },
       }, select: { personId: true, ministryId: true } });
+      const teams = await volunteerIdsByModule(this.db as never, surveyRosters.flatMap(item => item.moduleId ? [item.moduleId] : []));
       const recipients = new Set(volunteers.filter(volunteer => surveyRosters.some(roster =>
-        roster.ministryId === volunteer.ministryId && isModuleVolunteer(readModuleRules(roster.module?.rules), volunteer.personId),
+        roster.ministryId === volunteer.ministryId && isModuleVolunteer(rulesWithTeam(roster.module?.rules, roster.moduleId, teams), volunteer.personId),
       )).map(volunteer => volunteer.personId));
       for (const personId of recipients) notices.push({ id: ["survey", churchId, surveyMonth, personId].join(":"), churchId, personId,
         kind: "survey", title: "Pesquisa de serviço aberta", body: "Informe quando você pode servir no próximo mês.", path: PORTAL + "#pesquisa-de-servico" });
