@@ -22,7 +22,7 @@ function expenseStep(row: PendingExpense) {
 }
 
 /** A página do pastor mostra apenas despesas para aprovação, nunca o extrato ou contas bancárias. */
-export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: boolean; onApproved?: () => void }) {
+export function ExpenseApprovals({ embedded = false, pastoral = false, onApproved }: { embedded?: boolean; pastoral?: boolean; onApproved?: () => void }) {
   const { showFeedback } = useFeedback();
   const access = usePersonaAccess();
   const { confirm, confirmation } = useActionConfirmation();
@@ -37,7 +37,9 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
   const [receipts, setReceipts] = useState<Record<string, Receipt[]>>({});
   const [actorId, setActorId] = useState<string | null>(null);
   const roles = access.kind === "ready" ? access.roles : [];
-  const permitted = roles.includes("PASTOR") || roles.includes("TESOURARIA");
+  const pastor = roles.includes("PASTOR");
+  const readOnly = pastoral && !pastor;
+  const permitted = pastor || (pastoral ? roles.includes("PLATFORM_ADMIN") : roles.includes("TESOURARIA"));
   useEffect(() => {
     setToken(loadStoredToken());
     setTarget(new URLSearchParams(window.location.search).get("despesa") ?? "");
@@ -46,26 +48,26 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     if (target && rows) document.getElementById(`despesa-${target}`)?.scrollIntoView({ block: "center" });
   }, [target, rows]);
   useEffect(() => {
-    if (!token || !permitted) return;
+    if (!token || !permitted || readOnly) return;
     let active = true;
     void apiGet<{ userId: string }>("/auth/me", token)
       .then(data => { if (active) setActorId(data.userId); })
       .catch(() => { if (active) setActorId(null); });
     return () => { active = false; };
-  }, [token, permitted]);
+  }, [token, permitted, readOnly]);
 
   const load = useCallback(async () => {
     if (!token || !permitted) return;
     try {
       setError("");
       const query = target ? "?" + new URLSearchParams({ despesa: target }).toString() : "";
-      const response = await apiGet<{ entries: PendingExpense[] }>("/ledger/expense-approvals" + query, token);
-      setRows(response.entries.filter(row => row.approvalFlow === "TREASURER_THEN_PASTOR"));
+      const response = await apiGet<{ entries: PendingExpense[] }>(readOnly ? "/ledger/entries?status=PENDING_APPROVAL" : "/ledger/expense-approvals" + query, token);
+      setRows(response.entries.filter(row => row.approvalFlow === "TREASURER_THEN_PASTOR" && (!pastoral || expenseStep(row) === "PASTOR")));
     } catch {
       setRows(null);
       setError("Não foi possível consultar os pedidos de aprovação. Tente novamente.");
     }
-  }, [token, permitted, target]);
+  }, [token, permitted, target, pastoral, readOnly]);
 
   useEffect(() => { void load(); }, [load, revision]);
 
@@ -105,7 +107,7 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
   }
 
   async function decide(row: PendingExpense, reject = false) {
-    if (!token || !actorId || busyId || !permitted) return;
+    if (!token || !actorId || busyId || !permitted || readOnly || (pastoral && expenseStep(row) !== "PASTOR")) return;
     const required = expenseStep(row);
     if (!roles.includes(required) || row.createdByUserId === actorId
       || row.firstApprovedByUserId === actorId) return;
@@ -140,13 +142,14 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     }
   }
 
+  if (access.kind === "preview" && pastoral) return <PageHeader appearance="workspace" heading="h1" title="Despesas para aprovação" />;
   if (access.kind !== "ready") return <section className={s.panel} role="status">Verificando as permissões de acesso…</section>;
   if (!permitted) return <section className={s.panel}>Esta área é exclusiva do tesoureiro e do pastor.</section>;
   return <section className={s.root} aria-label="Despesas aguardando aprovação">
     {confirmation}
     <PageHeader appearance="workspace" heading={embedded ? "h2" : "h1"} title="Despesas para aprovação"
-      description="Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa."
-      actions={roles.includes("PASTOR") && <AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/">
+      description={pastoral ? "Consulte as despesas encaminhadas pela Tesouraria para decisão pastoral." : "Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa."}
+      actions={(pastor || pastoral) && <AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/">
         <UIIcon name="home" size={16} /> Voltar à Mesa Pastoral
       </AppNavLink>} />
     {error && <p className={s.error} role="alert">{error}</p>}
@@ -158,7 +161,7 @@ export function ExpenseApprovals({ embedded = false, onApproved }: { embedded?: 
     {target && rows && !rows.some(row => row.id === target) && <p role="status">Esta despesa saiu da fila de aprovação.</p>}
     <div className={s.list}>{rows?.map(row => {
       const phase = expenseStep(row);
-      const canApprove = actorId && roles.includes(phase) && row.createdByUserId !== actorId
+      const canApprove = !readOnly && actorId && roles.includes(phase) && row.createdByUserId !== actorId
         && row.firstApprovedByUserId !== actorId && row.status === "PENDING_APPROVAL";
       const recordedByTreasury = row.firstApprovedByUserId === row.createdByUserId;
       return <article key={row.id} className={s.item} id={`despesa-${row.id}`} data-target={target === row.id}>

@@ -18,7 +18,7 @@ const periods = {
 type Period = keyof typeof periods;
 type Birthday = { id: string; name: string; date: string; phone: string | null; contactKind: "PERSON" | "GUARDIAN"; contactBlocked: boolean; daysAway?: number };
 
-function BirthdayList() {
+function BirthdayList({ pastoral }: { pastoral: boolean }) {
   const access = usePersonaAccess();
   const permitted = access.kind === "ready" && access.roles.some(role => ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"].includes(role));
   const [period, setPeriod] = useState<Period>("today");
@@ -38,6 +38,7 @@ function BirthdayList() {
       .catch(error => { if (active) setFault(dasError(error)); });
     return () => { active = false; };
   }, [period, permitted, attempt]);
+  if (access.kind === "preview" && pastoral) return <PageHeader appearance="workspace" heading="h1" title="Aniversariantes" />;
   if (!permitted) return null;
 
   return <div className={s.page}>
@@ -85,7 +86,7 @@ function BirthdayList() {
             </time></div>
           </div>
           <div className={s.personActions}>
-          <AppNavLink className={ui.workspaceQuiet} href={"/app/secretaria/?pessoa=" + encodeURIComponent(person.id)}><UIIcon name="badge" size={17} />Abrir ficha<span className={s.srOnly}> de {person.name}</span></AppNavLink>
+          <AppNavLink className={ui.workspaceQuiet} href={(pastoral ? "/app/pastoral/admissoes/" : "/app/secretaria/") + "?pessoa=" + encodeURIComponent(person.id)}><UIIcon name="badge" size={17} />Abrir ficha<span className={s.srOnly}> de {person.name}</span></AppNavLink>
           {(phone || example) && !person.contactBlocked
             ? <button type="button" className={s.whatsapp} onClick={() => setGreeting({ name: person.name, phone: example ? "" : phone, text: message, example })}>
               <UIIcon name="whatsapp" size={20} /> {example ? "Testar WhatsApp" : guardian ? "WhatsApp do responsável" : "Mensagem no WhatsApp"}
@@ -98,6 +99,9 @@ function BirthdayList() {
   </div>;
 }
 
-export function BirthdaysDesk() {
-  return <AppShell active="secretaria" meta="Aniversariantes" secretarySection="aniversariantes"><BirthdayList /></AppShell>;
+export function BirthdaysDesk({ pastoral = false }: { pastoral?: boolean }) {
+  return <AppShell active={pastoral ? "pastoral" : "secretaria"} meta="Aniversariantes"
+    pastoralSection={pastoral ? "aniversariantes" : undefined} secretarySection={pastoral ? undefined : "aniversariantes"}>
+    <BirthdayList pastoral={pastoral} />
+  </AppShell>;
 }

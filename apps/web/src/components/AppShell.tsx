@@ -27,6 +27,7 @@ import {
   type AppNavKey, type MinistryNavItem, type MinistrySubmenuEntry, type PersonaArea,
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { pastoralSections, type PastoralSection } from "../lib/pastoral-navigation";
 import { useDialogLifecycle } from "./ui/dialog";
 import { dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
@@ -119,13 +120,13 @@ function SidebarGroup({ section, label, href, icon, active, current = active, co
       <AppNavLink href={href} className={active ? s.menuActive : s.menuItem} aria-current={current ? "page" : undefined} title={compact ? label : undefined} onNavigate={onNavigate}>
         <UIIcon name={icon} size={19} /><span className={s.menuLabel}>{label}</span>
       </AppNavLink>
-      {!compact && <button className={s.groupChevron} type="button" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label}
+      {!compact && <button className={s.groupChevron} type="button" aria-label={label === "Tesouraria" || label === "Secretaria" || label === "Pastoral" ? "Submenu da " + label : "Submenu de " + label}
         aria-expanded={expanded} aria-controls={id} onClick={() => {
           setExpanded(!expanded);
           window.localStorage.setItem(key, expanded ? "closed" : "open");
         }}><UIIcon name="chevron" size={15} /></button>}
     </div>
-    <div className={s.subList} id={id} role="group" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label} hidden={compact || !expanded}>
+    <div className={s.subList} id={id} role="group" aria-label={label === "Tesouraria" || label === "Secretaria" || label === "Pastoral" ? "Submenu da " + label : "Submenu de " + label} hidden={compact || !expanded}>
       {children}
     </div>
   </div>;
@@ -180,12 +181,13 @@ function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last
 }
 
 export function AppShell({
-  active, meta, children, viewer, secretarySection,
+  active, meta, children, viewer, secretarySection, pastoralSection,
 }: {
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
   secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes";
+  pastoralSection?: PastoralSection;
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
@@ -318,7 +320,8 @@ export function AppShell({
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [active]);
-  const treasuryChildren = treasurySidebarItems(roles);
+  const treasuryChildren = menu.some(item => item.key === "tesouraria") ? treasurySidebarItems(roles) : [];
+  const pastoralChildren = pastoralSections(roles);
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
   const atmosferaScales = ministryEntries.find(entry => entry.scales)?.scales;
@@ -339,6 +342,7 @@ export function AppShell({
     "eventos-gestao": canCreateEvents ? EVENT_SECTIONS : [],
   };
   const commandSections = [
+    ...menu.filter(item => item.key === "pastoral").flatMap(item => pastoralChildren.map(child => ({ ...child, area: item.label }))),
     ...(secretaryMenu ? secretaryChildren.filter(item => item.key !== "carteirinha").map(item => ({
       href: item.href, title: item.title, icon: item.icon, area: "Secretaria",
     })) : []),
@@ -608,6 +612,19 @@ export function AppShell({
             );
             if (block.kind === "link") {
               const item = block.item;
+              if (item.key === "pastoral") return (
+                <SidebarGroup key={item.key} section={item.key} label={item.label} href={item.href} icon={item.icon}
+                  active={active === item.key} current={active === item.key && !pastoralSection}
+                  compact={railCollapsed} onNavigate={afterNavigate}>
+                  {pastoralChildren.map(child => {
+                    const selected = active === item.key && pastoralSection === child.id;
+                    return <AppNavLink key={child.id} href={child.href} className={selected ? s.subSelected : s.subItem}
+                      aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
+                      <UIIcon name={child.icon} size={16} /><span className={s.menuLabel}>{child.title}</span>
+                    </AppNavLink>;
+                  })}
+                </SidebarGroup>
+              );
               const children = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
               if (children.length) return (
                 <SidebarGroup key={item.key} section={item.key} label={item.label} href={item.href} icon={item.icon}

@@ -207,7 +207,7 @@ export class NotificationsService {
       if (!decision && row.status !== "PENDING_APPROVAL") return [];
       return [{ id: `expense-review:${row.id}`, category: "Tesouraria", title: decision ? outcome : "Despesa para aprovação",
         detail, action: decision ? "Ver aprovações" : "Revisar despesa",
-        href: `/app/tesouraria/?despesa=${encodeURIComponent(row.id)}#aprovacoes`,
+        href: `/app/pastoral/despesas/?despesa=${encodeURIComponent(row.id)}`,
         createdAt: row.firstApprovedAt, state: decision ? "Decisão registrada" : "Aguardando decisão" }];
     });
   }
@@ -250,8 +250,9 @@ export class NotificationsService {
       const resolved = row.status !== stage;
       const key = `admission:${stage}:${id}`;
       if (notices.has(key)) return;
+      const path = stage === "AWAITING_PASTOR" ? "/app/pastoral/admissoes/" : "/app/secretaria/admissoes/";
       notices.set(key, { id: key, category: "Admissões", title: stage === "AWAITING_PASTOR" ? "Admissão para decisão pastoral" : "Admissão para análise da Secretaria",
-        detail: row.person.displayName, action: "Abrir protocolo", href: `/app/secretaria/admissoes/?protocolo=${encodeURIComponent(id)}`,
+        detail: row.person.displayName, action: "Abrir protocolo", href: `${path}?protocolo=${encodeURIComponent(id)}`,
         createdAt, state: resolved ? "Etapa concluída" : "Em análise" });
     }
     for (const change of changes) {

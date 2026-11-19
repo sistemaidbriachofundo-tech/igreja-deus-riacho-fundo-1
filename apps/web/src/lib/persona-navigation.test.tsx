@@ -240,9 +240,9 @@ describe("shell sem flash de módulo restrito", () => {
     expect(html).toContain("Conciliações");
   });
 
-  it("pastor vê só aprovação; administrador sem Tesouraria não recebe Incluir despesa", () => {
+  it("reúne as rotinas do pastor na Pastoral e mantém a Tesouraria administrativa", () => {
     const pastor = hrefs(renderToStaticMarkup(
-      <AppShell active="tesouraria" meta="Tesouraria" viewer={account("PASTOR")}>
+      <AppShell active="pastoral" pastoralSection="despesas" meta="Pastoral" viewer={account("PASTOR")}>
         <p>Aprovações</p>
       </AppShell>,
     ));
@@ -251,10 +251,12 @@ describe("shell sem flash de módulo restrito", () => {
         <p>Consulta</p>
       </AppShell>,
     ));
-    expect(pastor).toContain("/app/tesouraria/");
-    expect(pastor).toContain("/app/tesouraria/#aprovacoes");
-    expect(pastor).not.toContain("/app/tesouraria/#lancar");
-    expect(pastor).not.toContain("/app/tesouraria/#extrato");
+    expect(pastor).toContain("/app/pastoral/admissoes/");
+    expect(pastor).toContain("/app/pastoral/despesas/");
+    expect(pastor).toContain("/app/pastoral/cuidado/");
+    expect(pastor).toContain("/app/pastoral/aniversariantes/");
+    expect(pastor.some(href => href.startsWith("/app/secretaria/") || href.startsWith("/app/tesouraria/"))).toBe(false);
+    expect(admin).not.toContain("/app/pastoral/cuidado/");
     expect(admin).toContain("/app/tesouraria/#despesas");
     expect(admin).toContain("/app/tesouraria/#lancar");
     expect(admin).not.toContain("/app/tesouraria/#aprovacoes");
@@ -397,7 +399,7 @@ describe("shell colapsável por papel", () => {
       expect(html).not.toContain('data-nav-group="ministerios"');
       expect(html).not.toContain("/app/ministerios/");
     }
-    expect(hrefs(html).includes("/app/tesouraria/")).toBe(areaAllowed([role], "tesouraria"));
+    expect(hrefs(html).includes("/app/tesouraria/")).toBe(role === "TESOURARIA" || role === "PLATFORM_ADMIN");
     expect(hrefs(html).includes("/app/relatorios/")).toBe(role === "PLATFORM_ADMIN");
   });
 

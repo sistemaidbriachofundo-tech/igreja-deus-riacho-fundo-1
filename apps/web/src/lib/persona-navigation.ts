@@ -143,6 +143,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     hint: "Admissões em andamento",
     ribbon: { code: "Secretaria", title: "Etapas com cuidado.", detail: "Protocolos visíveis só para o papel que a API aceita." },
     roles: ADMISSIONS,
+    menuRoles: ["SECRETARIA", "PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/admissions", source: "apps/api/src/admissions/admissions.controller.ts", marker: "return this.admissions.list" },
     surface: "admin",
   },
@@ -295,6 +296,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     hint: "Contas e lançamentos",
     ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Saldos, extrato e conciliações." },
     roles: ["TESOURARIA", "PASTOR", "PLATFORM_ADMIN"],
+    menuRoles: ["TESOURARIA", "PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/ledger/accounts", roles: ["TESOURARIA", "PLATFORM_ADMIN"], source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("accounts")' },
     additionalProbes: [
       { method: "GET", path: "/ledger/expense-approvals", roles: ["TESOURARIA", "PASTOR"], source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("expense-approvals")' },

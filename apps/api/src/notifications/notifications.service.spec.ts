@@ -21,9 +21,11 @@ describe("NotificationsService", () => {
       },
     }]) };
     const ledger = { findMany: jest.fn() };
-    const db = { workspaceNotificationRead: seen, ministry: ministries, rosterAssignment: assignments, ledgerEntry: ledger };
+    const admissionProtocol = { findMany: jest.fn().mockResolvedValue([]) };
+    const auditLog = { findMany: jest.fn().mockResolvedValue([]) };
+    const db = { workspaceNotificationRead: seen, ministry: ministries, rosterAssignment: assignments, ledgerEntry: ledger, admissionProtocol, auditLog };
     return { service: new NotificationsService(db as never, { getPilotChurch: async () => scope } as never, roster as never, groups as never),
-      seen, roster, ministries, ledger, assignments, readAt };
+      seen, roster, ministries, ledger, assignments, admissionProtocol, readAt };
   }
 
   it("opens the volunteer's exact assignment and uses account-scoped read receipts", async () => {
@@ -59,5 +61,24 @@ describe("NotificationsService", () => {
       id: "decline:declined", state: "Vaga preenchida", href: "/app/ministerios/?ministry=atmosfera&aba=escalas&escala=r1#posto-entry",
     })]));
     expect(assignments.findMany.mock.calls[0][0].where.slot.roster.ministryId.in).toEqual(["atmosfera"]);
+  });
+
+  it("links pastoral decisions to their own queues", async () => {
+    const { service, ministries, ledger, admissionProtocol } = fixture();
+    const pastor = { ...volunteer, grants: [{ ...scope, roleCode: "PASTOR" }] };
+    const now = new Date();
+    ministries.findMany.mockResolvedValue([]);
+    ledger.findMany.mockResolvedValue([{
+      id: "expense-1", description: "Material", amountCents: 1500, status: "PENDING_APPROVAL",
+      createdByUserId: "treasurer", firstApprovedAt: now, rejectedAt: null, secondApprovedAt: null,
+    }]);
+    admissionProtocol.findMany.mockResolvedValueOnce([{
+      id: "admission-1", status: "AWAITING_PASTOR", updatedAt: now, person: { displayName: "Pessoa de teste" },
+    }]);
+    const result = await service.priorities(pastor, now);
+    expect(result.pending).toEqual(expect.arrayContaining([
+      expect.objectContaining({ href: "/app/pastoral/despesas/?despesa=expense-1" }),
+      expect.objectContaining({ href: "/app/pastoral/admissoes/?protocolo=admission-1" }),
+    ]));
   });
 });

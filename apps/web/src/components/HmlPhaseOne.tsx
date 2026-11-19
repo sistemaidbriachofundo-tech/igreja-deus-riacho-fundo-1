@@ -27,7 +27,7 @@ import ui from "./ui/ui.module.css";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
 
-type View = "overview" | "members" | "secretary" | "cards";
+type View = "overview" | "members" | "secretary" | "cards" | "pastoral";
 type SecretarySection = "resumo" | "pessoas" | "admissoes";
 type Role = "SECRETARIA" | "PASTOR" | "PLATFORM_ADMIN" | "MEMBRO";
 type AuthUser = LoginResult["user"];
@@ -180,6 +180,7 @@ export function CredentialCards({
 }
 
 export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection = "resumo" }: HmlPhaseOneProps) {
+  const pastoralView = view === "pastoral";
   const { showFeedback } = useFeedback();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -201,6 +202,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [showHistory, setShowHistory] = useState(false);
   const [admissionStage, setAdmissionStage] = useState("");
   const [admissionProtocol, setAdmissionProtocol] = useState("");
+  const [pastoralDecision, setPastoralDecision] = useState<{ id: string; name: string; decision: "APPROVE" | "REJECT" } | null>(null);
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
@@ -241,6 +243,20 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   }, [view, initialSecretarySection]);
 
   useEffect(() => {
+    if (!pastoralView) return;
+    const readSelection = () => {
+      const params = new URLSearchParams(window.location.search);
+      const protocol = params.get("protocolo") ?? "";
+      setAdmissionProtocol(protocol);
+      setShowHistory(Boolean(protocol));
+      setFichaId(params.get("pessoa"));
+    };
+    readSelection();
+    window.addEventListener("popstate", readSelection);
+    return () => window.removeEventListener("popstate", readSelection);
+  }, [pastoralView]);
+
+  useEffect(() => {
     if (view !== "members") return;
     const openFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
@@ -258,11 +274,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setUser(me);
     const secretaria = hasRole(me, "SECRETARIA") || hasRole(me, "PLATFORM_ADMIN");
     const staff = secretaria || hasRole(me, "PASTOR");
+    const readAdmissions = pastoralView ? hasRole(me, "PASTOR") || hasRole(me, "PLATFORM_ADMIN") : staff && view === "secretary";
+    const readMemberships = secretaria && view !== "overview" && !pastoralView;
     const settled = await Promise.allSettled([
-      secretaria && view !== "overview"
+      readMemberships
         ? readPanel(activeToken, "/memberships", () => apiGet<{ memberships: Membership[] }>("/memberships", activeToken), { fresh })
         : Promise.resolve({ memberships: [] as Membership[] }),
-      staff && view === "secretary"
+      readAdmissions
         ? readPanel(activeToken, "/admissions", () => apiGet<{ admissions: Admission[] }>("/admissions", activeToken), { fresh })
         : Promise.resolve({ admissions: [] as Admission[] }),
       secretaria && (view === "members" || view === "secretary")
@@ -276,8 +294,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     if (processes.status === "fulfilled") setAdmissions(processes.value.admissions);
     if (families.status === "fulfilled") { setHouseholds(families.value.households); setFamiliesLoaded(true); }
     setLoadedGroups(previous => ({
-      people: previous.people || (secretaria && view !== "overview" && people.status === "fulfilled"),
-      admissions: previous.admissions || (staff && view === "secretary" && processes.status === "fulfilled"),
+      people: previous.people || (readMemberships && people.status === "fulfilled"),
+      admissions: previous.admissions || (readAdmissions && processes.status === "fulfilled"),
     }));
     const complete = settled.every(item => item.status === "fulfilled");
     if (!complete) {
@@ -288,7 +306,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       });
     }
     return complete;
-  }, [view]);
+  }, [view, pastoralView]);
 
   useEffect(() => {
     const stored = loadStoredToken();
@@ -341,13 +359,14 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
 
   const admissionName = (admission: Admission) => membershipByPerson.get(admission.personId)?.person.displayName ?? admission.personName;
   const filteredAdmissions = sortByName((showHistory ? admissions : pending).filter(admission => {
+    if (pastoralView && admission.currentStep !== "pastor") return false;
     if (admissionStage && admission.currentStep !== admissionStage) return false;
     if (admissionProtocol && admission.id !== admissionProtocol) return false;
     return [admissionName(admission) ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
   }), admissionName);
 
   const showsPeople = view === "members" || (view === "secretary" && secretary && secretarySection === "pessoas");
-  const showsAdmissions = view === "secretary" && (!secretary || secretarySection === "admissoes");
+  const showsAdmissions = pastoralView || (view === "secretary" && (!secretary || secretarySection === "admissoes"));
   const resultCount = showsAdmissions ? filteredAdmissions.length : filtered.length;
   const visiblePage = Math.min(listPage, Math.max(0, Math.ceil(resultCount / PAGE_SIZE) - 1));
   const firstRow = visiblePage * PAGE_SIZE;
@@ -551,6 +570,17 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     );
   }
 
+  async function submitPastoralDecision(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !pastor || busy || !pastoralDecision) return;
+    const { id, decision } = pastoralDecision;
+    const reason = String(new FormData(event.currentTarget).get("reason") ?? "").trim();
+    const saved = await run(() => apiPost(`/admissions/${encodeURIComponent(id)}/advance`, token, {
+      completeStep: "pastor", decision, ...(decision === "REJECT" && reason ? { rejectionReason: reason } : {}),
+    }), decision === "APPROVE" ? "Aprovação pastoral registrada." : "Recusa pastoral registrada.");
+    if (saved) setPastoralDecision(null);
+  }
+
   function issueCard(membership: Membership) {
     if (!token || !secretary) return;
     void run(() => apiPost("/credentials/issue/" + encodeURIComponent(membership.id), token), "Credencial emitida.");
@@ -567,8 +597,9 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     members: "Secretaria",
     secretary: "Secretaria",
     cards: "Carteirinhas",
+    pastoral: "Admissões pastorais",
   };
-  const activeNav = view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
+  const activeNav = pastoralView ? "pastoral" : view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
 
   if (!isAdminEnabled()) {
     return (
@@ -594,7 +625,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   }
 
   return (
-    <AppShell active={activeNav} meta={names[view]} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
+    <AppShell active={activeNav} meta={names[view]} pastoralSection={pastoralView ? "admissoes" : undefined} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
         <div className={s.workspace}>
             {view !== "overview" && (
@@ -602,7 +633,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 appearance="workspace"
                 heading="h1"
                 title={names[view]}
-                description={view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
+                description={pastoralView ? "Consulte as fichas e os protocolos que chegaram à etapa pastoral." : view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
                 actions={<>
                   {view === "members" && secretary && <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/admissoes/?acao=cadastrar#cadastro">Cadastrar pessoa</AppNavLink>}
                   {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction(secretarySection === "admissoes" ? "existing" : "new")}>
@@ -756,11 +787,12 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
               <div>
                 <section className={`${s.panel} ${s.directoryPanel}`} aria-busy={checking}>
                   <div className={s.panelHeading}>
-                    <div className={s.panelHeadingCopy}><span className={s.sectionMark}><UIIcon name="layers" size={22} /></span><div><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Processos da secretaria"}</span></div></div>
+                    <div className={s.panelHeadingCopy}><span className={s.sectionMark}><UIIcon name="layers" size={22} /></span><div><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Carregando protocolos"}</span></div></div>
                     <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
                   <div className={ui.workspaceChoices} role="group" aria-label="Filtrar protocolos">
-                    {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href="/app/secretaria/admissoes/">Limpar seleção</AppNavLink>}
+                    {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href={pastoralView ? "/app/pastoral/admissoes/" : "/app/secretaria/admissoes/"}
+                      onNavigate={pastoralView ? () => { setAdmissionProtocol(""); setShowHistory(false); setListPage(0); } : undefined}>Limpar seleção</AppNavLink>}
                     <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}><UIIcon name="clock" size={15} />Em andamento</button>
                     <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}><UIIcon name="layers" size={15} />Todos</button>
                   </div>
@@ -787,10 +819,14 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                               </div>
                             </div>
                             <div className={s.admissionActions}>
-                              <AppNavLink className={s.openFicha} href={`/app/secretaria/pessoas/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>
-                              <button type="button" disabled={busy || done || !canAct} onClick={() => nextAdmission(admission)}>
+                              {pastoralView ? <button type="button" className={s.openFicha} aria-label={"Abrir ficha de " + personName} onClick={() => setFichaId(admission.personId)}>Abrir ficha</button>
+                                : <AppNavLink className={s.openFicha} href={`/app/secretaria/pessoas/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>}
+                              {pastoralView ? pastor && !done && <>
+                                <button type="button" disabled={busy} onClick={() => setPastoralDecision({ id: admission.id, name: personName, decision: "REJECT" })}>Recusar admissão</button>
+                                <button type="button" disabled={busy} onClick={() => setPastoralDecision({ id: admission.id, name: personName, decision: "APPROVE" })}>Aprovar admissão</button>
+                              </> : <button type="button" disabled={busy || done || !canAct} onClick={() => nextAdmission(admission)}>
                                 {done ? "Concluído" : !canAct ? "Ação reservada" : "Concluir " + stepLabel}
-                              </button>
+                              </button>}
                             </div>
                           </article>
                         );
@@ -800,7 +836,26 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     </div>
                   )}
                 </section>
+                {pastoralView && <section id="consultar-pessoa" className={s.panel} aria-labelledby="pastoral-person-title">
+                  <h2 id="pastoral-person-title">Consultar ficha de uma pessoa</h2>
+                  <div className={s.personLookupContent}>
+                    <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Procurar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} />
+                    <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
+                  </div>
+                </section>}
               </div>
+            )}
+            {pastoralDecision && (
+              <Modal open appearance="workspace" title={pastoralDecision.decision === "APPROVE" ? "Aprovar admissão?" : "Recusar admissão?"}
+                description={pastoralDecision.name} onClose={() => { if (!busy) setPastoralDecision(null); }}>
+                <form className={s.form} onSubmit={submitPastoralDecision}>
+                  {pastoralDecision.decision === "REJECT" && <label>Motivo da recusa (opcional)<textarea name="reason" maxLength={500} rows={3} disabled={busy} /></label>}
+                  <div className={s.formActions}>
+                    <button type="button" disabled={busy} onClick={() => setPastoralDecision(null)}>Cancelar</button>
+                    <button type="submit" disabled={busy}>{busy ? "Registrando…" : "Confirmar decisão"}</button>
+                  </div>
+                </form>
+              </Modal>
             )}
             {secretary && view === "secretary" && admissionForm && (
               <Modal
@@ -873,7 +928,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 personId={fichaId}
                 pendingPhoto={pendingPhoto}
                 households={households}
-                canEdit={secretary}
+                canEdit={secretary && !pastoralView}
                 canReadDocuments={staff}
                 credential={credentialFromMemberships(secretary, memberships, fichaId)}
                 onClose={() => {
