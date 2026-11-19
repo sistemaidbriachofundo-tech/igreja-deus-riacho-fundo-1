@@ -27,7 +27,7 @@ import { PilotService } from "../pilot/pilot.service";
 import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "../rosters/roster-assignment-transaction";
 
 import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, readPositionLocation, type CultType, type PositionLocation } from "../rosters/roster-operating-rules";
-import { canonicalModuleKey, canonicalModuleName, resolveRosterAccess, rosterInScope } from "../rosters/roster-module-policy";
+import { canonicalModuleKey, canonicalModuleName, effectiveCultCapacities, resolveRosterAccess, rosterInScope, rulesWithCultCapacity } from "../rosters/roster-module-policy";
 import { appendParticipantResponse, applyCapacity, assertRosterModuleAllowed, patchMembershipModules, positionsForModule, publishAssignmentNotices, syncExplicitLinks } from "../rosters/roster-module-runtime";
 import { createRosterMemberInvitation, listRosterMemberInvitations, searchRosterInvitationPeople } from "../rosters/roster-team";
 
@@ -295,6 +295,35 @@ export class MinistriesService {
       }
       throw error;
     }
+  }
+
+  async moduleCapacity(actor: AuthUser, ministryId: string, moduleId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    await assertRosterModuleAllowed(this.prisma as never, actor, ministry, moduleId, pilot);
+    const module = await this.prisma.ministryRosterModule.findFirst({ where: { id: moduleId, ministryId }, select: { id: true, name: true, rules: true } });
+    if (!module) throw new NotFoundException("Módulo não encontrado neste ministério.");
+    return { capacities: effectiveCultCapacities(module.name, module.rules) };
+  }
+
+  async updateModuleCapacity(actor: AuthUser, ministryId: string, moduleId: string, cultType: CultType, count: number) {
+    if (!CULT_TYPES.includes(cultType) || !Number.isInteger(count) || count < 0 || count > 30) {
+      throw new BadRequestException("Informe um tipo de culto e uma quantidade entre 0 e 30.");
+    }
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    await assertRosterModuleAllowed(this.prisma as never, actor, ministry, moduleId, pilot);
+    return this.prisma.$transaction(async tx => {
+      const module = await tx.ministryRosterModule.findFirst({ where: { id: moduleId, ministryId }, select: { id: true, name: true, rules: true } });
+      if (!module) throw new NotFoundException("Módulo não encontrado neste ministério.");
+      const rules = rulesWithCultCapacity(module.name, module.rules, cultType, count);
+      await tx.ministryRosterModule.update({ where: { id: module.id }, data: { rules: rules as never } });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "ministry.roster_module.capacity", resourceType: "ministry_roster_module", resourceId: moduleId,
+        organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { ministryId, cultType, count },
+      } });
+      return { capacities: effectiveCultCapacities(module.name, rules) };
+    });
   }
 
   async saveRosterModuleRules(actor: AuthUser, ministryId: string, moduleId: string, input: unknown) {

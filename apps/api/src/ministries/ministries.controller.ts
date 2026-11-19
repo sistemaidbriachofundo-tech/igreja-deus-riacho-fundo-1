@@ -340,6 +340,16 @@ class ResendAlertBody {
   kind!: "confirm" | "decline" | "substitute" | "confirm_request";
 }
 
+class ModuleCapacityBody {
+  @IsIn([...CULT_TYPES])
+  cultType!: CultType;
+
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  count!: number;
+}
+
 @Controller("ministries")
 export class MinistriesController {
   constructor(private readonly ministries: MinistriesService) {}
@@ -373,6 +383,23 @@ export class MinistriesController {
     @Query("personId") personId: string,
   ) {
     return this.ministries.removeRecurringAvailability(user, ministryId, personId, id);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-modules/:moduleId/capacity")
+  moduleCapacity(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("moduleId") moduleId: string) {
+    return this.ministries.moduleCapacity(user, ministryId, moduleId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/roster-modules/:moduleId/capacity")
+  updateModuleCapacity(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Body() body: ModuleCapacityBody,
+  ) {
+    return this.ministries.updateModuleCapacity(user, ministryId, moduleId, body.cultType, body.count);
   }
 
   @Roles(...LEAD_ROLES)

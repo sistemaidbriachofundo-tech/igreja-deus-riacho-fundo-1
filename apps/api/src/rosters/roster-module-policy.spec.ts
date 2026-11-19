@@ -9,6 +9,7 @@ import {
   buildCapacityGroups,
   capacityGroupId,
   cultsInMonth,
+  effectiveCultCapacities,
   effectiveInviteLimit,
   explicitModuleLinks,
   formalRoleGrantsRosterAccess,
@@ -22,6 +23,7 @@ import {
   publicPermissions,
   resolveRosterAccess,
   responseStatuses,
+  rulesWithCultCapacity,
   rosterInScope,
   standardPositions,
   surveyIsOpen,
@@ -276,6 +278,17 @@ describe("escalas do Atmosfera", () => {
     expect(captured).toMatchObject([{ nameKey: "ceia", name: "Santa Ceia", keepId: "diaconos", dropIds: ["barra"] }]);
     expect(standardPositions("Recepcao", "sunday_morning", {}).length).toBeGreaterThan(0);
     expect(standardPositions("Diaconia", "sunday_morning", { communionStages: 1 })).toHaveLength(1);
+  });
+
+  it("ajusta a quantidade futura sem apagar habilitação, casal ou outra regra", () => {
+    const raw = { couples: [["ana", "bruno"]], qualifications: { diaconia: ["gabi"] }, volunteerIds: ["ana", "bruno", "gabi"], minIntervalDays: 10 };
+    expect(effectiveCultCapacities("Recepção", raw)).toMatchObject({ thursday_evening: 3, sunday_morning: 3, sunday_evening: 4, special_event: 0 });
+    const next = rulesWithCultCapacity("Recepção", raw, "sunday_morning", 5);
+    expect(next).toMatchObject({ couples: [["ana", "bruno"]], qualifications: { diaconia: ["gabi"] }, volunteerIds: ["ana", "bruno", "gabi"], minIntervalDays: 10 });
+    expect(effectiveCultCapacities("Recepção", next).sunday_morning).toBe(5);
+    const morning = (next.positions as { sunday_morning: Array<{ qualification?: string; count: number }> }).sunday_morning;
+    expect(morning.find(item => item.qualification === "diaconia")?.count).toBe(2);
+    expect(effectiveCultCapacities("Conexão", {}).thursday_evening).toBe(2);
   });
 
   it("documenta a migração aditiva", () => {

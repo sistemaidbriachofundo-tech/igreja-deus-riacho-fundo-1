@@ -1,6 +1,6 @@
 import { churchDayKey } from "./church-day";
-import { canonicalModuleKey } from "./roster-module-key";
-import type { CultType, PositionRule } from "./roster-operating-rules";
+import { canonicalModuleKey, canonicalModuleName } from "./roster-module-key";
+import { CULT_TYPES, readModuleRules, type CultType, type PositionRule } from "./roster-operating-rules";
 
 export { canonicalModuleKey, canonicalModuleName } from "./roster-module-key";
 
@@ -75,6 +75,42 @@ export function standardPositions(
   const table = STANDARD[key];
   if (!table || cult === "special_event") return [];
   return table[cult] ?? [];
+}
+
+export type CultCapacities = Record<CultType, number>;
+
+function cultPositions(name: string | null | undefined, raw: unknown, cult: CultType): PositionRule[] {
+  const configured = readModuleRules(raw).positions[cult] ?? [];
+  return configured.length ? configured : standardPositions(name, cult, raw);
+}
+
+export function effectiveCultCapacities(name: string | null | undefined, raw: unknown): CultCapacities {
+  return Object.fromEntries(CULT_TYPES.map(cult => [cult, cultPositions(name, raw, cult).reduce((sum, item) => sum + item.count, 0)])) as CultCapacities;
+}
+
+function scaledPositions(current: readonly PositionRule[], count: number, label: string): PositionRule[] {
+  if (!current.length) return count === 0 ? [] : [{ label, count, couple: false }];
+  const rows = current.map(row => ({ ...row }));
+  let extra = rows.reduce((sum, row) => sum + row.count, 0) - count;
+  if (extra <= 0) {
+    const flexible = rows.findIndex(row => !row.qualification);
+    const index = flexible >= 0 ? flexible : 0;
+    rows[index] = { ...rows[index], count: rows[index].count - extra };
+    return rows;
+  }
+  for (let index = rows.length - 1; index >= 0 && extra > 0; index -= 1) {
+    const cut = Math.min(rows[index].count, extra);
+    rows[index] = { ...rows[index], count: rows[index].count - cut };
+    extra -= cut;
+  }
+  return rows.filter(row => row.count > 0);
+}
+
+export function rulesWithCultCapacity(name: string | null | undefined, raw: unknown, cult: CultType, count: number): Record<string, unknown> {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {};
+  const positions = { ...(source.positions && typeof source.positions === "object" && !Array.isArray(source.positions) ? source.positions as Record<string, unknown> : {}) };
+  positions[cult] = scaledPositions(cultPositions(name, raw, cult), count, canonicalModuleName(moduleLookupKey(name)) ?? name ?? "Vaga");
+  return { ...source, positions };
 }
 
 export function effectiveInviteLimit(name: string | null | undefined, raw: unknown, parsed: number): number {
