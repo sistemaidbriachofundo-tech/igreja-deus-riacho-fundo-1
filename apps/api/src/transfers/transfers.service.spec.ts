@@ -112,6 +112,12 @@ describe("TransfersService", () => {
       }),
     ).resolves.toMatchObject({ id: "t1", status: "AWAITING_ORIGIN" });
     expect(prisma.auditLog.create).toHaveBeenCalled();
+    expect(prisma.membershipTransfer.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        personId: "p1",
+        organizationId: pilot.organizationId,
+      }),
+    });
   });
 
   it("rejects create validation errors", async () => {
@@ -297,8 +303,7 @@ describe("TransfersService", () => {
           .mockResolvedValueOnce({ ...baseTransfer, status: "COMPLETED" })
           .mockResolvedValueOnce({
             ...baseTransfer,
-            status: "AWAITING_ORIGIN",
-            fromChurchId: "other-origin",
+            status: "DRAFT",
           }),
         update: jest.fn(),
       },
@@ -342,5 +347,29 @@ describe("TransfersService", () => {
       decision: "REJECT",
     });
     expect(result.rejectionReason).toBe("Rejeitada");
+  });
+
+  it("não decide transferência que não entra nem sai desta congregação", async () => {
+    const foreign = { ...baseTransfer, fromChurchId: "church-a", toChurchId: "church-b" };
+    const prisma = {
+      membershipTransfer: {
+        findFirst: jest.fn().mockResolvedValue(foreign),
+        update: jest.fn(),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new TransfersService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    await expect(service.advance(secretaria, foreign.id, { decision: "REJECT" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.advance(secretaria, foreign.id, { decision: "APPROVE" })).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.membershipTransfer.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        organizationId: pilot.organizationId,
+        OR: [{ fromChurchId: pilot.churchId }, { toChurchId: pilot.churchId }],
+      }),
+    });
+    expect(prisma.membershipTransfer.update).not.toHaveBeenCalled();
   });
 });

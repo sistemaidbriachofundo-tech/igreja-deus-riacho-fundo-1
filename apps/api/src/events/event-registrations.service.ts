@@ -10,6 +10,7 @@ import {
 import { buildWhatsAppUrl } from "@idbrf/shared";
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
+import type { EventPaymentStatus } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
@@ -851,16 +852,43 @@ export class EventRegistrationsService {
     if (registration.status === "CANCELLED") {
       return this.toRegistrationDto(registration);
     }
+    return this.persistCancel(actor, pilot, registration, event.id);
+  }
 
+  /** O titular cancela a própria inscrição. Presença já registrada permanece com a equipe. */
+  async cancelMyRegistration(actor: AuthUser, registrationId: string) {
+    const { pilot, person } = await this.requireEventParticipant(actor);
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: { ...pilot, id: registrationId, registrantPersonId: person.id },
+    });
+    if (!registration) throw new NotFoundException("Inscrição não encontrada");
+    if (registration.status === "CHECKED_IN") {
+      throw new ConflictException({
+        code: "REGISTRATION_CHECKED_IN",
+        message: "A inscrição já teve presença registrada.",
+      });
+    }
+    if (registration.status === "CANCELLED") return this.toRegistrationDto(registration);
+    return this.persistCancel(actor, pilot, registration, registration.eventId);
+  }
+
+  private persistCancel(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    registration: {
+      id: string;
+      eventId: string;
+      paymentStatus: EventPaymentStatus;
+      status: string;
+    },
+    eventId: string,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.eventRegistration.update({
         where: { id: registration.id },
         data: {
           status: "CANCELLED",
-          paymentStatus:
-            registration.paymentStatus === "PENDING"
-              ? "CANCELLED"
-              : registration.paymentStatus,
+          paymentStatus: registration.paymentStatus === "PENDING" ? "CANCELLED" : registration.paymentStatus,
           cancelledAt: new Date(),
         },
       });
@@ -879,7 +907,7 @@ export class EventRegistrationsService {
           resourceId: registration.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { eventId: event.id },
+          metadata: { eventId },
         },
       });
       return this.toRegistrationDto(updated);
