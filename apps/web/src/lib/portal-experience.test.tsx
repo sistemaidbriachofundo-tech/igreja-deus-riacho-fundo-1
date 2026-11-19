@@ -13,15 +13,18 @@ import { PortalHeader, PortalFooter, PublicPage } from "../components/PublicPort
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
 
 describe("portal v3+ — camadas de experiência", () => {
-  it("reproduz a direção de arte aprovada com componentes funcionais", () => {
+  it("usa a frase como título da capa e abre o Waze em outra aba", () => {
     const html = renderToStaticMarkup(<PortalCinematicHero />);
-    expect(html).toContain("Igreja de Deus");
-    expect(html).toContain("Riacho Fundo I");
-    expect(html).not.toContain("Quero visitar");
-    expect(html).toContain("Quero conhecer");
+    expect(html).toMatch(/<h1[^>]*>Uma igreja para Deus, para as famílias, enviada ao mundo\.<\/h1>/);
+    expect(html).not.toContain("Brasília, DF");
+    expect(html).not.toContain("Quero conhecer");
+    expect(html).not.toContain("Criar conta");
     expect(html).toContain("Como chegar");
+    expect(html).toContain("Quinta-feira");
+    expect(html).toContain('dateTime="20:00">20h');
     expect(html).toContain("10h e 19h");
-    expect(html.match(/<a /g)).toHaveLength(2);
+    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).toMatch(/<a href="https:\/\/www\.waze\.com\/[^\"]+" target="_blank" rel="noopener noreferrer"/);
     expect(html).not.toContain('aria-label="Explorar os cinco ministérios"');
     expect(html).not.toContain('href="/ministerios');
     expect(html).not.toContain("Culto de Celebração");

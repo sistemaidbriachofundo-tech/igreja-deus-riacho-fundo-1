@@ -1,14 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { isAdminEnabled } from "../lib/admin-environment";
 import { useEffect, useState } from "react";
 import { usePublishedSiteLayout } from "../lib/use-published-site-layout";
 import { PORTAL_CAMPAIGN_IMAGE, resolveSitePhoto } from "../lib/site-layout";
 import { familyService, nextPublicService, sundayServices } from "../lib/public-service-schedule";
 import { parsePublishedHome } from "../lib/portal-live-data";
 import { usePublishedResource } from "../lib/use-published-resource";
-import { PortalSectionLink } from "./PublicSectionLink";
 import { PortalGlyph } from "./PortalGlyph";
 import s from "./portal-cinematic-hero.module.css";
 
@@ -41,18 +38,7 @@ export function PortalCinematicHero() {
       </div>
       <div className={s.layout}>
         <div className={s.intro}>
-          <p className={s.location}>Brasília, DF</p>
-          <h1 id="hero-title" tabIndex={-1} className={s.headline}>
-            <span>{hero.title}</span>
-            <em>{hero.accent}</em>
-          </h1>
-          <p className={s.mission}>{hero.description}</p>
-          <div className={s.actions}>
-            <PortalSectionLink sectionId="quem-somos" className={s.primaryAction}>
-              Quero conhecer <PortalGlyph name="arrow" width={17} height={17} />
-            </PortalSectionLink>
-            {isAdminEnabled() && <Link href="/cadastro/" className={s.signup}>Criar conta</Link>}
-          </div>
+          <h1 id="hero-title" tabIndex={-1} className={s.headline}>{hero.description}</h1>
         </div>
         <div className={s.visit} aria-label="Horários dos cultos e endereço">
           <PortalGlyph name="calendar" width={23} height={23} />
@@ -62,13 +48,15 @@ export function PortalCinematicHero() {
               <strong>{next.day}, <time dateTime={next.clock}>{next.label}</time></strong>
               {next === familyService && <span className={s.serviceName}>{next.name}</span>}
             </> : <>
-              <strong>Quinta, {familyService.label}</strong>
+              <strong>{familyService.day}, <time dateTime={familyService.clock}>{familyService.label}</time></strong>
               <span className={s.serviceName}>Domingo, {sundayServices.map(service => service.label).join(" e ")}</span>
             </>}
           </div>
           <div className={s.address}>
             <span>QS 12, Riacho Fundo I</span>
-            <a href={directions}>Como chegar <span aria-hidden="true">↗</span></a>
+            <a href={directions} target="_blank" rel="noopener noreferrer" aria-label="Como chegar pelo Waze (abre em outra aba)">
+              Como chegar <span aria-hidden="true">↗︎</span>
+            </a>
           </div>
         </div>
         {notice && <aside className={s.announcement} aria-label="Aviso de culto">

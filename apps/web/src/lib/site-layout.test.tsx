@@ -19,6 +19,8 @@ describe("Gestão do Site — editor visual",()=>{
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"javascript:alert(1)"}})).toBeNull();
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"https://exemplo.test/foto.jpg"}})).toBeNull();
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"https://store.public.blob.vercel-storage.com/church/c1/site/foto.jpg"}})?.hero.imageUrl).toContain("blob.vercel-storage.com");
+    const previous = {...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"Uma igreja para Deus, pelas famílias e enviada ao mundo."}};
+    expect(parsePublicSiteLayout({layout:previous})?.layout?.hero.description).toBe(defaultSiteLayout.hero.description);
   });
   it("rejects unauthenticated or malformed public data",()=>{
     expect(parsePublicSiteLayout({layout:null})).toEqual({layout:null});
@@ -28,8 +30,7 @@ describe("Gestão do Site — editor visual",()=>{
   it("keeps the approved public Home structure as default",()=>{
     const hero=renderToStaticMarkup(<PortalCinematicHero/>);
     const gallery=renderToStaticMarkup(<PortalFaithGallery/>);
-    expect(hero).toContain(defaultSiteLayout.hero.title);
-    expect(hero).toContain(defaultSiteLayout.hero.accent);
+    expect(hero).toContain(defaultSiteLayout.hero.description);
     expect(gallery).toContain(defaultSiteLayout.gallery.title);
     expect(gallery).toContain("/images/riacho/louvor.webp");
     expect(gallery).toContain('data-appearance="dourado"');
@@ -71,7 +72,7 @@ describe("Gestão do Site — editor visual",()=>{
           acontece={<p>Novidades</p>} videos={<p>Vídeos</p>} convite={<p>Convite</p>}/>
       </PublishedSiteLayoutProvider>
     );
-    expect(html).toContain(defaultSiteLayout.hero.title);
+    expect(html).toContain(defaultSiteLayout.hero.description);
     expect(html).toContain(defaultSiteLayout.gallery.title);
     expect(html).toContain("Convite");
   });
@@ -81,11 +82,11 @@ describe("Gestão do Site — editor visual",()=>{
     expect(html).toContain("/app/site/");
   });
   it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
-    const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"RASCUNHO SECRETO 5a13"}};
+    const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"RASCUNHO SECRETO 5a13"}};
     const empty=renderToStaticMarkup(<SiteReaderPreview published={null} device="mobile"/>);
     expect(empty).toContain("A página pública ainda usa o conteúdo padrão da igreja.");
-    expect(empty).not.toContain(secret.hero.title);
-    const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"Versão publicada 5a13"}};
+    expect(empty).not.toContain(secret.hero.description);
+    const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"Versão publicada 5a13"}};
     const live=renderToStaticMarkup(<SiteReaderPreview published={published} device="desktop"/>);
     expect(live).toContain("Versão publicada 5a13");
     expect(live).not.toContain("actorUserId");

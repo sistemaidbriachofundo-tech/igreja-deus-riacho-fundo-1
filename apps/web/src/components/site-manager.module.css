@@ -75,12 +75,9 @@
 .previewTop strong{font:650 11px var(--site-font)}.previewTop small{font:500 10px var(--site-font);color:var(--portal-on-green-muted)}
 .previewCover{background:var(--portal-ivory);color:var(--portal-ink)}
 .previewCover>img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover;object-position:center 52%}
-.previewIntro{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);align-items:end;gap:14px;padding:15px}
-.previewCover small{font:500 10px var(--site-font);color:var(--portal-muted)}
-.previewCover h2{font:400 clamp(20px,2.3vw,31px)/1 var(--portal-display);margin:5px 0 0;letter-spacing:-.045em;overflow-wrap:anywhere}
-.previewCover h2 em{display:block;color:var(--portal-preview-accent,#383838)}
-.previewCover p{font:500 11px/1.55 var(--site-font);color:var(--portal-muted);max-width:400px;margin:0 0 12px}
-.previewIntro span{font:650 10px var(--site-font);text-decoration:underline;text-underline-offset:3px}
+.previewIntro{display:grid;justify-items:start;gap:12px;padding:15px}
+.previewCover h2{font:400 clamp(20px,2.3vw,31px)/1.04 var(--portal-display);margin:0;letter-spacing:-.04em;text-transform:uppercase;text-wrap:balance;overflow-wrap:anywhere}
+.previewIntro span{font:650 10px var(--site-font);color:var(--portal-muted)}
 .previewAgenda{background:var(--portal-green);color:var(--portal-on-green);padding:18px}
 .previewAgenda h3{margin:0 0 4px;font-size:16px}.previewAgenda p{margin:0;color:var(--portal-on-green-muted);font-size:13px}
 .previewGallery{padding:25px 18px;background:var(--portal-gallery-ground)}
@@ -95,7 +92,7 @@
 .previewOther{font:800 12px var(--site-font);color:#5e5e5e;padding:22px 18px;border-bottom:1px solid #e3e3e3}
 .previewOther small{display:block;font:500 10px var(--site-font);color:#636363;margin-top:5px}
 .previewCanvas[data-device="mobile"] .previewCover>img{aspect-ratio:16/9}
-.previewCanvas[data-device="mobile"] .previewIntro{grid-template-columns:minmax(0,1fr);gap:9px;padding:13px}
+.previewCanvas[data-device="mobile"] .previewIntro{gap:9px;padding:13px}
 .previewCanvas[data-device="mobile"] .previewCover h2{font-size:24px}
 .previewCanvas[data-device="mobile"] .previewGallery>div{grid-template-columns:repeat(2,minmax(0,1fr))}
 .previewNote,.readerEmpty{padding:0 18px;margin:12px 0}

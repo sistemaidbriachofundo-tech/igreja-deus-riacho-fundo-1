@@ -42,8 +42,8 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
       <div className={s.previewIntro}>
-        <div><small>Brasília, DF</small><h2>{layout.hero.title}<em>{layout.hero.accent}</em></h2></div>
-        <div><p>{layout.hero.description}</p><span>Horários dos cultos</span></div>
+        <h2>{layout.hero.description}</h2>
+        <span>{familyService.name} · {familyService.day}, {familyService.label}</span>
       </div>
     </div>
     <div className={s.previewGallery} data-section="identity">
@@ -243,9 +243,7 @@ export function SiteManager() {
         ...layout,
         hero:{
           ...layout.hero,
-          title:suggestion.title??layout.hero.title,
-          accent:suggestion.accent??layout.hero.accent,
-          description:suggestion.description??layout.hero.description,
+          description:suggestion.description??suggestion.title??layout.hero.description,
         },
       });
     }
@@ -295,9 +293,7 @@ export function SiteManager() {
             {tab==="conteudo"&&<div className={s.controls}>
               <div className={s.editorHeading}><h2>Textos da página</h2><button type="button" className={ui.workspaceQuiet} onClick={() => setTab("vivi")}>Ajuda de redação</button></div>
               <h3>Capa principal</h3>
-              <label>Título principal<input value={layout.hero.title} maxLength={110} onChange={e=>setHero("title",e.target.value)}/></label>
-              <label>Palavra ou frase de destaque<input value={layout.hero.accent} maxLength={110} onChange={e=>setHero("accent",e.target.value)}/></label>
-              <label>Texto de apresentação<textarea rows={4} maxLength={500} value={layout.hero.description} onChange={e=>setHero("description",e.target.value)}/></label>
+              <label>Frase da capa<textarea rows={3} maxLength={500} value={layout.hero.description} onChange={e=>setHero("description",e.target.value)}/></label>
               <h3>Galeria</h3>
               <label>Título da galeria<input maxLength={110} value={layout.gallery.title} onChange={e=>setGallery("title",e.target.value)}/></label>
               <label>Destaque<input maxLength={110} value={layout.gallery.accent} onChange={e=>setGallery("accent",e.target.value)}/></label>
