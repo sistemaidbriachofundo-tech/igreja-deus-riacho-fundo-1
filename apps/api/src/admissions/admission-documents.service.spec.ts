@@ -198,4 +198,64 @@ describe("AdmissionDocumentsService", () => {
       }),
     );
   });
+
+  it("vincula o arquivo privado ao requisito e mantém o anexo histórico", async () => {
+    const pastor: AuthUser = {
+      ...secretaria,
+      userId: "u-pastor",
+      grants: [{ roleCode: "PASTOR", organizationId: "org1", churchId: "church-rf1" }],
+    };
+    const requirement = {
+      id: "req-1", modality: "BATISMO", code: "carta-ficticia", label: "Carta fictícia",
+      required: true, active: true, sortOrder: 0, updatedAt: new Date("2026-11-19T12:00:00Z"),
+    };
+    const prisma = {
+      admissionProtocol: { findFirst: jest.fn().mockResolvedValue({ id: "adm1", modality: "BATISMO" }) },
+      admissionDocumentRequirement: {
+        findFirst: jest.fn(async ({ where }: { where: { id?: string } }) => where.id ? requirement : null),
+        findMany: jest.fn().mockResolvedValue([requirement]),
+        create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ ...requirement, ...data })),
+      },
+      admissionDocument: {
+        create: jest.fn().mockResolvedValue({
+          id: "doc1", admissionId: "adm1", displayName: "carta.pdf", contentType: "application/pdf",
+          byteSize: 4, requirementId: "req-1", createdAt: new Date("2026-11-19T12:00:00Z"),
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          { id: "legacy", admissionId: "adm1", displayName: "antigo.pdf", contentType: "application/pdf", byteSize: 2, requirementId: null, createdAt: new Date("2026-11-01T12:00:00Z") },
+          { id: "doc1", admissionId: "adm1", displayName: "carta.pdf", contentType: "application/pdf", byteSize: 4, requirementId: "req-1", createdAt: new Date("2026-11-19T12:00:00Z") },
+        ]),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "doc1", admissionId: "adm1", organizationId: "org1", churchId: "church-rf1",
+          displayName: "carta.pdf", contentType: "application/pdf", storageKey: "privado/carta",
+        }),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const storage = {
+      buildAdmissionKey: jest.fn().mockReturnValue("privado/carta"),
+      put: jest.fn(), contentSha256: jest.fn().mockReturnValue("c".repeat(64)),
+      get: jest.fn().mockResolvedValue(Buffer.from("%PDF")),
+    };
+    const service = new AdmissionDocumentsService(prisma as never, { getPilotChurch: async () => pilot } as never, storage as never);
+
+    await expect(service.createRequirement(pastor, { modality: "BATISMO", code: "carta-ficticia", label: "Carta fictícia", required: true }))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    const created = await service.createRequirement(secretaria, { modality: "BATISMO", code: "carta-ficticia", label: "Carta fictícia", required: true });
+    expect(created.required).toBe(true);
+    const uploaded = await service.upload(secretaria, "adm1", {
+      originalname: "carta.pdf", mimetype: "application/pdf", buffer: Buffer.from("%PDF"), size: 4,
+    }, "req-1");
+    expect(uploaded.requirementId).toBe("req-1");
+    expect(storage.put).toHaveBeenCalledWith("privado/carta", expect.any(Buffer));
+    const listed = await service.list(pastor, "adm1");
+    expect(listed.documents.map((item) => item.requirementId)).toEqual([null, "req-1"]);
+    expect(listed.requirements).toEqual([expect.objectContaining({ id: "req-1", satisfied: true })]);
+    const file = await service.download(pastor, "adm1", "doc1");
+    expect(file.bytes.equals(Buffer.from("%PDF"))).toBe(true);
+    await expect(service.download(member, "adm1", "doc1")).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: "admission_document.download", metadata: { admissionId: "adm1" } }),
+    }));
+  });
 });

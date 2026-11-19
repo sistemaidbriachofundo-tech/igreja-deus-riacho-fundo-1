@@ -440,8 +440,16 @@ export class FinanceController {
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
   @RequireAccess({ resource: "ledger", action: "approve" })
   @Get("expense-approvals")
-  listExpenseApprovals(@CurrentUser() user: AuthUser, @Query("despesa") focusId?: string) {
-    return this.finance.listExpenseApprovals(user, typeof focusId === "string" && focusId.length <= 128 ? focusId : undefined);
+  listExpenseApprovals(
+    @CurrentUser() user: AuthUser,
+    @Query("despesa") focusId?: string,
+    @Query("history") history?: string,
+  ) {
+    return this.finance.listExpenseApprovals(
+      user,
+      typeof focusId === "string" && focusId.length <= 128 ? focusId : undefined,
+      history === "1",
+    );
   }
 
   @Get("entries/:entryId")

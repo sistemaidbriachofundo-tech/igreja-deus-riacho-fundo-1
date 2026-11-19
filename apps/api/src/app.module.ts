@@ -43,6 +43,7 @@ import { PlatformSecurityModule } from "./platform-security/platform-security.mo
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublicPortalModule } from "./public-portal/public-portal.module";
 import { ReportsModule } from "./reports/reports.module";
+import { ServiceOrdersModule } from "./service-orders/service-orders.module";
 import { StorageModule } from "./storage/storage.module";
 import { TransfersModule } from "./transfers/transfers.module";
 import { VolunteersModule } from "./volunteers/volunteers.module";
@@ -81,6 +82,7 @@ import { ViviModule } from "./vivi/vivi.module";
     ChannelsModule,
     IndicatorsModule,
     ReportsModule,
+    ServiceOrdersModule,
     AssetsModule,
     CmsModule,
     VolunteersModule,

@@ -239,7 +239,7 @@ export class FinanceService {
       && !/^5\.9(\.|$)/.test(line.account.code));
   }
 
-  async listExpenseApprovals(actor: AuthUser, focusId?: string) {
+  async listExpenseApprovals(actor: AuthUser, focusId?: string, history = false) {
     const pilot = await this.pilot.getPilotChurch();
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
     if ((actor.churchId && actor.churchId !== scope.churchId)
@@ -247,10 +247,31 @@ export class FinanceService {
       || !hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA] })) {
       throw new ForbiddenException("Somente tesoureiro e pastor da congregação consultam essas aprovações.");
     }
-    const scopeFilter = { ...scope, status: "PENDING_APPROVAL" as const, lines: pastoralExpenseLines };
     const include = {
       include: { lines: { include: { account: { select: { type: true, code: true } } } } },
     } as const;
+    if (history) {
+      const rows = await this.prisma.ledgerEntry.findMany({
+        where: {
+          ...scope,
+          reversalOfEntryId: null,
+          status: { in: ["PENDING_APPROVAL", "APPROVED", "REJECTED"] },
+          lines: pastoralExpenseLines,
+          OR: [{ firstApprovedAt: { not: null } }, { secondApprovedAt: { not: null } }],
+        },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        take: 100,
+        ...include,
+      });
+      const payments = await this.approvedPayablePayments(this.prisma, scope, rows.map((row) => row.id));
+      return {
+        entries: rows.map((row) => {
+          const payment = payments.get(row.id);
+          return { ...this.toEntryDto(row), payment: payment ? { paidOn: payment.paidOn } : null };
+        }),
+      };
+    }
+    const scopeFilter = { ...scope, status: "PENDING_APPROVAL" as const, lines: pastoralExpenseLines };
     const [rows, focus] = await Promise.all([
       this.prisma.ledgerEntry.findMany({
         where: scopeFilter, orderBy: [{ submittedAt: "asc" }, { createdAt: "asc" }], take: 100, ...include,

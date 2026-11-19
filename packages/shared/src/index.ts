@@ -146,7 +146,9 @@ export {
   assertAdmissionStepAllowed,
   nextAdmissionStep,
   isCredentialEligible,
+  missingRequiredAdmissionDocuments,
   type AdmissionChecklistState,
+  type AdmissionDocumentRequirementRule,
 } from "./admission-rules";
 
 export {
@@ -155,6 +157,7 @@ export {
   ADMISSION_STATUSES,
   ADMISSION_MODALITIES,
   ADMISSION_STEP_ORDER,
+  SERVICE_ORDER_STATUSES,
   MEMBERSHIP_STATUSES,
   ECCLESIASTICAL_ROLES,
   type EcclesiasticalRole,
@@ -164,6 +167,7 @@ export {
   type AdmissionStatus,
   type AdmissionModality,
   type AdmissionStep,
+  type ServiceOrderStatus,
   type MembershipStatusContract,
   type CredentialStatusContract,
   type ApiEndpointKey,
@@ -207,6 +211,11 @@ export {
   type PersonDossierResponse,
   type AdmissionDocumentMetaDto,
   type AdmissionDocumentsListResponse,
+  type AdmissionDocumentRequirementDto,
+  type ServiceOrderItemDto,
+  type ServiceOrderDto,
+  type ServiceOrderListResponse,
+  type ServiceOrderWriteRequest,
   type MetaResponse,
   type IndicatorsSummaryDto,
   type AuditLogEntryDto,

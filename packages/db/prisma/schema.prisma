@@ -123,6 +123,8 @@ model Organization {
   rosterSlotInvitations RosterSlotInvitation[]
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
+  serviceOrders ServiceOrder[]
+  admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("organizations")
 }
 
@@ -193,6 +195,8 @@ model Church {
   rosterNoticeDeliveries RosterNoticeDelivery[]
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
+  serviceOrders ServiceOrder[]
+  admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("churches")
 }
 
@@ -345,6 +349,9 @@ model User {
   budgetsCreated Budget[] @relation("BudgetCreator")
   accountingPeriodsClosed AccountingPeriod[] @relation("AccountingPeriodCloser")
   ledgerEntryAttachmentsUploaded LedgerEntryAttachment[] @relation("LedgerAttachmentUploader")
+  serviceOrdersCreated ServiceOrder[] @relation("ServiceOrderCreator")
+  serviceOrdersApproved ServiceOrder[] @relation("ServiceOrderApprover")
+  serviceOrdersPublished ServiceOrder[] @relation("ServiceOrderPublisher")
 
   workspaceNotificationReads WorkspaceNotificationRead[]
 
@@ -512,13 +519,40 @@ model AdmissionDocument {
   byteSize         Int      @map("byte_size")
   /// Chave opaca no STORAGE_ROOT (nunca URL pública).
   storageKey       String   @unique @map("storage_key")
+  /// Requisito configurado pela congregação. Nulo nos anexos anteriores a este vínculo.
+  requirementId    String?  @map("requirement_id")
   createdAt        DateTime @default(now()) @map("created_at")
 
-  admission AdmissionProtocol @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  admission   AdmissionProtocol            @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  requirement AdmissionDocumentRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   @@index([admissionId])
   @@index([organizationId, churchId])
+  @@index([requirementId])
   @@map("admission_documents")
+}
+
+/// Tipo documental configurável por modalidade. Sem linha, não há exigência.
+model AdmissionDocumentRequirement {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  churchId       String            @map("church_id")
+  modality       AdmissionModality
+  code           String
+  label          String
+  required       Boolean           @default(false)
+  active         Boolean           @default(true)
+  sortOrder      Int               @default(0) @map("sort_order")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  church       Church              @relation(fields: [churchId], references: [id])
+  documents    AdmissionDocument[]
+
+  @@unique([churchId, modality, code])
+  @@index([churchId, modality, active])
+  @@map("admission_document_requirements")
 }
 
 model MemberCredential {
@@ -2915,6 +2949,55 @@ model RosterPushSubscription {
   @@map("roster_push_subscriptions")
 }
 
+
+enum ServiceOrderStatus {
+  DRAFT
+  APPROVED
+  PUBLISHED
+}
+
+/// Ordem de culto da congregação. Uma ordem por instante real de culto.
+model ServiceOrder {
+  id                String             @id @default(cuid())
+  organizationId    String             @map("organization_id")
+  churchId          String             @map("church_id")
+  title             String
+  serviceAt         DateTime           @map("service_at")
+  notes             String?
+  status            ServiceOrderStatus @default(DRAFT)
+  createdByUserId   String             @map("created_by_user_id")
+  approvedByUserId  String?            @map("approved_by_user_id")
+  approvedAt        DateTime?          @map("approved_at")
+  publishedByUserId String?            @map("published_by_user_id")
+  publishedAt       DateTime?          @map("published_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  createdBy    User               @relation("ServiceOrderCreator", fields: [createdByUserId], references: [id])
+  approvedBy   User?              @relation("ServiceOrderApprover", fields: [approvedByUserId], references: [id])
+  publishedBy  User?              @relation("ServiceOrderPublisher", fields: [publishedByUserId], references: [id])
+  items        ServiceOrderItem[]
+
+  @@unique([churchId, serviceAt])
+  @@index([organizationId, churchId, serviceAt])
+  @@map("service_orders")
+}
+
+model ServiceOrderItem {
+  id          String  @id @default(cuid())
+  orderId     String  @map("order_id")
+  position    Int
+  title       String
+  minutes     Int?
+  responsible String?
+
+  order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, position])
+  @@map("service_order_items")
+}
 
 model WorkspaceNotificationRead {
   userId String @map("user_id")

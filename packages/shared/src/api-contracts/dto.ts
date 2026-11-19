@@ -366,11 +366,58 @@ export interface AdmissionDocumentMetaDto {
   contentType: string;
   byteSize: number;
   createdAt: string;
+  /** Nulo quando o anexo é anterior ao vínculo com um requisito. */
+  requirementId?: string | null;
 }
 
 export interface AdmissionDocumentsListResponse {
   admissionId: string;
   documents: AdmissionDocumentMetaDto[];
+  /** Presente quando a modalidade tem requisitos configurados. Ausência não exige documento. */
+  requirements?: AdmissionDocumentRequirementDto[];
+}
+
+export interface AdmissionDocumentRequirementDto {
+  id: string;
+  modality: AdmissionModality;
+  code: string;
+  label: string;
+  required: boolean;
+  active: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  satisfied?: boolean;
+}
+
+export interface ServiceOrderItemDto {
+  id: string;
+  position: number;
+  title: string;
+  minutes: number | null;
+  responsible: string | null;
+}
+
+export interface ServiceOrderDto {
+  id: string;
+  title: string;
+  serviceAt: string;
+  notes: string | null;
+  items: ServiceOrderItemDto[];
+  status: "DRAFT" | "APPROVED" | "PUBLISHED";
+  updatedAt: string;
+}
+
+export interface ServiceOrderListResponse {
+  orders: ServiceOrderDto[];
+}
+
+export interface ServiceOrderWriteRequest {
+  title: string;
+  serviceAt: string;
+  notes?: string | null;
+  items: Array<{ title: string; minutes?: number | null; responsible?: string | null }>;
+  /** Controle otimista. Se divergir de updatedAt, a mutação responde 409. */
+  expectedUpdatedAt?: string;
 }
 
 export interface MetaResponse {
