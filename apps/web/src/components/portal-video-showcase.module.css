@@ -130,3 +130,5 @@
 @media (prefers-reduced-motion: reduce) {
   .play { transition: none; }
 }
+
+.section { scroll-margin-top: calc(var(--portal-header, 70px) + 10px); }
