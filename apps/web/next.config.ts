@@ -17,7 +17,10 @@ const nextConfig: NextConfig = {
   output: "export",
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
-    ...(isRiachoDevPreview && { NEXT_PUBLIC_API_URL: "https://id-riacho1-api-qa.vercel.app" }),
+    ...(isRiachoDevPreview && {
+      NEXT_PUBLIC_API_URL: "https://id-riacho1-api-qa.vercel.app",
+      NEXT_PUBLIC_MEMBERSHIP_MAP_DEMO: "1",
+    }),
   },
   trailingSlash: true,
   transpilePackages: ["@idbrf/shared"],

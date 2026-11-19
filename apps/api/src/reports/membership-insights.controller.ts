@@ -16,6 +16,13 @@ export class MembershipInsightsController {
     return this.insights.birthdays(user, period);
   }
 
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Header("Cache-Control", "private, no-store")
+  @Get("membership-map")
+  map(@CurrentUser() user: AuthUser) {
+    return this.insights.map(user);
+  }
+
   /** Somente leitura e escopo autorizado; sem consultas anônimas. */
   @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
   @Get("membership-insights")

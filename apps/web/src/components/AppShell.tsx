@@ -186,7 +186,7 @@ export function AppShell({
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
-  secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes";
+  secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes" | "mapa";
   pastoralSection?: PastoralSection;
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
@@ -330,7 +330,10 @@ export function AppShell({
   const credentialMenu = menu.find(item => item.key === "carteirinha");
   const secretaryChildren = [
     ...(preview || roles.some(role => role === "SECRETARIA" || role === "PLATFORM_ADMIN")
-      ? [{ key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const }]
+      ? [
+        { key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const },
+        { key: "mapa", title: "Mapa da Membresia", href: "/app/secretaria/pessoas/mapa/", icon: "map" as const },
+      ]
       : []),
     { key: "admissoes", title: "Admissões", href: "/app/secretaria/admissoes/", icon: "layers" as const },
     { key: "aniversariantes", title: "Aniversariantes", href: "/app/secretaria/aniversariantes/", icon: "birthday" as const },

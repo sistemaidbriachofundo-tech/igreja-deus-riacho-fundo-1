@@ -653,6 +653,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 description={pastoralView ? "Consulte as fichas e os protocolos que chegaram à etapa pastoral." : view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
                 actions={<>
                   {view === "members" && secretary && <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/admissoes/?acao=cadastrar#cadastro">Cadastrar pessoa</AppNavLink>}
+                  {view === "secretary" && secretary && secretarySection === "pessoas" &&
+                    <AppNavLink className={ui.workspaceQuiet} href="/app/secretaria/pessoas/mapa/">
+                      <UIIcon name="map" size={17} /> Mapa da Membresia
+                    </AppNavLink>}
                   {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction(secretarySection === "admissoes" ? "existing" : "new")}>
                     <UIIcon name="plus" size={17} /> {secretarySection === "admissoes" ? "Iniciar admissão" : "Cadastrar pessoa"}
                   </button>}
