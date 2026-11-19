@@ -36,7 +36,7 @@ export function PortalBroadcastProvider({ children }: { children: ReactNode }) {
 
 export function PortalBroadcastHeaderLink({ home }: { home: boolean }) {
   const state = useContext(Context);
-  if (!state) return <a className={s.headerLink} data-broadcast-indicator data-available
+  if (!state) return <a className={s.headerLink} data-broadcast-indicator
     href={home ? "#videos" : withBasePath("/#videos")} aria-label="Assistir aos cultos online">
     Assistir
   </a>;
