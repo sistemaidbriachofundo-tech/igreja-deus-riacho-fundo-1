@@ -25,13 +25,14 @@ export type SiteLayout = {
 };
 export const PORTAL_CAMPAIGN_IMAGE = "/images/capa-igreja-riacho-fundo.jpg";
 export const PUBLIC_FACADE_IMAGE = "/images/fachada-igreja-riacho-fundo.jpg";
+export const portalMissionLines = ["Uma igreja", "para Deus,", "para as famílias,", "enviada ao mundo."] as const;
 const previousHeroDescription = "Uma igreja para Deus, pelas famílias e enviada ao mundo.";
 
 export const defaultSiteLayout: SiteLayout = {
   version: 1,
   hero: {
     title: "Igreja de Deus", accent: "Riacho Fundo I",
-    description: "Uma igreja para Deus, para as famílias, enviada ao mundo.",
+    description: portalMissionLines.join(" "),
     imageUrl: PORTAL_CAMPAIGN_IMAGE,
   },
   identity: SITE_IDENTITY_PHOTO,

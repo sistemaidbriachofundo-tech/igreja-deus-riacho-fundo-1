@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import type { GlyphName } from "./ui/UIIcon";
 import { SiteMediaLibrary } from "./SiteMediaLibrary";
+import { PortalMissionText } from "./PortalMissionText";
 import { PageHeader } from "./ui/PageHeader";
 import { ViviEditorialAssistant } from "./ViviEditorialAssistant";
 import { ApiRequestError, apiLogin, clearToken, getApiBaseUrl, isInvalidSession, loadStoredToken, storeToken } from "../lib/api";
@@ -42,7 +43,7 @@ function SiteLayoutCanvas({layout,device}:{layout:SiteLayout;device:"desktop"|"m
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl(layout.hero.imageUrl)} alt="Fotografia escolhida para a capa" />
       <div className={s.previewIntro}>
-        <h2>{layout.hero.description}</h2>
+        <h2><PortalMissionText text={layout.hero.description} /></h2>
         <span>{familyService.name} · {familyService.day}, {familyService.label}</span>
       </div>
     </div>

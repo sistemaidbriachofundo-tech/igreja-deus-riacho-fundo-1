@@ -1,0 +1,28 @@
+.statement {
+  display: block;
+  font-size: var(--mission-display-size, 1em);
+  line-height: .91;
+  letter-spacing: -.06em;
+  word-spacing: .08em;
+  text-wrap: wrap;
+}
+
+.line { display: block; }
+
+.line:nth-child(1) {
+  margin-inline-start: 8%;
+  font-size: .87em;
+}
+
+.line:nth-child(2) {
+  margin-inline-start: 17%;
+  font-size: 1.12em;
+  font-weight: 600;
+}
+
+.line:nth-child(3) { font-size: .82em; }
+
+.line:nth-child(4) {
+  margin-inline-start: 9%;
+  font-size: .81em;
+}

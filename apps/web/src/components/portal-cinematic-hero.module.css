@@ -48,7 +48,8 @@
   align-self: center;
   width: min(54%, 660px);
   min-width: 0;
-  padding-bottom: clamp(22px, 8vh, 64px);
+  padding-bottom: clamp(45px, 14vh, 112px);
+  container-type: inline-size;
 }
 .visitLabel {
   color: #fff;
@@ -58,6 +59,7 @@
   text-transform: uppercase;
 }
 .headline {
+  --mission-display-size: clamp(2.25rem, 5.75vw, 5.1rem);
   margin: 0;
   color: var(--hero-accent);
   font: 400 clamp(2.2rem, 4.65vw, 4.75rem)/.98 var(--portal-display);
@@ -66,6 +68,10 @@
   text-wrap: balance;
   text-shadow: 0 2px 16px #000a;
   overflow-wrap: break-word;
+}
+
+@supports (font-size: 1cqw) {
+  .headline { --mission-display-size: min(12.2cqw, 5.1rem); }
 }
 
 .visit {

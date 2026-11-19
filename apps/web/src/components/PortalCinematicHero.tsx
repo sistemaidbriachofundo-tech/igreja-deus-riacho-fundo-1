@@ -7,6 +7,7 @@ import { familyService, nextPublicService, sundayServices } from "../lib/public-
 import { parsePublishedHome } from "../lib/portal-live-data";
 import { usePublishedResource } from "../lib/use-published-resource";
 import { PortalGlyph } from "./PortalGlyph";
+import { PortalMissionText } from "./PortalMissionText";
 import s from "./portal-cinematic-hero.module.css";
 
 const directions = "https://www.waze.com/pt-BR/live-map/directions/igreja-de-deus-no-brasil-qs-12-riacho-fundo-1?to=place.w.204473961.2044608539.1892048";
@@ -38,7 +39,7 @@ export function PortalCinematicHero() {
       </div>
       <div className={s.layout}>
         <div className={s.intro}>
-          <h1 id="hero-title" tabIndex={-1} className={s.headline}>{hero.description}</h1>
+          <h1 id="hero-title" tabIndex={-1} className={s.headline}><PortalMissionText text={hero.description} /></h1>
         </div>
         <div className={s.visit} aria-label="Horários dos cultos e endereço">
           <PortalGlyph name="calendar" width={23} height={23} />

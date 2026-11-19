@@ -15,7 +15,9 @@ import { PortalFaithGallery } from "../components/PortalFaithGallery";
 describe("portal v3+ — camadas de experiência", () => {
   it("usa a frase como título da capa e abre o Waze em outra aba", () => {
     const html = renderToStaticMarkup(<PortalCinematicHero />);
-    expect(html).toMatch(/<h1[^>]*>Uma igreja para Deus, para as famílias, enviada ao mundo\.<\/h1>/);
+    const heading = html.match(/<h1[^>]*>(.*?)<\/h1>/)?.[1] ?? "";
+    expect(heading.replace(/<[^>]*>/g, "")).toBe("Uma igreja para Deus, para as famílias, enviada ao mundo.");
+    expect(heading).toMatch(/>Uma igreja <\/span>.*>para Deus, <\/span>.*>para as famílias, <\/span>.*>enviada ao mundo\.<\/span>/);
     expect(html).not.toContain("Brasília, DF");
     expect(html).not.toContain("Quero conhecer");
     expect(html).not.toContain("Criar conta");

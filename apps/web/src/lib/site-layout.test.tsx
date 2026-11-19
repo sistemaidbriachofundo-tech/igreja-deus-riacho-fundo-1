@@ -30,7 +30,7 @@ describe("Gestão do Site — editor visual",()=>{
   it("keeps the approved public Home structure as default",()=>{
     const hero=renderToStaticMarkup(<PortalCinematicHero/>);
     const gallery=renderToStaticMarkup(<PortalFaithGallery/>);
-    expect(hero).toContain(defaultSiteLayout.hero.description);
+    expect(hero.replace(/<[^>]*>/g, "")).toContain(defaultSiteLayout.hero.description);
     expect(gallery).toContain(defaultSiteLayout.gallery.title);
     expect(gallery).toContain("/images/riacho/louvor.webp");
     expect(gallery).toContain('data-appearance="dourado"');
@@ -72,7 +72,7 @@ describe("Gestão do Site — editor visual",()=>{
           acontece={<p>Novidades</p>} videos={<p>Vídeos</p>} convite={<p>Convite</p>}/>
       </PublishedSiteLayoutProvider>
     );
-    expect(html).toContain(defaultSiteLayout.hero.description);
+    expect(html.replace(/<[^>]*>/g, "")).toContain(defaultSiteLayout.hero.description);
     expect(html).toContain(defaultSiteLayout.gallery.title);
     expect(html).toContain("Convite");
   });
