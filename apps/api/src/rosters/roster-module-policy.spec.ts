@@ -96,8 +96,8 @@ describe("escalas do Atmosfera", () => {
     expect(standardPositions("Recepção", "sunday_evening", {}).reduce((sum, item) => sum + (item.qualification === "diaconia" ? item.count : 0), 0)).toBe(2);
     expect(standardPositions("Apoio Interno", "sunday_morning", {})).toMatchObject([{ count: 1 }]);
     expect(standardPositions("Conexão", "thursday_evening", {})).toMatchObject([{ count: 2, couple: false }]);
-    expect(standardPositions("Ofertas e Maquininhas", "thursday_evening", {}).map(item => [item.couple, item.qualification ?? ""])).toEqual([[true, ""], [false, "diaconia"]]);
-    expect(standardPositions("Ofertas e Maquininhas", "sunday_evening", {})).toMatchObject([{ count: 2, couple: true }]);
+    expect(standardPositions("Ofertas e Maquininhas", "thursday_evening", {})).toEqual(standardPositions("Conexão", "thursday_evening", {}));
+    expect(standardPositions("Ofertas e Maquininhas", "sunday_evening", {}).reduce((sum, item) => sum + item.count, 0)).toBe(2);
     expect(standardPositions("Ceia", "sunday_morning", { communionStages: 2 }).map(item => item.count)).toEqual([4, 4]);
     expect(standardPositions("Ceia", "sunday_morning", { communionStages: 0 })).toEqual([]);
     const custom = [{ label: "Exceção", count: 9, couple: false }];
@@ -264,6 +264,16 @@ describe("escalas do Atmosfera", () => {
     expect(plan.find(item => item.nameKey === "recepcao")).toMatchObject({ keepId: "a", name: "Recepção", dropIds: ["b"], rules: { volunteerIds: ["ana"] } });
     expect(plan.find(item => item.nameKey === "conexao")).toMatchObject({ keepId: "d", name: "Conexão", dropIds: ["c"] });
     expect(plan.find(item => item.nameKey === "ceia")).toMatchObject({ keepId: "f", name: "Santa Ceia", dropIds: ["e"], rules: { communionStages: 2 } });
+    const offerings = planModuleConsolidation([
+      { id: "conexao", ministryId: "atmosfera", name: "Conexão", nameKey: "conexao", rules: { positions: { sunday_morning: [{ label: "Conexão", count: 2, couple: false }] } }, rosterCount: 1 },
+      { id: "ofertas", ministryId: "atmosfera", name: "Ofertas e Maquininhas", nameKey: "ofertas e maquininhas", rules: { positions: { sunday_morning: [{ label: "Ofertas", count: 4, couple: true }] } }, rosterCount: 3 },
+    ]);
+    expect(offerings).toMatchObject([{ keepId: "conexao", nameKey: "conexao", dropIds: ["ofertas"], rules: { positions: { sunday_morning: [{ count: 2 }] } } }]);
+    const captured = planModuleConsolidation([
+      { id: "barra", ministryId: "atmosfera", name: "Diaconia / Santa Ceia", nameKey: "diaconia / santa ceia", rules: {}, rosterCount: 1 },
+      { id: "diaconos", ministryId: "atmosfera", name: "Diáconos e Santa Ceia", nameKey: "diaconos e santa ceia", rules: { communionStages: 1 }, rosterCount: 2 },
+    ]);
+    expect(captured).toMatchObject([{ nameKey: "ceia", name: "Santa Ceia", keepId: "diaconos", dropIds: ["barra"] }]);
     expect(standardPositions("Recepcao", "sunday_morning", {}).length).toBeGreaterThan(0);
     expect(standardPositions("Diaconia", "sunday_morning", { communionStages: 1 })).toHaveLength(1);
   });

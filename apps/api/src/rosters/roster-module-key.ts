@@ -4,13 +4,17 @@ const PLAIN = "AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNn";
 const ALIASES: Record<string, string> = {
   "santa ceia": "ceia",
   diaconia: "ceia",
+  "diaconia santa ceia": "ceia",
+  "diaconos e santa ceia": "ceia",
+  "diaconos santa ceia": "ceia",
+  "ofertas e maquininhas": "conexao",
+  "ofertas e maquininha": "conexao",
 };
 
 export const CANONICAL_MODULE_NAMES: Record<string, string> = {
   recepcao: "Recepção",
   "apoio interno": "Apoio Interno",
   conexao: "Conexão",
-  "ofertas e maquininhas": "Ofertas e Maquininhas",
   ceia: "Santa Ceia",
 };
 
@@ -23,7 +27,7 @@ export function foldedModuleName(name: string | null | undefined): string {
     const index = ACCENTS.indexOf(char);
     folded += index >= 0 ? PLAIN[index] : char;
   }
-  return folded.toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+  return folded.toLocaleLowerCase("pt-BR").replace(/[/-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 export function canonicalModuleKey(name: string | null | undefined): string {
@@ -53,6 +57,22 @@ export type ModuleConsolidation = {
   dropIds: string[];
 };
 
+function withoutPositions(rules: unknown): unknown {
+  if (!rules || typeof rules !== "object" || Array.isArray(rules) || !("positions" in rules)) return rules;
+  const rest = { ...(rules as Record<string, unknown>) };
+  delete rest.positions;
+  return rest;
+}
+
+function rulesForCanonical(nameKey: string, group: readonly ConsolidatableModule[], keep: ConsolidatableModule, richest: ConsolidatableModule): unknown {
+  if (nameKey !== "conexao") {
+    return rulesScore(keep.rules) >= rulesScore(richest.rules) ? keep.rules : richest.rules;
+  }
+  const configured = group.find(row => foldedModuleName(row.name) === "conexao" || foldedModuleName(row.nameKey) === "conexao");
+  if (configured) return configured.rules;
+  return withoutPositions(keep.rules);
+}
+
 function rulesScore(rules: unknown): number {
   return rules && typeof rules === "object" && !Array.isArray(rules) ? Object.keys(rules).length : 0;
 }
@@ -74,14 +94,15 @@ export function planModuleConsolidation(rows: readonly ConsolidatableModule[]): 
     });
     const [keep, ...drop] = ranked;
     const richest = [...group].sort((left, right) => rulesScore(right.rules) - rulesScore(left.rules) || (left.id < right.id ? -1 : 1))[0];
-    const changed = drop.length > 0 || keep.nameKey !== nameKey || (display !== null && keep.name !== display) || richest.id !== keep.id;
+    const rules = rulesForCanonical(nameKey, group, keep, richest);
+    const changed = drop.length > 0 || keep.nameKey !== nameKey || (display !== null && keep.name !== display) || rules !== keep.rules;
     if (!changed) return [];
     return [{
       ministryId: keep.ministryId,
       keepId: keep.id,
       name: display ?? keep.name,
       nameKey,
-      rules: rulesScore(keep.rules) >= rulesScore(richest.rules) ? keep.rules : richest.rules,
+      rules,
       dropIds: drop.map(row => row.id),
     }];
   });

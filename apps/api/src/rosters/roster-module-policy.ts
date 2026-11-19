@@ -61,10 +61,6 @@ function people(label: string, count: number, qualification?: string): PositionR
   return { label, count, couple: false, ...(qualification ? { qualification } : {}) };
 }
 
-function couples(label: string, count: number): PositionRule {
-  return { label, count, couple: true };
-}
-
 /** Quantidades do briefing. Exceção já gravada no módulo prevalece. */
 export function standardPositions(
   name: string | null | undefined,
@@ -105,9 +101,6 @@ const STANDARD: Record<string, Partial<Record<CultType, PositionRule[]>>> = {
       : [people("Recepção", 2), people("Recepção", 2, "diaconia")]),
   "apoio interno": weekly(() => [people("Apoio Interno", 1)]),
   conexao: weekly(() => [people("Conexão", 2)]),
-  "ofertas e maquininhas": weekly(type => type === "thursday_evening"
-    ? [couples("Ofertas e Maquininhas", 1), people("Ofertas e Maquininhas", 1, "diaconia")]
-    : [couples("Ofertas e Maquininhas", 2)]),
 };
 
 export type LinkSeed = {
