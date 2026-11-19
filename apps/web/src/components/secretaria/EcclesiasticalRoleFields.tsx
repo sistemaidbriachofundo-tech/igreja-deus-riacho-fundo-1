@@ -8,6 +8,13 @@ export const ECCLESIASTICAL_ROLE_LABELS: Record<EcclesiasticalRole, string> = {
   MINISTRY_LEADER: "Líder de ministério",
 };
 
+export const ECCLESIASTICAL_ROLE_TOTAL_LABELS = {
+  PASTOR: "Pastores",
+  EVANGELIST: "Evangelistas",
+  DEACON: "Diáconos",
+  MINISTRY_LEADER: "Líderes de ministério",
+} satisfies Record<EcclesiasticalRole, string>;
+
 export function EcclesiasticalRoleFields({ value, onChange, ministryLeader }: {
   value: EcclesiasticalRole[];
   onChange: (value: EcclesiasticalRole[]) => void;

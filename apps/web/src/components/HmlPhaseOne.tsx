@@ -12,7 +12,7 @@ import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { PersonPhotoInput } from "./secretaria/PersonPhotoInput";
 import { savePersonPhoto } from "../lib/my-account";
-import { ECCLESIASTICAL_ROLE_LABELS } from "./secretaria/EcclesiasticalRoleFields";
+import { ECCLESIASTICAL_ROLE_LABELS, ECCLESIASTICAL_ROLE_TOTAL_LABELS } from "./secretaria/EcclesiasticalRoleFields";
 import { NewPersonIntake, type NewPersonProfile } from "./secretaria/NewPersonIntake";
 import { personUnder18 } from "./secretaria/new-person-intake-model";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
@@ -41,13 +41,6 @@ type Membership = {
   ecclesiasticalRoles?: EcclesiasticalRole[];
   ministryLeader?: boolean;
 };
-const churchFunctionTotals = {
-  PASTOR: "Pastores",
-  EVANGELIST: "Evangelistas",
-  DEACON: "Diáconos",
-  MINISTRY_LEADER: "Líderes de ministério",
-} satisfies Record<EcclesiasticalRole, string>;
-
 function memberHasFunction(membership: Membership, role: EcclesiasticalRole) {
   return Boolean(membership.ecclesiasticalRoles?.includes(role) || (role === "MINISTRY_LEADER" && membership.ministryLeader));
 }
@@ -236,6 +229,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       setFichaId(params.get("pessoa"));
       setAdmissionStage(params.get("etapa") ?? "");
       setAdmissionProtocol(params.get("protocolo") ?? "");
+      const role = params.get("funcao");
+      setChurchFunction(ECCLESIASTICAL_ROLES.find(option => option === role) ?? null);
       const status = params.get("situacao") ?? "";
       setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION", "TRANSFERRED"].includes(status) ? status : "");
     };
@@ -328,7 +323,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const householdById = useMemo(() => new Map(households.map(household => [household.id, household.label])), [households]);
   const pending = admissions.filter(admission => !CLOSED_ADMISSIONS.includes(admission.status));
   const q = query.trim().toLocaleLowerCase("pt-BR");
-  const activeMembers = memberships.filter(row => row.status === "ACTIVE" && row.person.status === "ACTIVE");
+  const churchFunctionCounts = useMemo(() => {
+    const activeMembers = memberships.filter(row => row.status === "ACTIVE" && row.person.status === "ACTIVE");
+    return ECCLESIASTICAL_ROLES.map(role => ({
+      role,
+      total: loadedGroups.people ? activeMembers.filter(member => memberHasFunction(member, role)).length : null,
+    }));
+  }, [memberships, loadedGroups.people]);
   const filtered = memberships.filter(membership =>
     (!churchFunction || (membership.status === "ACTIVE" && membership.person.status === "ACTIVE" && memberHasFunction(membership, churchFunction))) &&
     (!familyFilter || membership.person.householdId === familyFilter) &&
@@ -638,6 +639,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 <SecretaryDashboard token={token} revision={summaryRevision}
                   households={familiesLoaded ? households.length : null}
                   credentials={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null}
+                  churchFunctionCounts={churchFunctionCounts}
                   onOpenPerson={setFichaId} />
                 <section className={s.admissionPipeline} aria-labelledby="secretaria-pipeline-title">
                   <header className={s.pipelineHead}>
@@ -681,11 +683,11 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <h3 id="church-functions-title">Funções eclesiásticas</h3>
                     <p>Totais de membros ativos nesta congregação.</p>
                     <div className={s.churchFunctionCards}>
-                      {ECCLESIASTICAL_ROLES.map(role => (
+                      {churchFunctionCounts.map(({ role, total }) => (
                         <button type="button" key={role} aria-pressed={churchFunction === role} disabled={!loadedGroups.people}
                           onClick={() => { setChurchFunction(churchFunction === role ? null : role); setMembershipStatus(""); setListPage(0); }}>
-                          <span>{churchFunctionTotals[role]}</span>
-                          <strong>{loadedGroups.people ? activeMembers.filter(member => memberHasFunction(member, role)).length.toLocaleString("pt-BR") : "—"}</strong>
+                          <span>{ECCLESIASTICAL_ROLE_TOTAL_LABELS[role]}</span>
+                          <strong>{total === null ? "—" : total.toLocaleString("pt-BR")}</strong>
                         </button>
                       ))}
                     </div>
@@ -705,7 +707,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     </label>
                   </div>}
                   {secretary && (familyFilter || query || membershipStatus || churchFunction) && <div className={s.activeFilters}>
-                    <span>{churchFunction ? churchFunctionTotals[churchFunction] : selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
+                    <span>{churchFunction ? ECCLESIASTICAL_ROLE_TOTAL_LABELS[churchFunction] : selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
                     <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); setChurchFunction(null); updateQuery(""); }}>Limpar filtros</button>
                   </div>}
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : !loadedGroups.people ? (

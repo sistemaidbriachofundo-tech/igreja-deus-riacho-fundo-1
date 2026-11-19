@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import type { EcclesiasticalRole } from "@idbrf/shared";
+import { ECCLESIASTICAL_ROLE_TOTAL_LABELS } from "./EcclesiasticalRoleFields";
 import { AppNavLink, UIIcon } from "../AppShell";
 import { apiGet } from "../../lib/api";
 import { Alert } from "../ui/Alert";
@@ -68,10 +70,12 @@ function SummaryCard({ label, number, icon, tone }: {
   </article>;
 }
 
-function DemographicCard({ title, description, rows }: { title: string; description: string; rows: Count[] }) {
+function DemographicCard({ title, description, rows, tone }: {
+  title: string; description: string; rows: Count[]; tone: "blue" | "green" | "violet" | "amber" | "teal";
+}) {
   const max = Math.max(1, ...rows.map(row => row.count));
   const total = rows.reduce((sum, row) => sum + row.count, 0);
-  return <section className={s.demographicCard} aria-label={title}>
+  return <section className={s.demographicCard} data-tone={tone} aria-label={title}>
     <header><span className={s.overline}>PERFIL CADASTRAL</span><h3>{title}</h3><p>{description}</p></header>
     {total ? <ul className={s.demographicBars}>{rows.map(row => <li key={row.label}>
       <div><span>{row.label}</span><strong>{counts.format(row.count)}</strong></div>
@@ -81,8 +85,9 @@ function DemographicCard({ title, description, rows }: { title: string; descript
   </section>;
 }
 
-export function SecretaryDashboard({ token, revision, households, credentials, onOpenPerson }: {
+export function SecretaryDashboard({ token, revision, households, credentials, churchFunctionCounts, onOpenPerson }: {
   token: string; revision: number; households: number | null; credentials: number | null;
+  churchFunctionCounts: Array<{ role: EcclesiasticalRole; total: number | null }>;
   onOpenPerson: (id: string) => void;
 }) {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -168,6 +173,24 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
       <SummaryCard tone="green" label="Membros" number={overview.byCategory.membros} icon="check"/>
       <SummaryCard tone="neutral" label="Famílias cadastradas" number={households} icon="family"/>
       <SummaryCard tone="gold" label="Em admissão" number={overview.byCategory.em_admissao} icon="clock"/>
+    </section>
+
+    <section className={s.panel} aria-labelledby="secretary-functions-title">
+      <header className={s.panelHeading}>
+        <h3 id="secretary-functions-title">Funções eclesiásticas</h3>
+        <p>Totais de membros ativos nesta congregação.</p>
+      </header>
+      <ul className={s.functions}>
+        {churchFunctionCounts.map(({ role, total }) => (
+          <li key={role} data-role={role}>
+            <AppNavLink href={`/app/secretaria/pessoas/?funcao=${role}`}>
+              <span>{ECCLESIASTICAL_ROLE_TOTAL_LABELS[role]}</span>
+              <strong>{total === null ? "—" : counts.format(total)}</strong>
+              <UIIcon name="arrow" size={17} />
+            </AppNavLink>
+          </li>
+        ))}
+      </ul>
     </section>
 
     <div className={s.sectionHeading}>
@@ -293,18 +316,18 @@ export function SecretaryDashboard({ token, revision, households, credentials, o
     <div className={s.sectionHeading}><div><span className={s.overline}>PERFIL DA COMUNIDADE</span><h2>Entenda nossa membresia</h2>
       <p>Informações demográficas calculadas a partir dos registros existentes.</p></div></div>
     <div className={s.demographics}>
-      <DemographicCard title="Faixa etária" description={`Base de ${counts.format(demographics.base)} cadastros ativos. ${counts.format(demographics.missingBirthDate)} sem nascimento.`}
+      <DemographicCard tone="blue" title="Faixa etária" description={`Base de ${counts.format(demographics.base)} cadastros ativos. ${counts.format(demographics.missingBirthDate)} sem nascimento.`}
         rows={demographics.age.map(row => ({ label: row.label, count: row.count }))}/>
-      <DemographicCard title="Tempo de igreja" description={`Desde a primeira frequência. ${counts.format(demographics.missingChurchTime)} sem essa data.`}
+      <DemographicCard tone="green" title="Tempo de igreja" description={`Desde a primeira frequência. ${counts.format(demographics.missingChurchTime)} sem essa data.`}
         rows={demographics.churchTime.map(row => ({ label: row.label, count: row.count }))}/>
-      <DemographicCard title="Distribuição por sexo" description={`Base de ${counts.format(demographics.base)} pessoas com cadastro ativo.`}
+      <DemographicCard tone="violet" title="Distribuição por sexo" description={`Base de ${counts.format(demographics.base)} pessoas com cadastro ativo.`}
         rows={[
           { label: "Feminino", count: demographics.sex.FEMALE }, { label: "Masculino", count: demographics.sex.MALE },
           { label: "Outro", count: demographics.sex.OTHER }, { label: "Não informado", count: demographics.sex.unknown },
         ]}/>
-      <DemographicCard title="Idade no início da frequência" description={`${counts.format(demographics.missingAgeAtAttendance)} cadastros sem as datas necessárias.`}
+      <DemographicCard tone="amber" title="Idade no início da frequência" description={`${counts.format(demographics.missingAgeAtAttendance)} cadastros sem as datas necessárias.`}
         rows={demographics.ageAtFirstAttendance.map(row => ({ label: row.label, count: row.count }))}/>
-      <DemographicCard title="Tempo de vínculo como membro" description="Desde o início do vínculo, para membros ativos."
+      <DemographicCard tone="teal" title="Tempo de vínculo como membro" description="Desde o início do vínculo, para membros ativos."
         rows={demographics.membershipTime.map(row => ({ label: row.label, count: row.count }))}/>
     </div>
     <p className={s.dataNote}><UIIcon name="shield" size={16}/> Indicadores construídos a partir da API de homologação. Dados não informados são sinalizados; valores não são inventados.</p>
