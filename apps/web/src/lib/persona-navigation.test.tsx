@@ -255,6 +255,8 @@ describe("shell sem flash de módulo restrito", () => {
     expect(pastor).toContain("/app/pastoral/despesas/");
     expect(pastor).toContain("/app/pastoral/cuidado/");
     expect(pastor).toContain("/app/pastoral/aniversariantes/");
+    expect(pastor).toContain("/app/pastoral/ordem-de-culto/");
+    expect(admin).toContain("/app/pastoral/ordem-de-culto/");
     expect(pastor.some(href => href.startsWith("/app/secretaria/") || href.startsWith("/app/tesouraria/"))).toBe(false);
     expect(admin).not.toContain("/app/pastoral/cuidado/");
     expect(admin).toContain("/app/tesouraria/#despesas");

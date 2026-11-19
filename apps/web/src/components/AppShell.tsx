@@ -567,10 +567,10 @@ export function AppShell({
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
         <div className={s.railHeader}>
-          <AppNavLink href={guestShell ? "/app/convidado/" : "/app/"} className={s.brand} aria-label="ID Riacho 1" onNavigate={afterNavigate}>
+          <AppNavLink href={guestShell ? "/app/convidado/" : "/app/"} className={s.brand} aria-label={railCollapsed ? "ID Riacho 1" : undefined} onNavigate={afterNavigate}>
             {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />
+            <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="" loading="eager" />
             <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
           </AppNavLink>
           <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
@@ -687,7 +687,7 @@ export function AppShell({
                 "Grupos de Amizade": <UIIcon name="people" size={18} />,
               }} />}
             {accessKind === "ready" ? (
-              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label={`Minha conta · ${accountLabel}`}>
+              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/">
                 {accountLink}
               </AppNavLink>
             ) : accessKind !== "pending" && <span className={s.profileCluster}>{accountLink}</span>}

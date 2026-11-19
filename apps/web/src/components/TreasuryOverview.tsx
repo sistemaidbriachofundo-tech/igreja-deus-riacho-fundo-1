@@ -60,11 +60,11 @@ export function TreasuryOverview({ position, summary, onBank, onDeposits, onReco
           <button type="button" className={s.textAction} onClick={() => onBank(bank.id)}>Abrir extrato de {bank.name} <UIIcon name="arrow" size={16} /></button>
         </div> : summary.banks.length ? <div className={s.bankGrid}>
           {summary.banks.map(bank => (
-            <button className={s.bank} key={bank.id} type="button" onClick={() => onBank(bank.id)} aria-label={`${bank.name} ${formatBRL(bank.balance)} · Ver extrato`}>
+            <button className={s.bank} key={bank.id} type="button" onClick={() => onBank(bank.id)}>
               <span className={s.bankIcon}><UIIcon name="wallet" size={18} /></span>
               <span className={s.bankName}>{bank.name}</span>
               <strong data-negative={bank.balance < 0}>{formatBRL(bank.balance)}</strong>
-              <UIIcon name="arrow" size={17} />
+              <UIIcon name="arrow" size={17} /><span className={s.srOnly}>Ver extrato</span>
             </button>
           ))}
         </div> : <p>Nenhuma conta de caixa com movimento no centro selecionado.</p>}
@@ -98,7 +98,7 @@ export function TreasuryOverview({ position, summary, onBank, onDeposits, onReco
 
       <section className={s.surface} aria-labelledby="revenue-time-title">
         <header className={s.sectionHeading}><div><h2 id="revenue-time-title">Receitas por dia</h2><p>Receita bruta reconhecida no período</p></div><button type="button" className={s.textAction} onClick={onReconciliation}>Conciliações <UIIcon name="arrow" size={16} /></button></header>
-        {summary.byDay.length ? <ol className={s.timeline}>
+        {summary.byDay.length ? <ol className={s.timeline} tabIndex={0} aria-label="Receitas por dia, lista rolável">
           {summary.byDay.map(([day, value]) => (
             <li key={day} aria-label={day + ", " + formatBRL(value)} title={formatBRL(value)} data-negative={value < 0}>
               <span className={s.plot}><small>{compactMoney(value)}</small><span style={{ height: (100 * Math.abs(value) / dayMax) + "%" }} /></span>

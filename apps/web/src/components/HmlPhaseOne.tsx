@@ -15,6 +15,8 @@ import { savePersonPhoto } from "../lib/my-account";
 import { ECCLESIASTICAL_ROLE_LABELS, ECCLESIASTICAL_ROLE_TOTAL_LABELS } from "./secretaria/EcclesiasticalRoleFields";
 import { NewPersonIntake, type NewPersonProfile } from "./secretaria/NewPersonIntake";
 import { personUnder18 } from "./secretaria/new-person-intake-model";
+import { AdmissionDocuments } from "./secretaria/AdmissionDocuments";
+import { AdmissionRequirements } from "./secretaria/AdmissionRequirements";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiPost, clearToken, isInvalidSession, loadStoredToken, type LoginResult } from "../lib/api";
 import { LoginScreen } from "./LoginScreen";
@@ -109,6 +111,7 @@ function displayError(error: unknown): string {
   if (/E-mail já cadastrado/.test(error.message)) return "Já existe uma pessoa com este e-mail. Use Iniciar admissão para localizá-la.";
   if (/CREDENTIAL_NOT_ELIGIBLE|credentialEligible=false|admissão pastoral não aprovada/i.test(error.message)) return "A admissão ainda precisa de aprovação pastoral antes da emissão da carteirinha.";
   if (/Já existe carteirinha ativa/i.test(error.message)) return "Esta pessoa já possui uma carteirinha ativa. Abra a credencial existente antes de solicitar outra.";
+  if (/ADMISSION_DOCUMENTS_REQUIRED/.test(error.message)) return "Anexe os documentos marcados como obrigatórios antes de avançar.";
   if (/\(409\)|409/.test(error.message)) return "O registro entrou em conflito com uma alteração existente. Atualize os dados e confira a etapa atual.";
   return "Não foi possível concluir. Atualize a lista e tente novamente.";
 }
@@ -202,7 +205,11 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [showHistory, setShowHistory] = useState(false);
   const [admissionStage, setAdmissionStage] = useState("");
   const [admissionProtocol, setAdmissionProtocol] = useState("");
-  const [pastoralDecision, setPastoralDecision] = useState<{ id: string; name: string; decision: "APPROVE" | "REJECT" } | null>(null);
+  const [configureDocuments, setConfigureDocuments] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState("");
+  const [pastoralDecision, setPastoralDecision] = useState<"APPROVE" | "REJECT" | null>(null);
+  const [documentBusy, setDocumentBusy] = useState(false);
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
@@ -555,30 +562,33 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     }
   }
 
-  function nextAdmission(admission: Admission) {
-    if (!token) return;
+  async function nextAdmission(admission: Admission, selectedModality?: string) {
+    if (!token || busy) return;
+    setReviewError("");
     const stage = admission.currentStep;
     if (stage === "pastor" && !pastor) return;
     if (stage !== "pastor" && !secretary) return;
-    void run(
+    return run(
       () => apiPost("/admissions/" + encodeURIComponent(admission.id) + "/advance", token, {
         completeStep: stage,
         decision: stage === "pastor" || stage === "secretaria" ? "APPROVE" : undefined,
-        modality: stage === "modality" ? "BATISMO" : undefined,
+        modality: stage === "modality" ? selectedModality : undefined,
       }),
       stage === "pastor" ? "Aprovação pastoral registrada." : "Etapa registrada.",
+      setReviewError,
     );
   }
 
-  async function submitPastoralDecision(event: FormEvent<HTMLFormElement>) {
+  async function submitPastoralDecision(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
     if (!token || !pastor || busy || !pastoralDecision) return;
-    const { id, decision } = pastoralDecision;
+    setReviewError("");
+    const decision = pastoralDecision;
     const reason = String(new FormData(event.currentTarget).get("reason") ?? "").trim();
     const saved = await run(() => apiPost(`/admissions/${encodeURIComponent(id)}/advance`, token, {
       completeStep: "pastor", decision, ...(decision === "REJECT" && reason ? { rejectionReason: reason } : {}),
-    }), decision === "APPROVE" ? "Aprovação pastoral registrada." : "Recusa pastoral registrada.");
-    if (saved) setPastoralDecision(null);
+    }), decision === "APPROVE" ? "Aprovação pastoral registrada." : "Recusa pastoral registrada.", setReviewError);
+    if (saved) closeReview();
   }
 
   function issueCard(membership: Membership) {
@@ -590,6 +600,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     const credentialId = membership.activeCredentialId;
     if (!token || !secretary || !credentialId) return;
     void run(() => apiPost("/credentials/revoke/" + encodeURIComponent(credentialId), token), "Credencial revogada.");
+  }
+
+  const reviewedAdmission = reviewId ? admissions.find(admission => admission.id === reviewId) : undefined;
+  function closeReview() {
+    setReviewId(null);
+    setReviewError("");
+    setPastoralDecision(null);
   }
 
   const names: Record<View, string> = {
@@ -795,13 +812,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       onNavigate={pastoralView ? () => { setAdmissionProtocol(""); setShowHistory(false); setListPage(0); } : undefined}>Limpar seleção</AppNavLink>}
                     <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}><UIIcon name="clock" size={15} />Em andamento</button>
                     <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}><UIIcon name="layers" size={15} />Todos</button>
+                    {secretary && !pastoralView && <button type="button" onClick={() => setConfigureDocuments(true)}>Documentos por modalidade</button>}
                   </div>
                   {!staff ? <p className={s.empty}>Seu perfil não consulta os processos.</p> : !loadedGroups.admissions ? (
                     <p className={s.empty} role="status">{checking ? "Carregando admissões…" : "Não foi possível carregar as admissões. Use Atualizar para tentar novamente."}</p>
                   ) : (
                     <div className={s.admissions}>
                       {filteredAdmissions.slice(firstRow, firstRow + PAGE_SIZE).map(admission => {
-                        const canAct = admission.currentStep === "pastor" ? pastor : secretary;
                         const done = CLOSED_ADMISSIONS.includes(admission.status);
                         const personName = admissionName(admission) ?? "Pessoa em admissão";
                         const stepLabel = admission.currentStep === "pastor"
@@ -819,14 +836,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                               </div>
                             </div>
                             <div className={s.admissionActions}>
-                              {pastoralView ? <button type="button" className={s.openFicha} aria-label={"Abrir ficha de " + personName} onClick={() => setFichaId(admission.personId)}>Abrir ficha</button>
-                                : <AppNavLink className={s.openFicha} href={`/app/secretaria/pessoas/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>}
-                              {pastoralView ? pastor && !done && <>
-                                <button type="button" disabled={busy} onClick={() => setPastoralDecision({ id: admission.id, name: personName, decision: "REJECT" })}>Recusar admissão</button>
-                                <button type="button" disabled={busy} onClick={() => setPastoralDecision({ id: admission.id, name: personName, decision: "APPROVE" })}>Aprovar admissão</button>
-                              </> : <button type="button" disabled={busy || done || !canAct} onClick={() => nextAdmission(admission)}>
-                                {done ? "Concluído" : !canAct ? "Ação reservada" : "Concluir " + stepLabel}
-                              </button>}
+                              <button type="button" className={ui.workspaceSecondary}
+                                aria-label={"Revisar protocolo de " + personName} onClick={() => { setReviewError(""); setReviewId(admission.id); }}>Revisar protocolo</button>
                             </div>
                           </article>
                         );
@@ -845,16 +856,54 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 </section>}
               </div>
             )}
-            {pastoralDecision && (
-              <Modal open appearance="workspace" title={pastoralDecision.decision === "APPROVE" ? "Aprovar admissão?" : "Recusar admissão?"}
-                description={pastoralDecision.name} onClose={() => { if (!busy) setPastoralDecision(null); }}>
-                <form className={s.form} onSubmit={submitPastoralDecision}>
-                  {pastoralDecision.decision === "REJECT" && <label>Motivo da recusa (opcional)<textarea name="reason" maxLength={500} rows={3} disabled={busy} /></label>}
-                  <div className={s.formActions}>
-                    <button type="button" disabled={busy} onClick={() => setPastoralDecision(null)}>Cancelar</button>
-                    <button type="submit" disabled={busy}>{busy ? "Registrando…" : "Confirmar decisão"}</button>
-                  </div>
-                </form>
+            {configureDocuments && token && secretary && !pastoralView &&
+              <AdmissionRequirements token={token} onClose={() => setConfigureDocuments(false)} />}
+            {reviewedAdmission && token && !fichaId && (
+              <Modal open appearance="workspace" size="wide" title="Revisão do protocolo"
+                description={admissionName(reviewedAdmission) ?? "Pessoa em admissão"}
+                onClose={() => { if (!busy && !documentBusy) closeReview(); }}>
+                <div className={s.protocolReview}>
+                  {reviewError && <p role="alert">{reviewError}</p>}
+                  <dl className={s.protocolFacts}>
+                    <div><dt>Modalidade</dt><dd>{label(reviewedAdmission.modality ?? "")}</dd></div>
+                    <div><dt>Situação</dt><dd>{label(reviewedAdmission.status)}</dd></div>
+                    <div><dt>Registro</dt><dd>{formatDate(reviewedAdmission.createdAt)}</dd></div>
+                  </dl>
+                  <div><button type="button" className={ui.workspaceSecondary} disabled={documentBusy || busy}
+                    onClick={() => setFichaId(reviewedAdmission.personId)}>Abrir ficha da pessoa</button></div>
+                  <AdmissionDocuments key={reviewedAdmission.id} token={token} admissionId={reviewedAdmission.id} onBusy={setDocumentBusy}
+                    canUpload={secretary && !pastoralView && !CLOSED_ADMISSIONS.includes(reviewedAdmission.status) && ["modality", "documents", "secretaria"].includes(reviewedAdmission.currentStep)} />
+                  {!CLOSED_ADMISSIONS.includes(reviewedAdmission.status) && reviewedAdmission.currentStep === "pastor" && pastor && (
+                    pastoralDecision ? <form className={s.form} onSubmit={event => void submitPastoralDecision(event, reviewedAdmission.id)}>
+                      <h3>{pastoralDecision === "APPROVE" ? "Confirmar aprovação pastoral" : "Confirmar recusa da admissão"}</h3>
+                      {pastoralDecision === "REJECT" && <label>Motivo da recusa (opcional)<textarea name="reason" maxLength={500} rows={3} disabled={busy} /></label>}
+                      <div className={s.protocolActions}>
+                        <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => { setReviewError(""); setPastoralDecision(null); }}>Voltar à revisão</button>
+                        <button type="submit" className={ui.workspacePrimary} disabled={busy || documentBusy}>{busy ? "Registrando…" : "Confirmar decisão"}</button>
+                      </div>
+                    </form> : <div className={s.protocolActions}>
+                      <button type="button" className={ui.workspaceSecondary} disabled={busy || documentBusy} onClick={() => setPastoralDecision("REJECT")}>Recusar admissão</button>
+                      <button type="button" className={ui.workspacePrimary} disabled={busy || documentBusy} onClick={() => setPastoralDecision("APPROVE")}>Aprovar admissão</button>
+                    </div>
+                  )}
+                  {!CLOSED_ADMISSIONS.includes(reviewedAdmission.status) && reviewedAdmission.currentStep !== "pastor" && secretary && !pastoralView && (
+                    <form className={s.form} onSubmit={async event => {
+                      event.preventDefault();
+                      const chosen = new FormData(event.currentTarget).get("reviewModality");
+                      if (await nextAdmission(reviewedAdmission, typeof chosen === "string" ? chosen : undefined)) closeReview();
+                    }}>
+                      {reviewedAdmission.currentStep === "modality" && <label>Modalidade da admissão
+                        <select name="reviewModality" required defaultValue={reviewedAdmission.modality ?? ""} disabled={busy || documentBusy}>
+                          <option value="">Selecione a modalidade</option>
+                          {["BATISMO", "TRANSFERENCIA", "RECONCILIACAO", "ACLAMACAO", "OUTRO"].map(value => <option key={value} value={value}>{label(value)}</option>)}
+                        </select></label>}
+                      <div><button type="submit" className={ui.workspacePrimary} disabled={busy || documentBusy}>
+                        {reviewedAdmission.currentStep === "secretaria" ? "Encaminhar à Pastoral"
+                          : reviewedAdmission.currentStep === "modality" ? "Registrar modalidade" : "Concluir etapa de documentação"}
+                      </button></div>
+                    </form>
+                  )}
+                </div>
               </Modal>
             )}
             {secretary && view === "secretary" && admissionForm && (

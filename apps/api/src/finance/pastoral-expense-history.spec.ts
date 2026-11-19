@@ -81,11 +81,12 @@ describe("histórico pastoral de despesas", () => {
       id: "aprovada",
       status: "APPROVED",
       secondApprovedAt: now.toISOString(),
+      payable: true,
       payment: { paidOn: "2026-11-18" },
     });
     expect(history.entries[0].payment).not.toHaveProperty("settlementId");
     expect(history.entries[1]).toMatchObject({ status: "REJECTED", rejectedAt: now.toISOString(), payment: null });
-    expect(JSON.stringify(history)).not.toMatch(/bankStatement|statementLine|1\.1/);
+    expect(JSON.stringify(history)).not.toMatch(/bankStatement|statementLine|accountId|acc-despesa|acc-pagar|1\.1/);
     const where = prisma.ledgerEntry.findMany.mock.calls[0][0].where;
     expect(where).toMatchObject({
       organizationId: "org1", churchId: "church-rf1", reversalOfEntryId: null,

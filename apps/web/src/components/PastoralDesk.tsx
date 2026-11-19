@@ -65,9 +65,12 @@ function AdministrativePastoralOverview() {
         </AppNavLink>
       ))}
     </nav>
-    <div className={s.actions}><AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/aniversariantes/">
-      <UIIcon name="birthday" size={18} /> Aniversariantes
-    </AppNavLink></div>
+    <nav className={s.actions} aria-label="Mais rotinas pastorais">
+      {pastoralSections(["PLATFORM_ADMIN"]).filter(({ id }) => id === "aniversariantes" || id === "ordem-de-culto")
+        .map(({ id, title, icon, href }) => <AppNavLink key={id} className={ui.workspaceSecondary} href={href}>
+          <UIIcon name={icon} size={18} /> {title}
+        </AppNavLink>)}
+    </nav>
   </div>;
 }
 

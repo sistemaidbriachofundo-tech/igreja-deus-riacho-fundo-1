@@ -64,3 +64,6 @@
 .bankDetail dl { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; }
 .bankDetail dt { color: #575757; }
 .bankDetail dd { font-size: 1.15rem; font-weight: 700; }
+
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.timeline:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }

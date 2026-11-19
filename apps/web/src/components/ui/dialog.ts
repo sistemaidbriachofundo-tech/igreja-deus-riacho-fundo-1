@@ -69,7 +69,7 @@ export function useDialogLifecycle(
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const release = inertOutside(dialog);
-    dialog.focus();
+    dialog.focus({ preventScroll: true });
 
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
@@ -114,7 +114,7 @@ export function useDialogLifecycle(
       release();
       const restore = returnFocusRef.current;
       requestAnimationFrame(() => {
-        if (restore && document.contains(restore)) restore.focus();
+        if (restore && document.contains(restore)) restore.focus({ preventScroll: true });
       });
     };
   }, [open, dialogRef]);

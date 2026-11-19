@@ -374,8 +374,6 @@
 .peopleResults li:focus-within { border-color: var(--app-accent); }
 .peopleResults .personIdentity strong, .admissionIdentity strong { font-size: .98rem; }
 .directoryPanel .openFicha { color: var(--app-accent); }
-.admission button:not(:disabled) { background: var(--app-accent); border-color: var(--app-accent); }
-.admission button:not(:disabled):hover { background: var(--app-accent-hover); }
 .peopleResults .personIdentity { overflow-wrap: anywhere; }
 .peopleResults :is(.personIdentity, .peopleMembership) small,
 .admissionStage { color: var(--app-muted); font-size: .85rem; }
@@ -403,3 +401,16 @@
 .churchFunctionCards button:disabled { cursor: default; opacity: .7; }
 .personFunctions { color: #235d4c; font-weight: 650; }
 @media (max-width: 650px) { .churchFunctionCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+
+.protocolReview, .protocolDocuments, .protocolFiles { display: grid; gap: 10px; min-width: 0; }
+.protocolDocuments h3, .protocolDocuments p { margin: 0; }
+.protocolDocuments { border-block: 1px solid var(--app-border); padding-block: 12px; }
+.protocolFacts, .protocolActions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 20px; margin: 0; }
+.protocolFacts dt { color: var(--app-muted); }
+.protocolFacts dd { margin: 4px 0 0; font-weight: 700; }
+.protocolFiles { margin: 0; padding: 0; list-style: none; }
+.protocolFiles li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+
+.form .protocolCheck { display: flex; gap: 8px; align-items: center; }
+.form .protocolCheck input { width: auto; }

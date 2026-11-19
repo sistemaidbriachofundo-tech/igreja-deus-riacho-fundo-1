@@ -267,7 +267,21 @@ export class FinanceService {
       return {
         entries: rows.map((row) => {
           const payment = payments.get(row.id);
-          return { ...this.toEntryDto(row), payment: payment ? { paidOn: payment.paidOn } : null };
+          return {
+            id: row.id,
+            description: row.description,
+            entryDate: row.entryDate.toISOString().slice(0, 10),
+            status: row.status,
+            amountCents: row.amountCents,
+            createdByUserId: row.createdByUserId,
+            firstApprovedByUserId: row.firstApprovedByUserId,
+            secondApprovedAt: row.secondApprovedAt?.toISOString() ?? null,
+            rejectedAt: row.rejectedAt?.toISOString() ?? null,
+            rejectionReason: row.rejectionReason,
+            approvalFlow: "TREASURER_THEN_PASTOR" as const,
+            payable: this.payableAccountId(row) !== null,
+            payment: payment ? { paidOn: payment.paidOn } : null,
+          };
         }),
       };
     }
