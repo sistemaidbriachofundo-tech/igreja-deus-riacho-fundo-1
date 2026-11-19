@@ -35,7 +35,7 @@ import { UIIcon, type GlyphName } from "./ui/UIIcon";
 export type { AppNavKey };
 export { UIIcon };
 
-const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "tesouraria", "ministerios"];
+const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "pastoral", "secretaria", "tesouraria", "ministerios"];
 
 const CONNECTION_SECTIONS = [
   { title: "Trilha da Conexão", id: "trilha", icon: "layers" },

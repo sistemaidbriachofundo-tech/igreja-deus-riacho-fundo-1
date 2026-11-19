@@ -26,7 +26,7 @@ const forbiddenPages = [
   "contato/index.html", "visita/index.html", "ministerios/index.html",
   ...["jovens", "homens", "adolescentes", "mulheres", "atmosfera"].map(slug => `ministerios/${slug}/index.html`),
   "novidades/index.html", "status/index.html", "app/demo/index.html",
-  "app/operacao/index.html", "design-system/index.html", "w1-estudio/index.html",
+  "app/operacao/index.html", "app/pastoral/index.html", "design-system/index.html", "w1-estudio/index.html",
 ];
 const requiredGalleryAssets = ["louvor", "juventude", "oracao", "palavra"].map((name) => `images/galeria-${name}.webp`);
 const failures = [];

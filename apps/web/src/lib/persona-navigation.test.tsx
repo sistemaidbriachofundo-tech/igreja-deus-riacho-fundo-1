@@ -39,7 +39,7 @@ function hrefs(html: string): string[] {
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
   PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "acessos", "site"],
   SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "relatorios", "site"],
-  PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "site"],
+  PASTOR: ["visao", "pastoral", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "site"],
   TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria", "relatorios"],
   LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "relatorios"],
   MEMBRO: ["visao", "carteirinha", "meu-espaco", "eventos-membro"],
@@ -93,6 +93,16 @@ describe("menu por persona", () => {
     expect(landingForRoles(["CONVIDADO"])).toBe("/app/convidado/");
     expect(shellAreasForRoles(["CONVIDADO"]).map(area => area.key)).toEqual(["convidado", "eventos-membro"]);
     expect(landingForRoles(["PLATFORM_ADMIN"])).toBe("/app/");
+  });
+
+  it("mostra a Pastoral somente para quem tem o perfil de pastor", () => {
+    expect(shellAreasForRoles(["PASTOR"]).map(area => area.key)).toContain("pastoral");
+    expect(areaAllowed(["PLATFORM_ADMIN", "PASTOR"], "pastoral")).toBe(true);
+    for (const role of BUILTIN_ROLES.filter(role => role !== "PASTOR")) {
+      expect(shellAreasForRoles([role]).map(area => area.key)).not.toContain("pastoral");
+      expect(areaAllowed([role], "pastoral")).toBe(false);
+    }
+    expect(shellAreasForRoles([], true).map(area => area.key)).not.toContain("pastoral");
   });
 
   it("identifica a conta pelo e-mail conhecido, sem inventar um nome", () => {

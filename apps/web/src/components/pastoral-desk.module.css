@@ -1,0 +1,31 @@
+.desk {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.care {
+  min-width: 0;
+}
+
+.care > summary {
+  padding: 16px var(--app-gutter, 22px);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.care > summary svg {
+  margin-inline: 6px 4px;
+  vertical-align: middle;
+  color: var(--app-accent);
+}
+
+.cases {
+  padding: 0 var(--app-gutter, 22px) var(--app-gutter, 22px);
+}

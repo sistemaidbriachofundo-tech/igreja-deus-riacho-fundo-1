@@ -75,6 +75,7 @@ const DESK: Record<DeskKey, { title: string; lede: string }> = {
 };
 
 const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
+  pastoral: "Abrir mesa pastoral",
   membros: "Consultar pessoas",
   secretaria: "Ver admissões",
   carteirinha: "Abrir carteirinha",
@@ -90,7 +91,7 @@ const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
 const PRIMARY_TASKS: Record<DeskKey, readonly AppNavKey[]> = {
   PLATFORM_ADMIN: ["membros", "secretaria", "carteirinha", "ministerios"],
   SECRETARIA: ["membros", "secretaria", "carteirinha"],
-  PASTOR: ["secretaria", "membros", "ministerios"],
+  PASTOR: ["pastoral", "secretaria", "membros", "ministerios"],
   TESOURARIA: ["tesouraria"],
   LIDER_MINISTERIO: ["ministerios"],
   EDITOR_SITE: ["site"],
@@ -722,7 +723,7 @@ export function PersonaBoard() {
         { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
       );
       if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
-        metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, hint: "Acompanhamentos abertos" });
+        metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, href: "/app/pastoral/", hint: "Acompanhamentos abertos" });
       }
     }
     if (summaryReady || loading) {
