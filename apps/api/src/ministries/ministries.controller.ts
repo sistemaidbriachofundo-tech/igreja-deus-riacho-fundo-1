@@ -387,6 +387,18 @@ export class MinistriesController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-modules/:moduleId/invitation-people")
+  searchRosterInvitationPeople(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Query("q") query = "",
+    @Query("limit") limit?: string,
+  ) {
+    return this.ministries.searchRosterInvitationPeople(user, ministryId, moduleId, query, limit);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Get(":ministryId/roster-member-invitations")
   listRosterMemberInvitations(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string) {
     return this.ministries.listRosterMemberInvitations(user, ministryId);

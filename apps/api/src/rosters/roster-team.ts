@@ -104,6 +104,33 @@ export async function createRosterMemberInvitation(db: Db, actor: AuthUser, pilo
   });
 }
 
+export async function searchRosterInvitationPeople(db: Db, actor: AuthUser, pilot: Pilot, ministryId: string, moduleId: string, query: string, limit = 8) {
+  const ministry = await ministryOf(txOf(db), ministryId, pilot);
+  const module = await db.ministryRosterModule.findFirst({ where: { id: moduleId, ministryId }, select: { id: true } });
+  if (!module) throw new NotFoundException("Módulo não encontrado neste ministério.");
+  await assertModule(txOf(db), actor, ministry, module.id, pilot);
+  const term = query.trim().slice(0, 100);
+  const take = Math.min(8, Math.max(1, Number.isInteger(limit) ? limit : 8));
+  if (term.length < 2) return { hits: [] as Array<{ person: { id: string; displayName: string } }> };
+  const [links, pending] = await Promise.all([
+    db.ministryRosterModuleMembership.findMany({ where: { moduleId: module.id, status: "ATIVO", endedAt: null }, select: { personId: true } }),
+    db.ministryRosterMemberInvitation.findMany({ where: { moduleId: module.id, status: "PENDING" }, select: { personId: true } }),
+  ]);
+  const excluded = [...new Set([...links, ...pending].map(row => row.personId))];
+  const people = await db.person.findMany({
+    where: {
+      status: "ACTIVE",
+      displayName: { contains: term, mode: "insensitive" },
+      ministryMemberships: { some: { ministryId, churchId: pilot.churchId, organizationId: pilot.organizationId, status: "ATIVO", endedAt: null } },
+      ...(excluded.length ? { id: { notIn: excluded } } : {}),
+    },
+    select: { id: true, displayName: true },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    take,
+  });
+  return { hits: people.map(person => ({ person: { id: person.id, displayName: person.displayName } })) };
+}
+
 export async function listMyRosterMemberInvitations(db: Db, actor: AuthUser, pilot: Pilot) {
   if (!actor.personId) throw new ForbiddenException("A sessão precisa estar vinculada a uma pessoa.");
   const rows = await db.ministryRosterMemberInvitation.findMany({

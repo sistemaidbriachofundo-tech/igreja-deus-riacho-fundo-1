@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException } from "@nestjs/common";
 import type { AuthUser } from "../auth/types/auth-user";
-import { createRosterMemberInvitation, inviteSlotCandidate, listRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation } from "./roster-team";
+import { createRosterMemberInvitation, inviteSlotCandidate, listRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation, searchRosterInvitationPeople } from "./roster-team";
 
 const pilot = { organizationId: "org", churchId: "riacho" };
 const leader = { userId: "u", personId: "lider-recepcao", grants: [{ roleCode: "LIDER_MINISTERIO", organizationId: "org", churchId: "riacho", ministryId: "atmosfera" }] } as AuthUser;
@@ -124,5 +124,39 @@ describe("convite de equipe e cobertura de vaga", () => {
     slot.assignments = assignments;
     await expect(inviteSlotCandidate(db as never, leader, pilot, "vaga", { personId: "ana" }, new Date("2026-11-01T12:00:00.000Z"))).rejects.toBeInstanceOf(ConflictException);
     await expect(listSlotCandidates(db as never, leader, pilot, "conexao", new Date("2026-11-01T12:00:00.000Z"))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("busca só quem o líder pode convidar para o próprio módulo", async () => {
+    const people = [
+      { id: "ana", displayName: "Ana Recepção", status: "ACTIVE", churchId: "riacho" },
+      { id: "bruno", displayName: "Bruno Livre", status: "ACTIVE", churchId: "riacho" },
+      { id: "carla", displayName: "Carla Pendente", status: "ACTIVE", churchId: "riacho" },
+      { id: "diana", displayName: "Diana Outra Igreja", status: "ACTIVE", churchId: "outra" },
+    ];
+    const links = [{ moduleId: "recepcao", personId: "ana", status: "ATIVO", endedAt: null }];
+    const invitations = [{ moduleId: "recepcao", personId: "carla", status: "PENDING" as const }];
+    const members = [
+      { personId: "ana", ministryId: "atmosfera", churchId: "riacho", organizationId: "org", status: "ATIVO", endedAt: null },
+      { personId: "bruno", ministryId: "atmosfera", churchId: "riacho", organizationId: "org", status: "ATIVO", endedAt: null },
+      { personId: "carla", ministryId: "atmosfera", churchId: "riacho", organizationId: "org", status: "ATIVO", endedAt: null },
+      { personId: "diana", ministryId: "atmosfera", churchId: "outra", organizationId: "org", status: "ATIVO", endedAt: null },
+    ];
+    const db = {
+      ministry: { findFirst: async () => ({ id: "atmosfera", leaderPersonId: "lider-atmosfera" }) },
+      ministryRosterModuleLeader: { findMany: async ({ where }: { where: { personId: string } }) => where.personId === "lider-recepcao" ? [{ moduleId: "recepcao" }] : [] },
+      ministryRosterModule: { findFirst: async ({ where }: { where: { id: string } }) => ({ id: where.id }) },
+      ministryRosterModuleMembership: { findMany: async () => links },
+      ministryRosterMemberInvitation: { findMany: async () => invitations },
+      person: { findMany: async ({ where, take }: { where: { displayName: { contains: string }; id?: { notIn: string[] } }; take: number }) => {
+        const excluded = new Set(where.id?.notIn ?? []);
+        const term = where.displayName.contains.toLocaleLowerCase("pt-BR");
+        return people.filter(person => person.displayName.toLocaleLowerCase("pt-BR").includes(term) && !excluded.has(person.id) && members.some(member => member.personId === person.id && member.churchId === "riacho")).slice(0, take).map(person => ({ id: person.id, displayName: person.displayName }));
+      } },
+    };
+    await expect(searchRosterInvitationPeople(db as never, leader, pilot, "atmosfera", "conexao", "br", 8)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(searchRosterInvitationPeople(db as never, leader, pilot, "atmosfera", "recepcao", "b", 8)).resolves.toEqual({ hits: [] });
+    await expect(searchRosterInvitationPeople(db as never, leader, pilot, "atmosfera", "recepcao", "br", 8)).resolves.toEqual({
+      hits: [{ person: { id: "bruno", displayName: "Bruno Livre" } }],
+    });
   });
 });

@@ -29,7 +29,7 @@ import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAss
 import { assertOpenModuleSlot, assertSlotEligibility, CULT_TYPES, cultTypeAt, readModuleRules, readPositionLocation, type CultType, type PositionLocation } from "../rosters/roster-operating-rules";
 import { canonicalModuleKey, canonicalModuleName, resolveRosterAccess, rosterInScope } from "../rosters/roster-module-policy";
 import { appendParticipantResponse, applyCapacity, assertRosterModuleAllowed, patchMembershipModules, positionsForModule, publishAssignmentNotices, syncExplicitLinks } from "../rosters/roster-module-runtime";
-import { createRosterMemberInvitation, listRosterMemberInvitations } from "../rosters/roster-team";
+import { createRosterMemberInvitation, listRosterMemberInvitations, searchRosterInvitationPeople } from "../rosters/roster-team";
 
 export type LeadershipPublicEntry = {
   displayName: string;
@@ -241,6 +241,13 @@ export class MinistriesService {
     return this.patchMinistry(actor, ministryId, {
       publishStatus: "ARCHIVED",
     });
+  }
+
+  async searchRosterInvitationPeople(actor: AuthUser, ministryId: string, moduleId: string, query: string, limit?: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const parsed = limit === undefined || limit === "" ? 8 : Number(limit);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) throw new BadRequestException("O limite fica entre 1 e 8.");
+    return searchRosterInvitationPeople(this.prisma, actor, pilot, ministryId, moduleId, query, parsed);
   }
 
   async listRosterMemberInvitations(actor: AuthUser, ministryId: string) {
