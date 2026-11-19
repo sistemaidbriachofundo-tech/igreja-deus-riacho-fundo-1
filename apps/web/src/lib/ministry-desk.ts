@@ -4,6 +4,8 @@
  * Os dados de caixa dependem de autorização e do centro de custo do ministério.
  */
 
+import { sortByName } from "@idbrf/shared";
+
 export const FORMAL_ROLES = ["LIDER", "COORDENADOR", "INTEGRANTE", "APOIO"] as const;
 export const FORMAL_STATUSES = ["ATIVO", "CONVIDADO", "PAUSADO", "ENCERRADO"] as const;
 
@@ -161,7 +163,7 @@ function readLeadership(value: unknown): PublicLeader[] {
     if (!displayName || !roleTitle) continue;
     leaders.push({ displayName, roleTitle });
   }
-  return leaders;
+  return sortByName(leaders, leader => leader.displayName);
 }
 
 export function readMinistries(body: unknown): MinistryOption[] {
@@ -207,7 +209,7 @@ export function readInterests(body: unknown): InterestRow[] {
       formalMember: false,
     });
   }
-  return rows;
+  return sortByName(rows, interest => interest.displayName);
 }
 
 /**
@@ -244,7 +246,7 @@ export function acceptFormalMembers(body: unknown): FormalMember[] | null {
       status: status as FormalStatus,
     });
   }
-  return members;
+  return sortByName(members, member => member.displayName);
 }
 
 export function presentMembership(status: number, body: unknown): MembershipPanel {

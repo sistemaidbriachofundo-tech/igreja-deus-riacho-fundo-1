@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useMemo, useState } from "react";
 import { AppShell, UIIcon } from "./AppShell";
 import { useChurchRecords } from "../lib/use-church-records";
@@ -26,8 +27,8 @@ export function ChurchSecretary() {
   const [selected,setSelected] = useState<string|null>(null);
   const [modality,setModality] = useState<Modality>("BATISMO");
   const [notice,setNotice] = useState("");
-  const pending = useMemo(()=>members.filter(p=>p.status==="PENDING_ADMISSION"),[members]);
-  const visitors=useMemo(()=>members.filter(p=>p.status==="VISITOR"),[members]);
+  const pending = useMemo(() => sortByName(members.filter(person => person.status === "PENDING_ADMISSION"), person => person.name), [members]);
+  const visitors=useMemo(() => sortByName(members.filter(person => person.status === "VISITOR"), person => person.name), [members]);
   const visible=pending.filter(p=>(filter==="ALL"||p.stage===filter) && [p.name,p.family].join(" ").toLocaleLowerCase("pt-BR").includes(term.toLocaleLowerCase("pt-BR")));
   const activeMember=members.find(p=>p.id===selected);
   const pastoral=pending.filter(p=>p.stage==="PASTOR").length;

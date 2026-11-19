@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { apiGetBlob, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
@@ -286,7 +287,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
             <div className={s.teamName}><strong>{name}</strong><span className={s.teamBadge} data-tone={coverage.tone}>{coverage.label}</span></div>
             <p>{coverageText(coverage)}</p>
             {names.length > 0 && <div className={s.avatars} aria-label={"Confirmaram: " + names.join(", ")} role="img">
-              {names.slice(0, 4).map(person => <span key={person} title={person}>{initials(person)}</span>)}
+              {sortByName(names, name => name).slice(0, 4).map(person => <span key={person} title={person}>{initials(person)}</span>)}
               {names.length > 4 && <span>+{names.length - 4}</span>}
             </div>}
           </li>;

@@ -1,7 +1,7 @@
 import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Header, NotFoundException, Optional, Post, Query, Param, ServiceUnavailableException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { Prisma } from "@prisma/client";
-import { hasAccess, ROLE_CODES } from "@idbrf/shared";
+import { hasAccess, ROLE_CODES, sortByName } from "@idbrf/shared";
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -26,6 +26,7 @@ const assignableRoles = [
   ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.TESOURARIA, ROLE_CODES.LIDER_MINISTERIO,
   ROLE_CODES.MEMBRO, ROLE_CODES.EDITOR_SITE, ROLE_CODES.PUBLICADOR_SITE, CHURCH_ADMINISTRATIVE_ROLE,
 ] as const;
+const accessPageSize = 25;
 
 class CreateChurchLogin {
   @IsString()
@@ -64,35 +65,47 @@ export class ChurchAccessController {
       throw new BadRequestException("Busca de acessos inválida.");
     }
     const q = query.trim();
-    const rows = await this.prisma.user.findMany({
-      where: {
-        person: { organizationId, homeChurchId: churchId },
-        ...(status === "ACTIVE" || status === "DISABLED" ? { status } : {}),
-        ...(q ? { OR: [
-          { email: { contains: q, mode: "insensitive" as const } },
-          { person: { displayName: { contains: q, mode: "insensitive" as const } } },
-        ] } : {}),
-      },
-      orderBy: [{ person: { displayName: "asc" } }, { id: "asc" }],
-      skip: (page - 1) * 25,
-      take: 26,
-      select: {
-        id: true, email: true, status: true,
-        accessInvitations: { where: { purpose: "ACTIVATION" }, take: 1, orderBy: { createdAt: "desc" }, select: { sentAt: true, consumedAt: true, revokedAt: true, expiresAt: true } },
-        person: { select: { id: true, displayName: true } },
-        grants: {
-          where: { AND: [{ OR: [{ organizationId }, { organizationId: null }] }, { OR: [{ churchId }, { churchId: null }] }] },
-          select: { role: { select: { code: true } }, ministry: { select: { name: true } } },
+    const where: Prisma.UserWhereInput = {
+      person: { organizationId, homeChurchId: churchId },
+      ...(status === "ACTIVE" || status === "DISABLED" ? { status } : {}),
+      ...(q ? { OR: [
+        { email: { contains: q, mode: "insensitive" } },
+        { person: { displayName: { contains: q, mode: "insensitive" } } },
+      ] } : {}),
+    };
+    const offset = (page - 1) * accessPageSize;
+    const { rows, hasMore } = await this.prisma.$transaction(async tx => {
+      const names = await tx.user.findMany({
+        where,
+        orderBy: { id: "asc" },
+        select: { id: true, person: { select: { displayName: true } } },
+      });
+      const pageIds = sortByName(names, account => account.person.displayName)
+        .slice(offset, offset + accessPageSize).map(account => account.id);
+      const hasMore = names.length > offset + accessPageSize;
+      if (!pageIds.length) return { rows: [], hasMore };
+      const accounts = await tx.user.findMany({
+        where: { ...where, id: { in: pageIds } },
+        select: {
+          id: true, email: true, status: true,
+          accessInvitations: { where: { purpose: "ACTIVATION" }, take: 1, orderBy: { createdAt: "desc" }, select: { sentAt: true, consumedAt: true, revokedAt: true, expiresAt: true } },
+          person: { select: { id: true, displayName: true } },
+          grants: {
+            where: { AND: [{ OR: [{ organizationId }, { organizationId: null }] }, { OR: [{ churchId }, { churchId: null }] }] },
+            select: { role: { select: { code: true } }, ministry: { select: { name: true } } },
+          },
         },
-      },
-    });
+      });
+      const byId = new Map(accounts.map(account => [account.id, account]));
+      return { rows: pageIds.flatMap(id => byId.get(id) ?? []), hasMore };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     return {
-      accounts: rows.slice(0, 25).map(({ grants, accessInvitations, ...row }) => ({
+      accounts: rows.map(({ grants, accessInvitations, ...row }) => ({
         invitationStatus: row.status === "DISABLED" && accessInvitations[0] && !accessInvitations[0].consumedAt
           ? (accessInvitations[0].sentAt ? "INVITED" : "PENDING_EMAIL") : null,
         ...row, profiles: grants.map(grant => ({ role: grant.role.code, ministry: grant.ministry?.name ?? null })),
       })),
-      hasMore: rows.length > 25,
+      hasMore,
       canInviteAdministrator: canDelegateChurchAdministration(actor, organizationId),
     };
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useState, type FormEvent } from "react";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
@@ -179,7 +180,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
         const replacing = !current.length ? latestDecline : undefined;
         const eligible = members.filter(member => !position.requiredQualification ||
           rules?.qualifications[position.requiredQualification]?.includes(member.personId));
-        const listed = [...current, ...position.assignments.filter(item => !current.includes(item))];
+        const listed = sortByName(position.assignments, item => names.get(item.personId) ?? item.personName);
         return (
         <section className={s.position} key={position.id} id={`posto-${position.id}`} tabIndex={-1} aria-label={position.label}>
           <header className={s.positionHeading}>

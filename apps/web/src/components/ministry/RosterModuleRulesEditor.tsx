@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useState, type FormEvent } from "react";
 import { apiPatch } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
@@ -70,7 +71,7 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
               setNewVolunteer("");
             }}>Adicionar voluntário</button>
           </div>
-          {team.length ? <ul className={s.teamList}>{team.map(id => {
+          {team.length ? <ul className={s.teamList}>{sortByName(team, id => memberNames.get(id)).map(id => {
             const linked = rules.couples.some(pair => pair.includes(id)) || Object.values(rules.qualifications).some(ids => ids.includes(id));
             return <li key={id}>
               <span>{memberNames.get(id) ?? "Integrante inativo"}</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiRequestError, apiGet, apiPatch, apiPost } from "../lib/api";
 import { dasError } from "../lib/das-operations";
@@ -25,7 +26,7 @@ export function PeopleSearch({ token, label, onSelect }: { token: string; label:
     setPeople(undefined);
     try {
       const result = await apiGet<{ people: ConnectionPerson[] }>("/discipleship/people?q=" + encodeURIComponent(query.trim()), token);
-      setPeople(result.people);
+      setPeople(sortByName(result.people, person => person.displayName));
     } catch (problem) { setError(dasError(problem)); }
     finally { setBusy(false); }
   }
@@ -65,14 +66,15 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
   const mentorPath = "/discipleship/tracks/" + track + "/mentors";
   const enrollmentPath = "/discipleship/enrollments/" + encodeURIComponent(selected);
   const current = people.find(item => item.id === selected);
-  const activeEnrollments = people.filter(row => row.status === "ACTIVE");
+  const orderedPeople = sortByName(people, row => row.personName);
+  const activeEnrollments = orderedPeople.filter(row => row.status === "ACTIVE");
   const waitingForMentor = activeEnrollments.filter(row => !row.mentorPersonId).length;
   const progressPath = enrollmentPath + "/progress";
 
   useEffect(() => {
     let active = true;
     apiGet<{ mentors: ConnectionPerson[] }>(mentorPath, token).then(result => {
-      if (active) setMentors(result.mentors);
+      if (active) setMentors(sortByName(result.mentors, mentor => mentor.displayName));
     }).catch(error => {
       if (active) setMentorError(dasError(error));
     });
@@ -183,7 +185,8 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
           <strong>{mentorCandidate.displayName}</strong>
           <button type="button" className={s.primaryAction} disabled={busy} onClick={() => void operate(async () => {
             await apiPost(mentorPath, token, { personId: mentorCandidate.id });
-            setMentors((await apiGet<{ mentors: ConnectionPerson[] }>(mentorPath, token)).mentors);
+            const result = await apiGet<{ mentors: ConnectionPerson[] }>(mentorPath, token);
+            setMentors(sortByName(result.mentors, mentor => mentor.displayName));
             setMentorError("");
             setMentorCandidate(null);
           }, "Mentor cadastrado.")}>Cadastrar mentor</button>
@@ -192,7 +195,7 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
     </div>
     <h4 className={s.enrollmentHeading}>Pessoas na trilha</h4>
     {people.length === 0 ? <p className={s.notice}>Nenhuma pessoa matriculada.</p> :
-      <ul className={s.operationList}>{people.map(row => <li key={row.id}>
+      <ul className={s.operationList}>{orderedPeople.map(row => <li key={row.id}>
         <div><strong>{row.personName || "Participante da trilha"}</strong><span>{statusLabels[row.status] || "Situação não informada"} · {row.mentorName || "Mentor a definir"}</span></div>
         <button type="button" className={s.retry} aria-pressed={selected === row.id} disabled={busy} onClick={() => {
           setSelected(row.id); setMentorId(row.mentorPersonId ?? ""); setProgress(undefined);

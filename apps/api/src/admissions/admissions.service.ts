@@ -37,10 +37,11 @@ export class AdmissionsService {
         churchId: pilot.churchId,
         ...(status ? { status: status as never } : {}),
       },
+      include: { person: { select: { displayName: true } } },
       orderBy: { createdAt: "desc" },
     });
 
-    return { admissions: rows.map((row) => this.toDto(row)) };
+    return { admissions: rows.map((row) => ({ ...this.toDto(row), personName: row.person?.displayName ?? null })) };
   }
 
   async getById(actor: AuthUser, admissionId: string) {

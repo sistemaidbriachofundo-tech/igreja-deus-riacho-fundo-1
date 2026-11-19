@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useMemo, useState } from "react";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import type { FormEvent } from "react";
@@ -59,7 +60,7 @@ export function MemberDirectory(){
   const stats=useMemo(()=>summarize(members),[members]);
   const filtered=useMemo(()=>{
     const rows=filterMembers(members,query,filter);
-    return rows.sort((a,b)=>sort==="RECENT"?b.joinedAt.localeCompare(a.joinedAt):a.name.localeCompare(b.name,"pt-BR"));
+    return sort === "RECENT" ? rows.sort((a, b) => b.joinedAt.localeCompare(a.joinedAt)) : sortByName(rows, row => row.name);
   },[members,query,filter,sort]);
   const pages=Math.max(1,Math.ceil(filtered.length/perPage));
   const visible=filtered.slice((Math.min(page,pages)-1)*perPage,Math.min(page,pages)*perPage);

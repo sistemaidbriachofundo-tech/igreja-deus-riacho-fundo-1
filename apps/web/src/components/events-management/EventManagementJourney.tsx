@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PageHeader } from "../ui/PageHeader";
@@ -610,7 +611,7 @@ export function EventManagementView(props: {
         </form>}
         {props.issuedCode && <p className={s.notice}>Código de check-in desta inscrição adulta: <strong>{props.issuedCode}</strong></p>}
         <div className={s.cards}>
-          {props.registrations.map((row) => <article className={s.card} key={row.id}>
+          {sortByName(props.registrations, row => row.displayName).map((row) => <article className={s.card} key={row.id}>
             <strong>{registrationLabel(row)}</strong>
             <small>{eventStatusLabel(row.status)} · {row.partySize} {row.partySize === 1 ? "pessoa" : "pessoas"}</small>
             {canRecordPresence(row) && <label>Código de presença<input value={props.checkCode} onChange={(event) => props.onCheckCode(event.target.value)} autoComplete="off"/></label>}

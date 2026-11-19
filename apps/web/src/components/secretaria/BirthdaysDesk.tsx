@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState } from "react";
 import { AppNavLink, AppShell, usePersonaAccess, UIIcon } from "../AppShell";
 import { apiGet, loadStoredToken } from "../../lib/api";
@@ -33,7 +34,7 @@ function BirthdayList() {
     setBirthdays(undefined);
     setFault("");
     void apiGet<{ birthdays: Birthday[] }>("/reports/birthdays?period=" + period, token)
-      .then(result => { if (active) setBirthdays(result.birthdays); })
+      .then(result => { if (active) setBirthdays(sortByName(result.birthdays, person => person.name)); })
       .catch(error => { if (active) setFault(dasError(error)); });
     return () => { active = false; };
   }, [period, permitted, attempt]);

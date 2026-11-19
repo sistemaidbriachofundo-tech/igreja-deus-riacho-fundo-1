@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
@@ -217,7 +218,7 @@ function AccessForm({ token, canInviteAdministrator = false, onCreated }: {
     setSearched(false);
     try {
       const result = await apiGet<{ people: Person[] }>("/admin/access/people?q=" + encodeURIComponent(term.trim()), token);
-      setPeople(result.people);
+      setPeople(sortByName(result.people, person => person.displayName));
       setSearched(true);
     } catch (error) {
       showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });

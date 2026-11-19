@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useState, type FormEvent } from "react";
 import { PersonPicker, canSearchPersons } from "../PersonPicker";
 import { OpenWhatsAppLink } from "../OpenWhatsAppLink";
@@ -131,7 +132,7 @@ export function MinistryRosterDesk({
                     {slot.assignments.length === 0 && (
                       <p className={styles.footnote}>Nenhuma pessoa designada nesta função.</p>
                     )}
-                    {slot.assignments.map((assignment) => {
+                    {sortByName(slot.assignments, assignment => assignment.personName).map((assignment) => {
                       const block = rosterBlocks.find(
                         (item) =>
                           item.personId === assignment.personId ||

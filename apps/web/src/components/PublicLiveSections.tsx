@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { familyService, sundayServices } from "../lib/public-service-schedule";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -215,7 +216,7 @@ export function PublishedMinistryInfo({ slug }: { slug: string }) {
           {valid.scheduleText && <div className={s.ministryDatum}><span>ENCONTROS</span><p>{valid.scheduleText}</p></div>}
           {valid.participationInfo && <div className={s.ministryDatum}><span>COMO PARTICIPAR</span><p>{valid.participationInfo}</p></div>}
           {valid.leadership.length > 0 && <div className={s.ministryDatum}><span>EQUIPE DE LIDERANÇA</span>
-            <ul>{valid.leadership.map((person, i) => <li key={person.displayName + i}><strong>{person.displayName}</strong><small>{person.roleTitle}</small></li>)}</ul>
+            <ul>{sortByName(valid.leadership, person => person.displayName).map((person, i) => <li key={person.displayName + i}><strong>{person.displayName}</strong><small>{person.roleTitle}</small></li>)}</ul>
           </div>}
         </div>
         <div className={s.related}>

@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { apiGet } from "../lib/api";
 import styles from "./person-picker.module.css";
@@ -47,12 +48,13 @@ export function filterPersonOptions(
       .replace(/\p{Diacritic}/gu, "")
       .toLocaleLowerCase("pt-BR");
   const term = normalized(query.trim());
-  return options.filter(
+  const matching = options.filter(
     (person) =>
       !excludeIds.includes(person.id) &&
       !(adultsOnly && person.isMinor) &&
       normalized(person.displayName).includes(term),
   );
+  return sortByName(matching, person => person.displayName);
 }
 
 export function PersonPicker({

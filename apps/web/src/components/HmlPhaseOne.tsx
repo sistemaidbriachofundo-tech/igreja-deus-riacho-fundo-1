@@ -1,6 +1,6 @@
 "use client";
 
-import { ECCLESIASTICAL_ROLES, type EcclesiasticalRole } from "@idbrf/shared";
+import { ECCLESIASTICAL_ROLES, sortByName, type EcclesiasticalRole } from "@idbrf/shared";
 
 import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
@@ -48,6 +48,7 @@ function memberHasFunction(membership: Membership, role: EcclesiasticalRole) {
 type Admission = {
   id: string;
   personId: string;
+  personName?: string | null;
   membershipId: string | null;
   status: string;
   modality: string | null;
@@ -148,7 +149,7 @@ export function CredentialCards({
   CredentialPreview?: ComponentType<CredentialPreviewProps>;
   onToggle: (membership: Membership) => void;
 }) {
-  const active = memberships.filter(membership => membership.status === "ACTIVE");
+  const active = sortByName(memberships.filter(membership => membership.status === "ACTIVE"), row => row.person.displayName);
   if (active.length === 0) return <p className={s.empty}>Nenhuma pessoa ativa para emitir carteirinha.</p>;
   return (
     <div className={s.admissions}>
@@ -330,20 +331,20 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       total: loadedGroups.people ? activeMembers.filter(member => memberHasFunction(member, role)).length : null,
     }));
   }, [memberships, loadedGroups.people]);
-  const filtered = memberships.filter(membership =>
+  const filtered = sortByName(memberships.filter(membership =>
     (!churchFunction || (membership.status === "ACTIVE" && membership.person.status === "ACTIVE" && memberHasFunction(membership, churchFunction))) &&
     (!familyFilter || membership.person.householdId === familyFilter) &&
     (!membershipStatus || membership.status === membershipStatus) &&
     [membership.person.displayName, membership.person.email ?? "", label(membership.status)].join(" ").toLocaleLowerCase("pt-BR").includes(q)
-  );
+  ), membership => membership.person.displayName);
   const selectedFamily = households.find(household => household.id === familyFilter);
 
-  const filteredAdmissions = (showHistory ? admissions : pending).filter(admission => {
+  const admissionName = (admission: Admission) => membershipByPerson.get(admission.personId)?.person.displayName ?? admission.personName;
+  const filteredAdmissions = sortByName((showHistory ? admissions : pending).filter(admission => {
     if (admissionStage && admission.currentStep !== admissionStage) return false;
     if (admissionProtocol && admission.id !== admissionProtocol) return false;
-    const member = membershipByPerson.get(admission.personId);
-    return [member?.person.displayName ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
-  });
+    return [admissionName(admission) ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
+  }), admissionName);
 
   const showsPeople = view === "members" || (view === "secretary" && secretary && secretarySection === "pessoas");
   const showsAdmissions = view === "secretary" && (!secretary || secretarySection === "admissoes");
@@ -770,7 +771,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       {filteredAdmissions.slice(firstRow, firstRow + PAGE_SIZE).map(admission => {
                         const canAct = admission.currentStep === "pastor" ? pastor : secretary;
                         const done = CLOSED_ADMISSIONS.includes(admission.status);
-                        const personName = membershipByPerson.get(admission.personId)?.person.displayName ?? "Pessoa em admissão";
+                        const personName = admissionName(admission) ?? "Pessoa em admissão";
                         const stepLabel = admission.currentStep === "pastor"
                           ? "decisão pastoral"
                           : admission.currentStep === "secretaria"

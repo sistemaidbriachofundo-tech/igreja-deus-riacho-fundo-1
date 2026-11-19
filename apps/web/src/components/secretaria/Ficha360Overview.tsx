@@ -1,5 +1,5 @@
 import { dossierLabel, type PersonDossier, type PersonRecord } from "../secretary-dossier";
-import { ECCLESIASTICAL_ROLES, type PersonTimelineEvent } from "@idbrf/shared";
+import { ECCLESIASTICAL_ROLES, sortByName, type PersonTimelineEvent } from "@idbrf/shared";
 import { ECCLESIASTICAL_ROLE_LABELS } from "./EcclesiasticalRoleFields";
 import s from "./ficha360-overview.module.css";
 
@@ -119,7 +119,7 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
           <header className={s.sectionHeader}><h3>Família e dependentes</h3></header>
           <p className={s.detailCaption}>{dossier.household?.label ? "Família "+dossier.household.label : "Família ainda não vinculada."}</p>
           {canEdit && dossier.household?.members.length ? <ul className={s.familyList}>
-            {dossier.household.members.slice(0,12).map(member => <li key={member.id}>
+            {sortByName(dossier.household.members, member => member.displayName).slice(0, 12).map(member => <li key={member.id}>
               <span className={s.avatar} aria-hidden="true">{initials(member.displayName)}</span>
               <strong>{member.displayName}</strong>
               <small>{member.isMinor ? "Menor de idade" : "Familiar"}</small>
@@ -128,7 +128,7 @@ export function Ficha360Overview({person, dossier, canEdit, onTab}: Props) {
           {dossier.legalGuardian && <div className={s.guardian}><span>Responsável legal</span><strong>{dossier.legalGuardian.displayName}</strong></div>}
           {canEdit && dossier.dependents.length > 0 && <div className={s.dependentBlock}>
             <h4>Dependentes e pessoas sob cuidado</h4>
-            <ul className={s.familyList}>{dossier.dependents.slice(0,12).map(member => <li key={member.id}>
+            <ul className={s.familyList}>{sortByName(dossier.dependents, member => member.displayName).slice(0, 12).map(member => <li key={member.id}>
               <span className={s.avatar} aria-hidden="true">{initials(member.displayName)}</span>
               <strong>{member.displayName}</strong>
               <small>{member.isMinor ? "Menor de idade" : "Dependente"}</small>

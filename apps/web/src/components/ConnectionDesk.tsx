@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { AppShell, AppNavLink, usePersonaAccess, UIIcon } from "./AppShell";
 import { Button, PageHeader } from "./ui";
@@ -174,7 +175,7 @@ function ConnectionContent() {
           {selectedStageId && <div className={s.stagePeople} aria-live="polite">
             <h4>{tracking.stages.find(stage => stage.id === selectedStageId)?.title}</h4>
             {tracking.enrollments.some(walk => walk.currentStageId === selectedStageId)
-              ? <ul className={s.operationList}>{tracking.enrollments.filter(walk => walk.currentStageId === selectedStageId).map(walk =>
+              ? <ul className={s.operationList}>{sortByName(tracking.enrollments.filter(walk => walk.currentStageId === selectedStageId), walk => walk.personName).map(walk =>
                 <li key={walk.id}><strong>{walk.personName ?? "Pessoa matriculada"}</strong>
                   <span>{walk.mentorName ?? "Mentor a definir"}</span></li>,
               )}</ul>

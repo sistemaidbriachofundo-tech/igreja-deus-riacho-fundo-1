@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useMemo, useRef, useState } from "react";
 import { WorkspaceSearch } from "../ui/WorkspaceSearch";
 import ui from "../ui/ui.module.css";
@@ -79,13 +80,13 @@ export function CredentialDesk({
     return memberships;
   }, [canManage, memberships, ownCard]);
 
-  const visible = rows.filter((row) => {
+  const visible = sortByName(rows.filter((row) => {
     const status = row.activeCredentialId ? "ACTIVE" : "PENDING";
     if (filter === "ACTIVE" && status !== "ACTIVE") return false;
     if (filter === "PENDING" && status !== "PENDING") return false;
     const haystack = [row.displayName, row.membershipId, row.personId].join(" ").toLocaleLowerCase("pt-BR");
     return haystack.includes(query.trim().toLocaleLowerCase("pt-BR"));
-  });
+  }), row => row.displayName);
 
   function resetViewer() {
     setVerification(null);

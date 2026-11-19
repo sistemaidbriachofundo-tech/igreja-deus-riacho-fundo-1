@@ -343,3 +343,4 @@ export {
   type WhatsAppLinkInput,
   type MailtoLinkInput,
 } from "./contact-deep-links";
+export { sortByName } from "./alphabetical";

@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../lib/api";
 import { dasError } from "../lib/das-operations";
@@ -30,7 +31,7 @@ export function GroupRequests({ token, manage = false, hideEmpty = false }: { to
     setFault("");
     const load = manage
       ? apiGet<{ requests: Request[] }>("/group-requests/inbox", token).then(result => {
-        if (current) setRequests(result.requests);
+        if (current) setRequests(sortByName(result.requests, request => request.person.displayName));
       })
       : apiGet<{ groups: Group[] }>("/group-requests/catalog", token).then(result => {
         if (current) setGroups(result.groups);

@@ -59,6 +59,27 @@ describe("Acessos da congregação — convite ao titular", () => {
     expect(db.user.findMany).not.toHaveBeenCalled();
   });
 
+  it("ordena nomes acentuados antes de dividir a lista de acessos em páginas", async () => {
+    const { db, controller } = setup();
+    const filler = Array.from({ length: 24 }, (_, index) => ({ id: `b-${index}`, displayName: `Bruno ${String(index).padStart(2, "0")}` }));
+    const accounts = [
+      ...filler,
+      { id: "zelia", displayName: "Zélia" },
+      { id: "erica", displayName: "Érica" },
+      { id: "alvaro", displayName: "  álvaro  " },
+    ].map(person => ({
+      id: person.id, person, email: "qa@example.test", status: "ACTIVE", accessInvitations: [], grants: [],
+    }));
+    db.user.findMany.mockImplementation(async ({ where }) => accounts.filter(account => !where.id || where.id.in.includes(account.id)));
+
+    const first = await controller.list(admin);
+    expect(first.accounts.map(account => account.id)).toEqual(["alvaro", ...filler.map(person => person.id)]);
+    expect(first.hasMore).toBe(true);
+    const second = await controller.list(admin, "", "2");
+    expect(second.accounts.map(account => account.id)).toEqual(["erica", "zelia"]);
+    expect(second.hasMore).toBe(false);
+  });
+
   it("cria somente conta desativada e hash de convite na mesma transação, nunca senha do administrador", async () => {
     const { db, controller, invitations } = setup();
     const result = await controller.create(admin, { personId: "person-test", email: "PERSON@example.test", role: "MEMBRO" });

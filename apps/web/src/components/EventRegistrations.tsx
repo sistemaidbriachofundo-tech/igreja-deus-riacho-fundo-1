@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 
@@ -87,6 +88,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
   const base="/events/"+codeOf(eventId);
   const modality=data.modalities.find(x=>x.id===registrationModality);
   const compatibleLots=data.lots.filter(x=>!keyOf(x.modalityId)||x.modalityId===registrationModality);
+  const orderedRegistrations = sortByName(data.registrations, row => row.isMinor === true ? null : keyOf(row.displayName));
   const stats=useMemo(()=>({
     participants:data.registrations.reduce((total,item)=>total+(quantity(item.partySize)??0),0),
     checkedIn:data.registrations.filter(item=>item.status==="CHECKED_IN").length,
@@ -280,7 +282,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       {pane==="registrations"&&<div className={s.columns}>
         <div className={s.records}><h3>Inscrições da HML</h3>
           {data.registrations.length===0&&<p>Não há inscrições registradas.</p>}
-          {data.registrations.map((reg,i)=><article key={keyOf(reg.id)||i} className={s.item}>
+          {orderedRegistrations.map((reg,i)=><article key={keyOf(reg.id)||i} className={s.item}>
             <strong>{registrationTitle(reg)}</strong>
             <small>{quantity(reg.partySize)??1} pessoa(s) · {eventStatusLabel(keyOf(reg.status))}</small>
             <span>Pagamento: {paymentLabel(reg.paymentStatus)}</span>
@@ -321,7 +323,7 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
           <p>{stats.pending} inscrições ainda aguardam confirmação. O pagamento não é confirmado nesta tela. Repetir o mesmo código não duplica a presença.</p>
         </div>
         {data.registrations.length===0&&<p className={s.hint}>Nenhuma inscrição disponível para check-in.</p>}
-        {data.registrations.map((reg,i)=>{
+        {orderedRegistrations.map((reg,i)=>{
           const id=keyOf(reg.id),eligible=canCheckInRegistration(reg),finished=reg.status==="CHECKED_IN",cancelled=reg.status==="CANCELLED";
           return <article className={s.checkinRow} key={id||i}>
             <div><strong>{registrationTitle(reg)}</strong>
