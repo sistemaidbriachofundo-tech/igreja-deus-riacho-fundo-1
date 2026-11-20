@@ -70,6 +70,10 @@ class CreateEventBody {
   @IsOptional()
   @IsBoolean()
   featuredOnHome?: boolean;
+
+  @IsOptional()
+  @IsIn(["REGISTRATION", "PARTICIPANT"])
+  ticketPolicy?: "REGISTRATION" | "PARTICIPANT";
 }
 
 class PatchEventBody {
@@ -110,6 +114,10 @@ class PatchEventBody {
   @IsOptional()
   @IsBoolean()
   featuredOnHome?: boolean;
+
+  @IsOptional()
+  @IsIn(["REGISTRATION", "PARTICIPANT"])
+  ticketPolicy?: "REGISTRATION" | "PARTICIPANT";
 
   @IsOptional()
   @IsIn(["DRAFT", "PUBLISHED", "CANCELLED", "ARCHIVED"])
@@ -197,6 +205,10 @@ class CreateLotBody {
   @IsOptional()
   @IsString()
   receivingAccountId?: string | null;
+
+  @IsOptional()
+  @IsIn(["PIX", "MERCADO_PAGO"])
+  paymentProvider?: "PIX" | "MERCADO_PAGO";
 }
 
 class EventCheckInBody {

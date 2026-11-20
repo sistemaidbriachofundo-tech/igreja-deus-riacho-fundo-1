@@ -35,6 +35,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { RequireAccess } from "../auth/decorators/require-access.decorator";
+import { mockBankProbe } from "./bank-adapters";
 import { FinanceService } from "./finance.service";
 
 class CreateAccountBody {
@@ -332,6 +333,19 @@ export class FinanceController {
   @Get("bank-adapters")
   listBankAdapters() {
     return this.finance.listBankAdapters();
+  }
+
+  @Post("bank-adapters/:code/mock-probe")
+  mockProbe(@Param("code") code: string) {
+    try {
+      return mockBankProbe(code);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("INVALID_BANK_ADAPTER")) {
+        throw new BadRequestException("Adaptador bancário desconhecido.");
+      }
+      throw new BadRequestException("A sonda mock aceita BRB, Sicoob ou o adaptador MOCK. Nenhum banco foi contactado.");
+    }
   }
 
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)

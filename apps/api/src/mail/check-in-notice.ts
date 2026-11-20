@@ -37,3 +37,24 @@ export async function queueEventCheckInNotice(
   );
   return { queued: true as const, receipt };
 }
+
+export async function queueParticipantTicketNotices(
+  mail: MailService | undefined,
+  input: { eventName: string; tickets: Array<{ id: string; position: number; code: string; email: string }> },
+) {
+  if (!mail) return { queued: false as const, count: 0 };
+  let count = 0;
+  for (const ticket of input.tickets) {
+    const content = await QRCode.toBuffer(ticket.code, { margin: 4, errorCorrectionLevel: "M", width: 240 });
+    await mail.deliverOnce({
+      idempotencyKey: `event-ticket:${ticket.id}`,
+      to: ticket.email,
+      subject: "Seu ingresso",
+      text: `Seu ingresso para ${input.eventName} está confirmado.\nApresente este QR no dia do evento.\nIngresso ${ticket.position}: ${ticket.code}`,
+      html: `<p>Seu ingresso para ${input.eventName} está confirmado.</p><img src="cid:ingresso-${ticket.position}" width="240" height="240" alt="QR do ingresso" /><p>${ticket.code}</p>`,
+      attachments: [{ filename: `ingresso-${ticket.position}.png`, cid: `ingresso-${ticket.position}`, content }],
+    }, { required: false });
+    count += 1;
+  }
+  return { queued: true as const, count };
+}

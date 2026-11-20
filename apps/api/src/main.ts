@@ -20,7 +20,7 @@ async function bootstrap() {
   assertProductionConfiguration(process.env);
   assertDeployedAuthState(process.env);
   assertDeployedRateLimit(process.env);
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const trustProxyHops = resolveTrustProxyHops(process.env);
   if (trustProxyHops > 0) {

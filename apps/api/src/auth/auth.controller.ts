@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Header, Post, Req } from "@nestjs/common";
-import { ROLE_CODES } from "@idbrf/shared";
+import { publicPasswordResetBody, ROLE_CODES } from "@idbrf/shared";
 import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from "class-validator";
+import { AccessInvitationService } from "./access-invitation.service";
 import { AuthService } from "./auth.service";
+import { ResumeEventService } from "./resume-event.service";
 import { clientAddress } from "./login/client-address";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { Public } from "./decorators/public.decorator";
@@ -15,6 +17,17 @@ class LoginBody {
   @IsString()
   @MinLength(1)
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  resumeEventSlug?: string;
+}
+
+class PasswordForgotBody {
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
 }
 
 class GuestRegistrationBody {
@@ -29,6 +42,11 @@ class GuestRegistrationBody {
   @IsString()
   @Length(14, 128)
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  resumeEventSlug?: string;
 }
 
 class SwitchChurchBody {
@@ -46,6 +64,11 @@ class MfaChallengeBody {
   @IsString()
   @Matches(/^\d{6}$/)
   code!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  resumeEventSlug?: string;
 }
 
 class EnrollChallengeBody {
@@ -67,35 +90,50 @@ interface AddressableRequest {
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly resume: ResumeEventService,
+    private readonly invitations: AccessInvitationService,
+  ) {}
 
   @Public()
   @Header("Cache-Control", "no-store")
   @Post("login")
-  login(@Body() body: LoginBody, @Req() request?: AddressableRequest) {
-    return this.authService.login({
+  async login(@Body() body: LoginBody, @Req() request?: AddressableRequest) {
+    const session = await this.authService.login({
       email: body.email ?? "",
       password: body.password ?? "",
       clientIp: request ? clientAddress(request) : undefined,
     });
+    return { ...session, resume: await this.resume.resolve(body.resumeEventSlug) };
+  }
+
+  @Public()
+  @Header("Cache-Control", "no-store")
+  @Post("password/forgot")
+  async forgotPassword(@Body() body: PasswordForgotBody) {
+    await this.invitations.requestPublicReset(body.email ?? "");
+    return publicPasswordResetBody();
   }
 
   @Public()
   @Header("Cache-Control", "no-store")
   @Post("guest-registration")
-  registerGuest(@Body() body: GuestRegistrationBody, @Req() request: AddressableRequest) {
-    return this.authService.registerGuest({ ...body, clientIp: clientAddress(request) });
+  async registerGuest(@Body() body: GuestRegistrationBody, @Req() request: AddressableRequest) {
+    const session = await this.authService.registerGuest({ ...body, clientIp: clientAddress(request) });
+    return { ...session, resume: await this.resume.resolve(body.resumeEventSlug) };
   }
 
   /** Conclui o login privilegiado. Não emite sessão antes deste passo. */
   @Public()
   @Header("Cache-Control", "no-store")
   @Post("mfa/challenge")
-  verifyMfa(@Body() body: MfaChallengeBody) {
-    return this.authService.verifyMfaChallenge({
+  async verifyMfa(@Body() body: MfaChallengeBody) {
+    const session = await this.authService.verifyMfaChallenge({
       challengeId: body.challengeId,
       code: body.code,
     });
+    return { ...session, resume: await this.resume.resolve(body.resumeEventSlug) };
   }
 
   /** Enrollment preso ao desafio de quem ainda não tem TOTP. Não abre sessão. */

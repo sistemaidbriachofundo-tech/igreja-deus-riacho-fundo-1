@@ -26,6 +26,7 @@ export type EventInput = {
   ministryId?: string | null;
   featuredOnHome?: boolean;
   status?: "DRAFT" | "PUBLISHED" | "CANCELLED" | "ARCHIVED";
+  ticketPolicy?: "REGISTRATION" | "PARTICIPANT";
 };
 
 @Injectable()
@@ -72,6 +73,8 @@ export class EventsService {
           locationText: input.locationText ?? null,
           featuredOnHome: Boolean(input.featuredOnHome),
           status: "DRAFT",
+          createdByUserId: actor.userId,
+          ...(input.ticketPolicy ? { ticketPolicy: input.ticketPolicy } : {}),
         },
       });
       await tx.auditLog.create({
@@ -142,6 +145,15 @@ export class EventsService {
     if (input.locationText !== undefined) data.locationText = input.locationText;
     if (input.featuredOnHome !== undefined) {
       data.featuredOnHome = Boolean(input.featuredOnHome);
+    }
+    if (input.ticketPolicy !== undefined) {
+      if (existing.status !== "DRAFT") {
+        throw new BadRequestException("A política de ingresso só muda enquanto o evento é rascunho.");
+      }
+      if (input.ticketPolicy !== "REGISTRATION" && input.ticketPolicy !== "PARTICIPANT") {
+        throw new BadRequestException("ticketPolicy inválida");
+      }
+      data.ticketPolicy = input.ticketPolicy;
     }
     if (input.startsAt !== undefined) {
       data.startsAt = parseDate(input.startsAt, "startsAt");
@@ -300,6 +312,8 @@ export class EventsService {
     locationText: string | null;
     status: string;
     featuredOnHome: boolean;
+    ticketPolicy?: string;
+    createdByUserId?: string | null;
     publishedAt: Date | null;
     cancelledAt: Date | null;
     createdAt: Date;
@@ -319,6 +333,8 @@ export class EventsService {
       locationText: row.locationText,
       status: row.status,
       featuredOnHome: row.featuredOnHome,
+      ticketPolicy: row.ticketPolicy ?? "REGISTRATION",
+      createdByUserId: row.createdByUserId ?? null,
       publishedAt: row.publishedAt?.toISOString() ?? null,
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import { louvorWeekBounds } from "@idbrf/shared";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import type { PrismaService } from "../prisma/prisma.service";
@@ -301,10 +302,36 @@ export async function inviteSlotCandidate(db: Db, actor: AuthUser, pilot: Pilot,
     const current = await loadSlot(tx, slotId, pilot);
     if (!isPublicVacancy(current, now)) throw new ConflictException({ code: "ROSTER_SLOT_FILLED", message: "Esta vaga já foi preenchida." });
     const pending = await tx.rosterSlotInvitation.findFirst({
-      where: { slotId, personId: input.personId, partnerPersonId, status: "PENDING" },
+      where: { slotId, status: "PENDING" },
       select: { id: true, personId: true, partnerPersonId: true, status: true },
     });
-    if (pending) return slotInviteView(pending);
+    if (pending && pending.personId === input.personId && (pending.partnerPersonId ?? null) === partnerPersonId) {
+      return slotInviteView(pending);
+    }
+    if (pending) {
+      throw new ConflictException({ code: "ROSTER_ONE_INVITE", message: "Esta vaga já tem um convite em aberto." });
+    }
+    if (slot.roster.ministry?.slug === "louvor" || slot.roster.ministry?.slug === "louvor-demo") {
+      const bounds = louvorWeekBounds(current.roster.serviceAt);
+      const conflict = await tx.rosterAssignment.findFirst({
+        where: {
+          personId: input.personId,
+          status: { in: ["PENDING", "CONFIRMED"] },
+          slotId: { not: slotId },
+          slot: {
+            roster: {
+              churchId: pilot.churchId,
+              serviceAt: { gte: bounds.start, lt: bounds.end },
+              ministry: { slug: { in: ["louvor", "louvor-demo"] } },
+            },
+          },
+        },
+        select: { id: true },
+      });
+      if (conflict) {
+        throw new ConflictException({ code: "LOUVOR_WEEK", message: "Louvor bloqueia a pessoa de segunda a domingo do culto em que ela já está." });
+      }
+    }
     const invitation = await tx.rosterSlotInvitation.create({
       data: {
         organizationId: pilot.organizationId, churchId: pilot.churchId, slotId, personId: input.personId, partnerPersonId,

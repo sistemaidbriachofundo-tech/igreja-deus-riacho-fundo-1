@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ChurchAccessController, AccessActivationController } from "./church-access.controller";
 import { AccessInvitationService } from "./access-invitation.service";
 import { AuthController } from "./auth.controller";
+import { ResumeEventService } from "./resume-event.service";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { RolesGuard } from "./guards/roles.guard";
@@ -64,6 +65,7 @@ import {
     },
     AuthService,
     AccessInvitationService,
+    ResumeEventService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ScopeGuard },
