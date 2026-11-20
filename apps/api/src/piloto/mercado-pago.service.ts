@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
-import { paymentSettlement, ROLE_CODES, verifyMercadoPagoSignature } from "@idbrf/shared";
+import { paymentSettlement, ROLE_CODES } from "@idbrf/shared";
+import { verifyMercadoPagoWebhook } from "./mercado-pago-signature";
 import type { AuthUser } from "../auth/types/auth-user";
 import { queueParticipantTicketNotices } from "../mail/check-in-notice";
 import { MailService } from "../mail/mail.service";
@@ -8,15 +9,16 @@ import { PilotService } from "../pilot/pilot.service";
 
 export interface GatewayPayment {
   id: string;
-  status: "approved" | "refunded" | "pending" | "rejected";
+  status: "approved" | "refunded" | "pending" | "rejected" | "cancelled";
   externalReference: string;
+  currency: string;
   grossCents: number;
   feeCents: number;
   dueOn?: string | null;
 }
 
 export interface MercadoPagoGateway {
-  createPreference(input: { attemptRef: string; amountCents: number; title: string }): Promise<{ preferenceId: string; initPoint: string; mode: "mock" | "live" }>;
+  createPreference(input: { attemptRef: string; amountCents: number; title: string }): Promise<{ preferenceId: string; initPoint: string; mode: "mock" | "sandbox" }>;
   getPayment(id: string): Promise<GatewayPayment | null>;
 }
 
@@ -25,8 +27,12 @@ export class EnvMercadoPagoGateway implements MercadoPagoGateway {
 
   async createPreference(input: { attemptRef: string; amountCents: number; title: string }) {
     const token = this.env.MERCADO_PAGO_ACCESS_TOKEN?.trim();
-    if (!token || token === "mock") {
-      return { preferenceId: `pref_${input.attemptRef}`, initPoint: `https://mock.mercadopago.test/checkout?ref=${encodeURIComponent(input.attemptRef)}`, mode: "mock" as const };
+    const stage = this.env.MERCADO_PAGO_ENV?.trim();
+    if (stage === "live") {
+      throw new BadRequestException("A cobrança real do Mercado Pago não está habilitada. Use o mock ou o sandbox.");
+    }
+    if (!token || token === "mock" || stage !== "sandbox") {
+      return { preferenceId: `pref_${input.attemptRef}`, initPoint: `https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_${encodeURIComponent(input.attemptRef)}`, mode: "mock" as const };
     }
     const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
@@ -39,12 +45,13 @@ export class EnvMercadoPagoGateway implements MercadoPagoGateway {
     if (!response.ok) throw new BadRequestException("O Mercado Pago não abriu o checkout.");
     const payload = await response.json() as { id?: string; init_point?: string };
     if (!payload.id || !payload.init_point) throw new BadRequestException("O Mercado Pago não devolveu o checkout.");
-    return { preferenceId: payload.id, initPoint: payload.init_point, mode: "live" as const };
+    return { preferenceId: payload.id, initPoint: payload.init_point, mode: "sandbox" as const };
   }
 
   async getPayment(id: string): Promise<GatewayPayment | null> {
     const token = this.env.MERCADO_PAGO_ACCESS_TOKEN?.trim();
-    if (!token || token === "mock") return null;
+    const stage = this.env.MERCADO_PAGO_ENV?.trim();
+    if (!token || token === "mock" || stage !== "sandbox") return null;
     const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -56,10 +63,11 @@ export class EnvMercadoPagoGateway implements MercadoPagoGateway {
     };
     const grossCents = Math.round(Number(payload.transaction_amount ?? 0) * 100);
     const feeCents = Math.round((payload.fee_details ?? []).reduce((sum, fee) => sum + Number(fee.amount ?? 0), 0) * 100);
-    const status = payload.status === "approved" || payload.status === "refunded" || payload.status === "rejected" ? payload.status : "pending";
+    const status = payload.status === "approved" || payload.status === "refunded" || payload.status === "rejected" || payload.status === "cancelled" ? payload.status : "pending";
+    const currency = String((payload as { currency_id?: string }).currency_id ?? "");
     return {
       id: String(payload.id ?? id), status, externalReference: payload.external_reference ?? "",
-      grossCents, feeCents, dueOn: payload.date_of_expiration ?? null,
+      currency, grossCents, feeCents, dueOn: payload.date_of_expiration ?? null,
     };
   }
 }
@@ -91,24 +99,30 @@ export class MercadoPagoService {
     return { attemptRef: intent.attemptRef, initPoint: preference.initPoint, mode: preference.mode };
   }
 
-  async handleWebhook(input: { rawBody: string; timestamp: string; signature: string }) {
+  async handleWebhook(input: { signatureHeader: string; requestId: string; dataId: string }) {
     const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET?.trim() ?? "";
-    if (!verifyMercadoPagoSignature(secret, input.timestamp, input.rawBody, input.signature)) {
+    if (!verifyMercadoPagoWebhook({
+      secret, signatureHeader: input.signatureHeader, requestId: input.requestId, dataId: input.dataId,
+    })) {
       throw new UnauthorizedException("Assinatura do webhook inválida.");
     }
-    const body = JSON.parse(input.rawBody) as { data?: { id?: string }; id?: string };
-    const paymentId = body.data?.id ?? body.id;
-    if (!paymentId) throw new BadRequestException("Pagamento ausente.");
-    const payment = await this.gateway.getPayment(paymentId);
-    if (!payment) throw new ConflictException("O pagamento não foi confirmado na consulta.");
+    const payment = await this.gateway.getPayment(input.dataId);
+    if (!payment || payment.id !== input.dataId) throw new ConflictException("O pagamento não foi confirmado na consulta.");
     const idempotencyKey = `${payment.id}:${payment.status}`;
     const existing = await this.prisma.eventPaymentWebhookReceipt.findUnique({ where: { idempotencyKey } });
     if (existing) return { idempotencyKey, replay: true, resultStatus: existing.resultStatus };
     const intent = await this.prisma.eventPaymentIntent.findFirst({
       where: { attemptRef: payment.externalReference },
-      include: { registration: true },
+      include: { registration: true, event: { select: { id: true, status: true, name: true } } },
     });
     if (!intent) throw new NotFoundException("Tentativa não encontrada.");
+    if (intent.paymentProvider !== "MERCADO_PAGO") throw new ConflictException("A tentativa não é Mercado Pago.");
+    if (payment.currency !== "BRL" || intent.currency !== "BRL") throw new ConflictException("A moeda precisa ser BRL.");
+    if (payment.grossCents !== intent.amountCents) throw new ConflictException("O valor consultado difere da inscrição.");
+    if (intent.registration.status === "CANCELLED" || intent.event.status === "CANCELLED" || intent.event.status === "ARCHIVED") {
+      await this.receipt(intent, idempotencyKey, payment.status, "CANCELLED");
+      return { idempotencyKey, replay: false, resultStatus: "CANCELLED" };
+    }
     if (payment.status !== "approved" && payment.status !== "refunded") {
       await this.receipt(intent, idempotencyKey, payment.status, "IGNORED");
       return { idempotencyKey, replay: false, resultStatus: "IGNORED" };
@@ -119,11 +133,13 @@ export class MercadoPagoService {
       select: { id: true },
     });
     if (!bookkeeper) throw new ConflictException("Não há usuário da Tesouraria para registrar o lançamento.");
+    const accounts = await this.ledgerAccounts(intent.churchId, intent.receivingAccountId, amounts.feeCents > 0);
     const result = await this.prisma.$transaction(async tx => {
       if (payment.status === "approved") {
-        if (intent.ledgerEntryId && intent.status === "CONFIRMED_GATEWAY") return "CONFIRMED";
+        if (intent.registration.status !== "PENDING_PAYMENT" && intent.status === "CONFIRMED_GATEWAY") return "CONFIRMED";
+        if (intent.registration.status !== "PENDING_PAYMENT") return "IGNORED";
         const claim = await tx.eventPaymentIntent.updateMany({
-          where: { id: intent.id, ledgerEntryId: null, status: "PENDING" },
+          where: { id: intent.id, ledgerEntryId: null, status: "PENDING", paymentProvider: "MERCADO_PAGO" },
           data: {
             status: "CONFIRMED_GATEWAY", confirmedAt: new Date(), providerPaymentId: payment.id,
             grossCents: amounts.grossCents, feeCents: amounts.feeCents, netCents: amounts.netCents,
@@ -137,6 +153,7 @@ export class MercadoPagoService {
             description: `Mercado Pago · bruto ${amounts.grossCents} · taxa ${amounts.feeCents} · líquido ${amounts.netCents}`.slice(0, 180),
             status: "APPROVED", amountCents: amounts.grossCents, createdByUserId: bookkeeper.id,
             submittedAt: new Date(),
+            lines: { create: this.entryLines(accounts, amounts) },
           },
           select: { id: true },
         });
@@ -147,7 +164,7 @@ export class MercadoPagoService {
         });
         return "CONFIRMED";
       }
-      if (intent.refundedAt) return "REFUNDED";
+      if (intent.refundedAt || intent.registration.paymentStatus === "REFUNDED") return "REFUNDED";
       const refunded = await tx.eventPaymentIntent.updateMany({
         where: { id: intent.id, refundedAt: null, status: "CONFIRMED_GATEWAY" },
         data: { status: "REFUNDED", refundedAt: new Date() },
@@ -158,8 +175,8 @@ export class MercadoPagoService {
           data: {
             organizationId: intent.organizationId, churchId: intent.churchId, entryDate: new Date(),
             description: `Estorno Mercado Pago · ${amounts.netCents}`, status: "APPROVED", amountCents: amounts.grossCents,
-            createdByUserId: bookkeeper.id, reversalOfEntryId: intent.ledgerEntryId,
-            submittedAt: new Date(),
+            createdByUserId: bookkeeper.id, reversalOfEntryId: intent.ledgerEntryId, submittedAt: new Date(),
+            lines: { create: this.entryLines(accounts, amounts).map(line => ({ ...line, side: line.side === "DEBIT" ? "CREDIT" : "DEBIT" })) },
           },
         });
       }
@@ -172,6 +189,34 @@ export class MercadoPagoService {
     await this.receipt(intent, idempotencyKey, payment.status, result);
     if (result === "CONFIRMED") await this.deliverTickets(intent.registrationId, intent.eventId);
     return { idempotencyKey, replay: false, resultStatus: result };
+  }
+
+  private async ledgerAccounts(churchId: string, receivingAccountId: string | null, needsFee: boolean) {
+    const bank = receivingAccountId ? await this.prisma.churchReceivingAccount.findFirst({
+      where: { id: receivingAccountId, churchId, active: true },
+      select: { ledgerAccountId: true },
+    }) : null;
+    const revenue = await this.prisma.ledgerAccount.findFirst({
+      where: { churchId, active: true, type: "REVENUE" }, orderBy: { code: "asc" }, select: { id: true },
+    });
+    const expense = needsFee ? await this.prisma.ledgerAccount.findFirst({
+      where: { churchId, active: true, type: "EXPENSE" }, orderBy: { code: "asc" }, select: { id: true },
+    }) : null;
+    if (!bank || !revenue || (needsFee && !expense)) {
+      throw new ConflictException("O plano da igreja precisa da conta de recebimento, da receita e da despesa da taxa.");
+    }
+    return { bankId: bank.ledgerAccountId, revenueId: revenue.id, expenseId: expense?.id ?? null };
+  }
+
+  private entryLines(accounts: { bankId: string; revenueId: string; expenseId: string | null }, amounts: { grossCents: number; feeCents: number; netCents: number }) {
+    const lines = [
+      { accountId: accounts.bankId, side: "DEBIT" as const, amountCents: amounts.netCents, memo: "mercado-pago-liquido" },
+      { accountId: accounts.revenueId, side: "CREDIT" as const, amountCents: amounts.grossCents, memo: "mercado-pago-bruto" },
+    ];
+    if (amounts.feeCents > 0 && accounts.expenseId) {
+      lines.splice(1, 0, { accountId: accounts.expenseId, side: "DEBIT", amountCents: amounts.feeCents, memo: "mercado-pago-taxa" });
+    }
+    return lines;
   }
 
   private async receipt(intent: { id: string; organizationId: string; churchId: string }, idempotencyKey: string, eventType: string, resultStatus: string) {

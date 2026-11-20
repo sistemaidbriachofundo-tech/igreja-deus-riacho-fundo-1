@@ -1,5 +1,3 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 /**
  * Contratos puros do pacote de DEV aprovado para a API.
  * Não carrega segredo, texto pastoral nem dado de pessoa real.
@@ -154,23 +152,14 @@ export function paymentSettlement(grossCents: number, feeCents: number): { gross
   return { grossCents, feeCents, netCents: grossCents - feeCents };
 }
 
-export function mercadoPagoSignature(secret: string, timestamp: string, rawBody: string): string {
-  return createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
-}
-
-export function verifyMercadoPagoSignature(secret: string, timestamp: string, rawBody: string, signature: string): boolean {
-  if (!secret || !timestamp || !signature || !/^[a-f0-9]{64}$/i.test(signature)) return false;
-  const expected = mercadoPagoSignature(secret, timestamp, rawBody);
-  const left = Buffer.from(expected, "hex");
-  const right = Buffer.from(signature, "hex");
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
 export type TicketScanResult =
   | { result: "READ"; checkedInAt: string }
   | { result: "ALREADY_READ"; checkedInAt: string; scannedByUserId: string | null }
   | { result: "WRONG_EVENT" }
   | { result: "UNPAID" }
+  | { result: "REFUNDED" }
+  | { result: "GUARDIAN" }
+  | { result: "EVENT_CLOSED" }
   | { result: "UNKNOWN" }
   | { result: "NOT_TODAY" };
 
@@ -182,6 +171,8 @@ export function decideTicketScan(input: {
   requestedEventId: string;
   paymentStatus?: string | null;
   registrationStatus?: string | null;
+  eventStatus?: string | null;
+  guardianAuthorized?: boolean;
   onEventDay: boolean;
   checkedInAt?: string | null;
   scannedByUserId?: string | null;
@@ -189,7 +180,10 @@ export function decideTicketScan(input: {
 }): TicketScanResult {
   if (!input.found) return { result: "UNKNOWN" };
   if (input.ticketEventId !== input.requestedEventId) return { result: "WRONG_EVENT" };
+  if (input.eventStatus === "CANCELLED" || input.eventStatus === "ARCHIVED") return { result: "EVENT_CLOSED" };
   if (!input.onEventDay) return { result: "NOT_TODAY" };
+  if (input.paymentStatus === "REFUNDED") return { result: "REFUNDED" };
+  if (input.guardianAuthorized === false) return { result: "GUARDIAN" };
   if (input.registrationStatus === "CANCELLED" || !CONFIRMED_PAYMENTS.has(input.paymentStatus ?? "")) return { result: "UNPAID" };
   if (input.checkedInAt) return { result: "ALREADY_READ", checkedInAt: input.checkedInAt, scannedByUserId: input.scannedByUserId ?? null };
   return { result: "READ", checkedInAt: input.now };

@@ -6,14 +6,12 @@ import {
   effectiveSettingValue,
   eventCoversLocalDay,
   isBeforeConfiguredHour,
-  mercadoPagoSignature,
   normalizeResumeEventSlug,
   officeDocumentKind,
   paymentSettlement,
   publicPasswordResetBody,
   sameLouvorWeek,
   scopeCovers,
-  verifyMercadoPagoSignature,
   windowsOverlap,
 } from "./piloto-pacote";
 
@@ -84,12 +82,8 @@ describe("pacote de DEV", () => {
     assert.equal(sameLouvorWeek(sunday, nextMonday), false);
   });
 
-  it("separa bruto, taxa e líquido e confere a assinatura do webhook", () => {
+  it("separa bruto, taxa e líquido", () => {
     assert.deepEqual(paymentSettlement(10_000, 390), { grossCents: 10_000, feeCents: 390, netCents: 9_610 });
-    const raw = "{\"id\":\"pay-1\"}";
-    const signature = mercadoPagoSignature("segredo-de-teste", "1700000000", raw);
-    assert.equal(verifyMercadoPagoSignature("segredo-de-teste", "1700000000", raw, signature), true);
-    assert.equal(verifyMercadoPagoSignature("outro", "1700000000", raw, signature), false);
   });
 
   it("não confirma ingresso de outro evento, sem pagamento ou já lido", () => {

@@ -631,7 +631,7 @@ export class EventRegistrationsService {
         event: { select: { name: true, status: true } },
         paymentIntents: {
           where: { status: "PENDING", receivingAccountId: { not: null } },
-          select: { amountCents: true, pixCopiaECola: true, pixTxid: true },
+          select: { amountCents: true, pixCopiaECola: true, pixTxid: true, paymentProvider: true, attemptRef: true },
           orderBy: { createdAt: "desc" },
           take: 1,
         },
@@ -643,7 +643,11 @@ export class EventRegistrationsService {
     return {
       id: row.id, status, guardianAuthStatus: row.guardianAuthStatus, checkInCode: row.checkInCode,
       eventName: row.event.name, tickets: ["CONFIRMED", "CHECKED_IN"].includes(status) ? row.tickets : [],
-      paymentIntent: pending?.pixCopiaECola ? { ...pending, mode: "CHURCH_PIX" } : null,
+      paymentIntent: pending?.pixCopiaECola
+        ? { ...pending, mode: "CHURCH_PIX", paymentProvider: pending.paymentProvider ?? "PIX" }
+        : pending?.paymentProvider === "MERCADO_PAGO"
+          ? { amountCents: pending.amountCents, attemptRef: pending.attemptRef, mode: "MERCADO_PAGO", paymentProvider: "MERCADO_PAGO" }
+          : null,
     };
   }
 
@@ -721,6 +725,9 @@ export class EventRegistrationsService {
     if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
       throw new BadRequestException("checkInCode não confere");
     }
+    if (event.ticketPolicy === "PARTICIPANT") {
+      throw new BadRequestException("Use a leitura do ingresso individual deste evento.");
+    }
     await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
     this.assertCheckInAllowed(registration);
 
@@ -740,6 +747,9 @@ export class EventRegistrationsService {
     }
     if (event.status === "CANCELLED" || event.status === "ARCHIVED") {
       throw new BadRequestException("O evento está encerrado para check-in.");
+    }
+    if (event.ticketPolicy === "PARTICIPANT") {
+      throw new BadRequestException("Use a leitura do ingresso individual deste evento.");
     }
     const ticket = await this.prisma.eventParticipantTicket?.findFirst({
       where: { code, registration: { eventId: event.id, organizationId: pilot.organizationId, churchId: pilot.churchId } },
@@ -1184,9 +1194,11 @@ export class EventRegistrationsService {
       transportOptions: transportOptions.map((o) =>
         this.toResourceOptionDto(o, occTransport.get(o.id) ?? 0),
       ),
-      paymentMode: openLots.some((lot) => Boolean(lot.receivingAccountId))
-        ? ("CHURCH_PIX" as const)
-        : ("MOCK_ONLY" as const),
+      paymentMode: openLots.some((lot) => lot.paymentProvider === "MERCADO_PAGO")
+        ? ("MERCADO_PAGO" as const)
+        : openLots.some((lot) => Boolean(lot.receivingAccountId))
+          ? ("CHURCH_PIX" as const)
+          : ("MOCK_ONLY" as const),
       settlementPolicy: {
         kind: "EXTERNAL_MANUAL" as const,
         pixKeyConfigured: Boolean(process.env.EVENT_MANUAL_PIX_KEY?.trim()),
@@ -1473,17 +1485,19 @@ export class EventRegistrationsService {
           status: needsPayment ? "PENDING_PAYMENT" : "CONFIRMED",
           paymentStatus: needsPayment ? "PENDING" : "CONFIRMED_MOCK",
           checkInCode,
+          ...(participantMode ? { participantRoster: participants } : {}),
         },
       });
 
-      const tickets = participantMode
+      const issueParticipants = participantMode && !needsPayment && guardianAuthStatus !== "PENDING";
+      const tickets = issueParticipants
         ? participants.map((person, index) => ({
           position: index + 1,
           code: randomBytes(16).toString("hex"),
           participantName: person.name,
           participantEmail: person.email,
         }))
-        : partySize > 1 ? Array.from({ length: partySize }, (_, index) => ({
+        : !participantMode && partySize > 1 ? Array.from({ length: partySize }, (_, index) => ({
           position: index + 1, code: randomBytes(16).toString("hex"),
         })) : [];
       if (tickets.length) await tx.eventParticipantTicket.createMany({
@@ -1946,6 +1960,7 @@ export class EventRegistrationsService {
       status: string;
       sortOrder: number;
       receivingAccountId?: string | null;
+      paymentProvider?: string | null;
     },
     occupied = 0,
   ) {
@@ -1966,7 +1981,10 @@ export class EventRegistrationsService {
       status: row.status,
       sortOrder: row.sortOrder,
       receivingAccountId: row.receivingAccountId ?? null,
-      paymentMode: row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
+      paymentProvider: row.paymentProvider === "MERCADO_PAGO" ? ("MERCADO_PAGO" as const) : ("PIX" as const),
+      paymentMode: row.paymentProvider === "MERCADO_PAGO"
+        ? ("MERCADO_PAGO" as const)
+        : row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
     };
   }
 

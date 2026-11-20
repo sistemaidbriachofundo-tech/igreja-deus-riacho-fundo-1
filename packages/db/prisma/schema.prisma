@@ -1212,6 +1212,8 @@ model EventRegistration {
   displayName          String                   @map("display_name")
   /// Caixa fictícia do aviso de check-in. Fora das respostas públicas.
   notificationEmail    String?                  @map("notification_email")
+  /// Participantes ainda sem ingresso, até o pagamento ou a autorização.
+  participantRoster    Json?                    @map("participant_roster")
   partySize            Int                      @default(1) @map("party_size")
   isMinor              Boolean                  @default(false) @map("is_minor")
   guardianDisplayName  String?                  @map("guardian_display_name")
@@ -3165,6 +3167,7 @@ model BirthdayNotice {
 
 enum VocalClassification {
   SOPRANO
+  MEZZO_SOPRANO
   CONTRALTO
   TENOR
   BASS

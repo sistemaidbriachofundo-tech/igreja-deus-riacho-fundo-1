@@ -5,7 +5,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { assertChurchRole } from "./church";
 
-const VOCAL = ["SOPRANO", "CONTRALTO", "TENOR", "BASS", "UNSPECIFIED"] as const;
+const WORSHIP_ROLES = [ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN, ROLE_CODES.SECRETARIA] as const;
+const VOCAL = ["SOPRANO", "MEZZO_SOPRANO", "CONTRALTO", "TENOR", "BASS", "UNSPECIFIED"] as const;
 
 @Injectable()
 export class WorshipService {
@@ -30,6 +31,13 @@ export class WorshipService {
       update: { classification: input.classification as typeof VOCAL[number], functions },
     });
     return { personId: saved.personId, classification: saved.classification, functions: saved.functions };
+  }
+
+  async vocalProfile(actor: AuthUser, personId: string) {
+    const pilot = await this.lead(actor);
+    const profile = await this.prisma.personVocalProfile.findFirst({ where: { personId, churchId: pilot.churchId } });
+    if (!profile) throw new NotFoundException("Perfil vocal não encontrado.");
+    return { personId: profile.personId, classification: profile.classification, functions: profile.functions };
   }
 
   async exportRoster(actor: AuthUser, rosterId: string) {
@@ -62,15 +70,16 @@ export class WorshipService {
     rosterId?: string | null; serviceAt: string; idempotencyKey: string;
     items: Array<{ title: string; musicalKey: string; materials?: string | null }>;
   }) {
-    const pilot = await this.lead(actor);
+    const pilot = await this.lead(actor, true);
+    const access = await this.access(actor, input.rosterId ?? null, pilot.churchId);
+    if (!access.canEdit || !access.serviceAt) throw new ForbiddenException("Somente o Ministro de Louvor escalado cria o repertório.");
     if (!input.idempotencyKey || input.idempotencyKey.length > 80) throw new BadRequestException("Informe a chave de idempotência.");
     const existing = await this.prisma.worshipRepertoire.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: { items: true } });
     if (existing) {
-      if (existing.churchId !== pilot.churchId) throw new ConflictException("A chave já foi usada em outra congregação.");
+      if (existing.churchId !== pilot.churchId || existing.rosterId !== input.rosterId || existing.createdByUserId !== actor.userId) throw new ConflictException("A chave já foi usada em outra congregação.");
       return this.view(existing);
     }
-    const serviceAt = new Date(input.serviceAt);
-    if (Number.isNaN(serviceAt.getTime())) throw new BadRequestException("serviceAt inválido.");
+    const serviceAt = access.serviceAt;
     const items = input.items.map((item, index) => ({
       sortOrder: index + 1, title: item.title.trim(), musicalKey: item.musicalKey.trim(), materials: item.materials?.trim() || null,
     }));
@@ -86,18 +95,45 @@ export class WorshipService {
     return this.view(created);
   }
 
+  async updateDraft(actor: AuthUser, repertoireId: string, input: { items: Array<{ title: string; musicalKey: string; materials?: string | null }> }) {
+    const pilot = await this.lead(actor, true);
+    const repertoire = await this.owned(pilot.churchId, repertoireId);
+    const access = await this.access(actor, repertoire.rosterId, pilot.churchId);
+    if (!access.canEdit) throw new ForbiddenException("Somente o Ministro de Louvor escalado edita o rascunho.");
+    if (repertoire.status !== "DRAFT") throw new ConflictException("Só o rascunho pode ser editado.");
+    const items = input.items.map((item, index) => ({
+      sortOrder: index + 1, title: item.title.trim(), musicalKey: item.musicalKey.trim(), materials: item.materials?.trim() || null,
+    }));
+    if (!items.length || items.some(item => !item.title || !item.musicalKey)) throw new BadRequestException("Informe ordem, título e tom.");
+    const updated = await this.prisma.worshipRepertoire.update({
+      where: { id: repertoireId, status: "DRAFT" },
+      data: { items: { deleteMany: {}, create: items } },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+    return this.view(updated);
+  }
+
+  async repertoireForRoster(actor: AuthUser, rosterId: string) {
+    const pilot = await this.lead(actor, true);
+    return this.repertoireView(actor, pilot.churchId, rosterId);
+  }
+
+  async repertoireForAssignment(actor: AuthUser, assignmentId: string) {
+    const pilot = await this.lead(actor, true);
+    const assignment = await this.prisma.rosterAssignment.findFirst({
+      where: { id: assignmentId, personId: actor.personId, status: { in: ["PENDING", "CONFIRMED"] }, slot: { roster: { churchId: pilot.churchId, status: "PUBLISHED" } } },
+      select: { slot: { select: { rosterId: true } } },
+    });
+    if (!assignment) throw new NotFoundException("Escala não encontrada.");
+    return this.repertoireView(actor, pilot.churchId, assignment.slot.rosterId);
+  }
+
   async authorize(actor: AuthUser, repertoireId: string) {
-    const pilot = await this.lead(actor);
+    const pilot = await this.lead(actor, true);
     const repertoire = await this.owned(pilot.churchId, repertoireId);
     if (!repertoire.rosterId) throw new ConflictException("O repertório precisa da escala do culto.");
-    const assigned = await this.prisma.rosterAssignment.findFirst({
-      where: {
-        personId: actor.personId, status: { in: ["PENDING", "CONFIRMED"] },
-        slot: { rosterId: repertoire.rosterId, roster: { churchId: pilot.churchId } },
-      },
-      select: { id: true },
-    });
-    if (!assigned) throw new ForbiddenException("Somente o ministro escalado autoriza o repertório.");
+    const access = await this.access(actor, repertoire.rosterId, pilot.churchId);
+    if (!access.canEdit) throw new ForbiddenException("Somente o Ministro de Louvor escalado autoriza o repertório.");
     if (repertoire.status === "AUTHORIZED" || repertoire.status === "SCHEDULED") return this.view(repertoire);
     const updated = await this.prisma.worshipRepertoire.update({
       where: { id: repertoire.id },
@@ -107,9 +143,13 @@ export class WorshipService {
     return this.view(updated);
   }
 
-  async schedule(actor: AuthUser, repertoireId: string) {
-    const pilot = await this.lead(actor);
+  async schedule(actor: AuthUser, repertoireId: string, input: { scheduledAt?: string | null } = {}) {
+    const pilot = await this.lead(actor, true);
     const repertoire = await this.owned(pilot.churchId, repertoireId);
+    const access = await this.access(actor, repertoire.rosterId, pilot.churchId);
+    if (!access.canEdit) throw new ForbiddenException("Somente o Ministro de Louvor escalado envia o repertório.");
+    const when = input.scheduledAt ? new Date(input.scheduledAt) : new Date();
+    if (input.scheduledAt && Number.isNaN(when.getTime())) throw new BadRequestException("scheduledAt inválido.");
     if (repertoire.status === "SCHEDULED") {
       const notices = await this.prisma.worshipRepertoireNotice.count({ where: { repertoireId } });
       return { ...this.view(repertoire), notices, replay: true };
@@ -128,15 +168,15 @@ export class WorshipService {
     });
     const updated = await this.prisma.worshipRepertoire.update({
       where: { id: repertoire.id },
-      data: { status: "SCHEDULED", scheduledAt: new Date() },
+      data: { status: "SCHEDULED", scheduledAt: when },
       include: { items: true },
     });
     return { ...this.view(updated), notices: recipients.length, replay: false };
   }
 
-  private async lead(actor: AuthUser) {
+  private async lead(actor: AuthUser, allowMember = false) {
     const pilot = await this.pilot.getPilotChurch();
-    assertChurchRole(actor, pilot, [ROLE_CODES.LIDER_MINISTERIO, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN, ROLE_CODES.SECRETARIA]);
+    assertChurchRole(actor, pilot, allowMember ? [...WORSHIP_ROLES, ROLE_CODES.MEMBRO] : WORSHIP_ROLES);
     return pilot;
   }
 
@@ -146,12 +186,58 @@ export class WorshipService {
     return row;
   }
 
+  private async repertoireView(actor: AuthUser, churchId: string, rosterId: string) {
+    const access = await this.access(actor, rosterId, churchId);
+    if (!access.canRead) throw new ForbiddenException("O repertório fica com a equipe vigente e o Ministro de Louvor.");
+    const repertoire = await this.prisma.worshipRepertoire.findFirst({
+      where: { rosterId, churchId },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+    });
+    const published = repertoire?.status === "SCHEDULED" && repertoire.scheduledAt && repertoire.scheduledAt <= new Date();
+    const visible = access.canEdit || published ? repertoire : null;
+    return {
+      id: visible?.id ?? null,
+      rosterId,
+      serviceAt: access.serviceAt?.toISOString(),
+      items: visible?.items.map(item => ({ order: item.sortOrder, title: item.title, musicalKey: item.musicalKey, materials: item.materials })) ?? [],
+      team: access.team,
+      canEdit: access.canEdit,
+      status: visible?.status ?? null,
+      scheduledAt: visible?.scheduledAt?.toISOString() ?? null,
+    };
+  }
+
+  private async access(actor: AuthUser, rosterId: string | null, churchId: string) {
+    if (!rosterId) return { canRead: false, canEdit: false, team: [], serviceAt: null };
+    const roster = await this.prisma.roster.findFirst({
+      where: { id: rosterId, churchId, ministry: { slug: { in: ["louvor", "louvor-demo"] } } },
+      select: {
+        ministryId: true, serviceAt: true, status: true,
+        slots: { select: { roleLabel: true, assignments: {
+          where: { status: { in: ["PENDING", "CONFIRMED"] } },
+          select: { personId: true, person: { select: { displayName: true } } },
+        } } },
+      },
+    });
+    if (!roster) throw new NotFoundException("Escala de Louvor não encontrada.");
+    const team = roster.slots.flatMap(slot => slot.assignments.map(item => ({
+      personId: item.personId, name: item.person.displayName, role: slot.roleLabel,
+    })));
+    const mine = team.filter(item => item.personId === actor.personId);
+    const canEdit = roster.status === "PUBLISHED" && mine.some(item => /ministro de louvor/i.test(item.role));
+    const staff = actor.grants.some(grant => grant.roleCode === ROLE_CODES.PASTOR || grant.roleCode === ROLE_CODES.SECRETARIA || grant.roleCode === ROLE_CODES.PLATFORM_ADMIN
+      || (grant.roleCode === ROLE_CODES.LIDER_MINISTERIO && grant.ministryId === roster.ministryId));
+    return { canRead: staff || (roster.status === "PUBLISHED" && mine.length > 0), canEdit, team, serviceAt: roster.serviceAt };
+  }
+
   private view(row: {
-    id: string; status: string; serviceAt: Date; rosterId: string | null; idempotencyKey: string;
+    id: string; status: string; serviceAt: Date; rosterId: string | null; idempotencyKey: string; scheduledAt?: Date | null;
     items: Array<{ sortOrder: number; title: string; musicalKey: string; materials: string | null }>;
   }) {
     return {
-      id: row.id, status: row.status, serviceAt: row.serviceAt.toISOString(), rosterId: row.rosterId, idempotencyKey: row.idempotencyKey,
+      id: row.id, status: row.status, serviceAt: row.serviceAt.toISOString(), rosterId: row.rosterId,
+      idempotencyKey: row.idempotencyKey, scheduledAt: row.scheduledAt?.toISOString() ?? null,
       items: row.items.map(item => ({ order: item.sortOrder, title: item.title, musicalKey: item.musicalKey, materials: item.materials })),
     };
   }

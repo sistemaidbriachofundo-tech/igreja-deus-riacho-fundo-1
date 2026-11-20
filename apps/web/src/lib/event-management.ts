@@ -16,7 +16,7 @@ export type ManagedEvent = {
   canScan?: boolean;
 };
 
-export type EventPaymentAccount = { id: string; name: string; provider?: "MERCADO_PAGO" };
+export type EventPaymentAccount = { id: string; name: string; provider?: "MERCADO_PAGO"; collectorId?: string };
 
 export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] | null {
   if (!value || typeof value !== "object" || !("accounts" in value) || !Array.isArray(value.accounts)) return null;
@@ -24,7 +24,8 @@ export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] 
     if (!account || typeof account !== "object" || !("id" in account)) return [];
     const id = text(account.id);
     const name = text("displayName" in account ? account.displayName : "name" in account ? account.name : null);
-    return id && name ? [{ id, name, ...("mercadoPagoEnabled" in account && account.mercadoPagoEnabled === true ? { provider: "MERCADO_PAGO" as const } : {}) }] : [];
+    const collectorId = "mercadoPagoCollectorId" in account ? text(account.mercadoPagoCollectorId) : "";
+    return id && name ? [{ id, name, collectorId: collectorId || undefined, ...("mercadoPagoEnabled" in account && account.mercadoPagoEnabled === true ? { provider: "MERCADO_PAGO" as const } : {}) }] : [];
   });
 }
 

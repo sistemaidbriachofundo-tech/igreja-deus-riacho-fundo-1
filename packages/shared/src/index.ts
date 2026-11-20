@@ -369,8 +369,6 @@ export {
   sameLouvorWeek,
   eventCoversLocalDay,
   paymentSettlement,
-  mercadoPagoSignature,
-  verifyMercadoPagoSignature,
   decideTicketScan,
   type CredentialColorRule,
   type OperationalScopeKind,

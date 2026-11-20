@@ -110,10 +110,11 @@ export class EventsService {
     });
 
     const visible = filterRowsForMinistryLeader(rows, actor, pilot);
+    const granted = await this.scannerIds(actor.userId, visible.map(row => row.id));
 
     return {
       churchId: pilot.churchId,
-      events: visible.map((row) => this.toDto(row)),
+      events: visible.map((row) => this.toDto({ ...row, canScan: this.canScan(actor, row, granted.has(row.id)) })),
     };
   }
 
@@ -121,7 +122,8 @@ export class EventsService {
     const pilot = await this.pilot.getPilotChurch();
     const event = await this.requireEvent(eventId, pilot);
     this.assertEventWrite(actor, pilot, event.ministryId);
-    return this.toDto(event);
+    const granted = await this.scannerIds(actor.userId, [event.id]);
+    return this.toDto({ ...event, canScan: this.canScan(actor, event, granted.has(event.id)) });
   }
 
   async patch(actor: AuthUser, eventId: string, input: EventInput) {
@@ -281,6 +283,22 @@ export class EventsService {
     });
   }
 
+  private async scannerIds(userId: string, eventIds: string[]) {
+    if (!eventIds.length || !this.prisma.eventScannerGrant?.findMany) return new Set<string>();
+    const rows = await this.prisma.eventScannerGrant.findMany({
+      where: { userId, eventId: { in: eventIds } },
+      select: { eventId: true },
+    });
+    return new Set(rows.map(row => row.eventId));
+  }
+
+  private canScan(actor: AuthUser, event: { createdByUserId?: string | null; ministryId?: string | null }, granted: boolean) {
+    if (granted) return true;
+    if (event.createdByUserId && event.createdByUserId === actor.userId) return true;
+    return Boolean(event.ministryId) && actor.grants.some(grant =>
+      grant.roleCode === "LIDER_MINISTERIO" && (!grant.ministryId || grant.ministryId === event.ministryId));
+  }
+
   private async requireEvent(
     eventId: string,
     pilot: { organizationId: string; churchId: string },
@@ -314,6 +332,7 @@ export class EventsService {
     featuredOnHome: boolean;
     ticketPolicy?: string;
     createdByUserId?: string | null;
+    canScan?: boolean;
     publishedAt: Date | null;
     cancelledAt: Date | null;
     createdAt: Date;
@@ -335,6 +354,7 @@ export class EventsService {
       featuredOnHome: row.featuredOnHome,
       ticketPolicy: row.ticketPolicy ?? "REGISTRATION",
       createdByUserId: row.createdByUserId ?? null,
+      canScan: row.canScan ?? false,
       publishedAt: row.publishedAt?.toISOString() ?? null,
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

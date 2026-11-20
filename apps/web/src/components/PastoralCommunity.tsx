@@ -4,20 +4,16 @@ import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { AppNavLink, usePersonaAccess } from "./AppShell";
-import { Alert, Button, Input, Loading, PageHeader, Select } from "./ui";
+import { Alert, Button, Input, Loading, PageHeader } from "./ui";
 import s from "./pastoral-desk.module.css";
 import ui from "./ui/ui.module.css";
 
 type Congregation = {
   members: number; pendingAdmissions: number; openPrayers: number; birthdaysToday: number; upcomingServices: number;
-  people?: { id: string; name: string; district?: string | null; status: string }[];
+  people?: { id: string; displayName: string }[];
 };
 type MinistryPrayer = { id: string; createdAt: string; canReadText: boolean; status: string };
 const statusLabels: Record<string, string> = { OPEN: "Novo", ACKNOWLEDGED: "Em acompanhamento", IN_PROGRESS: "Em acompanhamento", CLOSED: "Concluído" };
-const statusChoices = [
-  { label: "Todas as situações", value: "" }, { label: "Ativo", value: "ACTIVE" },
-  { label: "Em admissão", value: "PENDING_ADMISSION" }, { label: "Inativo", value: "INACTIVE" },
-];
 const count = new Intl.NumberFormat("pt-BR");
 const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const congregationPath = "/pastoral/congregation";
@@ -65,15 +61,11 @@ export function CongregationDirectory() {
   const access = usePersonaAccess();
   const allowed = access.kind === "ready" && access.roles.includes("PASTOR");
   const [query, setQuery] = useState("");
-  const [district, setDistrict] = useState("");
-  const [status, setStatus] = useState("");
   const [results, setResults] = useState<Congregation["people"]>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const filters = new URLSearchParams();
-  if (query.trim()) filters.set("query", query.trim());
-  if (district.trim()) filters.set("district", district.trim());
-  if (status) filters.set("status", status);
+  if (query.trim()) filters.set("q", query.trim());
   const queryString = filters.toString();
 
   async function search(event: FormEvent<HTMLFormElement>) {
@@ -83,7 +75,7 @@ export function CongregationDirectory() {
     setLoading(true);
     setError("");
     try {
-      const data = await apiGet<Congregation>(congregationPath + (queryString ? "?" + queryString : ""), token);
+      const data = await apiGet<Pick<Congregation, "people">>(congregationPath + "/people" + (queryString ? "?" + queryString : ""), token);
       if (!data.people) throw new Error("A consulta nominal está indisponível neste ambiente.");
       setResults(data.people);
     } catch (problem) {
@@ -100,14 +92,12 @@ export function CongregationDirectory() {
       appearance="workspace" heading="h1" />
     <form className={`${ui.workspaceSurface} ${s.fields}`} onSubmit={search}>
       <Input label="Nome" value={query} maxLength={120} onChange={event => setQuery(event.target.value)} />
-      <Input label="Bairro" value={district} maxLength={120} onChange={event => setDistrict(event.target.value)} />
-      <Select label="Situação" value={status} options={statusChoices} onChange={event => setStatus(event.target.value)} />
       <Button type="submit" disabled={loading}>{loading ? "Consultando…" : "Consultar"}</Button>
     </form>
     {error && <Alert tone="danger" appearance="workspace" title={error} />}
     {results && <section aria-label="Pessoas da congregação">
       {results.length ? <ul className={s.entries}>{results.map(person => <li key={person.id} className={`${ui.workspaceSurface} ${s.stat}`}>
-        <strong>{person.name}</strong><span>{person.district || "Bairro não informado"} · {statusChoices.find(item => item.value === person.status)?.label ?? person.status}</span>
+        <strong>{person.displayName}</strong>
       </li>)}</ul> : <p>Nenhuma pessoa encontrada com esses filtros.</p>}
     </section>}
   </div>;
@@ -179,6 +169,19 @@ export function PastoralPrayerQueue() {
     finally { setBusy(false); }
   }
 
+  async function close(item: MinistryPrayer) {
+    const token = loadStoredToken();
+    if (!allowed || !token || busy || !item.canReadText) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiPost("/pastoral/prayers/" + encodeURIComponent(item.id) + "/close", token, {});
+      setOpen(undefined);
+      setRevision(value => value + 1);
+    } catch (problem) { setError(dasError(problem)); }
+    finally { setBusy(false); }
+  }
+
   if (!allowed) return null;
   return <div className={s.desk}>
     <PageHeader title="Pedidos de oração" description="Acompanhe os pedidos encaminhados à Pastoral." appearance="workspace" heading="h1"
@@ -192,7 +195,10 @@ export function PastoralPrayerQueue() {
         {item.canReadText && <Button variant="secondary" disabled={busy} onClick={() => void view(item)}>
           {open?.id === item.id ? "Fechar pedido" : "Ler pedido"}
         </Button>}
-        {open?.id === item.id && <p className={s.privateText}>{open.body}</p>}
+        {open?.id === item.id && <>
+          <p className={s.privateText}>{open.body}</p>
+          {item.status !== "CLOSED" && <Button variant="secondary" disabled={busy} onClick={() => void close(item)}>Concluir pedido</Button>}
+        </>}
       </article>
     </li>)}</ul>}
   </div>;

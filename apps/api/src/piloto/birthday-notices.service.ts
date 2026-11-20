@@ -36,30 +36,67 @@ export class BirthdayNoticesService {
 
   async run(actor: AuthUser, now = new Date()) {
     const pilot = await this.staff(actor);
-    const setting = await this.settings.readEffective(actor, "notices.birthday.hour_brasilia", "CHURCH", undefined, now);
-    const hour = typeof setting.value === "string" ? setting.value : "08:00";
+    return this.runForChurch(pilot, now);
+  }
+
+  async runScheduled(now: Date) {
+    const pilot = await this.pilot.getPilotChurch();
+    return this.runForChurch(pilot, now);
+  }
+
+  private async runForChurch(pilot: { organizationId: string; churchId: string }, now: Date) {
+    const hour = await this.settings.getBirthdayHour(pilot, now);
     if (isBeforeConfiguredHour(now, hour)) {
       return { skipped: true, reason: "BEFORE_CONFIGURED_HOUR" as const, hour, created: 0 };
     }
-    const audience = await this.audience(actor, {}, now);
-    const recipients = [...new Set(audience.birthdays.flatMap(person => [person.id, ...person.mentorPersonIds]))];
-    const occasionDate = new Date(`${audience.date}T00:00:00.000Z`);
+    const today = saoPauloParts(now).date;
+    const people = await this.people(pilot, {});
+    const birthdays = people.filter(person => person.birthDate?.toISOString().slice(5, 10) === today.slice(5));
+    const birthdayIds = birthdays.map(person => person.id);
+    const officeRoles = [ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA];
+    const [office, ministries, groups] = birthdayIds.length ? await Promise.all([
+      this.prisma.user.findMany({
+        where: { status: "ACTIVE", grants: { some: { organizationId: pilot.organizationId, churchId: pilot.churchId, role: { code: { in: officeRoles } } } } },
+        select: { personId: true },
+      }),
+      this.prisma.ministryMembership.findMany({
+        where: { churchId: pilot.churchId, personId: { in: birthdayIds }, status: "ATIVO", endedAt: null },
+        select: { ministry: { select: { leaderPersonId: true, ministryMemberships: {
+          where: { status: "ATIVO", role: "LIDER", endedAt: null }, select: { personId: true },
+        } } } },
+      }),
+      this.prisma.smallGroupMember.findMany({
+        where: { personId: { in: birthdayIds }, group: { churchId: pilot.churchId } },
+        select: { group: { select: { leaderPersonId: true, members: {
+          where: { role: "LEADER" }, select: { personId: true },
+        } } } },
+      }),
+    ]) : [[], [], []] as const;
+    const recipients = [...new Set([
+      ...office.map(row => row.personId),
+      ...ministries.flatMap(({ ministry }) => [ministry.leaderPersonId, ...ministry.ministryMemberships.map(row => row.personId)]),
+      ...groups.flatMap(({ group }) => [group.leaderPersonId, ...group.members.map(row => row.personId)]),
+      ...birthdays.flatMap(person => person.enrollments.filter(item => item.status === "ACTIVE").map(item => item.mentorPersonId)),
+    ].filter((id): id is string => Boolean(id)))];
+    const occasionDate = new Date(`${today}T00:00:00.000Z`);
     const existing = await this.prisma.birthdayNotice.findMany({
       where: { churchId: pilot.churchId, occasionDate, recipientPersonId: { in: recipients } },
       select: { recipientPersonId: true },
     });
     const seen = new Set(existing.map(row => row.recipientPersonId));
     const fresh = recipients.filter(id => !seen.has(id));
+    let created = 0;
     if (fresh.length) {
-      await this.prisma.birthdayNotice.createMany({
+      const result = await this.prisma.birthdayNotice.createMany({
         data: fresh.map(recipientPersonId => ({
           organizationId: pilot.organizationId, churchId: pilot.churchId, recipientPersonId, occasionDate,
         })),
         skipDuplicates: true,
       });
+      created = result.count;
     }
     return {
-      skipped: false, reason: null, hour, date: audience.date, created: fresh.length,
+      skipped: false, reason: null, hour, date: today, created,
       title: "Há aniversariantes hoje na congregação.",
     };
   }

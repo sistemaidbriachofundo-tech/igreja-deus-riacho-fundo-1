@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { PilotoModule } from "../piloto/piloto.module";
 import { PilotModule } from "../pilot/pilot.module";
 import { PersonalRostersController } from "./personal-rosters.controller";
 import { RosterNoticesController } from "./roster-notices.controller";
@@ -7,7 +8,7 @@ import { RosterNoticesService } from "./roster-notices.service";
 import { PersonalRosterService } from "./personal-roster.service";
 
 @Module({
-  imports: [AuthModule, PilotModule],
+  imports: [AuthModule, PilotModule, PilotoModule],
   controllers: [PersonalRostersController, RosterNoticesController],
   exports: [RosterNoticesService],
   providers: [PersonalRosterService, RosterNoticesService],

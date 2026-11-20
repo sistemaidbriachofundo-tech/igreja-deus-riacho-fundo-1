@@ -40,18 +40,23 @@ export class PastoralPackService {
     return { churchId: pilot.churchId, today, members, pendingAdmissions: admissions, openPrayers: prayers, birthdaysToday, upcomingServices: services };
   }
 
-  async createPrayer(actor: AuthUser, input: { body: string; responsibleUserId: string; substituteUserId?: string | null }) {
+  async createPrayer(actor: AuthUser, input: { body: string; responsibleUserId?: string | null; substituteUserId?: string | null }) {
     const pilot = await this.scoped(actor, [ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO, ...PASTORAL]);
     const body = input.body?.trim() ?? "";
     if (body.length < 2 || body.length > 2000) throw new BadRequestException("Escreva o pedido entre 2 e 2000 caracteres.");
-    const responsible = await this.pastorUser(pilot, input.responsibleUserId);
-    const substitute = input.substituteUserId ? await this.pastorUser(pilot, input.substituteUserId) : null;
+    const staff = actor.grants.some(grant => grant.roleCode === ROLE_CODES.SECRETARIA || grant.roleCode === ROLE_CODES.PASTOR || grant.roleCode === ROLE_CODES.PLATFORM_ADMIN);
+    if (!staff && (input.responsibleUserId || input.substituteUserId)) {
+      throw new ForbiddenException("O membro envia somente o texto. O pastor vem do vínculo da congregação.");
+    }
+    const assigned = await this.assignedPastors(pilot);
+    const responsible = staff && input.responsibleUserId ? await this.pastorUser(pilot, input.responsibleUserId) : { id: assigned.titular };
+    const substitute = staff && input.substituteUserId
+      ? await this.pastorUser(pilot, input.substituteUserId)
+      : assigned.substitute ? { id: assigned.substitute } : null;
+    if (!responsible.id) throw new BadRequestException("A congregação ainda não tem pastor responsável.");
     if (substitute && substitute.id === responsible.id) throw new BadRequestException("O substituto é outra pessoa.");
-    const pastors = await this.prisma.user.findMany({
-      where: { status: "ACTIVE", grants: { some: { role: { code: ROLE_CODES.PASTOR }, churchId: pilot.churchId } } },
-      select: { id: true },
-    });
-    const recipients = [...new Set([responsible.id, substitute?.id, ...pastors.map(pastor => pastor.id)].filter((id): id is string => Boolean(id)))];
+    const pastors = assigned.ids;
+    const recipients = [...new Set([responsible.id, substitute?.id, ...pastors].filter((id): id is string => Boolean(id)))];
     const created = await this.prisma.$transaction(async tx => {
       const request = await tx.prayerRequest.create({
         data: {
@@ -84,6 +89,34 @@ export class PastoralPackService {
         canReadText: row.responsibleUserId === actor.userId || row.substituteUserId === actor.userId,
       })),
     };
+  }
+
+  async closePrayer(actor: AuthUser, requestId: string) {
+    const pilot = await this.scoped(actor, [ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN]);
+    const row = await this.prisma.prayerRequest.findFirst({ where: { id: requestId, churchId: pilot.churchId } });
+    if (!row) throw new NotFoundException("Pedido não encontrado.");
+    if (row.responsibleUserId !== actor.userId && row.substituteUserId !== actor.userId && !actor.grants.some(grant => grant.roleCode === ROLE_CODES.PLATFORM_ADMIN)) {
+      throw new ForbiddenException("Somente o pastor responsável ou o substituto conclui o pedido.");
+    }
+    if (row.status === "CLOSED") return { id: row.id, status: row.status };
+    await this.prisma.prayerRequest.update({ where: { id: row.id }, data: { status: "CLOSED" } });
+    return { id: row.id, status: "CLOSED" };
+  }
+
+  async searchPeople(actor: AuthUser, query = "") {
+    const pilot = await this.scoped(actor, [ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN]);
+    const term = query.trim();
+    const people = await this.prisma.person.findMany({
+      where: {
+        organizationId: pilot.organizationId, status: "ACTIVE",
+        ...(term ? { displayName: { contains: term, mode: "insensitive" } } : {}),
+        OR: [{ homeChurchId: pilot.churchId }, { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } }],
+      },
+      select: { id: true, displayName: true },
+      orderBy: { displayName: "asc" },
+      take: 20,
+    });
+    return { churchId: pilot.churchId, people };
   }
 
   async readPrayer(actor: AuthUser, requestId: string) {
@@ -178,6 +211,15 @@ export class PastoralPackService {
     const pilot = await this.pilot.getPilotChurch();
     assertChurchRole(actor, pilot, roles);
     return pilot;
+  }
+
+  private async assignedPastors(pilot: { churchId: string }) {
+    const users = await this.prisma.user.findMany({
+      where: { status: "ACTIVE", grants: { some: { role: { code: ROLE_CODES.PASTOR }, churchId: pilot.churchId } } },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return { titular: users[0]?.id ?? null, substitute: users[1]?.id ?? null, ids: users.map(user => user.id) };
   }
 
   private async pastorUser(pilot: { organizationId: string; churchId: string }, userId: string) {

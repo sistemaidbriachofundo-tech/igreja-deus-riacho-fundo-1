@@ -37,6 +37,11 @@ export class SystemSettingsService {
     return this.lookup(pilot, key, scopeKind, scopeId, at);
   }
 
+  async getBirthdayHour(pilot: { organizationId: string; churchId: string }, now: Date) {
+    const result = await this.lookup(pilot, "notices.birthday.hour_brasilia", "CHURCH", undefined, now);
+    return typeof result.value === "string" ? result.value : "08:00";
+  }
+
   private async lookup(pilot: { organizationId: string; churchId: string }, key: string, scopeKind: string, scopeId: string | undefined, at: Date) {
     const catalog = await this.catalogRow(key);
     const kind = this.scopeKind(scopeKind || catalog.scopeKind);
@@ -106,26 +111,35 @@ export class SystemSettingsService {
     const from = this.instant(input.effectiveFrom, "effectiveFrom");
     const until = input.effectiveUntil ? this.instant(input.effectiveUntil, "effectiveUntil") : null;
     if (until && until <= from) throw new BadRequestException("A vigência termina depois do início.");
-    const published = await this.prisma.systemSettingRevision.findMany({
-      where: {
-        catalogKey: current.catalogKey, lifecycle: "PUBLISHED", scopeKind: current.scopeKind,
-        scopeId: current.scopeId, organizationId: pilot.organizationId, id: { not: current.id },
-      },
-    });
-    const overlaps = published.some(revision => revision.effectiveFrom && windowsOverlap(
-      { from: from.toISOString(), until: until?.toISOString() ?? null },
-      { from: revision.effectiveFrom.toISOString(), until: revision.effectiveUntil?.toISOString() ?? null },
-    ));
-    if (overlaps) throw new ConflictException("Já existe vigência publicada para este escopo.");
-    const devBefore = await this.prisma.systemSettingCatalog.findUnique({ where: { key: current.catalogKey }, select: { devJson: true } });
-    const updated = await this.prisma.systemSettingRevision.update({
-      where: { id: current.id },
-      data: { lifecycle: "PUBLISHED", effectiveFrom: from, effectiveUntil: until, publishedByUserId: actor.userId },
-    });
-    const devAfter = await this.prisma.systemSettingCatalog.findUnique({ where: { key: current.catalogKey }, select: { devJson: true } });
-    if (JSON.stringify(devBefore?.devJson) !== JSON.stringify(devAfter?.devJson)) {
-      throw new ConflictException("O valor de DEV não pode ser alterado pela publicação.");
-    }
+    const updated = await this.prisma.$transaction(async tx => {
+      const fresh = await tx.systemSettingRevision.findFirst({ where: { id: current.id, organizationId: pilot.organizationId } });
+      if (!fresh) throw new NotFoundException("Revisão não encontrada.");
+      this.expectFresh(fresh.updatedAt, input.expectedUpdatedAt);
+      if (fresh.lifecycle !== "IN_REVIEW" || fresh.scopeKind !== current.scopeKind || fresh.scopeId !== current.scopeId) {
+        throw new ConflictException("A publicação sai da revisão deste escopo.");
+      }
+      const published = await tx.systemSettingRevision.findMany({
+        where: {
+          catalogKey: fresh.catalogKey, lifecycle: "PUBLISHED", scopeKind: fresh.scopeKind,
+          scopeId: fresh.scopeId, organizationId: pilot.organizationId, id: { not: fresh.id },
+        },
+      });
+      const overlaps = published.some(revision => revision.effectiveFrom && windowsOverlap(
+        { from: from.toISOString(), until: until?.toISOString() ?? null },
+        { from: revision.effectiveFrom.toISOString(), until: revision.effectiveUntil?.toISOString() ?? null },
+      ));
+      if (overlaps) throw new ConflictException("Já existe vigência publicada para este escopo.");
+      const devBefore = await tx.systemSettingCatalog.findUnique({ where: { key: fresh.catalogKey }, select: { devJson: true } });
+      const row = await tx.systemSettingRevision.update({
+        where: { id: fresh.id },
+        data: { lifecycle: "PUBLISHED", effectiveFrom: from, effectiveUntil: until, publishedByUserId: actor.userId },
+      });
+      const devAfter = await tx.systemSettingCatalog.findUnique({ where: { key: fresh.catalogKey }, select: { devJson: true } });
+      if (JSON.stringify(devBefore?.devJson) !== JSON.stringify(devAfter?.devJson)) {
+        throw new ConflictException("O valor de DEV não pode ser alterado pela publicação.");
+      }
+      return row;
+    }, { isolationLevel: "Serializable" });
     await this.audit(actor, pilot, "system_setting.publish", updated.id, current.catalogKey);
     return this.view(updated);
   }

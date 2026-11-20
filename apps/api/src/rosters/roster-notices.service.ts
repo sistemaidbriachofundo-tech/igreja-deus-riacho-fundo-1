@@ -1,8 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
 import webPush from "web-push";
 import type { AuthUser } from "../auth/types/auth-user";
+import { BirthdayNoticesService } from "../piloto/birthday-notices.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { churchDayKey } from "./church-day";
@@ -22,7 +23,8 @@ const PUSH_HOSTS = new Set(["fcm.googleapis.com", "updates.push.services.mozilla
 
 @Injectable()
 export class RosterNoticesService {
-  constructor(private readonly db: PrismaService, private readonly pilot: PilotService) {}
+  constructor(private readonly db: PrismaService, private readonly pilot: PilotService,
+    @Optional() private readonly birthdays?: BirthdayNoticesService) {}
 
   async list(actor: AuthUser, now = new Date()) {
     const scope = await this.personScope(actor);
@@ -157,7 +159,9 @@ export class RosterNoticesService {
     }
     const digest = (value: string) => createHash("sha256").update(value).digest();
     if (!timingSafeEqual(digest(authorization ?? ""), digest("Bearer " + secret))) throw new ForbiddenException();
-    return this.run(now);
+    const roster = await this.run(now);
+    const birthdays = await this.birthdays?.runScheduled(now);
+    return { ...roster, ...(birthdays ? { birthdays } : {}) };
   }
 
   async run(now: Date) {

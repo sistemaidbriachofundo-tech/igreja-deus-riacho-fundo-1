@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Param, Post, Req } from "@nestjs/common";
+import { Controller, Headers, Param, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
@@ -16,15 +16,15 @@ export class MercadoPagoController {
     return this.payments.checkout(actor, registrationId);
   }
 
+  /** Contrato oficial: x-signature (ts,v1), x-request-id e query data.id. */
   @Public()
   @Post("webhooks/mercado-pago")
   webhook(
-    @Headers("x-mp-timestamp") timestamp = "",
-    @Headers("x-mp-signature") signature = "",
-    @Body() body: unknown,
-    @Req() request: { rawBody?: Buffer },
+    @Headers("x-signature") signatureHeader = "",
+    @Headers("x-request-id") requestId = "",
+    @Query("data.id") dataId = "",
+    @Query("id") id = "",
   ) {
-    const rawBody = request.rawBody?.toString("utf8") ?? JSON.stringify(body);
-    return this.payments.handleWebhook({ rawBody, timestamp, signature });
+    return this.payments.handleWebhook({ signatureHeader, requestId, dataId: dataId || id });
   }
 }

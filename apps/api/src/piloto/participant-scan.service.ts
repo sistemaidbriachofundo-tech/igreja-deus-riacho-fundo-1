@@ -35,7 +35,7 @@ export class ParticipantScanService {
     if (!token || token.length < 8) throw new BadRequestException("QR inválido.");
     const ticket = await this.prisma.eventParticipantTicket.findFirst({
       where: { code: token },
-      include: { registration: { select: { id: true, eventId: true, status: true, paymentStatus: true, churchId: true } } },
+      include: { registration: { select: { id: true, eventId: true, status: true, paymentStatus: true, churchId: true, isMinor: true, guardianAuthStatus: true } } },
     });
     const decision = decideTicketScan({
       found: Boolean(ticket && ticket.registration.churchId === pilot.churchId),
@@ -43,6 +43,8 @@ export class ParticipantScanService {
       requestedEventId: event.id,
       paymentStatus: ticket?.registration.paymentStatus,
       registrationStatus: ticket?.registration.status,
+      eventStatus: event.status,
+      guardianAuthorized: !ticket?.registration.isMinor || ticket.registration.guardianAuthStatus === "AUTHORIZED" || ticket.registration.guardianAuthStatus === "NOT_REQUIRED",
       onEventDay: eventCoversLocalDay(event.startsAt, event.endsAt, now),
       checkedInAt: ticket?.checkedInAt?.toISOString() ?? null,
       scannedByUserId: ticket?.scannedByUserId ?? null,
@@ -51,10 +53,23 @@ export class ParticipantScanService {
     if (decision.result === "UNKNOWN" || decision.result === "WRONG_EVENT") {
       throw new NotFoundException("Ingresso não pertence a este evento.");
     }
+    if (decision.result === "EVENT_CLOSED") throw new ConflictException("O evento está encerrado para leitura.");
     if (decision.result === "NOT_TODAY") throw new ConflictException("A leitura vale no dia do evento.");
+    if (decision.result === "REFUNDED") throw new ConflictException("O ingresso foi estornado.");
+    if (decision.result === "GUARDIAN") throw new ConflictException("A autorização do responsável ainda não foi registrada.");
     if (decision.result === "UNPAID") throw new ConflictException("O ingresso ainda não está confirmado.");
     if (decision.result === "ALREADY_READ" || !ticket) return { ...decision, duplicate: true };
     const recorded = await this.prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM event_registrations WHERE id = ${ticket.registrationId} FOR UPDATE`;
+      const current = await tx.eventParticipantTicket.findUnique({ where: { id: ticket.id } });
+      if (current?.checkedInAt) {
+        return {
+          result: "ALREADY_READ" as const,
+          checkedInAt: current.checkedInAt.toISOString(),
+          scannedByUserId: current.scannedByUserId ?? null,
+          duplicate: true,
+        };
+      }
       const updated = await tx.eventParticipantTicket.updateMany({
         where: { id: ticket.id, checkedInAt: null },
         data: { checkedInAt: now, scannedByUserId: actor.userId },
