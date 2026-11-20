@@ -1,5 +1,9 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Post } from "@nestjs/common";
+import { ROLE_CODES } from "@idbrf/shared";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
+import { Roles } from "../auth/decorators/roles.decorator";
+import type { AuthUser } from "../auth/types/auth-user";
 import { EventRegistrationsService } from "../events/event-registrations.service";
 import { PublicRegistrationBody } from "../events/registration.dto";
 import { PublicPortalService } from "./public-portal.service";
@@ -61,13 +65,15 @@ export class PublicPortalController {
     return { ...event, ...catalog };
   }
 
-  @Public()
+  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO)
   @Post("events/:slug/registrations")
+  @Header("Cache-Control", "private, no-store")
   createRegistration(
+    @CurrentUser() actor: AuthUser,
     @Param("slug") slug: string,
     @Body() body: PublicRegistrationBody,
   ) {
-    return this.registrations.createPublicRegistration(slug, body);
+    return this.registrations.createMemberRegistration(actor, slug, body);
   }
 
   @Public()

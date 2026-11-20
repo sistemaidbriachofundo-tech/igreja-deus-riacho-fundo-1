@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { availableEventLots, parseRegistrationCatalog, validRegistrationCode } from "./public-event-registration";
+import { availableEventLots, eventAuthHref, memberEventsHref, parseRegistrationCatalog, registerForEvent, validRegistrationCode } from "./public-event-registration";
+import { authenticatedLanding } from "./auth-destination";
+import type { LoginResult } from "./api";
 
 describe("inscrição pública", () => {
   it("omite lotes pagos simulados e mantém o Pix da igreja e a inscrição gratuita", () => {
@@ -15,6 +17,24 @@ describe("inscrição pública", () => {
     expect(catalog?.lots.map(lot => lot.id)).toEqual(["pix", "free"]);
     expect(availableEventLots(catalog!.lots, "individual", 1).map(lot => lot.id)).toEqual(["pix"]);
     expect(availableEventLots(catalog!.lots, "individual", 2)).toEqual([]);
+  });
+
+  it("exige sessão antes de enviar a inscrição", async () => {
+    await expect(registerForEvent("encontro", {
+      displayName: "Pessoa Teste", notificationEmail: "teste@example.test",
+      modalityId: "individual", lotId: "lote", partySize: 1, isMinor: false,
+    }, "")).rejects.toThrow("Entre na sua conta");
+  });
+
+  it("retoma o mesmo evento para membro ou convidado e rejeita destinos externos", () => {
+    const account = (roleCode: string) => ({ grants: [{ roleCode }] } as LoginResult["user"]);
+    expect(eventAuthHref("/login/", "culto-da-familia")).toBe("/login/?evento=culto-da-familia");
+    expect(eventAuthHref("/cadastro/", "culto-da-familia")).toBe("/cadastro/?evento=culto-da-familia");
+    expect(authenticatedLanding(account("MEMBRO"), "culto-da-familia")).toBe(memberEventsHref("culto-da-familia"));
+    expect(authenticatedLanding(account("CONVIDADO"), "culto-da-familia")).toBe(memberEventsHref("culto-da-familia"));
+    expect(authenticatedLanding(account("CONVIDADO"), "//example.test")).toBe("/app/convidado/");
+    expect(authenticatedLanding(account("PLATFORM_ADMIN"), "culto-da-familia"))
+      .toBe(authenticatedLanding(account("PLATFORM_ADMIN")));
   });
 
   it("aceita somente o código opaco do ingresso no leitor", () => {

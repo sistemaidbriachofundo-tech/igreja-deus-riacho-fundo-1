@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { isAdminEnabled } from "../lib/admin-environment";
 import {
   ApiRequestError, apiPostPublic, loginFailureMessage, rememberValidatedSession, storeToken, type LoginResult,
 } from "../lib/api";
 import { openAuthenticatedArea } from "../lib/app-navigation";
 import { authenticatedLanding } from "../lib/auth-destination";
+import { eventAuthHref } from "../lib/public-event-registration";
 import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
 
@@ -15,6 +16,11 @@ export function GuestRegistration() {
   const available = isAdminEnabled();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [eventSlug, setEventSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEventSlug(new URLSearchParams(window.location.search).get("evento"));
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +41,7 @@ export function GuestRegistration() {
       });
       rememberValidatedSession(session.accessToken, session.user);
       storeToken(session.accessToken);
-      openAuthenticatedArea(authenticatedLanding(session.user));
+      openAuthenticatedArea(authenticatedLanding(session.user, new URLSearchParams(window.location.search).get("evento")));
     } catch (problem) {
       if (problem instanceof ApiRequestError && problem.status === 409) {
         setError("Se já tem acesso, entre pelo login. Se precisar de ajuda, procure a Secretaria.");
@@ -72,7 +78,7 @@ export function GuestRegistration() {
             {error && <Alert appearance="workspace" tone="danger" title={error} />}
             <button className={styles.submit} type="submit" disabled={busy}>{busy ? "Criando conta…" : "Criar conta e entrar"}</button>
           </form> : <Alert appearance="workspace" tone="warning" title="O cadastro está indisponível neste endereço." />}
-          <p className={styles.bottom}>Já tem conta? <Link className={styles.gateLink} href="/login/">Entrar</Link></p>
+          <p className={styles.bottom}>Já tem conta? <Link className={styles.gateLink} href={eventAuthHref("/login/", eventSlug)}>Entrar</Link></p>
         </div>
       </section>
     </div>

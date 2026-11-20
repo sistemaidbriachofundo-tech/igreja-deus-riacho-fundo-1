@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ApiRequestError } from "../../lib/api";
 import {
   availableEventLots, cancelMemberRegistration, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt,
-  loadRegistrationStatus, memberEventsHref, registerForEvent,
+  eventAuthHref, registerForEvent,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
 import { formatPortalDate } from "../../lib/portal-live-data";
@@ -19,13 +19,14 @@ type Catalog = NonNullable<Awaited<ReturnType<typeof loadEventRegistration>>>;
 
 function message(error: unknown): string {
   const status = error instanceof ApiRequestError ? error.status : null;
+  if (status === 401) return "Sua sessão expirou. Entre novamente para se inscrever.";
   if (status === 404) return "Este evento não está disponível para inscrição.";
   if (status === 400 || status === 409) return "Confira os dados e as vagas disponíveis antes de tentar novamente.";
   if (status === 429) return "Aguarde alguns instantes antes de tentar novamente.";
   return "Não foi possível concluir agora. Tente novamente em instantes.";
 }
 
-export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationReceipt; memberToken?: string }) {
+export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationReceipt; memberToken: string }) {
   const [status, setStatus] = useState(receipt.status);
   const [guardianStatus, setGuardianStatus] = useState(receipt.guardianAuthStatus);
   const [pix, setPix] = useState(receipt.paymentIntent);
@@ -51,12 +52,8 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
     setBusy(true);
     setNotice("");
     try {
-      const updated = memberToken
-        ? await loadMemberReceipt(memberToken, receipt.id).then(result => {
-          setPix(result.paymentIntent);
-          return result;
-        })
-        : await loadRegistrationStatus(receipt.checkInCode);
+      const updated = await loadMemberReceipt(memberToken, receipt.id);
+      setPix(updated.paymentIntent);
       setStatus(updated.status);
       setGuardianStatus(updated.guardianAuthStatus);
       setTickets(updated.tickets);
@@ -142,12 +139,12 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
 
 export function EventRegistrationForm({ catalog, member }: {
   catalog: Catalog;
-  member?: { token: string; profile: MemberEventProfile };
+  member: { token: string; profile: MemberEventProfile };
 }) {
   const [modalityId, setModalityId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [lotId, setLotId] = useState("");
-  const [minor, setMinor] = useState(member?.profile.isMinor ?? false);
+  const [minor, setMinor] = useState(member.profile.isMinor);
   const [receipt, setReceipt] = useState<RegistrationReceipt | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -169,7 +166,7 @@ export function EventRegistrationForm({ catalog, member }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!lot || !modality || !capacityMatches || submitting.current || (member && !member.token)) return;
+    if (!lot || !modality || !capacityMatches || submitting.current || !member.token) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -181,12 +178,12 @@ export function EventRegistrationForm({ catalog, member }: {
         displayName: read("name"), notificationEmail: read("email"), modalityId, lotId, partySize: quantity, isMinor: minor,
         ...(minor ? { guardianDisplayName: read("guardian"), guardianAcknowledged: form.get("consent") === "on" } : {}),
         ...resources,
-      }, member?.token));
+      }, member.token));
     } catch (error) { setError(message(error)); }
     finally { submitting.current = false; setBusy(false); }
   }
 
-  if (receipt) return <EventReceipt receipt={receipt} memberToken={member?.token} />;
+  if (receipt) return <EventReceipt receipt={receipt} memberToken={member.token} />;
   if (!choices.length) {
     return <Alert appearance="workspace" tone="info" title="Inscrições indisponíveis neste momento" />;
   }
@@ -206,13 +203,13 @@ export function EventRegistrationForm({ catalog, member }: {
         options={[{ label: lots.length ? "Selecione" : "Sem vagas para esta opção", value: "" }, ...lots.map(choice => ({
           label: choice.name + " · " + (choice.priceCents ? formatEventPrice(choice.priceCents) : "Gratuito"), value: choice.id,
         }))]} />}
-      <Input name="name" label="Nome do participante" autoComplete="name" defaultValue={member?.profile.name} minLength={2} maxLength={120} required />
-      <Input name="email" label="E-mail para receber a confirmação" type="email" autoComplete="email" defaultValue={member?.profile.email} maxLength={254} required />
+      <Input name="name" label="Nome do participante" autoComplete="name" defaultValue={member.profile.name} minLength={2} maxLength={120} required />
+      <Input name="email" label="E-mail para receber a confirmação" type="email" autoComplete="email" defaultValue={member.profile.email} maxLength={254} required />
       {resourceFields.map(item => item.choices.length > 0 && <Select key={item.name} name={item.name} label={item.label} required
         options={[{ label: "Selecione", value: "" }, ...item.choices.filter(choice => choice.remaining === null || choice.remaining >= quantity)
           .map(choice => ({ label: choice.name, value: choice.id }))]} />)}
     </div>
-    <label className={s.check}><input type="checkbox" checked={minor} disabled={member?.profile.isMinor} onChange={event => setMinor(event.target.checked)} /> Participante menor de idade</label>
+    <label className={s.check}><input type="checkbox" checked={minor} disabled={member.profile.isMinor} onChange={event => setMinor(event.target.checked)} /> Participante menor de idade</label>
     {minor && <>
       <Input name="guardian" label="Nome do responsável" minLength={2} maxLength={120} required />
       <label className={s.check}><input name="consent" type="checkbox" required /> Sou responsável pelo participante e autorizo a inscrição.</label>
@@ -247,13 +244,13 @@ export function PublicEventRegistration() {
       </>}
     </header>
     {error ? <Alert appearance="workspace" tone="danger" title={error} /> :
-      catalog ? <>
-        {eventRegistrationChoices(catalog).length > 0 && <section className={s.panel}>
-          <Link href={memberEventsHref(catalog.event.slug)}>Entrar como membro</Link>
-          <p>Com sua conta da igreja, acompanhe o pagamento e consulte seu ingresso em Minhas inscrições.</p>
-          <a href="#inscricao-visitante">Continuar como visitante</a>
-        </section>}
-        <div id="inscricao-visitante"><EventRegistrationForm catalog={catalog} /></div>
-      </> : <Loading label="Carregando evento" />}
+      !catalog ? <Loading label="Carregando evento" /> :
+        eventRegistrationChoices(catalog).length > 0 ? <section className={s.panel}>
+          <p>Entre com sua conta para se inscrever e acompanhar seu ingresso.</p>
+          <div className={s.eventAccess}>
+            <Link href={eventAuthHref("/login/", catalog.event.slug)}>Entrar para se inscrever</Link>
+            <Link href={eventAuthHref("/cadastro/", catalog.event.slug)}>Criar conta como convidado</Link>
+          </div>
+        </section> : <Alert appearance="workspace" tone="info" title="Inscrições indisponíveis neste momento" />}
   </main>;
 }

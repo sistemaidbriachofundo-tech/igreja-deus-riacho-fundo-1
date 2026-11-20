@@ -10,6 +10,7 @@ import {
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { useSearchParams } from "next/navigation";
 import { parseMinistryRoute } from "../lib/ministry-view";
+import { eventAuthHref } from "../lib/public-event-registration";
 import { withBasePath } from "../lib/paths";
 import { officialLogoAsset } from "../lib/brand";
 import { treasurySectionFromHash, treasurySectionHref, treasurySidebarItems, type TreasurySection } from "../lib/treasury-navigation";
@@ -165,6 +166,11 @@ function MinistrySubmenu({ entries, active, onNavigate, search = "" }: {
 function CurrentMinistrySubmenu(props: Omit<Parameters<typeof MinistrySubmenu>[0], "search">) {
   const search = useSearchParams().toString();
   return <MinistrySubmenu {...props} search={search} />;
+}
+
+function EventLoginLink() {
+  const slug = useSearchParams().get("evento");
+  return <AppNavLink href={eventAuthHref("/login/", slug)}>Ir para o login</AppNavLink>;
 }
 
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
@@ -705,7 +711,10 @@ export function AppShell({
             <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
             <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>
           </section>}
-          {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p><AppNavLink href="/login/">Ir para o login</AppNavLink></div>}
+          {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p>
+            {active === "eventos-membro"
+              ? <Suspense fallback={<AppNavLink href="/login/">Ir para o login</AppNavLink>}><EventLoginLink /></Suspense>
+              : <AppNavLink href="/login/">Ir para o login</AppNavLink>}</div>}
           {accessKind === "held" && <p className={s.holdNote} role="alert">Não foi possível verificar seu acesso. Atualize a página para tentar de novo.</p>}
           </div>
         </main>

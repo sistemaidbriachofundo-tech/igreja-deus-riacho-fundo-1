@@ -656,7 +656,7 @@ describe("controller wiring (delegates to services)", () => {
         requiresTransportOption: false,
         requiresGuardianAuthorizationForMinors: true,
       }),
-      createPublicRegistration: jest.fn(),
+      createMemberRegistration: jest.fn(),
       getPublicRegistrationStatus: jest.fn(),
     };
     const c = new PublicPortalController(
@@ -670,7 +670,7 @@ describe("controller wiring (delegates to services)", () => {
     await c.getMinistry("jovens");
     await expect(c.listEvents()).resolves.toMatchObject({ events: [{ id: "e1", registrationOpen: true }] });
     await c.getEvent("encontro-jovens-demo");
-    await c.createRegistration("encontro-jovens-demo", {
+    await c.createRegistration(user, "encontro-jovens-demo", {
       displayName: "Demo",
       modalityId: "mod1",
       lotId: "lot1",
@@ -678,7 +678,9 @@ describe("controller wiring (delegates to services)", () => {
     await c.registrationStatus("abc123code");
     await c.getContent("sobre-nos");
     expect(portal.getContentBySlug).toHaveBeenCalledWith("sobre-nos");
-    expect(registrations.createPublicRegistration).toHaveBeenCalled();
+    expect(registrations.createMemberRegistration).toHaveBeenCalledWith(
+      user, "encontro-jovens-demo", expect.objectContaining({ lotId: "lot1" }),
+    );
   });
 
   it("CmsController", async () => {

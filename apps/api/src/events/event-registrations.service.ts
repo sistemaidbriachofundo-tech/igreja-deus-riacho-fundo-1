@@ -575,15 +575,9 @@ export class EventRegistrationsService {
     });
   }
 
-  async createPublicRegistration(eventSlug: string, input: RegistrationInput) {
-    const pilot = await this.pilot.getPilotChurch();
-    this.assertNoRealPii(input as object);
-    const event = await this.findPublishedEvent(pilot, eventSlug);
-    return this.createRegistrationInternal({ pilot, event, input, actorUserId: null, source: "public" });
-  }
-
   async createMemberRegistration(actor: AuthUser, eventSlug: string, input: RegistrationInput) {
     const { pilot, person } = await this.requireEventParticipant(actor);
+    this.assertNoRealPii(input);
     const event = await this.findPublishedEvent(pilot, eventSlug);
     return this.createRegistrationInternal({
       pilot, event, input: {
@@ -1197,8 +1191,8 @@ export class EventRegistrationsService {
       name?: string;
     };
     input: RegistrationInput;
-    actorUserId: string | null;
-    source: "staff" | "public" | "member";
+    actorUserId: string;
+    source: "staff" | "member";
     registrantPersonId?: string;
   }) {
     const displayName = params.input.displayName?.trim();
@@ -1284,8 +1278,8 @@ export class EventRegistrationsService {
       if (lot.closesAt && lot.closesAt.getTime() < now) {
         throw new BadRequestException("lote encerrado");
       }
-    } else if (params.source === "public") {
-      throw new BadRequestException("lotId é obrigatório na inscrição pública");
+    } else if (params.source === "member") {
+      throw new BadRequestException("lotId é obrigatório na inscrição pelo portal");
     }
 
     const [lodgingCatalog, mealCatalog, transportCatalog] = await Promise.all([
@@ -1491,12 +1485,9 @@ export class EventRegistrationsService {
       await tx.auditLog.create({
         data: {
           actorUserId: params.actorUserId,
-          action:
-            params.source === "public"
-              ? "event_registration.create_public"
-              : params.source === "member"
-                ? "event_registration.create_member"
-                : "event_registration.create_staff",
+          action: params.source === "member"
+            ? "event_registration.create_member"
+            : "event_registration.create_staff",
           resourceType: "event_registration",
           resourceId: registration.id,
           organizationId: params.pilot.organizationId,
@@ -1623,7 +1614,7 @@ export class EventRegistrationsService {
     const hit = Object.keys(input).filter((k) => forbidden.includes(k));
     if (hit.length) {
       throw new BadRequestException(
-        "Campos de PII real não permitidos na inscrição pública",
+        "Use somente os dados solicitados no formulário de inscrição",
       );
     }
   }

@@ -12,6 +12,17 @@
 .header p:first-child { font-size: .75rem; font-weight: 700; color: #dbdbdb; }
 .header h1 { font-family: var(--site-font); font-size: clamp(1.7rem, 4.5vw, 2.7rem); margin: 0; overflow-wrap: anywhere; }
 .panel { padding: clamp(16px, 4vw, 30px); border: 1px solid #e2e2e2; border-radius: 14px; display: grid; gap: 18px; justify-items: start; background: #fff; min-width: 0; }
+.eventAccess { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.eventAccess a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: 999px;
+  padding-inline: 14px;
+  font-weight: 700;
+}
+.eventAccess a:first-child { background: var(--app-accent, #22434a); color: #fff; text-decoration: none; }
+.eventAccess a:first-child:hover { background: var(--app-accent-hover, #17262e); }
 .fields { width: 100%; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .check { display: flex; align-items: center; min-height: 44px; gap: 10px; }
 .check input { width: 21px; height: 21px; flex: none; }

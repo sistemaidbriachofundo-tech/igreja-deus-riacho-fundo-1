@@ -181,6 +181,10 @@ describe("api contracts F2", () => {
       "implemented",
     );
     assert.equal(
+      API_ENDPOINT_STATUS["POST /member-events/:slug/registrations"],
+      "implemented",
+    );
+    assert.equal(
       API_ENDPOINT_STATUS["POST /public/events/:slug/registrations"],
       "implemented",
     );

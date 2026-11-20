@@ -1,4 +1,4 @@
-import { apiGet, apiGetPublic, apiPost, apiPostPublic } from "./api";
+import { apiGet, apiGetPublic, apiPost } from "./api";
 import { parsePublishedEvent } from "./portal-live-data";
 
 type Choice = { id: string; name: string; remaining: number | null };
@@ -32,8 +32,16 @@ export type MemberRegistrationSummary = {
   event: { name: string; slug: string; startsAt: string; status: string };
 };
 
-export function memberEventsHref(slug?: string) {
-  return "/app/eventos/" + (slug ? "?" + new URLSearchParams({ evento: slug }) : "");
+export function eventAuthHref(path: "/login/" | "/cadastro/", slug?: string | null) {
+  return path + eventQuery(slug);
+}
+
+export function memberEventsHref(slug?: string | null): `/app/eventos/${string}` {
+  return `/app/eventos/${eventQuery(slug)}`;
+}
+
+function eventQuery(slug?: string | null) {
+  return slug && validEventSlug(slug) ? "?" + new URLSearchParams({ evento: slug }) : "";
 }
 
 export function loadMemberRegistrations(token: string) {
@@ -115,16 +123,10 @@ export type EventRegistrationFields = {
   lodgingOptionId?: string; mealOptionId?: string; transportOptionId?: string;
 };
 
-export async function registerForEvent(slug: string, fields: EventRegistrationFields, memberToken?: string) {
+export async function registerForEvent(slug: string, fields: EventRegistrationFields, memberToken: string) {
   if (!validEventSlug(slug)) throw new Error("Evento inválido.");
-  const result = memberToken
-    ? await apiPost<RegistrationReceipt>("/member-events/" + slug + "/registrations", memberToken, fields)
-    : await apiPostPublic<RegistrationReceipt>("/public/events/" + slug + "/registrations", fields);
+  if (!memberToken.trim()) throw new Error("Entre na sua conta para se inscrever.");
+  const result = await apiPost<RegistrationReceipt>("/member-events/" + slug + "/registrations", memberToken, fields);
   if (!result || typeof result.id !== "string" || !validRegistrationCode(result.checkInCode)) throw new Error("Resposta de inscrição inválida.");
   return result;
-}
-
-export function loadRegistrationStatus(code: string) {
-  if (!validRegistrationCode(code)) throw new Error("Código de inscrição inválido.");
-  return apiGetPublic<RegistrationStatus>("/public/registrations/" + code);
 }
