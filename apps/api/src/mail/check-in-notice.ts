@@ -44,6 +44,7 @@ export async function queueParticipantTicketNotices(
 ) {
   if (!mail) return { queued: false as const, count: 0 };
   let count = 0;
+  const eventName = input.eventName.replace(/[&<>]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[character] ?? character);
   for (const ticket of input.tickets) {
     const content = await QRCode.toBuffer(ticket.code, { margin: 4, errorCorrectionLevel: "M", width: 240 });
     await mail.deliverOnce({
@@ -51,7 +52,7 @@ export async function queueParticipantTicketNotices(
       to: ticket.email,
       subject: "Seu ingresso",
       text: `Seu ingresso para ${input.eventName} está confirmado.\nApresente este QR no dia do evento.\nIngresso ${ticket.position}: ${ticket.code}`,
-      html: `<p>Seu ingresso para ${input.eventName} está confirmado.</p><img src="cid:ingresso-${ticket.position}" width="240" height="240" alt="QR do ingresso" /><p>${ticket.code}</p>`,
+      html: `<p>Seu ingresso para ${eventName} está confirmado.</p><img src="cid:ingresso-${ticket.position}" width="240" height="240" alt="QR do ingresso" /><p>${ticket.code}</p>`,
       attachments: [{ filename: `ingresso-${ticket.position}.png`, cid: `ingresso-${ticket.position}`, content }],
     }, { required: false });
     count += 1;

@@ -8,7 +8,7 @@ import { Alert, Button, Input, Loading, PageHeader, Select } from "./ui";
 import s from "./pastoral-desk.module.css";
 import ui from "./ui/ui.module.css";
 
-type Setting = { key: string; title: string; description: string; valueType: string; scopeKind: string; devValue: unknown };
+type Setting = { key: string; title: string; description: string; valueType: string; scopeKind: string; devValue: unknown; editable?: boolean };
 type Revision = {
   id: string; key: string; lifecycle: string; value: unknown; scopeId: string | null;
   updatedAt: string; createdAt: string; effectiveFrom: string | null; effectiveUntil: string | null;
@@ -102,7 +102,7 @@ export function SystemRulesDesk() {
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected || (needsScope && !scopeId.trim())) return;
+    if (!selected?.editable || (needsScope && !scopeId.trim())) return;
     let value: unknown = draftValue.trim();
     try {
       if (selected.valueType === "boolean") value = draftValue === "true";
@@ -140,16 +140,17 @@ export function SystemRulesDesk() {
       <h2>{selected.title}</h2>
       <p>{selected.description}</p>
       <p>{scopeLabels[selected.scopeKind] ?? selected.scopeKind} · Em vigor · {effective ? display(effective.value) : "Consultando…"}</p>
-      <form className={s.prayerForm} onSubmit={save}>
+      {!selected.editable && <p>Regra disponível para consulta.</p>}
+      {selected.editable && <form className={s.prayerForm} onSubmit={save}>
         {needsScope && <Input label="Identificador do escopo" value={scopeId}
           onChange={event => { setScopeId(event.target.value); setRevisionId(""); }} required />}
         {selected.valueType === "boolean" ? <Select label="Novo valor" required value={draftValue}
           options={[{ value: "true", label: "Ativo" }, { value: "false", label: "Desativado" }]}
           onChange={event => setDraftValue(event.target.value)} />
-          : <Input label="Novo valor" required type={selected.valueType === "time" ? "time" : selected.valueType === "number" ? "number" : "text"}
+          : <Input label="Novo valor" required={!selected.key.startsWith("pastoral.")} type={selected.valueType === "time" ? "time" : selected.valueType === "number" ? "number" : "text"}
             value={draftValue} onChange={event => setDraftValue(event.target.value)} />}
         <Button type="submit" disabled={busy}>Salvar rascunho</Button>
-      </form>
+      </form>}
       <h3>Histórico e revisões</h3>
       <ul className={s.entries}>{history?.filter(row => row.scopeId === (scopeId || null)).slice().reverse().map(row => <li key={row.id}>
         <span>{lifecycleLabels[row.lifecycle] ?? row.lifecycle} · {display(row.value)} · {formats.format(new Date(row.effectiveFrom ?? row.createdAt))}</span>{" "}

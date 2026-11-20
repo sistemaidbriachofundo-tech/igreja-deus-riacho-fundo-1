@@ -1,10 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { credentialColorRule, officeDocumentKind, ROLE_CODES, saoPauloParts } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
+import { SystemSettingsService } from "./system-settings.service";
 import { assertChurchRole, assertOperationalScope } from "./church";
 
 const PASTORAL = [ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN];
@@ -16,6 +17,7 @@ export class PastoralPackService {
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
     private readonly storage: PrivateStorageService,
+    @Optional() private readonly settings?: SystemSettingsService,
   ) {}
 
   async dashboard(actor: AuthUser, now = new Date()) {
@@ -213,13 +215,18 @@ export class PastoralPackService {
     return pilot;
   }
 
-  private async assignedPastors(pilot: { churchId: string }) {
+  private async assignedPastors(pilot: { organizationId: string; churchId: string }) {
     const users = await this.prisma.user.findMany({
-      where: { status: "ACTIVE", grants: { some: { role: { code: ROLE_CODES.PASTOR }, churchId: pilot.churchId } } },
+      where: { status: "ACTIVE", grants: { some: { role: { code: ROLE_CODES.PASTOR }, organizationId: pilot.organizationId, churchId: pilot.churchId } } },
       select: { id: true },
       orderBy: { createdAt: "asc" },
     });
-    return { titular: users[0]?.id ?? null, substitute: users[1]?.id ?? null, ids: users.map(user => user.id) };
+    const ids = users.map(user => user.id);
+    const routing = await this.settings?.pastoralRouting(pilot);
+    const titular = routing?.titular && ids.includes(routing.titular) ? routing.titular : ids[0] ?? null;
+    const substitute = routing?.substitute && routing.substitute !== titular && ids.includes(routing.substitute)
+      ? routing.substitute : ids.find(id => id !== titular) ?? null;
+    return { titular, substitute, ids };
   }
 
   private async pastorUser(pilot: { organizationId: string; churchId: string }, userId: string) {

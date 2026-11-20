@@ -7,6 +7,7 @@ import { assertChurchRole } from "./church";
 
 const SCOPE_KINDS = ["PLATFORM", "CHURCH", "MINISTRY", "MODULE", "GROUP", "TRACK"] as const;
 type ScopeKind = (typeof SCOPE_KINDS)[number];
+const EDITABLE_SETTINGS = new Set(["notices.birthday.hour_brasilia", "pastoral.titular_user_id", "pastoral.substitute_user_id"]);
 
 @Injectable()
 export class SystemSettingsService {
@@ -21,7 +22,7 @@ export class SystemSettingsService {
     return {
       items: items.map(item => ({
         key: item.key, title: item.title, description: item.description, valueType: item.valueType,
-        scopeKind: item.scopeKind, defaultValue: item.defaultJson, devValue: item.devJson,
+        scopeKind: item.scopeKind, defaultValue: item.defaultJson, devValue: item.devJson, editable: EDITABLE_SETTINGS.has(item.key),
       })),
     };
   }
@@ -40,6 +41,12 @@ export class SystemSettingsService {
   async getBirthdayHour(pilot: { organizationId: string; churchId: string }, now: Date) {
     const result = await this.lookup(pilot, "notices.birthday.hour_brasilia", "CHURCH", undefined, now);
     return typeof result.value === "string" ? result.value : "08:00";
+  }
+
+  async pastoralRouting(pilot: { organizationId: string; churchId: string }, now = new Date()) {
+    const keys = ["pastoral.titular_user_id", "pastoral.substitute_user_id"];
+    const [titular, substitute] = await Promise.all(keys.map(key => this.lookup(pilot, key, "CHURCH", undefined, now)));
+    return { titular: typeof titular.value === "string" ? titular.value : "", substitute: typeof substitute.value === "string" ? substitute.value : "" };
   }
 
   private async lookup(pilot: { organizationId: string; churchId: string }, key: string, scopeKind: string, scopeId: string | undefined, at: Date) {
@@ -77,6 +84,7 @@ export class SystemSettingsService {
   async draft(actor: AuthUser, input: { key: string; scopeKind?: string; scopeId?: string | null; value: unknown; note?: string | null }) {
     const pilot = await this.admin(actor);
     const catalog = await this.catalogRow(input.key);
+    if (!EDITABLE_SETTINGS.has(catalog.key)) throw new BadRequestException("Esta regra está disponível para consulta.");
     const kind = this.scopeKind(input.scopeKind || catalog.scopeKind);
     this.assertValue(catalog.valueType, input.value);
     const created = await this.prisma.systemSettingRevision.create({
