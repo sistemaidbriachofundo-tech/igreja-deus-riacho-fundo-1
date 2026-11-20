@@ -119,7 +119,7 @@ export function effectiveInviteLimit(name: string | null | undefined, raw: unkno
   if (key === "ceia") return 0;
   const source = record(raw);
   if (Object.prototype.hasOwnProperty.call(source, "substituteInviteLimit")) return Math.min(5, parsed);
-  if (key in STANDARD) return 5;
+  if (key === "recepcao" || key === "apoio interno" || key === "conexao") return 5;
   return Math.min(5, parsed);
 }
 

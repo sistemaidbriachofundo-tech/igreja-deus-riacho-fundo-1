@@ -118,6 +118,9 @@ describe("escalas do Atmosfera", () => {
     expect(effectiveInviteLimit("Recepção", {}, 0)).toBe(5);
     expect(effectiveInviteLimit("Ceia", {}, 0)).toBe(0);
     expect(effectiveInviteLimit("Santa Ceia", { substituteInviteLimit: 5 }, 5)).toBe(0);
+    expect(effectiveInviteLimit("Ofertas", {}, 0)).toBe(0);
+    expect(effectiveInviteLimit("Estacionamento", {}, 0)).toBe(0);
+    expect(effectiveInviteLimit("Ofertas", { substituteInviteLimit: 5 }, 5)).toBe(5);
     expect(effectiveInviteLimit("Recepção", { substituteInviteLimit: 9 }, 5)).toBe(5);
   });
 
