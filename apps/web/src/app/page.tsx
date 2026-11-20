@@ -14,9 +14,9 @@ import s from "./home-institutional.module.css";
 const purposes = [
   { title: "Adoração", description: "Celebrar a Deus.", photo: "fe-adoracao" },
   { title: "Comunhão", description: "Pertencer e caminhar juntos.", photo: "fe-comunhao" },
-  { title: "Discipulado", description: "Crescer na Palavra e na fé.", photo: "fe-discipulado" },
+  { title: "Discipulado", description: "Crescer na Palavra e na fé.", photo: "fe-discipulado-provisorio", objectPosition: "center 30%" },
   { title: "Serviço", description: "Cuidar das pessoas.", photo: "fe-servico" },
-  { title: "Evangelização e missão", description: "Compartilhar a esperança.", photo: "fe-missao" },
+  { title: "Evangelização e missão", description: "Compartilhar a esperança.", photo: "fe-missao-provisorio", objectPosition: "center 30%" },
 ];
 
 export default function HomePage() {
@@ -53,10 +53,10 @@ export default function HomePage() {
                 <p>Os cinco propósitos da igreja dão direção à forma como nos reunimos, cuidamos e servimos.</p>
               </div>
               <ul className={s.purposesList} role="list">
-                {purposes.map(({ title, description, photo }) => (
+                {purposes.map(({ title, description, photo, objectPosition }) => (
                   <li key={photo}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={withBasePath(`/images/${photo}.webp`)} width={512} height={512} loading="lazy" decoding="async" alt="" />
+                    <img src={withBasePath(`/images/${photo}.webp`)} width={512} height={512} style={{ objectPosition }} loading="lazy" decoding="async" alt="" />
                     <div className={s.purposeCopy}>
                       <h3>{title}</h3>
                       <p>{description}</p>
