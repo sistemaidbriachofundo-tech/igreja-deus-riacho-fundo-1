@@ -37,6 +37,30 @@ describe("AdmissionDocumentsService", () => {
     ],
   };
 
+  it("aceita DOCX com assinatura e recusa DOC disfarçado", async () => {
+    const prisma = {
+      admissionProtocol: { findFirst: jest.fn().mockResolvedValue({ id: "adm1", modality: "BATISMO" }) },
+      admissionDocument: { create: jest.fn().mockResolvedValue({ id: "doc", displayName: "ficha.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", byteSize: 8, createdAt: new Date() }), findMany: jest.fn() },
+      auditLog: { create: jest.fn() },
+    };
+    const storage = { buildAdmissionKey: jest.fn().mockReturnValue("admissions/org/church/adm/file.docx"), put: jest.fn(), contentSha256: jest.fn().mockReturnValue("c".repeat(64)), get: jest.fn().mockResolvedValue(Buffer.from([0x50, 0x4b, 0x03, 0x04])) };
+    const service = new AdmissionDocumentsService(prisma as never, { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never, storage as never);
+    const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]);
+    await expect(service.upload(secretaria, "adm1", {
+      originalname: "ficha.docx",
+      mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: docx,
+      size: docx.length,
+    })).resolves.toMatchObject({ displayName: "ficha.docx" });
+    expect(storage.put).toHaveBeenCalledWith("admissions/org/church/adm/file.docx", docx);
+    await expect(service.upload(secretaria, "adm1", {
+      originalname: "falso.docx",
+      mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("nao-e-zip"),
+      size: 9,
+    })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it("rejects upload for membro and bad mime", async () => {
     const prisma = {
       admissionProtocol: {

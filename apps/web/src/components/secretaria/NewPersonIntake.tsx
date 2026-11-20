@@ -41,13 +41,12 @@ export function NewPersonIntake({
   return (
     <div className={s.intake}>
       <header className={s.intro}>
-        <span>SECRETARIA · CADASTRO INICIAL</span>
-        <h3>Cada pessoa tem uma história.</h3>
-        <p>Registre o que já conhece. As informações serão salvas na homologação e usadas na Ficha 360.</p>
+        <h3>Cadastro inicial</h3>
+        <p>Preencha os dados disponíveis para criar a Ficha 360.</p>
       </header>
 
       <fieldset className={s.section} disabled={busy}>
-        <legend><b>01</b> Identificação e contato</legend>
+        <legend>Identificação e contato</legend>
         <div className={s.fields}>
           <label>Nome completo <small>Obrigatório</small>
             <input id="intake-person-name" value={name} onChange={e=>onName(e.target.value)} required minLength={3} maxLength={160} autoComplete="off" placeholder="Nome e sobrenome"/>
@@ -71,7 +70,7 @@ export function NewPersonIntake({
       </fieldset>
 
       <fieldset className={s.section} disabled={busy}>
-        <legend><b>02</b> Família e responsáveis</legend>
+        <legend>Família e responsáveis</legend>
         <div className={s.fields}>
           <label>Vincular a uma família existente
             <select value={profile.householdId} onChange={e=>update({householdId:e.target.value,householdLabel:""})}>
@@ -98,7 +97,7 @@ export function NewPersonIntake({
       </fieldset>
 
       <fieldset className={s.section} disabled={busy}>
-        <legend><b>03</b> Caminhada eclesiástica</legend>
+        <legend>Caminhada eclesiástica</legend>
         <div className={s.fields}>
           <label>Primeira frequência
             <input type="date" value={profile.firstAttendedOn} onChange={e=>update({firstAttendedOn:e.target.value})}/>

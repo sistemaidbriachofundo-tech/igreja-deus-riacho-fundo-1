@@ -249,7 +249,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
             </form>}
             {!challenge && <p className={styles.bottom}>
               {enabled && <><Link className={styles.gateLink} href={eventAuthHref("/cadastro/", eventSlug)}>Criar conta como convidado</Link><br /></>}
-              Esqueceu a senha? Procure a Secretaria da igreja.
+              <Link className={styles.gateLink} href={eventAuthHref("/recuperar-senha/", eventSlug)}>Esqueci minha senha</Link>
             </p>}
           </div>
         </section>

@@ -1,0 +1,7 @@
+.desk {display:grid;gap:16px;min-width:0}
+.desk h2,.desk p {margin:0}
+.actions {display:flex;flex-wrap:wrap;align-items:end;gap:8px}
+.fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;align-items:start}
+.list {display:grid;gap:12px;margin:0;padding:0 0 0 24px}
+.list li {padding:12px;border:1px solid var(--app-line,#d5dfd9);border-radius:8px;overflow-wrap:anywhere}
+.list li .actions {margin-top:8px}

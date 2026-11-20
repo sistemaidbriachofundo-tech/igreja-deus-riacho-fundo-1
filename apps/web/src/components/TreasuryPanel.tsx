@@ -12,6 +12,7 @@ import { ApiRequestError, apiGet, apiPost, apiPostForm, loadStoredToken } from "
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, statementCashEffect, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
+import { TreasuryIntegrations } from "./TreasuryIntegrations";
 import { TreasuryBankStatements } from "./TreasuryBankStatements";
 import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash, type TreasurySection } from "../lib/treasury-navigation";
 import { ExpenseApprovals } from "./ExpenseApprovals";
@@ -543,11 +544,13 @@ export function TreasuryPanel() {
         <button type="button" aria-current={view === "despesas" ? "page" : undefined} onClick={() => openView("despesas")}><UIIcon name="wallet" size={17} /> Despesas</button>
         <button type="button" aria-current={view === "extrato" ? "page" : undefined} onClick={() => openView("extrato")}><UIIcon name="book" size={17} /> Extrato</button>
         <button type="button" aria-current={view === "conciliacao" ? "page" : undefined} onClick={() => openView("conciliacao")}><UIIcon name="check" size={17} /> Conciliações</button>
+        {canWrite && <button type="button" aria-current={view === "integracoes" ? "page" : undefined} onClick={() => openView("integracoes")}><UIIcon name="wallet" size={17} /> Contas e integrações</button>}
         {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && scopeFilters}
-      {view !== "lancar" && view !== "aprovacoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
+      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && view !== "integracoes" && scopeFilters}
+      {view !== "lancar" && view !== "aprovacoes" && view !== "integracoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
+        {view === "integracoes" && canWrite && token && <TreasuryIntegrations token={token} accounts={accounts} accountsPending={!data && !failure} onStatement={() => openView("extrato")} />}
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
         {view === "visao" && canWrite && token && <MinistryCostCenterSetup token={token}
           onConfigured={() => setRevision(value => value + 1)} />}

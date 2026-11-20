@@ -2,6 +2,7 @@ import { ConflictException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { churchDayKey } from "./church-day";
 import { assertNoRosterDayConflict } from "./roster-assignment-transaction";
+import { canonicalModuleKey } from "./roster-module-key";
 import { effectiveInviteLimit } from "./roster-module-policy";
 import { rulesWithTeam, volunteerIdsByModule } from "./roster-module-runtime";
 import { assertSlotEligibility, isModuleVolunteer } from "./roster-operating-rules";
@@ -21,9 +22,18 @@ export function concurrentAcceptDecision(
 
 export const inviteKey = (assignmentId: string, personId: string) => `substitute:${assignmentId}:${personId}`;
 export const inviteAssignment = {
-  slot: { include: { roster: { include: { module: true } } } },
+  slot: { include: { roster: { include: { module: true, ministry: { select: { slug: true } } } } } },
 } satisfies Prisma.RosterAssignmentInclude;
 type Source = Prisma.RosterAssignmentGetPayload<{ include: typeof inviteAssignment }>;
+
+export function substitutionInviteLimit(assignment: Source, configuredLimit: number) {
+  const { slot } = assignment;
+  const { roster } = slot;
+  if (slot.manualFill || canonicalModuleKey(roster.module?.name) === "ceia" || canonicalModuleKey(slot.roleLabel) === "ceia") return 0;
+  const slug = roster.ministry?.slug;
+  if (slug === "louvor" || slug === "louvor-demo") return 1;
+  return effectiveInviteLimit(roster.module?.name, roster.module?.rules, configuredLimit);
+}
 
 export async function substitutionCandidates(db: Prisma.TransactionClient, assignment: Source, now: Date) {
   const { slot } = assignment;
@@ -31,7 +41,8 @@ export async function substitutionCandidates(db: Prisma.TransactionClient, assig
   const { organizationId, churchId, ministryId } = roster;
   const teams = await volunteerIdsByModule(db as never, roster.moduleId ? [roster.moduleId] : []);
   const rules = rulesWithTeam(roster.module?.rules, roster.moduleId, teams);
-  const inviteLimit = effectiveInviteLimit(roster.module?.name, roster.module?.rules, rules.substituteInviteLimit);
+  const inviteLimit = substitutionInviteLimit(assignment, rules.substituteInviteLimit);
+  const louvorWeekBlock = roster.ministry?.slug === "louvor" || roster.ministry?.slug === "louvor-demo";
   if (!ministryId || !inviteLimit || slot.requiresCouple || assignment.status !== "DECLINED" ||
       roster.status !== "PUBLISHED" || roster.serviceAt <= now) return [];
   if (await db.rosterAssignment.findFirst({ where: { slotId: slot.id, status: { in: ["PENDING", "CONFIRMED"] } } })) return [];
@@ -70,7 +81,7 @@ export async function substitutionCandidates(db: Prisma.TransactionClient, assig
     slotId: slot.id, positionId: slot.id, rosterId: roster.id, roleLabel: slot.roleLabel,
     churchId, ministryId, serviceAt: time, serviceType: "special_event",
     requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [],
-  }, candidates, history, { ...DEFAULT_RULES, minIntervalDays: rules.minIntervalDays, maxMonthlyAssignments: rules.maxMonthlyAssignments }).eligible)
+  }, candidates, history, { ...DEFAULT_RULES, minIntervalDays: rules.minIntervalDays, maxMonthlyAssignments: rules.maxMonthlyAssignments, louvorWeekBlock }).eligible)
     .map(candidate => candidate.personId);
 }
 

@@ -56,7 +56,7 @@ export function AdmissionDocuments({ token, admissionId, canUpload, onBusy }: {
     const body = new FormData(form);
     const file = body.get("file");
     if (!(file instanceof File) || !file.size || file.size > 5 * 1024 * 1024) {
-      setError("Escolha um arquivo PDF, JPEG ou PNG de até 5 MB.");
+      setError("Escolha um arquivo PDF, Word (.doc ou .docx), JPEG ou PNG de até 5 MB.");
       return;
     }
     if (!requirementId) body.delete("requirementId");
@@ -128,7 +128,7 @@ export function AdmissionDocuments({ token, admissionId, canUpload, onBusy }: {
           <option value="">Documento complementar</option>
           {requirements.map(requirement => <option key={requirement.id} value={requirement.id}>{requirement.label}</option>)}
         </select></label>}
-        <label>Arquivo (PDF, JPEG ou PNG de até 5 MB)<input disabled={busy} name="file" type="file" required accept="application/pdf,image/jpeg,image/png" /></label>
+        <label>Arquivo (PDF, Word (.doc ou .docx), JPEG ou PNG de até 5 MB)<input disabled={busy} name="file" type="file" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png" /></label>
         <div><button type="submit" className={ui.workspaceSecondary} disabled={busy}>{busy ? "Processando…" : "Enviar documento"}</button></div>
       </form>}
     </>}

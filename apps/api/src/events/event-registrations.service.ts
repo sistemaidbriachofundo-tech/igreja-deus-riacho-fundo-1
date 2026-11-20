@@ -15,7 +15,7 @@ import {
   assertMinistryScopedWrite,
   filterRowsForMinistryLeader,
 } from "../common/ministry-access";
-import { queueEventCheckInNotice } from "../mail/check-in-notice";
+import { queueEventCheckInNotice, queueParticipantTicketNotices } from "../mail/check-in-notice";
 import { MailService } from "../mail/mail.service";
 import { smtpSendEnabled } from "../mail/smtp-config";
 import { PrismaService } from "../prisma/prisma.service";
@@ -54,6 +54,7 @@ export type LotInput = {
   status?: "DRAFT" | "OPEN" | "CLOSED";
   sortOrder?: number;
   receivingAccountId?: string | null;
+  paymentProvider?: "PIX" | "MERCADO_PAGO";
 };
 
 export type RegistrationInput = {
@@ -70,6 +71,7 @@ export type RegistrationInput = {
   guardianAcknowledged?: boolean;
   /** Destino do QR de check-in. Não entra na resposta. */
   notificationEmail?: string | null;
+  participants?: Array<{ name?: string; email?: string }>;
 };
 
 export type LodgingOptionInput = {
@@ -225,6 +227,23 @@ export class EventRegistrationsService {
       input.receivingAccountId,
       priceCents,
     );
+    const paymentProvider = input.paymentProvider ?? "PIX";
+    if (paymentProvider !== "PIX" && paymentProvider !== "MERCADO_PAGO") {
+      throw new BadRequestException("paymentProvider inválido");
+    }
+    if (paymentProvider === "MERCADO_PAGO") {
+      if (!receivingAccountId || priceCents <= 0) {
+        throw new BadRequestException("O lote do Mercado Pago precisa de preço e conta de recebimento.");
+      }
+      const enabled = await this.prisma.churchReceivingAccount.findFirst({
+        where: {
+          id: receivingAccountId, organizationId: pilot.organizationId, churchId: pilot.churchId,
+          active: true, mercadoPagoEnabled: true,
+        },
+        select: { id: true },
+      });
+      if (!enabled) throw new BadRequestException("Mercado Pago não está habilitado nesta conta.");
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.eventLot.create({
@@ -247,6 +266,7 @@ export class EventRegistrationsService {
           status,
           sortOrder: input.sortOrder ?? 0,
           receivingAccountId,
+          ...(paymentProvider === "MERCADO_PAGO" ? { paymentProvider } : {}),
         },
       });
       await tx.auditLog.create({
@@ -607,11 +627,11 @@ export class EventRegistrationsService {
       where: { ...pilot, registrantPersonId: person.id, id: registrationId },
       select: {
         id: true, status: true, guardianAuthStatus: true, checkInCode: true,
-        tickets: { orderBy: { position: "asc" }, select: { position: true, code: true, checkedInAt: true } },
+        tickets: { orderBy: { position: "asc" }, select: { position: true, code: true, checkedInAt: true, participantName: true } },
         event: { select: { name: true, status: true } },
         paymentIntents: {
           where: { status: "PENDING", receivingAccountId: { not: null } },
-          select: { amountCents: true, pixCopiaECola: true, pixTxid: true },
+          select: { amountCents: true, pixCopiaECola: true, pixTxid: true, paymentProvider: true, attemptRef: true },
           orderBy: { createdAt: "desc" },
           take: 1,
         },
@@ -623,7 +643,11 @@ export class EventRegistrationsService {
     return {
       id: row.id, status, guardianAuthStatus: row.guardianAuthStatus, checkInCode: row.checkInCode,
       eventName: row.event.name, tickets: ["CONFIRMED", "CHECKED_IN"].includes(status) ? row.tickets : [],
-      paymentIntent: pending?.pixCopiaECola ? { ...pending, mode: "CHURCH_PIX" } : null,
+      paymentIntent: pending?.pixCopiaECola
+        ? { ...pending, mode: "CHURCH_PIX", paymentProvider: pending.paymentProvider ?? "PIX" }
+        : pending?.paymentProvider === "MERCADO_PAGO"
+          ? { amountCents: pending.amountCents, attemptRef: pending.attemptRef, mode: "MERCADO_PAGO", paymentProvider: "MERCADO_PAGO" }
+          : null,
     };
   }
 
@@ -701,6 +725,9 @@ export class EventRegistrationsService {
     if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
       throw new BadRequestException("checkInCode não confere");
     }
+    if (event.ticketPolicy === "PARTICIPANT") {
+      throw new BadRequestException("Use a leitura do ingresso individual deste evento.");
+    }
     await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
     this.assertCheckInAllowed(registration);
 
@@ -720,6 +747,9 @@ export class EventRegistrationsService {
     }
     if (event.status === "CANCELLED" || event.status === "ARCHIVED") {
       throw new BadRequestException("O evento está encerrado para check-in.");
+    }
+    if (event.ticketPolicy === "PARTICIPANT") {
+      throw new BadRequestException("Use a leitura do ingresso individual deste evento.");
     }
     const ticket = await this.prisma.eventParticipantTicket?.findFirst({
       where: { code, registration: { eventId: event.id, organizationId: pilot.organizationId, churchId: pilot.churchId } },
@@ -1164,9 +1194,11 @@ export class EventRegistrationsService {
       transportOptions: transportOptions.map((o) =>
         this.toResourceOptionDto(o, occTransport.get(o.id) ?? 0),
       ),
-      paymentMode: openLots.some((lot) => Boolean(lot.receivingAccountId))
-        ? ("CHURCH_PIX" as const)
-        : ("MOCK_ONLY" as const),
+      paymentMode: openLots.some((lot) => lot.paymentProvider === "MERCADO_PAGO")
+        ? ("MERCADO_PAGO" as const)
+        : openLots.some((lot) => Boolean(lot.receivingAccountId))
+          ? ("CHURCH_PIX" as const)
+          : ("MOCK_ONLY" as const),
       settlementPolicy: {
         kind: "EXTERNAL_MANUAL" as const,
         pixKeyConfigured: Boolean(process.env.EVENT_MANUAL_PIX_KEY?.trim()),
@@ -1189,6 +1221,7 @@ export class EventRegistrationsService {
       ministryId: string | null;
       status: string;
       name?: string;
+      ticketPolicy?: string | null;
     };
     input: RegistrationInput;
     actorUserId: string;
@@ -1233,7 +1266,9 @@ export class EventRegistrationsService {
       );
     }
 
-    const partySize = params.input.partySize ?? modality.minPartySize;
+    const participantMode = params.event.ticketPolicy === "PARTICIPANT";
+    const participants = participantMode ? normalizeParticipants(params.input.participants) : [];
+    const partySize = participantMode ? participants.length : (params.input.partySize ?? modality.minPartySize);
     if (
       partySize < modality.minPartySize ||
       partySize > modality.maxPartySize
@@ -1253,6 +1288,7 @@ export class EventRegistrationsService {
       opensAt: Date | null;
       closesAt: Date | null;
       receivingAccountId?: string | null;
+      paymentProvider?: string | null;
     } | null = null;
     const lotId = params.input.lotId?.trim() || null;
     if (lotId) {
@@ -1353,8 +1389,28 @@ export class EventRegistrationsService {
       throw new BadRequestException("O recebimento deste lote pago ainda não está configurado.");
     }
     const notificationEmail = pilotMailbox(params.input.notificationEmail);
-    const pix = needsPayment && lot?.receivingAccountId
+    const paymentProvider = lot?.paymentProvider === "MERCADO_PAGO" ? "MERCADO_PAGO" : "PIX";
+    if (needsPayment && paymentProvider === "MERCADO_PAGO") {
+      if (!lot?.receivingAccountId) {
+        throw new BadRequestException("O lote do Mercado Pago precisa de uma conta de recebimento.");
+      }
+      const enabled = await this.prisma.churchReceivingAccount.findFirst({
+        where: {
+          id: lot.receivingAccountId,
+          organizationId: params.pilot.organizationId,
+          churchId: params.pilot.churchId,
+          active: true,
+          mercadoPagoEnabled: true,
+        },
+        select: { id: true },
+      });
+      if (!enabled) throw new BadRequestException("Mercado Pago não está habilitado nesta conta.");
+    }
+    const pix = needsPayment && paymentProvider === "PIX" && lot?.receivingAccountId
       ? await this.pixInstruction(params.pilot, lot.receivingAccountId, priceCents)
+      : null;
+    const attemptRef = needsPayment && paymentProvider === "MERCADO_PAGO"
+      ? `mp_${randomBytes(12).toString("hex")}`
       : null;
     const checkInCode = randomBytes(16).toString("hex");
     const guardianAuthStatus = isMinor ? "PENDING" : "NOT_REQUIRED";
@@ -1429,15 +1485,31 @@ export class EventRegistrationsService {
           status: needsPayment ? "PENDING_PAYMENT" : "CONFIRMED",
           paymentStatus: needsPayment ? "PENDING" : "CONFIRMED_MOCK",
           checkInCode,
+          ...(participantMode ? { participantRoster: participants } : {}),
         },
       });
 
-      const tickets = partySize > 1 ? Array.from({ length: partySize }, (_, index) => ({
-        position: index + 1, code: randomBytes(16).toString("hex"),
-      })) : [];
+      const issueParticipants = participantMode && !needsPayment && guardianAuthStatus !== "PENDING";
+      const tickets = issueParticipants
+        ? participants.map((person, index) => ({
+          position: index + 1,
+          code: randomBytes(16).toString("hex"),
+          participantName: person.name,
+          participantEmail: person.email,
+        }))
+        : !participantMode && partySize > 1 ? Array.from({ length: partySize }, (_, index) => ({
+          position: index + 1, code: randomBytes(16).toString("hex"),
+        })) : [];
       if (tickets.length) await tx.eventParticipantTicket.createMany({
         data: tickets.map(ticket => ({ ...ticket, registrationId: registration.id })),
       });
+      const storedTickets = participantMode && tickets.length
+        ? await tx.eventParticipantTicket.findMany({
+          where: { registrationId: registration.id },
+          orderBy: { position: "asc" },
+          select: { id: true, position: true, code: true, participantName: true, participantEmail: true },
+        })
+        : tickets;
       let guardianAuthorization: {
         id: string;
         status: string;
@@ -1474,10 +1546,17 @@ export class EventRegistrationsService {
             amountCents: priceCents,
             currency: lot.currency,
             status: "PENDING",
-            providerRef: pix ? null : `mock_${randomBytes(8).toString("hex")}`,
-            receivingAccountId: pix?.accountId ?? null,
+            providerRef: attemptRef ?? (pix ? null : `mock_${randomBytes(8).toString("hex")}`),
+            receivingAccountId: attemptRef ? lot.receivingAccountId : (pix?.accountId ?? null),
             pixTxid: pix?.txid ?? null,
             pixCopiaECola: params.registrantPersonId ? pix?.copiaECola ?? null : null,
+            ...(attemptRef ? {
+              paymentProvider: "MERCADO_PAGO" as const,
+              attemptRef,
+              grossCents: priceCents,
+              feeCents: 0,
+              netCents: priceCents,
+            } : {}),
           },
         });
       }
@@ -1508,10 +1587,18 @@ export class EventRegistrationsService {
       });
 
       const dto = this.toRegistrationDto(registration);
+      const participantDeliveries = participantMode && !needsPayment
+        ? storedTickets.flatMap(ticket => (
+          "id" in ticket && typeof ticket.id === "string" && "participantEmail" in ticket && typeof ticket.participantEmail === "string"
+            ? [{ id: ticket.id, position: ticket.position, code: ticket.code, email: ticket.participantEmail }]
+            : []
+        ))
+        : [];
       return {
         ...dto,
-        tickets: needsPayment ? [] : tickets,
-        paymentMode: pix ? ("CHURCH_PIX" as const) : dto.paymentMode,
+        tickets: needsPayment ? [] : storedTickets,
+        participantDeliveries,
+        paymentMode: pix ? ("CHURCH_PIX" as const) : attemptRef ? ("MERCADO_PAGO" as const) : dto.paymentMode,
         guardianAuthorization: guardianAuthorization
           ? this.toGuardianAuthDto(guardianAuthorization)
           : null,
@@ -1520,10 +1607,12 @@ export class EventRegistrationsService {
               id: paymentIntent.id,
               status: paymentIntent.status,
               amountCents: paymentIntent.amountCents,
-              mode: pix ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
+              mode: pix ? ("CHURCH_PIX" as const) : attemptRef ? ("MERCADO_PAGO" as const) : ("MOCK_ONLY" as const),
               ...(pix
                 ? { pixCopiaECola: pix.copiaECola, pixTxid: pix.txid }
-                : { settlement: this.manualSettlementHint(paymentIntent.amountCents) }),
+                : attemptRef
+                  ? { attemptRef }
+                  : { settlement: this.manualSettlementHint(paymentIntent.amountCents) }),
 
             }
           : null,
@@ -1534,7 +1623,12 @@ export class EventRegistrationsService {
       }
       throw error;
     });
-    if (created.status === "CONFIRMED" && notificationEmail) {
+    if (created.status === "CONFIRMED" && created.participantDeliveries.length) {
+      await queueParticipantTicketNotices(this.mail, {
+        eventName: params.event.name || "evento",
+        tickets: created.participantDeliveries,
+      });
+    } else if (created.status === "CONFIRMED" && notificationEmail) {
       await queueEventCheckInNotice(this.mail, {
         registrationId: created.id,
         to: notificationEmail,
@@ -1866,6 +1960,7 @@ export class EventRegistrationsService {
       status: string;
       sortOrder: number;
       receivingAccountId?: string | null;
+      paymentProvider?: string | null;
     },
     occupied = 0,
   ) {
@@ -1886,7 +1981,10 @@ export class EventRegistrationsService {
       status: row.status,
       sortOrder: row.sortOrder,
       receivingAccountId: row.receivingAccountId ?? null,
-      paymentMode: row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
+      paymentProvider: row.paymentProvider === "MERCADO_PAGO" ? ("MERCADO_PAGO" as const) : ("PIX" as const),
+      paymentMode: row.paymentProvider === "MERCADO_PAGO"
+        ? ("MERCADO_PAGO" as const)
+        : row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
     };
   }
 
@@ -2040,6 +2138,17 @@ export class EventRegistrationsService {
       }),
     };
   }
+}
+
+function normalizeParticipants(value: Array<{ name?: string; email?: string }> | undefined) {
+  const people = (value ?? []).map(person => ({
+    name: person.name?.trim().replace(/\s+/g, " ") ?? "",
+    email: pilotMailbox(person.email),
+  }));
+  if (!people.length || people.length > 20 || people.some(person => person.name.length < 2 || !person.email)) {
+    throw new BadRequestException("Informe o nome e o e-mail de cada participante.");
+  }
+  return people.flatMap(person => person.email ? [{ name: person.name, email: person.email }] : []);
 }
 
 function pilotMailbox(value: string | null | undefined): string | null {

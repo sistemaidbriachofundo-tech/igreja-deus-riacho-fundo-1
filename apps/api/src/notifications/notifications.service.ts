@@ -11,7 +11,7 @@ import { pastoralExpenseLines } from "../finance/pastoral-expense";
 type Scope = Pick<PilotChurch, "churchId" | "organizationId">;
 type Notice = {
   id: string;
-  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade";
+  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade" | "Pastoral" | "Aniversariantes" | "Louvor";
   title: string;
   detail: string;
   action: string;
@@ -97,7 +97,7 @@ export class NotificationsService {
     const since = new Date(+now - 30 * 86_400_000);
     const groups = await Promise.all([
       this.volunteer(actor, now), this.declines(actor, scope, since, now), this.finance(actor, scope, since),
-      this.admissions(actor, scope, since), this.groupRequests(actor, since),
+      this.admissions(actor, scope, since), this.groupRequests(actor, since), this.prayerBells(actor, scope), this.birthdayBells(actor, scope, now), this.worshipBells(actor, scope, now),
     ]);
     return groups.flat().sort((a, b) => +b.createdAt - +a.createdAt || a.id.localeCompare(b.id)).slice(0, LIMIT);
   }
@@ -262,4 +262,59 @@ export class NotificationsService {
     for (const row of pending) add(row.id, row.status, row.updatedAt);
     return [...notices.values()];
   }
+
+  private async prayerBells(actor: AuthUser, scope: Scope): Promise<Notice[]> {
+    if (!this.db.prayerBell?.findMany) return [];
+    const rows = await this.db.prayerBell.findMany({
+      where: { recipientUserId: actor.userId, request: { churchId: scope.churchId } },
+      select: { id: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: LIMIT,
+    });
+    return rows.map(row => ({
+      id: `prayer:${row.id}`, category: "Pastoral" as const, title: "Há um pedido de oração",
+      detail: "", action: "Abrir pedidos de oração", href: "/app/pastoral/oracoes/", createdAt: row.createdAt,
+    }));
+  }
+
+  private async birthdayBells(actor: AuthUser, scope: Scope, now: Date): Promise<Notice[]> {
+    if (!this.db.birthdayNotice?.findMany) return [];
+    const date = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now)}T00:00:00.000Z`);
+    const rows = await this.db.birthdayNotice.findMany({
+      where: { churchId: scope.churchId, recipientPersonId: actor.personId, occasionDate: date },
+      select: { id: true, createdAt: true },
+    });
+    const pastor = actor.grants.some(grant => grant.roleCode === ROLE_CODES.PASTOR);
+    const secretary = actor.grants.some(grant => grant.roleCode === ROLE_CODES.SECRETARIA);
+    return rows.map(row => ({
+      id: `birthday:${row.id}`, category: "Aniversariantes" as const, title: "Há aniversariantes hoje",
+      detail: pastor || secretary ? "Na congregação" : "Na sua equipe, grupo ou acompanhamento",
+      action: pastor || secretary ? "Ver aniversariantes" : "Abrir meu espaço",
+      href: pastor ? "/app/pastoral/aniversariantes/" : secretary ? "/app/secretaria/aniversariantes/" : PORTAL,
+      createdAt: row.createdAt,
+    }));
+  }
+  private async worshipBells(actor: AuthUser, scope: Scope, now: Date): Promise<Notice[]> {
+    if (!this.db.worshipRepertoire?.findMany) return [];
+    const assignments = await this.db.rosterAssignment.findMany({
+      where: { personId: actor.personId, status: { in: ["PENDING", "CONFIRMED"] }, slot: { roster: {
+        ...scope, status: "PUBLISHED", ministry: { slug: { in: ["louvor", "louvor-demo"] } }, serviceAt: { gte: now },
+      } } },
+      select: { id: true, slot: { select: { rosterId: true } } },
+    });
+    const byRoster = new Map(assignments.map(item => [item.slot.rosterId, item.id]));
+    if (!byRoster.size) return [];
+    const rows = await this.db.worshipRepertoire.findMany({
+      where: { ...scope, rosterId: { in: [...byRoster.keys()] }, status: "SCHEDULED", scheduledAt: { lte: now } },
+      select: { id: true, rosterId: true, serviceAt: true, scheduledAt: true, createdAt: true },
+      orderBy: { scheduledAt: "desc" }, take: LIMIT,
+    });
+    return rows.map(row => ({
+      id: `worship:${row.id}`, category: "Louvor" as const, title: "Repertório disponível",
+      detail: WHEN.format(row.serviceAt), action: "Ver meu culto",
+      href: PORTAL + "#escala-" + encodeURIComponent(byRoster.get(row.rosterId ?? "") ?? ""),
+      createdAt: row.scheduledAt ?? row.createdAt,
+    }));
+  }
+
 }

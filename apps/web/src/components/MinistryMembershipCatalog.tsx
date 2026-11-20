@@ -31,6 +31,8 @@ import {
   type PersonOption,
 } from "./PersonPicker";
 import { Alert } from "./ui/Alert";
+import { VocalProfile } from "./serving/VocalProfile";
+import { SERVING_SURFACES } from "../lib/serving-rosters";
 import { MinistryPersonDialog } from "./ministry/MinistryPersonDialog";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import ui from "./ui/ui.module.css";
@@ -101,6 +103,7 @@ export function MinistryMembershipCatalog({
   const moduleMode = rosterModules !== undefined;
   const canListInvitations = Boolean(token && moduleMode && canWrite);
   const ministryId = desk.ministry.id;
+  const louvor = SERVING_SURFACES.louvor.slugs.some(slug => slug === desk.ministry.slug);
   useEffect(() => {
     if (!token || !canListInvitations) return;
     let current = true;
@@ -286,6 +289,8 @@ export function MinistryMembershipCatalog({
                       </small>}
                     </div>
                     <div className={styles.memberActions}>
+                    {louvor && canWrite && token && member.status === "ATIVO" &&
+                      <VocalProfile token={token} personId={member.personId} name={member.displayName} />}
                     {Boolean(rosterModules?.length) && manageRosterModules && token && member.status === "ATIVO" &&
                       <button type="button" className={ui.workspaceSecondary} aria-expanded={editingModules === member.id}
                         onClick={() => { setModuleFeedback(""); setEditingModules(current => current === member.id ? "" : member.id); }}>

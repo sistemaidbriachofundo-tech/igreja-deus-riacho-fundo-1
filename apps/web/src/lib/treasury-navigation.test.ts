@@ -4,7 +4,8 @@ import { treasuryMovementFromHash, treasuryMovementHash, treasurySectionFromHash
 describe("submenu lateral da Tesouraria", () => {
   it("permite ao tesoureiro consultar, cadastrar e acompanhar a aprovação", () => {
     const sections = treasurySidebarItems(["TESOURARIA"]).map(item => item.section);
-    expect(sections).toEqual(["visao", "despesas", "lancar", "extrato", "conciliacao", "aprovacoes"]);
+    expect(sections).toEqual(["visao", "despesas", "lancar", "extrato", "integracoes", "conciliacao", "aprovacoes"]);
+    expect(treasurySectionFromHash("#integracoes", ["TESOURARIA"])).toBe("integracoes");
     expect(treasurySectionHref("lancar")).toBe("/app/tesouraria/#lancar");
   });
   it("restringe o pastor sem Tesouraria a aprovações, sem expor extrato nem cadastro", () => {

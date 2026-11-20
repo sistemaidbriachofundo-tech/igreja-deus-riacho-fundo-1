@@ -3,6 +3,7 @@
 import { useState, type KeyboardEvent } from "react";
 import { RosterShowcase } from "./RosterShowcase";
 import { withBasePath } from "../../lib/paths";
+import { SERVING_SURFACES } from "../../lib/serving-rosters";
 import type {
   ConversionResult,
   DeskReady,
@@ -331,6 +332,7 @@ function ReadyExperience({
               escalaId={escalaId}
               shortcut={shortcut}
               volunteerPortal={isAtmosfera}
+              louvor={SERVING_SURFACES.louvor.slugs.some(slug => slug === desk.ministry.slug)}
               onOpen={onOpenEscala}
               actions={token ? {
                 token,

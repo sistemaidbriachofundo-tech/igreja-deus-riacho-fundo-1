@@ -7,6 +7,7 @@ vi.mock("../AppShell", () => ({
 }));
 
 import { EventManagementView } from "./EventManagementJourney";
+import { EventReceipt } from "./PublicEventRegistration";
 import { EventPaymentField } from "./EventRegistrationDesk";
 import { ReportsView } from "../reports/ManagementReports";
 
@@ -63,13 +64,29 @@ describe("telas de eventos e relatórios", () => {
   it("seleciona uma conta cadastrada e mantém visível a conta vinculada indisponível", () => {
     const field = renderToStaticMarkup(<EventPaymentField
       accounts={[{ id: "a1", name: "Conta de eventos" }]} value="a1" onChange={noop} />);
-    expect(field).toContain("Conta da igreja para receber o Pix");
+    expect(field).toContain("Conta de recebimento");
     expect(field).toContain('value="a1" selected=""');
     expect(field).toContain("Selecione a conta");
     const unavailable = renderToStaticMarkup(<EventPaymentField
       accounts={[]} value="a2" onChange={noop} />);
     expect(unavailable).toContain("Conta vinculada indisponível");
     expect(unavailable).toContain("Procure a Tesouraria");
+  });
+
+
+  it("exibe cada ingresso confirmado e oculta os códigos quando a autorização foi revogada", () => {
+    const first = "a".repeat(32);
+    const second = "b".repeat(32);
+    const receipt = {
+      id: "reg", status: "CONFIRMED", guardianAuthStatus: "AUTHORIZED",
+      tickets: [{ position: 1, code: first }, { position: 2, code: second }], paymentIntent: null,
+    };
+    const ready = renderToStaticMarkup(<EventReceipt receipt={receipt} memberToken="fixture" />);
+    expect(ready).toContain(first);
+    expect(ready).toContain(second);
+    const revoked = renderToStaticMarkup(<EventReceipt receipt={{ ...receipt, guardianAuthStatus: "REVOKED" }} memberToken="fixture" />);
+    expect(revoked).not.toContain(first);
+    expect(revoked).not.toContain(second);
   });
 
   it("estado sem homologação não finge contagem", () => {

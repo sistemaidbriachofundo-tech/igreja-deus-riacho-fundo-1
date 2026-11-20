@@ -35,7 +35,7 @@ import { EventAgenda } from "./EventAgenda";
 import s from "./event-management.module.css";
 
 type Phase = "disabled" | "signed-out" | "loading" | "forbidden" | "error" | "ready";
-type Draft = { name: string; slug: string; description: string; locationText: string; startsAt: string; ministryId?: string };
+type Draft = { name: string; slug: string; description: string; locationText: string; startsAt: string; ministryId?: string; ticketPolicy?: ManagedEvent["ticketPolicy"] };
 const EMPTY: Draft = { name: "", slug: "", description: "", locationText: "", startsAt: "" };
 
 function revealEventCreation() {
@@ -149,7 +149,7 @@ export function EventManagementJourney() {
         const fromMinistry = new URLSearchParams(window.location.search).get("evento");
         const requested = available.find(event => event.id === fromMinistry);
         if (requested) {
-          setEditing({ name: requested.name, slug: requested.slug, description: requested.description, locationText: requested.locationText, startsAt: "" });
+          setEditing({ name: requested.name, slug: requested.slug, description: requested.description, locationText: requested.locationText, startsAt: "", ticketPolicy: requested.ticketPolicy });
           setSelectedId(requested.id);
         }
         setPhase("ready");
@@ -230,6 +230,7 @@ export function EventManagementJourney() {
         description: creating.description.trim() || null,
         locationText: creating.locationText.trim() || null,
         ...(creating.ministryId ? { ministryId: creating.ministryId } : {}),
+        ...(creating.ticketPolicy === "PARTICIPANT" ? { ticketPolicy: creating.ticketPolicy } : {}),
       });
       setCreating({ ...EMPTY, ministryId: creating.ministryId });
       closeEventCreation();
@@ -238,7 +239,7 @@ export function EventManagementJourney() {
       const draft = updated.find(item => item.id === created.id);
       if (draft) {
         setSelectedId(draft.id);
-        setEditing({ name: draft.name, slug: draft.slug, description: draft.description, locationText: draft.locationText, startsAt: "" });
+        setEditing({ name: draft.name, slug: draft.slug, description: draft.description, locationText: draft.locationText, startsAt: "", ticketPolicy: draft.ticketPolicy });
         setRegistrations([]);
         setReport(null);
       }
@@ -261,6 +262,7 @@ export function EventManagementJourney() {
         description: editing.description.trim() || null,
         locationText: editing.locationText.trim() || null,
         ...(startsAt ? { startsAt } : {}),
+        ...(editing.ticketPolicy ? { ticketPolicy: editing.ticketPolicy } : {}),
       });
       setNotice("Rascunho atualizado.");
       await reloadEvents();
@@ -294,6 +296,7 @@ export function EventManagementJourney() {
       description: event.description,
       locationText: event.locationText,
       startsAt: "",
+      ticketPolicy: event.ticketPolicy,
     });
   }
 
@@ -532,6 +535,11 @@ export function EventManagementView(props: {
         </summary>
         <form className={s.panel} aria-label="Cadastrar evento" onSubmit={props.onCreate}>
           <div className={s.grid}>
+          <label>Emissão de ingressos<select value={props.creating.ticketPolicy ?? "REGISTRATION"}
+            onChange={event => props.onCreating({ ...props.creating, ticketPolicy: event.target.value === "PARTICIPANT" ? "PARTICIPANT" : "REGISTRATION" })}>
+            <option value="REGISTRATION">Um ingresso por inscrição</option>
+            <option value="PARTICIPANT">Um QR por participante, enviado por e-mail</option>
+          </select></label>
             <label>Nome<input placeholder="Ex. Encontro de jovens" value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
             {(props.ministryOptions || props.leaderMinistries) && <label>Ministério responsável
               <select required={props.ministryRequired ?? Boolean(props.leaderMinistries)} value={props.creating.ministryId ?? ""} onChange={event => props.onCreating({ ...props.creating, ministryId: event.target.value })}>
@@ -584,6 +592,11 @@ export function EventManagementView(props: {
         {props.selected.status !== "DRAFT" && !props.blockReason && props.selected.description && <p className={s.lede}>{props.selected.description}</p>}
         {props.selected.status === "DRAFT" && <form className={s.grid} onSubmit={props.onSave}>
           <label>Nome<input value={props.editing.name} onChange={(event) => props.onEditing({ ...props.editing, name: event.target.value })} required/></label>
+          <label>Emissão de ingressos<select value={props.editing.ticketPolicy ?? "REGISTRATION"}
+            onChange={event => props.onEditing({ ...props.editing, ticketPolicy: event.target.value === "PARTICIPANT" ? "PARTICIPANT" : "REGISTRATION" })}>
+            <option value="REGISTRATION">Um ingresso por inscrição</option>
+            <option value="PARTICIPANT">Um QR por participante, enviado por e-mail</option>
+          </select></label>
           <label>Novo início, se precisar<input type="datetime-local" value={props.editing.startsAt} onChange={(event) => props.onEditing({ ...props.editing, startsAt: event.target.value })}/></label>
           <label>Local<input value={props.editing.locationText} onChange={(event) => props.onEditing({ ...props.editing, locationText: event.target.value })}/></label>
           <label className={s.wide}>Descrição<textarea value={props.editing.description} onChange={(event) => props.onEditing({ ...props.editing, description: event.target.value })}/></label>

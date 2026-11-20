@@ -1,16 +1,17 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
 import webPush from "web-push";
 import type { AuthUser } from "../auth/types/auth-user";
+import { BirthdayNoticesService } from "../piloto/birthday-notices.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { churchDayKey } from "./church-day";
 import { writeRosterAssignment } from "./roster-assignment-transaction";
-import { effectiveInviteLimit, leadershipSummaryDue, weeklyConfirmationDue } from "./roster-module-policy";
+import { leadershipSummaryDue, weeklyConfirmationDue } from "./roster-module-policy";
 import { maintainRosterCycle, recordNoticeDeliveries, rulesWithTeam, volunteerIdsByModule } from "./roster-module-runtime";
 import { isModuleVolunteer, readModuleRules } from "./roster-operating-rules";
-import { acceptSubstitute, inviteAssignment, inviteKey, substitutionCandidates } from "./roster-substitution-invites";
+import { acceptSubstitute, inviteAssignment, inviteKey, substitutionCandidates, substitutionInviteLimit } from "./roster-substitution-invites";
 import { acceptSlotInvitation, declineSlotInvitation } from "./roster-team";
 
 const PORTAL = "/app/servir/meu-espaco/";
@@ -22,7 +23,8 @@ const PUSH_HOSTS = new Set(["fcm.googleapis.com", "updates.push.services.mozilla
 
 @Injectable()
 export class RosterNoticesService {
-  constructor(private readonly db: PrismaService, private readonly pilot: PilotService) {}
+  constructor(private readonly db: PrismaService, private readonly pilot: PilotService,
+    @Optional() private readonly birthdays?: BirthdayNoticesService) {}
 
   async list(actor: AuthUser, now = new Date()) {
     const scope = await this.personScope(actor);
@@ -157,7 +159,9 @@ export class RosterNoticesService {
     }
     const digest = (value: string) => createHash("sha256").update(value).digest();
     if (!timingSafeEqual(digest(authorization ?? ""), digest("Bearer " + secret))) throw new ForbiddenException();
-    return this.run(now);
+    const roster = await this.run(now);
+    const birthdays = await this.birthdays?.runScheduled(now);
+    return { ...roster, ...(birthdays ? { birthdays } : {}) };
   }
 
   async run(now: Date) {
@@ -199,7 +203,8 @@ export class RosterNoticesService {
     }
     const declined = await this.db.rosterAssignment.findMany({ where: {
       status: "DECLINED", slot: { requiresCouple: false, roster: {
-        churchId, organizationId, moduleId: { not: null }, status: "PUBLISHED", serviceAt: { gt: now },
+        churchId, organizationId, status: "PUBLISHED", serviceAt: { gt: now },
+        OR: [{ moduleId: { not: null } }, { ministry: { slug: { in: ["louvor", "louvor-demo"] } } }],
       } },
     }, select: { id: true } });
     let invitations = 0;
@@ -265,7 +270,7 @@ export class RosterNoticesService {
       if (!assignment || assignment.status !== "DECLINED") return 0;
       const { slot } = assignment;
       const rules = readModuleRules(slot.roster.module?.rules);
-      const inviteLimit = effectiveInviteLimit(slot.roster.module?.name, slot.roster.module?.rules, rules.substituteInviteLimit);
+      const inviteLimit = substitutionInviteLimit(assignment, rules.substituteInviteLimit);
       if (!inviteLimit || slot.roster.serviceAt <= now) return 0;
       const history = await tx.rosterNotice.findMany({ where: {
         churchId, kind: "substitute", id: { startsWith: inviteKey(assignmentId, "") },

@@ -382,7 +382,7 @@ export function AppShell({
       }
       continue;
     }
-    if (!supportingSectionInserted && ["acessos", "site"].includes(item.key)) {
+    if (!supportingSectionInserted && ["acessos", "gestao-sistema", "site"].includes(item.key)) {
       menuBlocks.push({ kind: "divider" });
       supportingSectionInserted = true;
     }
@@ -693,6 +693,9 @@ export function AppShell({
                 Escalas: <UIIcon name="calendar" size={18} />,
                 Tesouraria: <UIIcon name="wallet" size={18} />,
                 Admissões: <UIIcon name="badge" size={18} />,
+                Aniversariantes: <UIIcon name="birthday" size={18} />,
+                Pastoral: <UIIcon name="family" size={18} />,
+                Louvor: <UIIcon name="roster" size={18} />,
                 "Grupos de Amizade": <UIIcon name="people" size={18} />,
               }} />}
             {accessKind === "ready" ? (

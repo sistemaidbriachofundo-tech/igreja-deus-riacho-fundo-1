@@ -37,7 +37,7 @@ function hrefs(html: string): string[] {
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
-  PLATFORM_ADMIN: ["visao", "pastoral", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "acessos", "site"],
+  PLATFORM_ADMIN: ["visao", "pastoral", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "acessos", "gestao-sistema", "site"],
   SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "relatorios", "site"],
   PASTOR: ["visao", "pastoral", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "relatorios", "site"],
   TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria", "relatorios"],

@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ApiRequestError, clearToken, isInvalidSession, loadStoredToken } from "../../lib/api";
 import {
   availableEventLots, cancelMemberRegistration, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt,
-  eventAuthHref, loadMemberRegistrations, memberEventsHref, registerForEvent,
+  eventAuthHref, loadMemberRegistrations, memberEventsHref, mercadoPagoCheckoutLink, openMercadoPagoCheckout, registerForEvent, validRegistrationCode,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
 import { formatPortalDate, type PublishedEvent } from "../../lib/portal-live-data";
@@ -17,6 +17,7 @@ import { useActionConfirmation } from "../ui/ActionConfirmation";
 import { UIIcon } from "../ui/UIIcon";
 import { formatEventPrice } from "./EventRegistrationDesk";
 import s from "./public-event-registration.module.css";
+import ui from "../ui/ui.module.css";
 
 type Catalog = NonNullable<Awaited<ReturnType<typeof loadEventRegistration>>>;
 
@@ -32,36 +33,57 @@ function message(error: unknown): string {
 export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationReceipt; memberToken: string }) {
   const [status, setStatus] = useState(receipt.status);
   const [guardianStatus, setGuardianStatus] = useState(receipt.guardianAuthStatus);
-  const [pix, setPix] = useState(receipt.paymentIntent);
+  const [payment, setPayment] = useState(receipt.paymentIntent);
   const [notice, setNotice] = useState("");
   const [tickets, setTickets] = useState(receipt.tickets);
+  const [checkInCode, setCheckInCode] = useState(receipt.checkInCode);
   const [qr, setQr] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const { confirm, confirmation } = useActionConfirmation();
   const confirmed = status === "CONFIRMED" || status === "CHECKED_IN";
+  const canShowTickets = confirmed && (guardianStatus === undefined || guardianStatus === "NOT_REQUIRED" || guardianStatus === "AUTHORIZED");
+  const checkoutLink = payment?.mode === "MERCADO_PAGO" ? mercadoPagoCheckoutLink(payment.checkoutUrl) : null;
   const canCancel = memberToken && (status === "CONFIRMED" || status === "PENDING_PAYMENT")
     && !tickets?.some(ticket => ticket.checkedInAt);
   useEffect(() => {
-    if (!confirmed) return;
+    if (!canShowTickets) return;
     let live = true;
-    const codes = tickets?.length ? tickets.map(ticket => ticket.code) : [receipt.checkInCode];
+    const codes = (tickets?.length ? tickets.map(ticket => ticket.code) : [checkInCode]).filter(validRegistrationCode);
     void import("qrcode").then(lib => Promise.all(codes.map(async code => [
       code,
       await lib.toDataURL(code, { margin: 4, width: 192, errorCorrectionLevel: "M" }),
     ] as const))).then(entries => { if (live) setQr(Object.fromEntries(entries)); }).catch(() => {});
     return () => { live = false; };
-  }, [confirmed, receipt.checkInCode, tickets]);
+  }, [canShowTickets, checkInCode, tickets]);
   async function refresh() {
     setBusy(true);
     setNotice("");
     try {
       const updated = await loadMemberReceipt(memberToken, receipt.id);
-      setPix(updated.paymentIntent);
+      setPayment(updated.paymentIntent);
       setStatus(updated.status);
       setGuardianStatus(updated.guardianAuthStatus);
       setTickets(updated.tickets);
+      setCheckInCode(updated.checkInCode);
     }
     catch (error) { setNotice(message(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function checkout() {
+    if (!memberToken || busy) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const result = await openMercadoPagoCheckout(memberToken, receipt.id);
+      if (result.mode === "mock") {
+        setNotice("Checkout em modo de teste. Nenhuma cobrança foi criada.");
+        return;
+      }
+      const url = mercadoPagoCheckoutLink(result.initPoint);
+      if (!url) throw new Error("Checkout indisponível.");
+      window.location.assign(url);
+    } catch (error) { setNotice(message(error)); }
     finally { setBusy(false); }
   }
 
@@ -79,7 +101,7 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
     setNotice("");
     try {
       const updated = await cancelMemberRegistration(memberToken, receipt.id);
-      setPix(null);
+      setPayment(null);
       setTickets([]);
       setStatus(updated.status);
     } catch (error) {
@@ -97,19 +119,19 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
 
   if (confirmed) return <section className={s.panel}>
     <Alert appearance="workspace" tone="success" title={status === "CHECKED_IN" ? "Presença registrada" : "Inscrição confirmada"}>
-      {tickets?.length ? "Apresente o ingresso de cada participante na entrada." : "Apresente o QR ou o código na entrada do evento."}
+      {canShowTickets ? "Apresente o ingresso de cada participante na entrada. Confira também o e-mail informado na inscrição." : "Aguardando a liberação do ingresso."}
     </Alert>
-    <ul className={s.tickets}>
-      {(tickets?.length ? tickets : [{ position: 0, code: receipt.checkInCode }]).map(ticket => <li key={ticket.code}>
+    {canShowTickets && <ul className={s.tickets}>
+      {(tickets?.length ? tickets : validRegistrationCode(checkInCode) ? [{ position: 0, code: checkInCode }] : []).filter(ticket => validRegistrationCode(ticket.code)).map(ticket => <li key={ticket.code}>
         {ticket.position > 0 && <h3>Ingresso {ticket.position}</h3>}
         {ticket.checkedInAt && <p>Presença registrada</p>}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {qr[ticket.code] && <img src={qr[ticket.code]} alt={ticket.position ? "QR do ingresso " + ticket.position : "QR para o check-in do evento"} width={192} height={192} />}
         <p className={s.code}>{ticket.code}</p>
       </li>)}
-    </ul>
-    {guardianStatus === "PENDING" && <>
-      <p>Para a entrada, a equipe do evento ainda precisa conferir a autorização do responsável.</p>
+    </ul>}
+    {!canShowTickets && <>
+      <p>Fale com a equipe do evento para conferir a autorização do responsável.</p>
       <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>Atualizar situação</Button>
     </>}
     <p>Referência da inscrição <span className={s.code}>{receipt.id}</span></p>
@@ -118,18 +140,25 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
     {confirmation}
   </section>;
 
-  if (status === "CANCELLED") return <Alert appearance="workspace" tone="warning" title="Inscrição cancelada" />;
+  if (status === "CANCELLED" || status === "EXPIRED" || status === "REFUNDED") {
+    const label = status === "EXPIRED" ? "Pagamento expirado" : status === "REFUNDED" ? "Pagamento estornado" : "Inscrição cancelada";
+    return <Alert appearance="workspace" tone="warning" title={label} />;
+  }
 
   return <section className={s.panel}>
     <Alert appearance="workspace" tone="info" title="Pagamento pendente">
-      A inscrição será confirmada após a Tesouraria conferir o crédito na conta da igreja.
+      {payment?.mode === "MERCADO_PAGO"
+        ? "Conclua o pagamento no Mercado Pago e volte para consultar seu ingresso."
+        : "A inscrição será confirmada após a Tesouraria conferir o crédito na conta da igreja."}
     </Alert>
-    {pix?.mode === "CHURCH_PIX" && pix.pixCopiaECola && <>
-      <p className={s.amount}>{formatEventPrice(pix.amountCents)}</p>
-      {pix.pixTxid && <p>Referência do pagamento <strong className={s.code}>{pix.pixTxid}</strong></p>}
-      <label className={s.copyField}>Pix copia e cola<textarea readOnly value={pix.pixCopiaECola} rows={3} /></label>
+    {checkoutLink ? <a className={ui.workspacePrimary} href={checkoutLink}>Pagar com Mercado Pago</a>
+      : payment?.mode === "MERCADO_PAGO" && <Button disabled={busy} onClick={() => void checkout()}>Pagar com Mercado Pago</Button>}
+    {payment?.mode === "CHURCH_PIX" && payment.pixCopiaECola && <>
+      <p className={s.amount}>{formatEventPrice(payment.amountCents)}</p>
+      {payment.pixTxid && <p>Referência do pagamento <strong className={s.code}>{payment.pixTxid}</strong></p>}
+      <label className={s.copyField}>Pix copia e cola<textarea readOnly value={payment.pixCopiaECola} rows={3} /></label>
       <Button onClick={async () => {
-        try { await navigator.clipboard.writeText(pix.pixCopiaECola ?? ""); setNotice("Código Pix copiado."); }
+        try { await navigator.clipboard.writeText(payment.pixCopiaECola ?? ""); setNotice("Código Pix copiado."); }
         catch { setNotice("Selecione e copie o código Pix acima."); }
       }}>Copiar código Pix</Button>
     </>}
@@ -180,6 +209,10 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
     try {
       setReceipt(await registerForEvent(catalog.event.slug, {
         displayName: read("name"), notificationEmail: read("email"), modalityId, lotId, partySize: quantity, isMinor: minor,
+        ...(catalog.participantTickets ? { participants: [{ name: read("name"), email: read("email") },
+          ...Array.from({ length: quantity - 1 }, (_, index) => ({
+            name: read("participantName" + (index + 2)), email: read("participantEmail" + (index + 2)),
+          }))] } : {}),
         ...(minor ? { guardianDisplayName: read("guardian"), guardianAcknowledged: form.get("consent") === "on" } : {}),
         ...resources,
       }, member.token));
@@ -211,7 +244,12 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
           label: choice.name + " · " + (choice.priceCents ? formatEventPrice(choice.priceCents) : "Gratuito"), value: choice.id,
         }))]} />}
       <Input name="name" label="Nome do participante" autoComplete="name" defaultValue={member.profile.name} minLength={2} maxLength={120} required />
-      <Input name="email" label="E-mail para receber a confirmação" type="email" autoComplete="email" defaultValue={member.profile.email} maxLength={254} required />
+      <Input name="email" label="E-mail para receber o ingresso" type="email" autoComplete="email" defaultValue={member.profile.email} maxLength={254} required />
+      {catalog.participantTickets && modality && capacityMatches && quantity > 1 && Array.from({ length: quantity - 1 }, (_, index) => <fieldset className={s.fields} key={index + 2}>
+        <legend>Participante {index + 2}</legend>
+        <Input name={"participantName" + (index + 2)} label="Nome" minLength={2} maxLength={120} required />
+        <Input name={"participantEmail" + (index + 2)} label="E-mail para receber o ingresso" type="email" maxLength={254} required />
+      </fieldset>)}
       {resourceFields.map(item => item.choices.length > 0 && <Select key={item.name} name={item.name} label={item.label} required
         options={[{ label: "Selecione", value: "" }, ...item.choices.filter(choice => choice.remaining === null || choice.remaining >= quantity)
           .map(choice => ({ label: choice.name, value: choice.id }))]} />)}
@@ -223,7 +261,7 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
     </>}
     {modality && !capacityMatches && <Alert appearance="workspace" tone="info" title="Sem vagas para essa quantidade de pessoas" />}
     {error && <Alert appearance="workspace" tone="danger" title={error} />}
-    <Button type="submit" disabled={!lot || !capacityMatches || busy}>{busy ? "Enviando…" : lot?.priceCents ? "Inscrever e gerar Pix" : "Confirmar inscrição"}</Button>
+    <Button type="submit" disabled={!lot || !capacityMatches || busy}>{busy ? "Enviando…" : lot?.priceCents ? lot.paymentMode === "MERCADO_PAGO" ? "Continuar para o pagamento" : "Inscrever e gerar Pix" : "Confirmar inscrição"}</Button>
   </form>;
 }
 

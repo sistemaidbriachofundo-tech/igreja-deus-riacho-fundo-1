@@ -52,6 +52,26 @@ export function listBankAdapters(): BankAdapterInfo[] {
   });
 }
 
+export function mockBankProbe(raw?: string): {
+  adapter: BankImportAdapterCode;
+  mode: "mock";
+  live: false;
+  synced: false;
+  reason: string;
+} {
+  const adapter = requireBankAdapter(raw);
+  if (adapter !== "BRB" && adapter !== "SICOOB" && adapter !== "MOCK") {
+    throw new Error(`MOCK_PROBE_UNSUPPORTED:${adapter}`);
+  }
+  return {
+    adapter,
+    mode: "mock",
+    live: false,
+    synced: false,
+    reason: "Conta de teste ainda não autorizada. Nenhum banco foi contactado.",
+  };
+}
+
 export function requireBankAdapter(raw?: string): BankImportAdapterCode {
   const code = (raw?.trim().toUpperCase() || "FILE") as BankImportAdapterCode;
   if (!BANK_IMPORT_ADAPTERS.includes(code)) {

@@ -23,12 +23,12 @@ export function EventPaymentField({ accounts, value, onChange }: {
   value?: string | null;
   onChange: (id: string | null) => void;
 }) {
-  return <label>Conta da igreja para receber o Pix
+  return <label>Conta de recebimento
     <select required value={value ?? ""} onChange={event => onChange(event.target.value || null)}>
       <option value="">Selecione a conta</option>
       {value && !accounts.some(account => account.id === value) &&
         <option value={value} disabled>Conta vinculada indisponível</option>}
-      {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+      {accounts.map(account => <option key={account.id} value={account.id}>{account.name}{account.provider === "MERCADO_PAGO" ? " · Mercado Pago" : ""}</option>)}
     </select>
     {accounts.length === 0 && <span className={s.paymentHint}>Nenhuma conta de recebimento está disponível. Procure a Tesouraria.</span>}
   </label>;
@@ -51,6 +51,7 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
   const [guardianChoice, setGuardianChoice] = useState<string | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paid, setPaid] = useState(false);
+  const [provider, setProvider] = useState<"PIX" | "MERCADO_PAGO">("PIX");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [configuringAccount, setConfiguringAccount] = useState(false);
@@ -59,7 +60,10 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
   const [revision, reload] = useState(0);
   const code = useRef<HTMLInputElement>(null);
+  const gateRequest = useRef(false);
   const published = event.status === "PUBLISHED";
+  const individual = event.ticketPolicy === "PARTICIPANT";
+  const canScan = event.canScan ?? (!individual && canManage);
 
   useEffect(() => {
     let live = true;
@@ -123,12 +127,18 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
       setNotice({ text: "Informe o valor e selecione uma conta da igreja.", error: true });
       return;
     }
+    const receiving = accounts.find(account => account.id === accountId);
+    if (paid && provider === "MERCADO_PAGO" && receiving?.provider !== "MERCADO_PAGO") {
+      setNotice({ text: "Selecione uma conta habilitada para Mercado Pago.", error: true });
+      return;
+    }
     void perform(() => apiPost(path + "/lots", token, {
       code: generateEventCode(name, 40), name,
       modalityId: field(data, "modality") || null, capacity: Number(field(data, "capacity")),
       status: "OPEN", currency: "BRL", priceCents: paid ? price : 0,
       receivingAccountId: paid ? accountId : null,
-    }), "Lote aberto.", () => { form.reset(); setPaid(false); setAccountId(null); });
+      ...(paid && provider === "MERCADO_PAGO" ? { paymentProvider: provider } : {}),
+    }), "Lote aberto.", () => { form.reset(); setPaid(false); setAccountId(null); setProvider("PIX"); });
   }
 
   async function openAccountSetup() {
@@ -158,11 +168,12 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
   }
 
   function registerPresence(checkInCode: string) {
-    if (!checkInCode) return;
-    void perform(() => apiPost<{ participantPosition?: number; remaining?: number; alreadyCheckedIn?: boolean }>(
-      path + "/check-in", token, { checkInCode },
+    if (!canScan || !checkInCode || gateRequest.current || busy) return;
+    gateRequest.current = true;
+    void perform(() => apiPost<{ participantPosition?: number; remaining?: number; alreadyCheckedIn?: boolean; result?: string }>(
+      path + (individual ? "/tickets/scan" : "/check-in"), token, individual ? { code: checkInCode } : { checkInCode },
     ), result => {
-      if (result.alreadyCheckedIn) return "A presença deste participante já estava registrada.";
+      if (result.alreadyCheckedIn || result.result === "ALREADY_READ") return "Entrada já registrada.";
       if (!result.participantPosition) return "Presença registrada.";
       const remaining = result.remaining ?? 0;
       return remaining > 0
@@ -170,7 +181,7 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
         : "Presença registrada. Todos os participantes desta inscrição chegaram.";
     }, () => {
       if (code.current) { code.current.value = ""; code.current.focus(); }
-    });
+    }).finally(() => { gateRequest.current = false; });
   }
 
   if (event.status !== "DRAFT" && !published) return null;
@@ -203,11 +214,16 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
         </select></label>
         <label>Vagas<input name="capacity" type="number" min={1} required /></label>
         <label>Cobrança<select value={paid ? "paid" : "free"} onChange={e => setPaid(e.target.value === "paid")}>
-          <option value="free">Gratuita</option><option value="paid">Paga por Pix</option>
+          <option value="free">Gratuita</option><option value="paid">Paga</option>
         </select></label>
         {paid && <>
           <label>Valor do lote (R$)<input name="price" type="number" inputMode="decimal" min="0.01" max="99999.99" step="0.01" required /></label>
-          <EventPaymentField accounts={accounts} value={accountId} onChange={setAccountId} />
+          <label>Forma de pagamento<select value={provider} onChange={change => { setProvider(change.target.value === "MERCADO_PAGO" ? "MERCADO_PAGO" : "PIX"); setAccountId(null); }}>
+            <option value="PIX">Pix da igreja</option>
+            {accounts.some(account => account.provider === "MERCADO_PAGO") && <option value="MERCADO_PAGO">Mercado Pago</option>}
+          </select></label>
+          <EventPaymentField accounts={provider === "MERCADO_PAGO" ? accounts.filter(account => account.provider === provider) : accounts}
+            value={accountId} onChange={setAccountId} />
         </>}
         <div className={s.actions}><button disabled={busy || modalities.length === 0 || (paid && !accountId)}>Abrir lote</button></div>
       </form>
@@ -232,7 +248,7 @@ export function EventRegistrationDesk({ event, token, accounts, canReconcile, ca
         </div>
       </form>}
     </section>}
-    {published && canManage && <form className={`${s.grid} ${s.checkInPanel}`} onSubmit={checkIn}>
+    {published && canScan && <form id="check-in" className={`${s.grid} ${s.checkInPanel}`} onSubmit={checkIn}>
       <h3 className={s.wide}>Check-in</h3>
       <p className={s.wide}>Leia o QR do ingresso ou digite o código abaixo para registrar a chegada.</p>
       <label>Código do ingresso<input ref={code} name="checkInCode" autoComplete="off" minLength={8} maxLength={128} required /></label>

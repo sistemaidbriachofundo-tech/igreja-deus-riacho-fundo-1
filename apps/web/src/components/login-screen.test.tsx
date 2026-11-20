@@ -27,7 +27,8 @@ describe("Acesso institucional antes do painel", () => {
     expect(html).toContain("Entrar no painel");
     expect(html).not.toContain("Seu acesso é individual");
     expect(html).not.toContain("autorização institucional");
-    expect(html).toContain("Esqueceu a senha? Procure a Secretaria da igreja.");
+    expect(html).toContain("Esqueci minha senha");
+    expect(html).toContain("/recuperar-senha/");
     expect(html).toContain("Criar conta como convidado");
     expect(html).not.toContain('value="fake-token"');
   });

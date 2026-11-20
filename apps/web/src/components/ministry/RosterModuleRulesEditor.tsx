@@ -10,7 +10,18 @@ import ui from "../ui/ui.module.css";
 import type { RosterActionsProps } from "./RosterEditor";
 import s from "./roster-editor.module.css";
 
-export function RosterModuleRulesEditor({ module, actions }: { module: EscalaModule; actions: RosterActionsProps }) {
+const louvorQualifications: Record<string, string> = {
+  lider: "Líder", bateria: "Bateria", violao: "Violão", teclado: "Teclado", baixo: "Baixo",
+  ministro: "Ministro de louvor", back_vocal: "Back vocal",
+  ministro_contralto: "Ministro · Contralto", ministro_mezzo_soprano: "Ministro · Mezzo-soprano", ministro_soprano: "Ministro · Soprano",
+  back_vocal_contralto: "Back vocal · Contralto", back_vocal_mezzo_soprano: "Back vocal · Mezzo-soprano", back_vocal_soprano: "Back vocal · Soprano",
+};
+
+export function RosterModuleRulesEditor({ module, actions, louvor }: {
+  module: EscalaModule;
+  actions: RosterActionsProps;
+  louvor?: boolean;
+}) {
   const [rules, setRules] = useState<EscalaModuleRules>(() => ({
     positions: {}, qualifications: {}, couples: [], minIntervalDays: 10, maxMonthlyAssignments: 3, substituteInviteLimit: 0, ...module.rules,
     ...(actions.requireModuleMembership ? { volunteerIds: module.rules?.volunteerIds ?? [] } : {}),
@@ -24,7 +35,9 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
   const availableMembers = actions.members.filter(person => !team?.includes(person.personId));
   const teamMembers = actions.members.filter(person => !team || team.includes(person.personId));
   const rows = rules.positions[type] ?? [];
-  const tags = [...new Set(["diaconia", ...Object.values(rules.positions).flatMap(list => list.map(row => row.qualification ?? "")).filter(Boolean)])];
+  const tagNames = louvor ? louvorQualifications : { diaconia: "Diaconia" } as Record<string, string>;
+  const tags = [...new Set([...Object.keys(tagNames), ...Object.keys(rules.qualifications),
+    ...Object.values(rules.positions).flatMap(list => list.map(row => row.qualification ?? "")).filter(Boolean)])];
 
   function setRows(positions: ModulePosition[]) {
     setRules(previous => ({ ...previous, positions: { ...previous.positions, [type]: positions } }));
@@ -106,7 +119,7 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
         {Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) => <label key={field}>{label}<input maxLength={100} value={row[field as keyof RosterLocation] ?? ""} onChange={event => editRow(index, { [field]: event.target.value })} /></label>)}
         <label>Vagas<input type="number" min={0} max={30} value={row.count} onChange={event => editRow(index, { count: Number(event.target.value) })} /></label>
         <label>Habilitação<select value={row.qualification ?? ""} onChange={event => editRow(index, { qualification: event.target.value || undefined })}>
-          <option value="">Qualquer integrante</option>{tags.map(tag => <option key={tag} value={tag}>{tag === "diaconia" ? "Diaconia" : tag}</option>)}
+          <option value="">Qualquer integrante</option>{tags.map(tag => <option key={tag} value={tag}>{tagNames[tag] ?? tag}</option>)}
         </select></label>
         <label>Tipo de vaga<select value={row.couple ? "couple" : "individual"} onChange={event => editRow(index, { couple: event.target.value === "couple" })}>
           <option value="individual">Individual</option>
@@ -115,7 +128,7 @@ export function RosterModuleRulesEditor({ module, actions }: { module: EscalaMod
         <button className={ui.workspaceSecondary} type="button" onClick={() => setRows(rows.filter((_, i) => i !== index))}>Remover posição</button>
       </div>)}
       <button className={ui.workspaceSecondary} type="button" onClick={() => setRows([...rows, { label: "", count: 1, couple: false }])}>Adicionar regra de vaga</button>
-      {tags.map(tag => <div className={s.form} key={tag}><label>{tag === "diaconia" ? "Diáconos e diaconisas habilitados" : tag}
+      {tags.map(tag => <div className={s.form} key={tag}><label>{tag === "diaconia" ? "Diáconos e diaconisas habilitados" : tagNames[tag] ?? tag}
         <select multiple value={rules.qualifications[tag] ?? []} onChange={event => setRules({ ...rules, qualifications: {
           ...rules.qualifications, [tag]: Array.from(event.target.selectedOptions, option => option.value),
         } })}>{teamMembers.map(person => <option value={person.personId} key={person.personId}>{person.displayName}</option>)}</select>
