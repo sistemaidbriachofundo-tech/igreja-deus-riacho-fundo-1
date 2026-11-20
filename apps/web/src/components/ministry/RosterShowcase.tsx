@@ -13,6 +13,7 @@ import { MonthlyRosterPreview } from "./MonthlyRosterPreview";
 import { RosterActions, RosterEditor, type RosterActionsProps } from "./RosterEditor";
 import { RosterModuleCatalog } from "./RosterModuleCatalog";
 import { RosterCapacitySettings } from "./RosterCapacitySettings";
+import { RepertoireDesk } from "../serving/RepertoireDesk";
 import { RosterRecurringAvailability } from "./RosterRecurringAvailability";
 import s from "./roster-showcase.module.css";
 
@@ -47,11 +48,12 @@ type Props = {
   escalaId?: string;
   shortcut: { href: string; label: string } | null;
   volunteerPortal: boolean;
+  louvor?: boolean;
   onOpen: (escalaId?: string) => void;
   actions?: RosterActionsProps;
 };
 
-export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shortcut, volunteerPortal, onOpen, actions }: Props) {
+export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shortcut, volunteerPortal, louvor, onOpen, actions }: Props) {
   const { confirm, confirmation } = useActionConfirmation();
   const [publishing, setPublishing] = useState("");
   const [notice, setNotice] = useState("");
@@ -231,7 +233,15 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   function whatsAppLink(roster: MinistryEscala) {
     return <button type="button" className={s.openCard} onClick={() => {
       const portal = new URL(withBasePath(meuEspacoHref()), window.location.origin).href;
-      const text = `${roster.title} · ${fullDate.format(new Date(roster.serviceAt))} às ${hourLabel.format(new Date(roster.serviceAt))}. Consulte sua escala no Portal do Voluntário: ${portal}`;
+      const when = new Date(roster.serviceAt);
+      const team = moduleNames.get(roster.moduleId ?? "") ?? ministryName;
+      const text = [
+        `*Escala • ${team}*`,
+        `${cultTitle(when)} — ${fullDate.format(when)}, às ${hourLabel.format(when)}`,
+        "",
+        "Abra o Portal do Voluntário para ver sua função e confirmar presença.",
+        portal,
+      ].join("\n");
       window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
     }}>WhatsApp <span aria-hidden="true">↗</span></button>;
   }
@@ -298,7 +308,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         initialModuleId={access.moduleId} onSaved={access.onRefresh} />}
       {tool === "modules" && !moduleOnly && <RosterModuleCatalog actions={{ ...access, onRulesSaved: rules => {
         if (selectedModule) setUpdatedRules(previous => ({ ...previous, [selectedModule.id]: rules }));
-      } }} modules={modules} selectedId={selectedModule?.id ?? ""} />}
+      } }} modules={modules} selectedId={selectedModule?.id ?? ""} louvor={louvor} />}
       {tool === "availability" && <RosterRecurringAvailability actions={access} />}
     </section>}
     {downloadError && <p role="alert" className={s.error}>{downloadError}</p>}
@@ -312,6 +322,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         return Boolean(rosterModule && rosterModuleContains(rosterModule, member.personId)) ||
           (!access.requireModuleMembership && !rosterModule?.rules?.volunteerIds);
       })} />}
+      {louvor && actions && <RepertoireDesk key={selected.id} rosterId={selected.id} />}
       {!access && <p>{selected.functions.join(" · ") || "Sem posições cadastradas."}</p>}
     </section>}
     {notice && <p role="status" className={s.empty}>{notice}</p>}

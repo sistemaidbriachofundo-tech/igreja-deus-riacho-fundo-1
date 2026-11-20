@@ -14,7 +14,7 @@ export type ManagedEvent = {
   startsAt: string;
 };
 
-export type EventPaymentAccount = { id: string; name: string };
+export type EventPaymentAccount = { id: string; name: string; provider?: "MERCADO_PAGO" };
 
 export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] | null {
   if (!value || typeof value !== "object" || !("accounts" in value) || !Array.isArray(value.accounts)) return null;
@@ -22,7 +22,7 @@ export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] 
     if (!account || typeof account !== "object" || !("id" in account)) return [];
     const id = text(account.id);
     const name = text("displayName" in account ? account.displayName : "name" in account ? account.name : null);
-    return id && name ? [{ id, name }] : [];
+    return id && name ? [{ id, name, ...("provider" in account && account.provider === "MERCADO_PAGO" ? { provider: "MERCADO_PAGO" as const } : {}) }] : [];
   });
 }
 

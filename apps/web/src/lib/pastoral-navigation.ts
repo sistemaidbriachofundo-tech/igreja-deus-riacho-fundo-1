@@ -1,4 +1,6 @@
 export const PASTORAL_SECTIONS = [
+  { id: "congregacao", title: "Congregação", icon: "people", href: "/app/pastoral/congregacao/" },
+  { id: "oracoes", title: "Pedidos de oração", icon: "mail", href: "/app/pastoral/oracoes/" },
   { id: "admissoes", title: "Admissões", icon: "layers", href: "/app/pastoral/admissoes/" },
   { id: "despesas", title: "Despesas", icon: "wallet", href: "/app/pastoral/despesas/" },
   { id: "cuidado", title: "Cuidado pastoral", icon: "family", href: "/app/pastoral/cuidado/" },
@@ -10,5 +12,5 @@ export const PASTORAL_SECTIONS = [
 export type PastoralSection = (typeof PASTORAL_SECTIONS)[number]["id"];
 
 export function pastoralSections(roles: readonly string[]) {
-  return PASTORAL_SECTIONS.filter(item => item.id !== "cuidado" || roles.includes("PASTOR"));
+  return PASTORAL_SECTIONS.filter(item => !["cuidado", "congregacao", "oracoes"].includes(item.id) || roles.includes("PASTOR"));
 }

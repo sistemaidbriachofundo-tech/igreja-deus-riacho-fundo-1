@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { PersonPicker, canSearchPersons } from "../PersonPicker";
 import { OpenWhatsAppLink } from "../OpenWhatsAppLink";
+import { RepertoireDesk } from "./RepertoireDesk";
 import { RosterPreviewPanel } from "./RosterPreviewPanel";
 import { formatChurchDate } from "../../lib/das-operations";
 import {
@@ -121,6 +122,7 @@ export function MinistryRosterDesk({
                   </div>
                   <span className={styles.badge}>{rosterStatusLabel[roster.status]}</span>
                 </div>
+                {surface === "louvor" && <RepertoireDesk rosterId={roster.id} />}
                 {lead && roster.status !== "CLOSED" && roster.slots.length > 0 && (surface !== "event" || roster.ministryId) && <RosterPreviewPanel token={token} rosterId={roster.id} />}
                 {roster.slots.map((slot) => (
                   <section className={styles.slot} key={slot.id}>

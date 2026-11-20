@@ -6,6 +6,7 @@ import type { DasRecord } from "../lib/das-operations";
 import { pastoralSections } from "../lib/pastoral-navigation";
 import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 import { PastoralBoard } from "./CareBoards";
+import { CongregationSummary } from "./PastoralCommunity";
 import { WorkspacePriorities } from "./WorkspacePriorities";
 import { PageHeader } from "./ui/PageHeader";
 import s from "./pastoral-desk.module.css";
@@ -85,6 +86,7 @@ function PastoralWorkspace({ roles }: { roles: readonly string[] }) {
         <UIIcon name={icon} size={18} /> {title}
       </AppNavLink>)}
     </nav>
+    <CongregationSummary revision={revision} />
     <WorkspacePriorities showService={false} showDecisions revision={revision} />
   </div>;
 }

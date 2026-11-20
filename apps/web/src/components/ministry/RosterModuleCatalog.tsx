@@ -9,10 +9,11 @@ import type { RosterActionsProps } from "./RosterEditor";
 import { RosterModuleRulesEditor } from "./RosterModuleRulesEditor";
 import s from "./roster-editor.module.css";
 
-export function RosterModuleCatalog({ actions, modules, selectedId }: {
+export function RosterModuleCatalog({ actions, modules, selectedId, louvor }: {
   actions?: RosterActionsProps;
   modules: EscalaModule[];
   selectedId: string;
+  louvor?: boolean;
 }) {
   const [editing, setEditing] = useState<EscalaModule | "new" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,7 +56,7 @@ export function RosterModuleCatalog({ actions, modules, selectedId }: {
         <button className={ui.workspacePrimary} type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar módulo"}</button>
         <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => setEditing(null)}>Cancelar</button>
       </form>}
-      {actions && selected && <RosterModuleRulesEditor key={selected.id} module={selected} actions={actions} />}
+      {actions && selected && <RosterModuleRulesEditor key={selected.id} module={selected} actions={actions} louvor={louvor} />}
       {error && <p className={s.error} role="alert">{error}</p>}
     </section>
   );

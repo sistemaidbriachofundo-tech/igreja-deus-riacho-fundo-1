@@ -17,6 +17,7 @@ import {
   type RosterView,
   type ServingSurfaceId,
 } from "../../lib/serving-rosters";
+import { AppNavLink } from "../AppShell";
 import { ConnectionJourney } from "./ConnectionJourney";
 import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
 import { RosterNotifications } from "./RosterNotifications";
@@ -224,6 +225,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
               )
             }
           />
+          <section className={styles.card}><h2>Oração</h2><AppNavLink href="/app/pedir-oracao/">Pedir oração</AppNavLink></section>
           <ConnectionJourney />
           <GroupRequests token={token} />
           {user.canManageConnection !== true && roles.some(role => ["MEMBRO", "LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&

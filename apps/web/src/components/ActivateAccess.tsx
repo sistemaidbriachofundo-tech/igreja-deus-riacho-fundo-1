@@ -38,7 +38,7 @@ export function ActivateAccess({ recovery = false }: { recovery?: boolean } = {}
       setConfirmation("");
       setActivated(true);
     } catch {
-      setError("Não foi possível ativar. O link pode ter expirado, já ter sido utilizado ou a senha não atender à política. Solicite outro link à administração.");
+      setError("Não foi possível ativar. O link pode ter expirado, já ter sido utilizado ou a senha não atender à política. Solicite um novo link para tentar novamente.");
     } finally {
       setLoading(false);
     }
@@ -53,10 +53,10 @@ export function ActivateAccess({ recovery = false }: { recovery?: boolean } = {}
       {activated ? <>
         <p>Sua senha foi cadastrada com sucesso. Agora você já pode entrar no sistema com o e-mail da sua conta.</p>
         <a className={s.primary} href={withBasePath("/app/")}>Entrar no sistema</a>
-      </> : token === null ? <p role="status">Verificando o convite…</p>
+      </> : token === null ? <p role="status">Verificando o link…</p>
       : !token ? <>
         <p role="alert">Este link não é válido. Ele pode ter expirado ou já ter sido utilizado.</p>
-        <p>Peça à administração da igreja que envie um novo link.</p>
+        {recovery ? <p><a href={withBasePath("/recuperar-senha/")}>Solicitar um novo link</a></p> : <p>Peça à administração da igreja que envie um novo link.</p>}
       </> : <>
         <p>Escolha uma senha pessoal. Ninguém da administração precisa conhecer essa senha.</p>
         <form className={s.form} onSubmit={submit}>

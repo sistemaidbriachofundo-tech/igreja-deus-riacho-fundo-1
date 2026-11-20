@@ -1,5 +1,6 @@
 "use client";
 
+import { RepertoireDesk } from "./RepertoireDesk";
 import { useEffect, useState, type ReactNode } from "react";
 import { formatChurchDate } from "../../lib/das-operations";
 import { assignmentStatusLabel, type PersonalAssignment } from "../../lib/serving-rosters";
@@ -100,6 +101,7 @@ export function MemberSpace({
         {!item.companionName && item.participation === "partner" && <p className={styles.context}>Participação em dupla</p>}
         {item.substituteForId && <p className={styles.context}>Substituição</p>}
         {item.sameDayConflict && <p className={styles.context}>Você tem outra posição na escala deste dia.</p>}
+        {item.ministrySlug === "louvor" && item.rosterStatus === "PUBLISHED" && <RepertoireDesk assignmentId={item.id} />}
         {open && (
           <div className={styles.actions}>
             <button type="button" className={styles.primary} disabled={busy} onClick={() => onConfirm(item.id)}>

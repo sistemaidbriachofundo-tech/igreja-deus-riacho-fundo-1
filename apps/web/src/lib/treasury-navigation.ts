@@ -1,5 +1,5 @@
 /** Seções de Tesouraria — âncoras funcionam também no GitHub Pages estático. */
-export type TreasurySection = "visao" | "despesas" | "extrato" | "conciliacao" | "aprovacoes" | "lancar";
+export type TreasurySection = "visao" | "despesas" | "extrato" | "conciliacao" | "aprovacoes" | "lancar" | "integracoes";
 
 export type TreasurySidebarItem = {
   section: TreasurySection;
@@ -12,6 +12,7 @@ const SECTIONS: readonly TreasurySidebarItem[] = [
   { section: "despesas", label: "Despesas", icon: "wallet" },
   { section: "lancar", label: "Incluir despesa", icon: "plus" },
   { section: "extrato", label: "Extrato", icon: "book" },
+  { section: "integracoes", label: "Contas e integrações", icon: "wallet" },
   { section: "conciliacao", label: "Conciliações", icon: "check" },
   { section: "aprovacoes", label: "Aprovações", icon: "shield" },
 ];
@@ -28,6 +29,7 @@ export function treasurySidebarItems(roles: readonly string[]): readonly Treasur
   if (!treasurer && !pastor && !admin) return [];
   if (pastor && !treasurer && !admin) return SECTIONS.filter(item => item.section === "aprovacoes");
   return SECTIONS.filter(item =>
+    (item.section !== "integracoes" || treasurer) &&
     (item.section !== "lancar" || treasurer || admin) &&
     (item.section !== "aprovacoes" || treasurer || pastor),
   );

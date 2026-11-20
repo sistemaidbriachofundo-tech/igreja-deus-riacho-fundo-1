@@ -27,6 +27,7 @@ export type AppNavKey =
   | "conexao"
   | "carteirinha"
   | "site"
+  | "gestao-sistema"
   | "operacao"
   | "tesouraria"
   | "relatorios"
@@ -326,6 +327,18 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     ribbon: { code: "Acessos", title: "Acessos da congregação.", detail: "Contas e perfis atribuídos às pessoas." },
     roles: ["PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/admin/access", source: "apps/api/src/auth/church-access.controller.ts", marker: "@Get()" },
+    surface: "admin",
+  },
+  {
+    key: "gestao-sistema",
+    href: "/app/gestao-do-sistema/",
+    label: "Gestão do Sistema",
+    short: "Gestão",
+    icon: "settings",
+    hint: "Regras, vigência e histórico",
+    ribbon: { code: "Administração", title: "Gestão do Sistema", detail: "Regras por escopo e data de vigência." },
+    roles: ["PLATFORM_ADMIN"],
+    probe: null,
     surface: "admin",
   },
   {

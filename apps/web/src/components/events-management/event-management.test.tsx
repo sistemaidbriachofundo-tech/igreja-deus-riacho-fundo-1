@@ -63,7 +63,7 @@ describe("telas de eventos e relatórios", () => {
   it("seleciona uma conta cadastrada e mantém visível a conta vinculada indisponível", () => {
     const field = renderToStaticMarkup(<EventPaymentField
       accounts={[{ id: "a1", name: "Conta de eventos" }]} value="a1" onChange={noop} />);
-    expect(field).toContain("Conta da igreja para receber o Pix");
+    expect(field).toContain("Conta de recebimento");
     expect(field).toContain('value="a1" selected=""');
     expect(field).toContain("Selecione a conta");
     const unavailable = renderToStaticMarkup(<EventPaymentField

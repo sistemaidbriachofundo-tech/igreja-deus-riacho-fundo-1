@@ -31,3 +31,15 @@
 .queue div { display: grid; gap: 4px; }
 .queue span { color: var(--app-muted); font-size: .875rem; }
 .queue:hover { border-color: var(--app-accent); }
+
+.summaryHead {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.summaryHead h2 {margin:0}
+.stat {display:grid;gap:6px;margin:0;padding:16px}
+.stat dd {margin:0;font-weight:750;font-size:1.3rem}
+.stat dt {color:var(--app-muted)}
+.fields {display:flex;flex-wrap:wrap;align-items:end;gap:12px;padding:16px}
+.entries {list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.prayerForm {display:grid;gap:16px;justify-items:start;max-width:680px;padding:18px}
+.prayerForm label:first-child {display:grid;gap:7px;width:100%}
+.prayerForm textarea {width:100%;font:inherit;padding:10px;border:1px solid var(--app-line,#d5dfd9);border-radius:7px;resize:vertical}
+.privateText {white-space:pre-wrap;overflow-wrap:anywhere}

@@ -331,6 +331,7 @@ function ReadyExperience({
               escalaId={escalaId}
               shortcut={shortcut}
               volunteerPortal={isAtmosfera}
+              louvor={desk.ministry.slug === "louvor"}
               onOpen={onOpenEscala}
               actions={token ? {
                 token,
