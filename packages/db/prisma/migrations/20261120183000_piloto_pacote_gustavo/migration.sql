@@ -23,7 +23,7 @@ DO $$ BEGIN
   CREATE TYPE "PrayerRequestStatus" AS ENUM ('OPEN', 'ACKNOWLEDGED', 'CLOSED');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
-  CREATE TYPE "VocalClassification" AS ENUM ('SOPRANO', 'CONTRALTO', 'TENOR', 'BASS', 'UNSPECIFIED');
+  CREATE TYPE "VocalClassification" AS ENUM ('SOPRANO', 'MEZZO_SOPRANO', 'CONTRALTO', 'TENOR', 'BASS', 'UNSPECIFIED');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE "RepertoireStatus" AS ENUM ('DRAFT', 'AUTHORIZED', 'SCHEDULED');
@@ -46,6 +46,7 @@ ALTER TABLE "event_payment_intents" ADD COLUMN IF NOT EXISTS "refunded_at" TIMES
 ALTER TABLE "church_receiving_accounts" ADD COLUMN IF NOT EXISTS "mercado_pago_enabled" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "church_receiving_accounts" ADD COLUMN IF NOT EXISTS "mercado_pago_collector_id" TEXT;
 ALTER TABLE "roster_slots" ADD COLUMN IF NOT EXISTS "manual_fill" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "event_registrations" ADD COLUMN IF NOT EXISTS "participant_roster" JSONB;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "event_payment_intents_attempt_ref_key" ON "event_payment_intents"("attempt_ref");
 
@@ -241,5 +242,7 @@ VALUES
   ('finance.sicoob.mode', 'Sicoob', 'Sem API live. Somente mock.', 'string', 'CHURCH', '"mock"', '"mock"'),
   ('rosters.louvor.week_block', 'Bloqueio semanal de Louvor', 'Uma escala de Louvor ocupa a semana de segunda a domingo.', 'boolean', 'MINISTRY', 'true', 'true'),
   ('rosters.ceia.manual', 'Santa Ceia manual', 'A Ceia não entra no preenchimento automático.', 'boolean', 'MODULE', 'true', 'true'),
-  ('credentials.color_rule', 'Regra da carteira colorida', 'A cor acompanha situação e cargo eclesiástico.', 'string', 'CHURCH', '"ecclesiastical"', '"ecclesiastical"')
+  ('credentials.color_rule', 'Regra da carteira colorida', 'A cor acompanha situação e cargo eclesiástico.', 'string', 'CHURCH', '"ecclesiastical"', '"ecclesiastical"'),
+  ('pastoral.titular_user_id', 'Pastor responsável', 'Usuário pastor titular da fila de oração. Vazio usa o primeiro vínculo pastoral.', 'string', 'CHURCH', '""', '""'),
+  ('pastoral.substitute_user_id', 'Pastor substituto', 'Usuário pastor substituto da fila de oração. Vazio usa o segundo vínculo pastoral.', 'string', 'CHURCH', '""', '""')
 ON CONFLICT ("key") DO NOTHING;

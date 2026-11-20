@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Patch, Post, Put } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
@@ -16,6 +16,15 @@ class RepertoireItemBody {
   @IsString() @MinLength(1) @MaxLength(160) title!: string;
   @IsString() @MinLength(1) @MaxLength(16) musicalKey!: string;
   @IsOptional() @IsString() @MaxLength(280) materials?: string | null;
+}
+
+class RepertoireItemsBody {
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(40) @ValidateNested({ each: true }) @Type(() => RepertoireItemBody)
+  items!: RepertoireItemBody[];
+}
+
+class ScheduleBody {
+  @IsOptional() @IsString() scheduledAt?: string | null;
 }
 
 class RepertoireBody {
@@ -36,6 +45,12 @@ export class WorshipController {
     return this.worship.saveVocalProfile(actor, personId, body);
   }
 
+  @Get("vocal-profiles/:personId")
+  @Header("Cache-Control", "private, no-store")
+  readVocal(@CurrentUser() actor: AuthUser, @Param("personId") personId: string) {
+    return this.worship.vocalProfile(actor, personId);
+  }
+
   @Get("rosters/:rosterId/export")
   @Header("Cache-Control", "private, no-store")
   exportRoster(@CurrentUser() actor: AuthUser, @Param("rosterId") rosterId: string) {
@@ -47,13 +62,30 @@ export class WorshipController {
     return this.worship.createRepertoire(actor, body);
   }
 
+  @Get("rosters/:rosterId/repertoire")
+  @Header("Cache-Control", "private, no-store")
+  rosterRepertoire(@CurrentUser() actor: AuthUser, @Param("rosterId") rosterId: string) {
+    return this.worship.repertoireForRoster(actor, rosterId);
+  }
+
+  @Get("assignments/:assignmentId/repertoire")
+  @Header("Cache-Control", "private, no-store")
+  assignmentRepertoire(@CurrentUser() actor: AuthUser, @Param("assignmentId") assignmentId: string) {
+    return this.worship.repertoireForAssignment(actor, assignmentId);
+  }
+
+  @Patch("repertoires/:repertoireId")
+  update(@CurrentUser() actor: AuthUser, @Param("repertoireId") repertoireId: string, @Body() body: RepertoireItemsBody) {
+    return this.worship.updateDraft(actor, repertoireId, body);
+  }
+
   @Post("repertoires/:repertoireId/authorize")
   authorize(@CurrentUser() actor: AuthUser, @Param("repertoireId") repertoireId: string) {
     return this.worship.authorize(actor, repertoireId);
   }
 
   @Post("repertoires/:repertoireId/schedule")
-  schedule(@CurrentUser() actor: AuthUser, @Param("repertoireId") repertoireId: string) {
-    return this.worship.schedule(actor, repertoireId);
+  schedule(@CurrentUser() actor: AuthUser, @Param("repertoireId") repertoireId: string, @Body() body: ScheduleBody) {
+    return this.worship.schedule(actor, repertoireId, body);
   }
 }

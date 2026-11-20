@@ -9,6 +9,7 @@ import {
   ADMISSION_MODALITIES,
   canManageAdmissions,
   canApprovePastoralAdmission,
+  officeDocumentKind,
   type AdmissionModality,
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -20,6 +21,8 @@ const ALLOWED_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
   "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -86,8 +89,13 @@ export class AdmissionDocumentsService {
 
     if (!ALLOWED_TYPES.has(file.mimetype)) {
       throw new BadRequestException(
-        "Tipo não permitido — use PDF, JPEG ou PNG",
+        "Tipo não permitido — use PDF, JPEG, PNG, DOC ou DOCX",
       );
+    }
+    if (file.mimetype === "application/msword" || file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      if (!officeDocumentKind(file.buffer, file.mimetype)) {
+        throw new BadRequestException("O arquivo DOC ou DOCX não confere com a assinatura.");
+      }
     }
     if (file.size <= 0 || file.size > MAX_BYTES) {
       throw new BadRequestException("Arquivo deve ter entre 1 byte e 5 MiB");

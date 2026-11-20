@@ -1,5 +1,20 @@
 # Pacote de backend DEV — contratos
 
+Revisão do #246. O webhook do Mercado Pago usa `x-signature` (`ts`, `v1`), `x-request-id` e `data.id`. O HMAC cobre `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`.
+
+Contratos acrescentados:
+
+- `PATCH /ledger/receiving-accounts/:accountId/mercado-pago` `{ enabled, collectorId? }` não devolve credencial.
+- Catálogo e lote devolvem `paymentProvider` e `mode`. O recibo em `GET /member-events/registrations/:id` também.
+- Catálogo público devolve `ticketPolicy`. O detalhe do evento no painel devolve `canScan`.
+- `GET /pastoral/congregation/people?q=` e `POST /pastoral/prayers/:id/close`. O membro envia só `{ body }`.
+- `GET /worship/vocal-profiles/:personId`, `GET /worship/rosters/:id/repertoire`, `GET /worship/assignments/:id/repertoire` com `items`, `team`, `canEdit`, `status` e `scheduledAt`.
+- `PATCH /worship/repertoires/:id` edita o rascunho. `POST /worship/repertoires/:id/schedule` aceita `{ scheduledAt? }`.
+- Classificação `MEZZO_SOPRANO`.
+- `POST /admissions/:id/documents` aceita DOC e DOCX no multipart `file`.
+
+Lacunas que permanecem: cobrança real do Mercado Pago fica recusada; o sandbox só consulta a API quando `MERCADO_PAGO_ENV=sandbox`. BRB e Sicoob seguem em mock. O bloqueio semanal de Louvor no planejador puro continua pela regra do módulo, alinhada ao valor de DEV. O aviso de aniversário entra na central, sem e-mail ou WhatsApp.
+
 Base `feat/rf1-revisao-18-11` em `932c85cd5d5ef0dd2e78cde0153ab7eb24bca151`. A web não entra neste diff. Nada foi aplicado em HML, produção ou DNS. A migração `20261120183000_piloto_pacote_gustavo` é aditiva e só deve rodar no banco de QA/DEV já identificado:
 
 `npm run db:migrate:deploy -w @idbrf/db`

@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, UnauthorizedException } from "@nestjs/common";
-import { mercadoPagoSignature, publicPasswordResetBody } from "@idbrf/shared";
+import { publicPasswordResetBody, signMercadoPagoManifest, mercadoPagoManifest } from "@idbrf/shared";
 import { AccessInvitationService } from "../auth/access-invitation.service";
 import type { AuthUser } from "../auth/types/auth-user";
 import { EventRegistrationsService } from "../events/event-registrations.service";
@@ -77,6 +77,7 @@ describe("gestão do sistema preserva o DEV", () => {
         },
       },
       auditLog: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return data; } },
+      $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
     };
     const service = new SystemSettingsService(prisma as never, { getPilotChurch: async () => pilot } as never);
     const draft = await service.draft(admin, { key: catalog.key, value: "09:00" });
@@ -119,10 +120,10 @@ describe("oração e sino", () => {
     expect(created).toEqual({ id: "ora", status: "OPEN", notified: 2 });
     expect(JSON.stringify(created)).not.toContain("Exemplo");
     expect(JSON.stringify(audits)).not.toContain("Exemplo");
-    const list = await service.listPrayers(otherPastor);
+    const list = await service.listPrayers(secretaria);
     expect(JSON.stringify(list)).not.toContain("Exemplo");
     expect(list.requests[0].canReadText).toBe(false);
-    await expect(service.readPrayer(otherPastor, "ora")).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.readPrayer(secretaria, "ora")).rejects.toBeInstanceOf(ForbiddenException);
     await expect(service.readPrayer(pastor, "ora")).resolves.toMatchObject({ body: "Pedido fictício pela família Exemplo" });
     const notice = await service.bells(otherPastor);
     expect(notice.notices[0].title).toBe("Há um pedido de oração");
@@ -165,11 +166,15 @@ describe("Mercado Pago e leitura do ingresso", () => {
     const intents: Array<{
       id: string; organizationId: string; churchId: string; registrationId: string; eventId: string;
       attemptRef: string; status: string; ledgerEntryId: string | null; refundedAt: Date | null;
-      amountCents: number; registration: { id: string; registrantPersonId: string };
+      amountCents: number; currency: string; paymentProvider: string; receivingAccountId: string;
+      registration: { id: string; registrantPersonId: string; status: string; paymentStatus: string };
+      event: { id: string; status: string; name: string };
     }> = [{
       id: "pay", organizationId: "org", churchId: "riacho", registrationId: "reg", eventId: "evt",
       attemptRef: "mp_1", status: "PENDING", ledgerEntryId: null, refundedAt: null, amountCents: 10000,
-      registration: { id: "reg", registrantPersonId: "ana" },
+      currency: "BRL", paymentProvider: "MERCADO_PAGO", receivingAccountId: "conta",
+      registration: { id: "reg", registrantPersonId: "ana", status: "PENDING_PAYMENT", paymentStatus: "PENDING" },
+      event: { id: "evt", status: "PUBLISHED", name: "Encontro" },
     }];
     const entries: Array<Record<string, unknown>> = [];
     const receipts: Array<Record<string, unknown>> = [];
@@ -178,7 +183,7 @@ describe("Mercado Pago e leitura do ingresso", () => {
       createPreference: async () => ({ preferenceId: "pref", initPoint: "https://mock.mercadopago.test/checkout?ref=mp_1", mode: "mock" as const }),
       getPayment: async (id: string): Promise<GatewayPayment> => {
         queries += 1;
-        return { id, status: queries < 3 ? "approved" : "refunded", externalReference: "mp_1", grossCents: 10000, feeCents: 390 };
+        return { id, status: "approved", currency: "BRL", externalReference: "mp_1", grossCents: 10000, feeCents: 390 };
       },
     };
     const prisma = {
@@ -200,6 +205,8 @@ describe("Mercado Pago e leitura do ingresso", () => {
         },
       },
       user: { findFirst: async () => ({ id: "tesoureiro" }) },
+      churchReceivingAccount: { findFirst: async () => ({ ledgerAccountId: "banco" }) },
+      ledgerAccount: { findFirst: async ({ where }: { where: { type: string } }) => ({ id: where.type === "EXPENSE" ? "taxa" : "receita" }) },
       ledgerEntry: { create: async ({ data }: { data: Record<string, unknown> }) => { const row = { id: `led-${entries.length + 1}`, ...data }; entries.push(row); intents[0].ledgerEntryId = String(row.id); return row; } },
       eventRegistration: { updateMany: async () => ({ count: 1 }) },
       eventParticipantTicket: { findMany: async () => [] },
@@ -208,24 +215,25 @@ describe("Mercado Pago e leitura do ingresso", () => {
     };
     const service = new MercadoPagoService(prisma as never, { getPilotChurch: async () => pilot } as never);
     service.gateway = gateway;
-    const raw = JSON.stringify({ data: { id: "pay-1" } });
     const timestamp = "1700000000";
-    const signature = mercadoPagoSignature("segredo-de-teste", timestamp, raw);
-    await expect(service.handleWebhook({ rawBody: raw, timestamp, signature: "0".repeat(64) })).rejects.toBeInstanceOf(UnauthorizedException);
+    const signature = `ts=${timestamp},v1=${signMercadoPagoManifest("segredo-de-teste", mercadoPagoManifest({ dataId: "pay-1", requestId: "req-1", ts: timestamp }))}`;
+    const call = (header: string, dataId = "pay-1") => service.handleWebhook({ signatureHeader: header, requestId: "req-1", dataId });
+    await expect(call(`ts=${timestamp},v1=${"0".repeat(64)}`)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(queries).toBe(0);
-    const first = await service.handleWebhook({ rawBody: raw, timestamp, signature });
-    const replay = await service.handleWebhook({ rawBody: raw, timestamp, signature });
+    const first = await call(signature);
+    const replay = await call(signature);
     expect(first).toMatchObject({ replay: false, resultStatus: "CONFIRMED" });
     expect(replay).toMatchObject({ replay: true, resultStatus: "CONFIRMED" });
     expect(entries).toHaveLength(1);
     expect(entries[0].description).toContain("bruto 10000");
     expect(entries[0].description).toContain("taxa 390");
     expect(entries[0].description).toContain("líquido 9610");
-    const refundRaw = JSON.stringify({ data: { id: "pay-1-refund" } });
-    const refundSignature = mercadoPagoSignature("segredo-de-teste", timestamp, refundRaw);
-    gateway.getPayment = async () => ({ id: "pay-1-refund", status: "refunded", externalReference: "mp_1", grossCents: 10000, feeCents: 390 });
-    await service.handleWebhook({ rawBody: refundRaw, timestamp, signature: refundSignature });
-    await service.handleWebhook({ rawBody: refundRaw, timestamp, signature: refundSignature });
+    const refundSignature = `ts=${timestamp},v1=${signMercadoPagoManifest("segredo-de-teste", mercadoPagoManifest({ dataId: "pay-1-refund", requestId: "req-1", ts: timestamp }))}`;
+    gateway.getPayment = async () => ({ id: "pay-1-refund", status: "refunded", currency: "BRL", externalReference: "mp_1", grossCents: 10000, feeCents: 390 });
+    intents[0].registration.status = "CONFIRMED";
+    intents[0].registration.paymentStatus = "CONFIRMED_GATEWAY";
+    await call(refundSignature, "pay-1-refund");
+    await call(refundSignature, "pay-1-refund");
     expect(entries.filter(item => item.reversalOfEntryId)).toHaveLength(1);
   });
 
@@ -247,6 +255,7 @@ describe("Mercado Pago e leitura do ingresso", () => {
       eventRegistration: { updateMany: async () => ({ count: 1 }) },
       eventScannerGrant: { findFirst: async () => null },
       auditLog: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return data; } },
+      $queryRaw: async () => 1,
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
     };
     const service = new ParticipantScanService(prisma as never, { getPilotChurch: async () => pilot } as never);

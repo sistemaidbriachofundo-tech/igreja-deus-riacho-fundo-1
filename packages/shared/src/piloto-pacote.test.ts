@@ -6,14 +6,15 @@ import {
   effectiveSettingValue,
   eventCoversLocalDay,
   isBeforeConfiguredHour,
-  mercadoPagoSignature,
+  mercadoPagoManifest,
   normalizeResumeEventSlug,
+  signMercadoPagoManifest,
+  verifyMercadoPagoWebhook,
   officeDocumentKind,
   paymentSettlement,
   publicPasswordResetBody,
   sameLouvorWeek,
   scopeCovers,
-  verifyMercadoPagoSignature,
   windowsOverlap,
 } from "./piloto-pacote";
 
@@ -86,10 +87,12 @@ describe("pacote de DEV", () => {
 
   it("separa bruto, taxa e líquido e confere a assinatura do webhook", () => {
     assert.deepEqual(paymentSettlement(10_000, 390), { grossCents: 10_000, feeCents: 390, netCents: 9_610 });
-    const raw = "{\"id\":\"pay-1\"}";
-    const signature = mercadoPagoSignature("segredo-de-teste", "1700000000", raw);
-    assert.equal(verifyMercadoPagoSignature("segredo-de-teste", "1700000000", raw, signature), true);
-    assert.equal(verifyMercadoPagoSignature("outro", "1700000000", raw, signature), false);
+    const manifest = mercadoPagoManifest({ dataId: "pay-1", requestId: "req-1", ts: "1700000000" });
+    assert.equal(manifest, "id:pay-1;request-id:req-1;ts:1700000000;");
+    const v1 = signMercadoPagoManifest("segredo-de-teste", manifest);
+    const header = `ts=1700000000,v1=${v1}`;
+    assert.equal(verifyMercadoPagoWebhook({ secret: "segredo-de-teste", signatureHeader: header, requestId: "req-1", dataId: "pay-1" }), true);
+    assert.equal(verifyMercadoPagoWebhook({ secret: "outro", signatureHeader: header, requestId: "req-1", dataId: "pay-1" }), false);
   });
 
   it("não confirma ingresso de outro evento, sem pagamento ou já lido", () => {

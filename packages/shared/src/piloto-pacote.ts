@@ -154,15 +154,40 @@ export function paymentSettlement(grossCents: number, feeCents: number): { gross
   return { grossCents, feeCents, netCents: grossCents - feeCents };
 }
 
-export function mercadoPagoSignature(secret: string, timestamp: string, rawBody: string): string {
-  return createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+/** Manifesto oficial do Checkout Pro: id:<data.id>;request-id:<x-request-id>;ts:<ts>; */
+export function mercadoPagoManifest(input: { dataId: string; requestId: string; ts: string }): string {
+  return `id:${input.dataId};request-id:${input.requestId};ts:${input.ts};`;
 }
 
-export function verifyMercadoPagoSignature(secret: string, timestamp: string, rawBody: string, signature: string): boolean {
-  if (!secret || !timestamp || !signature || !/^[a-f0-9]{64}$/i.test(signature)) return false;
-  const expected = mercadoPagoSignature(secret, timestamp, rawBody);
+export function signMercadoPagoManifest(secret: string, manifest: string): string {
+  return createHmac("sha256", secret).update(manifest).digest("hex");
+}
+
+export function parseMercadoPagoSignature(header: string): { ts: string; v1: string } | null {
+  const parts = new Map(header.split(",").map(part => {
+    const separator = part.indexOf("=");
+    if (separator < 0) return ["", ""] as const;
+    return [part.slice(0, separator).trim(), part.slice(separator + 1).trim()] as const;
+  }));
+  const ts = parts.get("ts") ?? "";
+  const v1 = parts.get("v1") ?? "";
+  if (!/^\d+$/.test(ts) || !/^[a-f0-9]{64}$/i.test(v1)) return null;
+  return { ts, v1 };
+}
+
+export function verifyMercadoPagoWebhook(input: {
+  secret: string;
+  signatureHeader: string;
+  requestId: string;
+  dataId: string;
+}): boolean {
+  const parsed = parseMercadoPagoSignature(input.signatureHeader ?? "");
+  const dataId = input.dataId?.trim();
+  const requestId = input.requestId?.trim();
+  if (!parsed || !input.secret || !dataId || !requestId) return false;
+  const expected = signMercadoPagoManifest(input.secret, mercadoPagoManifest({ dataId, requestId, ts: parsed.ts }));
   const left = Buffer.from(expected, "hex");
-  const right = Buffer.from(signature, "hex");
+  const right = Buffer.from(parsed.v1, "hex");
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
@@ -171,6 +196,9 @@ export type TicketScanResult =
   | { result: "ALREADY_READ"; checkedInAt: string; scannedByUserId: string | null }
   | { result: "WRONG_EVENT" }
   | { result: "UNPAID" }
+  | { result: "REFUNDED" }
+  | { result: "GUARDIAN" }
+  | { result: "EVENT_CLOSED" }
   | { result: "UNKNOWN" }
   | { result: "NOT_TODAY" };
 
@@ -182,6 +210,8 @@ export function decideTicketScan(input: {
   requestedEventId: string;
   paymentStatus?: string | null;
   registrationStatus?: string | null;
+  eventStatus?: string | null;
+  guardianAuthorized?: boolean;
   onEventDay: boolean;
   checkedInAt?: string | null;
   scannedByUserId?: string | null;
@@ -189,7 +219,10 @@ export function decideTicketScan(input: {
 }): TicketScanResult {
   if (!input.found) return { result: "UNKNOWN" };
   if (input.ticketEventId !== input.requestedEventId) return { result: "WRONG_EVENT" };
+  if (input.eventStatus === "CANCELLED" || input.eventStatus === "ARCHIVED") return { result: "EVENT_CLOSED" };
   if (!input.onEventDay) return { result: "NOT_TODAY" };
+  if (input.paymentStatus === "REFUNDED") return { result: "REFUNDED" };
+  if (input.guardianAuthorized === false) return { result: "GUARDIAN" };
   if (input.registrationStatus === "CANCELLED" || !CONFIRMED_PAYMENTS.has(input.paymentStatus ?? "")) return { result: "UNPAID" };
   if (input.checkedInAt) return { result: "ALREADY_READ", checkedInAt: input.checkedInAt, scannedByUserId: input.scannedByUserId ?? null };
   return { result: "READ", checkedInAt: input.now };

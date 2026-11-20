@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Header, Param, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsOptional, IsString, MaxLength } from "class-validator";
+import { Allow, IsOptional, IsString, MaxLength } from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -11,6 +11,7 @@ class DraftBody {
   @IsOptional() @IsString() @MaxLength(20) scopeKind?: string;
   @IsOptional() @IsString() @MaxLength(80) scopeId?: string | null;
   @IsOptional() @IsString() @MaxLength(280) note?: string | null;
+  @Allow()
   value!: unknown;
 }
 

@@ -255,6 +255,7 @@ export class PublicPortalService {
     endsAt: Date | null;
     locationText: string | null;
     featuredOnHome: boolean;
+    ticketPolicy?: string | null;
   }) {
     return {
       id: row.id,
@@ -267,6 +268,7 @@ export class PublicPortalService {
       endsAt: row.endsAt?.toISOString() ?? null,
       locationText: row.locationText,
       featuredOnHome: row.featuredOnHome,
+      ticketPolicy: row.ticketPolicy ?? "REGISTRATION",
     };
   }
 
