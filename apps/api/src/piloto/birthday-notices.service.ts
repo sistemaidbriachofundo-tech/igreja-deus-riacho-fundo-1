@@ -121,7 +121,11 @@ export class BirthdayNoticesService {
     return this.prisma.person.findMany({
       where: {
         organizationId: pilot.organizationId, status: "ACTIVE", birthDate: { not: null },
-        OR: [{ homeChurchId: pilot.churchId }, { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } }],
+        OR: [
+          { homeChurchId: pilot.churchId },
+          { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } },
+          { discipleshipEnrollments: { some: { status: "ACTIVE", track: { churchId: pilot.churchId } } } },
+        ],
         ...(query.ministryId ? { ministryMemberships: { some: { ministryId: query.ministryId, churchId: pilot.churchId, status: "ATIVO", endedAt: null } } } : {}),
         ...(query.groupId ? { smallGroupMemberships: { some: { groupId: query.groupId, group: { churchId: pilot.churchId } } } } : {}),
       },
