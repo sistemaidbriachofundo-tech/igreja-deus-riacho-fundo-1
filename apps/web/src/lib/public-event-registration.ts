@@ -40,6 +40,10 @@ export function memberEventsHref(slug?: string | null): `/app/eventos/${string}`
   return `/app/eventos/${eventQuery(slug)}`;
 }
 
+export function eventRegistrationHref(slug: string): `/eventos/inscricao/${string}` {
+  return `/eventos/inscricao/${eventQuery(slug)}`;
+}
+
 function eventQuery(slug?: string | null) {
   return slug && validEventSlug(slug) ? "?" + new URLSearchParams({ evento: slug }) : "";
 }
@@ -102,6 +106,7 @@ export function availableEventLots(lots: Lot[], modalityId: string, partySize: n
 }
 
 export function eventRegistrationChoices(catalog: Catalog) {
+  if (catalog.event.registrationOpen === false) return [];
   const hasRoom = (choice: Choice, count: number) => choice.remaining === null || choice.remaining >= count;
   return catalog.modalities.filter(modality => {
     const size = modality.minPartySize;

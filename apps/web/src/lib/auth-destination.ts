@@ -1,6 +1,6 @@
 import type { LoginResult } from "./api";
-import { areaAllowed, landingForRoles, type AppDestination } from "./persona-navigation";
-import { memberEventsHref, validEventSlug } from "./public-event-registration";
+import { landingForRoles, type AppDestination } from "./persona-navigation";
+import { eventRegistrationHref, validEventSlug } from "./public-event-registration";
 
 /**
  * Roteamento após autenticação. Permissões de leitura/escrita continuam
@@ -8,9 +8,7 @@ import { memberEventsHref, validEventSlug } from "./public-event-registration";
  */
 export function authenticatedLanding(
   user: LoginResult["user"], eventSlug?: string | null,
-): AppDestination | ReturnType<typeof memberEventsHref> {
-  const roles = user.grants.map(grant => grant.roleCode);
-  return eventSlug && validEventSlug(eventSlug) && areaAllowed(roles, "eventos-membro")
-    ? memberEventsHref(eventSlug)
-    : landingForRoles(roles);
+): AppDestination | ReturnType<typeof eventRegistrationHref> {
+  if (eventSlug && validEventSlug(eventSlug)) return eventRegistrationHref(eventSlug);
+  return landingForRoles(user.grants.map(grant => grant.roleCode));
 }

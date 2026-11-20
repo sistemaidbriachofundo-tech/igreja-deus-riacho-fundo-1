@@ -205,6 +205,35 @@
 .theme .masthead { box-shadow: 0 5px 24px #07070816; }
 .theme .brand strong { letter-spacing: .035em; }
 .theme .brand img { border-radius: 0; }
+.theme .masthead[data-appearance="light"] {
+  --portal-green: #fff;
+  --portal-green-hover: #eaf1e8;
+  --portal-on-green: #1d4c39;
+  --portal-on-green-muted: #33483d;
+  --portal-green-line: #dae2d9;
+  --portal-gold: #1d4c39;
+  box-shadow: none;
+}
+.masthead[data-appearance="light"] .brand img { filter: none; }
+.masthead[data-appearance="light"] .brand strong { letter-spacing: 0; }
+.masthead[data-appearance="light"] .desktopNav a { border-radius: 0; }
+.masthead[data-appearance="light"] .desktopNav a[aria-current="location"] {
+  box-shadow: inset 0 -2px #1d4c39;
+  font-weight: 700;
+}
+.theme .masthead[data-appearance="light"] .headerLogin {
+  border-color: var(--portal-green-line);
+  border-radius: 10px;
+  color: var(--portal-on-green);
+}
+.theme .masthead[data-appearance="light"] .headerLogin:hover { background: var(--portal-green-hover); }
+.masthead[data-appearance="light"] .mobileMenu > summary { border-radius: 9px; }
+.masthead[data-appearance="light"] .mobileMenuPanel { background: #fff; border-color: var(--portal-green-line); }
+.masthead[data-appearance="light"] .mobileMenuPanel > a { color: var(--portal-on-green); }
+.masthead[data-appearance="light"] .mobileMenuPanel > a:is(:hover, [aria-current="location"]) { background: var(--portal-green-hover); }
+@media (max-width: 690px) {
+  .theme .masthead[data-appearance="light"] .headerLogin { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .theme *, .theme *::before, .theme *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }

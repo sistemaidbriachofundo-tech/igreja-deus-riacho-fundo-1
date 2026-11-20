@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ApiRequestError } from "../../lib/api";
+import { useSearchParams } from "next/navigation";
+import { ApiRequestError, clearToken, isInvalidSession, loadStoredToken } from "../../lib/api";
 import {
   availableEventLots, cancelMemberRegistration, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt,
-  eventAuthHref, registerForEvent,
+  eventAuthHref, loadMemberRegistrations, memberEventsHref, registerForEvent,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
-import { formatPortalDate } from "../../lib/portal-live-data";
+import { formatPortalDate, type PublishedEvent } from "../../lib/portal-live-data";
 import { withBasePath } from "../../lib/paths";
+import { PublicPage } from "../PublicPortal";
 import { Alert, Button, Input, Loading, Select } from "../ui";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
+import { UIIcon } from "../ui/UIIcon";
 import { formatEventPrice } from "./EventRegistrationDesk";
 import s from "./public-event-registration.module.css";
 
@@ -137,9 +140,10 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
   </section>;
 }
 
-export function EventRegistrationForm({ catalog, member }: {
+export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
   catalog: Catalog;
   member: { token: string; profile: MemberEventProfile };
+  onSessionExpired?: (token: string) => void;
 }) {
   const [modalityId, setModalityId] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -179,7 +183,10 @@ export function EventRegistrationForm({ catalog, member }: {
         ...(minor ? { guardianDisplayName: read("guardian"), guardianAcknowledged: form.get("consent") === "on" } : {}),
         ...resources,
       }, member.token));
-    } catch (error) { setError(message(error)); }
+    } catch (error) {
+      if (onSessionExpired && isInvalidSession(error)) onSessionExpired(member.token);
+      else setError(message(error));
+    }
     finally { submitting.current = false; setBusy(false); }
   }
 
@@ -220,37 +227,133 @@ export function EventRegistrationForm({ catalog, member }: {
   </form>;
 }
 
+type Access =
+  | { kind: "checking" | "anonymous" | "denied" | "unavailable" }
+  | { kind: "ready"; token: string; profile: MemberEventProfile };
+
+function EventDetails({ event, free }: { event: PublishedEvent; free: boolean }) {
+  const [day, time] = formatPortalDate(event.startsAt).dayAndTime.split(" às ");
+  return <header className={s.eventHeading}>
+    {free && <span className={s.priceBadge}>Evento gratuito</span>}
+    <h1>{event.name}</h1>
+    <div className={s.eventFacts}>
+      <div>
+        <span className={s.eventIcon}><UIIcon name="calendar" size={21} /></span>
+        <time dateTime={event.startsAt}><strong>{day}</strong>{time && <span>{time.replace(/:00$/, "h")}</span>}</time>
+      </div>
+      {event.locationText && <div>
+        <span className={s.eventIcon}><UIIcon name="pin" size={21} /></span>
+        <strong>{event.locationText}</strong>
+      </div>}
+    </div>
+  </header>;
+}
+
+function RegistrationAccess({ slug }: { slug: string }) {
+  return <>
+    <p className={s.accessStatus}>
+      <span className={s.eventIcon}><UIIcon name="ticket" size={22} /></span>
+      <span className={s.openLabel}>Inscrições abertas</span>
+    </p>
+    <h2 id="event-registration">Faça sua inscrição</h2>
+    <p className={s.accessDescription}>Entre na sua conta para reservar sua vaga. Quem é visitante pode criar uma conta de convidado.</p>
+    <div className={s.eventAccess}>
+      <Link href={eventAuthHref("/login/", slug)} className={s.primaryAccess}>Entrar para se inscrever<UIIcon name="arrow" size={19} /></Link>
+      <Link href={eventAuthHref("/cadastro/", slug)}>Criar conta de convidado</Link>
+    </div>
+    <p className={s.ticketHint}><UIIcon name="lock" size={16} />O ingresso fica em Minhas inscrições.</p>
+  </>;
+}
+
 export function PublicEventRegistration() {
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [error, setError] = useState("");
+  const slug = useSearchParams().get("evento") ?? "";
+  return <RegistrationEvent key={slug} slug={slug} />;
+}
+
+function RegistrationEvent({ slug }: { slug: string }) {
+  const [result, setResult] = useState<{ catalog: Catalog } | { error: string } | null>(null);
+  const [access, setAccess] = useState<Access>({ kind: "checking" });
+  const [profileAttempt, retryProfile] = useState(0);
+
+  function sessionExpired(token: string) {
+    if (loadStoredToken() === token) clearToken();
+    setAccess({ kind: "anonymous" });
+  }
+
   useEffect(() => {
     let live = true;
-    const slug = new URLSearchParams(window.location.search).get("evento") ?? "";
     void loadEventRegistration(slug).then(result => {
       if (!live) return;
-      if (result) setCatalog(result);
-      else setError("Selecione um evento publicado na agenda.");
-    }).catch(error => { if (live) setError(message(error)); });
+      setResult(result ? { catalog: result } : { error: "Selecione um evento publicado na agenda." });
+    }).catch(error => { if (live) setResult({ error: message(error) }); });
     return () => { live = false; };
-  }, []);
-  return <main className={s.page}>
-    <a className={s.back} href={withBasePath("/#agenda")}>Voltar à agenda</a>
-    <header className={s.header}>
-      <p>IGREJA DE DEUS · RIACHO FUNDO I</p>
-      <h1>{catalog?.event.name ?? "Inscrição em evento"}</h1>
-      {catalog && <>
-        <p>{formatPortalDate(catalog.event.startsAt).dayAndTime}{catalog.event.locationText ? " · " + catalog.event.locationText : ""}</p>
-        {catalog.event.description && <p>{catalog.event.description}</p>}
+  }, [slug]);
+
+  useEffect(() => {
+    const token = loadStoredToken();
+    if (!token) {
+      setAccess({ kind: "anonymous" });
+      return;
+    }
+    let live = true;
+    void loadMemberRegistrations(token).then(({ profile }) => {
+      if (live) setAccess({ kind: "ready", token, profile });
+    }).catch(error => {
+      if (!live) return;
+      if (isInvalidSession(error)) sessionExpired(token);
+      else setAccess({ kind: error instanceof ApiRequestError && error.status === 403 ? "denied" : "unavailable" });
+    });
+    return () => { live = false; };
+  }, [profileAttempt]);
+
+  const catalog = result && "catalog" in result ? result.catalog : null;
+  const choices = catalog ? eventRegistrationChoices(catalog) : [];
+  const open = choices.length > 0;
+  const free = open && catalog !== null && catalog.lots
+    .filter(lot => choices.some(choice => availableEventLots([lot], choice.id, choice.minPartySize).length))
+    .every(lot => lot.priceCents === 0);
+  const accountLink = access.kind === "ready"
+    ? { href: memberEventsHref(), label: "Minhas inscrições" }
+    : access.kind === "denied"
+      ? { href: "/app/", label: "Meu painel" }
+      : { href: eventAuthHref("/login/", slug), label: "Login" };
+
+  return <PublicPage lightHeader section="agenda" accountLink={accountLink}>
+    <main className={s.page} id="conteudo" tabIndex={-1}>
+      <Link className={s.agendaBack} href="/#agenda"><UIIcon name="arrow" size={19} />Voltar à agenda</Link>
+      {catalog ? <div className={s.eventLayout}>
+        <EventDetails event={catalog.event} free={free} />
+        <div className={s.eventPicture}>
+          {/* A foto de comunhão é ilustrativa quando o evento não possui capa própria. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={catalog.event.imageUrl ?? withBasePath("/images/fe-discipulado-provisorio.webp")} alt="" decoding="async" />
+        </div>
+        <section className={s.eventAction} aria-labelledby="event-registration">
+          {!open ? <h2 id="event-registration">Inscrições indisponíveis neste momento</h2> :
+            access.kind === "anonymous" ? <RegistrationAccess slug={slug} /> : <>
+              <h2 id="event-registration">Faça sua inscrição</h2>
+              {access.kind === "checking" && <Loading label="Verificando sua conta" />}
+              {access.kind === "denied" && <Alert appearance="workspace" tone="info" title="A inscrição exige acesso de membro ou convidado." />}
+              {access.kind === "unavailable" && <>
+                <Alert appearance="workspace" tone="danger" title="Não foi possível carregar seu acesso." />
+                <Button variant="secondary" onClick={() => {
+                  setAccess({ kind: "checking" });
+                  retryProfile(attempt => attempt + 1);
+                }}>Tentar novamente</Button>
+              </>}
+              {access.kind === "ready" && <EventRegistrationForm catalog={catalog} member={access} onSessionExpired={sessionExpired} />}
+            </>}
+        </section>
+        {catalog.event.description && <section className={s.eventAbout} aria-labelledby="event-about">
+          <h2 id="event-about">Sobre o evento</h2>
+          <p>{catalog.event.description}</p>
+        </section>}
+      </div> : <>
+        <h1>Inscrição em evento</h1>
+        {result && "error" in result
+          ? <Alert appearance="workspace" tone="danger" title={result.error} />
+          : <Loading label="Carregando evento" />}
       </>}
-    </header>
-    {error ? <Alert appearance="workspace" tone="danger" title={error} /> :
-      !catalog ? <Loading label="Carregando evento" /> :
-        eventRegistrationChoices(catalog).length > 0 ? <section className={s.panel}>
-          <p>Entre com sua conta para se inscrever e acompanhar seu ingresso.</p>
-          <div className={s.eventAccess}>
-            <Link href={eventAuthHref("/login/", catalog.event.slug)}>Entrar para se inscrever</Link>
-            <Link href={eventAuthHref("/cadastro/", catalog.event.slug)}>Criar conta como convidado</Link>
-          </div>
-        </section> : <Alert appearance="workspace" tone="info" title="Inscrições indisponíveis neste momento" />}
-  </main>;
+    </main>
+  </PublicPage>;
 }

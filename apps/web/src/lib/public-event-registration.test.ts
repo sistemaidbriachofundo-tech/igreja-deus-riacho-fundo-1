@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableEventLots, eventAuthHref, memberEventsHref, parseRegistrationCatalog, registerForEvent, validRegistrationCode } from "./public-event-registration";
+import { availableEventLots, eventAuthHref, parseRegistrationCatalog, registerForEvent, validRegistrationCode } from "./public-event-registration";
 import { authenticatedLanding } from "./auth-destination";
 import type { LoginResult } from "./api";
 
@@ -30,11 +30,11 @@ describe("inscrição pública", () => {
     const account = (roleCode: string) => ({ grants: [{ roleCode }] } as LoginResult["user"]);
     expect(eventAuthHref("/login/", "culto-da-familia")).toBe("/login/?evento=culto-da-familia");
     expect(eventAuthHref("/cadastro/", "culto-da-familia")).toBe("/cadastro/?evento=culto-da-familia");
-    expect(authenticatedLanding(account("MEMBRO"), "culto-da-familia")).toBe(memberEventsHref("culto-da-familia"));
-    expect(authenticatedLanding(account("CONVIDADO"), "culto-da-familia")).toBe(memberEventsHref("culto-da-familia"));
+    expect(authenticatedLanding(account("MEMBRO"), "culto-da-familia")).toBe("/eventos/inscricao/?evento=culto-da-familia");
+    expect(authenticatedLanding(account("CONVIDADO"), "culto-da-familia")).toBe("/eventos/inscricao/?evento=culto-da-familia");
     expect(authenticatedLanding(account("CONVIDADO"), "//example.test")).toBe("/app/convidado/");
     expect(authenticatedLanding(account("PLATFORM_ADMIN"), "culto-da-familia"))
-      .toBe(authenticatedLanding(account("PLATFORM_ADMIN")));
+      .toBe("/eventos/inscricao/?evento=culto-da-familia");
   });
 
   it("aceita somente o código opaco do ingresso no leitor", () => {
