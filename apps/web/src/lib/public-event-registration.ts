@@ -44,6 +44,12 @@ export function loadMemberReceipt(token: string, id: string) {
   return apiGet<RegistrationReceipt & { eventName: string }>("/member-events/registrations/" + encodeURIComponent(id), token);
 }
 
+export function cancelMemberRegistration(token: string, id: string) {
+  return apiPost<{ id: string; status: "CANCELLED" }>(
+    "/member-events/registrations/" + encodeURIComponent(id) + "/cancel", token, {},
+  );
+}
+
 export const validEventSlug = (slug: string) => /^[a-z0-9][a-z0-9-]{1,79}$/.test(slug);
 export const validRegistrationCode = (code: string) => /^[a-f0-9]{32}$/i.test(code);
 

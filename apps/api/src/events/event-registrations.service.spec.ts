@@ -446,7 +446,11 @@ describe("EventRegistrationsService", () => {
       cancelledAt: now,
     };
     const tx = {
-      eventRegistration: { update: jest.fn().mockResolvedValue(cancelled) },
+      $queryRaw: jest.fn(),
+      eventRegistration: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue(registration),
+        update: jest.fn().mockResolvedValue(cancelled),
+      },
       eventPaymentIntent: { updateMany: jest.fn() },
       auditLog: { create: jest.fn() },
     };

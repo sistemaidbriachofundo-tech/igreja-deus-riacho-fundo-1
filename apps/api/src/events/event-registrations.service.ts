@@ -851,35 +851,61 @@ export class EventRegistrationsService {
     if (registration.status === "CANCELLED") {
       return this.toRegistrationDto(registration);
     }
+    return this.persistCancel(actor, pilot, registration.id, event.id);
+  }
 
+  /** O titular cancela a própria inscrição. Presença já registrada permanece com a equipe. */
+  async cancelMyRegistration(actor: AuthUser, registrationId: string) {
+    const { pilot, person } = await this.requireEventParticipant(actor);
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: { ...pilot, id: registrationId, registrantPersonId: person.id },
+    });
+    if (!registration) throw new NotFoundException("Inscrição não encontrada");
+    if (registration.status === "CANCELLED") return this.toRegistrationDto(registration);
+    return this.persistCancel(actor, pilot, registration.id, registration.eventId, true);
+  }
+
+  private persistCancel(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    registrationId: string,
+    eventId: string,
+    selfService = false,
+  ) {
     return this.prisma.$transaction(async (tx) => {
+      // Use a mesma ordem de bloqueio da confirmação Pix: pagamento, depois inscrição.
+      await tx.eventPaymentIntent.updateMany({
+        where: { registrationId, status: "PENDING" },
+        data: { status: "CANCELLED" },
+      });
+      await tx.$queryRaw`SELECT id FROM event_registrations WHERE id = ${registrationId} FOR UPDATE`;
+      const registration = await tx.eventRegistration.findUniqueOrThrow({ where: { id: registrationId } });
+      if (registration.status === "CANCELLED") return this.toRegistrationDto(registration);
+      if (selfService && (registration.status === "CHECKED_IN" || await tx.eventParticipantTicket.count({
+        where: { registrationId, checkedInAt: { not: null } },
+      }))) {
+        throw new ConflictException({
+          code: "REGISTRATION_CHECKED_IN",
+          message: "A inscrição já teve presença registrada.",
+        });
+      }
       const updated = await tx.eventRegistration.update({
-        where: { id: registration.id },
+        where: { id: registrationId },
         data: {
           status: "CANCELLED",
-          paymentStatus:
-            registration.paymentStatus === "PENDING"
-              ? "CANCELLED"
-              : registration.paymentStatus,
+          paymentStatus: registration.paymentStatus === "PENDING" ? "CANCELLED" : registration.paymentStatus,
           cancelledAt: new Date(),
         },
-      });
-      await tx.eventPaymentIntent.updateMany({
-        where: {
-          registrationId: registration.id,
-          status: "PENDING",
-        },
-        data: { status: "CANCELLED" },
       });
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
           action: "event_registration.cancel",
           resourceType: "event_registration",
-          resourceId: registration.id,
+          resourceId: registrationId,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { eventId: event.id },
+          metadata: { eventId },
         },
       });
       return this.toRegistrationDto(updated);

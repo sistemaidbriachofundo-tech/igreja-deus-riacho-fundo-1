@@ -4,12 +4,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ApiRequestError } from "../../lib/api";
 import {
-  availableEventLots, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt, loadRegistrationStatus, memberEventsHref, registerForEvent,
+  availableEventLots, cancelMemberRegistration, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt,
+  loadRegistrationStatus, memberEventsHref, registerForEvent,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
 import { formatPortalDate } from "../../lib/portal-live-data";
 import { withBasePath } from "../../lib/paths";
 import { Alert, Button, Input, Loading, Select } from "../ui";
+import { useActionConfirmation } from "../ui/ActionConfirmation";
 import { formatEventPrice } from "./EventRegistrationDesk";
 import s from "./public-event-registration.module.css";
 
@@ -31,7 +33,10 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
   const [tickets, setTickets] = useState(receipt.tickets);
   const [qr, setQr] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const { confirm, confirmation } = useActionConfirmation();
   const confirmed = status === "CONFIRMED" || status === "CHECKED_IN";
+  const canCancel = memberToken && (status === "CONFIRMED" || status === "PENDING_PAYMENT")
+    && !tickets?.some(ticket => ticket.checkedInAt);
   useEffect(() => {
     if (!confirmed) return;
     let live = true;
@@ -59,6 +64,37 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
     catch (error) { setNotice(message(error)); }
     finally { setBusy(false); }
   }
+
+  async function cancel() {
+    if (!memberToken || busy) return;
+    const accepted = await confirm({
+      title: "Cancelar inscrição?",
+      description: "A vaga será liberada. Se já pagou, fale com a equipe do evento sobre o reembolso.",
+      action: "Cancelar inscrição",
+      cancel: "Manter inscrição",
+      tone: "danger",
+    });
+    if (!accepted) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const updated = await cancelMemberRegistration(memberToken, receipt.id);
+      setPix(null);
+      setTickets([]);
+      setStatus(updated.status);
+    } catch (error) {
+      setNotice(error instanceof ApiRequestError && error.status === 409
+        ? "A inscrição já teve presença registrada. Fale com a equipe do evento."
+        : "Não foi possível cancelar a inscrição. Tente novamente.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cancelAction = canCancel && <Button variant="danger" disabled={busy} onClick={() => void cancel()}>
+    Cancelar inscrição
+  </Button>;
+
   if (confirmed) return <section className={s.panel}>
     <Alert appearance="workspace" tone="success" title={status === "CHECKED_IN" ? "Presença registrada" : "Inscrição confirmada"}>
       {tickets?.length ? "Apresente o ingresso de cada participante na entrada." : "Apresente o QR ou o código na entrada do evento."}
@@ -75,9 +111,11 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
     {guardianStatus === "PENDING" && <>
       <p>Para a entrada, a equipe do evento ainda precisa conferir a autorização do responsável.</p>
       <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>Atualizar situação</Button>
-      {notice && <p role="status">{notice}</p>}
     </>}
     <p>Referência da inscrição <span className={s.code}>{receipt.id}</span></p>
+    {cancelAction}
+    {notice && <p role="status">{notice}</p>}
+    {confirmation}
   </section>;
 
   if (status === "CANCELLED") return <Alert appearance="workspace" tone="warning" title="Inscrição cancelada" />;
@@ -96,7 +134,9 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
       }}>Copiar código Pix</Button>
     </>}
     <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>{busy ? "Consultando…" : "Atualizar situação"}</Button>
+    {cancelAction}
     {notice && <p role="status">{notice}</p>}
+    {confirmation}
   </section>;
 }
 
