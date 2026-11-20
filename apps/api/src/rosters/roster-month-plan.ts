@@ -194,7 +194,8 @@ export function planMonth(state: MonthState, options: { pins?: readonly MonthPin
   const services: PlannedService[] = [];
   for (const cult of mergeChurchCalendar(state.month, state.calendar)) {
     for (const module of [...state.modules].sort((left, right) => left.name.localeCompare(right.name, "pt-BR") || left.id.localeCompare(right.id))) {
-      const roster = state.rosters.find(item => item.moduleId === module.id && item.serviceAt === cult.serviceAt);
+      const matches = state.rosters.filter(item => item.moduleId === module.id && item.serviceAt === cult.serviceAt);
+      const roster = matches.find(item => item.status !== "CLOSED") ?? matches[0];
       const key = `${module.id}:${cult.serviceAt}`;
       const cancelled = cult.status === "CANCELLED";
       const status: ServiceStatus = cancelled ? "CANCELLED" : roster?.status ?? "MISSING";

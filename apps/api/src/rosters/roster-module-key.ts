@@ -7,14 +7,16 @@ const ALIASES: Record<string, string> = {
   "diaconia santa ceia": "ceia",
   "diaconos e santa ceia": "ceia",
   "diaconos santa ceia": "ceia",
-  "ofertas e maquininhas": "conexao",
-  "ofertas e maquininha": "conexao",
+  "ofertas e maquininhas": "ofertas",
+  "ofertas e maquininha": "ofertas",
 };
 
 export const CANONICAL_MODULE_NAMES: Record<string, string> = {
   recepcao: "Recepção",
   "apoio interno": "Apoio Interno",
   conexao: "Conexão",
+  ofertas: "Ofertas",
+  estacionamento: "Estacionamento",
   ceia: "Santa Ceia",
 };
 
@@ -57,22 +59,6 @@ export type ModuleConsolidation = {
   dropIds: string[];
 };
 
-function withoutPositions(rules: unknown): unknown {
-  if (!rules || typeof rules !== "object" || Array.isArray(rules) || !("positions" in rules)) return rules;
-  const rest = { ...(rules as Record<string, unknown>) };
-  delete rest.positions;
-  return rest;
-}
-
-function rulesForCanonical(nameKey: string, group: readonly ConsolidatableModule[], keep: ConsolidatableModule, richest: ConsolidatableModule): unknown {
-  if (nameKey !== "conexao") {
-    return rulesScore(keep.rules) >= rulesScore(richest.rules) ? keep.rules : richest.rules;
-  }
-  const configured = group.find(row => foldedModuleName(row.name) === "conexao" || foldedModuleName(row.nameKey) === "conexao");
-  if (configured) return configured.rules;
-  return withoutPositions(keep.rules);
-}
-
 function rulesScore(rules: unknown): number {
   return rules && typeof rules === "object" && !Array.isArray(rules) ? Object.keys(rules).length : 0;
 }
@@ -94,7 +80,7 @@ export function planModuleConsolidation(rows: readonly ConsolidatableModule[]): 
     });
     const [keep, ...drop] = ranked;
     const richest = [...group].sort((left, right) => rulesScore(right.rules) - rulesScore(left.rules) || (left.id < right.id ? -1 : 1))[0];
-    const rules = rulesForCanonical(nameKey, group, keep, richest);
+    const rules = rulesScore(keep.rules) >= rulesScore(richest.rules) ? keep.rules : richest.rules;
     const changed = drop.length > 0 || keep.nameKey !== nameKey || (display !== null && keep.name !== display) || rules !== keep.rules;
     if (!changed) return [];
     return [{

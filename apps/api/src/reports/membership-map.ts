@@ -24,7 +24,7 @@ for (const [name, id] of [
 export function membershipRegionId(address: string | null): number | undefined {
   if (!address) return undefined;
 
-  const parts = address.split(/[,;\/\r\n]+|\s+[–—-]\s+/).map(normalize);
+  const parts = address.split(/[,;/\r\n]+|\s+[–—-]\s+/).map(normalize);
   if (parts.some(part => OTHER_UFS.test(part))) return undefined;
 
   // Only match a named address component. Street names and CEP alone can be ambiguous.

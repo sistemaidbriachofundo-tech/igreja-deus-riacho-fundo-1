@@ -9,7 +9,8 @@ describe("Identidade institucional e canal", () => {
     const html = renderToStaticMarkup(<PortalVideoShowcase />);
     expect(html).toContain("https://www.youtube.com/c/IDBRiachoFundo1IDB");
     expect(renderToStaticMarkup(<PortalFooter />)).toContain("https://www.instagram.com/idbriacho_/");
-    expect(html).toContain("https://www.youtube.com/watch?v=74n2caqxcWo");
+    expect(html).toContain("https://www.youtube.com/watch?v=OXywPv_LoQQ");
+    expect(html).toContain("19/11/2026");
     expect(html).toContain("Culto de Santa Ceia");
     expect(html).toContain("Quinta do Encontro");
     expect(html).toContain("12/11/2026");

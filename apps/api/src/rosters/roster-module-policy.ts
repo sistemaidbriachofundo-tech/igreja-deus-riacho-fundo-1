@@ -115,10 +115,10 @@ export function rulesWithCultCapacity(name: string | null | undefined, raw: unkn
 }
 
 export function effectiveInviteLimit(name: string | null | undefined, raw: unknown, parsed: number): number {
-  const source = record(raw);
-  if (Object.prototype.hasOwnProperty.call(source, "substituteInviteLimit")) return Math.min(5, parsed);
   const key = moduleLookupKey(name);
   if (key === "ceia") return 0;
+  const source = record(raw);
+  if (Object.prototype.hasOwnProperty.call(source, "substituteInviteLimit")) return Math.min(5, parsed);
   if (key in STANDARD) return 5;
   return Math.min(5, parsed);
 }
@@ -138,6 +138,10 @@ const STANDARD: Record<string, Partial<Record<CultType, PositionRule[]>>> = {
       : [people("Recepção", 2), people("Recepção", 2, "diaconia")]),
   "apoio interno": weekly(() => [people("Apoio Interno", 1)]),
   conexao: weekly(() => [people("Conexão", 2)]),
+  estacionamento: weekly(() => [people("Estacionamento", 2)]),
+  ofertas: weekly(type => type === "thursday_evening"
+    ? [{ label: "Ofertas", count: 1, couple: true }, people("Ofertas", 1, "diaconia")]
+    : [{ label: "Ofertas", count: 2, couple: true }]),
 };
 
 export type LinkSeed = {

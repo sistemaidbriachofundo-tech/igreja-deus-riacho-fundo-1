@@ -66,6 +66,14 @@ describe("simulação mensal do Atmosfera", () => {
     expect(locked.revision).toBe(first.revision);
   });
 
+  it("prioriza um rascunho vigente quando há uma escala histórica fechada no mesmo culto", () => {
+    const result = presentMonthlySimulation(state({ rosters: [
+      { id: "historico", moduleId: "recepcao", serviceAt: sundayMorning, status: "CLOSED", title: "Histórico", slots: [] },
+      { id: "rascunho", moduleId: "recepcao", serviceAt: sundayMorning, status: "DRAFT", title: "Rascunho", slots: [] },
+    ] }));
+    expect(result.rosters.find(roster => roster.serviceAt === sundayMorning)).toMatchObject({ id: "rascunho", status: "DRAFT", readOnly: false });
+  });
+
   it("mostra o mês inteiro sem gravar culto faltante e preserva publicado e cancelado", () => {
     const current = state({
       calendar: [{ serviceAt: sundayEvening, serviceType: "sunday_evening", status: "CANCELLED", title: "Sem culto" }],
