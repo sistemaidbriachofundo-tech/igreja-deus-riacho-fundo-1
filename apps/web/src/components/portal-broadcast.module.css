@@ -70,6 +70,8 @@
 }
 
 .headerLink:hover { background: #8e2621; }
+.headerLink[data-available] { border-color: #ffffff55; background: #ffffff16; }
+.headerLink[data-available]:hover { background: #ffffff28; }
 .headerLink[data-test] { border-color: #ead19f; background: #765323; }
 .headerLink[data-test]:hover { background: #65451b; }
 .headerLink .light { width: 7px; height: 7px; }
