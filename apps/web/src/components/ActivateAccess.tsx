@@ -3,9 +3,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { apiPost } from "../lib/api";
 import { withBasePath } from "../lib/paths";
+import { eventAuthHref } from "../lib/public-event-registration";
 import s from "./activate-access.module.css";
 
 export function ActivateAccess({ recovery = false }: { recovery?: boolean } = {}) {
+  const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -15,11 +17,13 @@ export function ActivateAccess({ recovery = false }: { recovery?: boolean } = {}
 
   useEffect(() => {
     const uri = new URL(window.location.href);
-    const value = new URLSearchParams(uri.hash.slice(1)).get("token") ?? uri.searchParams.get("token") ?? "";
+    const fragment = new URLSearchParams(uri.hash.slice(1));
+    const value = fragment.get("token") ?? uri.searchParams.get("token") ?? "";
+    setEventSlug(uri.searchParams.get("evento") ?? fragment.get("evento"));
     setToken(/^[A-Za-z0-9_-]{43}$/.test(value) ? value : "");
     // Remove o segredo do histórico/endereço visível logo após capturá-lo.
     uri.searchParams.delete("token");
-    if (new URLSearchParams(uri.hash.slice(1)).has("token")) uri.hash = "";
+    if (fragment.has("token")) uri.hash = "";
     window.history.replaceState(window.history.state, "", uri.pathname + uri.search + uri.hash);
   }, []);
 
@@ -52,11 +56,11 @@ export function ActivateAccess({ recovery = false }: { recovery?: boolean } = {}
       <h1 id="activation-title">{activated ? (recovery ? "Senha redefinida!" : "Acesso ativado!") : (recovery ? "Redefina sua senha" : "Crie sua senha de acesso")}</h1>
       {activated ? <>
         <p>Sua senha foi cadastrada com sucesso. Agora você já pode entrar no sistema com o e-mail da sua conta.</p>
-        <a className={s.primary} href={withBasePath("/app/")}>Entrar no sistema</a>
+        <a className={s.primary} href={withBasePath(recovery ? eventAuthHref("/login/", eventSlug) : "/app/")}>Entrar no sistema</a>
       </> : token === null ? <p role="status">Verificando o link…</p>
       : !token ? <>
         <p role="alert">Este link não é válido. Ele pode ter expirado ou já ter sido utilizado.</p>
-        {recovery ? <p><a href={withBasePath("/recuperar-senha/")}>Solicitar um novo link</a></p> : <p>Peça à administração da igreja que envie um novo link.</p>}
+        {recovery ? <p><a href={withBasePath(eventAuthHref("/recuperar-senha/", eventSlug))}>Solicitar um novo link</a></p> : <p>Peça à administração da igreja que envie um novo link.</p>}
       </> : <>
         <p>Escolha uma senha pessoal. Ninguém da administração precisa conhecer essa senha.</p>
         <form className={s.form} onSubmit={submit}>

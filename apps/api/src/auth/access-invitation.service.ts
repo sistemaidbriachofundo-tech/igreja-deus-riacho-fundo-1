@@ -213,4 +213,47 @@ export class AccessInvitationService {
     }
     return { activated: true, message: "Senha definida. Faça seu login para continuar." };
   }
+
+  /**
+   * Pedido público. Não revela se o e-mail existe, se a conta está ativa ou se o envio ocorreu.
+   * O link continua de uso único e expira em uma hora.
+   */
+  async requestPublicReset(emailRaw: string): Promise<void> {
+    const email = emailRaw.trim().toLowerCase();
+    if (!email.includes("@") || email.length > 254) return;
+    try {
+      const user = await this.prisma.user.findFirst({
+        where: { email: { equals: email, mode: "insensitive" }, status: "ACTIVE" },
+        select: { id: true, email: true, status: true, passwordHash: true, person: { select: { displayName: true } } },
+      });
+      if (!user?.passwordHash || user.email !== email) return;
+      const config = inviteEmailConfig();
+      if ((config.preview || config.transport === "test") && !user.email.endsWith("@example.test")) return;
+      const recent = await this.prisma.accessInvitation.findFirst({
+        where: { userId: user.id, purpose: "PASSWORD_RESET", revokedAt: null, createdAt: { gte: new Date(Date.now() - 60_000) } },
+        select: { id: true },
+      });
+      if (recent) return;
+      const issued = this.newToken("PASSWORD_RESET");
+      const invite = await this.prisma.accessInvitation.create({
+        data: { userId: user.id, purpose: "PASSWORD_RESET", tokenHash: issued.tokenHash, email: user.email, expiresAt: issued.expiresAt },
+        select: { id: true },
+      });
+      await this.deliver({
+        inviteId: invite.id, token: issued.token, email: user.email, name: user.person.displayName, purpose: "PASSWORD_RESET",
+      });
+      await this.prisma.accessInvitation.updateMany({
+        where: { userId: user.id, purpose: "PASSWORD_RESET", id: { not: invite.id }, consumedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          actorUserId: user.id, action: "access.password.reset.request", resourceType: "user", resourceId: user.id,
+          metadata: { via: "self_service" },
+        },
+      });
+    } catch {
+      // A resposta pública permanece neutra mesmo quando o envio não está disponível.
+    }
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableEventLots, eventAuthHref, parseRegistrationCatalog, registerForEvent, validRegistrationCode } from "./public-event-registration";
+import { availableEventLots, eventAuthHref, mercadoPagoCheckoutLink, parseRegistrationCatalog, registerForEvent, validRegistrationCode } from "./public-event-registration";
 import { authenticatedLanding } from "./auth-destination";
 import type { LoginResult } from "./api";
 
@@ -17,6 +17,23 @@ describe("inscrição pública", () => {
     expect(catalog?.lots.map(lot => lot.id)).toEqual(["pix", "free"]);
     expect(availableEventLots(catalog!.lots, "individual", 1).map(lot => lot.id)).toEqual(["pix"]);
     expect(availableEventLots(catalog!.lots, "individual", 2)).toEqual([]);
+  });
+
+
+  it("aceita checkout oficial do Mercado Pago e só solicita ingressos individuais quando a API oferece esse recurso", () => {
+    expect(mercadoPagoCheckoutLink("https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=teste"))
+      .toBe("https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=teste");
+    for (const link of ["http://www.mercadopago.com.br", "https://www.mercadopago.com.br.example.test", "https://teste@example.test/mercadopago.com.br"]) {
+      expect(mercadoPagoCheckoutLink(link)).toBeNull();
+    }
+    const data = {
+      id: "event", name: "Encontro", slug: "encontro", startsAt: "2026-11-20T19:00:00.000Z",
+      lots: [{ id: "mp", name: "Mercado Pago", priceCents: 2000, paymentMode: "MERCADO_PAGO" }],
+    };
+    expect(parseRegistrationCatalog(data)?.participantTickets).toBe(false);
+    const catalog = parseRegistrationCatalog({ ...data, ticketPolicy: "PARTICIPANT" });
+    expect(catalog?.participantTickets).toBe(true);
+    expect(catalog?.lots[0]?.paymentMode).toBe("MERCADO_PAGO");
   });
 
   it("exige sessão antes de enviar a inscrição", async () => {

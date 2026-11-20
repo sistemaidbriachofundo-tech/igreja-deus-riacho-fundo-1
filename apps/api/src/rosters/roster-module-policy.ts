@@ -311,6 +311,7 @@ export function openVacancyText(reasons: readonly string[]): string {
   if (reasons.includes("MONTHLY_UNANSWERED")) return "A vaga ficou aberta: a equipe não informou disponibilidade nesta pesquisa.";
   if (reasons.includes("COUPLE_REQUIRED") || reasons.includes("COUPLE_NOT_ELIGIBLE")) return "A vaga ficou aberta: os dois integrantes do casal precisam ser elegíveis.";
   if (reasons.includes("ROLE_NOT_APPROVED") || reasons.includes("POSITION_NOT_QUALIFIED")) return "A vaga ficou aberta: falta alguém com a habilitação exigida.";
+  if (reasons.includes("LOUVOR_WEEK")) return "A vaga ficou aberta: Louvor bloqueia a pessoa de segunda a domingo do culto em que ela já está.";
   if (reasons.includes("MIN_INTERVAL") || reasons.includes("MONTHLY_LIMIT") || reasons.includes("DAY_CONFLICT")) {
     return "A vaga ficou aberta: o intervalo de 10 dias, o limite de 3 escalas no mês ou o bloqueio do mesmo dia impediu o sorteio.";
   }

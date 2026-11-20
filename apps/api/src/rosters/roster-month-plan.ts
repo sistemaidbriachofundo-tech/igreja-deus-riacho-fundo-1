@@ -137,6 +137,7 @@ const REASON_TEXT: Record<string, string> = {
   COUPLE_NOT_ELIGIBLE: "Os dois integrantes do casal precisam ser elegíveis.",
   EMPTY_TEAM: "O módulo não tem integrante ativo.",
   MANUAL_SUBSTITUTION: "A Santa Ceia fica para substituição manual.",
+  LOUVOR_WEEK: "Louvor bloqueia a pessoa de segunda a domingo do culto em que ela já está.",
 };
 
 export function reasonText(codes: readonly string[]): string {
@@ -386,6 +387,7 @@ function rulesFor(module: MonthModule): Rules {
   return {
     ...DEFAULT_RULES, minIntervalDays: module.minIntervalDays, maxMonthlyAssignments: module.maxMonthlyAssignments,
     requireMonthlyAvailabilityResponse: true, familySameDayBlock: true, enforceCouples: true, avoidDoubleBooking: true, respectAvailability: true,
+    louvorWeekBlock: /louvor/i.test(module.name),
   };
 }
 

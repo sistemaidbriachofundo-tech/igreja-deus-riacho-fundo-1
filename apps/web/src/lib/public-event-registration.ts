@@ -18,7 +18,7 @@ type Catalog = {
 type RegistrationStatus = {
   status: string;
   guardianAuthStatus?: string;
-  tickets?: { position: number; code: string; checkedInAt?: string | null }[];
+  tickets?: { position: number; code: string; checkedInAt?: string | null; participantName?: string | null }[];
 };
 
 export type RegistrationReceipt = RegistrationStatus & {
@@ -82,7 +82,7 @@ export function parseRegistrationCatalog(value: unknown): Catalog | null {
   const choices = (key: string) => rows(raw[key]).flatMap(row => readChoice(row) ?? []);
   return {
     event,
-    participantTickets: raw.participantTickets === true,
+    participantTickets: raw.ticketPolicy === "PARTICIPANT",
     modalities: rows(raw.modalities).flatMap(row => {
       const choice = readChoice(row);
       const min = row.minPartySize;
@@ -94,7 +94,7 @@ export function parseRegistrationCatalog(value: unknown): Catalog | null {
     lots: rows(raw.lots).flatMap(row => {
       const choice = readChoice(row);
       if (!choice || typeof row.priceCents !== "number" || !Number.isSafeInteger(row.priceCents) || row.priceCents < 0) return [];
-      const mode = row.paymentMode;
+      const mode = row.paymentProvider === "MERCADO_PAGO" ? "MERCADO_PAGO" : row.paymentMode;
       if (row.priceCents > 0 && mode !== "CHURCH_PIX" && mode !== "MERCADO_PAGO") return [];
       return [{ ...choice, modalityId: typeof row.modalityId === "string" ? row.modalityId : null,
         priceCents: row.priceCents, paymentMode: row.priceCents === 0 ? "FREE" : mode === "MERCADO_PAGO" ? mode : "CHURCH_PIX" }];
@@ -129,7 +129,7 @@ export type EventRegistrationFields = {
   displayName: string; notificationEmail: string; modalityId: string; lotId: string; partySize: number;
   isMinor: boolean; guardianDisplayName?: string; guardianAcknowledged?: boolean;
   lodgingOptionId?: string; mealOptionId?: string; transportOptionId?: string;
-  participantEmails?: string[];
+  participants?: Array<{ name: string; email: string }>;
 };
 
 export async function registerForEvent(slug: string, fields: EventRegistrationFields, memberToken: string) {
@@ -137,13 +137,19 @@ export async function registerForEvent(slug: string, fields: EventRegistrationFi
   if (!memberToken.trim()) throw new Error("Entre na sua conta para se inscrever.");
   const result = await apiPost<RegistrationReceipt>("/member-events/" + slug + "/registrations", memberToken, fields);
   const hasTicketCode = result && validRegistrationCode(result.checkInCode);
-  const awaitingTicket = result?.status === "PENDING_PAYMENT" || result?.guardianAuthStatus === "PENDING";
+  const awaitingTicket = result?.status === "PENDING_PAYMENT" || result?.guardianAuthStatus === "PENDING" || result?.guardianAuthStatus === "REVOKED";
   if (!result || typeof result.id !== "string" || (!hasTicketCode && !awaitingTicket && !result.tickets?.length)) {
     throw new Error("Resposta de inscrição inválida.");
   }
   return result;
 }
 
+
+export function openMercadoPagoCheckout(token: string, id: string) {
+  return apiPost<{ initPoint: string; mode: "mock" | "live" }>(
+    "/member-events/registrations/" + encodeURIComponent(id) + "/mercado-pago/checkout", token, {},
+  );
+}
 
 export function mercadoPagoCheckoutLink(value: string | undefined): string | null {
   if (!value) return null;

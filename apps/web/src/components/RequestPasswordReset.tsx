@@ -20,7 +20,7 @@ export function RequestPasswordReset() {
     if (stage === "sending" || !email.trim()) return;
     setStage("sending");
     try {
-      await apiPostPublic("/auth/forgot-password", { email: email.trim() });
+      await apiPostPublic("/auth/password/forgot", { email: email.trim() });
       setStage("sent");
     } catch {
       setStage("error");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { apiGet, apiPatch, apiPost, loadStoredToken } from "../lib/api";
+import { apiGet, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { AppNavLink, usePersonaAccess } from "./AppShell";
 import { Alert, Button, Input, Loading, PageHeader, Select } from "./ui";
@@ -9,19 +9,11 @@ import s from "./pastoral-desk.module.css";
 import ui from "./ui/ui.module.css";
 
 type Congregation = {
-  church?: { name: string };
-  totals: { activeMembers: number; pendingAdmission: number; households?: number };
+  members: number; pendingAdmissions: number; openPrayers: number; birthdaysToday: number; upcomingServices: number;
   people?: { id: string; name: string; district?: string | null; status: string }[];
 };
-type MinistryPrayer = {
-  id: string;
-  createdAt: string;
-  message: string;
-  contactRequested: boolean;
-  personName?: string;
-  status: "NEW" | "IN_PROGRESS" | "CLOSED";
-};
-const statusLabels = { NEW: "Novo", IN_PROGRESS: "Em acompanhamento", CLOSED: "Concluído" };
+type MinistryPrayer = { id: string; createdAt: string; canReadText: boolean; status: string };
+const statusLabels: Record<string, string> = { OPEN: "Novo", ACKNOWLEDGED: "Em acompanhamento", IN_PROGRESS: "Em acompanhamento", CLOSED: "Concluído" };
 const statusChoices = [
   { label: "Todas as situações", value: "" }, { label: "Ativo", value: "ACTIVE" },
   { label: "Em admissão", value: "PENDING_ADMISSION" }, { label: "Inativo", value: "INACTIVE" },
@@ -31,7 +23,7 @@ const when = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "
 const congregationPath = "/pastoral/congregation";
 
 export function CongregationSummary({ revision }: { revision: number }) {
-  const [totals, setTotals] = useState<Congregation["totals"]>();
+  const [totals, setTotals] = useState<Pick<Congregation, "members" | "pendingAdmissions"> & Partial<Congregation>>();
   const [error, setError] = useState("");
   useEffect(() => {
     const token = loadStoredToken();
@@ -39,8 +31,11 @@ export function CongregationSummary({ revision }: { revision: number }) {
     let live = true;
     setError("");
     void apiGet<Congregation>(congregationPath, token)
-      .catch(() => apiGet<Congregation>("/reports/membership-insights", token))
-      .then(data => { if (live) setTotals(data.totals); })
+      .catch(async () => {
+        const report = await apiGet<{ totals: { activeMembers: number; pendingAdmission: number } }>("/reports/membership-insights", token);
+        return { members: report.totals.activeMembers, pendingAdmissions: report.totals.pendingAdmission };
+      })
+      .then(data => { if (live) setTotals(data); })
       .catch(() => { if (live) setError("Não foi possível consultar os indicadores da congregação."); });
     return () => { live = false; };
   }, [revision]);
@@ -53,9 +48,11 @@ export function CongregationSummary({ revision }: { revision: number }) {
     {error ? <Alert tone="warning" appearance="workspace" title={error} /> : totals ? (
       <dl className={s.queues}>
         {([
-          ["Membros ativos", totals.activeMembers],
-          ["Pessoas em admissão", totals.pendingAdmission],
-          ["Famílias cadastradas", totals.households],
+          ["Membros ativos", totals.members],
+          ["Admissões em andamento", totals.pendingAdmissions],
+          ["Pedidos de oração abertos", totals.openPrayers],
+          ["Aniversariantes de hoje", totals.birthdaysToday],
+          ["Próximos cultos", totals.upcomingServices],
         ] as const).map(([label, value]) => <div key={label} className={`${ui.workspaceSurface} ${s.stat}`}>
           <dt>{label}</dt><dd>{typeof value === "number" ? count.format(value) : "Indisponível"}</dd>
         </div>)}
@@ -87,7 +84,8 @@ export function CongregationDirectory() {
     setError("");
     try {
       const data = await apiGet<Congregation>(congregationPath + (queryString ? "?" + queryString : ""), token);
-      setResults(data.people ?? []);
+      if (!data.people) throw new Error("A consulta nominal está indisponível neste ambiente.");
+      setResults(data.people);
     } catch (problem) {
       setResults(undefined);
       setError(dasError(problem));
@@ -118,19 +116,17 @@ export function CongregationDirectory() {
 export function PrayerRequestForm() {
   const access = usePersonaAccess();
   const [message, setMessage] = useState("");
-  const [contactRequested, setContact] = useState(false);
   const [stage, setStage] = useState<"idle" | "loading" | "error" | "sent">("idle");
-  const allowed = access.kind === "ready" && access.roles.some(role => ["MEMBRO", "PASTOR", "SECRETARIA", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "TESOURARIA"].includes(role));
+  const allowed = access.kind === "ready" && access.roles.some(role => ["MEMBRO", "CONVIDADO", "PASTOR", "SECRETARIA", "PLATFORM_ADMIN"].includes(role));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const token = loadStoredToken();
-    if (!allowed || !token || !message.trim() || stage === "loading") return;
+    if (!allowed || !token || message.trim().length < 2 || stage === "loading") return;
     setStage("loading");
     try {
-      await apiPost("/pastoral/prayers", token, { message: message.trim(), contactRequested });
+      await apiPost("/pastoral/prayers", token, { body: message.trim() });
       setMessage("");
-      setContact(false);
       setStage("sent");
     } catch {
       setStage("error");
@@ -142,9 +138,8 @@ export function PrayerRequestForm() {
     <PageHeader title="Pedir oração" description="Seu pedido é encaminhado à Pastoral da sua congregação." appearance="workspace" heading="h1" />
     {stage === "sent" ? <Alert tone="success" appearance="workspace" title="Seu pedido foi encaminhado à Pastoral." /> :
       <form className={`${ui.workspaceSurface} ${s.prayerForm}`} onSubmit={submit}>
-        <label>Seu pedido de oração<textarea rows={5} required maxLength={1000} value={message}
+        <label>Seu pedido de oração<textarea rows={5} required maxLength={2000} minLength={2} value={message}
           onChange={event => setMessage(event.target.value)} /></label>
-        <label><input type="checkbox" checked={contactRequested} onChange={event => setContact(event.target.checked)} /> Quero que a Pastoral entre em contato comigo</label>
         {stage === "error" && <Alert tone="danger" appearance="workspace" title="Não foi possível encaminhar o pedido. Tente novamente." />}
         <Button type="submit" disabled={!message.trim() || stage === "loading"}>{stage === "loading" ? "Enviando…" : "Enviar pedido"}</Button>
       </form>}
@@ -158,30 +153,30 @@ export function PastoralPrayerQueue() {
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<{ id: string; body: string }>();
   useEffect(() => {
     const token = loadStoredToken();
     if (!allowed || !token) return;
     let live = true;
     setError("");
-    void apiGet<{ prayers: MinistryPrayer[] }>("/pastoral/prayers", token)
-      .then(data => { if (live) setItems(data.prayers); })
+    void apiGet<{ requests: MinistryPrayer[] }>("/pastoral/prayers", token, { fresh: true })
+      .then(data => { if (live) setItems(data.requests); })
       .catch(problem => { if (live) setError(dasError(problem)); });
     return () => { live = false; };
   }, [allowed, revision]);
 
-  async function update(item: MinistryPrayer, status: MinistryPrayer["status"]) {
+  async function view(item: MinistryPrayer) {
     const token = loadStoredToken();
-    if (!allowed || !token || busy) return;
+    if (!allowed || !token || busy || !item.canReadText) return;
+    if (open?.id === item.id) { setOpen(undefined); return; }
+    setOpen(undefined);
     setBusy(true);
     setError("");
     try {
-      await apiPatch("/pastoral/prayers/" + encodeURIComponent(item.id), token, { status });
-      setRevision(value => value + 1);
-    } catch (problem) {
-      setError(dasError(problem));
-    } finally {
-      setBusy(false);
-    }
+      const details = await apiGet<{ body: string }>("/pastoral/prayers/" + encodeURIComponent(item.id), token, { fresh: true });
+      setOpen({ id: item.id, body: details.body });
+    } catch (problem) { setError(dasError(problem)); }
+    finally { setBusy(false); }
   }
 
   if (!allowed) return null;
@@ -192,15 +187,13 @@ export function PastoralPrayerQueue() {
     {!items && !error && <Loading label="Carregando pedidos de oração" />}
     {items?.length === 0 && <p>Nenhum pedido de oração encontrado.</p>}
     {items && <ul className={s.entries}>{items.map(item => <li key={item.id}>
-      <details className={`${ui.workspaceSurface} ${s.stat}`}>
-        <summary><strong>{item.personName || "Pedido de oração"}</strong> · {statusLabels[item.status] ?? item.status} · {when.format(new Date(item.createdAt))}</summary>
-        <p className={s.privateText}>{item.message}</p>
-        {item.contactRequested && <p>Solicitou contato da Pastoral.</p>}
-        {item.status !== "CLOSED" && <div className={s.actions}>
-          {item.status === "NEW" && <Button variant="secondary" disabled={busy} onClick={() => void update(item, "IN_PROGRESS")}>Iniciar acompanhamento</Button>}
-          <Button variant="secondary" disabled={busy} onClick={() => void update(item, "CLOSED")}>Concluir</Button>
-        </div>}
-      </details>
+      <article className={`${ui.workspaceSurface} ${s.stat}`}>
+        <strong>Pedido de oração · {statusLabels[item.status] ?? item.status} · {when.format(new Date(item.createdAt))}</strong>
+        {item.canReadText && <Button variant="secondary" disabled={busy} onClick={() => void view(item)}>
+          {open?.id === item.id ? "Fechar pedido" : "Ler pedido"}
+        </Button>}
+        {open?.id === item.id && <p className={s.privateText}>{open.body}</p>}
+      </article>
     </li>)}</ul>}
   </div>;
 }

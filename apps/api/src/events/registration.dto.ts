@@ -1,4 +1,6 @@
+import { Type } from "class-transformer";
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsIn,
@@ -9,7 +11,19 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from "class-validator";
+
+export class ParticipantBody {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+}
 
 /** Campos RF-022 compartilhados entre inscrição staff e pública. */
 export class RegistrationRf022Fields {
@@ -47,6 +61,12 @@ export class RegistrationRf022Fields {
   @IsEmail()
   @MaxLength(254)
   notificationEmail?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ParticipantBody)
+  participants?: ParticipantBody[];
 }
 
 export class CreateRegistrationBody extends RegistrationRf022Fields {

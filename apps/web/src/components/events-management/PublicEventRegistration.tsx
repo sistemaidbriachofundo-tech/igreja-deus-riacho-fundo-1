@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ApiRequestError, clearToken, isInvalidSession, loadStoredToken } from "../../lib/api";
 import {
   availableEventLots, cancelMemberRegistration, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt,
-  eventAuthHref, loadMemberRegistrations, memberEventsHref, mercadoPagoCheckoutLink, registerForEvent, validRegistrationCode,
+  eventAuthHref, loadMemberRegistrations, memberEventsHref, mercadoPagoCheckoutLink, openMercadoPagoCheckout, registerForEvent, validRegistrationCode,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
 import { formatPortalDate, type PublishedEvent } from "../../lib/portal-live-data";
@@ -41,7 +41,7 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
   const [busy, setBusy] = useState(false);
   const { confirm, confirmation } = useActionConfirmation();
   const confirmed = status === "CONFIRMED" || status === "CHECKED_IN";
-  const canShowTickets = confirmed && guardianStatus !== "PENDING";
+  const canShowTickets = confirmed && (guardianStatus === undefined || guardianStatus === "NOT_REQUIRED" || guardianStatus === "AUTHORIZED");
   const checkoutLink = payment?.mode === "MERCADO_PAGO" ? mercadoPagoCheckoutLink(payment.checkoutUrl) : null;
   const canCancel = memberToken && (status === "CONFIRMED" || status === "PENDING_PAYMENT")
     && !tickets?.some(ticket => ticket.checkedInAt);
@@ -67,6 +67,23 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
       setCheckInCode(updated.checkInCode);
     }
     catch (error) { setNotice(message(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function checkout() {
+    if (!memberToken || busy) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const result = await openMercadoPagoCheckout(memberToken, receipt.id);
+      if (result.mode === "mock") {
+        setNotice("Checkout em modo de teste. Nenhuma cobrança foi criada.");
+        return;
+      }
+      const url = mercadoPagoCheckoutLink(result.initPoint);
+      if (!url) throw new Error("Checkout indisponível.");
+      window.location.assign(url);
+    } catch (error) { setNotice(message(error)); }
     finally { setBusy(false); }
   }
 
@@ -113,8 +130,8 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
         <p className={s.code}>{ticket.code}</p>
       </li>)}
     </ul>}
-    {guardianStatus === "PENDING" && <>
-      <p>Para a entrada, a equipe do evento ainda precisa conferir a autorização do responsável.</p>
+    {!canShowTickets && <>
+      <p>Fale com a equipe do evento para conferir a autorização do responsável.</p>
       <Button variant="secondary" disabled={busy} onClick={() => void refresh()}>Atualizar situação</Button>
     </>}
     <p>Referência da inscrição <span className={s.code}>{receipt.id}</span></p>
@@ -134,7 +151,8 @@ export function EventReceipt({ receipt, memberToken }: { receipt: RegistrationRe
         ? "Conclua o pagamento no Mercado Pago e volte para consultar seu ingresso."
         : "A inscrição será confirmada após a Tesouraria conferir o crédito na conta da igreja."}
     </Alert>
-    {checkoutLink && <a className={ui.workspacePrimary} href={checkoutLink}>Pagar com Mercado Pago</a>}
+    {checkoutLink ? <a className={ui.workspacePrimary} href={checkoutLink}>Pagar com Mercado Pago</a>
+      : payment?.mode === "MERCADO_PAGO" && <Button disabled={busy} onClick={() => void checkout()}>Pagar com Mercado Pago</Button>}
     {payment?.mode === "CHURCH_PIX" && payment.pixCopiaECola && <>
       <p className={s.amount}>{formatEventPrice(payment.amountCents)}</p>
       {payment.pixTxid && <p>Referência do pagamento <strong className={s.code}>{payment.pixTxid}</strong></p>}
@@ -191,8 +209,10 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
     try {
       setReceipt(await registerForEvent(catalog.event.slug, {
         displayName: read("name"), notificationEmail: read("email"), modalityId, lotId, partySize: quantity, isMinor: minor,
-        ...(catalog.participantTickets && quantity > 1 ? { participantEmails: [read("email"),
-          ...Array.from({ length: quantity - 1 }, (_, index) => read("participantEmail" + (index + 2)))] } : {}),
+        ...(catalog.participantTickets ? { participants: [{ name: read("name"), email: read("email") },
+          ...Array.from({ length: quantity - 1 }, (_, index) => ({
+            name: read("participantName" + (index + 2)), email: read("participantEmail" + (index + 2)),
+          }))] } : {}),
         ...(minor ? { guardianDisplayName: read("guardian"), guardianAcknowledged: form.get("consent") === "on" } : {}),
         ...resources,
       }, member.token));
@@ -225,9 +245,11 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
         }))]} />}
       <Input name="name" label="Nome do participante" autoComplete="name" defaultValue={member.profile.name} minLength={2} maxLength={120} required />
       <Input name="email" label="E-mail para receber o ingresso" type="email" autoComplete="email" defaultValue={member.profile.email} maxLength={254} required />
-      {catalog.participantTickets && modality && capacityMatches && quantity > 1 && Array.from({ length: quantity - 1 }, (_, index) => <Input
-        key={index + 2} name={"participantEmail" + (index + 2)} label={"E-mail para o ingresso " + (index + 2)}
-        type="email" maxLength={254} required />)}
+      {catalog.participantTickets && modality && capacityMatches && quantity > 1 && Array.from({ length: quantity - 1 }, (_, index) => <fieldset className={s.fields} key={index + 2}>
+        <legend>Participante {index + 2}</legend>
+        <Input name={"participantName" + (index + 2)} label="Nome" minLength={2} maxLength={120} required />
+        <Input name={"participantEmail" + (index + 2)} label="E-mail para receber o ingresso" type="email" maxLength={254} required />
+      </fieldset>)}
       {resourceFields.map(item => item.choices.length > 0 && <Select key={item.name} name={item.name} label={item.label} required
         options={[{ label: "Selecione", value: "" }, ...item.choices.filter(choice => choice.remaining === null || choice.remaining >= quantity)
           .map(choice => ({ label: choice.name, value: choice.id }))]} />)}

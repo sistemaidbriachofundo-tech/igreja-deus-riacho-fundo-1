@@ -64,6 +64,8 @@ export interface Rules {
   requireMonthlyAvailabilityResponse: boolean;
   enforceCouples: boolean;
   familySameDayBlock: boolean;
+  /** Louvor: uma escala ocupa a semana de segunda a domingo do culto. */
+  louvorWeekBlock?: boolean;
 }
 export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   timeZone: 'America/Sao_Paulo',
@@ -82,7 +84,7 @@ export type RejectionCode =
   | 'MONTHLY_UNANSWERED' | 'IMPEDIMENT' | 'DAY_CONFLICT' | 'FAMILY_DAY_CONFLICT'
   | 'MIN_INTERVAL' | 'MONTHLY_LIMIT' | 'ROTATION_LIMIT' | 'MORNING_ONLY'
   | 'EVENING_ONLY' | 'FIRST_SUNDAY_ONLY' | 'SECOND_SUNDAY_ONLY'
-  | 'COUPLE_REQUIRED' | 'COUPLE_NOT_ELIGIBLE';
+  | 'COUPLE_REQUIRED' | 'COUPLE_NOT_ELIGIBLE' | 'LOUVOR_WEEK';
 export interface CandidateDecision {
   eligible: boolean;
   reasons: RejectionCode[];

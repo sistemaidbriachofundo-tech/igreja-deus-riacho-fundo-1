@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiRequestError, apiGet, apiPost, loadStoredToken, type LoginResult } from "../../lib/api";
 import { churchLocalToISO, dasError } from "../../lib/das-operations";
 import { withBasePath } from "../../lib/paths";
+import { ministryHref } from "../../lib/ministry-view";
 import {
   findSameDayBlocks,
   parseMinistryList,
@@ -236,6 +237,11 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
         <section className={styles.blocked} role="alert" data-scope="forbidden">
           <h2>Sem permissão neste ministério</h2>
           <p>Peça à Secretaria para verificar seu acesso.</p>
+        </section>
+      )}
+      {phase === "ready" && user && surface === "louvor" && ministry && !scopeDenied && (
+        <section className={styles.card} aria-label="Escalas do Louvor">
+          <AppNavLink href={ministryHref(ministry.id, "escalas")}>Abrir mesa mensal do Louvor</AppNavLink>
         </section>
       )}
       {phase === "ready" && user && surface !== "membro" && !scopeDenied && (

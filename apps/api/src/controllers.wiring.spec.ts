@@ -65,9 +65,10 @@ describe("controller wiring (delegates to services)", () => {
       login: jest.fn().mockResolvedValue({ accessToken: "t" }),
       describeSession: jest.fn().mockResolvedValue({ ...user, canManageConnection: false }),
     };
-    const c = new AuthController(auth as never);
+    const c = new AuthController(auth as never, { resolve: async () => null } as never, { requestPublicReset: async () => undefined } as never);
     await expect(c.login({ email: "a", password: "b" })).resolves.toEqual({
       accessToken: "t",
+      resume: null,
     });
     await expect(c.me(user)).resolves.toEqual({ ...user, canManageConnection: false });
     expect(c.rbacSmoke(user)).toMatchObject({ ok: true, personId: "p1" });
