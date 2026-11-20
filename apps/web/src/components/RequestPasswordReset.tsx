@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { apiPost } from "../lib/api";
+import { apiPostPublic } from "../lib/api";
 import { eventAuthHref } from "../lib/public-event-registration";
 import s from "./activate-access.module.css";
 
@@ -20,7 +20,7 @@ export function RequestPasswordReset() {
     if (stage === "sending" || !email.trim()) return;
     setStage("sending");
     try {
-      await apiPost("/auth/forgot-password", "", { email: email.trim() }, { timeoutMs: 20_000 });
+      await apiPostPublic("/auth/forgot-password", { email: email.trim() });
       setStage("sent");
     } catch {
       setStage("error");
