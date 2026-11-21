@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { sortByName } from "@idbrf/shared";
+import { apiGet, apiPatch } from "../lib/api";
+import { dasError } from "../lib/das-operations";
+import { rosterModuleContains, type EscalaModule, type MinistryEscala } from "../lib/ministry-presentation";
+import { pendingTeamInvitations, rosterInvitePath, rosterRouteUnavailable, type TeamInvitation } from "../lib/roster-invitations";
+import { RosterTeamInvitationForm } from "./ministry/RosterTeamInvitationForm";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import type {
   ConversionResult,
@@ -25,10 +31,14 @@ import {
   type PersonOption,
 } from "./PersonPicker";
 import { Alert } from "./ui/Alert";
+import { VocalProfile } from "./serving/VocalProfile";
+import { SERVING_SURFACES } from "../lib/serving-rosters";
 import { MinistryPersonDialog } from "./ministry/MinistryPersonDialog";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import ui from "./ui/ui.module.css";
 import styles from "./ministry-membership-catalog.module.css";
+
+const memberRosterDate = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 
 type Props = {
   token?: string | null;
@@ -41,6 +51,11 @@ type Props = {
   onConvert: (interestId: string) => void;
   onAdmit: (personId: string, role: FormalRole) => void;
   onEnd: (membershipId: string) => void;
+  rosterModules?: EscalaModule[];
+  rosterItems?: readonly MinistryEscala[];
+  manageRosterModules?: boolean;
+  moduleOnly?: boolean;
+  onModulesSaved?: () => void;
 };
 
 export function MinistryMembershipCatalog({
@@ -54,13 +69,28 @@ export function MinistryMembershipCatalog({
   onConvert,
   onAdmit,
   onEnd,
+  rosterModules,
+  rosterItems,
+  manageRosterModules,
+  moduleOnly,
+  onModulesSaved,
 }: Props) {
   const { confirm, confirmation } = useActionConfirmation();
+  const [statusFilter, setStatusFilter] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [showAdmit, setShowAdmit] = useState(false);
+  const [invitationRevision, setInvitationRevision] = useState(0);
+  const [invitationLoad, setInvitationLoad] = useState<{ kind: "ready"; invites: TeamInvitation[] } | { kind: "unavailable" } | { kind: "error"; message: string }>();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [moduleFilter, setModuleFilter] = useState("");
+  const [editingModules, setEditingModules] = useState("");
+  const [moduleFeedback, setModuleFeedback] = useState("");
   const [openedPerson, setOpenedPerson] = useState<FormalMember | null>(null);
-  const members =
-    desk.membership.kind === "ready" ? desk.membership.members : [];
+  const members = desk.membership.kind === "ready"
+    ? desk.membership.members.filter(member =>
+      !moduleOnly || rosterModules?.some(module => rosterModuleContains(module, member.personId)))
+    : [];
   const active = activeFormalMembers(members);
   const schedule = visibleSchedule(desk);
   const canWrite = desk.membership.kind === "ready";
@@ -69,9 +99,50 @@ export function MinistryMembershipCatalog({
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
       .toLocaleLowerCase("pt-BR");
-  const filtered = members.filter((member) =>
-    normalize(member.displayName).includes(normalize(query.trim())),
-  );
+  const filteredModule = rosterModules?.find(module => module.id === moduleFilter);
+  const moduleMode = rosterModules !== undefined;
+  const canListInvitations = Boolean(token && moduleMode && canWrite);
+  const ministryId = desk.ministry.id;
+  const louvor = SERVING_SURFACES.louvor.slugs.some(slug => slug === desk.ministry.slug);
+  useEffect(() => {
+    if (!token || !canListInvitations) return;
+    let current = true;
+    void apiGet<{ invitations: TeamInvitation[] }>(rosterInvitePath(ministryId), token).then(result => {
+      const invites = pendingTeamInvitations(result);
+      if (current) setInvitationLoad({ kind: "ready", invites });
+    }).catch(failure => {
+      if (!current) return;
+      setInvitationLoad(rosterRouteUnavailable(failure) ? { kind: "unavailable" } : { kind: "error", message: dasError(failure) });
+    });
+    return () => { current = false; };
+  }, [canListInvitations, invitationRevision, ministryId, token]);
+
+  const moduleMap = new Map(rosterModules?.map(module => [module.id, module]));
+  const search = normalize(query.trim());
+  const visibleInvites = invitationLoad?.kind === "ready" ? invitationLoad.invites.filter(invitation =>
+    moduleMap.has(invitation.moduleId) && (!filteredModule || filteredModule.id === invitation.moduleId)
+  ) : [];
+  const entries = sortByName([
+    ...members.filter(member => statusFilter !== "INVITE" && (!statusFilter || member.status === statusFilter) &&
+      (!filteredModule || rosterModuleContains(filteredModule, member.personId)))
+      .map(member => ({ kind: "member" as const, name: member.displayName, member })),
+    ...(!statusFilter || statusFilter === "INVITE" ? visibleInvites.map(invite => ({
+      kind: "invite" as const, name: invite.personName, invite,
+    })) : []),
+  ].filter(item => normalize(item.name).includes(search)), item => item.name);
+  const nextRosters = new Map<string, number>();
+  const now = Date.now();
+  for (const roster of rosterItems ?? []) {
+    const service = Date.parse(roster.serviceAt);
+    if (roster.status !== "PUBLISHED" || service < now || (filteredModule && roster.moduleId !== filteredModule.id)) continue;
+    for (const slot of roster.positions ?? []) for (const assignment of slot.assignments) {
+      if (assignment.status !== "PENDING" && assignment.status !== "CONFIRMED") continue;
+      for (const id of [assignment.personId, assignment.partnerPersonId]) {
+        if (id && service < (nextRosters.get(id) ?? Infinity)) nextRosters.set(id, service);
+      }
+    }
+  }
+  const filtered = entries;
   const pageSize = 12;
   const visiblePage = Math.min(
     page,
@@ -92,7 +163,23 @@ export function MinistryMembershipCatalog({
   }
 
   return (
-    <div className={styles.columns}>
+    <div className={moduleMode ? styles.moduleWorkspace : styles.columns}>
+      {moduleMode && <header className={styles.teamHero}>
+        <div><p>Ministérios / {desk.ministry.name}</p><h2>Integrantes</h2></div>
+        {canWrite && <div>
+          {!moduleOnly && <button type="button" className={ui.workspaceSecondary} aria-expanded={showAdmit}
+            onClick={() => setShowAdmit(value => !value)}>Vincular pessoa</button>}
+          {token && Boolean(rosterModules?.length) && manageRosterModules && <button type="button" className={styles.invitePrimary}
+            onClick={() => setInviting(true)}>Convidar voluntário</button>}
+        </div>}
+      </header>}
+      {token && inviting && rosterModules && <RosterTeamInvitationForm token={token} roles={roles} ministryId={ministryId}
+        modules={rosterModules} initialModuleId={filteredModule?.id}
+        onClose={() => setInviting(false)} onSent={() => {
+          setInviting(false);
+          setModuleFeedback("Convite enviado. Acompanhe a resposta na lista de integrantes.");
+          setInvitationRevision(value => value + 1);
+        }} />}
       {token && openedPerson && <MinistryPersonDialog key={openedPerson.id} token={token}
         ministryId={desk.ministry.id} member={openedPerson} roles={roles} onClose={() => setOpenedPerson(null)} />}
       <section
@@ -100,11 +187,8 @@ export function MinistryMembershipCatalog({
         data-region="formal-members"
         aria-labelledby="formal-members-title"
       >
-        <h2 id="formal-members-title">Pessoas da equipe</h2>
-        <p>
-          Integrantes cadastrados neste ministério, com sua função e situação
-          atual.
-        </p>
+        <h2 id="formal-members-title">{moduleMode ? "Pessoas do ministério" : "Pessoas da equipe"}</h2>
+        {!moduleMode && <p>Integrantes cadastrados neste ministério, com sua função e situação atual.</p>}
         {schedule ? (
           <p className={styles.schedule}>Encontro habitual: {schedule}</p>
         ) : null}
@@ -129,7 +213,7 @@ export function MinistryMembershipCatalog({
         )}
         {canWrite ? (
           <>
-            <AdmitForm
+            {!moduleOnly && (!moduleMode || showAdmit) && <AdmitForm
               token={token ?? ""}
               roles={roles}
               pending={pending}
@@ -144,7 +228,18 @@ export function MinistryMembershipCatalog({
               savedPersonId={
                 change?.applied ? change.member?.personId : undefined
               }
-            />
+            />}
+            {moduleFeedback && <p role="status">{moduleFeedback}</p>}
+            {rosterModules && rosterModules.length > 0 && <div className={styles.teamFilters} role="group" aria-label="Equipes">
+              {(!moduleOnly || rosterModules.length > 1) && <button type="button" aria-pressed={!filteredModule}
+                onClick={() => { setModuleFilter(""); setPage(0); }}>Todas as equipes <span>{active.length}</span></button>}
+              {rosterModules.map(module => <button type="button" key={module.id}
+                aria-pressed={filteredModule?.id === module.id || (moduleOnly && rosterModules.length === 1)}
+                onClick={() => { setModuleFilter(module.id); setPage(0); }}>
+                {module.name} <span>{active.filter(member => rosterModuleContains(module, member.personId)).length}</span>
+              </button>)}
+            </div>}
+            {invitationLoad?.kind === "error" && <p role="status">Convites da equipe: {invitationLoad.message}</p>}
             {active.length === 0 ? (
               <div className={styles.invite} data-region="invite">
                 <strong>
@@ -156,14 +251,29 @@ export function MinistryMembershipCatalog({
                 </p>
               </div>
             ) : null}
-            {members.length > 0 && (
+            {(members.length > 0 || visibleInvites.length > 0) && (
+              <div className={styles.teamSearch}>
               <WorkspaceSearch className={styles.memberSearch}
                 aria-label="Buscar integrante por nome" value={query} placeholder="Buscar integrante por nome"
                 onChange={(event) => { setQuery(event.target.value); setPage(0); }} />
+              {moduleMode && <label>Situação<select value={statusFilter} onChange={event => { setStatusFilter(event.target.value); setPage(0); }}>
+                <option value="">Todas as situações</option><option value="ATIVO">Ativo</option>
+                <option value="INVITE">Convite pendente</option><option value="PAUSADO">Pausado</option><option value="ENCERRADO">Encerrado</option>
+              </select></label>}
+              </div>
             )}
             {filtered.length > 0 ? (
               <div className={styles.people}>
-                {filtered.slice(firstRow, firstRow + pageSize).map((member) => (
+                {filtered.slice(firstRow, firstRow + pageSize).map(entry => {
+                  if (entry.kind === "invite") return <div className={styles.row} key={"invite:" + entry.invite.id}>
+                    <PersonPortrait name={entry.name} />
+                    <div><strong>{entry.name}</strong><small>{moduleMap.get(entry.invite.moduleId)?.name}</small></div>
+                    <span className={styles.pendingInvite}>Convite pendente</span>
+                  </div>;
+                  const member = entry.member;
+                  const nextRoster = nextRosters.get(member.personId);
+                  const linkedModules = rosterModules?.filter(module => rosterModuleContains(module, member.personId));
+                  return (
                   <div className={styles.row} key={member.id}>
                     <PersonPortrait name={member.displayName} />
                     <div>
@@ -173,10 +283,22 @@ export function MinistryMembershipCatalog({
                         {roleLabel(member.role)} ·{" "}
                         {memberStatusLabel(member.status)}
                       </small>
+                      {nextRoster !== undefined && <small>Próxima escala · {memberRosterDate.format(nextRoster)}</small>}
+                      {linkedModules && <small className={styles.memberModules}>
+                        {linkedModules.length ? linkedModules.map(module => module.name).join(" · ") : "Módulo a definir"}
+                      </small>}
                     </div>
+                    <div className={styles.memberActions}>
+                    {louvor && canWrite && token && member.status === "ATIVO" &&
+                      <VocalProfile token={token} personId={member.personId} name={member.displayName} />}
+                    {Boolean(rosterModules?.length) && manageRosterModules && token && member.status === "ATIVO" &&
+                      <button type="button" className={ui.workspaceSecondary} aria-expanded={editingModules === member.id}
+                        onClick={() => { setModuleFeedback(""); setEditingModules(current => current === member.id ? "" : member.id); }}>
+                        Gerenciar módulos <span className={styles.srOnly}>de {member.displayName}</span>
+                      </button>}
                     {member.status === "ENCERRADO" ? (
                       <span className={styles.tag}>Encerrado</span>
-                    ) : (
+                    ) : !moduleOnly ? (
                       <button
                         className={styles.endAction}
                         type="button"
@@ -185,13 +307,21 @@ export function MinistryMembershipCatalog({
                       >
                         Retirar da equipe
                       </button>
-                    )}
+                    ) : null}
+                    </div>
+                    {editingModules === member.id && token && rosterModules && manageRosterModules &&
+                      <MemberModuleForm key={member.id} member={member} modules={rosterModules} token={token}
+                        ministryId={desk.ministry.id} onSaved={() => {
+                          setEditingModules("");
+                          setModuleFeedback("Os módulos de " + member.displayName + " foram atualizados.");
+                          onModulesSaved?.();
+                        }} />}
                   </div>
-                ))}
+                ); })}
               </div>
             ) : members.length > 0 ? (
               <p className={styles.emptySearch} role="status">
-                Nenhum integrante encontrado. Tente outro nome.
+                Nenhum integrante encontrado. Revise o nome ou o módulo selecionado.
               </p>
             ) : null}
             {filtered.length > pageSize && (
@@ -227,7 +357,7 @@ export function MinistryMembershipCatalog({
         )}
       </section>
 
-      <section
+      {!moduleOnly && <section
         className={styles.panel}
         data-region="volunteer-interests"
         aria-labelledby="interests-title"
@@ -268,7 +398,7 @@ export function MinistryMembershipCatalog({
             </Alert>
           </div>
         )}
-      </section>
+      </section>}
       {confirmation}
     </div>
   );
@@ -397,4 +527,49 @@ function InterestLine({
       ) : null}
     </div>
   );
+}
+
+function MemberModuleForm({ member, modules, token, ministryId, onSaved }: {
+  member: FormalMember;
+  modules: EscalaModule[];
+  token: string;
+  ministryId: string;
+  onSaved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const initial = modules.filter(module => rosterModuleContains(module, member.personId));
+  const initialIds = new Set(initial.map(module => module.id));
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const selected = new Set(new FormData(event.currentTarget).getAll("moduleId"));
+    const addModuleIds = modules.filter(module => selected.has(module.id) && !initialIds.has(module.id)).map(module => module.id);
+    const removeModuleIds = initial.filter(module => !selected.has(module.id)).map(module => module.id);
+    if (!addModuleIds.length && !removeModuleIds.length) { onSaved(); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await apiPatch(`/ministries/${encodeURIComponent(ministryId)}/memberships/${encodeURIComponent(member.id)}/roster-modules`,
+        token, { addModuleIds, removeModuleIds });
+      onSaved();
+    } catch (failure) {
+      setError(dasError(failure));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <form className={styles.moduleForm} onSubmit={save}>
+    <fieldset disabled={saving}>
+      <legend>Módulos de {member.displayName}</legend>
+      {modules.map(module => <label key={module.id}>
+        <input type="checkbox" name="moduleId" value={module.id} defaultChecked={initialIds.has(module.id)} />
+        {module.name}
+      </label>)}
+      <button type="submit" className={ui.workspacePrimary}>{saving ? "Salvando…" : "Salvar módulos"}</button>
+    </fieldset>
+    {error && <p role="alert">{error}</p>}
+  </form>;
 }

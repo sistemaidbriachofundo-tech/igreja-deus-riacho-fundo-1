@@ -102,7 +102,45 @@ export class ReceivingAccountService {
     }
   }
 
-  /** Lista para o cadastrador escolher. A chave Pix não sai nesta resposta. */
+  async enableMercadoPago(actor: AuthUser, accountId: string, input: { enabled: boolean; collectorId?: string | null }) {
+    const pilot = await this.scope(actor, [ROLE_CODES.TESOURARIA]);
+    const collectorId = input.collectorId?.trim() || null;
+    if (input.enabled && collectorId && !/^[A-Za-z0-9_-]{1,64}$/.test(collectorId)) {
+      throw new BusinessException("O identificador do recebedor é inválido.", "MERCADO_PAGO_COLLECTOR_INVALID", 400);
+    }
+    const current = await this.prisma.churchReceivingAccount.findFirst({
+      where: { id: accountId, organizationId: pilot.organizationId, churchId: pilot.churchId, active: true },
+      select: { id: true, mercadoPagoEnabled: true, mercadoPagoCollectorId: true },
+    });
+    if (!current) throw new BusinessException("Conta de recebimento não encontrada.", "RECEIVING_ACCOUNT_INVALID", 404);
+    const nextCollector = input.enabled ? collectorId : null;
+    const unchanged = current.mercadoPagoEnabled === input.enabled
+      && (current.mercadoPagoCollectorId ?? null) === nextCollector;
+    if (!unchanged) {
+      const openPayments = await this.prisma.eventPaymentIntent.count({
+        where: { receivingAccountId: current.id, churchId: pilot.churchId, status: "PENDING" },
+      });
+      if (openPayments > 0) {
+        throw new ConflictException("Há pagamento pendente nesta conta. A conta de recebimento não muda no meio do pagamento.");
+      }
+    }
+    const updated = await this.prisma.churchReceivingAccount.updateMany({
+      where: { id: accountId, organizationId: pilot.organizationId, churchId: pilot.churchId, active: true },
+      data: { mercadoPagoEnabled: input.enabled, mercadoPagoCollectorId: input.enabled ? collectorId : null },
+    });
+    if (!updated.count) throw new BusinessException("Conta de recebimento não encontrada.", "RECEIVING_ACCOUNT_INVALID", 404);
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId, action: "finance.receiving_account.mercado_pago",
+        resourceType: "church_receiving_account", resourceId: accountId,
+        organizationId: pilot.organizationId, churchId: pilot.churchId,
+        metadata: { enabled: input.enabled },
+      },
+    });
+    return { id: accountId, mercadoPagoEnabled: input.enabled, mercadoPagoCollectorId: input.enabled ? collectorId : null };
+  }
+
+  /** Lista para o cadastrador escolher. A chave Pix e as credenciais do provedor não saem nesta resposta. */
   async listForEvents(actor: AuthUser) {
     const pilot = await this.scope(actor, STAFF);
     const rows = await this.prisma.churchReceivingAccount.findMany({
@@ -113,6 +151,8 @@ export class ReceivingAccountService {
         displayName: true,
         ledgerAccountId: true,
         active: true,
+        mercadoPagoEnabled: true,
+        mercadoPagoCollectorId: true,
         ledgerAccount: { select: { code: true, name: true } },
       },
     });
@@ -124,6 +164,8 @@ export class ReceivingAccountService {
         ledgerCode: row.ledgerAccount.code,
         ledgerName: row.ledgerAccount.name,
         active: row.active,
+        mercadoPagoEnabled: row.mercadoPagoEnabled,
+        mercadoPagoCollectorId: row.mercadoPagoCollectorId,
       })),
     };
   }

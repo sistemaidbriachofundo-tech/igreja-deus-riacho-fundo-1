@@ -8,7 +8,7 @@ import type { AuthGrant } from "@idbrf/shared";
  * Fora dela a flag fica desligada: o painel atual espera accessToken.
  * mfaRequired no usuário continua exigindo o desafio mesmo com a flag desligada.
  */
-const STEP_UP_EXEMPT_ROLES = new Set(["MEMBRO"]);
+const STEP_UP_EXEMPT_ROLES = new Set(["MEMBRO", "CONVIDADO"]);
 
 export function mfaBlockingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.IDBRF_RUNTIME_STAGE === "production") return true;

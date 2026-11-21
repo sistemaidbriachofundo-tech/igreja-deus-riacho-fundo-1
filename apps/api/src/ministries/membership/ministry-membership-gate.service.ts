@@ -35,6 +35,7 @@ import {
   PrismaMinistryMembershipRepository,
 } from "./prisma-ministry-membership.repository";
 import { MinistryTeamService, type TeamWrite } from "./ministry-team.service";
+import { assertModuleFinance, linkedMembershipIds, loadRosterAccess } from "../../rosters/roster-module-runtime";
 
 /**
  * Porta HTTP do vínculo formal.
@@ -57,7 +58,8 @@ export class MinistryMembershipGateService {
   }
 
   async readMemberships(actor: AuthUser, ministryId: string) {
-    const scope = await this.scope(actor, ministryId);
+    const ministry = await this.assertScope(actor, ministryId);
+    const scope = { organizationId: ministry.organizationId, churchId: ministry.churchId, ministryId: ministry.id };
     const result = await this.team.read(scope);
     if (result.outcome === "schema_blocked") {
       this.blocked(MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED, {
@@ -68,20 +70,28 @@ export class MinistryMembershipGateService {
           "O cadastro formal de integrante ainda não tem tabela. Interesse de voluntariado não ocupa este lugar.",
       });
     }
+    const access = await loadRosterAccess(this.prisma as never, actor, ministry, scope);
+    const linked = access.scope === "modules" ? await linkedMembershipIds(this.prisma as never, access.moduleIds) : null;
     return {
       blocked: false,
       code: MINISTRY_MEMBERSHIP_READY,
-      members: result.members,
+      members: linked ? result.members?.filter(member => linked.has(member.id)) ?? null : result.members,
     };
   }
 
   async readPerson(actor: AuthUser, ministryId: string, membershipId: string) {
-    const scope = await this.scope(actor, ministryId);
+    const ministry = await this.assertScope(actor, ministryId);
+    const scope = { organizationId: ministry.organizationId, churchId: ministry.churchId, ministryId: ministry.id };
     const member = await this.prisma.ministryMembership.findFirst({
       where: { ...scope, id: membershipId, endedAt: null, status: { not: "ENCERRADO" }, person: { organizationId: scope.organizationId } },
       select: { person: { select: { id: true, displayName: true, email: true, address: true } } },
     });
     if (!member) throw new NotFoundException("Integrante não encontrado na equipe autorizada.");
+    const access = await loadRosterAccess(this.prisma as never, actor, ministry, scope);
+    if (access.scope === "modules") {
+      const linked = await linkedMembershipIds(this.prisma as never, access.moduleIds);
+      if (linked && !linked.has(membershipId)) throw new NotFoundException("Integrante não encontrado na equipe autorizada.");
+    }
     return { person: member.person };
   }
 
@@ -177,6 +187,7 @@ export class MinistryMembershipGateService {
         grant.roleCode === "PLATFORM_ADMIN" || grant.roleCode === "LIDER_MINISTERIO"
       ),
     }, ministryId);
+    await assertModuleFinance(this.prisma as never, actor, ministry, await this.pilot.getPilotChurch());
 
     // Accept the stable ID and the slug used by existing ministry reports.
     const rows = await this.prisma.$queryRaw<Array<{

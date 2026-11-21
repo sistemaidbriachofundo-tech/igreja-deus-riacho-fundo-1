@@ -8,6 +8,14 @@ import { EventRegistrationsService } from "./event-registrations.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
 describe("EventRegistrationsService", () => {
+  const mockSecret = "fixture-only-payment-key-with-more-than-32-characters";
+
+  beforeEach(() => {
+    jest.replaceProperty(process, "env", { ...process.env, EVENT_PAYMENT_WEBHOOK_SECRET: mockSecret });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
   const pilot = {
     organizationId: "org1",
     churchId: "church-rf1",
@@ -53,6 +61,18 @@ describe("EventRegistrationsService", () => {
     await expect(service.getMyRegistration({ ...actor, personId: "outra-pessoa" }, "r1")).rejects.toBeInstanceOf(NotFoundException);
     await expect(service.getMyRegistration({ ...actor, churchId: "outra-igreja" }, "r1")).rejects.toMatchObject({ status: 403 });
   });
+
+  const guest: AuthUser = {
+    userId: "u-convidado", personId: "p-convidado", email: "convidado@example.test",
+    grants: [{ roleCode: "CONVIDADO", organizationId: pilot.organizationId, churchId: pilot.churchId }],
+  };
+
+  function guestService(...[prisma, pilotService, mail]: ConstructorParameters<typeof EventRegistrationsService>) {
+    return new EventRegistrationsService({
+      person: { findFirst: jest.fn().mockResolvedValue({ id: guest.personId, isMinor: false }) },
+      ...(prisma as object),
+    } as never, pilotService, mail);
+  }
 
   const now = new Date("2026-11-07T12:00:00Z");
   const event = {
@@ -174,15 +194,15 @@ describe("EventRegistrationsService", () => {
     expect(createdLot.priceCents).toBe(5000);
   });
 
-  it("rejects public registration with real PII fields", async () => {
-    const service = new EventRegistrationsService(
+  it("rejects extra personal data on a guest registration", async () => {
+    const service = guestService(
       {
         portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -201,12 +221,12 @@ describe("EventRegistrationsService", () => {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
       },
     };
-    const service = new EventRegistrationsService(
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Menor Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -239,19 +259,29 @@ describe("EventRegistrationsService", () => {
       },
       ...withTx(tx),
     };
-    const service = new EventRegistrationsService(
+    const mail = { deliverOnce: jest.fn() };
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mail as never,
     );
-    const result = await service.createPublicRegistration("retiro-demo", {
+    const result = await service.createMemberRegistration(guest, "retiro-demo", {
       displayName: "Demo Participante",
       modalityId: "mod1",
       lotId: "lot1",
       isMinor: false,
+      notificationEmail: "inscrito@example.test",
     });
     expect(result.status).toBe("PENDING_PAYMENT");
+    expect(mail.deliverOnce).not.toHaveBeenCalled();
     expect(result.paymentIntent?.mode).toBe("MOCK_ONLY");
     expect(result.paymentIntent?.id).toBe("pi1");
+    expect(tx.eventRegistration.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ registrantPersonId: guest.personId }),
+    }));
+    expect(tx.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ actorUserId: guest.userId, action: "event_registration.create_member" }),
+    }));
   });
 
   it("confirms mock webhook and replays idempotently", async () => {
@@ -310,11 +340,10 @@ describe("EventRegistrationsService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
 
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-key-001";
     const status = "CONFIRMED_MOCK" as const;
     const canonical = `${idem}:pi1:${status}`;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(canonical)
       .digest("hex");
 
@@ -336,6 +365,44 @@ describe("EventRegistrationsService", () => {
     });
     expect(replay.idempotentReplay).toBe(true);
     expect(replay.resultStatus).toBe("CONFIRMED_MOCK");
+  });
+
+  it.each(["production", "missing-secret"])("blocks the mock payment endpoint before database access: %s", async mode => {
+    if (mode === "production") process.env.IDBRF_RUNTIME_STAGE = "production";
+    else delete process.env.EVENT_PAYMENT_WEBHOOK_SECRET;
+
+    const service = new EventRegistrationsService({} as never, {} as never);
+    await expect(service.handleMockPaymentWebhook({
+      idempotencyKey: "payment-fixture-001",
+      paymentIntentId: "fixture",
+      status: "CONFIRMED_MOCK",
+      signatureHeader: undefined,
+    })).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("manually confirms a payment in production with the staff audit in the same transaction", async () => {
+    process.env.IDBRF_RUNTIME_STAGE = "production";
+    delete process.env.EVENT_PAYMENT_WEBHOOK_SECRET;
+    const pendingRegistration = { ...registration, id: "reg1", eventId: event.id, status: "PENDING_PAYMENT" };
+    const intent = { id: "pi-manual", status: "PENDING", registration: pendingRegistration, ...pilot, eventId: event.id };
+    const tx = {
+      eventPaymentWebhookReceipt: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      eventPaymentIntent: { update: jest.fn() },
+      eventRegistration: { update: jest.fn().mockResolvedValue({ ...pendingRegistration, status: "CONFIRMED", paymentStatus: "CONFIRMED_MOCK" }) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+      eventRegistration: { findFirst: jest.fn().mockResolvedValue(pendingRegistration) },
+      eventPaymentIntent: { findFirst: jest.fn().mockResolvedValue(intent) },
+      eventPaymentWebhookReceipt: { findUnique: jest.fn().mockResolvedValue(null) },
+      ...withTx(tx),
+    };
+    const service = new EventRegistrationsService(prisma as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.confirmManualPayment(secretaria, "reg1")).resolves.toMatchObject({ resultStatus: "CONFIRMED_MOCK" });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      actorUserId: secretaria.userId, action: "event_payment.manual_confirm",
+    }) });
   });
 
   it("rejects webhook with bad signature", async () => {
@@ -401,7 +468,11 @@ describe("EventRegistrationsService", () => {
       cancelledAt: now,
     };
     const tx = {
-      eventRegistration: { update: jest.fn().mockResolvedValue(cancelled) },
+      $queryRaw: jest.fn(),
+      eventRegistration: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue(registration),
+        update: jest.fn().mockResolvedValue(cancelled),
+      },
       eventPaymentIntent: { updateMany: jest.fn() },
       auditLog: { create: jest.fn() },
     };
@@ -420,14 +491,14 @@ describe("EventRegistrationsService", () => {
   });
 
   it("returns 404 for unknown public event slug", async () => {
-    const service = new EventRegistrationsService(
+    const service = guestService(
       {
         portalEvent: { findFirst: jest.fn().mockResolvedValue(null) },
       } as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("inexistente", {
+      service.createMemberRegistration(guest, "inexistente", {
         displayName: "X",
         modalityId: "mod1",
         lotId: "lot1",
@@ -447,12 +518,12 @@ describe("EventRegistrationsService", () => {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 1 } }),
       },
     };
-    const service = new EventRegistrationsService(
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -798,10 +869,9 @@ describe("EventRegistrationsService", () => {
       }),
     ).rejects.toThrow(/status mock/);
 
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-key-404";
     const status = "FAILED_MOCK" as const;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(`${idem}:pi-missing:${status}`)
       .digest("hex");
     await expect(
@@ -859,10 +929,9 @@ describe("EventRegistrationsService", () => {
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-fail-001";
     const status = "FAILED_MOCK" as const;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(`${idem}:pi1:${status}`)
       .digest("hex");
     const result = await service.handleMockPaymentWebhook({
@@ -907,9 +976,10 @@ describe("EventRegistrationsService", () => {
     );
     const catalog = await service.publicCatalogForEvent("e1");
     expect(catalog.paymentMode).toBe("MOCK_ONLY");
+    expect(catalog.settlementPolicy?.kind).toBe("EXTERNAL_MANUAL");
     expect(catalog.rf022LodgingPending).toBe(false);
     expect(catalog.requiresGuardianAuthorizationForMinors).toBe(true);
-    expect(catalog.lots.map((l) => l.id)).toEqual(["lot1"]);
+    expect(catalog.lots.map((l: { id: string }) => l.id)).toEqual(["lot1"]);
     expect(catalog.modalities[0].remaining).toBe(10);
   });
 
@@ -937,12 +1007,12 @@ describe("EventRegistrationsService", () => {
 
   it("rejects guardian on adult and partySize out of range", async () => {
     const prisma = basePrisma();
-    const service = new EventRegistrationsService(
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Adulto",
         modalityId: "mod1",
         lotId: "lot1",
@@ -951,7 +1021,7 @@ describe("EventRegistrationsService", () => {
       }),
     ).rejects.toThrow(/só é permitido para menores/);
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -966,12 +1036,12 @@ describe("EventRegistrationsService", () => {
     const prismaClosed = basePrisma({
       eventLot: { findFirst: jest.fn().mockResolvedValue(closedLot) },
     });
-    const serviceClosed = new EventRegistrationsService(
+    const serviceClosed = guestService(
       prismaClosed as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      serviceClosed.createPublicRegistration("retiro-demo", {
+      serviceClosed.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -984,12 +1054,12 @@ describe("EventRegistrationsService", () => {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 1 } }),
       },
     });
-    const serviceFull = new EventRegistrationsService(
+    const serviceFull = guestService(
       prismaFull as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      serviceFull.createPublicRegistration("retiro-demo", {
+      serviceFull.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -1001,24 +1071,24 @@ describe("EventRegistrationsService", () => {
     const prisma = basePrisma({
       eventModality: { findFirst: jest.fn().mockResolvedValue(null) },
     });
-    const service = new EventRegistrationsService(
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
       }),
     ).rejects.toThrow(/modalidade inválida|lotId/);
 
     const prismaLot = basePrisma();
-    const serviceLot = new EventRegistrationsService(
+    const serviceLot = guestService(
       prismaLot as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      serviceLot.createPublicRegistration("retiro-demo", {
+      serviceLot.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: undefined,
@@ -1050,25 +1120,25 @@ describe("EventRegistrationsService", () => {
         }),
       },
     });
-    const service = new EventRegistrationsService(
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "A",
         modalityId: "mod1",
         lotId: "lot1",
       }),
     ).rejects.toThrow(/displayName/);
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         lotId: "lot1",
       }),
     ).rejects.toThrow(/modalityId/);
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -1085,12 +1155,12 @@ describe("EventRegistrationsService", () => {
         }),
       },
     });
-    const service = new EventRegistrationsService(
+    const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
     await expect(
-      service.createPublicRegistration("retiro-demo", {
+      service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Demo",
         modalityId: "mod1",
         lotId: "lot1",
@@ -1210,11 +1280,11 @@ describe("EventRegistrationsService", () => {
       },
       ...withTx(txReg),
     };
-    const serviceReg = new EventRegistrationsService(
+    const serviceReg = guestService(
       prismaReg as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    const result = await serviceReg.createPublicRegistration("retiro-demo", {
+    const result = await serviceReg.createMemberRegistration(guest, "retiro-demo", {
       displayName: "Casal Demo",
       modalityId: "mod-couple",
       lotId: "lot1",
@@ -1379,12 +1449,12 @@ describe("EventRegistrationsService", () => {
           aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
         },
       };
-      const service = new EventRegistrationsService(
+      const service = guestService(
         prisma as never,
         { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
       );
       await expect(
-        service.createPublicRegistration("retiro-demo", {
+        service.createMemberRegistration(guest, "retiro-demo", {
           displayName: "Demo",
           modalityId: "mod1",
           lotId: "lot1",
@@ -1397,12 +1467,12 @@ describe("EventRegistrationsService", () => {
           aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 2 } }),
         },
       };
-      const serviceCap = new EventRegistrationsService(
+      const serviceCap = guestService(
         prismaCap as never,
         { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
       );
       await expect(
-        serviceCap.createPublicRegistration("retiro-demo", {
+        serviceCap.createMemberRegistration(guest, "retiro-demo", {
           displayName: "Demo",
           modalityId: "mod1",
           lotId: "lot1",
@@ -1464,13 +1534,13 @@ describe("EventRegistrationsService", () => {
         },
         ...withTx(tx),
       };
-      const service = new EventRegistrationsService(
+      const service = guestService(
         prisma as never,
         { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
       );
 
       await expect(
-        service.createPublicRegistration("retiro-demo", {
+        service.createMemberRegistration(guest, "retiro-demo", {
           displayName: "Menor Demo",
           modalityId: "mod1",
           lotId: "lot1",
@@ -1482,7 +1552,7 @@ describe("EventRegistrationsService", () => {
         }),
       ).rejects.toThrow(/guardianAcknowledged/);
 
-      const created = await service.createPublicRegistration("retiro-demo", {
+      const created = await service.createMemberRegistration(guest, "retiro-demo", {
         displayName: "Menor Demo",
         modalityId: "mod1",
         lotId: "lot1",

@@ -146,7 +146,7 @@ export function ManagementReports() {
     }
   }
 
-  return <AppShell active={null} meta="Relatórios">
+  return <AppShell active="relatorios" meta="Relatórios">
     <OperationalReports
       notice={notice}
       membership={membership}

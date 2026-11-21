@@ -4,6 +4,8 @@
  *
  * This file is intentionally usable in both tests and client components.
  */
+import { withBasePath } from "./paths";
+
 export type PublishedNews = {
   id: string;
   slug: string;
@@ -62,14 +64,26 @@ const text = (value: unknown): string | null =>
   typeof value === "string" && value.trim() ? value.trim() : null;
 
 const optionalText = (value: unknown): string | null => text(value);
+/** Capas sintéticas de DEV. Foto oficial e caminho relativo fora desta pasta ficam de fora. */
+const LOCAL_QA_IMAGE = /^\/images\/(?:qa|synthetic)\/[a-z0-9][a-z0-9/_-]*\.(?:svg|jpe?g|png|webp)$/;
 const safeImage = (value: unknown): string | null => {
   const raw = text(value);
   if (!raw) return null;
+  if (raw.startsWith("/")) {
+    if (raw.includes("\\") || raw.includes("..") || raw.includes("?") || raw.includes("#") || raw.includes("//")) return null;
+    return LOCAL_QA_IMAGE.test(raw) ? raw : null;
+  }
   try {
     const url = new URL(raw);
     return url.protocol === "https:" ? raw : null;
   } catch { return null; }
 };
+
+/** Prefixa só mídia local. URL https permanece como foi publicada. */
+export function resolvePublishedImage(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith("/images/") ? withBasePath(url) : url;
+}
 const isoDate = (value: unknown): string | null => {
   const raw = text(value);
   if (!raw || !/^\d{4}-\d{2}-\d{2}T/.test(raw)) return null;
@@ -173,21 +187,27 @@ export function formatPortalDate(value: string): { day: string; month: string; d
   };
 }
 
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
+}
+
 /** Do not silently request localhost from the deployed static website. */
 export function publicApiBase(configured: string | undefined): string | null {
-  const value = configured?.trim().replace(/\/+$/, "");
+  const value = configured ? withoutTrailingSlashes(configured.trim()) : null;
   if (!value) return null;
   try {
     const url = new URL(value);
-    if (url.protocol === "https:") return url.href.replace(/\/+$/, "");
-    if (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)) return url.href.replace(/\/+$/, "");
+    if (url.protocol === "https:") return withoutTrailingSlashes(url.href);
+    if (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)) return withoutTrailingSlashes(url.href);
   } catch { /* invalid environment configuration */ }
   return null;
 }
 
 export async function fetchPublished<T>(
   path: string, parse: (value: unknown) => T | null,
-  { signal, apiUrl }: { signal?: AbortSignal; apiUrl?: string } = {},
+  { signal, apiUrl, timeoutMs = 8_000 }: { signal?: AbortSignal; apiUrl?: string; timeoutMs?: number } = {},
 ): Promise<T> {
   // Opt-in prevents published-looking seed/demo records from reaching production.
   if (apiUrl === undefined && process.env.NEXT_PUBLIC_PORTAL_LIVE_ENABLED !== "true") {
@@ -199,7 +219,7 @@ export async function fetchPublished<T>(
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   signal?.addEventListener("abort", onAbort, { once:true });
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(base + path, {
       method:"GET", mode:"cors", credentials:"omit", cache:"no-store",

@@ -15,6 +15,10 @@ export function isBankStatementAccount(account: { code: string; type: string; ac
   return account.active !== false && account.type === "ASSET" && /^1\.1\.(?:02$|10\.)/.test(account.code);
 }
 
+export function isMercadoPagoStatementAccount(account: { code: string; type: string; name: string; active?: boolean }): boolean {
+  return isBankStatementAccount(account) && /\bmercado[\s_-]+pago\b/i.test(account.name);
+}
+
 export const LEDGER_ENTRY_STATUSES = [
   "DRAFT",
   "PENDING_APPROVAL",

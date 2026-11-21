@@ -12,6 +12,8 @@ function setup() {
   const records = {
     person: { findFirst: jest.fn().mockResolvedValue({ id: "person-test", displayName: "Pessoa de teste", email: "person@example.test" }) },
     ministry: { findFirst: jest.fn().mockResolvedValue(null) },
+    ministryRosterModule: { findFirst: jest.fn().mockResolvedValue(null) },
+    ministryRosterModuleLeader: { upsert: jest.fn() },
     role: { findUnique: jest.fn().mockResolvedValue({ id: "role-test" }) },
     user: {
       create: jest.fn().mockResolvedValue({ id: "user-test", email: "person@example.test", status: "DISABLED" }),
@@ -26,10 +28,12 @@ function setup() {
     auditLog: { create: jest.fn() },
   };
   const db = { ...records, $transaction: jest.fn(async (work: (tx: typeof records) => Promise<unknown>) => work(records)) };
+  const issued = {
+    token: "x".repeat(43), tokenHash: "hashed-only", expiresAt: new Date("2026-11-13T12:00:00Z"),
+  };
   const invitations = {
-    newToken: jest.fn().mockReturnValue({
-      token: "x".repeat(43), tokenHash: "hashed-only", expiresAt: new Date("2026-11-13T12:00:00Z"),
-    }),
+    newToken: jest.fn().mockReturnValue(issued),
+    issueToken: jest.fn().mockResolvedValue(issued),
     deliver: jest.fn().mockResolvedValue({ sent: true, email: "person@example.test", expiresInHours: 24 }),
   };
   const auth = { requireRecentMfa: jest.fn().mockResolvedValue(undefined) };
@@ -59,6 +63,27 @@ describe("Acessos da congregação — convite ao titular", () => {
     expect(db.user.findMany).not.toHaveBeenCalled();
   });
 
+  it("ordena nomes acentuados antes de dividir a lista de acessos em páginas", async () => {
+    const { db, controller } = setup();
+    const filler = Array.from({ length: 24 }, (_, index) => ({ id: `b-${index}`, displayName: `Bruno ${String(index).padStart(2, "0")}` }));
+    const accounts = [
+      ...filler,
+      { id: "zelia", displayName: "Zélia" },
+      { id: "erica", displayName: "Érica" },
+      { id: "alvaro", displayName: "  álvaro  " },
+    ].map(person => ({
+      id: person.id, person, email: "qa@example.test", status: "ACTIVE", accessInvitations: [], grants: [],
+    }));
+    db.user.findMany.mockImplementation(async ({ where }) => accounts.filter(account => !where.id || where.id.in.includes(account.id)));
+
+    const first = await controller.list(admin);
+    expect(first.accounts.map(account => account.id)).toEqual(["alvaro", ...filler.map(person => person.id)]);
+    expect(first.hasMore).toBe(true);
+    const second = await controller.list(admin, "", "2");
+    expect(second.accounts.map(account => account.id)).toEqual(["erica", "zelia"]);
+    expect(second.hasMore).toBe(false);
+  });
+
   it("cria somente conta desativada e hash de convite na mesma transação, nunca senha do administrador", async () => {
     const { db, controller, invitations } = setup();
     const result = await controller.create(admin, { personId: "person-test", email: "PERSON@example.test", role: "MEMBRO" });
@@ -85,6 +110,27 @@ describe("Acessos da congregação — convite ao titular", () => {
       ministryId: "other-ministry",
     })).rejects.toBeInstanceOf(NotFoundException);
     expect(db.user.create).not.toHaveBeenCalled();
+  });
+
+  it("cria liderança de módulo com o grant do Atmosfera e rejeita módulos fora dele", async () => {
+    const { db, controller } = setup();
+    const profile = {
+      personId: "person-test", email: "person@example.test", role: "LIDER_MODULO" as const,
+      ministryId: "atmosfera", moduleId: "recepcao",
+    };
+    db.ministry.findFirst.mockResolvedValue({ slug: "atmosfera", leaderPersonId: "responsavel" });
+    await expect(controller.create(admin, profile)).rejects.toBeInstanceOf(NotFoundException);
+    expect(db.user.create).not.toHaveBeenCalled();
+
+    db.ministryRosterModule.findFirst.mockResolvedValue({ id: "recepcao" });
+    await controller.create(admin, profile);
+    expect(db.ministryRosterModule.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "recepcao", ministryId: "atmosfera" },
+    }));
+    expect(db.role.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { code: "LIDER_MINISTERIO" } }));
+    expect(db.ministryRosterModuleLeader.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: { ...pilot, ministryId: "atmosfera", moduleId: "recepcao", personId: "person-test" },
+    }));
   });
 
   it("falha fechado sem provedor de e-mail, sem tocar na base", async () => {

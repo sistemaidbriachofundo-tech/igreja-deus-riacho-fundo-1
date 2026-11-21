@@ -12,6 +12,7 @@ coverage/
 *.tsbuildinfo
 
 # Env & secrets
+_prod_deploy/
 .env
 .env.hml
 .env.local

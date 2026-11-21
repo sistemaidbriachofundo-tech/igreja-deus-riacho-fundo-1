@@ -1,9 +1,11 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState } from "react";
-import { AppNavLink, AppShell, usePersonaAccess, UIIcon } from "../AppShell";
-import { apiGet, loadStoredToken } from "../../lib/api";
+import { AppShell, usePersonaAccess, UIIcon } from "../AppShell";
+import { apiGet, clearToken, loadStoredToken } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
+import { SecretaryDossier } from "../SecretaryDossier";
 import { PageHeader } from "../ui/PageHeader";
 import { Modal } from "../ui/Modal";
 import ui from "../ui/ui.module.css";
@@ -17,7 +19,9 @@ const periods = {
 type Period = keyof typeof periods;
 type Birthday = { id: string; name: string; date: string; phone: string | null; contactKind: "PERSON" | "GUARDIAN"; contactBlocked: boolean; daysAway?: number };
 
-function BirthdayList() {
+const dossierHistoryKey = "idbrfBirthdayDossier";
+
+function BirthdayList({ pastoral }: { pastoral: boolean }) {
   const access = usePersonaAccess();
   const permitted = access.kind === "ready" && access.roles.some(role => ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"].includes(role));
   const [period, setPeriod] = useState<Period>("today");
@@ -25,6 +29,16 @@ function BirthdayList() {
   const [fault, setFault] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [greeting, setGreeting] = useState<{ name: string; phone: string; text: string; example: boolean } | null>(null);
+  const [dossierId, setDossierId] = useState<string | null>(null);
+  useEffect(() => {
+    const update = () => {
+      const id: unknown = window.history.state?.[dossierHistoryKey];
+      setDossierId(typeof id === "string" ? id : null);
+    };
+    update();
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
+  }, []);
   useEffect(() => {
     if (!permitted) return;
     const token = loadStoredToken();
@@ -33,13 +47,26 @@ function BirthdayList() {
     setBirthdays(undefined);
     setFault("");
     void apiGet<{ birthdays: Birthday[] }>("/reports/birthdays?period=" + period, token)
-      .then(result => { if (active) setBirthdays(result.birthdays); })
+      .then(result => { if (active) setBirthdays(sortByName(result.birthdays, person => person.name)); })
       .catch(error => { if (active) setFault(dasError(error)); });
     return () => { active = false; };
   }, [period, permitted, attempt]);
+  if (access.kind === "preview" && pastoral) return <PageHeader appearance="workspace" heading="h1" title="Aniversariantes" />;
   if (!permitted) return null;
 
+  const token = loadStoredToken();
+  function closeDossier() {
+    setDossierId(null);
+    if (window.history.state?.[dossierHistoryKey]) window.history.back();
+  }
+
   return <div className={s.page}>
+    {dossierId && token && <SecretaryDossier key={dossierId} token={token}
+      personId={dossierId} households={[]} canEdit={false} canReadDocuments
+      credential={{ known: false }} onClose={closeDossier} onSessionExpired={() => {
+        clearToken();
+        window.location.reload();
+      }} />}
     <PageHeader appearance="workspace" heading="h1" title="Aniversariantes"
       description="Veja quem faz aniversário e prepare uma mensagem em nome da igreja." />
     <Modal open={Boolean(greeting)} appearance="workspace" title={greeting ? "Mensagem para " + greeting.name : "Mensagem de aniversário"} onClose={() => setGreeting(null)}>
@@ -56,7 +83,11 @@ function BirthdayList() {
         <h2 className={s.directoryTitle}><span className={s.directoryMark}><UIIcon name="birthday" size={22} /></span> Agenda de aniversários</h2>
         <div className={ui.workspaceChoices} role="group" aria-label="Período dos aniversários">
           {(Object.keys(periods) as Period[]).map(key => <button type="button" key={key} aria-pressed={period === key}
-            onClick={() => setPeriod(key)}><UIIcon name={periods[key].icon} size={16} />{periods[key].label}</button>)}
+            onClick={() => {
+              if (period === key) return;
+              setBirthdays(undefined);
+              setPeriod(key);
+            }}><UIIcon name={periods[key].icon} size={16} />{periods[key].label}</button>)}
         </div>
         {birthdays && birthdays.length > 0 && <span className={s.resultCount} role="status">
           {birthdays.length} {birthdays.length === 1 ? "aniversariante" : "aniversariantes"}
@@ -84,7 +115,11 @@ function BirthdayList() {
             </time></div>
           </div>
           <div className={s.personActions}>
-          <AppNavLink className={ui.workspaceQuiet} href={"/app/secretaria/?pessoa=" + encodeURIComponent(person.id)}><UIIcon name="badge" size={17} />Abrir ficha<span className={s.srOnly}> de {person.name}</span></AppNavLink>
+          <button type="button" className={ui.workspaceQuiet} onClick={event => {
+            event.currentTarget.focus({ preventScroll: true });
+            window.history.pushState({ ...window.history.state, [dossierHistoryKey]: person.id }, "");
+            setDossierId(person.id);
+          }}><UIIcon name="badge" size={17} />Abrir ficha<span className={s.srOnly}> de {person.name}</span></button>
           {(phone || example) && !person.contactBlocked
             ? <button type="button" className={s.whatsapp} onClick={() => setGreeting({ name: person.name, phone: example ? "" : phone, text: message, example })}>
               <UIIcon name="whatsapp" size={20} /> {example ? "Testar WhatsApp" : guardian ? "WhatsApp do responsável" : "Mensagem no WhatsApp"}
@@ -97,6 +132,9 @@ function BirthdayList() {
   </div>;
 }
 
-export function BirthdaysDesk() {
-  return <AppShell active="secretaria" meta="Aniversariantes" secretarySection="aniversariantes"><BirthdayList /></AppShell>;
+export function BirthdaysDesk({ pastoral = false }: { pastoral?: boolean }) {
+  return <AppShell active={pastoral ? "pastoral" : "secretaria"} meta="Aniversariantes"
+    pastoralSection={pastoral ? "aniversariantes" : undefined} secretarySection={pastoral ? undefined : "aniversariantes"}>
+    <BirthdayList pastoral={pastoral} />
+  </AppShell>;
 }

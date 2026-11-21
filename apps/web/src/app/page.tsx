@@ -1,11 +1,23 @@
 import { PublicPage } from "../components/PublicPortal";
 import { PortalCinematicHero } from "../components/PortalCinematicHero";
+import { PortalBroadcastSection } from "../components/PortalBroadcast";
 import { PublishedAgenda } from "../components/PublicLiveSections";
 import { PortalVideoShowcase } from "../components/PortalVideoShowcase";
 import { PublishedSiteLayoutProvider } from "../lib/use-published-site-layout";
 import { PortalIdentityPhoto } from "../components/PortalIdentityPhoto";
 import { PortalFaithGallery } from "../components/PortalFaithGallery";
+import { PublishedFriendshipGroups } from "../components/PublishedFriendshipGroups";
+import { withBasePath } from "../lib/paths";
+import { instagramUrl } from "../lib/portal-content";
 import s from "./home-institutional.module.css";
+
+const purposes = [
+  { title: "Adoração", description: "Celebrar a Deus.", photo: "fe-adoracao" },
+  { title: "Comunhão", description: "Pertencer e caminhar juntos.", photo: "fe-comunhao" },
+  { title: "Discipulado", description: "Crescer na Palavra e na fé.", photo: "fe-discipulado-provisorio", objectPosition: "center 30%" },
+  { title: "Serviço", description: "Cuidar das pessoas.", photo: "fe-servico" },
+  { title: "Evangelização e missão", description: "Compartilhar a esperança.", photo: "fe-missao-provisorio", objectPosition: "center 30%" },
+];
 
 export default function HomePage() {
   return (
@@ -13,6 +25,7 @@ export default function HomePage() {
       <main id="conteudo" tabIndex={-1}>
         <PublishedSiteLayoutProvider>
           <PortalCinematicHero />
+          <PortalBroadcastSection />
           <section className={s.identity} id="quem-somos" aria-labelledby="identity-title">
             <div className={s.identityContent}>
               <figure className={s.identityFigure}>
@@ -32,20 +45,37 @@ export default function HomePage() {
             <div className={s.agendaWrap}><PublishedAgenda /></div>
           </section>
           <PortalVideoShowcase />
-          <section className={s.purposes} aria-labelledby="purposes-title">
+          <section className={s.purposes} id="propositos" aria-labelledby="purposes-title">
             <div className={s.purposesWrap}>
               <div className={s.purposesIntro}>
-                <span>PORQUE EXISTIMOS</span>
+                <span>Por que existimos</span>
                 <h2 id="purposes-title">Nossa fé se transforma em cuidado.</h2>
                 <p>Os cinco propósitos da igreja dão direção à forma como nos reunimos, cuidamos e servimos.</p>
               </div>
-              <ol className={s.purposesList}>
-                <li><span>01</span><strong>Adoração</strong><small>Celebrar a Deus.</small></li>
-                <li><span>02</span><strong>Comunhão</strong><small>Pertencer e caminhar juntos.</small></li>
-                <li><span>03</span><strong>Discipulado</strong><small>Crescer na Palavra e na fé.</small></li>
-                <li><span>04</span><strong>Serviço</strong><small>Cuidar das pessoas.</small></li>
-                <li><span>05</span><strong>Evangelização e missão</strong><small>Compartilhar a esperança.</small></li>
-              </ol>
+              <ul className={s.purposesList} role="list">
+                {purposes.map(({ title, description, photo, objectPosition }) => (
+                  <li key={photo}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={withBasePath(`/images/${photo}.webp`)} width={512} height={512} style={{ objectPosition }} loading="lazy" decoding="async" alt="" />
+                    <div className={s.purposeCopy}>
+                      <h3>{title}</h3>
+                      <p>{description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+          <PublishedFriendshipGroups />
+          <section className={s.social} aria-labelledby="social-title">
+            <div className={s.socialContent}>
+              <div>
+                <h2 id="social-title">Siga as nossas redes sociais</h2>
+                <p>Acompanhe os avisos e os encontros da igreja pelo Instagram.</p>
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer">Instagram · @idbriacho_ <span aria-hidden="true">↗</span></a>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={withBasePath("/images/instagram-riacho.webp")} width={920} height={920} loading="lazy" decoding="async" alt="Perfil @idbriacho_ aberto no Instagram em um celular" />
             </div>
           </section>
         </PublishedSiteLayoutProvider>

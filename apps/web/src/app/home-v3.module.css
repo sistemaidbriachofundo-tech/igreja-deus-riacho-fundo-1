@@ -5,7 +5,7 @@
 .heroIntro{display:flex;gap:11px;align-items:center;letter-spacing:.19em;font-weight:800;font-size:10px;color:#e5c58b;margin-bottom:36px}
 .dot{width:8px;height:8px;border-radius:50%;background:#ecc387;box-shadow:0 0 0 6px #ecc38724}
 .bar{color:#8c8f8e;margin:0 4px}
-.heroContent h1{font-size:clamp(55px,7.5vw,115px);font-family:Montserrat,Arial,sans-serif;letter-spacing:-.083em;line-height:.99;font-weight:820;max-width:1050px;margin:0 0 32px}
+.heroContent h1{font-size:clamp(55px,7.5vw,115px);font-family:var(--site-font);letter-spacing:-.083em;line-height:.99;font-weight:820;max-width:1050px;margin:0 0 32px}
 .heroContent h1 em{font-style:normal;color:#ecc58d;white-space:nowrap}
 .heroContent>p{font-size:clamp(16px,1.55vw,21px);line-height:1.65;color:#e4e8e7;max-width:545px;margin:0 0 36px}
 .heroButtons{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
@@ -20,7 +20,7 @@
 .statement{padding:120px clamp(24px,6vw,90px) 0;background:#f7f6f2;color:#14262c}
 .statementLabel{display:flex;justify-content:space-between;border-top:1px solid #b9c2bd;padding-top:20px;max-width:1360px;margin:auto;gap:20px;font-size:11px;font-weight:800;letter-spacing:.17em;color:#6a786f}
 .statementLayout{max-width:1360px;margin:80px auto 90px;display:grid;grid-template-columns:.85fr 1.15fr;gap:clamp(40px,6vw,110px);align-items:center}
-.statementCopy h2,.ministriesHeading h2,.agendaIntro h2{font:800 clamp(43px,5vw,81px)/1.09 Montserrat,Arial,sans-serif;letter-spacing:-.076em;margin:0 0 25px}
+.statementCopy h2,.ministriesHeading h2,.agendaIntro h2{font:800 clamp(43px,5vw,81px)/1.09 var(--site-font);letter-spacing:-.076em;margin:0 0 25px}
 .statementCopy h2 em,.ministriesHeading h2 em,.agendaIntro h2 em,.visit h2 em{font-style:normal;color:#ae7c39}
 .statementCopy p{color:#5a696e;font-size:17px;line-height:1.87;max-width:480px;margin:0 0 30px}
 .underlined{display:inline-flex;align-items:center;gap:26px;border-bottom:1px solid #9c7948;padding:12px 0;color:#21363d;font-size:13px;font-weight:800}
@@ -46,7 +46,7 @@
 .atmosferaOverlay{position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(10,27,34,.95) 0%,rgba(10,27,34,.72) 48%,rgba(10,27,34,.20) 100%),linear-gradient(0deg,#081a2299,transparent 40%)}
 .atmosferaInner{width:100%;max-width:1500px;margin:auto;padding:115px clamp(24px,6vw,90px);position:relative}
 .atmosferaLabel{color:#f0ca8e;font-size:11px;letter-spacing:.18em;font-weight:800;display:block;margin-bottom:35px}
-.atmosfera h2{font:800 clamp(52px,6.7vw,100px)/1.02 Montserrat,Arial,sans-serif;letter-spacing:-.077em;max-width:840px;margin:0 0 27px}
+.atmosfera h2{font:800 clamp(52px,6.7vw,100px)/1.02 var(--site-font);letter-spacing:-.077em;max-width:840px;margin:0 0 27px}
 .atmosfera h2 em{font-style:normal;color:#f0ca8e}
 .atmosfera p{color:#f3f5f2;font-size:17px;line-height:1.8;max-width:510px;margin:0 0 29px}
 .lightAction{display:inline-flex;align-items:center;gap:25px;background:#f4c984;color:#17282b!important;padding:18px 22px;font-weight:800;font-size:13px;border-radius:4px;transition:transform .2s}
@@ -60,7 +60,7 @@
 .agenda>p{max-width:1360px;margin:17px auto 0;color:#6c797e}
 .visit{padding:115px clamp(24px,6vw,90px);background:#e9bd76;color:#1b2c32}
 .visit>span{display:block;font-weight:800;font-size:11px;letter-spacing:.2em;margin-bottom:32px}
-.visit h2{font:820 clamp(52px,6.7vw,103px)/1.03 Montserrat,Arial,sans-serif;letter-spacing:-.08em;max-width:1200px;margin:0 0 42px}
+.visit h2{font:820 clamp(52px,6.7vw,103px)/1.03 var(--site-font);letter-spacing:-.08em;max-width:1200px;margin:0 0 42px}
 .visit h2 em{color:#fff7e9}
 .visitActions{display:flex;gap:40px;flex-wrap:wrap}
 .visitActions a{display:inline-flex;gap:30px;align-items:center;font-weight:850;color:#15272c;border-bottom:1px solid #34433b;padding:12px 0;font-size:14px}
@@ -103,17 +103,17 @@
    shared tokens align with the hero without changing the editorial content. */
 .statement{background:var(--idb-surface,#f7f4ed);padding-top:clamp(90px,9vw,145px)}
 .statementCopy h2{font-weight:720;letter-spacing:-.064em}
-.statementCopy h2 em{color:#9d703a;font-family:Georgia,serif;font-weight:600}
+.statementCopy h2 em{color:#9d703a;font-family:var(--site-font);font-weight:600}
 .statementPhoto img{border-radius:var(--idb-rad-lg,28px) var(--idb-rad-lg,28px) var(--idb-rad-lg,28px) 120px;box-shadow:0 25px 52px #10272f26}
 .values{border-color:#ccbca5}
 .ministries{background:#eee8de;padding-top:clamp(92px,9vw,138px)}
-.ministriesHeading h2 em{font-family:Georgia,serif;font-weight:600}
+.ministriesHeading h2 em{font-family:var(--site-font);font-weight:600}
 .atmosfera{min-height:750px;background:#0b2428}
-.atmosfera h2 em{font-family:Georgia,serif}
+.atmosfera h2 em{font-family:var(--site-font)}
 .atmosferaOverlay{background:linear-gradient(90deg,#051c20ed,#0b29319c 50%,#102b3566),linear-gradient(0deg,#09252bcb,transparent 52%)}
 .visit{background:radial-gradient(ellipse at 85% 5%,#ffebc9 0%,transparent 44%),linear-gradient(130deg,#efca8b,#d9a761)}
 .visit h2{font-weight:730}
-.visit h2 em{font-family:Georgia,serif;color:#fffaf1}
+.visit h2 em{font-family:var(--site-font);color:#fffaf1}
 .visitActions :global(a):first-child{border-radius:var(--idb-rad-pill,999px);border:0;padding:15px 22px}
 .visitActions>a:last-child{align-self:center}
 @media(max-width:630px){.atmosfera{min-height:650px}.visitActions>a:last-child{align-self:flex-start}}

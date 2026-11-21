@@ -15,7 +15,8 @@ function useLoadApprovedLayout(active: boolean): SiteLayout {
   const [layout, setLayout] = useState<SiteLayout>(defaultSiteLayout);
 
   useEffect(() => {
-    if (!active || process.env.NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED !== "true") return;
+    if (!active || (process.env.NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED !== "true"
+      && process.env.NEXT_PUBLIC_HML_ENABLED !== "true")) return;
     const base = publicApiBase(process.env.NEXT_PUBLIC_API_URL);
     if (!base || (base.includes("localhost") && process.env.NODE_ENV !== "development")) return;
 

@@ -75,6 +75,7 @@ const DESK: Record<DeskKey, { title: string; lede: string }> = {
 };
 
 const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
+  pastoral: "Abrir mesa pastoral",
   membros: "Consultar pessoas",
   secretaria: "Ver admissões",
   carteirinha: "Abrir carteirinha",
@@ -90,7 +91,7 @@ const TASK_LABEL: Partial<Record<AppNavKey, string>> = {
 const PRIMARY_TASKS: Record<DeskKey, readonly AppNavKey[]> = {
   PLATFORM_ADMIN: ["membros", "secretaria", "carteirinha", "ministerios"],
   SECRETARIA: ["membros", "secretaria", "carteirinha"],
-  PASTOR: ["secretaria", "membros", "ministerios"],
+  PASTOR: ["pastoral", "ministerios"],
   TESOURARIA: ["tesouraria"],
   LIDER_MINISTERIO: ["ministerios"],
   EDITOR_SITE: ["site"],
@@ -534,9 +535,9 @@ function Metric({ label, value, href, hint, icon, loading }: { label: string; va
     </>
   );
   if (!href || value === null) {
-    return <article className={s.metric} aria-busy={value === null && loading}>{body}</article>;
+    return <article className={s.metric} data-icon={icon} aria-busy={value === null && loading}>{body}</article>;
   }
-  return <AppNavLink className={s.metric} href={href}>{body}</AppNavLink>;
+  return <AppNavLink className={s.metric} href={href} data-icon={icon}>{body}</AppNavLink>;
 }
 
 function RowList({ rows, hrefFor, empty }: {
@@ -718,11 +719,11 @@ export function PersonaBoard() {
   if (staff || leader) {
     if (staff && (summaryReady || loading)) {
       metrics.push(
-        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
-        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
+        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: deskKey === "PASTOR" ? "/app/pastoral/admissoes/#consultar-pessoa" : "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
+        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: deskKey === "PASTOR" ? "/app/pastoral/admissoes/" : "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
       );
       if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
-        metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, hint: "Acompanhamentos abertos" });
+        metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, href: "/app/pastoral/", hint: "Acompanhamentos abertos" });
       }
     }
     if (summaryReady || loading) {
@@ -764,11 +765,12 @@ export function PersonaBoard() {
 
       <nav className={s.actions} aria-label="Ações rápidas">
           {tasks.map(task => (
-            <AppNavLink key={task.key} href={task.href}>{TASK_LABEL[task.key]}</AppNavLink>
+            <AppNavLink key={task.key} href={task.href}><UIIcon name={task.icon} size={17} />{TASK_LABEL[task.key]}</AppNavLink>
           ))}
+          {memberView && <AppNavLink href="/app/servir/meu-espaco/#pesquisa-de-servico"><UIIcon name="calendar" size={17} /> Disponibilidade</AppNavLink>}
+          {memberView && <a href="#trilha-da-conexao"><UIIcon name="layers" size={17} /> Trilha da Conexão</a>}
       </nav>
 
-      {memberView && <ConnectionJourney compact />}
       {(staff || leader) && <WorkspacePriorities showService={leader} showDecisions={staff} revision={reload} />}
 
       {visibleMetrics.length > 0 && (
@@ -782,9 +784,6 @@ export function PersonaBoard() {
           {mesa.assignments ? (pendingAssignments.length > 0
             ? <RowList rows={pendingAssignments} hrefFor={() => "/app/servir/meu-espaco/"} empty="" />
             : <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>) : !loading && <p className={s.empty}>Não foi possível consultar sua escala.</p>}
-          {!loading && mesa.card?.state === "absent" && (
-            <AppNavLink className={s.inlineLink} href="/app/membros/carteirinha/">Sua carteirinha ainda não foi emitida</AppNavLink>
-          )}
         </Panel>}
 
         <Panel title="Agenda" action={<AppNavLink href="/#agenda">Ver agenda</AppNavLink>}>
@@ -878,6 +877,7 @@ export function PersonaBoard() {
           </Panel>
         )}
       </div>
+      {memberView && <ConnectionJourney compact />}
     </div>
   );
 }

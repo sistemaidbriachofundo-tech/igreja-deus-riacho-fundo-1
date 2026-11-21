@@ -35,6 +35,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { RequireAccess } from "../auth/decorators/require-access.decorator";
+import { mockBankProbe } from "./bank-adapters";
 import { FinanceService } from "./finance.service";
 
 class CreateAccountBody {
@@ -170,6 +171,26 @@ class CreateExpenseBody {
   @IsOptional()
   @IsString()
   costCenterId?: string;
+}
+
+class MarkPayablePaidBody {
+  @IsIn(["CASH", "EXTERNAL", "EXISTING"])
+  method!: "CASH" | "EXTERNAL" | "EXISTING";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  paidOn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  cashAccountId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  settlementId?: string;
 }
 
 class MatchBankLineBody {
@@ -314,6 +335,19 @@ export class FinanceController {
     return this.finance.listBankAdapters();
   }
 
+  @Post("bank-adapters/:code/mock-probe")
+  mockProbe(@Param("code") code: string) {
+    try {
+      return mockBankProbe(code);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("INVALID_BANK_ADAPTER")) {
+        throw new BadRequestException("Adaptador bancário desconhecido.");
+      }
+      throw new BadRequestException("A sonda mock aceita BRB, Sicoob ou o adaptador MOCK. Nenhum banco foi contactado.");
+    }
+  }
+
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("accounts")
   listAccounts(@CurrentUser() user: AuthUser) {
@@ -400,6 +434,11 @@ export class FinanceController {
     return this.finance.listEntries(user, status);
   }
 
+  @Post("entries/:entryId/mark-paid")
+  markPayablePaid(@CurrentUser() user: AuthUser, @Param("entryId") entryId: string, @Body() body: MarkPayablePaidBody) {
+    return this.finance.markPayablePaid(user, entryId, body);
+  }
+
   @Post("entries")
   createEntry(@CurrentUser() user: AuthUser, @Body() body: CreateEntryBody) {
     return this.finance.createEntry(user, body);
@@ -415,8 +454,16 @@ export class FinanceController {
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PASTOR)
   @RequireAccess({ resource: "ledger", action: "approve" })
   @Get("expense-approvals")
-  listExpenseApprovals(@CurrentUser() user: AuthUser) {
-    return this.finance.listExpenseApprovals(user);
+  listExpenseApprovals(
+    @CurrentUser() user: AuthUser,
+    @Query("despesa") focusId?: string,
+    @Query("history") history?: string,
+  ) {
+    return this.finance.listExpenseApprovals(
+      user,
+      typeof focusId === "string" && focusId.length <= 128 ? focusId : undefined,
+      history === "1",
+    );
   }
 
   @Get("entries/:entryId")
@@ -542,6 +589,19 @@ export class FinanceController {
     @UploadedFile() file?: { originalname: string; buffer: Buffer },
   ) {
     return this.finance.uploadBankStatement(user, accountId, file);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Post("imports/mercado-pago")
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 1 },
+  }))
+  uploadMercadoPagoReleases(
+    @CurrentUser() user: AuthUser,
+    @Body("accountId") accountId: string,
+    @UploadedFile() file?: { originalname: string; buffer: Buffer },
+  ) {
+    return this.finance.uploadBankStatement(user, accountId, file, "CSV");
   }
 
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)

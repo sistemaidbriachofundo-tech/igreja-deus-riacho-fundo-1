@@ -13,6 +13,10 @@ export type TreasuryEntry = {
   firstApprovedByUserId: string | null;
   approvalFlow?: "TREASURER_THEN_PASTOR" | "DUAL_APPROVAL";
   costCenterId: string | null;
+  fundId?: string | null;
+  payableAccountId?: string | null;
+  payment?: { settlementId: string; paidOn: string; method: "CASH" | "EXTERNAL" | "EXISTING" };
+  reversalOfEntryId?: string | null;
   reconciliationId: string | null;
   lines: TreasuryEntryLine[];
 };
@@ -61,6 +65,7 @@ export function summarizeTreasury(
   const counted = new Set(countedEntryIds);
   const accountById = new Map(accounts.map(account => [account.id, account]));
   const balances = new Map<string, number>();
+  const periodAmounts = new Map<string, { incoming: number; outgoing: number }>();
   const recognized: Record<TreasuryChannel, number> = { pix: 0, cartao: 0, dinheiro: 0, outras: 0 };
   const reconciled: Record<"cartao" | "dinheiro", number> = { cartao: 0, dinheiro: 0 };
   let cardFees = 0;
@@ -86,6 +91,12 @@ export function summarizeTreasury(
       if (!account) continue;
       const signed = line.side === "DEBIT" ? line.cents : -line.cents;
       balances.set(account.id, (balances.get(account.id) ?? 0) + signed);
+      if (inPeriod && account.type === "ASSET" && /^1\.1(\.|$)/.test(account.code)) {
+        const amounts = periodAmounts.get(account.id) ?? { incoming: 0, outgoing: 0 };
+        if (line.side === "DEBIT") amounts.incoming += line.cents;
+        else amounts.outgoing += line.cents;
+        periodAmounts.set(account.id, amounts);
+      }
       if (inPeriod && account.type === "REVENUE") {
         const channel = channelByRevenue.get(account.code) ?? "outras";
         recognized[channel] -= signed;
@@ -97,8 +108,9 @@ export function summarizeTreasury(
     }
   }
   const banks = accounts.filter(account => account.type === "ASSET" && /^1\.1(\.|$)/.test(account.code))
-    .map(account => ({ ...account, balance: balances.get(account.id) ?? 0 }))
-    .filter(account => /^1\.1\.10\./.test(account.code) || account.balance !== 0);
+    .map(account => ({ ...account, balance: balances.get(account.id) ?? 0,
+      ...(periodAmounts.get(account.id) ?? { incoming: 0, outgoing: 0 }) }))
+    .filter(account => /^1\.1\.(?:10\.|02$)/.test(account.code) || account.balance !== 0);
   const pending = {
     cartao: accounts.filter(account => account.code === "1.2.20.01").reduce((sum, account) => sum + (balances.get(account.id) ?? 0), 0),
     dinheiro: accounts.filter(account => account.code === "1.2.20.02").reduce((sum, account) => sum + (balances.get(account.id) ?? 0), 0),

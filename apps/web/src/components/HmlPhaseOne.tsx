@@ -1,5 +1,7 @@
 "use client";
 
+import { ECCLESIASTICAL_ROLES, sortByName, type EcclesiasticalRole } from "@idbrf/shared";
+
 import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type FormEvent } from "react";
@@ -10,12 +12,15 @@ import { PersonPortrait } from "./PersonPortrait";
 import { SecretaryDossier, credentialFromMemberships } from "./SecretaryDossier";
 import { PersonPhotoInput } from "./secretaria/PersonPhotoInput";
 import { savePersonPhoto } from "../lib/my-account";
-import { NewPersonIntake } from "./secretaria/NewPersonIntake";
+import { ECCLESIASTICAL_ROLE_LABELS, ECCLESIASTICAL_ROLE_TOTAL_LABELS } from "./secretaria/EcclesiasticalRoleFields";
+import { NewPersonIntake, type NewPersonProfile } from "./secretaria/NewPersonIntake";
 import { personUnder18 } from "./secretaria/new-person-intake-model";
+import { AdmissionDocuments } from "./secretaria/AdmissionDocuments";
+import { AdmissionRequirements } from "./secretaria/AdmissionRequirements";
 import { SecretaryDashboard } from "./secretaria/SecretaryDashboard";
 import { apiGet, apiPost, clearToken, isInvalidSession, loadStoredToken, type LoginResult } from "../lib/api";
 import { LoginScreen } from "./LoginScreen";
-import { readPanel } from "../lib/panel-read";
+import { clearPanelReads, readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
 import { Modal } from "./ui/Modal";
 import { useFeedback } from "./ui/FeedbackProvider";
@@ -24,7 +29,7 @@ import ui from "./ui/ui.module.css";
 import s from "./hml-phase-one.module.css";
 import { withBasePath } from "../lib/paths";
 
-type View = "overview" | "members" | "secretary" | "cards";
+type View = "overview" | "members" | "secretary" | "cards" | "pastoral";
 type SecretarySection = "resumo" | "pessoas" | "admissoes";
 type Role = "SECRETARIA" | "PASTOR" | "PLATFORM_ADMIN" | "MEMBRO";
 type AuthUser = LoginResult["user"];
@@ -35,10 +40,17 @@ type Membership = {
   notes: string | null;
   person: { id: string; displayName: string; email: string | null; status: string; householdId: string | null };
   activeCredentialId: string | null;
+  ecclesiasticalRoles?: EcclesiasticalRole[];
+  ministryLeader?: boolean;
 };
+function memberHasFunction(membership: Membership, role: EcclesiasticalRole) {
+  return Boolean(membership.ecclesiasticalRoles?.includes(role) || (role === "MINISTRY_LEADER" && membership.ministryLeader));
+}
+
 type Admission = {
   id: string;
   personId: string;
+  personName?: string | null;
   membershipId: string | null;
   status: string;
   modality: string | null;
@@ -99,6 +111,7 @@ function displayError(error: unknown): string {
   if (/E-mail já cadastrado/.test(error.message)) return "Já existe uma pessoa com este e-mail. Use Iniciar admissão para localizá-la.";
   if (/CREDENTIAL_NOT_ELIGIBLE|credentialEligible=false|admissão pastoral não aprovada/i.test(error.message)) return "A admissão ainda precisa de aprovação pastoral antes da emissão da carteirinha.";
   if (/Já existe carteirinha ativa/i.test(error.message)) return "Esta pessoa já possui uma carteirinha ativa. Abra a credencial existente antes de solicitar outra.";
+  if (/ADMISSION_DOCUMENTS_REQUIRED/.test(error.message)) return "Anexe os documentos marcados como obrigatórios antes de avançar.";
   if (/\(409\)|409/.test(error.message)) return "O registro entrou em conflito com uma alteração existente. Atualize os dados e confira a etapa atual.";
   return "Não foi possível concluir. Atualize a lista e tente novamente.";
 }
@@ -139,7 +152,7 @@ export function CredentialCards({
   CredentialPreview?: ComponentType<CredentialPreviewProps>;
   onToggle: (membership: Membership) => void;
 }) {
-  const active = memberships.filter(membership => membership.status === "ACTIVE");
+  const active = sortByName(memberships.filter(membership => membership.status === "ACTIVE"), row => row.person.displayName);
   if (active.length === 0) return <p className={s.empty}>Nenhuma pessoa ativa para emitir carteirinha.</p>;
   return (
     <div className={s.admissions}>
@@ -170,6 +183,7 @@ export function CredentialCards({
 }
 
 export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection = "resumo" }: HmlPhaseOneProps) {
+  const pastoralView = view === "pastoral";
   const { showFeedback } = useFeedback();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -185,11 +199,17 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(0);
   const [membershipStatus, setMembershipStatus] = useState("");
+  const [churchFunction, setChurchFunction] = useState<EcclesiasticalRole | null>(null);
   const [familyFilter, setFamilyFilter] = useState("");
   const [secretarySection, setSecretarySection] = useState<SecretarySection>(initialSecretarySection);
   const [showHistory, setShowHistory] = useState(false);
   const [admissionStage, setAdmissionStage] = useState("");
   const [admissionProtocol, setAdmissionProtocol] = useState("");
+  const [configureDocuments, setConfigureDocuments] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState("");
+  const [pastoralDecision, setPastoralDecision] = useState<"APPROVE" | "REJECT" | null>(null);
+  const [documentBusy, setDocumentBusy] = useState(false);
   const [admissionForm, setAdmissionForm] = useState<"existing" | "new" | null>(null);
   const [admissionPerson, setAdmissionPerson] = useState("");
   const [fichaId, setFichaId] = useState<string | null>(null);
@@ -199,7 +219,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const emptyNewProfile = () => ({
+  const emptyNewProfile = (): NewPersonProfile => ({
     address: "", birthDate: "", baptismDate: "", firstAttendedOn: "",
     weddingDate: "", sex: "", isMinor: false,
     legalGuardianPersonId: "", householdId: "", householdLabel: "",
@@ -219,6 +239,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       setFichaId(params.get("pessoa"));
       setAdmissionStage(params.get("etapa") ?? "");
       setAdmissionProtocol(params.get("protocolo") ?? "");
+      const role = params.get("funcao");
+      setChurchFunction(ECCLESIASTICAL_ROLES.find(option => option === role) ?? null);
       const status = params.get("situacao") ?? "";
       setMembershipStatus(["ACTIVE", "INACTIVE", "PENDING_ADMISSION", "TRANSFERRED"].includes(status) ? status : "");
     };
@@ -226,6 +248,20 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     window.addEventListener("popstate", readSection);
     return () => window.removeEventListener("popstate", readSection);
   }, [view, initialSecretarySection]);
+
+  useEffect(() => {
+    if (!pastoralView) return;
+    const readSelection = () => {
+      const params = new URLSearchParams(window.location.search);
+      const protocol = params.get("protocolo") ?? "";
+      setAdmissionProtocol(protocol);
+      setShowHistory(Boolean(protocol));
+      setFichaId(params.get("pessoa"));
+    };
+    readSelection();
+    window.addEventListener("popstate", readSelection);
+    return () => window.removeEventListener("popstate", readSelection);
+  }, [pastoralView]);
 
   useEffect(() => {
     if (view !== "members") return;
@@ -245,11 +281,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setUser(me);
     const secretaria = hasRole(me, "SECRETARIA") || hasRole(me, "PLATFORM_ADMIN");
     const staff = secretaria || hasRole(me, "PASTOR");
+    const readAdmissions = pastoralView ? hasRole(me, "PASTOR") || hasRole(me, "PLATFORM_ADMIN") : staff && view === "secretary";
+    const readMemberships = secretaria && view !== "overview" && !pastoralView;
     const settled = await Promise.allSettled([
-      secretaria && view !== "overview"
+      readMemberships
         ? readPanel(activeToken, "/memberships", () => apiGet<{ memberships: Membership[] }>("/memberships", activeToken), { fresh })
         : Promise.resolve({ memberships: [] as Membership[] }),
-      staff && view === "secretary"
+      readAdmissions
         ? readPanel(activeToken, "/admissions", () => apiGet<{ admissions: Admission[] }>("/admissions", activeToken), { fresh })
         : Promise.resolve({ admissions: [] as Admission[] }),
       secretaria && (view === "members" || view === "secretary")
@@ -263,8 +301,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     if (processes.status === "fulfilled") setAdmissions(processes.value.admissions);
     if (families.status === "fulfilled") { setHouseholds(families.value.households); setFamiliesLoaded(true); }
     setLoadedGroups(previous => ({
-      people: previous.people || (secretaria && view !== "overview" && people.status === "fulfilled"),
-      admissions: previous.admissions || (staff && view === "secretary" && processes.status === "fulfilled"),
+      people: previous.people || (readMemberships && people.status === "fulfilled"),
+      admissions: previous.admissions || (readAdmissions && processes.status === "fulfilled"),
     }));
     const complete = settled.every(item => item.status === "fulfilled");
     if (!complete) {
@@ -275,7 +313,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       });
     }
     return complete;
-  }, [view]);
+  }, [view, pastoralView]);
 
   useEffect(() => {
     const stored = loadStoredToken();
@@ -311,22 +349,31 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const householdById = useMemo(() => new Map(households.map(household => [household.id, household.label])), [households]);
   const pending = admissions.filter(admission => !CLOSED_ADMISSIONS.includes(admission.status));
   const q = query.trim().toLocaleLowerCase("pt-BR");
-  const filtered = memberships.filter(membership =>
+  const churchFunctionCounts = useMemo(() => {
+    const activeMembers = memberships.filter(row => row.status === "ACTIVE" && row.person.status === "ACTIVE");
+    return ECCLESIASTICAL_ROLES.map(role => ({
+      role,
+      total: loadedGroups.people ? activeMembers.filter(member => memberHasFunction(member, role)).length : null,
+    }));
+  }, [memberships, loadedGroups.people]);
+  const filtered = sortByName(memberships.filter(membership =>
+    (!churchFunction || (membership.status === "ACTIVE" && membership.person.status === "ACTIVE" && memberHasFunction(membership, churchFunction))) &&
     (!familyFilter || membership.person.householdId === familyFilter) &&
     (!membershipStatus || membership.status === membershipStatus) &&
     [membership.person.displayName, membership.person.email ?? "", label(membership.status)].join(" ").toLocaleLowerCase("pt-BR").includes(q)
-  );
+  ), membership => membership.person.displayName);
   const selectedFamily = households.find(household => household.id === familyFilter);
 
-  const filteredAdmissions = (showHistory ? admissions : pending).filter(admission => {
+  const admissionName = (admission: Admission) => membershipByPerson.get(admission.personId)?.person.displayName ?? admission.personName;
+  const filteredAdmissions = sortByName((showHistory ? admissions : pending).filter(admission => {
+    if (pastoralView && admission.currentStep !== "pastor") return false;
     if (admissionStage && admission.currentStep !== admissionStage) return false;
     if (admissionProtocol && admission.id !== admissionProtocol) return false;
-    const member = membershipByPerson.get(admission.personId);
-    return [member?.person.displayName ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
-  });
+    return [admissionName(admission) ?? "", admission.modality ?? "", admission.status].join(" ").toLocaleLowerCase("pt-BR").includes(q);
+  }), admissionName);
 
   const showsPeople = view === "members" || (view === "secretary" && secretary && secretarySection === "pessoas");
-  const showsAdmissions = view === "secretary" && (!secretary || secretarySection === "admissoes");
+  const showsAdmissions = pastoralView || (view === "secretary" && (!secretary || secretarySection === "admissoes"));
   const resultCount = showsAdmissions ? filteredAdmissions.length : filtered.length;
   const visiblePage = Math.min(listPage, Math.max(0, Math.ceil(resultCount / PAGE_SIZE) - 1));
   const firstRow = visiblePage * PAGE_SIZE;
@@ -490,6 +537,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
             weddingDate: newProfile.weddingDate || undefined,
             firstAttendedOn: newProfile.firstAttendedOn || undefined,
             sex: newProfile.sex || undefined,
+            ecclesiasticalRoles: newProfile.ecclesiasticalRoles,
             isMinor: computedMinor,
             legalGuardianPersonId: newProfile.legalGuardianPersonId || undefined,
             householdId: newProfile.householdId || undefined,
@@ -514,19 +562,33 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     }
   }
 
-  function nextAdmission(admission: Admission) {
-    if (!token) return;
+  async function nextAdmission(admission: Admission, selectedModality?: string) {
+    if (!token || busy) return;
+    setReviewError("");
     const stage = admission.currentStep;
     if (stage === "pastor" && !pastor) return;
     if (stage !== "pastor" && !secretary) return;
-    void run(
+    return run(
       () => apiPost("/admissions/" + encodeURIComponent(admission.id) + "/advance", token, {
         completeStep: stage,
         decision: stage === "pastor" || stage === "secretaria" ? "APPROVE" : undefined,
-        modality: stage === "modality" ? "BATISMO" : undefined,
+        modality: stage === "modality" ? selectedModality : undefined,
       }),
       stage === "pastor" ? "Aprovação pastoral registrada." : "Etapa registrada.",
+      setReviewError,
     );
+  }
+
+  async function submitPastoralDecision(event: FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault();
+    if (!token || !pastor || busy || !pastoralDecision) return;
+    setReviewError("");
+    const decision = pastoralDecision;
+    const reason = String(new FormData(event.currentTarget).get("reason") ?? "").trim();
+    const saved = await run(() => apiPost(`/admissions/${encodeURIComponent(id)}/advance`, token, {
+      completeStep: "pastor", decision, ...(decision === "REJECT" && reason ? { rejectionReason: reason } : {}),
+    }), decision === "APPROVE" ? "Aprovação pastoral registrada." : "Recusa pastoral registrada.", setReviewError);
+    if (saved) closeReview();
   }
 
   function issueCard(membership: Membership) {
@@ -540,13 +602,21 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     void run(() => apiPost("/credentials/revoke/" + encodeURIComponent(credentialId), token), "Credencial revogada.");
   }
 
+  const reviewedAdmission = reviewId ? admissions.find(admission => admission.id === reviewId) : undefined;
+  function closeReview() {
+    setReviewId(null);
+    setReviewError("");
+    setPastoralDecision(null);
+  }
+
   const names: Record<View, string> = {
     overview: "Início",
     members: "Secretaria",
     secretary: "Secretaria",
     cards: "Carteirinhas",
+    pastoral: "Admissões pastorais",
   };
-  const activeNav = view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
+  const activeNav = pastoralView ? "pastoral" : view === "overview" ? "visao" : view === "members" || view === "secretary" ? "secretaria" : "carteirinha";
 
   if (!isAdminEnabled()) {
     return (
@@ -572,7 +642,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   }
 
   return (
-    <AppShell active={activeNav} meta={names[view]} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
+    <AppShell active={activeNav} meta={names[view]} pastoralSection={pastoralView ? "admissoes" : undefined} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
         <div className={s.workspace}>
             {view !== "overview" && (
@@ -580,9 +650,13 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 appearance="workspace"
                 heading="h1"
                 title={names[view]}
-                description={view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
+                description={pastoralView ? "Consulte as fichas e os protocolos que chegaram à etapa pastoral." : view === "secretary" ? "Pessoas, famílias e admissões" : view === "cards" ? "Emissão e situação das carteirinhas" : undefined}
                 actions={<>
                   {view === "members" && secretary && <AppNavLink className={ui.workspacePrimary} href="/app/secretaria/admissoes/?acao=cadastrar#cadastro">Cadastrar pessoa</AppNavLink>}
+                  {view === "secretary" && secretary && secretarySection === "pessoas" &&
+                    <AppNavLink className={ui.workspaceQuiet} href="/app/secretaria/pessoas/mapa/">
+                      <UIIcon name="map" size={17} /> Mapa da Membresia
+                    </AppNavLink>}
                   {view === "secretary" && secretary && <button type="button" className={ui.workspacePrimary} onClick={() => startSecretaryAction(secretarySection === "admissoes" ? "existing" : "new")}>
                     <UIIcon name="plus" size={17} /> {secretarySection === "admissoes" ? "Iniciar admissão" : "Cadastrar pessoa"}
                   </button>}
@@ -618,6 +692,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 <SecretaryDashboard token={token} revision={summaryRevision}
                   households={familiesLoaded ? households.length : null}
                   credentials={loadedGroups.people ? memberships.filter(row => Boolean(row.activeCredentialId)).length : null}
+                  churchFunctionCounts={churchFunctionCounts}
                   onOpenPerson={setFichaId} />
                 <section className={s.admissionPipeline} aria-labelledby="secretaria-pipeline-title">
                   <header className={s.pipelineHead}>
@@ -657,11 +732,11 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoas por nome ou e-mail" />
                   </div>
 
-                  {secretary && <div className={s.peopleFilters}>
+                  {secretary && <div className={s.peopleFilters} role="group" aria-label="Filtrar cadastro de pessoas">
                     <div className={ui.workspaceChoices} role="group" aria-label="Situação das pessoas">
                       {[["", "Todas"], ["ACTIVE", "Ativas"], ["INACTIVE", "Inativas"], ["PENDING_ADMISSION", "Em admissão"], ["TRANSFERRED", "Transferidos"]].map(([status, title]) =>
                         <button key={status} type="button" aria-pressed={membershipStatus === status}
-                          onClick={() => { setMembershipStatus(status); setListPage(0); }}><UIIcon name={status === "ACTIVE" ? "check" : status === "PENDING_ADMISSION" ? "clock" : status === "TRANSFERRED" ? "arrow" : status === "INACTIVE" ? "close" : "people"} size={15} />{title}</button>
+                          onClick={() => { setMembershipStatus(status); setChurchFunction(null); setListPage(0); }}><UIIcon name={status === "ACTIVE" ? "check" : status === "PENDING_ADMISSION" ? "clock" : status === "TRANSFERRED" ? "arrow" : status === "INACTIVE" ? "close" : "people"} size={15} />{title}</button>
                       )}
                     </div>
                     <label className={s.familySelect}>Família
@@ -671,32 +746,48 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       </select>
                     </label>
                   </div>}
-                  {secretary && (familyFilter || query || membershipStatus) && <div className={s.activeFilters}>
-                    <span>{selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
-                    <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); updateQuery(""); }}>Limpar filtros</button>
+                  {secretary && (familyFilter || query || membershipStatus || churchFunction) && <div className={s.activeFilters}>
+                    <span>{churchFunction ? ECCLESIASTICAL_ROLE_TOTAL_LABELS[churchFunction] : selectedFamily ? `Família: ${selectedFamily.label}` : "Filtros ativos"}</span>
+                    <button type="button" onClick={() => { setFamilyFilter(""); setMembershipStatus(""); setChurchFunction(null); updateQuery(""); }}>Limpar filtros</button>
                   </div>}
+                  {secretary && <section className={s.churchFunctionSummary} aria-labelledby="church-functions-title">
+                    <h3 id="church-functions-title">Funções eclesiásticas</h3>
+                    <p>Totais de membros ativos nesta congregação.</p>
+                    <div className={s.churchFunctionCards}>
+                      {churchFunctionCounts.map(({ role, total }) => (
+                        <button type="button" key={role} aria-pressed={churchFunction === role} disabled={!loadedGroups.people}
+                          onClick={() => { setChurchFunction(churchFunction === role ? null : role); setMembershipStatus(""); setListPage(0); }}>
+                          <span>{ECCLESIASTICAL_ROLE_TOTAL_LABELS[role]}</span>
+                          <strong>{total === null ? "—" : total.toLocaleString("pt-BR")}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </section>}
                   {!secretary ? <p className={s.empty}>Use a busca acima para consultar uma ficha.</p> : !loadedGroups.people ? (
                     <p className={s.empty} role="status">{checking ? "Carregando cadastros…" : "Não foi possível carregar os cadastros. Use Atualizar para tentar novamente."}</p>
                   ) : (
-                    <div className={s.tableWrap}>
-                      <table>
-                        <thead>
-                          <tr><th>Pessoa</th><th>Família</th><th>Situação</th><th>Contato</th><th></th></tr>
-                        </thead>
-                        <tbody>
-                          {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => (
-                            <tr key={membership.person.id}>
-                              <td data-label="Pessoa"><div className={s.personIdentity}><PersonPortrait name={membership.person.displayName} size="small" /><strong>{membership.person.displayName}</strong></div></td>
-                              <td data-label="Família">{membership.person.householdId ? householdById.get(membership.person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</td>
-                              <td data-label="Situação"><span className={s.statusPill} data-status={membership.status}>{label(membership.status)}</span></td>
-                              <td data-label="Contato">{membership.person.email ?? "Não informado"}</td>
-                              <td data-label="Ficha">
-                                <button type="button" className={s.openFicha} onClick={() => setFichaId(membership.person.id)} aria-label={"Ver ficha de " + membership.person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div>
+                      <ul className={s.peopleResults} aria-label="Pessoas encontradas">
+                        {filtered.slice(firstRow, firstRow + PAGE_SIZE).map(membership => {
+                          const { person, status } = membership;
+                          const roles = ECCLESIASTICAL_ROLES.filter(role => memberHasFunction(membership, role));
+                          return <li key={person.id}>
+                            <div className={s.personIdentity}>
+                              <PersonPortrait name={person.displayName} size="small" />
+                              <div>
+                                <strong>{person.displayName}</strong>
+                                {person.email && <small>{person.email}</small>}
+                                {roles.length > 0 && <small className={s.personFunctions}>{roles.map(role => ECCLESIASTICAL_ROLE_LABELS[role]).join(" · ")}</small>}
+                              </div>
+                            </div>
+                            <div className={s.peopleMembership}>
+                              <span className={s.statusPill} data-status={status}>{label(status)}</span>
+                              <small>{person.householdId ? householdById.get(person.householdId) ?? "Vínculo não encontrado" : "Sem vínculo familiar"}</small>
+                            </div>
+                            <button type="button" className={s.openFicha} onClick={() => setFichaId(person.id)} aria-label={"Ver ficha de " + person.displayName}>Ver ficha <UIIcon name="arrow" size={14}/></button>
+                          </li>;
+                        })}
+                      </ul>
                       {filtered.length === 0 && !error && <p className={s.empty}>Nenhuma pessoa encontrada.</p>}
                       <ListPager total={filtered.length} page={visiblePage} onChange={setListPage} />
                     </div>
@@ -717,40 +808,40 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
               <div>
                 <section className={`${s.panel} ${s.directoryPanel}`} aria-busy={checking}>
                   <div className={s.panelHeading}>
-                    <div className={s.panelHeadingCopy}><span className={s.sectionMark}><UIIcon name="layers" size={22} /></span><div><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Processos da secretaria"}</span></div></div>
+                    <div className={s.panelHeadingCopy}><span className={s.sectionMark}><UIIcon name="layers" size={22} /></span><div><h2>Protocolos de admissão</h2><span role="status">{loadedGroups.admissions ? `${filteredAdmissions.length.toLocaleString("pt-BR")} ${filteredAdmissions.length === 1 ? "protocolo encontrado" : "protocolos encontrados"}` : "Carregando protocolos"}</span></div></div>
                     <WorkspaceSearch className={s.directorySearch} value={query} onChange={event => updateQuery(event.target.value)} placeholder="Buscar processo" aria-label="Buscar admissão" />
                   </div>
                   <div className={ui.workspaceChoices} role="group" aria-label="Filtrar protocolos">
-                    {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href="/app/secretaria/admissoes/">Limpar seleção</AppNavLink>}
+                    {(admissionStage || admissionProtocol) && <AppNavLink className={ui.workspaceSecondary} href={pastoralView ? "/app/pastoral/admissoes/" : "/app/secretaria/admissoes/"}
+                      onNavigate={pastoralView ? () => { setAdmissionProtocol(""); setShowHistory(false); setListPage(0); } : undefined}>Limpar seleção</AppNavLink>}
                     <button type="button" aria-pressed={!showHistory} onClick={() => { setShowHistory(false); setListPage(0); }}><UIIcon name="clock" size={15} />Em andamento</button>
                     <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(true); setListPage(0); }}><UIIcon name="layers" size={15} />Todos</button>
+                    {secretary && !pastoralView && <button type="button" onClick={() => setConfigureDocuments(true)}>Documentos por modalidade</button>}
                   </div>
                   {!staff ? <p className={s.empty}>Seu perfil não consulta os processos.</p> : !loadedGroups.admissions ? (
                     <p className={s.empty} role="status">{checking ? "Carregando admissões…" : "Não foi possível carregar as admissões. Use Atualizar para tentar novamente."}</p>
                   ) : (
                     <div className={s.admissions}>
                       {filteredAdmissions.slice(firstRow, firstRow + PAGE_SIZE).map(admission => {
-                        const canAct = admission.currentStep === "pastor" ? pastor : secretary;
                         const done = CLOSED_ADMISSIONS.includes(admission.status);
-                        const personName = membershipByPerson.get(admission.personId)?.person.displayName ?? "Pessoa em admissão";
+                        const personName = admissionName(admission) ?? "Pessoa em admissão";
                         const stepLabel = admission.currentStep === "pastor"
                           ? "decisão pastoral"
                           : admission.currentStep === "secretaria"
                             ? "secretaria"
                             : "documentação";
                         return (
-                          <article key={admission.id} className={s.admission}>
+                          <article key={admission.id} className={s.admission} data-step={done ? undefined : admission.currentStep}>
                             <div className={s.admissionIdentity}>
                               <PersonPortrait name={personName} size="small" />
                               <div><strong>{personName}</strong>
                                 <small><span className={s.statusPill} data-status={admission.status}>{label(admission.status)}</span> {label(admission.modality ?? "")}</small>
+                                {!done && <small className={s.admissionStage}>Etapa atual · {stepLabel}</small>}
                               </div>
                             </div>
                             <div className={s.admissionActions}>
-                              <AppNavLink className={s.openFicha} href={`/app/secretaria/pessoas/?pessoa=${encodeURIComponent(admission.personId)}`} aria-label={"Abrir ficha de " + personName}>Abrir ficha</AppNavLink>
-                              <button type="button" disabled={busy || done || !canAct} onClick={() => nextAdmission(admission)}>
-                                {done ? "Concluído" : !canAct ? "Ação reservada" : "Concluir " + stepLabel}
-                              </button>
+                              <button type="button" className={ui.workspaceSecondary}
+                                aria-label={"Revisar protocolo de " + personName} onClick={() => { setReviewError(""); setReviewId(admission.id); }}>Revisar protocolo</button>
                             </div>
                           </article>
                         );
@@ -760,7 +851,64 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     </div>
                   )}
                 </section>
+                {pastoralView && <section id="consultar-pessoa" className={s.panel} aria-labelledby="pastoral-person-title">
+                  <h2 id="pastoral-person-title">Consultar ficha de uma pessoa</h2>
+                  <div className={s.personLookupContent}>
+                    <PersonPicker token={token} roles={user.grants.map(grant => grant.roleCode)} label="Procurar ficha por nome" value={searchedPerson} onChange={setSearchedPerson} />
+                    <button type="button" className={s.openFicha} disabled={!searchedPerson} onClick={() => { setFichaId(searchedPerson); setSearchedPerson(""); }}>Abrir ficha selecionada</button>
+                  </div>
+                </section>}
               </div>
+            )}
+            {configureDocuments && token && secretary && !pastoralView &&
+              <AdmissionRequirements token={token} onClose={() => setConfigureDocuments(false)} />}
+            {reviewedAdmission && token && !fichaId && (
+              <Modal open appearance="workspace" size="wide" title="Revisão do protocolo"
+                description={admissionName(reviewedAdmission) ?? "Pessoa em admissão"}
+                onClose={() => { if (!busy && !documentBusy) closeReview(); }}>
+                <div className={s.protocolReview}>
+                  {reviewError && <p role="alert">{reviewError}</p>}
+                  <dl className={s.protocolFacts}>
+                    <div><dt>Modalidade</dt><dd>{label(reviewedAdmission.modality ?? "")}</dd></div>
+                    <div><dt>Situação</dt><dd>{label(reviewedAdmission.status)}</dd></div>
+                    <div><dt>Registro</dt><dd>{formatDate(reviewedAdmission.createdAt)}</dd></div>
+                  </dl>
+                  <div><button type="button" className={ui.workspaceSecondary} disabled={documentBusy || busy}
+                    onClick={() => setFichaId(reviewedAdmission.personId)}>Abrir ficha da pessoa</button></div>
+                  <AdmissionDocuments key={reviewedAdmission.id} token={token} admissionId={reviewedAdmission.id} onBusy={setDocumentBusy}
+                    canUpload={secretary && !pastoralView && !CLOSED_ADMISSIONS.includes(reviewedAdmission.status) && ["modality", "documents", "secretaria"].includes(reviewedAdmission.currentStep)} />
+                  {!CLOSED_ADMISSIONS.includes(reviewedAdmission.status) && reviewedAdmission.currentStep === "pastor" && pastor && (
+                    pastoralDecision ? <form className={s.form} onSubmit={event => void submitPastoralDecision(event, reviewedAdmission.id)}>
+                      <h3>{pastoralDecision === "APPROVE" ? "Confirmar aprovação pastoral" : "Confirmar recusa da admissão"}</h3>
+                      {pastoralDecision === "REJECT" && <label>Motivo da recusa (opcional)<textarea name="reason" maxLength={500} rows={3} disabled={busy} /></label>}
+                      <div className={s.protocolActions}>
+                        <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => { setReviewError(""); setPastoralDecision(null); }}>Voltar à revisão</button>
+                        <button type="submit" className={ui.workspacePrimary} disabled={busy || documentBusy}>{busy ? "Registrando…" : "Confirmar decisão"}</button>
+                      </div>
+                    </form> : <div className={s.protocolActions}>
+                      <button type="button" className={ui.workspaceSecondary} disabled={busy || documentBusy} onClick={() => setPastoralDecision("REJECT")}>Recusar admissão</button>
+                      <button type="button" className={ui.workspacePrimary} disabled={busy || documentBusy} onClick={() => setPastoralDecision("APPROVE")}>Aprovar admissão</button>
+                    </div>
+                  )}
+                  {!CLOSED_ADMISSIONS.includes(reviewedAdmission.status) && reviewedAdmission.currentStep !== "pastor" && secretary && !pastoralView && (
+                    <form className={s.form} onSubmit={async event => {
+                      event.preventDefault();
+                      const chosen = new FormData(event.currentTarget).get("reviewModality");
+                      if (await nextAdmission(reviewedAdmission, typeof chosen === "string" ? chosen : undefined)) closeReview();
+                    }}>
+                      {reviewedAdmission.currentStep === "modality" && <label>Modalidade da admissão
+                        <select name="reviewModality" required defaultValue={reviewedAdmission.modality ?? ""} disabled={busy || documentBusy}>
+                          <option value="">Selecione a modalidade</option>
+                          {["BATISMO", "TRANSFERENCIA", "RECONCILIACAO", "ACLAMACAO", "OUTRO"].map(value => <option key={value} value={value}>{label(value)}</option>)}
+                        </select></label>}
+                      <div><button type="submit" className={ui.workspacePrimary} disabled={busy || documentBusy}>
+                        {reviewedAdmission.currentStep === "secretaria" ? "Encaminhar à Pastoral"
+                          : reviewedAdmission.currentStep === "modality" ? "Registrar modalidade" : "Concluir etapa de documentação"}
+                      </button></div>
+                    </form>
+                  )}
+                </div>
+              </Modal>
             )}
             {secretary && view === "secretary" && admissionForm && (
               <Modal
@@ -833,7 +981,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                 personId={fichaId}
                 pendingPhoto={pendingPhoto}
                 households={households}
-                canEdit={secretary}
+                canEdit={secretary && !pastoralView}
                 canReadDocuments={staff}
                 credential={credentialFromMemberships(secretary, memberships, fichaId)}
                 onClose={() => {
@@ -844,6 +992,10 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     url.searchParams.delete("pessoa");
                     window.history.replaceState(null, "", url);
                   }
+                }}
+                onMembershipRolesSaved={(membershipId, ecclesiasticalRoles) => {
+                  clearPanelReads();
+                  setMemberships(rows => rows.map(row => row.id === membershipId ? { ...row, ecclesiasticalRoles } : row));
                 }}
                 onPersonSaved={person => {
                   setMemberships(rows => rows.map(row => row.person.id === person.id ? { ...row, person } : row));

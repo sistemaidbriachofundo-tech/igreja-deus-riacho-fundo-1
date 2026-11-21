@@ -1040,6 +1040,7 @@ describe("MinistriesService", () => {
 
     const prisma = {
       roster: { findFirst },
+      ministry: { findFirst: jest.fn().mockResolvedValue(ministryRow) },
       rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest
         .fn()
@@ -1105,6 +1106,7 @@ describe("MinistriesService", () => {
     const service = new MinistriesService(
       {
         roster: { findFirst },
+        ministry: { findFirst: jest.fn().mockResolvedValue(ministryRow) },
         rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
         $transaction: jest.fn(),
       } as never,
@@ -1124,6 +1126,62 @@ describe("MinistriesService", () => {
     await expect(service.closeRoster(lider, "r1")).rejects.toBeInstanceOf(
       ConflictException,
     );
+  });
+
+  it("publica os rascunhos do mês e grava os avisos em uma transação", async () => {
+    const drafts = [
+      { id: "r1", title: "Recepção", serviceAt, slots: [{ assignments: [
+        { id: "a1", personId: "p1", partnerPersonId: "p2", status: "PENDING" },
+      ] }] },
+      { id: "r2", title: "Conexão", serviceAt, slots: [{ assignments: [] }] },
+    ];
+    const tx = {
+      ministry: { findFirst: jest.fn().mockResolvedValue(ministryRow) },
+      roster: { findMany: jest.fn().mockResolvedValueOnce(drafts).mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      auditLog: { createMany: jest.fn() },
+      rosterNotice: { createMany: jest.fn().mockResolvedValue({ count: 2 }) },
+    };
+    const transaction = jest.fn(async (fn: (db: typeof tx) => unknown) => fn(tx));
+    const service = new MinistriesService({ $transaction: transaction } as never,
+      { getPilotChurch: async () => pilot } as never);
+
+    await expect(service.publishRosterMonth(lider, "m1", "2026-11")).resolves.toEqual({ publishedRosters: 2 });
+    expect(transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
+    expect(tx.roster.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      ministryId: "m1", organizationId: pilot.organizationId, churchId: pilot.churchId, status: "DRAFT",
+      slots: { some: {} }, serviceAt: { gte: new Date("2026-11-01T03:00:00Z"), lt: new Date("2026-12-01T03:00:00Z") },
+    }) }));
+    expect(tx.roster.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["r1", "r2"] }, status: "DRAFT" }, data: { status: "PUBLISHED" } });
+    expect(tx.auditLog.createMany.mock.calls[0][0].data).toHaveLength(2);
+    expect(tx.rosterNotice.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [
+      expect.objectContaining({ id: "published:a1:p1" }), expect.objectContaining({ id: "published:a1:p2" }),
+    ] }));
+
+    await expect(service.publishRosterMonth(lider, "m1", "2026-11")).resolves.toEqual({ publishedRosters: 0 });
+    expect(tx.roster.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.rosterNotice.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("nega publicação ao líder de módulo e rejeita conflito externo antes de alterar o mês", async () => {
+    const drafts = [{ id: "r1", title: "Recepção", serviceAt, slots: [{ assignments: [
+      { id: "a1", personId: "p1", partnerPersonId: "p2", status: "PENDING" },
+    ] }] }];
+    const tx = {
+      ministry: { findFirst: jest.fn().mockResolvedValue({ ...ministryRow, slug: "atmosfera" }) },
+      roster: { findMany: jest.fn().mockResolvedValue(drafts), updateMany: jest.fn() },
+      rosterAssignment: { findMany: jest.fn().mockResolvedValue([
+        { personId: "p3", partnerPersonId: "p2", slot: { roster: { serviceAt } } },
+      ]) },
+    };
+    const service = new MinistriesService({ $transaction: async (fn: (db: typeof tx) => unknown) => fn(tx) } as never,
+      { getPilotChurch: async () => pilot } as never);
+    const moduleLeader = { ...lider, personId: "p-lider-recepcao" };
+    await expect(service.publishRosterMonth(moduleLeader, "m1", "2026-11")).rejects.toBeInstanceOf(ForbiddenException);
+    expect(tx.roster.findMany).not.toHaveBeenCalled();
+    await expect(service.publishRosterMonth(lider, "m1", "2026-11")).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.roster.updateMany).not.toHaveBeenCalled();
   });
 
   it("blocks addSlot on PUBLISHED and mutations on CLOSED", async () => {

@@ -67,27 +67,32 @@ export async function renderCredentialPdf(
     doc.on("error", reject);
   });
 
-  doc
-    .fontSize(11)
-    .fillColor("#4A2612")
-    .text(input.churchName, { align: "left", width: 200 });
-  doc.moveDown(0.4);
-  doc.fontSize(16).fillColor("#1a1a1a").text(input.displayName, { width: 200 });
-  doc.moveDown(0.3);
-  doc
-    .fontSize(9)
-    .fillColor("#555555")
-    .text(`Emitida: ${input.issuedAt.toISOString().slice(0, 10)}`, {
-      width: 200,
-    });
-  doc.moveDown(0.2);
-  doc
-    .fontSize(8)
-    .fillColor("#777777")
-    .text("Escaneie para verificar a carteirinha.", { width: 200 });
+  doc.rect(0, 0, 360, 220).fill("#f3f9f5");
+  doc.rect(0, 0, 224, 220).fill("#164a47");
+  doc.rect(0, 207, 224, 13).fill("#287365");
+  const portrait = validJpegPortrait(input.photo);
+  doc.fontSize(9).fillColor("#bfe5d6").text("CARTEIRINHA DE MEMBRO", 22, 24, { width: 180, lineBreak: false });
+  doc.fontSize(11).fillColor("#f4fbf7").text(input.churchName, 22, 42, { width: 180, height: 40, ellipsis: true });
+  doc.fontSize(17).fillColor("#ffffff").text(input.displayName, 88, 90, {
+    width: 115, height: 68, ellipsis: true,
+  });
+  doc.fontSize(9).fillColor("#d2efe3").text(`Emitida em ${input.issuedAt.toISOString().slice(0, 10).split("-").reverse().join("/")}`,
+    22, 181, { width: 180, lineBreak: false });
 
-  doc.image(qrPng, 240, 40, { width: 96, height: 96 });
-  if (input.photo) doc.image(input.photo, 24, 112, { fit: [80, 83] });
+  doc.roundedRect(22, 88, 56, 69, 6).fill("#dcefe7");
+  if (portrait) {
+    doc.image(portrait, 23, 89, { fit: [54, 67], align: "center", valign: "center" });
+  } else {
+    doc.fontSize(16).fillColor("#164a47").text(portraitInitials(input.displayName), 22, 112, {
+      width: 56, align: "center", lineBreak: false,
+    });
+  }
+
+  doc.fontSize(10).fillColor("#204f47").text("VERIFICAÇÃO", 236, 24, { width: 112, align: "center" });
+  doc.image(qrPng, 242, 49, { width: 100, height: 100 });
+  doc.fontSize(8).fillColor("#355c55").text("Escaneie para verificar a carteirinha.", 234, 162, {
+    width: 116, align: "center",
+  });
 
   doc.end();
   const pdf = await done;
@@ -108,6 +113,18 @@ export async function renderCredentialPdf(
   }
 
   return pdf;
+}
+
+function validJpegPortrait(photo?: Buffer): Buffer | undefined {
+  if (!photo || photo.length < 3 || photo.length > 192 * 1024) return undefined;
+  if (photo[0] !== 0xff || photo[1] !== 0xd8 || photo[2] !== 0xff) return undefined;
+  return photo;
+}
+
+function portraitInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return [words[0]?.charAt(0), words.length > 1 ? words.at(-1)?.charAt(0) : ""]
+    .filter(Boolean).join("").toLocaleUpperCase("pt-BR") || "ID";
 }
 
 function assertPdfTextSafe(value: string, field: string): void {

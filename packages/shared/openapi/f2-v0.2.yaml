@@ -3821,12 +3821,12 @@ paths:
         "404":
           description: Não publicado / inexistente
 
-  /public/events/{slug}/registrations:
+  /member-events/{slug}/registrations:
     post:
-      tags: [public]
+      tags: [events]
       x-implementation: implemented
-      summary: Inscrição pública (rótulos sintéticos; RF-022 opções; rejeita email/cpf/telefone)
-      security: []
+      summary: Inscrever-se como membro ou convidado autenticado
+      security: [{ bearerAuth: [] }]
       parameters:
         - name: slug
           in: path
@@ -3854,7 +3854,14 @@ paths:
         "201":
           description: Inscrição criada (PENDING_PAYMENT ou CONFIRMED se lote gratuito; guardian PENDING se menor)
         "400":
-          description: Capacidade/lote/opções/PII/guardian
+          description: Dados da inscrição, lote, capacidade ou autorização inválidos
+        "401":
+          description: Sessão ausente ou inválida
+        "403":
+          description: Conta sem acesso a eventos nesta congregação
+
+  /public/events/{slug}/registrations:
+    $ref: '#/paths/~1member-events~1{slug}~1registrations'
 
   /public/registrations/{checkInCode}:
     get:

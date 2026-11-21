@@ -97,11 +97,16 @@ export function MinistryOverview({ token }: { token: string }) {
             <ul className={s.directoryList} aria-label="Ministérios da congregação">
               {filteredRows?.map(({ ministry, people, schedules }) => {
                 const title = ministryPanelTitle(ministry);
+                const leaders = people?.filter(person => person.role === "LIDER" && person.status === "ATIVO").map(person => person.displayName) ?? [];
+                const names = leaders.length > 0 ? leaders : ministry.leadership?.map(leader => leader.displayName) ?? [];
                 const count = schedules?.filter(row => row.status === "PUBLISHED" || row.status === "DRAFT").length;
                 return <li key={ministry.id} className={s.directoryRow}>
                   <AppNavLink className={s.directoryName} href={ministryHref(ministry.id, "visao")}>
                     <span className={s.directoryIcon}><UIIcon name={ministry.slug === "atmosfera" ? "family" : "layers"} size={22} /></span>
-                    <strong>{title}</strong><UIIcon name="chevron" size={16} />
+                    <span className={s.directoryIdentity}>
+                      <strong>{title}</strong>
+                      {names.length > 0 && <small>Liderança · {names.join(", ")}</small>}
+                    </span><UIIcon name="chevron" size={16} />
                   </AppNavLink>
                   <div className={s.directoryActions}>
                     <AppNavLink className={ui.workspaceQuiet} href={ministryHref(ministry.id, "integrantes")} aria-label={`Equipe ${people?.length ?? "—"} · ${title}`}>

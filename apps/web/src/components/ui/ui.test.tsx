@@ -37,8 +37,7 @@ describe("tokens de contraste", () => {
     for (const value of Object.values(dsColor)) {
       expect(css.toLowerCase()).toContain(value.toLowerCase());
     }
-    expect(css).toContain("Montserrat");
-    expect(css).toContain("Inter");
+    expect(css).toContain("--site-font");
     expect(css).toContain("min-width: 768px");
     expect(css).toContain("min-width: 1440px");
     expect(css).toContain("min-height: 2.75rem");

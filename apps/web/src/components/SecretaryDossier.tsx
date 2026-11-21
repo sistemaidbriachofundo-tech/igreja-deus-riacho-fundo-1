@@ -1,5 +1,7 @@
 "use client";
 
+import type { EcclesiasticalRole } from "@idbrf/shared";
+
 import { useEffect, useId, useReducer, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { usePersonaAccess } from "./AppShell";
@@ -35,6 +37,7 @@ type Props = {
   credential: CredentialView;
   onClose: () => void;
   onPersonSaved?: (person: PersonRecord) => void;
+  onMembershipRolesSaved?: (membershipId: string, roles: EcclesiasticalRole[]) => void;
   onHouseholdCreated?: (household: HouseholdOption) => void;
   onSessionExpired: () => void;
 };
@@ -51,6 +54,7 @@ export function SecretaryDossier({
   credential,
   onClose,
   onPersonSaved,
+  onMembershipRolesSaved,
   onHouseholdCreated,
   onSessionExpired,
 }: Props) {
@@ -144,6 +148,7 @@ export function SecretaryDossier({
       return;
     }
     if (saved.person) onPersonSaved?.(saved.person);
+    if (saved.membershipRoles) onMembershipRolesSaved?.(saved.membershipRoles.id, saved.membershipRoles.roles);
     dispatch({ type: "save-ok", person: saved.person });
     const reloaded = await reload("after-save", started);
     showFeedback(reloaded
@@ -158,6 +163,7 @@ export function SecretaryDossier({
       state.form.displayName !== state.baseline.displayName ||
       state.form.email !== state.baseline.email ||
       state.form.notes !== state.baseline.notes ||
+      state.form.ecclesiasticalRoles?.join() !== state.baseline.ecclesiasticalRoles?.join() ||
       state.form.address !== state.baseline.address ||
       state.form.birthDate !== state.baseline.birthDate ||
       state.form.firstAttendedOn !== state.baseline.firstAttendedOn ||

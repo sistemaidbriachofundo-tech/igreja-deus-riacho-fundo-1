@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { isBankStatementAccount } from "@idbrf/shared";
+import { isBankStatementAccount, isMercadoPagoStatementAccount } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiPost, apiPostFormJson } from "../lib/api";
 import { dasError, formatBRL } from "../lib/das-operations";
 import { statementCashEffect, type TreasuryAccount, type TreasuryEntry } from "../lib/treasury-overview";
@@ -71,9 +71,10 @@ export function TreasuryBankStatements({ token, accounts, entries, canReconcile,
   const [failure, setFailure] = useState("");
   const [visible, setVisible] = useState(25);
   const [open, setOpen] = useState(false);
+  const [format, setFormat] = useState<"OFX" | "CSV">("OFX");
   const panelId = useId();
   const running = useRef(false);
-  const eligibleAccounts = accounts.filter(isBankStatementAccount);
+  const eligibleAccounts = accounts.filter(format === "CSV" ? isMercadoPagoStatementAccount : isBankStatementAccount);
 
   useEffect(() => {
     let current = true;
@@ -113,9 +114,9 @@ export function TreasuryBankStatements({ token, accounts, entries, canReconcile,
     const form = event.currentTarget;
     const data = new FormData(form);
     const file = data.get("file");
-    if (!(file instanceof File) || !file.size || !/\.ofx$/i.test(file.name)) {
+    if (!(file instanceof File) || !file.size || !(format === "CSV" ? /\.csv$/i : /\.ofx$/i).test(file.name)) {
       setNotice("");
-      setFailure("Selecione um arquivo .ofx exportado pelo banco.");
+      setFailure(format === "CSV" ? "Selecione o relatório de liberações em CSV." : "Selecione um arquivo .ofx exportado pelo banco.");
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
@@ -124,7 +125,7 @@ export function TreasuryBankStatements({ token, accounts, entries, canReconcile,
       return;
     }
     void run(async () => {
-      const imported = await apiPostFormJson<BankBatch>("/ledger/imports/ofx", token, data);
+      const imported = await apiPostFormJson<BankBatch>(format === "CSV" ? "/ledger/imports/mercado-pago" : "/ledger/imports/ofx", token, data);
       setBatches(existing => [imported, ...existing.filter(row => row.id !== imported.id)]);
       setBatch(imported);
       setVisible(25);
@@ -157,26 +158,32 @@ export function TreasuryBankStatements({ token, accounts, entries, canReconcile,
     <div className={styles.bankStatements}>
       <div className={styles.bankStatementBar}>
         <div className={styles.bankStatementTitle}><span className={styles.statementIcon}><UIIcon name="download" size={20} /></span>
-          <div><strong>Extratos bancários</strong><small>Arquivos OFX por conta</small></div>
+          <div><strong>Extratos bancários</strong><small>OFX bancário e relatório Mercado Pago</small></div>
         </div>
         <button type="button" className={ui.workspacePrimary} aria-controls={panelId} aria-expanded={open} onClick={() => setOpen(value => !value)}>
           <UIIcon name={open ? "close" : "plus"} size={17} /> {open ? "Fechar importação" : "Importar extrato bancário"}
         </button>
       </div>
       <div id={panelId} hidden={!open} className={styles.bankStatementBody}>
+      <label>Tipo de arquivo
+        <select value={format} disabled={pending} onChange={event => setFormat(event.target.value === "CSV" ? "CSV" : "OFX")}>
+          <option value="OFX">Extrato bancário (OFX)</option>
+          <option value="CSV">Liberações do Mercado Pago (CSV)</option>
+        </select>
+      </label>
       <p className={styles.note}>Escolha a mesma conta do arquivo exportado pelo banco. Limite de 2 MB por arquivo.</p>
       {accountsLoading ? <p className={styles.note} role="status">Carregando contas bancárias…</p> :
         accountsError ? <p className={styles.feedback} data-error="true" role="alert">Não foi possível carregar as contas. Atualize a página para tentar novamente.</p> :
-        eligibleAccounts.length ? <form onSubmit={upload}>
+        eligibleAccounts.length ? <form key={format} onSubmit={upload}>
         <label>Conta bancária
           <select name="accountId" defaultValue="" required disabled={pending}>
             <option value="" disabled>Selecione a conta</option>
             {eligibleAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
           </select>
         </label>
-        <label>Arquivo OFX<input type="file" name="file" accept=".ofx,application/x-ofx" required disabled={pending} /></label>
-        <button type="submit" className={ui.workspacePrimary} disabled={pending}>{pending ? "Aguarde…" : "Importar OFX"}</button>
-      </form> : <p className={styles.note}>Cadastre uma conta bancária ativa para importar.</p>}
+        <label>Arquivo {format}<input type="file" name="file" accept={format === "CSV" ? ".csv,text/csv" : ".ofx,application/x-ofx"} required disabled={pending} /></label>
+        <button type="submit" className={ui.workspacePrimary} disabled={pending}>{pending ? "Aguarde…" : `Importar ${format}`}</button>
+      </form> : <p className={styles.note}>{format === "CSV" ? "Cadastre uma conta do Mercado Pago para importar." : "Cadastre uma conta bancária ativa para importar."}</p>}
       </div>
       {failure && <p className={styles.feedback} data-error="true" role="alert">{failure}</p>}
       {notice && <p className={styles.feedback} role="status">{notice}</p>}

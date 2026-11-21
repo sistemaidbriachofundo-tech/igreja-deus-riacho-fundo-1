@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -12,10 +14,12 @@ import {
   canAccessChurch,
   resolveDefaultActiveContext,
   APP_NAME,
+  ROLE_CODES,
   type AuthGrant,
 } from "@idbrf/shared";
 import { canManageConnection } from "../discipleship/connection-access";
 import { PrismaService } from "../prisma/prisma.service";
+import { assertPasswordPolicy } from "./password-policy";
 import { PilotService } from "../pilot/pilot.service";
 import {
   JWT_DEV_FALLBACK_SECRET,
@@ -155,6 +159,53 @@ export class AuthService {
   async describeSession(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
     return { ...actor, canManageConnection: await canManageConnection(this.prisma, actor, pilot) };
+  }
+
+  async registerGuest(input: { displayName: string; email: string; password: string; clientIp: string }): Promise<SessionToken> {
+    const displayName = input.displayName.trim().replace(/\s+/g, " ");
+    const email = input.email.trim().toLowerCase();
+    const bucket = `guest-registration:${fingerprint(input.clientIp)}`;
+    const windowMs = 15 * 60_000;
+    await this.attempts.assertAllowed(bucket, 12, windowMs);
+    await this.attempts.recordFailure(bucket, windowMs);
+    if (displayName.length < 2) throw new BadRequestException("Informe seu nome.");
+    assertPasswordPolicy(input.password, email);
+
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const passwordHash = await hashPassword(input.password);
+    const conflict = () => new ConflictException("Use o login ou procure a Secretaria para regularizar seu acesso.");
+    const user = await this.prisma.$transaction(async tx => {
+      const existing = await tx.person.findFirst({
+        where: { organizationId, email: { equals: email, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (existing) throw conflict();
+
+      const role = await tx.role.upsert({
+        where: { code: ROLE_CODES.CONVIDADO },
+        create: { code: ROLE_CODES.CONVIDADO, name: "Convidado" },
+        update: { name: "Convidado" },
+        select: { id: true },
+      });
+      const created = await tx.user.create({
+        data: {
+          email, passwordHash, status: "ACTIVE",
+          person: { create: { displayName, email, organizationId, homeChurchId: churchId, kind: "VISITOR" } },
+          grants: { create: { roleId: role.id, organizationId, churchId } },
+        },
+        include: userInclude,
+      });
+      await tx.auditLog.create({ data: {
+        action: "auth.guest_registered", resourceType: "user", resourceId: created.id,
+        actorUserId: created.id, organizationId, churchId,
+      } });
+      return created;
+    }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") throw conflict();
+      throw error;
+    });
+
+    return this.issueSession(mapLoaded(user), { mfaSatisfied: false });
   }
 
   async login(input: LoginInput): Promise<LoginResult> {

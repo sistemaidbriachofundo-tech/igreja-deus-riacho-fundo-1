@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { credentialScanUrl } from "../../lib/credential-scan";
+import { officialLogoAsset } from "../../lib/brand";
 import { withBasePath } from "../../lib/paths";
 import { PersonPortrait } from "../PersonPortrait";
 import {
@@ -51,7 +52,7 @@ export function CredentialFaces({
             className={s.logo}
             role="img"
             aria-label="Logomarca da Igreja de Deus"
-            style={{ backgroundImage: `url("${withBasePath("/images/logo-igreja-aprovada.webp")}")` }}
+            style={{ backgroundImage: `url("${withBasePath(officialLogoAsset)}")` }}
           />
           <span className={s.brand}>
             <strong>Igreja de Deus</strong>

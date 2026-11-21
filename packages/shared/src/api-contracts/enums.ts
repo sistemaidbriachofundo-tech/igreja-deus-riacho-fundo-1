@@ -37,6 +37,10 @@ export const ADMISSION_STEP_ORDER = [
 
 export type AdmissionStep = (typeof ADMISSION_STEP_ORDER)[number];
 
+/** Ordem de culto. O valor publicado é o único estado visível fora da Pastoral. */
+export const SERVICE_ORDER_STATUSES = ["DRAFT", "APPROVED", "PUBLISHED"] as const;
+export type ServiceOrderStatus = (typeof SERVICE_ORDER_STATUSES)[number];
+
 export const MEMBERSHIP_STATUSES = {
   PENDING_ADMISSION: "PENDING_ADMISSION",
   ACTIVE: "ACTIVE",
@@ -54,3 +58,6 @@ export const CREDENTIAL_STATUSES = {
 
 export type CredentialStatusContract =
   (typeof CREDENTIAL_STATUSES)[keyof typeof CREDENTIAL_STATUSES];
+
+export const ECCLESIASTICAL_ROLES = ["PASTOR", "EVANGELIST", "DEACON", "MINISTRY_LEADER"] as const;
+export type EcclesiasticalRole = (typeof ECCLESIASTICAL_ROLES)[number];

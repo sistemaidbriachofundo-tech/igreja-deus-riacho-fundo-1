@@ -7,7 +7,7 @@ import { EventRegistrationsService } from "./event-registrations.service";
 import { PublicRegistrationBody } from "./registration.dto";
 
 @Controller("member-events")
-@Roles(ROLE_CODES.MEMBRO)
+@Roles(ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO)
 export class MemberEventsController {
   constructor(private readonly registrations: EventRegistrationsService) {}
 
@@ -21,6 +21,12 @@ export class MemberEventsController {
   @Header("Cache-Control", "private, no-store")
   get(@CurrentUser() actor: AuthUser, @Param("registrationId") registrationId: string) {
     return this.registrations.getMyRegistration(actor, registrationId);
+  }
+
+  @Post("registrations/:registrationId/cancel")
+  @Header("Cache-Control", "private, no-store")
+  cancel(@CurrentUser() actor: AuthUser, @Param("registrationId") registrationId: string) {
+    return this.registrations.cancelMyRegistration(actor, registrationId);
   }
 
   @Post(":slug/registrations")

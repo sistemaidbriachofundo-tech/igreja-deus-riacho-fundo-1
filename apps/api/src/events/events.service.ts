@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canAdministerMinistries } from "@idbrf/shared";
+import { canAdministerMinistries, containsEmailAddress } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
@@ -25,6 +26,7 @@ export type EventInput = {
   ministryId?: string | null;
   featuredOnHome?: boolean;
   status?: "DRAFT" | "PUBLISHED" | "CANCELLED" | "ARCHIVED";
+  ticketPolicy?: "REGISTRATION" | "PARTICIPANT";
 };
 
 @Injectable()
@@ -71,6 +73,8 @@ export class EventsService {
           locationText: input.locationText ?? null,
           featuredOnHome: Boolean(input.featuredOnHome),
           status: "DRAFT",
+          createdByUserId: actor.userId,
+          ...(input.ticketPolicy ? { ticketPolicy: input.ticketPolicy } : {}),
         },
       });
       await tx.auditLog.create({
@@ -106,10 +110,11 @@ export class EventsService {
     });
 
     const visible = filterRowsForMinistryLeader(rows, actor, pilot);
+    const granted = await this.scannerIds(actor.userId, visible.map(row => row.id));
 
     return {
       churchId: pilot.churchId,
-      events: visible.map((row) => this.toDto(row)),
+      events: visible.map((row) => this.toDto({ ...row, canScan: this.canScan(actor, row, granted.has(row.id)) })),
     };
   }
 
@@ -117,7 +122,8 @@ export class EventsService {
     const pilot = await this.pilot.getPilotChurch();
     const event = await this.requireEvent(eventId, pilot);
     this.assertEventWrite(actor, pilot, event.ministryId);
-    return this.toDto(event);
+    const granted = await this.scannerIds(actor.userId, [event.id]);
+    return this.toDto({ ...event, canScan: this.canScan(actor, event, granted.has(event.id)) });
   }
 
   async patch(actor: AuthUser, eventId: string, input: EventInput) {
@@ -142,6 +148,15 @@ export class EventsService {
     if (input.featuredOnHome !== undefined) {
       data.featuredOnHome = Boolean(input.featuredOnHome);
     }
+    if (input.ticketPolicy !== undefined) {
+      if (existing.status !== "DRAFT") {
+        throw new BadRequestException("A política de ingresso só muda enquanto o evento é rascunho.");
+      }
+      if (input.ticketPolicy !== "REGISTRATION" && input.ticketPolicy !== "PARTICIPANT") {
+        throw new BadRequestException("ticketPolicy inválida");
+      }
+      data.ticketPolicy = input.ticketPolicy;
+    }
     if (input.startsAt !== undefined) {
       data.startsAt = parseDate(input.startsAt, "startsAt");
     }
@@ -161,10 +176,20 @@ export class EventsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (input.ministryId !== undefined && input.ministryId !== existing.ministryId &&
+          await tx.roster.findUnique({ where: { portalEventId: eventId }, select: { id: true } })) {
+        throw new ConflictException("O ministério deste evento já tem uma escala vinculada.");
+      }
       const event = await tx.portalEvent.update({
         where: { id: eventId },
         data,
       });
+      if (input.status === "CANCELLED" || input.status === "ARCHIVED") {
+        await tx.roster.updateMany({
+          where: { portalEventId: eventId, status: { not: "CLOSED" } },
+          data: { status: "CLOSED" },
+        });
+      }
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -177,6 +202,11 @@ export class EventsService {
         },
       });
       return this.toDto(event);
+    }, { isolationLevel: "Serializable" }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("O evento mudou. Atualize a tela e tente novamente.");
+      }
+      throw error;
     });
   }
 
@@ -253,6 +283,22 @@ export class EventsService {
     });
   }
 
+  private async scannerIds(userId: string, eventIds: string[]) {
+    if (!eventIds.length || !this.prisma.eventScannerGrant?.findMany) return new Set<string>();
+    const rows = await this.prisma.eventScannerGrant.findMany({
+      where: { userId, eventId: { in: eventIds } },
+      select: { eventId: true },
+    });
+    return new Set(rows.map(row => row.eventId));
+  }
+
+  private canScan(actor: AuthUser, event: { createdByUserId?: string | null; ministryId?: string | null }, granted: boolean) {
+    if (granted) return true;
+    if (event.createdByUserId && event.createdByUserId === actor.userId) return true;
+    return Boolean(event.ministryId) && actor.grants.some(grant =>
+      grant.roleCode === "LIDER_MINISTERIO" && (!grant.ministryId || grant.ministryId === event.ministryId));
+  }
+
   private async requireEvent(
     eventId: string,
     pilot: { organizationId: string; churchId: string },
@@ -284,6 +330,9 @@ export class EventsService {
     locationText: string | null;
     status: string;
     featuredOnHome: boolean;
+    ticketPolicy?: string;
+    createdByUserId?: string | null;
+    canScan?: boolean;
     publishedAt: Date | null;
     cancelledAt: Date | null;
     createdAt: Date;
@@ -303,6 +352,9 @@ export class EventsService {
       locationText: row.locationText,
       status: row.status,
       featuredOnHome: row.featuredOnHome,
+      ticketPolicy: row.ticketPolicy ?? "REGISTRATION",
+      createdByUserId: row.createdByUserId ?? null,
+      canScan: row.canScan ?? false,
       publishedAt: row.publishedAt?.toISOString() ?? null,
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
@@ -319,7 +371,6 @@ function parseDate(value: string, field: string): Date {
   return d;
 }
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
@@ -341,7 +392,7 @@ export function eventPublicationBlockReason(event: {
     .filter((value): value is string => typeof value === "string" && value.length > 0)
     .join("\n");
   if (
-    PERSONAL_EMAIL.test(text) ||
+    containsEmailAddress(text) ||
     PERSONAL_CPF.test(text) ||
     PERSONAL_PHONE.test(text)
   ) {

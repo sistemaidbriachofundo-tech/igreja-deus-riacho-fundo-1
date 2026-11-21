@@ -23,14 +23,17 @@ export type SiteLayout = {
   sections: SiteSection[];
   hidden: SiteSection[];
 };
+export const PORTAL_CAMPAIGN_IMAGE = "/images/capa-igreja-riacho-fundo.jpg";
 export const PUBLIC_FACADE_IMAGE = "/images/fachada-igreja-riacho-fundo.jpg";
+export const portalMissionLines = ["Uma igreja", "para Deus,", "para as famílias,", "enviada ao mundo."] as const;
+const previousHeroDescription = "Uma igreja para Deus, pelas famílias e enviada ao mundo.";
 
 export const defaultSiteLayout: SiteLayout = {
   version: 1,
   hero: {
     title: "Igreja de Deus", accent: "Riacho Fundo I",
-    description: "Uma igreja para Deus, pelas famílias e enviada ao mundo.",
-    imageUrl: PUBLIC_FACADE_IMAGE,
+    description: portalMissionLines.join(" "),
+    imageUrl: PORTAL_CAMPAIGN_IMAGE,
   },
   identity: SITE_IDENTITY_PHOTO,
   gallery: {
@@ -73,7 +76,11 @@ export function parseSiteLayout(value:unknown):SiteLayout|null {
   if(o.identity!==undefined&&(!o.identity||!isText(o.identity.alt,220)||!validSiteImage(o.identity.imageUrl)))return null;
   return {
     ...o as SiteLayout,
-    hero: { ...hero, imageUrl: ["/images/adoracao-oficial.jpg", SITE_COVER_PHOTO].includes(hero.imageUrl) ? PUBLIC_FACADE_IMAGE : hero.imageUrl },
+    hero: {
+      ...hero,
+      description: hero.description === previousHeroDescription ? defaultSiteLayout.hero.description : hero.description,
+      imageUrl: ["/images/adoracao-oficial.jpg", SITE_COVER_PHOTO].includes(hero.imageUrl) ? PUBLIC_FACADE_IMAGE : hero.imageUrl,
+    },
     identity: o.identity ?? SITE_IDENTITY_PHOTO,
     gallery: { ...gallery, items: usesPreviousGallery(gallery.items) ? SITE_GALLERY_PHOTOS : gallery.items },
   };
@@ -84,6 +91,7 @@ export function parsePublicSiteLayout(value:unknown):{layout:SiteLayout|null}|nu
   return {layout:response.layout===null?null:parseSiteLayout(response.layout)};
 }
 export const siteMediaLibrary = [
+  { title: "Capa do Riacho Fundo I", src: PORTAL_CAMPAIGN_IMAGE },
   { title: "Fachada oficial do Riacho Fundo I", src: PUBLIC_FACADE_IMAGE },
   { title: "Quem somos", src: SITE_IDENTITY_PHOTO.imageUrl },
   ...SITE_GALLERY_PHOTOS.map(photo => ({ title: photo.title, src: photo.imageUrl })),

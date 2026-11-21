@@ -9,7 +9,7 @@ export const MINISTRY_TABS = [
   { id: "visao", label: "Visão geral" },
   { id: "integrantes", label: "Integrantes" },
   { id: "escalas", label: "Escalas" },
-  { id: "atividades", label: "Atividades" },
+  { id: "atividades", label: "Atividades e eventos" },
   { id: "recursos", label: "Gestão e caixa" },
 ] as const;
 

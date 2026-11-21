@@ -10,6 +10,41 @@ import { PilotService } from "../pilot/pilot.service";
 
 const MEMBER_ROLES = ["LEADER", "MEMBER"] as const;
 type MemberRole = (typeof MEMBER_ROLES)[number];
+type GroupInput = {
+  name: string;
+  leaderPersonId?: string | null;
+  meetsAtHint?: string;
+  meetingAddress?: string;
+  photoUrl?: string;
+  contactWhatsApp?: string;
+  publicListed?: boolean;
+};
+
+type GroupDirectory = {
+  leaderPersonId: string | null;
+  meetsAtHint: string | null;
+  meetingAddress: string | null;
+  contactWhatsApp: string | null;
+  photoUrl: string | null;
+  publicListed: boolean;
+};
+
+function groupDirectory(input: GroupInput, current?: GroupDirectory): GroupDirectory {
+  const contact = input.contactWhatsApp?.trim().replace(/^\+/, "");
+  const directory = {
+    leaderPersonId: input.leaderPersonId === undefined ? current?.leaderPersonId ?? null : input.leaderPersonId,
+    meetsAtHint: input.meetsAtHint === undefined ? current?.meetsAtHint ?? null : input.meetsAtHint?.trim() || null,
+    meetingAddress: input.meetingAddress === undefined ? current?.meetingAddress ?? null : input.meetingAddress?.trim() || null,
+    photoUrl: input.photoUrl === undefined ? current?.photoUrl ?? null : input.photoUrl?.trim() || null,
+    contactWhatsApp: input.contactWhatsApp === undefined ? current?.contactWhatsApp ?? null
+      : contact ? (contact.length <= 11 ? "55" + contact : contact) : null,
+    publicListed: input.publicListed ?? current?.publicListed ?? false,
+  };
+  if (directory.publicListed && (!directory.leaderPersonId || !directory.meetsAtHint || !directory.meetingAddress || !directory.contactWhatsApp)) {
+    throw new BadRequestException("Informe responsável, horário, endereço e WhatsApp autorizado para publicar o grupo.");
+  }
+  return directory;
+}
 
 @Injectable()
 export class GroupsService {
@@ -20,11 +55,7 @@ export class GroupsService {
 
   async create(
     actor: AuthUser,
-    input: {
-      name: string;
-      leaderPersonId?: string | null;
-      meetsAtHint?: string;
-    },
+    input: GroupInput,
   ) {
     const pilot = await this.pilot.getPilotChurch();
     await requireConnectionManagement(this.prisma, actor, pilot);
@@ -44,8 +75,7 @@ export class GroupsService {
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
           name,
-          leaderPersonId: input.leaderPersonId ?? null,
-          meetsAtHint: input.meetsAtHint?.trim() || null,
+          ...groupDirectory(input),
         },
       });
       await tx.auditLog.create({
@@ -63,7 +93,7 @@ export class GroupsService {
     });
   }
 
-  async edit(actor: AuthUser, groupId: string, input: { name: string; meetsAtHint?: string; leaderPersonId?: string | null }) {
+  async edit(actor: AuthUser, groupId: string, input: GroupInput) {
     const pilot = await this.pilot.getPilotChurch();
     await requireConnectionManagement(this.prisma, actor, pilot);
     const group = await this.requireGroup(groupId, pilot);
@@ -72,12 +102,8 @@ export class GroupsService {
     if (input.leaderPersonId) await this.requireEligibleLeader(input.leaderPersonId, pilot);
     return this.prisma.$transaction(async tx => {
       const row = await tx.smallGroup.update({
-        where: { id: group.id },
-        data: {
-          name,
-          ...(input.meetsAtHint === undefined ? {} : { meetsAtHint: input.meetsAtHint?.trim() || null }),
-          ...(input.leaderPersonId === undefined ? {} : { leaderPersonId: input.leaderPersonId }),
-        },
+        where: { id: group.id, updatedAt: group.updatedAt },
+        data: { name, ...groupDirectory(input, group) },
       });
       await tx.auditLog.create({ data: {
         actorUserId: actor.userId, action: "small_group.update", resourceType: "small_group",
@@ -429,13 +455,11 @@ export class GroupsService {
     return { from, to };
   }
 
-  private toGroupDto(group: {
+  private toGroupDto(group: GroupDirectory & {
     id: string;
     organizationId: string;
     churchId: string;
     name: string;
-    leaderPersonId: string | null;
-    meetsAtHint: string | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -446,6 +470,10 @@ export class GroupsService {
       name: group.name,
       leaderPersonId: group.leaderPersonId,
       meetsAtHint: group.meetsAtHint,
+      meetingAddress: group.meetingAddress,
+      photoUrl: group.photoUrl,
+      contactWhatsApp: group.contactWhatsApp,
+      publicListed: group.publicListed,
       createdAt: group.createdAt.toISOString(),
       updatedAt: group.updatedAt.toISOString(),
     };

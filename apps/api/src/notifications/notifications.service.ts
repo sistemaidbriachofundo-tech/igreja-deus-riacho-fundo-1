@@ -6,11 +6,12 @@ import { GroupRequestsService } from "../groups/group-requests.service";
 import { PilotService, type PilotChurch } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RosterNoticesService } from "../rosters/roster-notices.service";
+import { pastoralExpenseLines } from "../finance/pastoral-expense";
 
 type Scope = Pick<PilotChurch, "churchId" | "organizationId">;
 type Notice = {
   id: string;
-  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade";
+  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade" | "Pastoral" | "Aniversariantes" | "Louvor";
   title: string;
   detail: string;
   action: string;
@@ -22,9 +23,6 @@ const PORTAL = "/app/servir/meu-espaco/";
 const LIMIT = 50;
 const MONEY = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const WHEN = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
-const expenses = { some: { side: "DEBIT" as const, account: { type: "EXPENSE" as const, NOT: [
-  { code: "5.9" }, { code: { startsWith: "5.9." } },
-] } } };
 
 @Injectable()
 export class NotificationsService {
@@ -99,7 +97,7 @@ export class NotificationsService {
     const since = new Date(+now - 30 * 86_400_000);
     const groups = await Promise.all([
       this.volunteer(actor, now), this.declines(actor, scope, since, now), this.finance(actor, scope, since),
-      this.admissions(actor, scope, since), this.groupRequests(actor, since),
+      this.admissions(actor, scope, since), this.groupRequests(actor, since), this.prayerBells(actor, scope), this.birthdayBells(actor, scope, now), this.worshipBells(actor, scope, now),
     ]);
     return groups.flat().sort((a, b) => +b.createdAt - +a.createdAt || a.id.localeCompare(b.id)).slice(0, LIMIT);
   }
@@ -137,13 +135,14 @@ export class NotificationsService {
   private async declines(actor: AuthUser, scope: Scope, since: Date, now: Date): Promise<Notice[]> {
     const ids = await this.managedMinistries(actor, scope);
     if (!ids.length) return [];
+    const allowedModules = await this.restrictedModules(actor, scope);
     const rows = await this.db.rosterAssignment.findMany({
       where: { declinedAt: { gte: since }, status: { in: ["DECLINED", "SUBSTITUTED"] },
         slot: { roster: { ...scope, ministryId: { in: ids }, status: { in: ["PUBLISHED", "CLOSED"] } } } },
       orderBy: { declinedAt: "desc" }, take: LIMIT,
       select: { id: true, declinedAt: true, slot: { select: {
         id: true, roleLabel: true,
-        roster: { select: { id: true, ministryId: true, title: true, serviceAt: true, status: true, module: { select: { name: true } } } },
+        roster: { select: { id: true, ministryId: true, title: true, serviceAt: true, status: true, module: { select: { id: true, name: true } } } },
         assignments: { where: { status: { in: ["PENDING", "CONFIRMED"] } }, select: { status: true } },
       } } },
     });
@@ -151,6 +150,7 @@ export class NotificationsService {
       const { slot } = row;
       const { roster } = slot;
       if (!row.declinedAt || !roster.ministryId) return [];
+      if (allowedModules && roster.module?.id && !allowedModules.has(roster.module.id)) return [];
       const confirmed = slot.assignments.some(assignment => assignment.status === "CONFIRMED");
       const pending = slot.assignments.some(assignment => assignment.status === "PENDING");
       const closed = roster.status === "CLOSED" || roster.serviceAt <= now;
@@ -166,12 +166,28 @@ export class NotificationsService {
     });
   }
 
+  private async restrictedModules(actor: AuthUser, scope: Scope): Promise<Set<string> | null> {
+    const leaders = (this.db as unknown as { ministryRosterModuleLeader?: { findMany: (args: unknown) => Promise<Array<{ moduleId: string; ministryId: string }>> } }).ministryRosterModuleLeader;
+    if (!leaders?.findMany || !actor.personId) return null;
+    const links = await leaders.findMany({
+      where: { personId: actor.personId, churchId: scope.churchId, organizationId: scope.organizationId },
+      select: { moduleId: true, ministryId: true },
+    });
+    if (!links.length) return null;
+    const ministries = await this.db.ministry.findMany({
+      where: { id: { in: [...new Set(links.map(link => link.ministryId))] } },
+      select: { id: true, leaderPersonId: true },
+    });
+    const restricted = links.filter(link => ministries.find(item => item.id === link.ministryId)?.leaderPersonId !== actor.personId);
+    return restricted.length ? new Set(restricted.map(link => link.moduleId)) : null;
+  }
+
   private async finance(actor: AuthUser, scope: Scope, since: Date): Promise<Notice[]> {
     const pastor = hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR] });
     const treasury = hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN] });
     if (!pastor && !treasury) return [];
     const rows = await this.db.ledgerEntry.findMany({
-      where: { ...scope, lines: expenses, OR: [
+      where: { ...scope, lines: pastoralExpenseLines, OR: [
         ...(pastor ? [{ firstApprovedByUserId: { not: actor.userId },
           OR: [{ status: "PENDING_APPROVAL" as const }, { firstApprovedAt: { gte: since } }] }] : []),
         ...(treasury ? [{ createdByUserId: actor.userId, OR: [{ secondApprovedAt: { gte: since } }, { rejectedAt: { gte: since } }] }] : []),
@@ -188,9 +204,10 @@ export class NotificationsService {
       if (personal) return [{ id: `expense-result:${row.id}`, category: "Tesouraria", title: outcome, detail, action: "Ver decisão",
         href: `/app/tesouraria/?despesa=${encodeURIComponent(row.id)}#despesas`, createdAt: personal, state: "Decisão registrada" }];
       if (!pastor || !row.firstApprovedAt || row.createdByUserId === actor.userId) return [];
+      if (!decision && row.status !== "PENDING_APPROVAL") return [];
       return [{ id: `expense-review:${row.id}`, category: "Tesouraria", title: decision ? outcome : "Despesa para aprovação",
         detail, action: decision ? "Ver aprovações" : "Revisar despesa",
-        href: `/app/tesouraria/?despesa=${encodeURIComponent(row.id)}#aprovacoes`,
+        href: `/app/pastoral/despesas/?despesa=${encodeURIComponent(row.id)}`,
         createdAt: row.firstApprovedAt, state: decision ? "Decisão registrada" : "Aguardando decisão" }];
     });
   }
@@ -233,8 +250,9 @@ export class NotificationsService {
       const resolved = row.status !== stage;
       const key = `admission:${stage}:${id}`;
       if (notices.has(key)) return;
+      const path = stage === "AWAITING_PASTOR" ? "/app/pastoral/admissoes/" : "/app/secretaria/admissoes/";
       notices.set(key, { id: key, category: "Admissões", title: stage === "AWAITING_PASTOR" ? "Admissão para decisão pastoral" : "Admissão para análise da Secretaria",
-        detail: row.person.displayName, action: "Abrir protocolo", href: `/app/secretaria/admissoes/?protocolo=${encodeURIComponent(id)}`,
+        detail: row.person.displayName, action: "Abrir protocolo", href: `${path}?protocolo=${encodeURIComponent(id)}`,
         createdAt, state: resolved ? "Etapa concluída" : "Em análise" });
     }
     for (const change of changes) {
@@ -244,4 +262,59 @@ export class NotificationsService {
     for (const row of pending) add(row.id, row.status, row.updatedAt);
     return [...notices.values()];
   }
+
+  private async prayerBells(actor: AuthUser, scope: Scope): Promise<Notice[]> {
+    if (!this.db.prayerBell?.findMany) return [];
+    const rows = await this.db.prayerBell.findMany({
+      where: { recipientUserId: actor.userId, request: { churchId: scope.churchId } },
+      select: { id: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: LIMIT,
+    });
+    return rows.map(row => ({
+      id: `prayer:${row.id}`, category: "Pastoral" as const, title: "Há um pedido de oração",
+      detail: "", action: "Abrir pedidos de oração", href: "/app/pastoral/oracoes/", createdAt: row.createdAt,
+    }));
+  }
+
+  private async birthdayBells(actor: AuthUser, scope: Scope, now: Date): Promise<Notice[]> {
+    if (!this.db.birthdayNotice?.findMany) return [];
+    const date = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now)}T00:00:00.000Z`);
+    const rows = await this.db.birthdayNotice.findMany({
+      where: { churchId: scope.churchId, recipientPersonId: actor.personId, occasionDate: date },
+      select: { id: true, createdAt: true },
+    });
+    const pastor = actor.grants.some(grant => grant.roleCode === ROLE_CODES.PASTOR);
+    const secretary = actor.grants.some(grant => grant.roleCode === ROLE_CODES.SECRETARIA);
+    return rows.map(row => ({
+      id: `birthday:${row.id}`, category: "Aniversariantes" as const, title: "Há aniversariantes hoje",
+      detail: pastor || secretary ? "Na congregação" : "Na sua equipe, grupo ou acompanhamento",
+      action: pastor || secretary ? "Ver aniversariantes" : "Abrir meu espaço",
+      href: pastor ? "/app/pastoral/aniversariantes/" : secretary ? "/app/secretaria/aniversariantes/" : PORTAL,
+      createdAt: row.createdAt,
+    }));
+  }
+  private async worshipBells(actor: AuthUser, scope: Scope, now: Date): Promise<Notice[]> {
+    if (!this.db.worshipRepertoire?.findMany) return [];
+    const assignments = await this.db.rosterAssignment.findMany({
+      where: { personId: actor.personId, status: { in: ["PENDING", "CONFIRMED"] }, slot: { roster: {
+        ...scope, status: "PUBLISHED", ministry: { slug: { in: ["louvor", "louvor-demo"] } }, serviceAt: { gte: now },
+      } } },
+      select: { id: true, slot: { select: { rosterId: true } } },
+    });
+    const byRoster = new Map(assignments.map(item => [item.slot.rosterId, item.id]));
+    if (!byRoster.size) return [];
+    const rows = await this.db.worshipRepertoire.findMany({
+      where: { ...scope, rosterId: { in: [...byRoster.keys()] }, status: "SCHEDULED", scheduledAt: { lte: now } },
+      select: { id: true, rosterId: true, serviceAt: true, scheduledAt: true, createdAt: true },
+      orderBy: { scheduledAt: "desc" }, take: LIMIT,
+    });
+    return rows.map(row => ({
+      id: `worship:${row.id}`, category: "Louvor" as const, title: "Repertório disponível",
+      detail: WHEN.format(row.serviceAt), action: "Ver meu culto",
+      href: PORTAL + "#escala-" + encodeURIComponent(byRoster.get(row.rosterId ?? "") ?? ""),
+      createdAt: row.scheduledAt ?? row.createdAt,
+    }));
+  }
+
 }

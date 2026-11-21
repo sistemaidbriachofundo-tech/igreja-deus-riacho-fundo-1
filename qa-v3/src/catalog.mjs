@@ -117,7 +117,7 @@ export const CHECKS = [
   { id: "UX-V14", group: "UX-V", title: "Contraste de texto comum ≥ 4,5:1", critical: false },
   { id: "UX-V15", group: "UX-V", title: "Zoom 200% sem cortar o conteúdo", critical: false },
   { id: "UX-V16", group: "UX-V", title: "Menu móvel abre e Escape fecha", critical: false },
-  { id: "UX-V17", group: "UX-V", title: "Sem botão de WhatsApp, e-mail externo ou Pix", critical: true },
+  { id: "UX-V17", group: "UX-V", title: "Sem disparo de canal pela plataforma (outbox/Pix gateway); deep link wa.me/mailto ok", critical: true },
   { id: "UX-V18", group: "UX-V", title: "404 ou 501 visível não conta como sucesso", critical: true },
 ];
 

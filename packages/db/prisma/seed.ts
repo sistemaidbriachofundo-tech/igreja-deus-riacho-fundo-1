@@ -1,3 +1,4 @@
+import { ATMOSFERA_MODULES, canonicalModuleKey } from "../../../apps/api/src/rosters/roster-module-key";
 import { seedPhase1Mass } from "./seed-phase1";
 import { PrismaClient } from "@prisma/client";
 import {
@@ -863,6 +864,26 @@ async function main() {
   const atmosferaMinistry = await prisma.ministry.findUniqueOrThrow({
     where: { churchId_slug: { churchId: church.id, slug: "atmosfera" } },
   });
+
+  const existingModules = await prisma.ministryRosterModule.findMany({
+    where: { ministryId: atmosferaMinistry.id },
+    select: { id: true, name: true, nameKey: true },
+  });
+  for (const module of ATMOSFERA_MODULES) {
+    const matches = existingModules.filter(row =>
+      row.nameKey === module.nameKey || canonicalModuleKey(row.name) === module.nameKey || canonicalModuleKey(row.nameKey) === module.nameKey);
+    if (matches.length > 1) continue;
+    if (matches.length === 1) {
+      await prisma.ministryRosterModule.update({
+        where: { id: matches[0].id },
+        data: { name: module.name, nameKey: module.nameKey },
+      });
+      continue;
+    }
+    await prisma.ministryRosterModule.create({
+      data: { ministryId: atmosferaMinistry.id, name: module.name, nameKey: module.nameKey },
+    });
+  }
 
   const cmsSeeds = [
     {

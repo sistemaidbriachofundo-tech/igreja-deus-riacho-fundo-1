@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiRequestError, apiGet, apiPost, loadStoredToken, type LoginResult } from "../../lib/api";
 import { churchLocalToISO, dasError } from "../../lib/das-operations";
 import { withBasePath } from "../../lib/paths";
+import { ministryHref } from "../../lib/ministry-view";
 import {
   findSameDayBlocks,
   parseMinistryList,
@@ -17,11 +18,13 @@ import {
   type RosterView,
   type ServingSurfaceId,
 } from "../../lib/serving-rosters";
+import { AppNavLink } from "../AppShell";
 import { ConnectionJourney } from "./ConnectionJourney";
 import { MonthlyServiceSurvey } from "./MonthlyServiceSurvey";
 import { RosterNotifications } from "./RosterNotifications";
 import { GroupRequests } from "../GroupRequests";
 import { MemberSpace } from "./MemberSpace";
+import { ServingTeamInvitations } from "./ServingTeamInvitations";
 import { MinistryRosterDesk } from "./MinistryRosterDesk";
 import { ServingFrame } from "./ServingFrame";
 import styles from "./serving.module.css";
@@ -205,24 +208,28 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
             assignments={agenda}
             busy={busy}
             notice={notice}
+            invitations={<>
+              <ServingTeamInvitations token={token} onAccepted={() => setReload(value => value + 1)} />
+              <RosterNotifications token={token} mode="invites" onAccepted={() => setReload(value => value + 1)} />
+            </>}
+            availability={<MonthlyServiceSurvey token={token} />}
             onConfirm={(assignmentId) =>
               void run(
                 () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-                "Participação confirmada.",
+                "Presença confirmada.",
               )
             }
             onDecline={(assignmentId) =>
               void run(
                 () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/decline`, token),
-                "Você recusou esta escala.",
+                "Recusa registrada.",
               )
             }
           />
-          <RosterNotifications token={token} mode="invites" onAccepted={() => setReload(value => value + 1)} />
-          <MonthlyServiceSurvey token={token} />
+          <section className={styles.card}><h2>Oração</h2><AppNavLink href="/app/pedir-oracao/">Pedir oração</AppNavLink></section>
           <ConnectionJourney />
           <GroupRequests token={token} />
-          {user.canManageConnection !== true && roles.some(role => ["LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
+          {user.canManageConnection !== true && roles.some(role => ["MEMBRO", "LIDER_MINISTERIO", "SECRETARIA"].includes(role)) &&
             <GroupRequests manage hideEmpty token={token} />}
         </>
       )}
@@ -230,6 +237,11 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
         <section className={styles.blocked} role="alert" data-scope="forbidden">
           <h2>Sem permissão neste ministério</h2>
           <p>Peça à Secretaria para verificar seu acesso.</p>
+        </section>
+      )}
+      {phase === "ready" && user && surface === "louvor" && ministry && !scopeDenied && (
+        <section className={styles.card} aria-label="Escalas do Louvor">
+          <AppNavLink href={ministryHref(ministry.id, "escalas")}>Abrir mesa mensal do Louvor</AppNavLink>
         </section>
       )}
       {phase === "ready" && user && surface !== "membro" && !scopeDenied && (
@@ -283,7 +295,7 @@ export function ServingWorkspace({ surface }: { surface: Surface }) {
           onConfirm={(assignmentId) =>
             void run(
               () => apiPost(`/rosters/assignments/${encodeURIComponent(assignmentId)}/confirm`, token),
-              "Participação confirmada.",
+              "Presença confirmada.",
             )
           }
           onDecline={(assignmentId) =>

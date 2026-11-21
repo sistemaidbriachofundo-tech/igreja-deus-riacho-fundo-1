@@ -117,6 +117,14 @@ model Organization {
   pushDeviceTokens PushDeviceToken[]
   ministryMemberships MinistryMembership[]
   securityPolicies SecurityPolicy[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  serviceOccurrences ChurchServiceOccurrence[]
+  servingPreferences VolunteerServingPreference[]
+  serviceOrders ServiceOrder[]
+  admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("organizations")
 }
 
@@ -180,6 +188,15 @@ model Church {
 
   @@unique([organizationId, slug])
   ministryMemberships MinistryMembership[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  rosterNoticeDeliveries RosterNoticeDelivery[]
+  serviceOccurrences ChurchServiceOccurrence[]
+  servingPreferences VolunteerServingPreference[]
+  serviceOrders ServiceOrder[]
+  admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("churches")
 }
 
@@ -245,6 +262,7 @@ model Person {
   smallGroupJoinRequests SmallGroupJoinRequest[]
   discipleshipEnrollments DiscipleshipEnrollment[]
   discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
+  discipleshipMentorRegistrations DiscipleshipMentorRegistration[]
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
   volunteerInterests VolunteerInterest[]
@@ -269,6 +287,13 @@ model Person {
   rosterAvailabilityResponses RosterAvailabilityResponse[]
   rosterNotices RosterNotice[]
   rosterPushSubscriptions RosterPushSubscription[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
+  rosterSlotInvitations RosterSlotInvitation[]
+  rosterSlotInvitationsAsPartner RosterSlotInvitation[] @relation("RosterSlotInvitationPartner")
+  rosterAssignmentResponses RosterAssignmentResponse[]
+  servingPreferences VolunteerServingPreference[]
   @@map("persons")
 }
 
@@ -324,6 +349,9 @@ model User {
   budgetsCreated Budget[] @relation("BudgetCreator")
   accountingPeriodsClosed AccountingPeriod[] @relation("AccountingPeriodCloser")
   ledgerEntryAttachmentsUploaded LedgerEntryAttachment[] @relation("LedgerAttachmentUploader")
+  serviceOrdersCreated ServiceOrder[] @relation("ServiceOrderCreator")
+  serviceOrdersApproved ServiceOrder[] @relation("ServiceOrderApprover")
+  serviceOrdersPublished ServiceOrder[] @relation("ServiceOrderPublisher")
 
   workspaceNotificationReads WorkspaceNotificationRead[]
 
@@ -407,11 +435,19 @@ model Grant {
   church       Church?       @relation(fields: [churchId], references: [id])
   ministry     Ministry?     @relation(fields: [ministryId], references: [id], onDelete: SetNull)
 
-  @@unique([userId, roleId, organizationId, churchId, ministryId])
+  @@unique([userId, roleId, organizationId, churchId], map: "grants_user_id_role_id_organization_id_church_id_key")
+  @@unique([userId, roleId, organizationId, churchId, ministryId], map: "grants_user_id_role_id_organization_id_church_id_ministry_id_ke")
   @@index([userId])
   @@index([organizationId, churchId])
   @@index([ministryId])
   @@map("grants")
+}
+
+enum EcclesiasticalRole {
+  PASTOR
+  EVANGELIST
+  DEACON
+  MINISTRY_LEADER
 }
 
 model ChurchMembership {
@@ -423,6 +459,7 @@ model ChurchMembership {
   joinedAt       DateTime         @default(now()) @map("joined_at")
   leftAt         DateTime?        @map("left_at")
   notes          String?
+  ecclesiasticalRoles EcclesiasticalRole[] @default([]) @map("ecclesiastical_roles")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -482,13 +519,40 @@ model AdmissionDocument {
   byteSize         Int      @map("byte_size")
   /// Chave opaca no STORAGE_ROOT (nunca URL pública).
   storageKey       String   @unique @map("storage_key")
+  /// Requisito configurado pela congregação. Nulo nos anexos anteriores a este vínculo.
+  requirementId    String?  @map("requirement_id")
   createdAt        DateTime @default(now()) @map("created_at")
 
-  admission AdmissionProtocol @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  admission   AdmissionProtocol            @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  requirement AdmissionDocumentRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   @@index([admissionId])
   @@index([organizationId, churchId])
+  @@index([requirementId])
   @@map("admission_documents")
+}
+
+/// Tipo documental configurável por modalidade. Sem linha, não há exigência.
+model AdmissionDocumentRequirement {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  churchId       String            @map("church_id")
+  modality       AdmissionModality
+  code           String
+  label          String
+  required       Boolean           @default(false)
+  active         Boolean           @default(true)
+  sortOrder      Int               @default(0) @map("sort_order")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  church       Church              @relation(fields: [churchId], references: [id])
+  documents    AdmissionDocument[]
+
+  @@unique([churchId, modality, code])
+  @@index([churchId, modality, active])
+  @@map("admission_document_requirements")
 }
 
 model MemberCredential {
@@ -714,11 +778,25 @@ model DiscipleshipTrack {
   organization Organization @relation(fields: [organizationId], references: [id])
   church       Church       @relation(fields: [churchId], references: [id])
   enrollments  DiscipleshipEnrollment[]
+  mentorRegistrations DiscipleshipMentorRegistration[]
   stages       DiscipleshipTrackStage[]
 
   @@unique([churchId, code])
   @@index([organizationId, churchId])
   @@map("discipleship_tracks")
+}
+
+model DiscipleshipMentorRegistration {
+  trackId   String   @map("track_id")
+  personId  String   @map("person_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  track  DiscipleshipTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  person Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, personId])
+  @@index([personId])
+  @@map("discipleship_mentor_registrations")
 }
 
 /// Etapa ordenada de uma trilha (RF-010). Não pontua espiritualmente.
@@ -847,6 +925,9 @@ model Ministry {
   @@index([organizationId, churchId])
   @@index([churchId, publishStatus, visibility])
   ministryMemberships MinistryMembership[]
+  rosterModuleLeaders MinistryRosterModuleLeader[]
+  rosterModuleMemberships MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
   @@map("ministries")
 }
 
@@ -872,6 +953,8 @@ model MinistryMembership {
   ministry     Ministry           @relation(fields: [ministryId], references: [id])
   person       Person             @relation(fields: [personId], references: [id])
   interest     VolunteerInterest? @relation(fields: [volunteerInterestId], references: [id])
+  rosterModules MinistryRosterModuleMembership[]
+  rosterMemberInvitations MinistryRosterMemberInvitation[]
 
   @@unique([ministryId, personId])
   @@index([organizationId, churchId, ministryId])
@@ -896,6 +979,8 @@ model PortalEvent {
   locationText   String?           @map("location_text")
   status         PortalEventStatus @default(DRAFT)
   featuredOnHome Boolean           @default(false) @map("featured_on_home")
+  ticketPolicy   EventTicketPolicy @default(REGISTRATION) @map("ticket_policy")
+  createdByUserId String?          @map("created_by_user_id")
   publishedAt    DateTime?         @map("published_at")
   cancelledAt    DateTime?         @map("cancelled_at")
   createdAt      DateTime          @default(now()) @map("created_at")
@@ -911,6 +996,7 @@ model PortalEvent {
   lodgingOptions   EventLodgingOption[]
   mealOptions      EventMealOption[]
   transportOptions EventTransportOption[]
+  teamRoster Roster?
 
   @@unique([churchId, slug])
   @@index([organizationId, churchId])
@@ -948,6 +1034,19 @@ enum EventPaymentStatus {
   CANCELLED
   /// Tesouraria conferiu o crédito na conta escolhida. Não passa por Mercado Pago.
   CONFIRMED_PIX
+  /// Checkout conferido no provedor antes de confirmar. Não usa a chave no cliente.
+  CONFIRMED_GATEWAY
+  REFUNDED
+}
+
+enum EventTicketPolicy {
+  REGISTRATION
+  PARTICIPANT
+}
+
+enum EventPaymentProvider {
+  PIX
+  MERCADO_PAGO
 }
 
 /// Modalidade / trilha do evento (capacidade própria opcional).
@@ -988,13 +1087,14 @@ model EventLot {
   status         EventLotStatus @default(DRAFT)
   /// Conta ativa da igreja que recebe o Pix quando o lote é pago.
   receivingAccountId String?    @map("receiving_account_id")
+  paymentProvider EventPaymentProvider @default(PIX) @map("payment_provider")
   sortOrder      Int            @default(0) @map("sort_order")
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
   event          PortalEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   modality       EventModality? @relation(fields: [modalityId], references: [id], onDelete: SetNull)
-  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
+  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id], onDelete: Restrict)
   registrations  EventRegistration[]
   paymentIntents EventPaymentIntent[]
 
@@ -1112,6 +1212,8 @@ model EventRegistration {
   displayName          String                   @map("display_name")
   /// Caixa fictícia do aviso de check-in. Fora das respostas públicas.
   notificationEmail    String?                  @map("notification_email")
+  /// Participantes ainda sem ingresso, até o pagamento ou a autorização.
+  participantRoster    Json?                    @map("participant_roster")
   partySize            Int                      @default(1) @map("party_size")
   isMinor              Boolean                  @default(false) @map("is_minor")
   guardianDisplayName  String?                  @map("guardian_display_name")
@@ -1156,7 +1258,10 @@ model EventParticipantTicket {
   registrationId String   @map("registration_id")
   position       Int
   code           String   @unique
+  participantName String? @map("participant_name")
+  participantEmail String? @map("participant_email")
   checkedInAt    DateTime? @map("checked_in_at")
+  scannedByUserId String? @map("scanned_by_user_id")
 
   registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 
@@ -1201,6 +1306,14 @@ model EventPaymentIntent {
   status           EventPaymentStatus @default(PENDING)
   /// Referência sintética do provedor mock — nunca gateway live.
   providerRef      String?            @map("provider_ref")
+  paymentProvider  EventPaymentProvider @default(PIX) @map("payment_provider")
+  attemptRef       String?            @unique @map("attempt_ref")
+  providerPaymentId String?           @map("provider_payment_id")
+  grossCents       Int?               @map("gross_cents")
+  feeCents         Int?               @map("fee_cents")
+  netCents         Int?               @map("net_cents")
+  dueOn            DateTime?          @map("due_on") @db.Date
+  refundedAt       DateTime?          @map("refunded_at")
   receivingAccountId String?          @map("receiving_account_id")
   ledgerEntryId    String?            @unique @map("ledger_entry_id")
   pixTxid          String?            @map("pix_txid")
@@ -1215,8 +1328,8 @@ model EventPaymentIntent {
   event        PortalEvent       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   lot          EventLot?         @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id])
-  ledgerEntry  LedgerEntry?      @relation(fields: [ledgerEntryId], references: [id])
+  receivingAccount ChurchReceivingAccount? @relation(fields: [receivingAccountId], references: [id], onDelete: Restrict)
+  ledgerEntry  LedgerEntry?      @relation(fields: [ledgerEntryId], references: [id], onDelete: Restrict)
   webhookReceipts EventPaymentWebhookReceipt[]
 
   @@unique([churchId, bankCreditReference], map: "event_payment_credit_reference_key")
@@ -1365,6 +1478,10 @@ model SmallGroup {
   name           String
   leaderPersonId String?  @map("leader_person_id")
   meetsAtHint    String?  @map("meets_at_hint")
+  meetingAddress String?  @map("meeting_address")
+  photoUrl       String?  @map("photo_url")
+  contactWhatsApp String? @map("contact_whatsapp")
+  publicListed   Boolean  @default(false) @map("public_listed")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -1466,11 +1583,17 @@ model MinistryRosterModule {
   name        String
   nameKey     String   @map("name_key")
   rules       Json     @default("{}")
+  locationName String? @map("location_name")
+  arrivalContactName String? @map("arrival_contact_name")
+  arrivalInstructions String? @map("arrival_instructions")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   ministry Ministry @relation(fields: [ministryId], references: [id], onDelete: Restrict)
   rosters  Roster[]
+  leaders MinistryRosterModuleLeader[]
+  memberships MinistryRosterModuleMembership[]
+  memberInvitations MinistryRosterMemberInvitation[]
 
   @@unique([ministryId, nameKey])
   @@unique([id, ministryId])
@@ -1483,8 +1606,12 @@ model Roster {
   churchId       String       @map("church_id")
   ministryId     String?      @map("ministry_id")
   moduleId       String?      @map("module_id")
+  portalEventId  String?      @unique @map("portal_event_id")
   title          String
   serviceAt      DateTime     @map("service_at")
+  locationName   String?      @map("location_name")
+  arrivalContactName String?  @map("arrival_contact_name")
+  arrivalInstructions String? @map("arrival_instructions")
   serviceType    String?      @map("service_type")
   status         RosterStatus @default(DRAFT)
   createdAt      DateTime     @default(now()) @map("created_at")
@@ -1494,7 +1621,9 @@ model Roster {
   church       Church       @relation(fields: [churchId], references: [id])
   ministry     Ministry?    @relation(fields: [ministryId], references: [id])
   module       MinistryRosterModule? @relation(fields: [moduleId, ministryId], references: [id, ministryId], onDelete: Restrict)
+  portalEvent  PortalEvent? @relation(fields: [portalEventId], references: [id], onDelete: Restrict)
   slots        RosterSlot[]
+  capacityOverrides RosterCapacityOverride[]
 
   @@index([churchId, serviceAt])
   @@index([ministryId])
@@ -1511,10 +1640,12 @@ model RosterSlot {
   sector String?
   zone String?
   side String?
+  manualFill Boolean @default(false) @map("manual_fill")
   sortOrder     Int     @default(0) @map("sort_order")
 
   roster       Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
   assignments  RosterAssignment[]
+  slotInvitations RosterSlotInvitation[]
 
   @@index([rosterId])
   @@map("roster_slots")
@@ -1537,10 +1668,181 @@ model RosterAssignment {
   partner       Person?    @relation("RosterPartner", fields: [partnerPersonId], references: [id])
   substituteFor RosterAssignment?  @relation("RosterSubstitution", fields: [substituteForId], references: [id])
   substitutes   RosterAssignment[] @relation("RosterSubstitution")
+  responses     RosterAssignmentResponse[]
 
   @@index([slotId, status])
   @@index([personId])
   @@map("roster_assignments")
+}
+
+enum RosterModuleLinkStatus {
+  ATIVO
+  ENCERRADO
+}
+
+/// Liderança de um módulo do Atmosfera. Não decorre de cargo eclesiástico na ficha.
+model MinistryRosterModuleLeader {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  ministryId     String   @map("ministry_id")
+  moduleId       String   @map("module_id")
+  personId       String   @map("person_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  ministry     Ministry             @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, personId])
+  @@index([personId, ministryId])
+  @@index([churchId, ministryId])
+  @@map("ministry_roster_module_leaders")
+}
+
+/// Integrante ativo do Atmosfera em um ou mais módulos, com vigência.
+model MinistryRosterModuleMembership {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  churchId       String                 @map("church_id")
+  ministryId     String                 @map("ministry_id")
+  membershipId   String                 @map("membership_id")
+  moduleId       String                 @map("module_id")
+  personId       String                 @map("person_id")
+  status         RosterModuleLinkStatus @default(ATIVO)
+  startedAt      DateTime               @default(now()) @map("started_at")
+  endedAt        DateTime?              @map("ended_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  church       Church               @relation(fields: [churchId], references: [id])
+  ministry     Ministry             @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  membership   MinistryMembership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, moduleId])
+  @@index([moduleId, status])
+  @@index([personId, ministryId, status])
+  @@map("ministry_roster_module_memberships")
+}
+
+enum RosterMemberInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Convite para entrar na equipe de um módulo. Não é vínculo formal nem escala de culto.
+model MinistryRosterMemberInvitation {
+  id             String                       @id @default(cuid())
+  organizationId String                       @map("organization_id")
+  churchId       String                       @map("church_id")
+  ministryId     String                       @map("ministry_id")
+  moduleId       String                       @map("module_id")
+  membershipId   String                       @map("membership_id")
+  personId       String                       @map("person_id")
+  status         RosterMemberInvitationStatus @default(PENDING)
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  respondedAt    DateTime?                    @map("responded_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  ministry     Ministry           @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  module       MinistryRosterModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  membership   MinistryMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  person       Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([ministryId, status])
+  @@index([personId, status])
+  @@index([moduleId, personId, status])
+  @@map("ministry_roster_member_invitations")
+}
+
+/// Histórico de aceite individual. O estado vigente é a última linha da pessoa.
+model RosterAssignmentResponse {
+  id           String                 @id @default(cuid())
+  assignmentId String                 @map("assignment_id")
+  personId     String                 @map("person_id")
+  status       RosterAssignmentStatus
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  assignment RosterAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  person     Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, personId, createdAt])
+  @@map("roster_assignment_responses")
+}
+
+/// Ajuste de quantidade só deste culto. Não altera o padrão do módulo.
+model RosterCapacityOverride {
+  rosterId  String   @map("roster_id")
+  groupKey  String   @map("group_key")
+  count     Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  roster Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@id([rosterId, groupKey])
+  @@map("roster_capacity_overrides")
+}
+
+/// Agenda da congregação. A simulação lê estes cultos e não grava ao abrir a prévia.
+model ChurchServiceOccurrence {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  serviceAt      DateTime @map("service_at")
+  serviceType    String   @map("service_type")
+  status         String   @default("SCHEDULED")
+  title          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+
+  @@unique([churchId, serviceAt])
+  @@index([churchId, serviceAt])
+  @@map("church_service_occurrences")
+}
+
+/// Preferências de horário. Ausência da linha não impede a escala.
+model VolunteerServingPreference {
+  id               String  @id @default(cuid())
+  organizationId   String  @map("organization_id")
+  churchId         String  @map("church_id")
+  personId         String  @map("person_id")
+  onlyMorning      Boolean @default(false) @map("only_morning")
+  onlyEvening      Boolean @default(false) @map("only_evening")
+  onlyFirstSunday  Boolean @default(false) @map("only_first_sunday")
+  onlySecondSunday Boolean @default(false) @map("only_second_sunday")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  @@unique([churchId, personId])
+  @@map("volunteer_serving_preferences")
+}
+
+/// Registro deduplicado de entrega. WhatsApp só entra quando o canal de DEV está aprovado.
+model RosterNoticeDelivery {
+  id         String   @id @default(cuid())
+  churchId   String   @map("church_id")
+  noticeId   String   @map("notice_id")
+  channel    String
+  dedupeKey  String   @unique @map("dedupe_key")
+  status     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  church Church @relation(fields: [churchId], references: [id], onDelete: Cascade)
+
+  @@index([noticeId])
+  @@map("roster_notice_deliveries")
 }
 
 /// RF-014 — janela recorrente de disponibilidade (UTC weekday + minutos do dia).
@@ -1761,7 +2063,7 @@ model SecurityPolicy {
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
 
-  organization Organization? @relation(fields: [organizationId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId])
   @@map("security_policies")
@@ -1972,6 +2274,8 @@ model ChurchReceivingAccount {
   pixKey          String   @map("pix_key")
   merchantCity    String   @default("Brasilia") @map("merchant_city")
   active          Boolean  @default(true)
+  mercadoPagoEnabled Boolean @default(false) @map("mercado_pago_enabled")
+  mercadoPagoCollectorId String? @map("mercado_pago_collector_id")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -2633,6 +2937,36 @@ model RosterNotice {
   @@map("roster_notices")
 }
 
+enum RosterSlotInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Convite para um culto. A vaga permanece aberta até o aceite.
+model RosterSlotInvitation {
+  id              String                     @id @default(cuid())
+  organizationId  String                     @map("organization_id")
+  churchId        String                     @map("church_id")
+  slotId          String                     @map("slot_id")
+  personId        String                     @map("person_id")
+  partnerPersonId String?                    @map("partner_person_id")
+  status          RosterSlotInvitationStatus @default(PENDING)
+  expiresAt       DateTime                   @map("expires_at")
+  createdAt       DateTime                   @default(now()) @map("created_at")
+  respondedAt     DateTime?                  @map("responded_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  slot         RosterSlot   @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  partner      Person?      @relation("RosterSlotInvitationPartner", fields: [partnerPersonId], references: [id])
+
+  @@index([slotId, status])
+  @@index([personId, status])
+  @@map("roster_slot_invitations")
+}
+
 model RosterPushSubscription {
   endpoint String @id
   churchId String @map("church_id")
@@ -2648,6 +2982,55 @@ model RosterPushSubscription {
 }
 
 
+enum ServiceOrderStatus {
+  DRAFT
+  APPROVED
+  PUBLISHED
+}
+
+/// Ordem de culto da congregação. Uma ordem por instante real de culto.
+model ServiceOrder {
+  id                String             @id @default(cuid())
+  organizationId    String             @map("organization_id")
+  churchId          String             @map("church_id")
+  title             String
+  serviceAt         DateTime           @map("service_at")
+  notes             String?
+  status            ServiceOrderStatus @default(DRAFT)
+  createdByUserId   String             @map("created_by_user_id")
+  approvedByUserId  String?            @map("approved_by_user_id")
+  approvedAt        DateTime?          @map("approved_at")
+  publishedByUserId String?            @map("published_by_user_id")
+  publishedAt       DateTime?          @map("published_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  church       Church             @relation(fields: [churchId], references: [id])
+  createdBy    User               @relation("ServiceOrderCreator", fields: [createdByUserId], references: [id])
+  approvedBy   User?              @relation("ServiceOrderApprover", fields: [approvedByUserId], references: [id])
+  publishedBy  User?              @relation("ServiceOrderPublisher", fields: [publishedByUserId], references: [id])
+  items        ServiceOrderItem[]
+
+  @@unique([churchId, serviceAt])
+  @@index([organizationId, churchId, serviceAt])
+  @@map("service_orders")
+}
+
+model ServiceOrderItem {
+  id          String  @id @default(cuid())
+  orderId     String  @map("order_id")
+  position    Int
+  title       String
+  minutes     Int?
+  responsible String?
+
+  order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, position])
+  @@map("service_order_items")
+}
+
 model WorkspaceNotificationRead {
   userId String @map("user_id")
   churchId String @map("church_id")
@@ -2658,4 +3041,227 @@ model WorkspaceNotificationRead {
   @@id([userId, churchId, noticeId])
   @@index([churchId])
   @@map("workspace_notification_reads")
+}
+
+enum SystemSettingScopeKind {
+  PLATFORM
+  CHURCH
+  MINISTRY
+  MODULE
+  GROUP
+  TRACK
+}
+
+enum SystemSettingLifecycle {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  RETIRED
+}
+
+/// Catálogo estável. dev_json guarda o valor de DEV e não é reescrito pela publicação.
+model SystemSettingCatalog {
+  key         String                 @id
+  title       String
+  description String
+  valueType   String                 @map("value_type")
+  scopeKind   SystemSettingScopeKind @map("scope_kind")
+  defaultJson Json                   @map("default_json")
+  devJson     Json                   @map("dev_json")
+  revisions   SystemSettingRevision[]
+
+  @@map("system_setting_catalog")
+}
+
+model SystemSettingRevision {
+  id                String                 @id @default(cuid())
+  catalogKey        String                 @map("catalog_key")
+  organizationId    String                 @map("organization_id")
+  churchId          String?                @map("church_id")
+  scopeKind         SystemSettingScopeKind @map("scope_kind")
+  scopeId           String?                @map("scope_id")
+  lifecycle         SystemSettingLifecycle @default(DRAFT)
+  valueJson         Json                   @map("value_json")
+  effectiveFrom     DateTime?              @map("effective_from")
+  effectiveUntil    DateTime?              @map("effective_until")
+  draftedByUserId   String                 @map("drafted_by_user_id")
+  reviewedByUserId  String?                @map("reviewed_by_user_id")
+  publishedByUserId String?                @map("published_by_user_id")
+  note              String?
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  catalog SystemSettingCatalog @relation(fields: [catalogKey], references: [key], onDelete: Restrict)
+
+  @@index([catalogKey, lifecycle, effectiveFrom])
+  @@index([organizationId, churchId])
+  @@map("system_setting_revisions")
+}
+
+enum OperationalScopeKind {
+  MINISTRY
+  MODULE
+  GROUP
+  TRACK
+}
+
+model AccessScopeBinding {
+  id        String               @id @default(cuid())
+  grantId   String               @map("grant_id")
+  kind      OperationalScopeKind
+  scopeId   String               @map("scope_id")
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  @@unique([grantId, kind, scopeId])
+  @@index([kind, scopeId])
+  @@map("access_scope_bindings")
+}
+
+enum PrayerRequestStatus {
+  OPEN
+  ACKNOWLEDGED
+  CLOSED
+}
+
+model PrayerRequest {
+  id                  String              @id @default(cuid())
+  organizationId      String              @map("organization_id")
+  churchId            String              @map("church_id")
+  body                String
+  status              PrayerRequestStatus @default(OPEN)
+  responsibleUserId   String              @map("responsible_user_id")
+  substituteUserId    String?             @map("substitute_user_id")
+  submittedByPersonId String?             @map("submitted_by_person_id")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  bells               PrayerBell[]
+
+  @@index([churchId, status])
+  @@map("prayer_requests")
+}
+
+model PrayerBell {
+  id              String    @id @default(cuid())
+  requestId       String    @map("request_id")
+  recipientUserId String    @map("recipient_user_id")
+  readAt          DateTime? @map("read_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  request PrayerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, readAt])
+  @@map("prayer_bells")
+}
+
+model BirthdayNotice {
+  id                 String   @id @default(cuid())
+  organizationId     String   @map("organization_id")
+  churchId           String   @map("church_id")
+  recipientPersonId  String   @map("recipient_person_id")
+  occasionDate       DateTime @map("occasion_date") @db.Date
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([churchId, recipientPersonId, occasionDate])
+  @@map("birthday_notices")
+}
+
+enum VocalClassification {
+  SOPRANO
+  MEZZO_SOPRANO
+  CONTRALTO
+  TENOR
+  BASS
+  UNSPECIFIED
+}
+
+model PersonVocalProfile {
+  personId       String              @id @map("person_id")
+  churchId       String              @map("church_id")
+  classification VocalClassification @default(UNSPECIFIED)
+  functions      String[]
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([churchId])
+  @@map("person_vocal_profiles")
+}
+
+enum RepertoireStatus {
+  DRAFT
+  AUTHORIZED
+  SCHEDULED
+}
+
+model WorshipRepertoire {
+  id                 String           @id @default(cuid())
+  organizationId     String           @map("organization_id")
+  churchId           String           @map("church_id")
+  rosterId           String?          @map("roster_id")
+  serviceAt          DateTime         @map("service_at")
+  status             RepertoireStatus @default(DRAFT)
+  idempotencyKey     String           @unique @map("idempotency_key")
+  authorizedByUserId String?          @map("authorized_by_user_id")
+  authorizedAt       DateTime?        @map("authorized_at")
+  scheduledAt        DateTime?        @map("scheduled_at")
+  createdByUserId    String           @map("created_by_user_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  items              WorshipRepertoireItem[]
+  notices            WorshipRepertoireNotice[]
+
+  @@index([churchId, serviceAt])
+  @@map("worship_repertoires")
+}
+
+model WorshipRepertoireItem {
+  id           String  @id @default(cuid())
+  repertoireId String  @map("repertoire_id")
+  sortOrder    Int     @map("sort_order")
+  title        String
+  musicalKey   String  @map("musical_key")
+  materials    String?
+
+  repertoire WorshipRepertoire @relation(fields: [repertoireId], references: [id], onDelete: Cascade)
+
+  @@unique([repertoireId, sortOrder])
+  @@map("worship_repertoire_items")
+}
+
+model WorshipRepertoireNotice {
+  id                String   @id @default(cuid())
+  repertoireId      String   @map("repertoire_id")
+  recipientPersonId String   @map("recipient_person_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  repertoire WorshipRepertoire @relation(fields: [repertoireId], references: [id], onDelete: Cascade)
+
+  @@unique([repertoireId, recipientPersonId])
+  @@map("worship_repertoire_notices")
+}
+
+model PersonDossierFile {
+  id               String   @id @default(cuid())
+  organizationId   String   @map("organization_id")
+  churchId         String   @map("church_id")
+  personId         String   @map("person_id")
+  fileName         String   @map("file_name")
+  contentType      String   @map("content_type")
+  byteSize         Int      @map("byte_size")
+  sha256           String
+  storageKey       String   @unique @map("storage_key")
+  uploadedByUserId String   @map("uploaded_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([personId, churchId])
+  @@map("person_dossier_files")
+}
+
+model EventScannerGrant {
+  id              String   @id @default(cuid())
+  eventId         String   @map("event_id")
+  userId          String   @map("user_id")
+  grantedByUserId String   @map("granted_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([eventId, userId])
+  @@map("event_scanner_grants")
 }

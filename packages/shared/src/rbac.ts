@@ -10,6 +10,7 @@ export const ROLE_CODES = {
   EDITOR_SITE: "EDITOR_SITE",
   PUBLICADOR_SITE: "PUBLICADOR_SITE",
   MEMBRO: "MEMBRO",
+  CONVIDADO: "CONVIDADO",
 } as const;
 
 export type BuiltInRoleCode = (typeof ROLE_CODES)[keyof typeof ROLE_CODES];

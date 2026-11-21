@@ -283,6 +283,8 @@ describe("AdmissionsService", () => {
       },
       churchMembership: { update: jest.fn() },
       person: { update: jest.fn() },
+      admissionDocumentRequirement: { findMany: jest.fn().mockResolvedValue([]) },
+      admissionDocument: { findMany: jest.fn().mockResolvedValue([]) },
       auditLog: { create: jest.fn() },
     };
     const service = serviceWith({
@@ -526,5 +528,47 @@ describe("AdmissionsService", () => {
     await expect(
       service.advance(secretaria, "missing", { completeStep: "modality" }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("bloqueia a documentação só quando o requisito obrigatório configurado está sem anexo", async () => {
+    const admission = {
+      ...baseAdmission,
+      modality: "TRANSFERENCIA",
+      modalityRecorded: true,
+      status: "AWAITING_DOCUMENTS",
+      currentStep: "documents",
+    };
+    const required = { id: "req-1", label: "Carta fictícia", required: true, active: true };
+    const blocked = {
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue(admission),
+        update: jest.fn(),
+      },
+      admissionDocumentRequirement: { findMany: jest.fn().mockResolvedValue([required]) },
+      admissionDocument: { findMany: jest.fn().mockResolvedValue([{ requirementId: null }]) },
+      auditLog: { create: jest.fn() },
+    };
+    const service = serviceWith({
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(blocked)),
+    });
+    await expect(service.advance(secretaria, admission.id, { completeStep: "documents" })).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "ADMISSION_DOCUMENTS_REQUIRED" }),
+    });
+    expect(blocked.admissionProtocol.update).not.toHaveBeenCalled();
+
+    const linked = {
+      ...blocked,
+      admissionDocument: { findMany: jest.fn().mockResolvedValue([{ requirementId: "req-1" }]) },
+      admissionProtocol: {
+        findFirst: jest.fn().mockResolvedValue(admission),
+        update: jest.fn().mockResolvedValue({ ...admission, documentsComplete: true, status: "AWAITING_SECRETARIA" }),
+      },
+    };
+    const allowed = serviceWith({
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(linked)),
+    });
+    await expect(allowed.advance(secretaria, admission.id, { completeStep: "documents" })).resolves.toMatchObject({
+      status: "AWAITING_SECRETARIA",
+    });
   });
 });

@@ -13,7 +13,7 @@ import { PasswordField } from "./PasswordField";
 import { Skeleton } from "./Skeleton";
 import { StatCard } from "./StatCard";
 import { Tabs } from "./Tabs";
-import { nextTabIndex } from "./tabs";
+import { nextTabIndex } from "./nextTabIndex";
 import { Tooltip } from "./Tooltip";
 
 describe("teclado de diálogo e abas", () => {

@@ -444,6 +444,10 @@ export async function apiPatch<T>(path: string, token: string, body: unknown, op
   return settle<T>("PATCH", path, token, body, options, true);
 }
 
+export function apiPut<T>(path: string, token: string, body: unknown): Promise<T> {
+  return settle<T>("PUT", path, token, body, undefined, true);
+}
+
 export function apiDelete<T>(path: string, token: string): Promise<T> {
   return settle<T>("DELETE", path, token, undefined, undefined, true);
 }

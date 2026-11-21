@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { isAdminEnabled } from "../lib/admin-environment";
 import { useCallback, useEffect, useState } from "react";
 import { AppNavLink, AppShell, UIIcon } from "./AppShell";
@@ -230,7 +231,7 @@ export function MembershipInsights() {
             <div className={`${ui.workspaceChoices} ${s.choiceGroup}`} role="group" aria-label="Tipo de comemoração">{OCCASIONS.map(item =>
               <button key={item.id} type="button" aria-pressed={occasion === item.id} onClick={() => setOccasion(item.id)}>{item.label}</button>
             )}</div>
-            {occasionRows.length ? <ul className={s.personList}>{occasionRows.slice(0,12).map(row =>
+            {occasionRows.length ? <ul className={s.personList}>{sortByName(occasionRows.slice(0, 12), row => row.name).map(row =>
               <li key={row.type + row.personId}><div className={s.personMark} aria-hidden="true">{row.name.charAt(0)}</div><div><strong>{row.name}</strong><span>{formattedDate(row.date)} · {row.daysAway === 0 ? "Hoje" : "em " + row.daysAway + " dia(s)"}</span></div><span className={s.personTag}>{row.years} anos</span></li>
             )}</ul> : <p className={s.empty}>Nenhuma comemoração registrada para os próximos 30 dias.</p>}
           </section>
@@ -242,7 +243,7 @@ export function MembershipInsights() {
               <div><span>Saldo de transferências</span><strong>{data.movements.netTransfers > 0 ? "+" : ""}{fmtNumber(data.movements.netTransfers)}</strong></div>
             </div>
             <h3 className={s.smallTitle}>Novos cadastros · últimos 30 dias</h3>
-            {data.recent.length ? <ul className={s.recentList}>{data.recent.map(p => <li key={p.id}><strong>{p.name}</strong><span>{formattedDate(p.date)}</span></li>)}</ul>
+            {data.recent.length ? <ul className={s.recentList}>{sortByName(data.recent, person => person.name).map(p => <li key={p.id}><strong>{p.name}</strong><span>{formattedDate(p.date)}</span></li>)}</ul>
               : <p className={s.empty}>Nenhum novo cadastro adulto neste período.</p>}
           </section>
         </div>

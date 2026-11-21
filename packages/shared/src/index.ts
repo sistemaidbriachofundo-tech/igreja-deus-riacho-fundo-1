@@ -119,6 +119,7 @@ export {
   nextDualApprovalStage,
   parseSyntheticCsvLines,
   isBankStatementAccount,
+  isMercadoPagoStatementAccount,
   isValidCompetence,
   type LedgerAccountTypeCode,
   type LedgerEntryStatusCode,
@@ -145,7 +146,9 @@ export {
   assertAdmissionStepAllowed,
   nextAdmissionStep,
   isCredentialEligible,
+  missingRequiredAdmissionDocuments,
   type AdmissionChecklistState,
+  type AdmissionDocumentRequirementRule,
 } from "./admission-rules";
 
 export {
@@ -154,13 +157,17 @@ export {
   ADMISSION_STATUSES,
   ADMISSION_MODALITIES,
   ADMISSION_STEP_ORDER,
+  SERVICE_ORDER_STATUSES,
   MEMBERSHIP_STATUSES,
+  ECCLESIASTICAL_ROLES,
+  type EcclesiasticalRole,
   CREDENTIAL_STATUSES,
   API_ENDPOINT_STATUS,
   type ApiContractVersion,
   type AdmissionStatus,
   type AdmissionModality,
   type AdmissionStep,
+  type ServiceOrderStatus,
   type MembershipStatusContract,
   type CredentialStatusContract,
   type ApiEndpointKey,
@@ -204,6 +211,11 @@ export {
   type PersonDossierResponse,
   type AdmissionDocumentMetaDto,
   type AdmissionDocumentsListResponse,
+  type AdmissionDocumentRequirementDto,
+  type ServiceOrderItemDto,
+  type ServiceOrderDto,
+  type ServiceOrderListResponse,
+  type ServiceOrderWriteRequest,
   type MetaResponse,
   type IndicatorsSummaryDto,
   type AuditLogEntryDto,
@@ -331,3 +343,44 @@ export {
   type AuditWriteInput,
 } from "./security-f11/audit-write";
 export type { RosterPreviewDto, RosterPreviewPosition } from "./roster-preview";
+export {
+  normalizeWhatsAppDigits,
+  containsEmailAddress,
+  buildWhatsAppUrl,
+  buildMailtoUrl,
+  rosterInviteWhatsAppText,
+  type WhatsAppLinkInput,
+  type MailtoLinkInput,
+} from "./contact-deep-links";
+export { sortByName } from "./alphabetical";
+export {
+  PUBLIC_PASSWORD_RESET_MESSAGE,
+  publicPasswordResetBody,
+  normalizeResumeEventSlug,
+  credentialColorRule,
+  officeDocumentKind,
+  scopeCovers,
+  effectiveSettingValue,
+  windowsOverlap,
+  saoPauloParts,
+  parseBrasiliaHour,
+  isBeforeConfiguredHour,
+  louvorWeekBounds,
+  sameLouvorWeek,
+  eventCoversLocalDay,
+  paymentSettlement,
+  decideTicketScan,
+  type CredentialColorRule,
+  type OperationalScopeKind,
+  type SettingRevisionWindow,
+  type TicketScanResult,
+} from "./piloto-pacote";
+
+export {
+  DF_MEMBERSHIP_REGIONS,
+  MEMBERSHIP_MAP_STATUSES,
+  type MembershipMapStatus,
+  type MembershipMapRegion,
+  type MembershipMapGroup,
+  type MembershipMapResponse,
+} from "./membership-map";

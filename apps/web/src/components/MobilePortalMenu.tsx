@@ -7,11 +7,11 @@ import { portalNavigationIcons } from "../lib/portal-navigation-icons";
 import { UIIcon } from "./ui/UIIcon";
 import { PortalGlyph } from "./PortalGlyph";
 import s from "./portal-design-system.module.css";
-import { PortalSectionLink, sectionIdFromHref, useActivePublicSection } from "./PublicSectionLink";
+import { PortalSectionLink, sectionIdFromHref, useActivePublicSection, type PublicSectionId } from "./PublicSectionLink";
 
 type PublicLink = { href: string; label: string };
 
-export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }) {
+export function MobilePortalMenu({ links, section }: { links: ReadonlyArray<PublicLink>; section?: PublicSectionId }) {
   const current = usePathname() ?? "";
   const onHome = current === "/" || current === "";
   const activeSection = useActivePublicSection();
@@ -49,7 +49,7 @@ export function MobilePortalMenu({ links }: { links: ReadonlyArray<PublicLink> }
         const sectionId = sectionIdFromHref(link.href);
         if (sectionId) {
           return <PortalSectionLink key={link.href} sectionId={sectionId} onNavigate={close}
-            current={onHome && activeSection === sectionId}>
+            current={(section ?? (onHome ? activeSection : null)) === sectionId}>
             <span className={s.mobileItemLabel}><UIIcon name={portalNavigationIcons[sectionId]} size={20} />{link.label}</span><PortalGlyph name="arrow" width={17}/>
           </PortalSectionLink>;
         }

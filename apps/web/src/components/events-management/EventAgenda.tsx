@@ -28,7 +28,7 @@ export function EventAgenda({
   selectedId: string;
   onChoose: (id: string) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("calendario");
+  const [mode, setMode] = useState<Mode>("lista");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [month, setMonth] = useState(() => initialMonth(events));

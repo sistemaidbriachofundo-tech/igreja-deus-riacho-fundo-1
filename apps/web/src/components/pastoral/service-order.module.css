@@ -1,0 +1,28 @@
+.page, .list, .form, .fieldset { display: grid; gap: 14px; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.form h3, .card h2 { margin: 0; }
+.fieldset { border: 0; padding: 0; margin: 0; }
+.grid, .stepGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stepGrid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1.4fr); }
+.form label { display: grid; align-content: start; gap: 6px; font-weight: 650; }
+.form input, .form textarea {
+  width: 100%; min-width: 0; box-sizing: border-box; color: var(--app-ink); background: var(--app-surface);
+  border: 1px solid var(--app-border); border-radius: 8px; padding: 9px 11px; font: inherit;
+}
+.form textarea { resize: vertical; }
+.step { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--app-border); border-radius: 10px; }
+.step legend { padding-inline: 6px; font-weight: 700; }
+.step .actions { margin-top: 8px; }
+.card { display: grid; gap: 12px; padding: 16px; min-width: 0; }
+.cardHeader { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; }
+.cardHeader h2, .notes, .items li { overflow-wrap: anywhere; }
+.cardHeader time, .items li span { color: var(--app-muted); }
+.status { padding: 5px 10px; border-radius: 999px; background: var(--app-border); font-size: .85rem; font-weight: 700; }
+.status[data-status="PUBLISHED"] { color: white; background: var(--app-accent); }
+.notes { margin: 0; white-space: pre-wrap; }
+.items { margin: 0; padding-inline-start: 24px; }
+.items li { padding: 6px 0; border-bottom: 1px solid var(--app-border); }
+.items li span { display: block; }
+@media (max-width: 620px) {
+  .grid, .stepGrid { grid-template-columns: minmax(0, 1fr); }
+}

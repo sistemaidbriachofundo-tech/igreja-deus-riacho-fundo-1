@@ -1,6 +1,6 @@
+import { containsEmailAddress } from "@idbrf/shared";
 import type { DasRecord } from "./das-operations";
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
@@ -12,9 +12,11 @@ export type ManagedEvent = {
   description: string;
   locationText: string;
   startsAt: string;
+  ticketPolicy?: "REGISTRATION" | "PARTICIPANT";
+  canScan?: boolean;
 };
 
-export type EventPaymentAccount = { id: string; name: string };
+export type EventPaymentAccount = { id: string; name: string; provider?: "MERCADO_PAGO"; collectorId?: string };
 
 export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] | null {
   if (!value || typeof value !== "object" || !("accounts" in value) || !Array.isArray(value.accounts)) return null;
@@ -22,7 +24,8 @@ export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] 
     if (!account || typeof account !== "object" || !("id" in account)) return [];
     const id = text(account.id);
     const name = text("displayName" in account ? account.displayName : "name" in account ? account.name : null);
-    return id && name ? [{ id, name }] : [];
+    const collectorId = "mercadoPagoCollectorId" in account ? text(account.mercadoPagoCollectorId) : "";
+    return id && name ? [{ id, name, collectorId: collectorId || undefined, ...("mercadoPagoEnabled" in account && account.mercadoPagoEnabled === true ? { provider: "MERCADO_PAGO" as const } : {}) }] : [];
   });
 }
 
@@ -65,6 +68,13 @@ export function eventSlugFromName(name: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80).replace(/-$/, "");
 }
 
+export function generateEventCode(name: string, maxLength = 80): string {
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+    .replace(/[0-9]/g, digit => "ghijklmnop"[Number(digit)]);
+  const base = eventSlugFromName(name).slice(0, maxLength - suffix.length - 1).replace(/-$/, "") || "evento";
+  return `${base}-${suffix}`;
+}
+
 export function publicationBlockReason(event: {
   name: string;
   slug: string;
@@ -72,7 +82,7 @@ export function publicationBlockReason(event: {
   locationText: string;
 }): string | null {
   const joined = [event.name, event.slug, event.description, event.locationText].join("\n");
-  if (PERSONAL_EMAIL.test(joined) || PERSONAL_CPF.test(joined) || PERSONAL_PHONE.test(joined)) {
+  if (containsEmailAddress(joined) || PERSONAL_CPF.test(joined) || PERSONAL_PHONE.test(joined)) {
     return "Publicação bloqueada: revise nome, descrição ou local. O texto parece conter e-mail, telefone ou CPF.";
   }
   return null;
@@ -89,6 +99,8 @@ export function toManagedEvent(row: DasRecord): ManagedEvent | null {
     description: text(row.description),
     locationText: text(row.locationText),
     startsAt: text(row.startsAt),
+    ticketPolicy: row.ticketPolicy === "PARTICIPANT" || row.ticketPolicy === "REGISTRATION" ? row.ticketPolicy : undefined,
+    canScan: typeof row.canScan === "boolean" ? row.canScan : undefined,
   };
 }
 

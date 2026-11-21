@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 
 import { useEffect, useState } from "react";
@@ -34,7 +35,7 @@ export function VolunteerPipeline({ministries,token,refresh}:Props){
     setState("loading");
     void apiGet<unknown>("/volunteer-interests?ministryId="+encodeURIComponent(ministryId),token)
       .then(body=>{const data=readDasRows(body,"interests");
-        if(!cancelled){setInterests(data);setState("ready");}})
+        if(!cancelled){setInterests(sortByName(data, interest => txt(interest.displayName)));setState("ready");}})
       .catch(()=>{if(!cancelled){setInterests([]);setState("error");}});
     return()=>{cancelled=true;};
   },[ministryId,token,reload]);

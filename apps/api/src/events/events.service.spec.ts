@@ -207,6 +207,7 @@ describe("EventsService", () => {
             featuredOnHome: false,
           }),
       },
+      roster: { updateMany: jest.fn() },
       auditLog: { create: jest.fn() },
     };
     const prisma = {
@@ -228,6 +229,7 @@ describe("EventsService", () => {
     await expect(service.archive(secretaria, "e1")).resolves.toMatchObject({
       status: "ARCHIVED",
     });
+    expect(tx.roster.updateMany).toHaveBeenCalledTimes(2);
   });
 
   it("lists for lider and patches fields including draft reset", async () => {

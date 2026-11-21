@@ -3,6 +3,7 @@
 import { useState, type KeyboardEvent } from "react";
 import { RosterShowcase } from "./RosterShowcase";
 import { withBasePath } from "../../lib/paths";
+import { SERVING_SURFACES } from "../../lib/serving-rosters";
 import type {
   ConversionResult,
   DeskReady,
@@ -115,7 +116,7 @@ function ReadyExperience({
   desk,
   escalas,
   activities,
-  tab,
+  tab: requestedTab,
   escalaId,
   conversion,
   convertingId,
@@ -138,19 +139,23 @@ function ReadyExperience({
   const leaders = leadershipOf(desk);
   const isAtmosfera = desk.ministry.slug === "atmosfera";
   const shortcut = servingShortcut(desk.ministry.slug);
+  const rosterPanel = escalas.kind === "ready" ? escalas : undefined;
+  const moduleOnly = rosterPanel?.permissions?.scope === "modules";
+  const tabs = moduleOnly ? MINISTRY_TABS.filter(item => item.id === "escalas" || item.id === "integrantes") : MINISTRY_TABS;
+  const tab = tabs.some(item => item.id === requestedTab) ? requestedTab : "escalas";
 
   function onTabKey(event: KeyboardEvent<HTMLDivElement>) {
-    const current = MINISTRY_TABS.findIndex((item) => item.id === tab);
+    const current = tabs.findIndex((item) => item.id === tab);
     if (current < 0) return;
     let next = current;
-    if (event.key === "ArrowRight") next = (current + 1) % MINISTRY_TABS.length;
+    if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
     else if (event.key === "ArrowLeft")
-      next = (current - 1 + MINISTRY_TABS.length) % MINISTRY_TABS.length;
+      next = (current - 1 + tabs.length) % tabs.length;
     else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = MINISTRY_TABS.length - 1;
+    else if (event.key === "End") next = tabs.length - 1;
     else return;
     event.preventDefault();
-    const id = MINISTRY_TABS[next].id;
+    const id = tabs[next].id;
     onTab(id);
     document.getElementById(`ministry-tab-${id}`)?.focus();
   }
@@ -162,7 +167,7 @@ function ReadyExperience({
         heading="h1"
         title={desk.ministry.name}
         description={desk.ministry.description || undefined}
-        actions={
+        actions={!moduleOnly || desk.ministries.length > 1 ? (
           <div className={styles.ministryActions}>
           <AppNavLink className={ui.workspaceQuiet} href="/app/ministerios/">
             <UIIcon name="layers" size={16} /> Todos os ministérios
@@ -181,7 +186,7 @@ function ReadyExperience({
             </select>
           </label>
           </div>
-        }
+        ) : undefined}
       />
       <article
         className={styles.panel}
@@ -194,7 +199,7 @@ function ReadyExperience({
           aria-label={title}
           onKeyDown={onTabKey}
         >
-          {MINISTRY_TABS.map((item) => {
+          {tabs.map((item) => {
             const selected = item.id === tab;
             return (
               <button
@@ -310,6 +315,11 @@ function ReadyExperience({
               onConvert={onConvert}
               onAdmit={onAdmit}
               onEnd={onEnd}
+              rosterModules={isAtmosfera || moduleOnly ? rosterPanel?.modules ?? [] : undefined}
+              rosterItems={isAtmosfera || moduleOnly ? rosterPanel?.items : undefined}
+              manageRosterModules={rosterPanel?.permissions?.manageModuleMemberships}
+              moduleOnly={moduleOnly}
+              onModulesSaved={onRefresh}
             />
           ) : null}
 
@@ -322,6 +332,7 @@ function ReadyExperience({
               escalaId={escalaId}
               shortcut={shortcut}
               volunteerPortal={isAtmosfera}
+              louvor={SERVING_SURFACES.louvor.slugs.some(slug => slug === desk.ministry.slug)}
               onOpen={onOpenEscala}
               actions={token ? {
                 token,
@@ -408,7 +419,7 @@ function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: str
       </article>
       {panel.kind === "ready" ? (
         panel.items.length === 0 ? (
-          <p className={styles.note}>Nenhuma atividade publicada só deste ministério.</p>
+          <p className={styles.note}>Nenhum evento associado a este ministério.</p>
         ) : (
           panel.items.map((activity) => (
             <article key={activity.id} className={styles.escala}>
@@ -418,6 +429,9 @@ function ActivityList({ panel, schedule }: { panel: ActivityPanel; schedule: str
               </header>
               <p>{formatChurchWhen(activity.startsAt)}</p>
               {activity.locationText ? <p>{activity.locationText}</p> : null}
+              <a className={ui.workspaceSecondary} href={withBasePath("/app/eventos-gestao/?evento=" + encodeURIComponent(activity.id))}>
+                Abrir na Gestão de eventos
+              </a>
             </article>
           ))
         )

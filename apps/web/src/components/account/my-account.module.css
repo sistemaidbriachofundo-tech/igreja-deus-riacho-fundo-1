@@ -30,7 +30,7 @@
 
 .sectionHeading h2 {
   margin: 0;
-  font: 700 1.125rem/1.3 "Montserrat", system-ui, sans-serif;
+  font: 700 1.125rem/1.3 var(--site-font);
 }
 
 .sectionHeading p, .muted {

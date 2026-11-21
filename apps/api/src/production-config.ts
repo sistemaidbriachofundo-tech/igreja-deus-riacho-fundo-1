@@ -3,7 +3,8 @@ const testTarget = /(?:^|[._-])(?:hml|qa|demo|sandbox|preview|test)(?:[._-]|$)/i
 export function assertProductionConfiguration(env: NodeJS.ProcessEnv): void {
   if (env.IDBRF_RUNTIME_STAGE !== "production") return;
 
-  if (env.NODE_ENV !== "production" || env.HML_DEMO_PASSWORD_HASH || env.SEED_HML_MASS === "true") {
+  if (env.NODE_ENV !== "production" || env.HML_DEMO_PASSWORD_HASH ||
+    env.SEED_HML_MASS === "true" || env.SEED_ON_BOOT === "1") {
     throw new Error("A API de produção exige configuração sem dados sintéticos");
   }
 
@@ -21,7 +22,12 @@ export function assertProductionConfiguration(env: NodeJS.ProcessEnv): void {
     !env.PRODUCTION_DATABASE_HOST || database.hostname !== env.PRODUCTION_DATABASE_HOST ||
     !env.PRODUCTION_DATABASE_NAME || name !== env.PRODUCTION_DATABASE_NAME ||
     testTarget.test(name) || testTarget.test(database.hostname) ||
-    !["require", "verify-full"].includes(database.searchParams.get("sslmode") ?? "")
+    // Mesma VPS / rede Docker: IDBRF_DOCKER_INTERNAL_DB=1 dispensa TLS entre containers.
+    // Tráfego externo ao host continua exigindo sslmode=require|verify-full.
+    !(
+      env.IDBRF_DOCKER_INTERNAL_DB === "1" ||
+      ["require", "verify-full"].includes(database.searchParams.get("sslmode") ?? "")
+    )
   ) {
     throw new Error("O banco de produção deve usar o destino autorizado e conexão TLS");
   }

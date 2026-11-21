@@ -10,6 +10,7 @@ import {
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { useSearchParams } from "next/navigation";
 import { parseMinistryRoute } from "../lib/ministry-view";
+import { eventAuthHref } from "../lib/public-event-registration";
 import { withBasePath } from "../lib/paths";
 import { officialLogoAsset } from "../lib/brand";
 import { treasurySectionFromHash, treasurySectionHref, treasurySidebarItems, type TreasurySection } from "../lib/treasury-navigation";
@@ -20,22 +21,23 @@ import { readPanel } from "../lib/panel-read";
 import { NotificationCenter } from "./NotificationCenter";
 import { AdminSessionContext } from "./AdminAccessGate";
 import {
-  SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
+  SHELL_RAIL_STORAGE_KEY,
   accountInitials, areaAllowed, canListMinistries,
-  isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
-  personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
+  isGuestOnly, isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
+  personaLabel, readRailPreference, shellAreasForRoles,
   type AppNavKey, type MinistryNavItem, type MinistrySubmenuEntry, type PersonaArea,
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { pastoralSections, type PastoralSection } from "../lib/pastoral-navigation";
 import { useDialogLifecycle } from "./ui/dialog";
-import { dsColor, dsGrid } from "./ui/tokens";
+import { dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
 import { UIIcon, type GlyphName } from "./ui/UIIcon";
 
 export type { AppNavKey };
 export { UIIcon };
 
-const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "tesouraria", "ministerios"];
+const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "pastoral", "secretaria", "tesouraria", "ministerios"];
 
 const CONNECTION_SECTIONS = [
   { title: "Trilha da Conexão", id: "trilha", icon: "layers" },
@@ -96,7 +98,8 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
-function SidebarGroup({ label, href, icon, active, current = active, compact, onNavigate, children }: {
+function SidebarGroup({ section, label, href, icon, active, current = active, compact, onNavigate, children }: {
+  section: AppNavKey;
   label: string;
   href: string;
   icon: GlyphName;
@@ -113,18 +116,18 @@ function SidebarGroup({ label, href, icon, active, current = active, compact, on
     const value = window.localStorage.getItem(key);
     setExpanded(active || value === "open");
   }, [key, active]);
-  return <div>
+  return <div data-section={section}>
     <div className={s.groupHeading}>
       <AppNavLink href={href} className={active ? s.menuActive : s.menuItem} aria-current={current ? "page" : undefined} title={compact ? label : undefined} onNavigate={onNavigate}>
         <UIIcon name={icon} size={19} /><span className={s.menuLabel}>{label}</span>
       </AppNavLink>
-      {!compact && <button className={s.groupChevron} type="button" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label}
+      {!compact && <button className={s.groupChevron} type="button" aria-label={label === "Tesouraria" || label === "Secretaria" || label === "Pastoral" ? "Submenu da " + label : "Submenu de " + label}
         aria-expanded={expanded} aria-controls={id} onClick={() => {
           setExpanded(!expanded);
           window.localStorage.setItem(key, expanded ? "closed" : "open");
         }}><UIIcon name="chevron" size={15} /></button>}
     </div>
-    <div className={s.subList} id={id} role="group" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label} hidden={compact || !expanded}>
+    <div className={s.subList} id={id} role="group" aria-label={label === "Tesouraria" || label === "Secretaria" || label === "Pastoral" ? "Submenu da " + label : "Submenu de " + label} hidden={compact || !expanded}>
       {children}
     </div>
   </div>;
@@ -165,6 +168,11 @@ function CurrentMinistrySubmenu(props: Omit<Parameters<typeof MinistrySubmenu>[0
   return <MinistrySubmenu {...props} search={search} />;
 }
 
+function EventLoginLink() {
+  const slug = useSearchParams().get("evento");
+  return <AppNavLink href={eventAuthHref("/login/", slug)}>Ir para o login</AppNavLink>;
+}
+
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
   const root = current.closest("[data-rail-keys]");
   if (!root) return;
@@ -179,18 +187,18 @@ function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last
 }
 
 export function AppShell({
-  active, meta, children, viewer, secretarySection,
+  active, meta, children, viewer, secretarySection, pastoralSection,
 }: {
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
-  secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes";
+  secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes" | "mapa";
+  pastoralSection?: PastoralSection;
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
   const personaMode = isAdminEnabled();
   const preview = !personaMode && !viewer;
-  const childActive = active === "ministerios" || active === "escalas" || active === "atmosfera";
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loaded, setLoaded] = useState<LoadedAccess | null>(viewer ? { kind: "ready", user: viewer } : null);
   const [term, setTerm] = useState("");
@@ -198,7 +206,7 @@ export function AppShell({
   const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [ministryOpen, setMinistryOpen] = useState(childActive);
+  const [ministryOpen, setMinistryOpen] = useState(false);
   const [treasurySection, setTreasurySection] = useState<TreasurySection>("visao");
   const [ministries, setMinistries] = useState<MinistryNavItem[] | null>(null);
   const [ministryNote, setMinistryNote] = useState("");
@@ -258,7 +266,8 @@ export function AppShell({
         : loaded?.kind === "held"
           ? "held"
           : "pending";
-  const memberShell = !preview && accessKind === "ready" && isMemberOnly(roles);
+  const guestShell = !preview && accessKind === "ready" && isGuestOnly(roles);
+  const memberShell = !preview && accessKind === "ready" && (isMemberOnly(roles) || guestShell);
   const menu = preview
     ? shellAreasForRoles(roles, true)
     : accessKind === "ready"
@@ -317,7 +326,8 @@ export function AppShell({
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [active]);
-  const treasuryChildren = treasurySidebarItems(roles);
+  const treasuryChildren = menu.some(item => item.key === "tesouraria") ? treasurySidebarItems(roles) : [];
+  const pastoralChildren = pastoralSections(roles);
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
   const atmosferaScales = ministryEntries.find(entry => entry.scales)?.scales;
@@ -326,7 +336,10 @@ export function AppShell({
   const credentialMenu = menu.find(item => item.key === "carteirinha");
   const secretaryChildren = [
     ...(preview || roles.some(role => role === "SECRETARIA" || role === "PLATFORM_ADMIN")
-      ? [{ key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const }]
+      ? [
+        { key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const },
+        { key: "mapa", title: "Mapa da Membresia", href: "/app/secretaria/pessoas/mapa/", icon: "map" as const },
+      ]
       : []),
     { key: "admissoes", title: "Admissões", href: "/app/secretaria/admissoes/", icon: "layers" as const },
     { key: "aniversariantes", title: "Aniversariantes", href: "/app/secretaria/aniversariantes/", icon: "birthday" as const },
@@ -338,6 +351,7 @@ export function AppShell({
     "eventos-gestao": canCreateEvents ? EVENT_SECTIONS : [],
   };
   const commandSections = [
+    ...menu.filter(item => item.key === "pastoral").flatMap(item => pastoralChildren.map(child => ({ ...child, area: item.label }))),
     ...(secretaryMenu ? secretaryChildren.filter(item => item.key !== "carteirinha").map(item => ({
       href: item.href, title: item.title, icon: item.icon, area: "Secretaria",
     })) : []),
@@ -368,7 +382,7 @@ export function AppShell({
       }
       continue;
     }
-    if (!supportingSectionInserted && ["acessos", "site"].includes(item.key)) {
+    if (!supportingSectionInserted && ["acessos", "gestao-sistema", "site"].includes(item.key)) {
       menuBlocks.push({ kind: "divider" });
       supportingSectionInserted = true;
     }
@@ -384,9 +398,6 @@ export function AppShell({
       ? (collapsed ? "Expandir menu" : "Recolher menu")
       : "Abrir menu";
   const shellStyle = {
-    "--shell-gold": dsColor.gold,
-    "--shell-cream": dsColor.cream,
-    "--shell-ink": dsColor.ink,
     "--shell-target": dsGrid.touchTarget,
   } as CSSProperties;
 
@@ -405,11 +416,7 @@ export function AppShell({
     if (viewport === "desktop") {
       setCollapsed(value => {
         const next = !value;
-        if (next) {
-          setMinistryOpen(false);
-        } else {
-          setMinistryOpen(readGroupPreference(window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY), childActive));
-        }
+        if (next) setMinistryOpen(false);
         window.localStorage.setItem(SHELL_RAIL_STORAGE_KEY, next ? "collapsed" : "expanded");
         return next;
       });
@@ -418,11 +425,7 @@ export function AppShell({
     setDrawerOpen(open => !open);
   }
   function toggleMinistries() {
-    setMinistryOpen(open => {
-      const next = !open;
-      window.localStorage.setItem(SHELL_MINISTRY_STORAGE_KEY, next ? "open" : "closed");
-      return next;
-    });
+    setMinistryOpen(open => !open);
   }
   async function askLogout() {
     const accepted = await confirm({
@@ -449,11 +452,10 @@ export function AppShell({
   }, []);
   useLayoutEffect(() => {
     const rail = readRailPreference(window.localStorage.getItem(SHELL_RAIL_STORAGE_KEY));
-    const storedGroup = window.localStorage.getItem(SHELL_MINISTRY_STORAGE_KEY);
     setCollapsed(rail === "collapsed");
-    setMinistryOpen(childActive || (rail === "expanded" && readGroupPreference(storedGroup, false)));
     setRailReady(true);
-  }, [childActive]);
+  }, []);
+  useEffect(() => setMinistryOpen(false), [active]);
   useEffect(() => {
     function onLost() {
       setLoaded({ kind: "anonymous" });
@@ -574,10 +576,10 @@ export function AppShell({
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
         <div className={s.railHeader}>
-          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — Governança Ministerial" onNavigate={afterNavigate}>
+          <AppNavLink href={guestShell ? "/app/convidado/" : "/app/"} className={s.brand} aria-label={railCollapsed ? "ID Riacho 1" : undefined} onNavigate={afterNavigate}>
             {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />
+            <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="" loading="eager" />
             <span className={s.brandText}><strong>ID Riacho 1</strong><small>Igreja de Deus</small></span>
           </AppNavLink>
           <button type="button" className={s.railCollapse} hidden={viewport !== "desktop"}
@@ -593,7 +595,7 @@ export function AppShell({
           {menuBlocks.map(block => {
             if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
             if (block.kind === "secretary") return (
-              <SidebarGroup key="secretaria" label="Secretaria" href="/app/secretaria/" icon="layers"
+              <SidebarGroup key="secretaria" section="secretaria" label="Secretaria" href="/app/secretaria/" icon="layers"
                 active={active === "secretaria" || active === "carteirinha"} current={active === "secretaria" && (!secretarySection || secretarySection === "resumo")} compact={railCollapsed} onNavigate={afterNavigate}>
                 {secretaryChildren.map(item => {
                   const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
@@ -605,7 +607,7 @@ export function AppShell({
               </SidebarGroup>
             );
             if (block.kind === "treasury") return (
-              <SidebarGroup key="tesouraria" label="Tesouraria" href="/app/tesouraria/" icon="wallet"
+              <SidebarGroup key="tesouraria" section="tesouraria" label="Tesouraria" href="/app/tesouraria/" icon="wallet"
                 active={active === "tesouraria"} current={false} compact={railCollapsed} onNavigate={afterNavigate}>
                 {treasuryChildren.map(item => {
                   const selected = active === "tesouraria" && treasurySection === item.section;
@@ -619,9 +621,22 @@ export function AppShell({
             );
             if (block.kind === "link") {
               const item = block.item;
+              if (item.key === "pastoral") return (
+                <SidebarGroup key={item.key} section={item.key} label={item.label} href={item.href} icon={item.icon}
+                  active={active === item.key} current={active === item.key && !pastoralSection}
+                  compact={railCollapsed} onNavigate={afterNavigate}>
+                  {pastoralChildren.map(child => {
+                    const selected = active === item.key && pastoralSection === child.id;
+                    return <AppNavLink key={child.id} href={child.href} className={selected ? s.subSelected : s.subItem}
+                      aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
+                      <UIIcon name={child.icon} size={16} /><span className={s.menuLabel}>{child.title}</span>
+                    </AppNavLink>;
+                  })}
+                </SidebarGroup>
+              );
               const children = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
               if (children.length) return (
-                <SidebarGroup key={item.key} label={item.label} href={item.href} icon={item.icon}
+                <SidebarGroup key={item.key} section={item.key} label={item.label} href={item.href} icon={item.icon}
                   active={active === item.key} current={active === item.key && !children.some(child => child.id === sectionId)}
                   compact={railCollapsed} onNavigate={afterNavigate}>
                   {children.map(child => {
@@ -633,11 +648,11 @@ export function AppShell({
                 </SidebarGroup>
               );
               const label = itemLabel(item);
-              return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
+              return <AppNavLink key={item.key} data-section={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
                 <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
               </AppNavLink>;
             }
-            return <div key="ministerios" className={s.ministryBlock} data-open={ministryOpen ? "true" : "false"}>
+            return <div key="ministerios" className={s.ministryBlock} data-section="ministerios" data-open={ministryOpen ? "true" : "false"}>
               <button type="button" className={s.ministryToggle} data-nav-group="ministerios" data-current={active != null && isMinistryGroupKey(active) ? "true" : "false"} aria-expanded={ministryOpen} aria-controls={ministryListId} title={railCollapsed ? "Ministérios" : undefined} onClick={toggleMinistries}>
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
@@ -678,10 +693,13 @@ export function AppShell({
                 Escalas: <UIIcon name="calendar" size={18} />,
                 Tesouraria: <UIIcon name="wallet" size={18} />,
                 Admissões: <UIIcon name="badge" size={18} />,
+                Aniversariantes: <UIIcon name="birthday" size={18} />,
+                Pastoral: <UIIcon name="family" size={18} />,
+                Louvor: <UIIcon name="roster" size={18} />,
                 "Grupos de Amizade": <UIIcon name="people" size={18} />,
               }} />}
             {accessKind === "ready" ? (
-              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label={`Minha conta · ${accountLabel}`}>
+              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/">
                 {accountLink}
               </AppNavLink>
             ) : accessKind !== "pending" && <span className={s.profileCluster}>{accountLink}</span>}
@@ -696,14 +714,17 @@ export function AppShell({
             <h1 tabIndex={-1} ref={deniedRef}>Seu perfil não tem acesso a esta página</h1>
             <AppNavLink href={landingForRoles(roles)}>Voltar ao início</AppNavLink>
           </section>}
-          {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p><AppNavLink href="/login/">Ir para o login</AppNavLink></div>}
+          {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p>
+            {active === "eventos-membro"
+              ? <Suspense fallback={<AppNavLink href="/login/">Ir para o login</AppNavLink>}><EventLoginLink /></Suspense>
+              : <AppNavLink href="/login/">Ir para o login</AppNavLink>}</div>}
           {accessKind === "held" && <p className={s.holdNote} role="alert">Não foi possível verificar seu acesso. Atualize a página para tentar de novo.</p>}
           </div>
         </main>
       </div>
 
       {menu.length > 0 && <nav className={s.mobileNav} data-member={memberShell || undefined} aria-label="Navegação principal no celular">
-        {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
+        {phone.map(item => <AppNavLink key={item.key} data-section={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}

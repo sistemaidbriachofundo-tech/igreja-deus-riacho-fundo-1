@@ -95,6 +95,91 @@ it("envia push de teste somente à inscrição do próprio voluntário", async (
 });
 
 
+it("não convida para Recepção quem só está em Ofertas e não repete o lembrete", async () => {
+  const savedEnv = { ...process.env };
+  delete process.env.WHATSAPP_PROVIDER;
+  delete process.env.ROSTER_WHATSAPP_DEV_APPROVED;
+  delete process.env.ROSTER_PUSH_ENABLED;
+  const notices: { id: string; personId: string; kind: string; expiresAt?: Date; declinedAt?: Date | null }[] = [];
+  const deliveries: { channel: string; status: string }[] = [];
+  const serviceAt = new Date("2026-12-06T13:00:00.000Z");
+  const reminderAt = new Date(+now + 86_400_000);
+  const declined = {
+    id: "declined", status: "DECLINED", personId: "recusada", partnerPersonId: null,
+    slot: {
+      id: "vaga-recepcao", roleLabel: "Recepção", requiresCouple: false, requiredQualification: null,
+      roster: {
+        id: "culto-recepcao", title: "Recepção", serviceAt, organizationId, churchId, ministryId: "atmosfera",
+        moduleId: "recepcao", status: "PUBLISHED",
+        module: { id: "recepcao", name: "Recepção", rules: { substituteInviteLimit: 5, substituteInviteHours: 12 } },
+      },
+    },
+  };
+  const links = [
+    { moduleId: "recepcao", personId: "ana" },
+    { moduleId: "ofertas", personId: "ofertas" },
+  ];
+  const db = {
+    rosterNotice: {
+      findMany: jest.fn(async ({ where }: { where?: { kind?: string; id?: { startsWith?: string } } }) =>
+        where?.kind === "substitute" ? notices.filter(item => item.kind === "substitute" && item.id.startsWith(where.id?.startsWith ?? "")) : notices),
+      createMany: jest.fn(async ({ data, skipDuplicates }: { data: typeof notices; skipDuplicates?: boolean }) => {
+        let count = 0;
+        for (const row of data) {
+          if (skipDuplicates && notices.some(item => item.id === row.id)) continue;
+          notices.push(row);
+          count += 1;
+        }
+        return { count };
+      }),
+    },
+    rosterNoticeDelivery: {
+      createMany: jest.fn(async ({ data }: { data: { channel: string; status: string }[] }) => {
+        deliveries.push(...data);
+        return { count: data.length };
+      }),
+    },
+    roster: { findMany: jest.fn(async () => [{ ministryId: "atmosfera", moduleId: "recepcao", module: { id: "recepcao", rules: {} } }]) },
+    ministryMembership: { findMany: jest.fn(async ({ where }: { where?: { personId?: { notIn?: string[] } } }) => {
+      const excluded = new Set(where?.personId?.notIn ?? []);
+      return [{ personId: "ana", ministryId: "atmosfera" }, { personId: "ofertas", ministryId: "atmosfera" }].filter(row => !excluded.has(row.personId));
+    }) },
+    ministryRosterModuleMembership: { findMany: jest.fn(async ({ where }: { where?: { moduleId?: { in?: string[] } } }) => {
+      const ids = new Set(where?.moduleId?.in ?? []);
+      return links.filter(row => !ids.size || ids.has(row.moduleId));
+    }) },
+    rosterAvailabilityResponse: { findMany: jest.fn(async () => []) },
+    volunteerAvailability: { findMany: jest.fn(async () => ["ana", "ofertas"].map(personId => ({ personId, weekday: 0, startMinute: 180, endMinute: 1440 }))) },
+    volunteerImpediment: { findMany: jest.fn(async () => []) },
+    rosterAssignment: {
+      findMany: jest.fn(async ({ where }: { where?: { status?: string | { in?: string[] }; OR?: unknown } }) => {
+        if (where?.status === "DECLINED") return [{ id: declined.id }];
+        if (where?.OR) return [];
+        return [{ id: "confirmed", personId: "ana", partnerPersonId: null, status: "CONFIRMED", slot: { roster: { serviceAt: reminderAt } } }];
+      }),
+      findFirst: jest.fn(async ({ where }: { where?: { id?: string; slotId?: string } }) => {
+        if (where?.slotId) return null;
+        return where?.id === declined.id ? declined : null;
+      }),
+    },
+  };
+  const database = { ...db, $transaction: jest.fn(async (fn: (tx: typeof db) => Promise<unknown>) => fn(db)) };
+  const pilot = { getPilotChurch: async () => ({ churchId, organizationId }) } as PilotService;
+  const service = new RosterNoticesService(database as unknown as PrismaService, pilot);
+  try {
+    await expect(service.run(now)).resolves.toMatchObject({ invitations: 1 });
+    await expect(service.run(new Date(+now + 15 * 60_000))).resolves.toMatchObject({ invitations: 0 });
+    const substitutes = notices.filter(item => item.kind === "substitute");
+    expect(substitutes.map(item => item.personId)).toEqual(["ana"]);
+    expect(notices.filter(item => item.kind === "survey").map(item => item.personId)).toEqual(["ana"]);
+    expect(notices.filter(item => item.kind === "reminder")).toHaveLength(1);
+    expect(deliveries.filter(item => item.channel === "WHATSAPP").every(item => item.status === "SKIPPED")).toBe(true);
+    expect(deliveries.some(item => item.channel === "WHATSAPP" && item.status !== "SKIPPED")).toBe(false);
+  } finally {
+    process.env = savedEnv;
+  }
+});
+
 it("aceita um administrador da organização na igreja ativa e recusa outro escopo", async () => {
   const { service } = fixture();
   const admin = { ...actor, churchId, organizationId, grants: [{

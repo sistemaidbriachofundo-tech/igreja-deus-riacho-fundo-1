@@ -1,5 +1,6 @@
 import type {Candidate, CandidateDecision, ExistingAssignment, RejectionCode, Rules, SlotDemand} from './types';
 import {belongsToWindow, isActiveStatus, isMorning, localDayDifference, localParts} from './time';
+import {sameLouvorWeek} from '@idbrf/shared';
 
 function evaluateSingle(candidate: Candidate, slot: SlotDemand, assignments: readonly ExistingAssignment[], rules: Rules,
   ignoreCouple: boolean, byId: ReadonlyMap<string,Candidate>): RejectionCode[] {
@@ -24,13 +25,14 @@ function evaluateSingle(candidate: Candidate, slot: SlotDemand, assignments: rea
   const active = assignments.filter(a => isActiveStatus(a.status) && (a.personId === candidate.personId || a.partnerPersonId === candidate.personId));
   if (rules.avoidDoubleBooking && active.some(a => localParts(a.serviceAt,rules.timeZone).date === local.date)) reasons.push('DAY_CONFLICT');
   if (rules.minIntervalDays > 0 && active.some(a => localDayDifference(a.serviceAt,slot.serviceAt,rules.timeZone) < rules.minIntervalDays)) reasons.push('MIN_INTERVAL');
+  if (rules.louvorWeekBlock && active.some(a => a.slotId !== slot.slotId && sameLouvorWeek(new Date(a.serviceAt), new Date(slot.serviceAt)))) reasons.push('LOUVOR_WEEK');
   const thisMonth = active.filter(a => localParts(a.serviceAt,rules.timeZone).month === local.month);
   if (thisMonth.length >= rules.maxMonthlyAssignments) reasons.push('MONTHLY_LIMIT');
   const samePositionMonth = thisMonth.filter(a => a.positionId === slot.positionId).length;
   if ((slot.rotationRule === 'NO_REPEAT_SAME_MONTH' || slot.rotationRule === 'ONCE_PER_MONTH') && samePositionMonth > 0) reasons.push('ROTATION_LIMIT');
   if (rules.familySameDayBlock && candidate.familyGroupId) {
     const relatives = [...byId.values()].filter(c=>c.personId !== candidate.personId && c.familyGroupId && c.familyGroupId === candidate.familyGroupId).map(c=>c.personId);
-    if (active.length === 0 && assignments.some(a => isActiveStatus(a.status) && (relatives.includes(a.personId) || !!a.partnerPersonId && relatives.includes(a.partnerPersonId)) && localParts(a.serviceAt,rules.timeZone).date === local.date && a.serviceAt !== slot.serviceAt)) reasons.push('FAMILY_DAY_CONFLICT');
+    if (assignments.some(a => isActiveStatus(a.status) && (relatives.includes(a.personId) || (!!a.partnerPersonId && relatives.includes(a.partnerPersonId))) && localParts(a.serviceAt,rules.timeZone).date === local.date && a.serviceAt !== slot.serviceAt)) reasons.push('FAMILY_DAY_CONFLICT');
   }
   if (!ignoreCouple && (slot.requiresCouple || (rules.enforceCouples && candidate.serveAsCouple))) {
     if (!candidate.spousePersonId && !candidate.coupleExceptionApproved) reasons.push('COUPLE_REQUIRED');

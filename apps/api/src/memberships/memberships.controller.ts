@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
-import { ROLE_CODES } from "@idbrf/shared";
+import { ECCLESIASTICAL_ROLES, ROLE_CODES, type EcclesiasticalRole } from "@idbrf/shared";
 import {
+  IsArray,
+  ArrayMaxSize,
   IsBoolean,
   IsEmail,
   IsIn,
@@ -24,6 +26,12 @@ class RegisterMembershipBody implements RegisterMembershipInput {
   @IsString()
   @MinLength(1)
   displayName!: string;
+
+  @ValidateIf((_, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(ECCLESIASTICAL_ROLES.length)
+  @IsIn(ECCLESIASTICAL_ROLES, { each: true })
+  ecclesiasticalRoles?: EcclesiasticalRole[];
 
   @IsOptional()
   @IsEmail()
@@ -80,6 +88,12 @@ class RegisterMembershipBody implements RegisterMembershipInput {
 }
 
 export class PatchMembershipBody {
+  @ValidateIf((_, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(ECCLESIASTICAL_ROLES.length)
+  @IsIn(ECCLESIASTICAL_ROLES, { each: true })
+  ecclesiasticalRoles?: EcclesiasticalRole[];
+
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @IsString()

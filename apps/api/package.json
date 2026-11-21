@@ -14,6 +14,7 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
+    "@fast-csv/parse": "4.3.6",
     "@idbrf/db": "*",
     "@idbrf/shared": "*",
     "@nestjs/common": "^11.0.12",

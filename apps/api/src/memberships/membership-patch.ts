@@ -1,7 +1,9 @@
+import { ECCLESIASTICAL_ROLES, type EcclesiasticalRole } from "@idbrf/shared";
 import { BusinessException } from "../common/business.exception";
 
 export interface MembershipNotesPatch {
   notes?: string | null;
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   expectedUpdatedAt?: string;
   status?: string;
   leftAt?: string | null;
@@ -47,4 +49,22 @@ export function parseExpectedUpdatedAt(value: string): Date {
     );
   }
   return date;
+}
+
+export function normalizeEcclesiasticalRoles(roles: EcclesiasticalRole[]) {
+  if (!Array.isArray(roles) || roles.some(role => !ECCLESIASTICAL_ROLES.includes(role))) {
+    throw new BusinessException("Selecione funções eclesiásticas válidas.", "MEMBERSHIP_ROLES_INVALID", 400);
+  }
+  return ECCLESIASTICAL_ROLES.filter(role => roles.includes(role));
+}
+
+export function membershipLeadershipSelect(scope: { churchId: string; organizationId: string }) {
+  const limit = { take: 1, select: { id: true } } as const;
+  return {
+    ministryLeads: { ...limit, where: { organizationId: scope.organizationId, churchId: scope.churchId } },
+    ministryMemberships: {
+      ...limit,
+      where: { organizationId: scope.organizationId, churchId: scope.churchId, role: "LIDER", status: "ATIVO", endedAt: null },
+    },
+  };
 }
