@@ -635,10 +635,27 @@ describe("controller wiring (delegates to services)", () => {
 
   it("PublicPortalController", async () => {
     const portal = {
-      home: jest.fn().mockResolvedValue({ ministries: [] }),
       listMinistries: jest.fn(),
-      getMinistryBySlug: jest.fn(),
-      listEvents: jest.fn().mockResolvedValue({ events: [{ id: "e1", startsAt: "2099-01-01T13:00:00Z" }] }),
+      getMinistryBySlug: jest.fn().mockResolvedValue({
+        slug: "jovens",
+        relatedEvents: [
+          { id: "culto", startsAt: "2099-01-01T13:00:00Z", endsAt: null },
+          { id: "antigo", startsAt: "2020-01-01T13:00:00Z", endsAt: null },
+        ],
+      }),
+      home: jest.fn().mockResolvedValue({
+        ministries: [],
+        featuredEvents: [
+          { id: "atual", startsAt: "2099-01-01T13:00:00Z", endsAt: null },
+          { id: "encerrado", startsAt: "2020-01-01T13:00:00Z", endsAt: "2020-01-01T15:00:00Z" },
+        ],
+      }),
+      listEvents: jest.fn().mockResolvedValue({
+        events: [
+          { id: "e1", startsAt: "2099-01-01T13:00:00Z", endsAt: null },
+          { id: "passado", startsAt: "2020-01-01T13:00:00Z", endsAt: "2020-01-01T15:00:00Z" },
+        ],
+      }),
       getEventBySlug: jest.fn().mockResolvedValue({ id: "e1", slug: "encontro-jovens-demo" }),
       getContentBySlug: jest.fn(),
     };
@@ -666,9 +683,9 @@ describe("controller wiring (delegates to services)", () => {
       registrations as never,
     );
     await c.publishedSiteLayout();
-    await c.home();
+    await expect(c.home()).resolves.toMatchObject({ featuredEvents: [{ id: "atual" }] });
     await c.listMinistries();
-    await c.getMinistry("jovens");
+    await expect(c.getMinistry("jovens")).resolves.toMatchObject({ relatedEvents: [{ id: "culto" }] });
     await expect(c.listEvents()).resolves.toMatchObject({ events: [{ id: "e1", registrationOpen: true }] });
     await c.getEvent("encontro-jovens-demo");
     await c.createRegistration(user, "encontro-jovens-demo", {

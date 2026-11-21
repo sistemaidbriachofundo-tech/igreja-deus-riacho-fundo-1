@@ -453,7 +453,7 @@ export class ChurchAccessController {
     const reset = purpose === "PASSWORD_RESET";
     if (!this.invitations) throw new ServiceUnavailableException("Envio de convites indisponível.");
     const deliveryConfig = inviteEmailConfig();
-    const issued = this.invitations.newToken(purpose);
+    const issued = await this.invitations.issueToken(purpose);
     const created = await this.prisma.$transaction(async tx => {
       const user = await tx.user.findFirst({
         where: { id: userId, person: { organizationId, homeChurchId: churchId } },
@@ -490,6 +490,7 @@ export class ChurchAccessController {
     });
     const delivery = await this.invitations.deliver({
       inviteId: created.invite.id, token: issued.token, email: created.user.email, name: created.user.person.displayName, purpose,
+      expiresInHours: reset ? Math.max(1, Math.round((issued.expiresAt.getTime() - Date.now()) / 3600_000)) : undefined,
     });
     await this.prisma.accessInvitation.updateMany({
       where: { userId, purpose, id: { not: created.invite.id }, consumedAt: null, revokedAt: null,

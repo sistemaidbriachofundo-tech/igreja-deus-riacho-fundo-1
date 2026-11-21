@@ -7,7 +7,31 @@ import { assertChurchRole } from "./church";
 
 const SCOPE_KINDS = ["PLATFORM", "CHURCH", "MINISTRY", "MODULE", "GROUP", "TRACK"] as const;
 type ScopeKind = (typeof SCOPE_KINDS)[number];
-const EDITABLE_SETTINGS = new Set(["notices.birthday.hour_brasilia", "pastoral.titular_user_id", "pastoral.substitute_user_id"]);
+const EDITABLE_SETTINGS = new Set([
+  "notices.birthday.hour_brasilia",
+  "pastoral.titular_user_id",
+  "pastoral.substitute_user_id",
+  "auth.password_reset.ttl_hours",
+]);
+/** Regras cujo código recusa um valor mais permissivo. Não aparecem como edição ativa. */
+const LOCKED_SETTINGS = new Set([
+  "events.registration.session_required",
+  "finance.mercado_pago.enabled",
+  "finance.brb.mode",
+  "finance.sicoob.mode",
+]);
+
+export type SettingBehavior = "active" | "locked" | "documentary";
+
+export function settingBehavior(key: string): SettingBehavior {
+  if (LOCKED_SETTINGS.has(key)) return "locked";
+  if (EDITABLE_SETTINGS.has(key)) return "active";
+  return "documentary";
+}
+
+export function clampPasswordResetHours(value: unknown, fallback = 1): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 24 ? value : fallback;
+}
 
 @Injectable()
 export class SystemSettingsService {
@@ -20,10 +44,19 @@ export class SystemSettingsService {
     await this.admin(actor);
     const items = await this.prisma.systemSettingCatalog.findMany({ orderBy: { key: "asc" } });
     return {
-      items: items.map(item => ({
-        key: item.key, title: item.title, description: item.description, valueType: item.valueType,
-        scopeKind: item.scopeKind, defaultValue: item.defaultJson, devValue: item.devJson, editable: EDITABLE_SETTINGS.has(item.key),
-      })),
+      items: items.map(item => {
+        const behavior = settingBehavior(item.key);
+        return {
+          key: item.key, title: item.title, description: item.description, valueType: item.valueType,
+          scopeKind: item.scopeKind, defaultValue: item.defaultJson, devValue: item.devJson,
+          editable: behavior === "active", behavior,
+          behaviorNote: behavior === "active"
+            ? "A vigência publicada altera o comportamento neste escopo."
+            : behavior === "locked"
+              ? "Bloqueio de segurança. O valor vigente não pode ser afrouxado."
+              : "Documentada. O sistema ainda não usa esta regra.",
+        };
+      }),
     };
   }
 
@@ -84,9 +117,12 @@ export class SystemSettingsService {
   async draft(actor: AuthUser, input: { key: string; scopeKind?: string; scopeId?: string | null; value: unknown; note?: string | null }) {
     const pilot = await this.admin(actor);
     const catalog = await this.catalogRow(input.key);
+    if (LOCKED_SETTINGS.has(catalog.key)) {
+      throw new BadRequestException("Bloqueio de segurança. O valor vigente não pode ser afrouxado.");
+    }
     if (!EDITABLE_SETTINGS.has(catalog.key)) throw new BadRequestException("Esta regra está disponível para consulta.");
     const kind = this.scopeKind(input.scopeKind || catalog.scopeKind);
-    this.assertValue(catalog.valueType, input.value);
+    this.assertValue(catalog.key, catalog.valueType, input.value);
     const created = await this.prisma.systemSettingRevision.create({
       data: {
         catalogKey: catalog.key, organizationId: pilot.organizationId, churchId: pilot.churchId,
@@ -175,12 +211,15 @@ export class SystemSettingsService {
     return value as ScopeKind;
   }
 
-  private assertValue(valueType: string, value: unknown) {
+  private assertValue(key: string, valueType: string, value: unknown) {
     if (valueType === "boolean" && typeof value !== "boolean") throw new BadRequestException("Informe um valor lógico.");
     if (valueType === "number" && typeof value !== "number") throw new BadRequestException("Informe um número.");
     if (valueType === "string" && typeof value !== "string") throw new BadRequestException("Informe um texto.");
     if (valueType === "time" && (typeof value !== "string" || parseBrasiliaHour(value) == null)) {
       throw new BadRequestException("Informe um horário HH:mm.");
+    }
+    if (key === "auth.password_reset.ttl_hours" && clampPasswordResetHours(value, 0) === 0) {
+      throw new BadRequestException("A recuperação fica entre 1 e 24 horas.");
     }
   }
 

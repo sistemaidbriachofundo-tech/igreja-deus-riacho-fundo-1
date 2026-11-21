@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { publicPasswordResetBody } from "@idbrf/shared";
 import { signMercadoPagoManifest, mercadoPagoManifest } from "./mercado-pago-signature";
 import { AccessInvitationService } from "../auth/access-invitation.service";
@@ -44,6 +44,32 @@ describe("recuperação de senha neutra", () => {
     expect(sent).toEqual(["ana@example.test"]);
     expect(invites).toHaveLength(1);
     expect(publicPasswordResetBody()).toEqual(publicPasswordResetBody());
+    const expiresAt = invites[0].expiresAt as Date;
+    expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(50 * 60_000);
+    expect(expiresAt.getTime() - Date.now()).toBeLessThan(70 * 60_000);
+  });
+
+  it("usa a vigência publicada da recuperação, limitada a 24 horas", async () => {
+    const invites: Array<Record<string, unknown>> = [];
+    const prisma = {
+      user: { findFirst: async () => ({ id: "u", email: "ana@example.test", status: "ACTIVE", passwordHash: "hash", person: { displayName: "Ana" } }) },
+      accessInvitation: {
+        findFirst: async () => null,
+        create: async ({ data }: { data: Record<string, unknown> }) => { const row = { id: "inv", ...data }; invites.push(row); return row; },
+        update: async () => ({}),
+        updateMany: async () => ({ count: 0 }),
+      },
+      auditLog: { create: async () => ({}) },
+      systemSettingCatalog: { findUnique: async () => ({ key: "auth.password_reset.ttl_hours", devJson: 1 }) },
+      systemSettingRevision: { findMany: async () => [{ id: "rev", valueJson: 6, effectiveFrom: new Date("2026-11-01T00:00:00.000Z"), effectiveUntil: null }] },
+    };
+    process.env.EMAIL_TRANSPORT = "test";
+    process.env.ACCESS_INVITE_WEB_ORIGIN = "https://dev.example.test";
+    const service = new AccessInvitationService(prisma as never, { deliverOnce: async () => ({ status: "SENT", idempotentReplay: false, providerMessageId: "t" }) } as never);
+    await service.requestPublicReset("ana@example.test");
+    const expiresAt = invites[0].expiresAt as Date;
+    expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(5 * 3600_000);
+    expect(expiresAt.getTime() - Date.now()).toBeLessThan(7 * 3600_000);
   });
 });
 
@@ -93,6 +119,30 @@ describe("gestão do sistema preserva o DEV", () => {
     const before = await service.effective(admin, catalog.key, "CHURCH", undefined, new Date("2026-11-20T12:00:00.000Z"));
     expect(before).toMatchObject({ source: "DEV", value: "08:00" });
   });
+
+  it("distingue regra ativa, bloqueio e regra que ainda não altera o sistema", async () => {
+    const rows = [
+      { key: "auth.password_reset.ttl_hours", title: "Validade", description: "Horas", valueType: "number", scopeKind: "CHURCH", defaultJson: 1, devJson: 1 },
+      { key: "events.registration.session_required", title: "Sessão", description: "Obrigatória", valueType: "boolean", scopeKind: "CHURCH", defaultJson: true, devJson: true },
+      { key: "rosters.louvor.week_block", title: "Louvor", description: "Semana", valueType: "boolean", scopeKind: "MINISTRY", defaultJson: true, devJson: true },
+    ];
+    const prisma = {
+      systemSettingCatalog: { findMany: async () => rows, findUnique: async ({ where }: { where: { key: string } }) => rows.find(row => row.key === where.key) ?? null },
+      systemSettingRevision: { create: async () => ({}) },
+      auditLog: { create: async () => ({}) },
+    };
+    const service = new SystemSettingsService(prisma as never, { getPilotChurch: async () => pilot } as never);
+    const catalog = await service.catalog(admin);
+    expect(catalog.items.map((item: { key: string; behavior: string; editable: boolean }) => [item.key, item.behavior, item.editable])).toEqual([
+      ["auth.password_reset.ttl_hours", "active", true],
+      ["events.registration.session_required", "locked", false],
+      ["rosters.louvor.week_block", "documentary", false],
+    ]);
+    await expect(service.draft(admin, { key: "events.registration.session_required", value: false })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.draft(admin, { key: "rosters.louvor.week_block", value: false })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.draft(admin, { key: "auth.password_reset.ttl_hours", value: 0 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.draft(admin, { key: "auth.password_reset.ttl_hours", value: 48 })).rejects.toBeInstanceOf(BadRequestException);
+  });
 });
 
 describe("oração e sino", () => {
@@ -111,6 +161,8 @@ describe("oração e sino", () => {
       prayerBell: {
         createMany: async ({ data }: { data: Array<Record<string, unknown>> }) => { bells.push(...data.map(item => ({ id: `b-${bells.length}`, createdAt: new Date(), readAt: null, ...item }))); return { count: data.length }; },
         findMany: async ({ where }: { where: { recipientUserId: string } }) => bells.filter(item => item.recipientUserId === where.recipientUserId),
+        findFirst: async ({ where }: { where: { id: string; recipientUserId: string } }) =>
+          bells.find(item => item.id === where.id && item.recipientUserId === where.recipientUserId) ?? null,
         updateMany: async () => ({ count: 1 }),
       },
       auditLog: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return data; } },
@@ -129,6 +181,9 @@ describe("oração e sino", () => {
     const notice = await service.bells(otherPastor);
     expect(notice.notices[0].title).toBe("Há um pedido de oração");
     expect(JSON.stringify(notice)).not.toContain("Exemplo");
+    const marked = await service.readBell(otherPastor, String(notice.notices[0].id));
+    expect(marked).toEqual({ id: notice.notices[0].id, read: true });
+    await expect(service.readBell(pastor, "aviso-de-outra-pessoa")).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 
