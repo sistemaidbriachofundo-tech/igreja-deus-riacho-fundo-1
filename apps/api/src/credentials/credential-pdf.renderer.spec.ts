@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   generateOpaqueCredentialToken,
   containsSensitiveCredentialPayload,
@@ -43,6 +45,41 @@ describe("renderCredentialPdf", () => {
         credentialId: "c1",
       }),
     ).rejects.toThrow(/sensível|CPF/i);
+  });
+
+  it("ignora retrato que não é JPEG e desenha o PDF com iniciais", async () => {
+    const pdf = await renderCredentialPdf({
+      displayName: "Nia Okonkwo",
+      churchName: "Riacho Fundo I (demo)",
+      opaqueToken: generateOpaqueCredentialToken(),
+      issuedAt: new Date("2026-11-21T12:00:00Z"),
+      credentialId: "c-png",
+      photo: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    });
+    expect(pdf.subarray(0, 4).toString("ascii")).toBe("%PDF");
+  });
+
+  it("aceita JPEG sintético dentro do limite e recusa arquivo grande demais sem quebrar o PDF", async () => {
+    const photo = readFileSync(join(__dirname, "../../../web/public/images/qa/portraits/nia-okonkwo.jpg"));
+    const pdf = await renderCredentialPdf({
+      displayName: "Nia Okonkwo",
+      churchName: "Riacho Fundo I (demo)",
+      opaqueToken: generateOpaqueCredentialToken(),
+      issuedAt: new Date("2026-11-21T12:00:00Z"),
+      credentialId: "c-jpeg",
+      photo,
+    });
+    expect(pdf.subarray(0, 4).toString("ascii")).toBe("%PDF");
+    const oversized = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(192 * 1024)]);
+    const fallback = await renderCredentialPdf({
+      displayName: "Nia Okonkwo",
+      churchName: "Riacho Fundo I (demo)",
+      opaqueToken: generateOpaqueCredentialToken(),
+      issuedAt: new Date("2026-11-21T12:00:00Z"),
+      credentialId: "c-big",
+      photo: oversized,
+    });
+    expect(fallback.subarray(0, 4).toString("ascii")).toBe("%PDF");
   });
 
   it("rejects churchName with phone-like PII", async () => {
