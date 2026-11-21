@@ -1,127 +1,119 @@
-# Pré-aceite integral — 21/11/2026
+# Pré-aceite integral — reteste hospedado em 21/11/2026
 
 Veredito: **NO-GO** em todas as frentes. O responsável não deve começar a rodada de aceite.
 
-Base de código: `feat/rf1-revisao-18-11` em `61f1ed83eab1bfb2a6a97263c8d4e4726b15a54e`. A API `https://id-riacho1-api-qa.vercel.app` respondeu, nesta execução, `/meta` com `stage=non-production`, `sourceSha=61f1ed83eab1bfb2a6a97263c8d4e4726b15a54e`, `hmlPublicUrl=null`, `contractVersion=0.7.4-rf025`, e `/ready` com `database=ok`, `commit=61f1ed83eab1`, `authState=prisma`, `mfaBlocking=true`. O SHA anunciado confere com o HEAD da branch DEV e inclui o SMTP #248 (`be257fd`) e a auditoria #250 (`231ea34`). `/meta` não informa projeto nem ramo Neon, então o banco por trás da API não foi provado como `flat-tree-17047178` / `br-twilight-bonus-b6moawk7`.
+Esta rodada reexecutou a API e o endereço DEV publicados depois da integração do PR #255. A base continua `feat/rf1-revisao-18-11` em `235ad02dec1a076ca4c7e27ed329a794cd9cf1b6`. Não houve alteração de código de produto nesta rodada, nem deploy, migração, seed, cobrança, e-mail, WhatsApp, HML ou produção.
 
-Nada foi publicado em HML, GitHub Pages, Hostinger ou produção. Nenhuma migração, seed, cobrança, e-mail ou WhatsApp foi disparado. `DATABASE_URL`, `QA_DEMO_PASSWORD`, `VERCEL_TOKEN` e `NEON_API_KEY` não estavam neste ambiente.
+## O que a publicação confirma
 
-## Seeds #252 e #253
+`GET https://id-riacho1-api-qa.vercel.app/meta` respondeu `stage=non-production`, `sourceSha=235ad02dec1a076ca4c7e27ed329a794cd9cf1b6`, `hmlPublicUrl=null`, `contractVersion=0.7.4-rf025`, 244 caminhos. `GET /ready` respondeu `database=ok`, `commit=235ad02dec1a`, `authState=prisma`, `mfaBlocking=true`. O SHA confere com o HEAD da branch DEV e inclui os guardrails do #255 e o alinhamento visual de recuperar/redefinir senha (`d15dad7`). `/meta` continua sem projeto e sem ramo Neon. O banco por trás da API não foi provado como `flat-tree-17047178` / `br-twilight-bonus-b6moawk7`.
 
-As duas propostas abrem o mesmo `scripts/qa/seed-complete-dev.mjs` e alteram os mesmos componentes de agenda. Não foram mescladas em bloco.
+`DATABASE_URL`, `QA_DEMO_PASSWORD`, `VERCEL_TOKEN` e `NEON_API_KEY` não estavam neste ambiente. A senha documentada do seed local foi tentada **uma vez** em cada uma das oito contas `*.demo@example.test`. Todas responderam `401 INVALID_CREDENTIALS`. Não houve segunda senha nem força bruta.
 
-Ficou uma solução só, a desta branch:
+O endereço oficial `https://id-riacho1-web-hml-git-0d6b26-gustavomarqueslopes-cmds-projects.vercel.app/` respondeu `302` para o SSO da Vercel. O alias `https://id-riacho1-web-hml.vercel.app/` também cai nesse login. Nenhuma página do portal, login, recuperação ou área autenticada foi renderizada. Viewport, teclado, contraste e Safari não foram medidos.
 
-- Catálogo, 32 pessoas `qacomp_`, 6 eventos futuros, 4 passados, carteirinhas, check-in, ministério, escalas, trilha, despesa e extratos fictícios vêm da #253.
-- 32 retratos e 10 capas são JPEG distintos com assinatura `FF D8 FF` (42 arquivos, 42 hashes). São ilustrações geométricas, de cerca de 2 KiB, não fotografias.
-- A guarda da #252 entra no host: `--apply` no Neon só segue se o hostname contém `br-twilight-bonus-b6moawk7`. Colocar o ramo em `application_name` não autoriza. Hosts `ep-misty-silence` e `b6n7k8ez`, estágio HML/produção e `VERCEL=1` são recusados. Continuam exigidos `QA_SEED_CONFIRM`, `QA_SEED_PROJECT`, `QA_SEED_OPERATOR=qa-dev`, `sslmode` e a confirmação de `/meta` e `/ready`. Se o Postgres devolver `neon.branch_id`, ele precisa ser o ramo QA.
-- A agenda pública aceita capa local só em `/images/qa/` e `/images/synthetic/`. Foto oficial e caminho com `..` continuam de fora. HTTPS publicado permanece.
-- O PDF da carteirinha só embute JPEG de até 192 KiB. Outro tipo ou arquivo maior vira iniciais, no mesmo quadro da Ficha 360.
+## Classificação das provas
 
-O plano offline e duas aplicações em banco de memória mantiveram os mesmos identificadores e não gravaram `passwordHash`. O `--apply` no Neon **não rodou**. As contas novas nascem sem senha e não substituem as personas já existentes.
-
-## O que foi executado
-
-| Evidência | Onde | Resultado |
+| Prova | Onde | Resultado |
 | --- | --- | --- |
-| `GET /meta` e `GET /ready` | API QA hospedada | SHA `61f1ed83`, banco ok, MFA bloqueante, estágio non-production |
-| `GET /public/events` | API QA hospedada | 10 eventos, nenhum já encerrado; ainda há títulos de teste (`TESTE 3M`, `Teste DEV`) |
-| `GET /public/youtube-live` | API QA hospedada | `broadcast: null` (sem selo de ao vivo) |
-| `GET /public/home` | API QA hospedada | 200, igreja de demonstração |
-| `GET /auth/me`, `/pastoral-cases`, `/persons/search`, `/ledger/accounts`, `/credentials/me` sem sessão | API QA hospedada | 401 `SESSION_INVALID` |
-| `POST /auth/login` com senha inexistente de `@example.test` | API QA hospedada | 401 `INVALID_CREDENTIALS` |
-| `GET /public/registrations/` com código inexistente | API QA hospedada | 404, sem vazar cadastro |
-| `node --test scripts/qa/seed-complete-dev.test.mjs` | local, sem banco | 6 passaram |
-| Vitest `portal-live-data.test.ts` | local | 5 passaram |
-| Jest carteirinha, conta de recebimento, pacote DEV, assinatura Mercado Pago, acesso à carteirinha | local, mock | 23 passaram |
-| `rbac`, segurança F11 e pacote compartilhado | local | 27 passaram |
+| `/meta` e `/ready` | API QA | passou hospedado: SHA `235ad02`, banco ok, MFA bloqueante, non-production |
+| Agenda, início, ministérios, YouTube | API QA | passou hospedado a leitura; 10 eventos futuros; `broadcast: null`; igreja "Riacho Fundo I (demo)" |
+| Rotas privadas sem sessão | API QA | passou hospedado: 401 `SESSION_INVALID` |
+| Login inválido e e-mail com aspas | API QA | passou hospedado: 401 genérico e 400 `VALIDATION_ERROR`, sem erro de SQL |
+| Recuperação de e-mail inexistente `@example.test` | API QA | passou hospedado: 201 neutro, sem token no corpo |
+| Inscrição sem sessão e código de presença inexistente | API QA | passou hospedado: 401 e 404 |
+| Webhook Mercado Pago com assinatura inválida | API QA | passou hospedado: 401, sem confirmação |
+| Webhook mock de pagamento com assinatura inválida | API QA | passou hospedado como recusa: 404. O segredo curto ou ausente esconde a rota antes do HMAC |
+| CORS | API QA | a origem oficial do preview é aceita; `igrejadeusrf1.com.br`, a API de produção, `evil.example` e o alias estável do projeto não são refletidos |
+| Oito personas do seed | API QA | não executado/bloqueado: a senha documentada foi recusada |
+| Convidado sintético novo | API QA | passou hospedado, só esse papel: grant `CONVIDADO`, 403 nas rotas sensíveis, logout revoga |
+| SMTP real | — | não executado/bloqueado: nenhum envio |
+| Neon, ramo e seed `qacomp_` | — | não executado/bloqueado: sem `DATABASE_URL` |
+| UX hospedada, viewports, Safari | web DEV | não executado/bloqueado: Deployment Protection da Vercel |
+| Suíte local da rodada anterior (61 testes) | local, mock ou memória | não reexecutada; o código de produto não mudou |
 
-Total desta rodada: **61 testes, 61 passaram**. A suíte inteira dos workspaces não foi executada. Não houve PostgreSQL local (`psql` e Docker ausentes), então a idempotência da seed foi em memória, não em Postgres descartável. Não houve E2E de navegador, viewport nem Safari.
+Varredura anônima dos GET sem parâmetro anunciados em `/meta`: 49 responderam 401, sete responderam 200 (`/health`, `/meta`, `/public/home`, `/public/events`, `/public/ministries`, `/auth/oidc/authorize`, `/vivi/status`) e `/auth/oidc/callback` respondeu 501. OIDC declara `liveIdp=false` e lista nomes de variáveis, não valores. O Riachinho declara `provider=mock`. A agenda e o início públicos não trouxeram e-mail nem CPF. Os três textos de local não têm forma de logradouro.
 
 ## Matriz persona × módulo
 
-Papéis de código: administrador, pastor, secretaria, tesouraria, líder de ministério, editor, publicador, membro e convidado. Líder de módulo, mentor e leitor de QR existem como escopo de grant ou delegação de evento, não como papel próprio. Voluntário entra por interesse e disponibilidade, não por um papel separado.
-
-Cada linha autenticada abaixo está **não executado/bloqueado**: não havia senha de persona e a massa `qacomp_` não foi gravada. A coluna de API hospedada só cobre a chamada anônima.
+Papéis de código: administrador, pastor, secretaria, tesouraria, líder de ministério, editor, publicador, membro e convidado. Líder de módulo, mentor e leitor de QR são escopo ou delegação, não um papel próprio.
 
 | Perfil | Módulo | Ação | API | Banco | Permissão | Viewport | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Convidado | Portal | Agenda, início, ao vivo | `GET /public/events`, `/public/home`, `/public/youtube-live` | leitura QA, ramo não provado | pública | não medido | passou hospedado | 10 futuros, broadcast nulo |
-| Convidado | Eventos | Inscrição sem sessão | código exige sessão | não escrito | anônimo deve tomar 401 | não medido | não executado neste POST | teste de unidade do pacote cobre o slug de retorno |
-| Todos | Sessão | Login inválido, `/auth/me` | 401 | não escrito | anônimo | n/a | passou hospedado | uma tentativa, sem força bruta |
-| Administrador | Regras | Publicar bloqueio de sessão/MP/BRB/Sicoob | `draft` recusa chave locked | não escrito | admin | n/a | passou mock | `piloto-pacote.service.spec.ts` |
-| Pastor / secretaria | Pastoral | Ler texto de oração e sino | sem sessão 401 | não lido | pastoral | n/a | passou hospedado só o 401 | texto não foi pedido |
-| Secretaria | Carteirinha | PDF com JPEG, PNG e arquivo grande | renderer local | não escrito | não exercida na API | n/a | passou mock | `credential-pdf.renderer.spec.ts` |
-| Tesouraria | Recebimento | Trocar Mercado Pago com pagamento `PENDING` | 409 antes do update | não escrito | tesouraria | n/a | passou mock | `receiving-account.guard.spec.ts` |
-| Tesouraria | BRB/Sicoob | Extrato live | regra locked em mock | não contactado | n/a | n/a | simulado | catálogo de 12 regras |
-| Líder / módulo | Escalas | Aceite, recusa, substituição | não chamada | não escrito | não exercida | n/a | não executado/bloqueado | seed cobre o cenário, sem apply |
-| Membro | Eventos | Retomar inscrição e QR | não chamada | não escrito | sessão obrigatória no código | n/a | não executado/bloqueado | sem conta |
-| Leitor de QR | Check-in | QR de outro evento, cancelado, pendente | não chamado na API QA | não escrito | delegação no código | n/a | passou mock | pacote compartilhado recusa ingresso alheio |
-| Qualquer | Permissão negativa | IDOR, outra congregação, mass assignment | não chamada autenticada | não escrito | RBAC de unidade | n/a | passou mock parcial | `rbac.test.ts`; falta duas contas reais |
+| Convidado anônimo | Portal | Agenda, início, ministérios, ao vivo | GET públicos | leitura, ramo não provado | pública | bloqueado no SSO | passou hospedado | 10 futuros, 5 ministérios, broadcast nulo |
+| Convidado anônimo | Eventos | Inscrever sem sessão | `POST /public/events/qacomp-mocas/registrations` | não escrito | 401 | n/a | passou hospedado | `SESSION_INVALID` |
+| Convidado novo | Sessão | Cadastro, `/auth/me`, logout | `POST /auth/guest-registration`, `POST /auth/logout` | uma pessoa `VISITOR` fictícia | `CONVIDADO` | n/a | passou hospedado | JWT, depois 401 |
+| Convidado novo | Permissão negativa | Pastoral, ficha, dossiê, tesouraria, escalas, regras, carteirinha | GET autenticado | não escrito | 403 | n/a | passou hospedado | `FORBIDDEN` |
+| Administrador, pastor, secretaria, tesouraria, líder, membro, editor, publicador | Sessão | Login com a senha do seed | `POST /auth/login` | não escrito | contas `*.demo@example.test` | n/a | não executado/bloqueado | 401 na única tentativa |
+| Administrador | Regras | Publicar trava de sessão, Mercado Pago, BRB, Sicoob | não chamado com admin | não escrito | não exercida | n/a | passou mock na rodada anterior | spec do pacote; sem reteste de admin |
+| Pastor / secretaria | Pastoral | Ler oração | sem sessão 401; convidado 403 | texto não lido | pastoral | n/a | passou hospedado só a recusa | corpo pastoral não veio |
+| Tesouraria | BRB/Sicoob/OFX | Extrato | não chamado | não contactado | n/a | n/a | simulado | sem API bancária |
+| Membro | Eventos | Retomar inscrição e QR | não chamado | não escrito | sessão obrigatória no código | n/a | não executado/bloqueado | sem sessão de membro |
+| Leitor de QR | Check-in | Código inexistente | GET público | não escrito | n/a | n/a | passou hospedado o 404 | câmera e QR alheio não rodaram na API |
+| Qualquer par | IDOR | Duas contas e outra congregação | não chamado | não escrito | n/a | n/a | não executado/bloqueado | só existiu uma sessão, a do convidado novo |
 
-## Inventário
+A conta criada para essa prova chama-se "Visitante QA Gate", usa `@example.test` e foi deslogada. A senha não entra neste relatório. Nenhum e-mail foi disparado por esse cadastro.
 
-- 44 páginas em `apps/web/src/app`, entre elas início, a igreja, agenda, login, recuperação, cadastro, inscrição, carteirinha pública e a área `/app` (pastoral, secretaria, tesouraria, ministérios, escalas, louvor, editorial, gestão do sistema, mapa, orações).
-- 244 caminhos no `/meta` da API QA, todos marcados `implemented` pelo próprio processo. Isso é o contrato anunciado pelo deploy `61f1ed83`, não uma execução de cada verbo.
-- 114 models Prisma e 54 migrações. `migrate deploy` não foi rodado aqui.
-- Um agendamento no `apps/api/vercel.json`: `POST /rosters/notifications/run` a cada 15 minutos, fuso `America/Sao_Paulo`. Não foi disparado.
-- 12 regras no catálogo da migração `20261120183000`. Quatro ativas (aniversário, pastor titular, substituto, validade da recuperação), quatro bloqueadas (sessão na inscrição, Mercado Pago, BRB, Sicoob) e quatro só documentadas (fuso, semana de Louvor, Ceia manual, cor da carteira). As outras 34 de um catálogo de 46 não estão no repositório e não foram inventadas. Classificação: **inexistente**.
+## Inventário confrontado com o deploy
 
-Integrações: Mercado Pago, Pix, BRB e Sicoob permanecem mock no código e no catálogo. SMTP do #248 está no SHA implantado; o envio não foi provado porque não há token da Vercel nem caixa de teste usada nesta rodada. YouTube ao vivo respondeu sem transmissão.
+- 44 páginas em `apps/web/src/app`. Login usa `login-screen.module.css`. Recuperar e redefinir usam `activate-access.module.css`, cuja primeira linha declara a mesma linguagem visual do login. Isso é leitura de código do SHA `235ad02`, não captura hospedada.
+- 244 caminhos no `/meta`, todos marcados `implemented` pelo processo. A varredura acima cobre os GET sem parâmetro e os fluxos citados. Não é execução de cada POST.
+- 114 models Prisma e 54 migrações no repositório. `migrate deploy` não rodou.
+- Um cron em `apps/api/vercel.json`: `POST /rosters/notifications/run` a cada 15 minutos, fuso `America/Sao_Paulo`. Não foi disparado.
+- 12 regras no catálogo. Quatro ativas, quatro bloqueadas e quatro documentadas. As outras 34 de um conjunto de 46 não estão no repositório: **inexistente**.
+- A agenda ao vivo não é a massa `qacomp_` do #255. Os slugs são `rf1qa3-event-11-*`, `qa-*` e `dev-*`. As capas são SVG em `/images/qa/events/`, não os JPEG novos. Dois eventos de teste não têm `endsAt`. Nove aceitam inscrição. Nenhum registro foi apagado.
+
+Integrações: Mercado Pago recusou assinatura inválida e não confirmou pagamento. O checkout em si não foi aberto. Pix, BRB e Sicoob não foram contactados. SMTP não foi usado. YouTube não está ao vivo. O preview web, pelo `next.config.ts`, aponta a API QA quando `VERCEL_ENV=preview` e o ref é `feat/rf1-revisao-18-11`; o HTML publicado não pôde ser lido por causa do SSO, então o bundle servido não foi inspecionado.
 
 ## Achados
 
-P0 — o aceite não pode começar:
+P0 — o aceite não começa:
 
-- Não houve jornada autenticada de nenhuma persona. Sem `QA_DEMO_PASSWORD` não há login, e forçar senha está fora do gate.
-- A massa visual não está no Neon. Sem `DATABASE_URL` o `--apply` nem abre conexão.
+- Sete papéis operacionais e o administrador não abriram sessão. Sem o segredo da senha QA não há jornada de pastor, secretaria, tesouraria, líder, membro, editor ou publicador, nem o desafio MFA desses papéis.
+- A massa `qacomp_` não está na agenda publicada. Sem `DATABASE_URL` o `--apply` não corre. O ramo Neon segue não comprovado.
+- O site DEV oficial não abre sem sessão da equipe na Vercel. Não há evidência hospedada de UX.
 
-P1 corrigido neste PR, ainda não implantado na API QA:
+P1 que permanece:
 
-- A conta de recebimento não troca o recebedor do Mercado Pago enquanto existir pagamento `PENDING` na mesma conta e na mesma congregação. Repetir o mesmo valor continua permitido.
-- A agenda deixa de aceitar qualquer caminho `/images/`; só biblioteca sintética local ou HTTPS.
-- PDF da carteirinha não recebe PNG nem JPEG acima de 192 KiB.
-- A seed recusa Neon cujo ramo apareça só em parâmetro decorativo da URL.
+- A agenda pública ainda mostra "TESTE 3M" e "Teste DEV", com datas de 22/11/2026 a 17/01/2027.
+- SMTP real não foi provado. Chamar a recuperação de uma conta existente poderia enviar mensagem; isso não foi feito.
+- Matriz entre duas contas já existentes, outra igreja e outro evento não foi chamada.
+- Checkout, Pix, check-in por câmera, escalas, louvor e tesouraria autenticados não rodaram.
 
-P1 que continua aberto:
+P2: o webhook mock de evento responde 404 quando o segredo não tem 32 caracteres; a verificação HMAC desse stub não foi o caminho exercido. A suíte de 61 testes locais não foi repetida. Postgres descartável e Safari físico continuam indisponíveis. Trinta e quatro regras desejadas seguem inexistentes.
 
-- A API QA ainda publica eventos de teste futuros. Nenhum registro foi apagado.
-- As correções deste PR não estão no SHA `61f1ed83`.
-- Matriz negativa autenticada (duas contas, outra igreja, outro evento) não foi chamada na API hospedada.
-
-P2: retratos são ilustração geométrica; suíte completa não rodou; Postgres descartável indisponível; preview web com nome de HML não foi aberto; Safari físico indisponível; 34 regras desejadas inexistentes.
-
-P3: o nome do database QA continua `idriacho1_hml`, igual ao da homologação. A guarda exige o ramo no host justamente por isso.
+P3: o database QA ainda se chama `idriacho1_hml` na documentação operacional. O JSON público do OIDC cita o nome da variável do segredo, não o valor.
 
 ## Segurança e LGPD
 
-Não é declaração de conformidade. A base legal, os contratos com operadores e a retenção precisam do responsável jurídico.
+Isto não é conformidade jurídica. Base legal, contratos de operador, retenção e backup precisam do responsável jurídico.
 
-Nesta rodada, sem exploração de terceiros: rotas privadas sem sessão devolveram 401; login inválido não revelou se a conta existe além da mensagem genérica já usada pela API; código de inscrição inexistente devolveu 404; auditoria de unidade remove segredo, e-mail e CPF do metadata; webhook do Mercado Pago verifica `x-signature` antes de confirmar (teste local de assinatura, sem POST na API QA). Orações, documentos de menor, endereço, geolocalização e lançamentos financeiros não foram lidos nem copiados para este relatório.
+Nesta rodada, sem exploração de terceiros: rotas privadas sem sessão deram 401; o convidado recebeu 403 em oração, dossiê, pessoas, tesouraria, escalas, regras e carteirinha; o rascunho de regra não foi gravado; login inválido não distingue conta ausente de senha errada; inscrição alheia inexistente deu 404; webhook do Mercado Pago com assinatura ruim deu 401 antes de confirmar; CORS não reflete a origem de produção; falha de login não gravou cookie; HSTS está presente. Orações, documentos de menor, endereço de pessoa, geolocalização e lançamentos não foram lidos. O único write foi o visitante fictício já deslogado.
 
-Riscos que permanecem: E2E de IDOR autenticado não feito; seed não aplicada e portanto não revalidada no ramo real; chaves Pix e coletor não devem aparecer em log (o teste novo não grava o coletor no metadata de auditoria desta ação); backup e expurgo não foram ensaiados aqui.
+Riscos que permanecem: IDOR entre contas reais não foi feito; a seed nova não foi aplicada no ramo; backup e expurgo não foram ensaiados; o site protegido por SSO impede o próprio aceite visual.
 
 ## Parecer por frente
 
 | Frente | Parecer | Motivo |
 | --- | --- | --- |
-| Arquitetura e segurança | NO-GO | Sem sessão real, sem IDOR autenticado, correções ainda fora do deploy |
-| Dados e Neon | NO-GO | Seed não aplicada; ramo do banco da API não comprovado por `/meta` |
-| Funcionalidades e UX | NO-GO | Sem navegação autenticada e sem captura de viewport |
-| Eventos e checkout | NO-GO | Checkout segue mock; inscrição autenticada não executada |
-| SMTP | NO-GO | Código do #248 está no SHA; envio não foi feito |
-| BRB e Sicoob | NO-GO | Mock declarado, sem API bancária |
-| Permissões | NO-GO | Uma conta contra a outra não foi exercida |
-| Mobile | NO-GO | Sem aparelho e sem emulação nesta rodada |
+| Arquitetura e segurança | NO-GO | Há 401/403 e webhook recusado, mas falta sessão dos papéis privilegiados e IDOR entre contas |
+| Dados e Neon | NO-GO | Banco responde; ramo não comprovado e a massa `qacomp_` não está publicada |
+| Funcionalidades e UX | NO-GO | O site oficial não renderizou; sem viewport |
+| Eventos e checkout | NO-GO | Sessão obrigatória e assinatura ruim foram recusadas; checkout não executado |
+| SMTP | NO-GO | Nenhum envio real |
+| BRB e Sicoob | NO-GO | Mock, sem chamada bancária |
+| Permissões | NO-GO | Só o convidado novo teve matriz negativa |
+| Mobile | NO-GO | SSO bloqueou o site; sem aparelho e sem emulação |
 
-## Roteiro para quando o bloqueio cair
+## Roteiro para derrubar o bloqueio
 
-Não usar este texto como convite de teste ainda.
+Ainda não é convite de teste.
 
-1. Conferir de novo `GET /meta` e `GET /ready` e só então decidir o deploy desta branch na API QA. Não apontar HML nem produção.
-2. Com a URL do ramo `br-twilight-bonus-b6moawk7` nas mãos do operador, rodar primeiro `--dry-run`. O `--apply` pede `IDBRF_RUNTIME_STAGE=qa`, `QA_SEED_CONFIRM`, `QA_SEED_PROJECT` e `QA_SEED_OPERATOR=qa-dev`. Repetir uma segunda vez e comparar contagens. Não limpar o banco e não alterar senha.
-3. Entrar com as personas QA que já existem. A senha não está no Git e não deve ser colada em issue. As contas `qacomp-*@example.test` não recebem senha nesta seed.
-4. Percorrer, em cada persona, o menu permitido e uma chamada direta da API proibida, esperando 403 ou 404. Recarregar o navegador depois de criar um registro.
-5. Evento pago: só mock. Não gerar cobrança Mercado Pago, Pix ou e-mail fora de `@example.test` explicitamente autorizado.
+1. Abrir o endereço oficial já autenticado na equipe Vercel, ou entregar ao testador o bypass de Deployment Protection fora do chat e do Git. Sem isso não há UX hospedada.
+2. Confirmar de novo `/meta` e `/ready`. O SHA esperado hoje é `235ad02dec1a076ca4c7e27ed329a794cd9cf1b6`.
+3. Aplicar a seed só no ambiente que já guarda a URL do ramo `br-twilight-bonus-b6moawk7`: primeiro `--dry-run`, depois `--apply` com `IDBRF_RUNTIME_STAGE=qa`, `QA_SEED_CONFIRM`, `QA_SEED_PROJECT` e `QA_SEED_OPERATOR=qa-dev`. Repetir e comparar contagens. Não limpar o banco e não alterar senha. As contas `qacomp-*@example.test` nascem sem senha.
+4. Informar `QA_DEMO_PASSWORD` por segredo do executor, nunca neste relatório. As contas são `platform.demo@example.test`, `ana.demo@example.test`, `pastor.demo@example.test`, `tesouraria.demo@example.test`, `lider.jovens.demo@example.test`, `bruno.demo@example.test`, `editor.demo@example.test` e `publicador.demo@example.test`.
+5. Com sessão, percorrer o menu permitido e uma chamada direta proibida, esperando 403 ou 404. Papel privilegiado precisa concluir o MFA sem desligar o bloqueio.
+6. SMTP só para uma caixa de teste já autorizada. Evento pago só em mock. Não gerar cobrança, Pix ou mensagem para pessoa real.
 
-O procedimento seguro se a URL do Neon continuar fora do agente é o operador rodar o comando no ambiente que já guarda o segredo, com a guarda acima. O agente não deve receber a URL no chat.
+A rodada anterior, no SHA `61f1ed83`, ficou neste mesmo arquivo antes da integração. Aquela API já foi substituída pelo SHA acima. Os 61 testes locais daquela rodada não foram repetidos aqui.
