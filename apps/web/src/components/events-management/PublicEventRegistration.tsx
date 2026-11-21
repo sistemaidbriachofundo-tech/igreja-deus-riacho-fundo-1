@@ -9,7 +9,7 @@ import {
   eventAuthHref, loadMemberRegistrations, memberEventsHref, mercadoPagoCheckoutLink, openMercadoPagoCheckout, registerForEvent, validRegistrationCode,
   type MemberEventProfile, type RegistrationReceipt,
 } from "../../lib/public-event-registration";
-import { formatPortalDate, type PublishedEvent } from "../../lib/portal-live-data";
+import { formatPortalDate, publishedImageSrc, type PublishedEvent } from "../../lib/portal-live-data";
 import { withBasePath } from "../../lib/paths";
 import { PublicPage } from "../PublicPortal";
 import { Alert, Button, Input, Loading, Select } from "../ui";
@@ -364,7 +364,7 @@ function RegistrationEvent({ slug }: { slug: string }) {
         <div className={s.eventPicture}>
           {/* A foto de comunhão é ilustrativa quando o evento não possui capa própria. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={catalog.event.imageUrl ?? withBasePath("/images/fe-discipulado-provisorio.webp")} alt="" decoding="async" />
+          <img src={catalog.event.imageUrl ? publishedImageSrc(catalog.event.imageUrl) : withBasePath("/images/fe-discipulado-provisorio.webp")} alt="" decoding="async" />
         </div>
         <section className={s.eventAction} aria-labelledby="event-registration">
           {!open ? <h2 id="event-registration">Inscrições indisponíveis neste momento</h2> :

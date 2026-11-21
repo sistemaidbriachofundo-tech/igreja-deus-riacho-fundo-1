@@ -4,6 +4,8 @@
  *
  * This file is intentionally usable in both tests and client components.
  */
+import { withBasePath } from "./paths";
+
 export type PublishedNews = {
   id: string;
   slug: string;
@@ -62,14 +64,21 @@ const text = (value: unknown): string | null =>
   typeof value === "string" && value.trim() ? value.trim() : null;
 
 const optionalText = (value: unknown): string | null => text(value);
+const LOCAL_LIBRARY_IMAGE = /^\/images\/[A-Za-z0-9][A-Za-z0-9/_-]*\.(?:jpg|jpeg|png|webp|avif)$/;
 const safeImage = (value: unknown): string | null => {
   const raw = text(value);
-  if (!raw) return null;
+  if (!raw || raw.includes("..") || raw.includes("//")) return null;
+  if (LOCAL_LIBRARY_IMAGE.test(raw)) return raw;
   try {
     const url = new URL(raw);
     return url.protocol === "https:" ? raw : null;
   } catch { return null; }
 };
+
+/** Capa publicada: biblioteca local do site ou HTTPS. */
+export function publishedImageSrc(imageUrl: string): string {
+  return imageUrl.startsWith("/") ? withBasePath(imageUrl) : imageUrl;
+}
 const isoDate = (value: unknown): string | null => {
   const raw = text(value);
   if (!raw || !/^\d{4}-\d{2}-\d{2}T/.test(raw)) return null;

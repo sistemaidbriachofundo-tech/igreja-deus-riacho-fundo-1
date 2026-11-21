@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PortalSectionLink } from "./PublicSectionLink";
 import { instagramUrl } from "../lib/portal-content";
 import {
-  currentPublishedEvents, formatPortalDate,
+  currentPublishedEvents, formatPortalDate, publishedImageSrc,
   parsePublishedEvents, parsePublishedHome, parsePublishedMinistryDetail,
   type PublishedEvent, type PublishedNews,
 } from "../lib/portal-live-data";
@@ -170,7 +170,7 @@ function AgendaEvent({ event }: { event: PublishedEvent }) {
         <div className={s.agendaEventImage}>
           {/* A arte pode vir de qualquer origem HTTPS aprovada na publicação. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+          <img src={publishedImageSrc(event.imageUrl)} alt="" loading="lazy" decoding="async" />
         </div>
       )}
       <div className={s.agendaEventContent}>
