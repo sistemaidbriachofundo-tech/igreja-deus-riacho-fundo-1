@@ -108,6 +108,22 @@ export class ReceivingAccountService {
     if (input.enabled && collectorId && !/^[A-Za-z0-9_-]{1,64}$/.test(collectorId)) {
       throw new BusinessException("O identificador do recebedor é inválido.", "MERCADO_PAGO_COLLECTOR_INVALID", 400);
     }
+    const current = await this.prisma.churchReceivingAccount.findFirst({
+      where: { id: accountId, organizationId: pilot.organizationId, churchId: pilot.churchId, active: true },
+      select: { id: true, mercadoPagoEnabled: true, mercadoPagoCollectorId: true },
+    });
+    if (!current) throw new BusinessException("Conta de recebimento não encontrada.", "RECEIVING_ACCOUNT_INVALID", 404);
+    const nextCollector = input.enabled ? collectorId : null;
+    const unchanged = current.mercadoPagoEnabled === input.enabled
+      && (current.mercadoPagoCollectorId ?? null) === nextCollector;
+    if (!unchanged) {
+      const openPayments = await this.prisma.eventPaymentIntent.count({
+        where: { receivingAccountId: current.id, churchId: pilot.churchId, status: "PENDING" },
+      });
+      if (openPayments > 0) {
+        throw new ConflictException("Há pagamento pendente nesta conta. A conta de recebimento não muda no meio do pagamento.");
+      }
+    }
     const updated = await this.prisma.churchReceivingAccount.updateMany({
       where: { id: accountId, organizationId: pilot.organizationId, churchId: pilot.churchId, active: true },
       data: { mercadoPagoEnabled: input.enabled, mercadoPagoCollectorId: input.enabled ? collectorId : null },

@@ -7,7 +7,7 @@ import {
   loadEventRegistration, loadMemberReceipt, loadMemberRegistrations, memberEventsHref, validEventSlug,
   type MemberRegistrationSummary,
 } from "../../lib/public-event-registration";
-import { currentPublishedEvents, formatPortalDate, parsePublishedEvents } from "../../lib/portal-live-data";
+import { currentPublishedEvents, formatPortalDate, parsePublishedEvents, resolvePublishedImage } from "../../lib/portal-live-data";
 import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert, Button, Loading, PageHeader } from "../ui";
 import { UIIcon } from "../ui/UIIcon";
@@ -101,7 +101,7 @@ export function MemberEvents() {
           <ul className={s.catalog} aria-label="Cartões de eventos">{upcoming.map(event => <li key={event.id}>
             <div className={s.eventCover}>{event.imageUrl
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+              ? <img src={resolvePublishedImage(event.imageUrl) ?? ""} alt="" loading="lazy" decoding="async" />
               : <UIIcon name="calendar" size={34} />}</div>
             <div className={s.catalogDetails}>
               <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
