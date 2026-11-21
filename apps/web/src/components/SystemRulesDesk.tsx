@@ -2,13 +2,17 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
+import { ruleState } from "../lib/system-rules-state";
 import { churchLocalToISO, dasError } from "../lib/das-operations";
 import { usePersonaAccess } from "./AppShell";
 import { Alert, Button, Input, Loading, PageHeader, Select } from "./ui";
 import s from "./pastoral-desk.module.css";
 import ui from "./ui/ui.module.css";
 
-type Setting = { key: string; title: string; description: string; valueType: string; scopeKind: string; devValue: unknown; editable?: boolean };
+type Setting = {
+  key: string; title: string; description: string; valueType: string; scopeKind: string; devValue: unknown;
+  editable?: boolean; behavior?: "active" | "locked" | "documentary"; behaviorNote?: string;
+};
 type Revision = {
   id: string; key: string; lifecycle: string; value: unknown; scopeId: string | null;
   updatedAt: string; createdAt: string; effectiveFrom: string | null; effectiveUntil: string | null;
@@ -139,8 +143,8 @@ export function SystemRulesDesk() {
     {selected && <section className={`${ui.workspaceSurface} ${s.stat}`} aria-label="Revisão de regra">
       <h2>{selected.title}</h2>
       <p>{selected.description}</p>
-      <p>{scopeLabels[selected.scopeKind] ?? selected.scopeKind} · Em vigor · {effective ? display(effective.value) : "Consultando…"}</p>
-      {!selected.editable && <p>Regra disponível para consulta.</p>}
+      <p>{scopeLabels[selected.scopeKind] ?? selected.scopeKind} · {ruleState(selected)} · {effective ? display(effective.value) : "Consultando…"}</p>
+      {selected.behavior !== "active" && <p>Não há formulário de alteração para esta regra.</p>}
       {selected.editable && <form className={s.prayerForm} onSubmit={save}>
         {needsScope && <Input label="Identificador do escopo" value={scopeId}
           onChange={event => { setScopeId(event.target.value); setRevisionId(""); }} required />}
@@ -172,6 +176,7 @@ export function SystemRulesDesk() {
         <div className={s.summaryHead}><h2>{item.title}</h2><Button variant="secondary" onClick={() => select(item)} disabled={busy}>
           Abrir<span className={ui.srOnly}> {item.title}</span>
         </Button></div><span>{item.description}</span>
+        {item.behavior && item.behavior !== "active" && <span>{ruleState(item)}</span>}
       </li>)}
     </ul> : settings && <p>Nenhuma regra encontrada.</p>}
   </div>;

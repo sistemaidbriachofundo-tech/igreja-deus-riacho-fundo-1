@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
+import { effectiveSettingValue } from "@idbrf/shared";
 import { MailService } from "../mail/mail.service";
 import { readPublicSmtpConfig, smtpSendEnabled } from "../mail/smtp-config";
+import { clampPasswordResetHours } from "../piloto/system-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { hashPassword } from "./auth.service";
 import { assertPasswordPolicy } from "./password-policy";
@@ -71,22 +73,57 @@ export class AccessInvitationService {
     @Optional() private readonly mail?: MailService,
   ) {}
 
-  newToken(purpose: "ACTIVATION" | "PASSWORD_RESET" = "ACTIVATION") {
+  newToken(purpose: "ACTIVATION" | "PASSWORD_RESET" = "ACTIVATION", ttlHours?: number) {
     const token = randomBytes(32).toString("base64url");
+    const hours = purpose === "PASSWORD_RESET" ? clampPasswordResetHours(ttlHours ?? RESET_TTL_HOURS) : INVITE_TTL_HOURS;
     return {
       token,
       tokenHash: inviteTokenHash(token),
-      expiresAt: new Date(Date.now() + (purpose === "PASSWORD_RESET" ? RESET_TTL_HOURS : INVITE_TTL_HOURS) * 3600_000),
+      expiresAt: new Date(Date.now() + hours * 3600_000),
     };
+  }
+
+  async issueToken(purpose: "ACTIVATION" | "PASSWORD_RESET" = "ACTIVATION") {
+    const hours = purpose === "PASSWORD_RESET" ? await this.passwordResetTtlHours() : undefined;
+    return this.newToken(purpose, hours);
+  }
+
+  private async passwordResetTtlHours() {
+    const catalog = (this.prisma as {
+      systemSettingCatalog?: { findUnique: (args: unknown) => Promise<{ key: string; devJson: unknown } | null> };
+      systemSettingRevision?: { findMany: (args: unknown) => Promise<Array<{ effectiveFrom: Date | null; effectiveUntil: Date | null; valueJson: unknown; id: string }>> };
+    }).systemSettingCatalog;
+    if (!catalog?.findUnique) return RESET_TTL_HOURS;
+    try {
+      const row = await catalog.findUnique({ where: { key: "auth.password_reset.ttl_hours" } });
+      if (!row) return RESET_TTL_HOURS;
+      const revisions = await this.prisma.systemSettingRevision?.findMany?.({
+        where: { catalogKey: row.key, lifecycle: "PUBLISHED" },
+      }) ?? [];
+      const chosen = effectiveSettingValue({
+        devValue: row.devJson,
+        at: new Date().toISOString(),
+        revisions: revisions.flatMap((revision: { id: string; valueJson: unknown; effectiveFrom: Date | null; effectiveUntil: Date | null }) => revision.effectiveFrom ? [{
+          id: revision.id,
+          value: revision.valueJson,
+          effectiveFrom: revision.effectiveFrom.toISOString(),
+          effectiveUntil: revision.effectiveUntil?.toISOString() ?? null,
+        }] : []),
+      });
+      return clampPasswordResetHours(chosen.value);
+    } catch {
+      return RESET_TTL_HOURS;
+    }
   }
 
   async deliver(input: {
     inviteId: string; token: string; email: string; name: string;
     purpose?: "ACTIVATION" | "PASSWORD_RESET";
+    expiresInHours?: number;
   }) {
     const config = inviteEmailConfig();
     const reset = input.purpose === "PASSWORD_RESET";
-    const expiresInHours = reset ? RESET_TTL_HOURS : INVITE_TTL_HOURS;
+    const expiresInHours = reset ? clampPasswordResetHours(input.expiresInHours ?? RESET_TTL_HOURS) : INVITE_TTL_HOURS;
     const route = reset ? "/redefinir-senha/" : "/ativar-acesso/";
     const link = new URL(config.basePath + route, config.origin);
     link.hash = new URLSearchParams({ token: input.token }).toString();
@@ -216,7 +253,7 @@ export class AccessInvitationService {
 
   /**
    * Pedido público. Não revela se o e-mail existe, se a conta está ativa ou se o envio ocorreu.
-   * O link continua de uso único e expira em uma hora.
+   * O link continua de uso único e expira no prazo vigente, entre 1 e 24 horas.
    */
   async requestPublicReset(emailRaw: string): Promise<void> {
     const email = emailRaw.trim().toLowerCase();
@@ -234,13 +271,14 @@ export class AccessInvitationService {
         select: { id: true },
       });
       if (recent) return;
-      const issued = this.newToken("PASSWORD_RESET");
+      const issued = await this.issueToken("PASSWORD_RESET");
       const invite = await this.prisma.accessInvitation.create({
         data: { userId: user.id, purpose: "PASSWORD_RESET", tokenHash: issued.tokenHash, email: user.email, expiresAt: issued.expiresAt },
         select: { id: true },
       });
       await this.deliver({
         inviteId: invite.id, token: issued.token, email: user.email, name: user.person.displayName, purpose: "PASSWORD_RESET",
+        expiresInHours: Math.max(1, Math.round((issued.expiresAt.getTime() - Date.now()) / 3600_000)),
       });
       await this.prisma.accessInvitation.updateMany({
         where: { userId: user.id, purpose: "PASSWORD_RESET", id: { not: invite.id }, consumedAt: null, revokedAt: null },

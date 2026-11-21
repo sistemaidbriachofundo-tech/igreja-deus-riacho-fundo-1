@@ -28,10 +28,12 @@ function setup() {
     auditLog: { create: jest.fn() },
   };
   const db = { ...records, $transaction: jest.fn(async (work: (tx: typeof records) => Promise<unknown>) => work(records)) };
+  const issued = {
+    token: "x".repeat(43), tokenHash: "hashed-only", expiresAt: new Date("2026-11-13T12:00:00Z"),
+  };
   const invitations = {
-    newToken: jest.fn().mockReturnValue({
-      token: "x".repeat(43), tokenHash: "hashed-only", expiresAt: new Date("2026-11-13T12:00:00Z"),
-    }),
+    newToken: jest.fn().mockReturnValue(issued),
+    issueToken: jest.fn().mockResolvedValue(issued),
     deliver: jest.fn().mockResolvedValue({ sent: true, email: "person@example.test", expiresInHours: 24 }),
   };
   const auth = { requireRecentMfa: jest.fn().mockResolvedValue(undefined) };

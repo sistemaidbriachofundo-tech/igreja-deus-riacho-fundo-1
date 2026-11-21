@@ -25,8 +25,12 @@ export class PublicPortalController {
 
   @Public()
   @Get("home")
-  home() {
-    return this.portal.home();
+  async home() {
+    const payload = await this.portal.home();
+    return {
+      ...payload,
+      featuredEvents: payload.featuredEvents.filter(event => eventIsCurrent(event)),
+    };
   }
 
   @Public()
@@ -43,8 +47,9 @@ export class PublicPortalController {
 
   @Public()
   @Get("ministries/:slug")
-  getMinistry(@Param("slug") slug: string) {
-    return this.portal.getMinistryBySlug(slug);
+  async getMinistry(@Param("slug") slug: string) {
+    const detail = await this.portal.getMinistryBySlug(slug);
+    return { ...detail, relatedEvents: detail.relatedEvents.filter(event => eventIsCurrent(event)) };
   }
 
   @Public()
@@ -52,9 +57,9 @@ export class PublicPortalController {
   async listEvents() {
     const catalog = await this.portal.listEvents();
     const now = new Date();
-    const current = catalog.events.filter(event => Date.parse(event.endsAt ?? event.startsAt) >= +now);
+    const current = catalog.events.filter(event => eventIsCurrent(event, +now));
     const open = await this.registrations.openPublicRegistrationEvents(current.map(event => event.id), now);
-    return { ...catalog, events: catalog.events.map(event => ({ ...event, registrationOpen: open.has(event.id) })) };
+    return { ...catalog, events: current.map(event => ({ ...event, registrationOpen: open.has(event.id) })) };
   }
 
   @Public()
@@ -87,4 +92,9 @@ export class PublicPortalController {
   getContent(@Param("slug") slug: string) {
     return this.portal.getContentBySlug(slug);
   }
+}
+
+function eventIsCurrent(event: { startsAt: string; endsAt?: string | null }, now = Date.now()) {
+  const end = Date.parse(event.endsAt || event.startsAt);
+  return Number.isFinite(end) && end >= now;
 }

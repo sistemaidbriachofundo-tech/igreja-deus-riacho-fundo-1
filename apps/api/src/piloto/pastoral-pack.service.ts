@@ -142,11 +142,19 @@ export class PastoralPackService {
   }
 
   async readBell(actor: AuthUser, bellId: string) {
-    const updated = await this.prisma.prayerBell.updateMany({
-      where: { id: bellId, recipientUserId: actor.userId, readAt: null },
-      data: { readAt: new Date() },
+    const pilot = await this.scoped(actor);
+    const row = await this.prisma.prayerBell.findFirst({
+      where: { id: bellId, recipientUserId: actor.userId, request: { churchId: pilot.churchId } },
+      select: { id: true, readAt: true },
     });
-    return { id: bellId, read: updated.count === 1 || true };
+    if (!row) throw new NotFoundException("Aviso não encontrado.");
+    if (!row.readAt) {
+      await this.prisma.prayerBell.updateMany({
+        where: { id: bellId, recipientUserId: actor.userId, readAt: null },
+        data: { readAt: new Date() },
+      });
+    }
+    return { id: bellId, read: true };
   }
 
   async associations(actor: AuthUser, personId: string) {
