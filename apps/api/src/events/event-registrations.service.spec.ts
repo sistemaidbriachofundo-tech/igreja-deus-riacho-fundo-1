@@ -259,17 +259,21 @@ describe("EventRegistrationsService", () => {
       },
       ...withTx(tx),
     };
+    const mail = { deliverOnce: jest.fn() };
     const service = guestService(
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mail as never,
     );
     const result = await service.createMemberRegistration(guest, "retiro-demo", {
       displayName: "Demo Participante",
       modalityId: "mod1",
       lotId: "lot1",
       isMinor: false,
+      notificationEmail: "inscrito@example.test",
     });
     expect(result.status).toBe("PENDING_PAYMENT");
+    expect(mail.deliverOnce).not.toHaveBeenCalled();
     expect(result.paymentIntent?.mode).toBe("MOCK_ONLY");
     expect(result.paymentIntent?.id).toBe("pi1");
     expect(tx.eventRegistration.create).toHaveBeenCalledWith(expect.objectContaining({
