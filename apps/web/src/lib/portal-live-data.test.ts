@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   parsePublishedEvent, parsePublishedEvents, parsePublishedHome,
   parsePublishedMinistryDetail, parsePublishedNews, currentPublishedEvents,
-  formatPortalDate, publicApiBase, fetchPublished,
+  formatPortalDate, publicApiBase, fetchPublished, resolvePublishedImage,
 } from "./portal-live-data";
 
 const event = {
@@ -20,6 +20,12 @@ describe("public content safety and API contract", () => {
     expect(parsePublishedEvent({ ...event, name:"" })).toBeNull();
     expect(parsePublishedNews({ ...news, kind:"MEMBERSHIP" })).toBeNull();
     expect(parsePublishedNews({ ...news, imageUrl:"javascript:alert(1)" })?.imageUrl).toBeNull();
+    expect(parsePublishedEvent({ ...event, imageUrl:"/images/qa/events/so-para-mocas.svg" })?.imageUrl)
+      .toBe("/images/qa/events/so-para-mocas.svg");
+    expect(parsePublishedEvent({ ...event, imageUrl:"/images/qa/../secret.svg" })?.imageUrl).toBeNull();
+    expect(parsePublishedEvent({ ...event, imageUrl:"/images/adoracao-oficial.jpg" })?.imageUrl).toBeNull();
+    expect(resolvePublishedImage("/images/qa/events/oficina-qa.svg")).toBe("/images/qa/events/oficina-qa.svg");
+    expect(resolvePublishedImage("https://cdn.example.test/capa.jpg")).toBe("https://cdn.example.test/capa.jpg");
     expect(parsePublishedEvents({ events:[event,{ id:"bad" }] })).toHaveLength(1);
     expect(parsePublishedEvents({ members:[] })).toBeNull();
   });

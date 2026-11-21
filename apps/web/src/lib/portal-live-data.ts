@@ -4,6 +4,7 @@
  *
  * This file is intentionally usable in both tests and client components.
  */
+import { withBasePath } from "./paths";
 export type PublishedNews = {
   id: string;
   slug: string;
@@ -62,14 +63,26 @@ const text = (value: unknown): string | null =>
   typeof value === "string" && value.trim() ? value.trim() : null;
 
 const optionalText = (value: unknown): string | null => text(value);
+/** Capas sintéticas de DEV servidas pelo próprio site. Sem caminho relativo externo. */
+const LOCAL_QA_IMAGE = /^\/images\/(?:qa|synthetic)\/[a-z0-9][a-z0-9/_-]*\.(?:svg|jpe?g|png|webp)$/;
 const safeImage = (value: unknown): string | null => {
   const raw = text(value);
   if (!raw) return null;
+  if (raw.startsWith("/")) {
+    if (raw.includes("\\") || raw.includes("..") || raw.includes("?") || raw.includes("#") || raw.includes("//")) return null;
+    return LOCAL_QA_IMAGE.test(raw) ? raw : null;
+  }
   try {
     const url = new URL(raw);
     return url.protocol === "https:" ? raw : null;
   } catch { return null; }
 };
+
+/** Prefixa só mídia local. URL https permanece como foi publicada. */
+export function resolvePublishedImage(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith("/images/") ? withBasePath(url) : url;
+}
 const isoDate = (value: unknown): string | null => {
   const raw = text(value);
   if (!raw || !/^\d{4}-\d{2}-\d{2}T/.test(raw)) return null;
