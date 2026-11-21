@@ -1,12 +1,31 @@
-.page{min-height:100svh;display:grid;align-content:center;justify-items:center;gap:24px;padding:25px 16px;background:radial-gradient(circle at 90% 0,#e7eedf,transparent 35%),linear-gradient(155deg,#f7f8f3,#eaf2e8);color:#234b38;font-family:var(--site-font)}
-.brand{font-weight:860;color:#20563e;font-size:.71rem;letter-spacing:.15em;text-align:center}
-.card{width:min(100%,480px);border-radius:21px;padding:clamp(25px,4vw,41px);background:#fff;border:1px solid #d7e5da;box-shadow:0 20px 50px #113c2720;display:grid;gap:17px}
-.decoration{height:49px;width:49px;display:grid;place-items:center;background:#1e5a42;border-radius:13px;color:#ecd4a2;font-size:1.5rem}
-.eyebrow{color:#755627;font-size:.64rem;letter-spacing:.14em;font-weight:860}.card h1{margin:0;font:840 clamp(1.65rem,3vw,2.2rem)/1.13 var(--site-font);letter-spacing:-.045em;color:#194432}
-.card>p,.form p{color:#627a67;font-size:.85rem;line-height:1.65;margin:0}.form{display:grid;gap:16px}.form label{display:grid;gap:7px;font-size:.8rem;color:#42624d;font-weight:780}
-.form input{width:100%;min-height:48px;padding:12px;border:1px solid #bfd3c4;border-radius:10px;background:#fafcf9;font-size:1rem;color:#214936}
-.form input:focus-visible{outline:3px solid #d5b276;outline-offset:1px}
-.form .hint{background:#f4f8f1;border:1px solid #dfeadf;padding:12px;border-radius:9px;font-size:.77rem}
-.form .error{background:#fff1ef;border:1px solid #efccc7;padding:11px;border-radius:8px;color:#a34037}
-.primary{display:block;text-align:center;min-height:48px;padding:14px 17px;border:0;border-radius:10px;background:#205e44;color:#fff;font-size:.88rem;font-weight:830;text-decoration:none;cursor:pointer}
-.primary:disabled{opacity:.6;cursor:not-allowed}.primary:hover:not(:disabled){background:#174b35}.footer{text-align:center;margin:0;color:#536858;font-size:.73rem;line-height:1.5}
+/* Mesma linguagem visual do login oficial — neutra, leve e responsiva. */
+.page{min-height:100dvh;padding:clamp(22px,5vw,65px);background:#fff;color:#141414;font-family:var(--site-font)}
+.back{display:flex;align-items:center;width:fit-content;min-height:44px;margin:0 0 18px;color:#414141;font:600 14px/1.4 var(--site-font);text-decoration:none}
+.layout{width:min(100%,28rem);margin-inline:auto}
+.card{display:grid;gap:0;padding:clamp(12px,3vw,34px) 0 32px;background:#fff;border:0;border-radius:0;box-shadow:none}
+.brand{display:flex;align-items:center;gap:13px;margin:0 0 26px}
+.brand img{display:block;flex:none;width:48px;height:54px;object-fit:contain;background:transparent}
+.brand strong,.brand span{display:block;letter-spacing:.09em}
+.brand strong{font-size:13px;font-weight:700}
+.brand span{font-size:12px;color:#565656}
+.heading h1{margin:0 0 9px;font:var(--site-heading-weight) clamp(29px,3.3vw,45px)/1.07 var(--site-font);letter-spacing:var(--site-heading-tracking)}
+.heading p{margin:0 0 24px;color:#535353;font:400 14px/1.55 var(--site-font)}
+.form{display:grid;gap:9px}
+.form label{color:#282828;font-size:13px;font-weight:650}
+.form input{width:100%;min-width:0;min-height:49px;padding:10px 12px;border:1px solid #a9a9a9;border-radius:8px;background:#fff;color:#232323;font:400 16px/1.35 var(--site-font)}
+.form input::placeholder{color:#777}
+.primary{display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:8px;padding:11px 15px;border:0;border-radius:6px;background:#171717;color:#fff;font:650 14px/1.4 var(--site-font);text-align:center;text-decoration:none;cursor:pointer}
+.primary:hover:not(:disabled){background:#363636}
+.primary:disabled{opacity:.62;cursor:not-allowed}
+.form .hint,.hint{margin:6px 0 0;color:#595959;font-size:13px;line-height:1.6}
+.form .error,.error{margin:5px 0;padding:10px 12px;border-left:3px solid #bb4437;background:#fff4f1;color:#8b241a;font-size:13px;line-height:1.5}
+.feedback{display:grid;gap:11px;padding:18px;border:1px solid #dedede;border-radius:10px;background:#fafafa;color:#252525}
+.feedback strong{font-size:15px}
+.feedback p{margin:0;color:#555;font-size:14px;line-height:1.6}
+.feedback a,.textAction{color:#222;font-weight:650;text-decoration:underline}
+.textAction{justify-self:start;min-height:44px;padding:4px 0;border:0;background:transparent;cursor:pointer;font-size:13px}
+.intro{margin:0 0 18px;color:#535353;font-size:14px;line-height:1.55}
+.footer{margin:22px 0 0;color:#535353;font:400 14px/1.55 var(--site-font)}
+.footer a{color:#222;text-decoration:underline;text-underline-offset:3px;font-weight:650}
+.page :is(a,button,input):focus-visible{outline:2px solid #242424;outline-offset:3px}
+@media(max-width:760px){.page{padding:16px}.card{padding-top:12px}}
