@@ -2,9 +2,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { apiGet, apiPost, loadStoredToken } from "../lib/api";
+import { apiGet, apiPatch, apiPost, loadStoredToken } from "../lib/api";
 import { churchLocalToISO, dasError } from "../lib/das-operations";
 import type { SettingBehavior } from "../lib/system-rules-state";
+import { PageHeader } from "./ui/PageHeader";
+import { withBasePath } from "../lib/paths";
 import { usePersonaAccess } from "./AppShell";
 import { Alert, Button, Input, Loading, Modal, Select } from "./ui";
 import { UIIcon, type GlyphName } from "./ui/UIIcon";
@@ -63,17 +65,20 @@ export function SystemRulesDesk() {
     );
     return () => { live = false; };
   }, [allowed, attempt]);
-  if (!allowed) return null;
+  if (!allowed) return <PageHeader appearance="workspace" heading="h1" title="Gestão do Sistema"
+    description="Entre com o perfil de administrador da igreja para editar as regras da congregação."
+    actions={access.kind === "preview" ? <a className={ui.workspacePrimary} href={withBasePath("/login/")}>Entrar</a> : undefined} />;
   const current = groups.find(item => item.id === group)!;
   const visible = settings?.filter(item => item.behavior === group && normalize(item.title + " " + (descriptions[item.key] ?? item.description)).includes(normalize(search)));
   return <div className={s.desk}>
-    <header className={s.header}><h1>Gestão do Sistema</h1><p>Regras e preferências da congregação</p></header>
+    <PageHeader appearance="workspace" heading="h1" title="Gestão do Sistema" description="Regras e preferências da congregação"
+      actions={<a className={ui.workspaceSecondary} href={withBasePath("/app/servir/atmosfera/?config=regras")}><UIIcon name="roster" size={17} /> Regras de escala do Atmosfera</a>} />
     {error && <><Alert title={error} tone="danger" /><Button onClick={() => setAttempt(n => n + 1)}>Tentar novamente</Button></>}
     {!settings && !error && <Loading label="Carregando regras" />}
     {settings && <>
       <div className={s.groups} role="group" aria-label="Categorias de regras">{groups.map(item =>
         <button type="button" key={item.id} aria-pressed={group === item.id} onClick={() => { setGroup(item.id); setSearch(""); }}>
-          <UIIcon name={item.icon} size={20} /><strong>{settings.filter(rule => rule.behavior === item.id).length}</strong><span>{item.title}</span>
+          <UIIcon name={item.icon} size={16} /><span>{item.title}</span><small>{settings.filter(rule => rule.behavior === item.id).length}</small>
         </button>)}</div>
       <section className={s.catalog}>
         <div className={s.toolbar}><div><h2>{group === "documentary" ? "Diretrizes de referência" : "Regras " + current.title.toLowerCase()}</h2><p>{current.detail}</p></div>
@@ -83,7 +88,7 @@ export function SystemRulesDesk() {
           <li key={item.key}><button type="button" className={s.row} onClick={() => setSelected(item)} aria-label={(item.editable ? "Editar " : "Consultar ") + item.title}>
             <span className={s.icon}><UIIcon name={ruleIcons[item.key.split(".")[0]] ?? "settings"} /></span>
             <span className={s.copy}><strong>{item.title}</strong><span>{descriptions[item.key] ?? item.description}</span></span>
-            <span className={s.action}>{item.editable ? "Editar" : "Consultar"} <UIIcon name="chevron" size={15} /></span>
+            <span className={s.action}>{item.editable ? "Editar" : "Consultar"} <UIIcon name={item.editable ? "settings" : "chevron"} size={15} /></span>
           </button></li>)}</ul>
         {!visible?.length && <p role="status">Nenhuma regra encontrada nesta categoria.</p>}
       </section>
@@ -127,18 +132,20 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
       setEffective(active);
       setHistory(changes.revisions.filter(row => row.scopeId == null).reverse());
       setPastors(people.items);
-      setDraftValue(String(active.value ?? ""));
+      const draft = changes.revisions.find(row => row.id === revisionId && row.lifecycle === "DRAFT");
+      setDraftValue(String((draft ? draft.value : active.value) ?? ""));
     }).catch(issue => { if (live) { setEffective(undefined); setError(dasError(issue)); } })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [item, pastorRule, reload]);
+  }, [item, pastorRule, reload, revisionId]);
 
-  async function perform(route: string, body: unknown, message: string) {
+  async function perform(route: string, body: unknown, message: string, method: "POST" | "PATCH" = "POST") {
     const token = loadStoredToken();
     if (!token || busy || loading) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await apiPost<Revision>(path + route, token, body);
+      const send = method === "PATCH" ? apiPatch : apiPost;
+      const result = await send<Revision>(path + route, token, body);
       setRevisionId(result.id); setNotice(message); setReload(n => n + 1);
     } catch (issue) { setError(dasError(issue)); }
     finally { setBusy(false); }
@@ -158,25 +165,30 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
     }, schedule ? "Publicação agendada. Consulte o início da vigência no histórico." : "Regra publicada. O novo valor já está em vigor.");
   }
 
-  return <Modal open appearance="workspace" title={item.title} description={descriptions[item.key] ?? item.description} onClose={() => { if (!busy) onClose(); }}>
+  return <Modal open appearance="workspace" title={(item.editable ? "Editar · " : "") + item.title} description={descriptions[item.key] ?? item.description} onClose={() => { if (!busy) onClose(); }}>
     {loading && <Loading label="Consultando regra" />}
-    {error && <Alert appearance="workspace" tone="danger" title={error} />}
+    {error && <><Alert appearance="workspace" tone="danger" title={error} />{effective && <Button variant="secondary" onClick={() => setReload(n => n + 1)}>Recarregar regra</Button>}</>}
     {notice && <div role="status"><Alert appearance="workspace" tone="success" title={notice} /></div>}
     {!loading && !effective && <Button onClick={() => setReload(n => n + 1)}>Tentar novamente</Button>}
     {!loading && effective && <>
       <div className={s.current}><span>{item.behavior === "documentary" ? "Valor de referência" : "Valor vigente"} · {scopes[item.scopeKind] ?? item.scopeKind}</span><strong>{describe(effective.value)}</strong></div>
-      {item.editable && !revision && <form onSubmit={event => {
+      {item.editable && (!revision || revision.lifecycle === "DRAFT") && <form onSubmit={event => {
         event.preventDefault();
-        void perform("/drafts", { key: item.key, scopeKind: item.scopeKind, value: item.valueType === "number" ? Number(draftValue) : draftValue }, "Rascunho salvo. Confira o valor antes de enviar para revisão.");
+        const value = item.valueType === "number" ? Number(draftValue) : draftValue;
+        if (revision) {
+          void perform("/revisions/" + revision.id, { expectedUpdatedAt: revision.updatedAt, value }, "Alterações salvas neste rascunho.", "PATCH");
+          return;
+        }
+        void perform("/drafts", { key: item.key, scopeKind: item.scopeKind, value }, "Rascunho salvo. Confira o valor antes de enviar para revisão.");
       }}>
         {pastorRule ? <Select label="Pastor designado" value={draftValue} onChange={e => setDraftValue(e.target.value)}
           options={[{ value: "", label: "Usar a ordem de vínculo pastoral" }, ...(draftValue && !pastors.some(p => p.id === draftValue) ? [{ value: draftValue, label: "Pastor fora da lista atual" }] : []), ...pastors.map(p => ({ value: p.id, label: p.name }))]} />
           : <Input label={item.valueType === "time" ? "Novo horário (Brasília)" : "Validade do link em horas"} required type={item.valueType === "time" ? "time" : "number"} min={item.valueType === "number" ? 1 : undefined} max={item.valueType === "number" ? 24 : undefined} value={draftValue} onChange={e => setDraftValue(e.target.value)} />}
-        <Button className={ui.workspacePrimary} type="submit" disabled={busy || draftValue === String(effective.value ?? "")}>Salvar rascunho</Button>
+        <Button className={ui.workspacePrimary} type="submit" disabled={busy || draftValue === String((revision ? revision.value : effective.value) ?? "")}>{revision ? "Salvar alterações" : "Salvar rascunho"}</Button>
       </form>}
       {revision && <section className={s.workflow} aria-label="Revisão selecionada">
         <h3>{statuses[revision.lifecycle]} · {describe(revision.value)}</h3>
-        {revision.lifecycle === "DRAFT" && <Button className={ui.workspacePrimary} disabled={busy} onClick={() => void perform("/revisions/" + revision.id + "/review", { expectedUpdatedAt: revision.updatedAt }, "Pronto para publicar. Escolha quando a regra entra em vigor.")}>Enviar para revisão</Button>}
+        {revision.lifecycle === "DRAFT" && <Button className={ui.workspacePrimary} disabled={busy || draftValue !== String(revision.value ?? "")} onClick={() => void perform("/revisions/" + revision.id + "/review", { expectedUpdatedAt: revision.updatedAt }, "Pronto para publicar. Escolha quando a regra entra em vigor.")}>Enviar para revisão</Button>}
         {revision.lifecycle === "IN_REVIEW" && <form onSubmit={publish}>
           <Select label="Entrada em vigor" value={schedule ? "later" : "now"} onChange={e => setSchedule(e.target.value === "later")}
             options={[{ value: "now", label: "Ao publicar" }, { value: "later", label: "Agendar para outra data" }]} />

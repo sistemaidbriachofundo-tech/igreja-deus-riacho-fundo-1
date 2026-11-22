@@ -60,7 +60,7 @@ export function CommunicationsBoard({templates,token}:Props){
     load.providers.liveWaba===true||load.providers.liveSmtp===true||load.providers.livePush===true
   );
   return <section className={s.board} aria-labelledby="communications-heading">
-    <header className={s.heading}><div><span>RF-024–025 · COMUNICAÇÃO RESPONSÁVEL</span>
+    <header className={s.heading}><div>
       <h2 id="communications-heading">Central de comunicação</h2>
       <p>Outbox e modelos ficam em consulta. Para falar com alguém agora, abra o WhatsApp no celular ou no computador — a plataforma não dispara mensagem sozinha.</p>
     </div><span className={s.pill}>Consulta + WhatsApp no app</span></header>
@@ -86,7 +86,7 @@ export function CommunicationsBoard({templates,token}:Props){
         <p className={s.notice} role="status">Provedores de testes confirmados pela API: nenhuma mensagem será enviada por esta tela.</p>}
       <div className={s.split}>
         <div className={s.panel}>
-          <div className={s.panelTop}><h3>01 / Modelos de comunicação</h3><small>{templates.length} modelos</small></div>
+          <div className={s.panelTop}><h3>Modelos de comunicação</h3><small>{templates.length} modelos</small></div>
           <div className={s.list}>
             {templates.length===0&&<p className={s.empty}>Nenhum modelo disponível na API de homologação.</p>}
             {templates.map((template,index)=><article className={s.item} key={str(template.id)||index}>
@@ -96,7 +96,7 @@ export function CommunicationsBoard({templates,token}:Props){
             </article>)}
           </div>
           <p className={s.help}>A edição de templates e o envio em lote exigirão autorização separada e revisão do consentimento de cada destinatário.</p>
-          <div className={s.panelTop}><h3>02 / Provedores configurados</h3></div>
+          <div className={s.panelTop}><h3>Provedores configurados</h3></div>
           <div className={s.list}>
             {(["whatsapp","email","push"] as const).map(key=><div key={key} className={s.item}>
               <strong>{key==="whatsapp"?"WhatsApp":key==="email"?"E-mail":"Push"}</strong>
@@ -105,7 +105,7 @@ export function CommunicationsBoard({templates,token}:Props){
           </div>
         </div>
         <div className={s.panel}>
-          <div className={s.panelTop}><h3>03 / Histórico de mensagens</h3>
+          <div className={s.panelTop}><h3>Histórico de mensagens</h3>
             <button type="button" className={s.outline} onClick={()=>setReload(x=>x+1)}>Atualizar</button>
           </div>
           <div className={s.filterRow}>

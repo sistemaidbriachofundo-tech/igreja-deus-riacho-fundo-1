@@ -36,7 +36,10 @@
   overflow-wrap: anywhere;
 }
 
-.sectionLinks a:hover { background: #e6efe7; }
+.panel[hidden] { display: none; }
+.sectionLinks a[aria-current="page"] { background: var(--app-accent, #255742); color: white; }
+.sectionLinks a[aria-current="page"] > svg { color: inherit; }
+.sectionLinks a:not([aria-current]):hover { background: #e6efe7; }
 .sectionLinks a > svg { margin-inline-start: auto; flex: none; color: var(--app-muted, #51675b); }
 .sectionIcon, .panelIcon {
   display: inline-grid;
