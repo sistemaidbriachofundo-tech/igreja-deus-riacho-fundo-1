@@ -7,10 +7,11 @@ import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert } from "../ui/Alert";
 import { Modal } from "../ui/Modal";
 import { PageHeader } from "../ui/PageHeader";
+import { ServiceOrderPlannerPanel } from "./ServiceOrderPlannerPanel";
 import ui from "../ui/ui.module.css";
 import s from "./service-order.module.css";
 
-type OrderItem = { title: string; minutes?: number | null; responsible?: string | null };
+type OrderItem = { title: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null };
 type Order = {
   id: string;
   updatedAt: string;
@@ -48,6 +49,8 @@ function editorItem(item?: OrderItem) {
     title: item?.title ?? "",
     minutes: item?.minutes == null ? "" : String(item.minutes),
     responsible: item?.responsible ?? "",
+    responsiblePersonId: item?.responsiblePersonId ?? null,
+    microphone: item?.microphone ?? "", equipment: item?.equipment ?? "", notes: item?.notes ?? "",
   };
 }
 
@@ -84,6 +87,10 @@ function OrderEditor({ order, token, onClose, onSaved }: {
         title: item.title.trim(),
         ...(item.minutes !== "" ? { minutes: Number(item.minutes) } : {}),
         ...(item.responsible.trim() ? { responsible: item.responsible.trim() } : {}),
+        ...(item.responsiblePersonId ? { responsiblePersonId: item.responsiblePersonId } : {}),
+        ...(item.microphone.trim() ? { microphone: item.microphone.trim() } : {}),
+        ...(item.equipment.trim() ? { equipment: item.equipment.trim() } : {}),
+        ...(item.notes.trim() ? { notes: item.notes.trim() } : {}),
       })),
     };
     setBusy(true);
@@ -121,7 +128,12 @@ function OrderEditor({ order, token, onClose, onSaved }: {
               <label>Duração em minutos<input type="number" min={1} max={180} value={item.minutes}
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, minutes: e.target.value } : row))} /></label>
               <label>Responsável<input maxLength={80} value={item.responsible}
-                onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, responsible: e.target.value } : row))} /></label>
+                onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, responsible: e.target.value, responsiblePersonId: null } : row))} /></label>
+            </div>
+            <div className={s.stepGrid}>
+              <label>Microfone<input maxLength={100} value={item.microphone} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, microphone: e.target.value } : row))} /></label>
+              <label>Equipamentos<input maxLength={280} value={item.equipment} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, equipment: e.target.value } : row))} /></label>
+              <label>Orientações<input maxLength={700} value={item.notes} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, notes: e.target.value } : row))} /></label>
             </div>
             <div className={s.actions}>
               <button type="button" className={ui.workspaceQuiet} aria-label={`Subir etapa ${index + 1}`} disabled={index === 0} onClick={() => move(index, -1)}>Subir</button>
@@ -148,6 +160,7 @@ export function ServiceOrderDesk() {
   const canEdit = access.kind === "ready" && access.roles.includes("PASTOR");
   const permitted = canEdit || (access.kind === "ready" && access.roles.includes("PLATFORM_ADMIN"));
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [screen, setScreen] = useState<"calendar" | "editor" | "rules" | "live">("calendar");
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [editor, setEditor] = useState<{ order: Order | null } | null>(null);
@@ -191,10 +204,19 @@ export function ServiceOrderDesk() {
     <PageHeader appearance="workspace" heading="h1" title="Ordem de Culto"
       description="Organize a sequência dos cultos e acompanhe os roteiros aprovados e publicados."
       actions={<div className={s.actions}>
-        {canEdit && token && <button type="button" className={ui.workspacePrimary} onClick={() => setEditor({ order: null })}>Nova ordem de culto</button>}
+        {canEdit && token && screen === "editor" && <button type="button" className={ui.workspacePrimary} onClick={() => setEditor({ order: null })}>Nova ordem de culto</button>}
         <AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/">Voltar à Pastoral</AppNavLink>
       </div>} />
-    {permitted && <>
+    {permitted && <nav className={s.ocTabs} aria-label="Seções da Ordem de Culto">
+      {([
+        ["calendar", "Calendário"], ["editor", "Roteiro"], ["rules", "Regras"], ["live", "Modo culto"],
+      ] as const).map(([id, name]) => <button key={id} type="button"
+        aria-current={screen === id ? "page" : undefined} data-selected={screen === id}
+        onClick={() => setScreen(id)}>{name}</button>)}
+    </nav>}
+    {permitted && token && screen !== "editor" && <ServiceOrderPlannerPanel key={token} token={token}
+      canEdit={canEdit} view={screen} orders={orders ?? []} onGenerated={() => setRevision(n => n + 1)} />}
+    {screen === "editor" && permitted && <>
       {notice && <p role="status">{notice}</p>}
       {error && !decision && <Alert appearance="workspace" tone="danger" title="Informe da Ordem de Culto">{error}
         <div><button type="button" className={ui.workspaceSecondary} onClick={() => setRevision(current => current + 1)}>Tentar novamente</button></div></Alert>}

@@ -26,3 +26,10 @@
 @media (max-width: 620px) {
   .grid, .stepGrid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Nova Central de OC — abas operacionais do planejamento. */
+.ocTabs{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:5px;margin-top:14px;background:#e9ebee;border-radius:13px;scrollbar-width:thin}
+.ocTabs button{flex:none;min-height:44px;padding:10px 17px;border-radius:10px;border:1px solid transparent;background:transparent;color:#505966;font-size:13px;font-weight:750;cursor:pointer}
+.ocTabs button[data-selected=true]{background:#171717;color:#fff;border-color:#171717;box-shadow:0 3px 9px #00000017}
+.ocTabs button:focus-visible{outline:3px solid #171717;outline-offset:3px}
+@media(max-width:640px){.ocTabs{margin-top:8px}.ocTabs button{padding:10px 13px}}
