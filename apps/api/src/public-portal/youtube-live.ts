@@ -1,4 +1,4 @@
-import { Controller, Get, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Controller, Get, Header, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { Public } from "../auth/decorators/public.decorator";
 import { parseYoutubeStreams, YOUTUBE_STREAMS_FEED } from "./youtube-streams.controller";
 
@@ -149,6 +149,7 @@ export class YoutubeLiveController {
 
   @Public()
   @Get()
+  @Header("Cache-Control", "no-store, max-age=0")
   status() {
     return this.live.getStatus();
   }
