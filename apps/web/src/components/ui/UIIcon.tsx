@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 export type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
   "activity" | "calendar" | "roster" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
-  "family" | "more" | "mail" | "settings" | "menu" | "logout" | "camera" | "birthday" | "month" | "whatsapp" | "map" | "pin" | "church" | "minus" | "expand" | "target" | "ticket" | "lock";
+  "family" | "more" | "mail" | "settings" | "menu" | "logout" | "camera" | "birthday" | "month" | "whatsapp" | "map" | "pin" | "church" | "minus" | "expand" | "target" | "ticket" | "lock" | "eye" | "file";
 
 export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
   const paths: Record<GlyphName, ReactNode> = {
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
+    file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"/><path d="M14 2v6h6M8 13h8m-8 4h8"/></>,
     map: <><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15m6-12v15"/></>,
     pin: <><path d="M19 10c0 5-7 10-7 10s-7-5-7-10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></>,
     church: <><path d="M12 2v5M9.5 4.5h5M7 21V11l5-4 5 4v10M3 21v-7l4-2m10 0 4 2v7H3m7 0v-4a2 2 0 1 1 4 0v4"/></>,

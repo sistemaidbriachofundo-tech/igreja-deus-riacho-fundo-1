@@ -148,10 +148,10 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
   async function previewReceipt(entry: string, file: Receipt) {
     if (!token) return;
     const name = file.displayName.toLowerCase();
-    const mime = /\\.pdf$/.test(name) ? "application/pdf" :
-      /\\.(jpe?g)$/.test(name) ? "image/jpeg" :
-      /\\.png$/.test(name) ? "image/png" :
-      /\\.webp$/.test(name) ? "image/webp" : "";
+    const mime = name.endsWith(".pdf") ? "application/pdf" :
+      name.endsWith(".jpg") || name.endsWith(".jpeg") ? "image/jpeg" :
+      name.endsWith(".png") ? "image/png" :
+      name.endsWith(".webp") ? "image/webp" : "";
     if (!mime) {
       showFeedback({ tone: "error", title: "Pré-visualização indisponível",
         message: "Este tipo de arquivo não oferece visualização segura. Use Baixar para conferir." });
