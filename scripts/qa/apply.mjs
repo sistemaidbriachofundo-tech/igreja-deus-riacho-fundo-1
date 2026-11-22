@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { CHURCH_SLUG, ORG_SLUG, buildCatalog, summarize } from "./catalog.mjs";
 import { assertLiveDatabaseName, assertQaApi, assertSeedTarget, QA_BRANCH, SeedGuardError } from "./guard.mjs";
-import { portraitJpeg } from "./jpeg.mjs";
+import { portraitJpeg, receiptJpeg } from "./jpeg.mjs";
 
 class DryRunComplete extends Error {
   constructor(report) {
@@ -532,6 +532,39 @@ export async function applyQaMass(tx, catalog, options = {}) {
   const pastor = catalog.users.find((user) => user.role === "PASTOR");
   await writeEntry(tx, catalog.finance.expense, scope, tesouraria.id, null, null);
   await writeEntry(tx, catalog.finance.offering, scope, tesouraria.id, tesouraria.id, pastor.id);
+  await writePrivateReceipt(tx, {
+    id: "qacomp_file_despesa",
+    entryId: catalog.finance.expense.id,
+    scope,
+    userId: tesouraria.id,
+    bytes: receiptJpeg("despesa"),
+    displayName: "SEM VALOR FISCAL - QA - despesa ficticia.jpg",
+  });
+  for (const receipt of confirmedPaymentReceipts(catalog)) {
+    await writeEntry(tx, {
+      id: receipt.entryId,
+      description: `SEM VALOR FISCAL / QA - recebimento ficticio ${receipt.eventName}`.slice(0, 180),
+      amountCents: receipt.cents,
+      status: "APPROVED",
+      entryDate: catalog.today,
+      lines: [
+        [`${receipt.entryId}_d`, catalog.finance.accounts.find((account) => account.type === "ASSET").id, "DEBIT", receipt.cents],
+        [`${receipt.entryId}_c`, catalog.finance.accounts.find((account) => account.type === "REVENUE").id, "CREDIT", receipt.cents],
+      ],
+    }, scope, tesouraria.id, tesouraria.id, pastor.id);
+    await tx.eventPaymentIntent.update({
+      where: { id: receipt.paymentId },
+      data: { ledgerEntryId: receipt.entryId },
+    });
+    await writePrivateReceipt(tx, {
+      id: receipt.fileId,
+      entryId: receipt.entryId,
+      scope,
+      userId: tesouraria.id,
+      bytes: receiptJpeg(receipt.fileId),
+      displayName: receipt.displayName,
+    });
+  }
   for (const batch of catalog.finance.imports) {
     await assertOwned(tx, "bankImportBatch", {
       churchId: scope.churchId,
@@ -659,6 +692,59 @@ export async function applyQaMass(tx, catalog, options = {}) {
     planned: summarize(catalog),
     owned,
   };
+}
+
+function confirmedPaymentReceipts(catalog) {
+  const receipts = [];
+  for (const event of catalog.events) {
+    for (const registration of event.registrations) {
+      const payment = registration.payment;
+      if (!payment) continue;
+      if (!payment.id.startsWith("qacomp_pay_")) {
+        throw new SeedGuardError("BLOQUEADO: recibo fora do prefixo qacomp_.");
+      }
+      const lot = event.lots.find((item) => item.code === registration.lotCode);
+      if (!lot || lot.priceCents <= 0 || !String(payment.status).startsWith("CONFIRMED")) continue;
+      const suffix = payment.id.slice("qacomp_".length);
+      receipts.push({
+        paymentId: payment.id,
+        cents: lot.priceCents,
+        eventName: event.name,
+        entryId: `qacomp_entry_${suffix}`,
+        fileId: `qacomp_file_${suffix}`,
+        displayName: `SEM VALOR FISCAL - QA - ${suffix}.jpg`.slice(0, 180),
+      });
+    }
+  }
+  return receipts;
+}
+
+async function writePrivateReceipt(tx, receipt) {
+  if (!receipt.id.startsWith("qacomp_file_") || !receipt.entryId.startsWith("qacomp_")) {
+    throw new SeedGuardError("BLOQUEADO: anexo financeiro fora do prefixo qacomp_.");
+  }
+  const storageKey = `qacomp/receipts/${receipt.id}.jpg`;
+  if (!storageKey.startsWith("qacomp/receipts/") || storageKey.includes("..")) {
+    throw new SeedGuardError("BLOQUEADO: chave de comprovante inválida.");
+  }
+  if (receipt.bytes[0] !== 0xff || receipt.bytes[1] !== 0xd8 || !receipt.displayName.includes("SEM VALOR FISCAL")) {
+    throw new SeedGuardError("BLOQUEADO: comprovante precisa ser JPEG fictício rotulado.");
+  }
+  await tx.privateFile.upsert({
+    where: { key: storageKey },
+    update: { bytes: receipt.bytes },
+    create: { key: storageKey, bytes: receipt.bytes },
+  });
+  await upsert(tx, "ledgerEntryAttachment", receipt.id, {
+    entryId: receipt.entryId,
+    organizationId: receipt.scope.organizationId,
+    churchId: receipt.scope.churchId,
+    uploadedByUserId: receipt.userId,
+    displayName: receipt.displayName,
+    contentType: "image/jpeg",
+    byteSize: receipt.bytes.length,
+    storageKey,
+  });
 }
 
 async function writeEntry(tx, entry, scope, createdByUserId, firstApprover, secondApprover) {

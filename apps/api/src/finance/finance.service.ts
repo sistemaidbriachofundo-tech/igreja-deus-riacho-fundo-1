@@ -2067,7 +2067,7 @@ export class FinanceService {
     }
     if (!hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR] }) ||
         hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN] })) {
-      const financeScope = await this.requireFinance(actor);
+      const financeScope = await this.requireFinance(actor, "read");
       await this.requireEntryInPilot(financeScope, entryId);
       return financeScope;
     }

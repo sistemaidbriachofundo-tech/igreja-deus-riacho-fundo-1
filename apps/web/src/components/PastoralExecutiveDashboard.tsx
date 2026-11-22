@@ -49,6 +49,12 @@ const decisions = [
 
 
 const AGE_COLOR = ["#2C5D84", "#447EC0", "#4EAA91", "#DF9C43", "#9D6A9A", "#6E83BD", "#B0B6BE", "#7E6551", "#8C8F97"];
+
+/** Rótulo curto de mês. "2026-11" vira "11/26"; outro texto permanece inteiro. */
+export function pastoralMonthTick(label: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(label);
+  return match ? `${match[2]}/${match[1].slice(2)}` : label;
+}
 function PastoralRealCharts({ insights }: { insights: MemberInsights }) {
   const ages = (insights.ages?.bands ?? []).filter(row => Number.isFinite(row.count) && row.count >= 0);
   const total = ages.reduce((sum, row) => sum + row.count, 0);
@@ -71,7 +77,7 @@ function PastoralRealCharts({ insights }: { insights: MemberInsights }) {
           <div><strong>{count(total)}</strong><span>com idade</span></div>
         </div>
         <ul className={s.ageLegend}>{ages.filter(row => row.count > 0).map(row => <li key={row.label}>
-          <span>{row.label} anos</span><strong>{count(row.count)}</strong>
+          <span>{/ano/i.test(row.label) ? row.label : `${row.label} anos`}</span><strong>{count(row.count)}</strong>
         </li>)}</ul>
       </div> : <p>Idades não disponíveis.</p>}
     </section>
@@ -81,7 +87,7 @@ function PastoralRealCharts({ insights }: { insights: MemberInsights }) {
         {recent.map(row => <div key={row.label} className={s.barItem}>
           <strong>{count(row.newMemberships)}</strong>
           <span style={{ height: `${Math.max(5, Math.round(row.newMemberships / maxNew * 100))}%` }} />
-          <small>{row.label.slice(5)}</small>
+          <small>{pastoralMonthTick(row.label)}</small>
         </div>)}
       </div> : <p>Histórico ainda indisponível.</p>}
       <p className={s.chartNote}>Entradas cadastradas no período, não evolução histórica do total de membros.</p>
