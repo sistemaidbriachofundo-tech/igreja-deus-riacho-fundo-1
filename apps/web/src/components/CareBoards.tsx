@@ -128,7 +128,7 @@ export function DiscipleshipBoard({rows,token,roles,refresh}:Shared){
     finally{setBusy(false);}
   }
   return <section className={styles.board} aria-labelledby="discipleship-heading">
-    <div className={styles.intro}><span>RF-010 · DISCIPULADO</span><h2 id="discipleship-heading">Trilhas e mentorias</h2>
+    <div className={styles.intro}><h2 id="discipleship-heading">Trilhas e mentorias</h2>
       <p>Acompanhe trilhas existentes e vincule pessoas fictícias a um mentor, com histórico gerenciado no servidor.</p></div>
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <div className={styles.split}>
@@ -188,7 +188,7 @@ export function GroupsBoard({rows,token,roles,refresh}:Shared){
   }
   const validGroup=rows.some(row=>row.id===selected);
   return <section className={styles.board} aria-labelledby="groups-heading">
-    <div className={styles.intro}><span>RF-011 · GRUPOS E CÉLULAS</span><h2 id="groups-heading">Pessoas, encontros e presença</h2>
+    <div className={styles.intro}><h2 id="groups-heading">Pessoas, encontros e presença</h2>
       <p>Presenças e vínculos são gravados por ID de pessoa. Não utilizar nomes ou registros reais nesta base.</p></div>
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <label className={styles.groupSelect}>Selecionar grupo<select value={selected} onChange={e=>setSelected(e.target.value)}>

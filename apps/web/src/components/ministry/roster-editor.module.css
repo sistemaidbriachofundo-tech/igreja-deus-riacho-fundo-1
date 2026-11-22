@@ -1,6 +1,9 @@
 .editor { display: grid; justify-items: start; gap: 12px; min-width: 0; width: 100%; }
 .editor > button { display: inline-flex; align-items: center; gap: 8px; }
-.moduleCatalog { display: grid; gap: 12px; padding: 14px; border: 1px solid #d6d6d6; border-radius: 10px; }
+.moduleCatalog { display: grid; gap: 1rem; padding: clamp(.35rem, 1.5vw, 1rem); min-width: 0; }
+.moduleCatalog h3, .ruleSection h4 { margin: 0; color: var(--app-ink, #22382e); }
+.ruleSection { display: grid; gap: .85rem; min-width: 0; padding-top: 1rem; border-top: 1px solid var(--app-border, #dce6de); }
+.moduleCatalog :is(select, input:not([type="checkbox"])) { border-color: var(--app-border, #dce6de); border-radius: 12px; min-height: 44px; }
 .form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; width: 100%; }
 .form label { display: grid; gap: 5px; min-width: 0; flex: 1 1 165px; font-size: 13px; font-weight: 650; }
 .form :is(input, select) { min-width: 0; width: 100%; padding: 9px 10px; min-height: 44px; border: 1px solid #c6c6c6; border-radius: 8px; color: #282828; background: white; }

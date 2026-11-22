@@ -140,9 +140,9 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
   return <section className={s.board} aria-labelledby="education-heading">
     {confirmation}
     <header className={s.heading}>
-      <div><span>RF-023 · ENSINO CRISTÃO</span><h2 id="education-heading">Jornada de ensino e EBD</h2>
+      <div><h2 id="education-heading">Jornada de ensino e EBD</h2>
         <p>Planeje turmas, acompanhe matrículas, registre frequência e conclusão. Discipulado e EBD permanecem domínios distintos.</p>
-      </div><span className={s.pill}>Base sintética · HML</span>
+      </div><span className={s.pill}>Dados de teste</span>
     </header>
     <div className={s.statGrid} aria-label="Resumo do ensino">
       <div><strong>{courses.length}</strong><span>Cursos cadastrados</span></div>
@@ -153,7 +153,7 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
     {message&&<p className={s.notice} role="status">{message}</p>}
     <div className={s.split}>
       <div className={s.panel}>
-        <h3>01 / Cursos e trilhas</h3>
+        <h3>Cursos e trilhas</h3>
         <label>Escolha um curso
           <select value={courseId} onChange={e=>{setCourseId(e.target.value);setClassId("");setMessage("");}}>
             <option value="">Selecione para visualizar as turmas</option>
@@ -172,7 +172,7 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
         </form>
       </div>
       <div className={s.panel}>
-        <h3>02 / Turmas e professores</h3>
+        <h3>Turmas e professores</h3>
         {!courseId?<p className={s.empty}>Selecione um curso para gerenciar suas turmas.</p>:
         classState==="loading"?<p role="status" className={s.empty}>Carregando turmas autorizadas…</p>:
         classState==="error"?<p role="alert" className={s.error}>{classError}</p>:<>
@@ -194,7 +194,7 @@ export function EducationBoard({courses,token,roles,refresh}:Props){
       </div>
     </div>
     {selectedClass&&<div className={s.panel}>
-      <div className={s.panelTop}><div><h3>03 / Gestão da turma</h3>
+      <div className={s.panelTop}><div><h3>Gestão da turma</h3>
         <p><strong>{title(selectedClass.name)}</strong> · Situação: {title(selectedClass.status)}</p></div>
         <button type="button" className={s.outline} onClick={()=>setRevision(n=>n+1)} disabled={busy}>Atualizar frequência</button>
       </div>

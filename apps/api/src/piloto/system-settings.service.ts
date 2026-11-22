@@ -131,20 +131,10 @@ export class SystemSettingsService {
   async draft(actor: AuthUser, input: { key: string; scopeKind?: string; scopeId?: string | null; value: unknown; note?: string | null }) {
     const pilot = await this.admin(actor);
     const catalog = await this.catalogRow(input.key);
-    if (LOCKED_SETTINGS.has(catalog.key)) {
-      throw new BadRequestException("Bloqueio de segurança. O valor vigente não pode ser afrouxado.");
-    }
-    if (!EDITABLE_SETTINGS.has(catalog.key)) throw new BadRequestException("Esta regra está disponível para consulta.");
     const kind = this.scopeKind(input.scopeKind || catalog.scopeKind);
-    this.assertValue(catalog.key, catalog.valueType, input.value);
+    await this.validateEdit(pilot, catalog, input.value);
     if (kind !== catalog.scopeKind || ((kind === "CHURCH" || kind === "PLATFORM") && input.scopeId)) {
       throw new BadRequestException("O escopo deve corresponder ao da regra.");
-    }
-    if (catalog.key.startsWith("pastoral.") && typeof input.value === "string" && input.value) {
-      const pastor = await this.prisma.user.findFirst({
-        where: { id: input.value, status: "ACTIVE", grants: this.pastoralGrants(pilot) }, select: { id: true },
-      });
-      if (!pastor) throw new BadRequestException("Escolha um pastor ativo desta congregação.");
     }
     const created = await this.prisma.systemSettingRevision.create({
       data: {
@@ -157,14 +147,51 @@ export class SystemSettingsService {
     return this.view(created);
   }
 
+  private async validateEdit(pilot: { organizationId: string; churchId: string }, catalog: { key: string; valueType: string }, value: unknown) {
+    if (LOCKED_SETTINGS.has(catalog.key)) {
+      throw new BadRequestException("Bloqueio de segurança. O valor vigente não pode ser afrouxado.");
+    }
+    if (!EDITABLE_SETTINGS.has(catalog.key)) throw new BadRequestException("Esta regra está disponível para consulta.");
+    this.assertValue(catalog.key, catalog.valueType, value);
+    if (catalog.key.startsWith("pastoral.") && typeof value === "string" && value) {
+      const pastor = await this.prisma.user.findFirst({
+        where: { id: value, status: "ACTIVE", grants: this.pastoralGrants(pilot) }, select: { id: true },
+      });
+      if (!pastor) throw new BadRequestException("Escolha um pastor ativo desta congregação.");
+    }
+  }
+
+  async editDraft(actor: AuthUser, revisionId: string, value: unknown, expectedUpdatedAt: string) {
+    const pilot = await this.admin(actor);
+    const current = await this.revision(pilot, revisionId);
+    this.expectFresh(current.updatedAt, expectedUpdatedAt);
+    if (current.lifecycle !== "DRAFT") throw new ConflictException("Somente rascunhos podem ser editados.");
+    await this.validateEdit(pilot, await this.catalogRow(current.catalogKey), value);
+    const updated = await this.prisma.$transaction(async tx => {
+      const result = await tx.systemSettingRevision.updateMany({
+        where: { id: current.id, organizationId: pilot.organizationId, churchId: pilot.churchId, lifecycle: "DRAFT", updatedAt: current.updatedAt },
+        data: { valueJson: value as never },
+      });
+      if (!result.count) throw new ConflictException("A revisão mudou. Atualize a tela.");
+      await this.audit(actor, pilot, "system_setting.edit_draft", current.id, current.catalogKey, tx);
+      return tx.systemSettingRevision.findUniqueOrThrow({ where: { id: current.id } });
+    });
+    return this.view(updated);
+  }
+
   async review(actor: AuthUser, revisionId: string, expectedUpdatedAt?: string) {
     const pilot = await this.admin(actor);
     const current = await this.revision(pilot, revisionId);
     this.expectFresh(current.updatedAt, expectedUpdatedAt);
     if (current.lifecycle !== "DRAFT") throw new ConflictException("Somente um rascunho segue para revisão.");
     const updated = await this.prisma.systemSettingRevision.update({
-      where: { id: current.id },
+      where: { id: current.id, lifecycle: "DRAFT", updatedAt: current.updatedAt },
       data: { lifecycle: "IN_REVIEW", reviewedByUserId: actor.userId },
+    }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+        throw new ConflictException("A revisão mudou. Atualize a tela.");
+      }
+      throw error;
     });
     await this.audit(actor, pilot, "system_setting.review", updated.id, current.catalogKey);
     return this.view(updated);
@@ -279,8 +306,8 @@ export class SystemSettingsService {
     };
   }
 
-  private async audit(actor: AuthUser, pilot: { organizationId: string; churchId: string }, action: string, id: string, key: string) {
-    await this.prisma.auditLog.create({
+  private async audit(actor: AuthUser, pilot: { organizationId: string; churchId: string }, action: string, id: string, key: string, db: Pick<PrismaService, "auditLog"> = this.prisma) {
+    await db.auditLog.create({
       data: {
         actorUserId: actor.userId, action, resourceType: "system_setting", resourceId: id,
         organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { key },
