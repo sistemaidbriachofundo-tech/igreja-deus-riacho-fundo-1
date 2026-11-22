@@ -108,13 +108,15 @@ export class YoutubeLiveService {
   private async fromChannel(budget: AbortSignal): Promise<Broadcast | null> {
     // Canal verificado: @IDBRiachoFundo1. Tentar handle e ID do canal,
     // pois um HTTP 200 vazio pode ser uma versão em cache de /live.
+    let failed = 0;
+    let lastError: unknown = null;
     for (const address of [LIVE_PAGE, CHANNEL_LIVE_PAGE]) {
       try {
         const signal = AbortSignal.any([budget, AbortSignal.timeout(8_000)]);
         const { url, html } = await fetchYoutubePage(address, signal);
         const canonical = html.match(/<link rel="canonical" href="([^"]+)"/i)?.[1];
         // O player às vezes já vem no HTML do canal, mesmo sem redirecionar.
-        const playerId = html.match(/"videoId"\\s*:\\s*"([\\w-]{11})"/)?.[1];
+        const playerId = html.match(/"videoId"\s*:\s*"([\w-]{11})"/)?.[1];
         const videoId = youtubeVideoId(url) ?? (canonical ? youtubeVideoId(canonical) : null) ?? playerId;
         if (!videoId) continue;
         const direct = activeYoutubeBroadcast(html, videoId);
@@ -122,10 +124,13 @@ export class YoutubeLiveService {
         const watch = await fetchYoutubePage("https://www.youtube.com/watch?v=" + videoId, budget);
         const confirmed = activeYoutubeBroadcast(watch.html, videoId);
         if (confirmed) return confirmed;
-      } catch {
+      } catch (error) {
+        failed++;
+        lastError = error;
         // Tentar o outro formato oficial antes de recorrer ao feed.
       }
     }
+    if (failed === 2 && lastError) throw lastError;
     return null;
   }
 
