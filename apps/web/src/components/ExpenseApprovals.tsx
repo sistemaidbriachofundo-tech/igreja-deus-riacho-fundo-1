@@ -7,6 +7,7 @@ import { formatBRL } from "../lib/das-operations";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
+import { receiptLoadErrorMessage } from "./expense-receipt-errors";
 import s from "./expense-approvals.module.css";
 import ui from "./ui/ui.module.css";
 
@@ -58,7 +59,7 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
   const [showHistory, setShowHistory] = useState(false);
   const listRequest = useRef(0);
   const historyToggle = useRef<HTMLButtonElement>(null);
-  const [receipts, setReceipts] = useState<Record<string, Receipt[]>>({});
+  const [receipts, setReceipts] = useState<Record<string, Receipt[] | null>>({});
   const [actorId, setActorId] = useState<string | null>(null);
   const roles = access.kind === "ready" ? access.roles : [];
   const pastor = roles.includes("PASTOR");
@@ -131,9 +132,11 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
     try {
       const data = await apiGet<{ attachments: Receipt[] }>(`/ledger/entries/${encodeURIComponent(entry)}/attachments`, token);
       setReceipts(current => ({ ...current, [entry]: data.attachments }));
+      setError("");
       return data.attachments;
-    } catch {
-      setError("Não foi possível consultar os comprovantes desta despesa.");
+    } catch (error) {
+      setReceipts(current => ({ ...current, [entry]: null }));
+      setError(receiptLoadErrorMessage(error));
       return null;
     }
   }
@@ -155,7 +158,9 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
 
   function receiptLinks(entry: string, files: Receipt[] | null) {
     return <div className={s.receipts}>
-      {files === null ? <p>Comprovantes indisponíveis. Volte para atualizar a consulta.</p> :
+      {files === null ? <div role="alert"><p>Não foi possível consultar os anexos desta despesa.</p>
+          <button type="button" className={ui.workspaceSecondary} onClick={() => void listReceipts(entry)}>Tentar novamente</button>
+        </div> :
         files.length === 0 ? <p>Nenhum comprovante anexado.</p> :
         files.map(file => <button className={ui.workspaceSecondary} type="button" key={file.id} onClick={() => void downloadReceipt(entry, file)}><UIIcon name="download" size={16} /> {file.displayName}</button>)}
     </div>;
