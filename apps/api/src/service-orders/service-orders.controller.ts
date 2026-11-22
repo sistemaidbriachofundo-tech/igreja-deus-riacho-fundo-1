@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, StreamableFile } from "@nestjs/common";
+import type { Response } from "express";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
   ArrayMaxSize,
@@ -127,6 +128,17 @@ export class ServiceOrdersController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() body: ServiceOrderBody) {
     return this.orders.create(user, body);
+  }
+
+  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Get(":orderId/pdf")
+  async pdf(@CurrentUser() user: AuthUser, @Param("orderId") id: string,
+    @Res({ passthrough: true }) res: Response) {
+    const pdf = await this.orders.pdf(user, id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Disposition", `attachment; filename="ordem-de-culto.pdf"`);
+    return new StreamableFile(pdf);
   }
 
   @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)

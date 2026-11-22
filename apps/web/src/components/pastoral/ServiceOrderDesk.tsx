@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { apiGet, apiPatch, apiPost, ApiRequestError, loadStoredToken } from "../../lib/api";
+import { apiGet, apiGetBlob, apiPatch, apiPost, ApiRequestError, loadStoredToken } from "../../lib/api";
 import { dasError, churchLocalToISO } from "../../lib/das-operations";
 import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert } from "../ui/Alert";
@@ -178,6 +178,19 @@ export function ServiceOrderDesk() {
     return () => { active = false; };
   }, [token, revision]);
 
+  async function downloadPdf(order: Order) {
+    if (!token) return;
+    try {
+      const blob = await apiGetBlob(`/service-orders/${encodeURIComponent(order.id)}/pdf`, token);
+      const url = URL.createObjectURL(blob);
+      const element = document.createElement("a");
+      element.href = url;
+      element.download = "ordem-de-culto.pdf";
+      element.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) { setError(orderError(error)); }
+  }
+
   function update(order: Order) {
     setOrders(current => [...(current ?? []).filter(row => row.id !== order.id), order]);
     setRevision(current => current + 1);
@@ -228,6 +241,7 @@ export function ServiceOrderDesk() {
         {order.notes && <p className={s.notes}>{order.notes}</p>}
         <ol className={s.items}>{order.items.map((item, index) => <li key={index}><strong>{item.title}</strong>
           {(item.responsible || item.minutes) && <span>{[item.responsible, item.minutes ? `${item.minutes} min` : ""].filter(Boolean).join(" · ")}</span>}</li>)}</ol>
+        <div className={s.actions}><button type="button" className={ui.workspaceSecondary} onClick={() => void downloadPdf(order)}>Baixar PDF</button></div>
         {canEdit && <div className={s.actions}>
           {order.status !== "PUBLISHED" && <button type="button" className={ui.workspaceSecondary} onClick={() => setEditor({ order })}>Editar</button>}
           {order.status === "DRAFT" && <button type="button" className={ui.workspacePrimary} onClick={() => { setError(""); setDecision({ order, action: "approve" }); }}>Aprovar roteiro</button>}

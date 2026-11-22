@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { renderServiceOrderPdf } from "./service-order-pdf";
 
 const ITEM_LIMIT = 40;
 const includeItems = {
@@ -59,6 +60,11 @@ export class ServiceOrdersService {
     });
     if (!row) throw new NotFoundException("Ordem de culto não encontrada");
     return this.toDto(row);
+  }
+
+  async pdf(actor: AuthUser, orderId: string) {
+    const order = await this.getById(actor, orderId);
+    return renderServiceOrderPdf(order);
   }
 
   async create(actor: AuthUser, input: ServiceOrderWriteInput) {
