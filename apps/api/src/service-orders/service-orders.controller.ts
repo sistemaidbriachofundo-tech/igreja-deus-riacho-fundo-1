@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
   ArrayMaxSize,
@@ -18,6 +18,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { ServiceOrdersService } from "./service-orders.service";
+import { ServiceOrderPlannerService } from "./service-order-planner.service";
 
 class ServiceOrderItemBody {
   @IsString()
@@ -87,7 +88,34 @@ class ServiceOrderExpectedBody {
 
 @Controller("service-orders")
 export class ServiceOrdersController {
-  constructor(private readonly orders: ServiceOrdersService) {}
+  constructor(private readonly orders: ServiceOrdersService, private readonly planner: ServiceOrderPlannerService) {}
+
+  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("planning/rules")
+  rules(@CurrentUser() user: AuthUser) { return this.planner.getRules(user); }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Patch("planning/rules")
+  updateRules(@CurrentUser() user: AuthUser,
+    @Body() body: { rules: unknown; expectedUpdatedAt?: string | null }) {
+    return this.planner.saveRules(user, body.rules, body.expectedUpdatedAt);
+  }
+
+  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("planning/preview")
+  preview(@CurrentUser() user: AuthUser, @Query("year") year: string, @Query("month") month: string) {
+    return this.planner.previewMonth(user, { year: Number(year), month: Number(month) });
+  }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Post("planning/generate")
+  generate(@CurrentUser() user: AuthUser,
+    @Body() input: { year: number; month: number; expectedPolicyUpdatedAt?: string | null }) {
+    return this.planner.generateMonth(user, {
+      year: Number(input.year), month: Number(input.month),
+      expectedPolicyUpdatedAt: input.expectedPolicyUpdatedAt,
+    });
+  }
 
   @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
   @Get()
