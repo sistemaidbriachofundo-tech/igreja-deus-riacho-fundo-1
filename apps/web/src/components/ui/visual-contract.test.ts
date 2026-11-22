@@ -5,8 +5,14 @@ import { dsColor, contrastRatio } from "./tokens";
 
 const css = readFileSync(join(__dirname, "ui.module.css"), "utf8");
 const shell = readFileSync(join(__dirname, "..", "app-shell.module.css"), "utf8");
+const institutional = readFileSync(join(__dirname, "..", "..", "app", "home-institutional.module.css"), "utf8");
 
 describe("design system RF1 aprovado — base neutra + status funcional", () => {
+  it("preserva o site público em preto e branco, sem destaque laranja legado", () => {
+    expect(institutional).toContain(".identityCopy strong { color: #242424");
+    expect(institutional).toContain("color: #4b4b4b");
+    expect(institutional).not.toMatch(/#9f390f|#a63e13/i);
+  });
   it("preserva ações primárias pretas e separa o ouro decorativo", () => {
     expect(dsColor.brown).toBe("#171717");
     expect(dsColor.raised).toBe("#FFFFFF");

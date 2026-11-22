@@ -61,9 +61,9 @@
 }
 
 /* Texto institucional com blocos editoriais, evitando cartões redundantes. */
-.identityCopy strong { color: #9f390f; font-weight: 800; }
+.identityCopy strong { color: #242424; font-weight: 800; }
 .identityCopy .values { margin-top: 21px; padding-top: 18px; border-top: 1px solid #cdc5ba; }
-.identityCopy .values span { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 900; letter-spacing: .15em; color: #a63e13; }
+.identityCopy .values span { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 900; letter-spacing: .15em; color: #4b4b4b; }
 
 .purposes {
   padding: clamp(32px, 4.5vw, 64px) var(--portal-gutter);
