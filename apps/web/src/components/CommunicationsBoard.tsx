@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../lib/api";
 import { dasError, formatChurchDate, readDasRows, type DasRecord } from "../lib/das-operations";
+import { OpenWhatsAppLink } from "./OpenWhatsAppLink";
 import s from "./operations-expansion.module.css";
 
 type Props={templates:DasRecord[];token:string};
@@ -59,10 +60,17 @@ export function CommunicationsBoard({templates,token}:Props){
     load.providers.liveWaba===true||load.providers.liveSmtp===true||load.providers.livePush===true
   );
   return <section className={s.board} aria-labelledby="communications-heading">
-    <header className={s.heading}><div><span>RF-024–025 · COMUNICAÇÃO RESPONSÁVEL</span>
+    <header className={s.heading}><div>
       <h2 id="communications-heading">Central de comunicação</h2>
-      <p>Visibilidade sobre modelos e mensagens registradas, sem disparar notificações ou contornar consentimentos.</p>
-    </div><span className={s.pill}>Somente consulta · sem disparos</span></header>
+      <p>Outbox e modelos ficam em consulta. Para falar com alguém agora, abra o WhatsApp no celular ou no computador — a plataforma não dispara mensagem sozinha.</p>
+    </div><span className={s.pill}>Consulta + WhatsApp no app</span></header>
+    <div className={s.panel} style={{ marginBottom: "1rem" }}>
+      <div className={s.panelTop}><h3>Abrir WhatsApp</h3></div>
+      <p className={s.help}>Abre o aplicativo (ou WhatsApp Web). Sem número, você escolhe o contato na lista.</p>
+      <OpenWhatsAppLink text={"Olá! Mensagem da equipe da Igreja de Deus Riacho Fundo I."}>
+        Abrir WhatsApp
+      </OpenWhatsAppLink>
+    </div>
     <div className={s.statGrid}>
       <div><strong>{templates.length}</strong><span>Modelos na API</span></div>
       <div><strong>{load.state==="ready"?load.outbox.length:"—"}</strong><span>Registros no outbox</span></div>
@@ -78,7 +86,7 @@ export function CommunicationsBoard({templates,token}:Props){
         <p className={s.notice} role="status">Provedores de testes confirmados pela API: nenhuma mensagem será enviada por esta tela.</p>}
       <div className={s.split}>
         <div className={s.panel}>
-          <div className={s.panelTop}><h3>01 / Modelos de comunicação</h3><small>{templates.length} modelos</small></div>
+          <div className={s.panelTop}><h3>Modelos de comunicação</h3><small>{templates.length} modelos</small></div>
           <div className={s.list}>
             {templates.length===0&&<p className={s.empty}>Nenhum modelo disponível na API de homologação.</p>}
             {templates.map((template,index)=><article className={s.item} key={str(template.id)||index}>
@@ -88,7 +96,7 @@ export function CommunicationsBoard({templates,token}:Props){
             </article>)}
           </div>
           <p className={s.help}>A edição de templates e o envio em lote exigirão autorização separada e revisão do consentimento de cada destinatário.</p>
-          <div className={s.panelTop}><h3>02 / Provedores configurados</h3></div>
+          <div className={s.panelTop}><h3>Provedores configurados</h3></div>
           <div className={s.list}>
             {(["whatsapp","email","push"] as const).map(key=><div key={key} className={s.item}>
               <strong>{key==="whatsapp"?"WhatsApp":key==="email"?"E-mail":"Push"}</strong>
@@ -97,7 +105,7 @@ export function CommunicationsBoard({templates,token}:Props){
           </div>
         </div>
         <div className={s.panel}>
-          <div className={s.panelTop}><h3>03 / Histórico de mensagens</h3>
+          <div className={s.panelTop}><h3>Histórico de mensagens</h3>
             <button type="button" className={s.outline} onClick={()=>setReload(x=>x+1)}>Atualizar</button>
           </div>
           <div className={s.filterRow}>

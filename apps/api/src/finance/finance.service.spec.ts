@@ -385,11 +385,13 @@ describe("FinanceService", () => {
       .mockResolvedValueOnce({ ...fullyApproved, status: "REVERSED" });
 
     const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(0),
       ledgerEntry: {
+        findFirst,
         update,
         create: jest.fn().mockResolvedValue(reversal),
       },
-      auditLog: { create: jest.fn().mockResolvedValue({}) },
+      auditLog: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const service = new FinanceService(
@@ -1188,13 +1190,41 @@ describe("FinanceService", () => {
     const meta = await service.uploadAttachment(treasurer, "e1", {
       originalname: "recibo.pdf",
       mimetype: "application/pdf",
-      buffer: Buffer.from("%PDF"),
-      size: 4,
+      buffer: Buffer.from("%PDF-"),
+      size: 5,
     });
     expect(meta.displayName).toBe("recibo.pdf");
     expect(mockStorage.put).toHaveBeenCalled();
     const listed = await service.listAttachments(treasurer, "e1");
     expect(listed.attachments).toHaveLength(1);
+    expect(listed.attachments[0]).not.toHaveProperty("storageKey");
+  });
+
+  it("deixa o administrador ler o comprovante e impede a secretaria e o envio", async () => {
+    const admin = { ...treasurer, grants: [{ ...treasurer.grants[0], roleCode: "PLATFORM_ADMIN" }] };
+    const entry = {
+      id: "e1",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      lines: [{ side: "DEBIT", account: { type: "EXPENSE" } }],
+      firstApprovedByUserId: null,
+    };
+    const service = new FinanceService(
+      {
+        ledgerEntry: { findFirst: jest.fn().mockResolvedValue(entry) },
+        ledgerEntryAttachment: { findMany: jest.fn().mockResolvedValue([]) },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(service.listAttachments(admin, "e1")).resolves.toEqual({ entryId: "e1", attachments: [] });
+    await expect(service.listAttachments(secretaria, "e1")).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.uploadAttachment(admin, "e1", {
+      originalname: "recibo.pdf",
+      mimetype: "application/pdf",
+      buffer: Buffer.from("%PDF-"),
+      size: 5,
+    })).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("lists bank adapters without live APIs", () => {
@@ -1719,8 +1749,16 @@ describe("FinanceService", () => {
       attSvc.uploadAttachment(treasurer, "e1", {
         originalname: "foto.png",
         mimetype: "image/png",
-        buffer: Buffer.from("PNG"),
-        size: 3,
+        buffer: Buffer.from("%PDF-"),
+        size: 5,
+      }),
+    ).rejects.toThrow("Conteúdo do arquivo não corresponde ao tipo informado");
+    await expect(
+      attSvc.uploadAttachment(treasurer, "e1", {
+        originalname: "foto.png",
+        mimetype: "image/png",
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        size: 8,
       }),
     ).resolves.toMatchObject({ contentType: "image/png" });
     await expect(

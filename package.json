@@ -25,7 +25,7 @@
     "homolog:eklesia": "node scripts/hml/eklesia-release-gate.mjs",
     "homolog:revitalizacao": "node --import tsx scripts/hml/release-inventory.mjs && node --import tsx scripts/hml/release-revitalization-gate.mjs",
     "hml:migrate": "node --import tsx scripts/hml/release-migrate-guard.mjs",
-    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs scripts/hml/presentation/seed-hml.test.mjs",
+    "test": "npm run test --workspaces --if-present && node --test scripts/hml/hml-guard.test.mjs scripts/hml/presentation/seed-hml.test.mjs scripts/qa/seed-complete-dev.test.mjs",
     "release:preflight": "node scripts/release/production-preflight.mjs",
     "release:f11-preflight": "node scripts/release/f11-preflight.mjs"
   },
@@ -38,7 +38,8 @@
       "postcss": "8.5.32"
     },
     "@prisma/config": {
-      "deepmerge-ts": "8.0.0"
+      "deepmerge-ts": "8.0.0",
+      "effect": "3.22.1"
     },
     "@vercel/cli-config": {
       "zod": "4.6.6"

@@ -9,7 +9,7 @@
 .content{position:relative;max-width:830px;padding:clamp(90px,9vw,143px) clamp(40px,7vw,110px) 85px;display:flex;flex-direction:column;justify-content:center}
 .content:before{content:"";position:absolute;top:0;right:4%;height:110px;width:1px;background:linear-gradient(#d6b88066,transparent)}
 .sectionIndex{font-size:11px;letter-spacing:.20em;font-weight:800;color:#e1bd80}
-.content h2,.questionsIntro h2{font:800 clamp(43px,5vw,80px)/1.06 Montserrat,Inter,Arial,sans-serif;letter-spacing:-.079em;margin:26px 0 22px}
+.content h2,.questionsIntro h2{font:800 clamp(43px,5vw,80px)/1.06 var(--site-font);letter-spacing:-.079em;margin:26px 0 22px}
 .content h2 em,.questionsIntro h2 em{font-style:normal;color:#f1cc8b}
 .lead{font-size:clamp(15px,1.3vw,18px);line-height:1.83;color:#d2dcda;max-width:545px;margin:0 0 29px}
 .steps{list-style:none;margin:0 0 33px;padding:0;border-top:1px solid #d0d5ca40}

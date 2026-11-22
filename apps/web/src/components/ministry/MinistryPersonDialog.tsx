@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { ApiRequestError, apiGet } from "../../lib/api";
 import type { FormalMember } from "../../lib/ministry-desk";
+import { buildMailtoUrl } from "@idbrf/shared";
 import { SecretaryDossier } from "../SecretaryDossier";
+import { OpenWhatsAppLink } from "../OpenWhatsAppLink";
 import { Alert } from "../ui/Alert";
 import { Modal } from "../ui/Modal";
 import s from "./ministry-home.module.css";
@@ -66,6 +68,23 @@ function TeamPersonDialog({ token, ministryId, member, onClose }: Props) {
       </dl>
       {!contact && !failure && <p role="status">Consultando contato…</p>}
       {failure && <Alert appearance="workspace" tone="warning" title={failure} />}
+      {contact && (
+        <p className={s.personNote} style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+          <OpenWhatsAppLink
+            text={`Olá, ${member.displayName}! Mensagem da equipe de ministério.`}
+          >
+            WhatsApp
+          </OpenWhatsAppLink>
+          {contact.email && buildMailtoUrl({ email: contact.email, subject: "Equipe de ministério" }) && (
+            <a
+              href={buildMailtoUrl({ email: contact.email, subject: "Equipe de ministério" })!}
+              data-contact-channel="mailto-deeplink"
+            >
+              E-mail
+            </a>
+          )}
+        </p>
+      )}
       <p className={s.personNote}>A Secretaria pode atualizar o cadastro.</p>
     </Modal>
   );

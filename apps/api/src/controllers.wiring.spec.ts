@@ -65,9 +65,10 @@ describe("controller wiring (delegates to services)", () => {
       login: jest.fn().mockResolvedValue({ accessToken: "t" }),
       describeSession: jest.fn().mockResolvedValue({ ...user, canManageConnection: false }),
     };
-    const c = new AuthController(auth as never);
+    const c = new AuthController(auth as never, { resolve: async () => null } as never, { requestPublicReset: async () => undefined } as never);
     await expect(c.login({ email: "a", password: "b" })).resolves.toEqual({
       accessToken: "t",
+      resume: null,
     });
     await expect(c.me(user)).resolves.toEqual({ ...user, canManageConnection: false });
     expect(c.rbacSmoke(user)).toMatchObject({ ok: true, personId: "p1" });
@@ -634,10 +635,27 @@ describe("controller wiring (delegates to services)", () => {
 
   it("PublicPortalController", async () => {
     const portal = {
-      home: jest.fn().mockResolvedValue({ ministries: [] }),
       listMinistries: jest.fn(),
-      getMinistryBySlug: jest.fn(),
-      listEvents: jest.fn().mockResolvedValue({ events: [{ id: "e1", startsAt: "2099-01-01T13:00:00Z" }] }),
+      getMinistryBySlug: jest.fn().mockResolvedValue({
+        slug: "jovens",
+        relatedEvents: [
+          { id: "culto", startsAt: "2099-01-01T13:00:00Z", endsAt: null },
+          { id: "antigo", startsAt: "2020-01-01T13:00:00Z", endsAt: null },
+        ],
+      }),
+      home: jest.fn().mockResolvedValue({
+        ministries: [],
+        featuredEvents: [
+          { id: "atual", startsAt: "2099-01-01T13:00:00Z", endsAt: null },
+          { id: "encerrado", startsAt: "2020-01-01T13:00:00Z", endsAt: "2020-01-01T15:00:00Z" },
+        ],
+      }),
+      listEvents: jest.fn().mockResolvedValue({
+        events: [
+          { id: "e1", startsAt: "2099-01-01T13:00:00Z", endsAt: null },
+          { id: "passado", startsAt: "2020-01-01T13:00:00Z", endsAt: "2020-01-01T15:00:00Z" },
+        ],
+      }),
       getEventBySlug: jest.fn().mockResolvedValue({ id: "e1", slug: "encontro-jovens-demo" }),
       getContentBySlug: jest.fn(),
     };
@@ -656,7 +674,7 @@ describe("controller wiring (delegates to services)", () => {
         requiresTransportOption: false,
         requiresGuardianAuthorizationForMinors: true,
       }),
-      createPublicRegistration: jest.fn(),
+      createMemberRegistration: jest.fn(),
       getPublicRegistrationStatus: jest.fn(),
     };
     const c = new PublicPortalController(
@@ -665,12 +683,12 @@ describe("controller wiring (delegates to services)", () => {
       registrations as never,
     );
     await c.publishedSiteLayout();
-    await c.home();
+    await expect(c.home()).resolves.toMatchObject({ featuredEvents: [{ id: "atual" }] });
     await c.listMinistries();
-    await c.getMinistry("jovens");
+    await expect(c.getMinistry("jovens")).resolves.toMatchObject({ relatedEvents: [{ id: "culto" }] });
     await expect(c.listEvents()).resolves.toMatchObject({ events: [{ id: "e1", registrationOpen: true }] });
     await c.getEvent("encontro-jovens-demo");
-    await c.createRegistration("encontro-jovens-demo", {
+    await c.createRegistration(user, "encontro-jovens-demo", {
       displayName: "Demo",
       modalityId: "mod1",
       lotId: "lot1",
@@ -678,7 +696,9 @@ describe("controller wiring (delegates to services)", () => {
     await c.registrationStatus("abc123code");
     await c.getContent("sobre-nos");
     expect(portal.getContentBySlug).toHaveBeenCalledWith("sobre-nos");
-    expect(registrations.createPublicRegistration).toHaveBeenCalled();
+    expect(registrations.createMemberRegistration).toHaveBeenCalledWith(
+      user, "encontro-jovens-demo", expect.objectContaining({ lotId: "lot1" }),
+    );
   });
 
   it("CmsController", async () => {

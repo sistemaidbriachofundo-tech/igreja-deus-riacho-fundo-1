@@ -1,12 +1,13 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { familyService, sundayServices } from "../lib/public-service-schedule";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PortalSectionLink } from "./PublicSectionLink";
 import { instagramUrl } from "../lib/portal-content";
 import {
-  currentPublishedEvents, formatPortalDate,
+  currentPublishedEvents, formatPortalDate, resolvePublishedImage,
   parsePublishedEvents, parsePublishedHome, parsePublishedMinistryDetail,
   type PublishedEvent, type PublishedNews,
 } from "../lib/portal-live-data";
@@ -167,9 +168,9 @@ function AgendaEvent({ event }: { event: PublishedEvent }) {
     <article className={s.visitEvent} aria-labelledby={titleId}>
       {event.imageUrl && (
         <div className={s.agendaEventImage}>
-          {/* A arte pode vir de qualquer origem HTTPS aprovada na publicação. */}
+          {/* HTTPS publicado ou capa sintética local de DEV. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+          <img src={resolvePublishedImage(event.imageUrl) ?? ""} alt="" loading="lazy" decoding="async" />
         </div>
       )}
       <div className={s.agendaEventContent}>
@@ -215,7 +216,7 @@ export function PublishedMinistryInfo({ slug }: { slug: string }) {
           {valid.scheduleText && <div className={s.ministryDatum}><span>ENCONTROS</span><p>{valid.scheduleText}</p></div>}
           {valid.participationInfo && <div className={s.ministryDatum}><span>COMO PARTICIPAR</span><p>{valid.participationInfo}</p></div>}
           {valid.leadership.length > 0 && <div className={s.ministryDatum}><span>EQUIPE DE LIDERANÇA</span>
-            <ul>{valid.leadership.map((person, i) => <li key={person.displayName + i}><strong>{person.displayName}</strong><small>{person.roleTitle}</small></li>)}</ul>
+            <ul>{sortByName(valid.leadership, person => person.displayName).map((person, i) => <li key={person.displayName + i}><strong>{person.displayName}</strong><small>{person.roleTitle}</small></li>)}</ul>
           </div>}
         </div>
         <div className={s.related}>

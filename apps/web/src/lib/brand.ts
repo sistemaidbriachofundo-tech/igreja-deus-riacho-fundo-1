@@ -13,8 +13,8 @@ export const brandColors = {
 } as const;
 
 export const brandFonts = {
-  title: "Montserrat",
-  body: "Inter",
+  title: "Source Sans Pro",
+  body: "Source Sans Pro",
 } as const;
 
 export const brandCssVars = {

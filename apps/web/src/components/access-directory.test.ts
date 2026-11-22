@@ -5,6 +5,8 @@ describe("convite de acesso à igreja", () => {
   it("permite os papéis da congregação e condiciona o perfil administrativo à autorização", () => {
     expect(accessInviteRoles(false)).toContain("SECRETARIA");
     expect(accessInviteRoles(false)).toContain("MEMBRO");
+    expect(accessInviteRoles(false)).toContain("LIDER_MODULO");
+    expect(accessInviteRoles(false)).not.toContain("CONVIDADO");
     expect(accessInviteRoles(false)).not.toContain("PLATFORM_ADMIN");
     expect(accessInviteRoles(true)).toContain("PLATFORM_ADMIN");
   });

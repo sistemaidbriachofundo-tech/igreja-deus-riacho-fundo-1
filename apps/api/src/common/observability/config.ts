@@ -112,6 +112,7 @@ export function defaultRateRules(
     standard("credential", "GET", "/credentials/verify/:opaqueToken"),
     standard("volunteer", "POST", "/public/volunteer-interests"),
     standard("registration", "POST", "/public/events/:slug/registrations"),
+    standard("registration", "POST", "/member-events/:slug/registrations"),
     standard("payment-webhook", "POST", "/webhooks/event-payments/mock"),
     {
       id: "vivi-public",

@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  Matches,
   MinLength,
   ValidateNested,
 } from "class-validator";
@@ -30,6 +31,26 @@ class CreateGroupBody {
   @IsString()
   @MaxLength(180)
   meetsAtHint?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  meetingAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @Matches(/^($|https:\/\/\S+)$/i, { message: "Informe uma URL HTTPS para a foto." })
+  photoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^($|[+]?\d{10,15})$/, { message: "Informe o WhatsApp com DDD, usando só números." })
+  contactWhatsApp?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  publicListed?: boolean;
 }
 
 class AddMemberBody {

@@ -7,12 +7,19 @@ import { hasEnabledLoginForm } from "./production-login.mjs";
 // Confere rotas exportadas, navegação e assets locais.
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(process.env.STATIC_EXPORT_DIR ?? join(projectRoot, "out"));
-const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1")).replace(/\/$/, "");
+// Apex/produção: IDBRF_STATIC_APEX=1 (PowerShell apaga env vazia).
+// Caso contrário: NEXT_PUBLIC_BASE_PATH, Vercel na raiz, ou default Pages.
+const base = (
+  process.env.IDBRF_STATIC_APEX === "1"
+    ? ""
+    : process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1")
+).replace(/\/$/, "");
 // V1: public content stays on the homepage; institutional deep links may
 // redirect to sections. QA/engineering/demo routes are intentionally absent.
 const requiredPages = [
   "index.html", "a-igreja/index.html", "eventos/index.html", "eventos/inscricao/index.html", "login/index.html",
-  "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
+  "app/index.html", "app/membros/index.html", "app/secretaria/index.html", "app/pastoral/index.html",
+  ...["admissoes", "despesas", "cuidado", "aniversariantes", "ordem-de-culto"].map(section => `app/pastoral/${section}/index.html`),
   "app/membros/carteirinha/index.html", "app/minha-conta/index.html", "app/eventos/index.html", "validar-carteirinha/index.html",
   "app/editorial/index.html", "app/site/index.html",
 ];
@@ -58,6 +65,8 @@ for (const page of findHtml(outDir)) {
       }
       let target;
       if (url.startsWith("/")) {
+        // Apex/produção (basePath vazio): paths absolutos na raiz são esperados.
+        // GitHub Pages: path deve permanecer sob NEXT_PUBLIC_BASE_PATH.
         if (base && pathname !== base && !pathname.startsWith(base + "/")) {
           failures.push(`Escapes GitHub Pages basePath in ${relative(outDir, page)}: ${url}`);
           continue;

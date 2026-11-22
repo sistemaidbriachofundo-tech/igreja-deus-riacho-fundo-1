@@ -11,6 +11,7 @@ import type { AuthUser } from "../types/auth-user";
 const PROBES: { key: string; path: string; roles: string[] }[] = [
   { key: "membros", path: "/persons/search", roles: ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
   { key: "secretaria", path: "/admissions", roles: ["SECRETARIA", "PASTOR", "PLATFORM_ADMIN"] },
+  { key: "pastoral", path: "/pastoral-cases", roles: ["PASTOR"] },
   { key: "conexao", path: "/discipleship/tracks", roles: ["PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "conexao", path: "/small-groups", roles: ["PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "carteirinha", path: "/credentials/me", roles: ["MEMBRO", "SECRETARIA", "PLATFORM_ADMIN"] },
@@ -20,7 +21,7 @@ const PROBES: { key: string; path: string; roles: string[] }[] = [
   { key: "meu-espaco", path: "/rosters/:assignmentId/confirm", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN", "MEMBRO"] },
   { key: "eventos-gestao", path: "/events", roles: ["SECRETARIA", "PASTOR", "LIDER_MINISTERIO", "PLATFORM_ADMIN"] },
   { key: "eventos-gestao", path: "/events/conciliacao", roles: ["TESOURARIA"] },
-  { key: "eventos-membro", path: "/member-events/registrations", roles: ["MEMBRO"] },
+  { key: "eventos-membro", path: "/member-events/registrations", roles: ["MEMBRO", "CONVIDADO"] },
   { key: "tesouraria", path: "/ledger/accounts", roles: ["TESOURARIA", "PLATFORM_ADMIN"] },
   { key: "tesouraria", path: "/ledger/expense-approvals", roles: ["TESOURARIA", "PASTOR"] },
   { key: "acessos", path: "/admin/access", roles: ["PLATFORM_ADMIN"] },
@@ -35,6 +36,7 @@ const ACTORS = [
   "TESOURARIA",
   "LIDER_MINISTERIO",
   "MEMBRO",
+  "CONVIDADO",
   "EDITOR_SITE",
   "PUBLICADOR_SITE",
 ] as const;

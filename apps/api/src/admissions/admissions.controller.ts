@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -13,7 +14,8 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { ROLE_CODES } from "@idbrf/shared";
+import { ADMISSION_MODALITIES, ROLE_CODES } from "@idbrf/shared";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from "class-validator";
 import type { Response } from "express";
 import { memoryStorage } from "multer";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -25,6 +27,53 @@ import {
   AdvanceAdmissionBody,
   CreateAdmissionBody,
 } from "./admissions.dto";
+
+class CreateDocumentRequirementBody {
+  @IsIn(Object.values(ADMISSION_MODALITIES))
+  modality!: string;
+
+  @IsString()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  @MaxLength(40)
+  code!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  label!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  required?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(999)
+  sortOrder?: number;
+}
+
+class PatchDocumentRequirementBody {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  label?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  required?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(999)
+  sortOrder?: number;
+}
 
 @Controller("admissions")
 export class AdmissionsController {
@@ -47,6 +96,28 @@ export class AdmissionsController {
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() body: CreateAdmissionBody) {
     return this.admissions.create(user, body);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("document-requirements")
+  listRequirements(@CurrentUser() user: AuthUser, @Query("modality") modality?: string) {
+    return this.documents.listRequirements(user, modality);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Post("document-requirements")
+  createRequirement(@CurrentUser() user: AuthUser, @Body() body: CreateDocumentRequirementBody) {
+    return this.documents.createRequirement(user, body);
+  }
+
+  @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Patch("document-requirements/:requirementId")
+  patchRequirement(
+    @CurrentUser() user: AuthUser,
+    @Param("requirementId") requirementId: string,
+    @Body() body: PatchDocumentRequirementBody,
+  ) {
+    return this.documents.patchRequirement(user, requirementId, body);
   }
 
   @Roles(
@@ -75,11 +146,17 @@ export class AdmissionsController {
     @Param("admissionId") admissionId: string,
     @UploadedFile()
     file?: { originalname: string; mimetype: string; buffer: Buffer; size: number },
+    @Body("requirementId") requirementId?: string,
   ) {
     if (!file) {
       throw new BadRequestException("Campo multipart `file` é obrigatório");
     }
-    return this.documents.upload(user, admissionId, file);
+    return this.documents.upload(
+      user,
+      admissionId,
+      file,
+      typeof requirementId === "string" ? requirementId : undefined,
+    );
   }
 
   @Roles(

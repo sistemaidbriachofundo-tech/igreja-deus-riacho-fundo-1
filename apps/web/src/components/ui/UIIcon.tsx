@@ -3,10 +3,20 @@ import type { ReactNode } from "react";
 export type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
   "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
   "activity" | "calendar" | "roster" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
-  "family" | "more" | "mail" | "settings" | "menu" | "logout" | "camera" | "birthday" | "month" | "whatsapp";
+  "family" | "more" | "mail" | "settings" | "menu" | "logout" | "camera" | "birthday" | "month" | "whatsapp" | "map" | "pin" | "church" | "minus" | "expand" | "target" | "ticket" | "lock" | "eye" | "file";
 
 export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
   const paths: Record<GlyphName, ReactNode> = {
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
+    file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"/><path d="M14 2v6h6M8 13h8m-8 4h8"/></>,
+    map: <><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15m6-12v15"/></>,
+    pin: <><path d="M19 10c0 5-7 10-7 10s-7-5-7-10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></>,
+    church: <><path d="M12 2v5M9.5 4.5h5M7 21V11l5-4 5 4v10M3 21v-7l4-2m10 0 4 2v7H3m7 0v-4a2 2 0 1 1 4 0v4"/></>,
+    minus: <path d="M5 12h14"/>,
+    expand: <path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/>,
+    target: <><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></>,
+    ticket: <><path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4V6Z"/><path d="M15 7.5v1m0 3v1m0 3v1"/></>,
+    lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2"/></>,
     grid: <><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></>,
     people: <><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1H3Z"/><path d="M16 5.6a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 4 5"/></>,
     layers: <><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></>,

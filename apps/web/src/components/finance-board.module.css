@@ -115,23 +115,23 @@
 
 /* Operações financeiras: acabamento consistente com o shell. */
 .board{
- --color-marrom:#244f3c;--color-ink:#294b3e;--color-ink-muted:#667f72;
- --color-bronze:#86744f;--color-line:#dce7df;--color-surface:#fff;
- --color-creme:#f3f8f4;--color-on-dark:#fff;
- border-color:#e0eae2;border-radius:15px;box-shadow:0 5px 24px #1d3e290e;
+ --color-marrom:#474747;--color-ink:#444444;--color-ink-muted:#797979;
+ --color-bronze:#767676;--color-line:#e4e4e4;--color-surface:#fff;
+ --color-creme:#f7f7f7;--color-on-dark:#fff;
+ border-color:#e7e7e7;border-radius:15px;box-shadow:0 5px 24px #3737370e;
  padding:clamp(18px,2vw,27px);gap:18px;
 }
-.header h2{font-weight:700;color:#26503d;font-size:1.2rem;}
-.header span{color:#6b8979;font-weight:700;}
-.form{border-color:#e0eae1;border-radius:12px;background:#f7faf7;padding:18px;}
-.form label{color:#517361;font-weight:650;}
-.form :is(input,select){background:#fff;border-color:#d3e3d8;border-radius:9px;}
-.form button,.row button{background:#285b46;color:#fff;border-radius:9px;font-weight:650;}
-.form button:hover,.row button:hover{background:#204c3a;}
-.preview{border-color:#cbded0;border-radius:10px;background:#fff;}
-.row{border-color:#dfe9e1;border-radius:12px;background:#fff;}
-.row strong{color:#244a38;}
-.warning{background:#fbf1df;color:#765729;border:1px solid #ebd8b4;}
-.info,.notice{background:#eef7f0;color:#376a50;border-color:#d2e9d6;}
-.board :is(button,input,select):focus-visible{outline:3px solid #bea36b;outline-offset:2px;}
+.header h2{font-weight:700;color:#484848;font-size:1.2rem;}
+.header span{color:#828282;font-weight:700;}
+.form{border-color:#e7e7e7;border-radius:12px;background:#f9f9f9;padding:18px;}
+.form label{color:#6c6c6c;font-weight:650;}
+.form :is(input,select){background:#fff;border-color:#dfdfdf;border-radius:9px;}
+.form button,.row button{background:#525252;color:#fff;border-radius:9px;font-weight:650;}
+.form button:hover,.row button:hover{background:#444444;}
+.preview{border-color:#d9d9d9;border-radius:10px;background:#fff;}
+.row{border-color:#e6e6e6;border-radius:12px;background:#fff;}
+.row strong{color:#434343;}
+.warning{background:#f2f2f2;color:#5d5d5d;border:1px solid #dadada;}
+.info,.notice{background:#f5f5f5;color:#606060;border-color:#e3e3e3;}
+.board :is(button,input,select):focus-visible{outline:3px solid #a6a6a6;outline-offset:2px;}
 @media(max-width:520px){.board{padding:16px;}.form{padding:13px;}}

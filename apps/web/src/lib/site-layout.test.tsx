@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { SiteMediaLibrary } from "../components/SiteMediaLibrary";
 import { ViviEditorialAssistant } from "../components/ViviEditorialAssistant";
 import { PublishedSiteLayoutProvider } from "./use-published-site-layout";
+import { renderAsRole, renderPending } from "./test-session";
 
 describe("Gestão do Site — editor visual",()=>{
   it("accepts only safe layout and retains fallback",()=>{
@@ -19,6 +20,8 @@ describe("Gestão do Site — editor visual",()=>{
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"javascript:alert(1)"}})).toBeNull();
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"https://exemplo.test/foto.jpg"}})).toBeNull();
     expect(parseSiteLayout({...defaultSiteLayout,hero:{...defaultSiteLayout.hero,imageUrl:"https://store.public.blob.vercel-storage.com/church/c1/site/foto.jpg"}})?.hero.imageUrl).toContain("blob.vercel-storage.com");
+    const previous = {...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"Uma igreja para Deus, pelas famílias e enviada ao mundo."}};
+    expect(parsePublicSiteLayout({layout:previous})?.layout?.hero.description).toBe(defaultSiteLayout.hero.description);
   });
   it("rejects unauthenticated or malformed public data",()=>{
     expect(parsePublicSiteLayout({layout:null})).toEqual({layout:null});
@@ -28,8 +31,7 @@ describe("Gestão do Site — editor visual",()=>{
   it("keeps the approved public Home structure as default",()=>{
     const hero=renderToStaticMarkup(<PortalCinematicHero/>);
     const gallery=renderToStaticMarkup(<PortalFaithGallery/>);
-    expect(hero).toContain(defaultSiteLayout.hero.title);
-    expect(hero).toContain(defaultSiteLayout.hero.accent);
+    expect(hero.replace(/<[^>]*>/g, "")).toContain(defaultSiteLayout.hero.description);
     expect(gallery).toContain(defaultSiteLayout.gallery.title);
     expect(gallery).toContain("/images/riacho/louvor.webp");
     expect(gallery).toContain('data-appearance="dourado"');
@@ -71,27 +73,38 @@ describe("Gestão do Site — editor visual",()=>{
           acontece={<p>Novidades</p>} videos={<p>Vídeos</p>} convite={<p>Convite</p>}/>
       </PublishedSiteLayoutProvider>
     );
-    expect(html).toContain(defaultSiteLayout.hero.title);
+    expect(html.replace(/<[^>]*>/g, "")).toContain(defaultSiteLayout.hero.description);
     expect(html).toContain(defaultSiteLayout.gallery.title);
     expect(html).toContain("Convite");
   });
+  it("não abre o editor de mídia sem sessão",()=>{
+    const html=renderPending(<SiteManager/>);
+    expect(html).toContain('data-nav-state="pending"');
+    expect(html).not.toContain("Mídia e conteúdo");
+    expect(html).not.toContain("/app/site/");
+  });
   it("provides an authenticated editor route without faking data",()=>{
-    const html=renderToStaticMarkup(<SiteManager/>);
+    const html=renderAsRole("EDITOR_SITE", <SiteManager/>);
+    expect(html).toContain('data-nav-state="ready"');
     expect(html).toContain("Mídia e conteúdo");
     expect(html).toContain("/app/site/");
+    expect(html).toContain("Verificando acesso");
+    expect(html).not.toContain("/app/secretaria/");
+    expect(html).not.toContain("/app/tesouraria/");
   });
   it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
-    const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"RASCUNHO SECRETO 5a13"}};
+    const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"RASCUNHO SECRETO 5a13"}};
     const empty=renderToStaticMarkup(<SiteReaderPreview published={null} device="mobile"/>);
     expect(empty).toContain("A página pública ainda usa o conteúdo padrão da igreja.");
-    expect(empty).not.toContain(secret.hero.title);
-    const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,title:"Versão publicada 5a13"}};
+    expect(empty).not.toContain(secret.hero.description);
+    const published={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"Versão publicada 5a13"}};
     const live=renderToStaticMarkup(<SiteReaderPreview published={published} device="desktop"/>);
     expect(live).toContain("Versão publicada 5a13");
     expect(live).not.toContain("actorUserId");
     expect(live).toContain('data-reader="published"');
     const hook=readFileSync(joinSource("use-published-site-layout.ts"),"utf8");
     expect(hook).toContain('NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED !== "true"');
+    expect(hook).toContain('NEXT_PUBLIC_HML_ENABLED !== "true"');
   });
 });
 

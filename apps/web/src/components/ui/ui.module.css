@@ -19,23 +19,23 @@
 .tooltip,
 .dataTable,
 .pageHeaderBlock {
-  --ds-gold: #d4af37;
-  --ds-brown: #4a2612;
-  --ds-cream: #f7ede0;
-  --ds-raised: #fff9f3;
-  --ds-bronze: #b8742d;
-  --ds-terracotta: #c6583e;
-  --ds-ink: #4a2612;
-  --ds-muted: #6e4a36;
-  --ds-line: #9a7355;
-  --ds-danger: #8c2f22;
-  --ds-success: #0e5a38;
-  --ds-on-gold: #4a2612;
-  --ds-on-dark: #f7ede0;
-  --ds-bronze-text: #7a4a16;
-  --ds-support: #243e42;
-  --ds-font-title: "Montserrat", system-ui, sans-serif;
-  --ds-font-body: "Inter", system-ui, sans-serif;
+  --ds-gold: #c9a76b;
+  --ds-brown: #171717;
+  --ds-cream: #f5f6f7;
+  --ds-raised: #ffffff;
+  --ds-bronze: #a17c4f;
+  --ds-terracotta: #c46558;
+  --ds-ink: #171717;
+  --ds-muted: #59616b;
+  --ds-line: #858b91;
+  --ds-danger: #9c3041;
+  --ds-success: #286b52;
+  --ds-on-gold: #171717;
+  --ds-on-dark: #ffffff;
+  --ds-bronze-text: #705020;
+  --ds-support: #294e70;
+  --ds-font-title: var(--site-font);
+  --ds-font-body: var(--site-font);
   --ds-space-2: 0.5rem;
   --ds-space-3: 0.75rem;
   --ds-space-4: 1rem;
@@ -48,7 +48,7 @@
   --ds-radius-lg: 1rem;
   --ds-radius-pill: 999px;
   --ds-shadow: none;
-  --ds-focus: #4a2612;
+  --ds-focus: #171717;
   --ds-max: 75rem;
   --ds-target: 2.75rem;
 }
@@ -291,10 +291,10 @@
   min-height: 2.75rem;
   padding: 0.55rem 1.15rem;
   border: 2px solid transparent;
-  border-radius: var(--ds-radius-pill);
+  border-radius: 10px;
   font-family: var(--ds-font-title);
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
@@ -306,16 +306,18 @@
 }
 
 .primary {
-  background: var(--ds-gold);
-  color: var(--ds-on-gold);
+  background: var(--ds-brown);
+  color: var(--ds-on-dark);
   border-color: var(--ds-brown);
 }
+.primary:hover:not(:disabled) { background: #333333; border-color: #333333; }
 
 .secondary {
-  background: transparent;
+  background: #ffffff;
   color: var(--ds-ink);
-  border-color: var(--ds-ink);
+  border-color: #989da4;
 }
+.secondary:hover:not(:disabled) { background: #f3f4f5; }
 
 .ghost {
   background: transparent;
@@ -377,7 +379,7 @@
   display: grid;
   gap: 0.75rem;
   padding: 1.15rem 1.2rem;
-  border: 2px solid var(--ds-line);
+  border: 1px solid #e0e3e6;
   border-radius: var(--ds-radius-lg);
   background: var(--ds-raised);
   box-shadow: var(--ds-shadow);
@@ -829,7 +831,7 @@
 }
 
 .statWarning {
-  border-left-color: var(--ds-brown);
+  border-left-color: #8A651F;
 }
 
 .statDanger {
@@ -995,7 +997,7 @@
   min-height: 2.75rem;
   padding: 0.5rem 0.9rem;
   border: 2px solid var(--ds-ink);
-  border-radius: var(--ds-radius-pill);
+  border-radius: 10px;
   background: transparent;
   color: var(--ds-ink);
   font-family: var(--ds-font-title);
@@ -1005,8 +1007,8 @@
 }
 
 .tab[aria-selected="true"] {
-  background: var(--ds-gold);
-  color: var(--ds-on-gold);
+  background: var(--ds-brown);
+  color: var(--ds-on-dark);
   border-color: var(--ds-brown);
 }
 
@@ -1122,14 +1124,14 @@
   .dataTable,
   .pageHeaderBlock
 ) {
-  --ds-cream: #24160f;
-  --ds-raised: #3a261c;
-  --ds-ink: #f7ede0;
-  --ds-muted: #e7d3c0;
-  --ds-line: #c4a484;
-  --ds-focus: #f7ede0;
-  --ds-on-gold: #4a2612;
-  --ds-support: #d7ecec;
+  --ds-cream: #171717;
+  --ds-raised: #292929;
+  --ds-ink: #ffffff;
+  --ds-muted: #d6dde0;
+  --ds-line: #b9c1c9;
+  --ds-focus: #ffffff;
+  --ds-on-gold: #171717;
+  --ds-support: #d4e2ef;
 }
 
 .scope[data-appearance="dark"] {
@@ -1169,7 +1171,7 @@
 
 .workspaceHeader .pageTitle {
   color: var(--app-ink, #22382e);
-  font: 700 var(--app-title-size, clamp(1.5rem, 2.45vw, 2.05rem))/1.15 Montserrat, Inter, sans-serif;
+  font: 700 var(--app-title-size, clamp(1.5rem, 2.45vw, 2.05rem))/1.15 var(--site-font);
   letter-spacing: -.04em;
 }
 
@@ -1177,7 +1179,7 @@
   max-width: 66ch;
   margin: 8px 0 0;
   color: var(--app-muted, #5f7368);
-  font: 400 14px/1.5 Inter, Arial, sans-serif;
+  font: 400 14px/1.5 var(--site-font);
 }
 
 .workspaceHeader .pageActions {
@@ -1199,7 +1201,7 @@
   border-radius: 999px;
   background: var(--app-surface, #fff);
   color: var(--app-accent, #255742);
-  font: 600 14px/1.25 Inter, Arial, sans-serif;
+  font: 600 14px/1.25 var(--site-font);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
@@ -1252,7 +1254,7 @@
   border-radius: 999px;
   background: transparent;
   color: #496557;
-  font: 600 13px/1.25 Inter, Arial, sans-serif;
+  font: 600 13px/1.25 var(--site-font);
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
@@ -1293,7 +1295,7 @@
   border-radius: 999px;
   background: transparent;
   color: #3c5b4d;
-  font: 650 .8125rem/1.2 Inter, Arial, sans-serif;
+  font: 650 .8125rem/1.2 var(--site-font);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
@@ -1323,8 +1325,8 @@
   color: #22382e;
 }
 .workspaceDialog .dialogHeader { gap: 14px; align-items: flex-start; }
-.workspaceDialog .dialogHeader h2 { margin: 0; color: #22382e; font: 650 21px/1.25 Inter, Arial, sans-serif; letter-spacing: -0.03em; }
-.workspaceDialog .dialogCopy { margin: 16px 0 0; color: #5f7368; font: 400 14px/1.6 Inter, Arial, sans-serif; }
+.workspaceDialog .dialogHeader h2 { margin: 0; color: #22382e; font: 650 21px/1.25 var(--site-font); letter-spacing: -0.03em; }
+.workspaceDialog .dialogCopy { margin: 16px 0 0; color: #5f7368; font: 400 14px/1.6 var(--site-font); }
 .workspaceDialog .dialogBody { margin-top: 20px; }
 @media (max-width: 540px) { .workspaceDialog { padding: 20px; } }
 
@@ -1343,7 +1345,7 @@
   background: #fcfaf6;
   color: #20372d;
   box-shadow: 0 24px 72px #102f2a38;
-  font-family: Inter, Arial, sans-serif;
+  font-family: var(--site-font);
 }
 
 .actionConfirmation::backdrop {
@@ -1364,12 +1366,12 @@
   flex: none;
   place-items: center;
   border-radius: 50%;
-  font: 700 15px/1 Inter, Arial, sans-serif;
+  font: 700 15px/1 var(--site-font);
 }
 
 .confirmationContent h2 {
   margin: 0;
-  font-family: Montserrat, Inter, Arial, sans-serif;
+  font-family: var(--site-font);
   font-size: clamp(20px, 4vw, 24px);
   font-weight: 700;
   line-height: 1.2;
@@ -1432,7 +1434,7 @@
   border-radius: 10px;
   background: var(--alert-surface);
   color: var(--alert-ink);
-  font: 400 13px/1.55 Inter, Arial, sans-serif;
+  font: 400 13px/1.55 var(--site-font);
 }
 
 .workspaceAlert[data-tone="success"] {
@@ -1462,7 +1464,7 @@
 }
 
 .workspaceAlert .alertCopy strong {
-  font: 650 14px/1.45 Inter, Arial, sans-serif;
+  font: 650 14px/1.45 var(--site-font);
 }
 
 .workspaceAlert .alertCopy .workspaceSecondary {
@@ -1487,7 +1489,7 @@
   border-radius: 8px;
   background: transparent;
   color: inherit;
-  font: 500 21px/1 Inter, Arial, sans-serif;
+  font: 500 21px/1 var(--site-font);
   cursor: pointer;
 }
 
@@ -1561,7 +1563,7 @@
   outline: none;
   background: transparent;
   color: #173c2d;
-  font: 500 .9rem/1.35 Inter, sans-serif;
+  font: 500 .9rem/1.35 var(--site-font);
   box-shadow: none;
 }
 .workspaceSearch > input[type="search"]:focus-visible { outline: none; }
@@ -1585,3 +1587,20 @@
   .workspaceDialog :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select, textarea),
   .actionConfirmation :is(input, select, textarea) { font-size: 16px; }
 }
+
+/* RF1 Design System 2.0: controles compartilhados com semântica de cor, não por ministério. */
+.workspacePrimary, .workspaceSecondary, .workspaceQuiet { border-radius: 10px; transition: background-color .16s ease, border-color .16s ease; }
+.workspaceTabs > :is(button, a), .workspaceChoices > :is(button, a) { border-radius: 9px; color: #3b4149; }
+.workspaceTabs > :is(button, a):hover, .workspaceChoices > :is(button, a):hover { background: #edf0f2; color: #171717; }
+.workspaceTabs > :is(button, a)[aria-current="page"], .workspaceTabs > button[aria-selected="true"] { background: #171717; color: #ffffff; }
+.workspaceTabs > :is(button, a):focus-visible, .workspaceChoices > :is(button, a):focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
+.statSuccess { background: color-mix(in srgb, #286b52 7%, #ffffff); }
+.statWarning { background: color-mix(in srgb, #8a651f 8%, #ffffff); }
+.statDanger { background: color-mix(in srgb, #9c3041 7%, #ffffff); }
+.statNeutral { background: #ffffff; }
+.control { border-width: 1px; border-color: #8d9298; border-radius: 10px; background: #fff; }
+.control:focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
+.dialog { border: 1px solid #dfe3e7; background: #fff; box-shadow: 0 24px 72px #00000025; }
+.overlay { background: #0f1114b8; }
+.workspaceSurface { border-color: var(--app-border, #dde1e5); }
+@media (prefers-reduced-motion: reduce) { .workspacePrimary, .workspaceSecondary, .workspaceQuiet { transition: none; } }

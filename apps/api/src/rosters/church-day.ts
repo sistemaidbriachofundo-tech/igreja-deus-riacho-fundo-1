@@ -19,3 +19,9 @@ export function churchDayBounds(instant: Date): { start: Date; end: Date } {
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { start, end };
 }
+
+/** Intervalo [início, fim) do mês civil da congregação. */
+export function churchMonthRange(month: string): { gte: Date; lt: Date } {
+  const [year, value] = month.split("-").map(Number);
+  return { gte: new Date(Date.UTC(year, value - 1, 1, 3)), lt: new Date(Date.UTC(year, value, 1, 3)) };
+}

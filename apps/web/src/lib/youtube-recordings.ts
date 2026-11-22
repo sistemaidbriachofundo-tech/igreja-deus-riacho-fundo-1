@@ -1,6 +1,7 @@
 type Recording = { id: string; title: string; date?: string };
 
 export const latestKnownRecordings: Recording[] = [
+  { id: "OXywPv_LoQQ", title: "Quinta do Encontro - 19/11/26", date: "19/11/2026" },
   { id: "74n2caqxcWo", title: "Quinta do Encontro", date: "12/11/2026" },
   { id: "lTjvE8G_YAE", title: "Culto de Santa Ceia", date: "08/11/2026" },
   { id: "yX1M_taAniQ", title: "Culto de Santa Ceia da manhã", date: "08/11/2026" },

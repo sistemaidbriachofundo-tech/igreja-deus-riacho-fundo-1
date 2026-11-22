@@ -1,0 +1,52 @@
+.desk {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.queues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+
+.queue {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 72px;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--app-ink);
+  text-decoration: none;
+}
+
+.queue > svg { color: var(--app-accent); }
+.queue div { display: grid; gap: 4px; }
+.queue span { color: var(--app-muted); font-size: .875rem; }
+.queue:hover { border-color: var(--app-accent); }
+
+.summaryHead {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.summaryHead h2 {margin:0}
+.stat {display:grid;gap:6px;margin:0;padding:16px}
+.stat dd {margin:0;font-weight:750;font-size:1.3rem}
+.stat dt {color:var(--app-muted)}
+.fields {display:flex;flex-wrap:wrap;align-items:end;gap:12px;padding:16px}
+.entries {list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.prayerForm {display:grid;gap:16px;justify-items:start;max-width:680px;padding:18px}
+.prayerForm label:first-child {display:grid;gap:7px;width:100%}
+.prayerForm textarea {width:100%;font:inherit;padding:10px;border:1px solid var(--app-line,#d5dfd9);border-radius:7px;resize:vertical}
+.privateText {white-space:pre-wrap;overflow-wrap:anywhere}
+
+.routines h2 { margin: 0 0 .75rem; font-size: 1.18rem; }
+.routines nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 0 1.4rem; }
+.routines a { display: flex; align-items: center; gap: .75rem; padding: .65rem .25rem; border-bottom: 1px solid var(--app-line, #dce6df); text-decoration: none; color: var(--app-ink, #18362c); }
+.routines a > span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: #e5f1e9; color: #22523b; }
+.routines strong { flex: 1; font-size: .93rem; }
+.routines a:hover strong, .routines a:focus-visible strong { text-decoration: underline; }

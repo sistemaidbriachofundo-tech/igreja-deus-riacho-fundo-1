@@ -15,6 +15,17 @@ export class PublicPortalService {
     private readonly pilot: PilotService,
   ) {}
 
+  async listGroups() {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const groups = await this.prisma.smallGroup.findMany({
+      where: { organizationId, churchId, publicListed: true, leaderPersonId: { not: null } },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      take: 50,
+      select: { id: true, name: true, meetsAtHint: true, meetingAddress: true, photoUrl: true, contactWhatsApp: true },
+    });
+    return { groups };
+  }
+
   async home() {
     const pilot = await this.pilot.getPilotChurch();
     const [ministries, featuredEvents, homeBlocks, banners] =
@@ -244,6 +255,7 @@ export class PublicPortalService {
     endsAt: Date | null;
     locationText: string | null;
     featuredOnHome: boolean;
+    ticketPolicy?: string | null;
   }) {
     return {
       id: row.id,
@@ -256,6 +268,7 @@ export class PublicPortalService {
       endsAt: row.endsAt?.toISOString() ?? null,
       locationText: row.locationText,
       featuredOnHome: row.featuredOnHome,
+      ticketPolicy: row.ticketPolicy ?? "REGISTRATION",
     };
   }
 

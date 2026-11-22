@@ -152,7 +152,7 @@ export function ChurchCredentials() {
   return (
     <AppShell active="carteirinha" meta="Carteirinhas">
       <div className={s.page}>
-        <PageHeader appearance="workspace" heading="h1" title="Carteirinhas" />
+        <PageHeader appearance="workspace" heading="h1" title={phase === "ready" && !manager ? "Minha carteirinha" : "Carteirinhas"} />
 
         {phase === "checking" ? <p className={s.panel} role="status">Verificando sessão</p> : null}
 
@@ -176,11 +176,11 @@ export function ChurchCredentials() {
 
         {phase === "ready" ? (
           <>
-            <section className={s.stats} aria-label="Situação das carteirinhas">
+            {manager && <section className={s.stats} aria-label="Situação das carteirinhas">
               <div><strong>{activeCount}</strong><span>Ativas</span></div>
               <div><strong>{peopleCount}</strong><span>Pessoas</span></div>
               <div><strong>{Math.max(peopleCount - activeCount, 0)}</strong><span>Sem credencial ativa</span></div>
-            </section>
+            </section>}
             <CredentialDesk
               token={token}
               canManage={manager}
@@ -193,7 +193,7 @@ export function ChurchCredentials() {
               }] : memberships}
               ownCard={preview ?? ownCard}
               previewCard={preview}
-              initialOpen={Boolean(preview)}
+              initialOpen={Boolean(preview || (!manager && ownCard?.status === "ACTIVE"))}
               onReload={() => {
                 if (token && user) return loadDesk(token, user);
               }}

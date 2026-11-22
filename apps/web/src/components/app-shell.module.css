@@ -1,36 +1,54 @@
 .frame {
   --shell-target: 44px;
-  --shell-forest: #102b24;
-  --shell-forest-deep: #0a1c17;
-  --shell-text: #f5f1e6;
-  --shell-muted: #c5d3c8;
+  --shell-forest: #171717;
+  --shell-forest-deep: #101010;
+  --shell-text: #ffffff;
+  --shell-muted: #d1d5d9;
   --shell-line: #ffffff26;
   --shell-hover: #ffffff15;
-  --shell-selected: #315747;
-  --shell-gold: #e9d2a7;
-  --app-ink: #22382e;
-  --app-muted: #5f7368;
-  --app-accent: #255742;
-  --app-accent-hover: #1b4935;
-  --app-canvas: #f5f7f4;
+  --shell-selected: #333333;
+  --shell-highlight: #c9a76b;
+  --app-ink: #222222;
+  --app-muted: #535353;
+  --app-accent: #171717;
+  --app-accent-hover: #333333;
+  --app-canvas: #f5f6f7;
   --app-surface: #fff;
-  --app-subtle: #f5f8f5;
-  --app-border: #dce6de;
+  --app-subtle: #f0f2f4;
+  --app-border: #dfe3e7;
+  --app-success: #286b52;
+  --app-success-bg: #e8f3ee;
+  --app-info: #294e70;
+  --app-info-bg: #e9f1f9;
+  --app-warning: #8a651f;
+  --app-warning-bg: #fbf1da;
+  --app-danger: #9c3041;
+  --app-danger-bg: #f9e9ed;
+  --app-violet: #674b83;
+  --app-violet-bg: #f0edf7;
+  --color-dourado: #c9a76b;
+  --color-marrom: var(--app-ink);
+  --color-creme: var(--app-canvas);
+  --color-bronze: var(--app-muted);
+  --color-terracota: #555;
+  --color-surface: var(--app-surface);
+  --color-line: var(--app-border);
+  --color-on-dark: var(--shell-text);
   --app-radius: 12px;
   --app-control-radius: 8px;
   --app-gutter: clamp(12px, 2vw, 24px);
   --app-title-size: clamp(1.5rem, 2.45vw, 2.05rem);
   --app-max: 1420px;
   --os-ink: var(--app-ink);
-  --os-muted: #79868a;
-  --os-rule: #e5ebe7;
+  --os-muted: #626262;
+  --os-rule: #e4e4e4;
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr);
   min-height: 100svh;
   max-width: 100%;
   background: var(--app-canvas);
   color: var(--os-ink);
-  font-family: Inter, Arial, sans-serif;
+  font-family: var(--site-font);
 }
 .frame *,
 .frame *::before,
@@ -101,13 +119,13 @@
   margin: 0 6px 27px;
   padding: 11px;
   border-radius: 8px;
-  border: 1px solid #354644;
-  background: #203234;
+  border: 1px solid var(--shell-line);
+  background: var(--shell-hover);
 }
 .railOnline {
   width: 6px;
   height: 6px;
-  background: #c9ac68;
+  background: var(--shell-highlight);
   border-radius: 50%;
   flex: none;
 }
@@ -118,12 +136,12 @@
   min-width: 0;
 }
 .railContext strong {
-  color: #e5eeea;
+  color: #ececec;
   font-size: 11px;
   font-weight: 550;
 }
 .railContext small {
-  color: #92a8a0;
+  color: #a3a3a3;
   font-size: 10px;
 }
 .menu {
@@ -134,7 +152,7 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #648776 transparent;
+  scrollbar-color: #7f7f7f transparent;
 }
 .menuItem,
 .menuActive,
@@ -145,12 +163,11 @@
   gap: 11px;
   min-height: 43px;
   padding: 10px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--shell-muted);
   text-decoration: none;
   font:
-    500 13px/1.4 Inter,
-    sans-serif;
+    500 13px/1.4 var(--site-font);
 }
 .menuItem:hover,
 .ministryToggle:hover,
@@ -168,12 +185,19 @@
   flex: 1;
   min-width: 0;
 }
-.menuActive {
+.menuActive, .ministryToggle[data-current="true"] {
   background: var(--shell-selected);
   color: var(--shell-text);
-  box-shadow: inset 3px 0 var(--shell-gold);
+  box-shadow: inset 3px 0 var(--module-icon, var(--shell-highlight));
   font-weight: 700;
 }
+.menu :is(.menuItem,.menuActive,.ministryToggle,.subItem,.subSelected) > svg:first-child {
+  color: var(--module-icon, var(--shell-highlight));
+}
+.frame :is([data-section="secretaria"], [data-section="carteirinha"]) { --module-icon: #a8d7ff; --mobile-icon: var(--app-info); --mobile-tint: var(--app-info-bg); }
+.frame :is([data-section="eventos-gestao"], [data-section="eventos-membro"]) { --module-icon: #f5cf8f; --mobile-icon: var(--app-warning); --mobile-tint: var(--app-warning-bg); }
+.frame :is([data-section="ministerios"], [data-section="meu-espaco"]) { --module-icon: #d8bef9; --mobile-icon: var(--app-violet); --mobile-tint: var(--app-violet-bg); }
+.frame [data-section="tesouraria"] { --module-icon: #b9e3a1; --mobile-icon: var(--app-success); --mobile-tint: var(--app-success-bg); }
 .activeIndicator {
   display: none;
 }
@@ -226,9 +250,9 @@
   border-radius: 999px;
   background: var(--shell-selected);
   color: var(--shell-text);
-  font: 700 12px/1.3 Inter, sans-serif;
+  font: 700 12px/1.3 var(--site-font);
   text-decoration: none;
-  box-shadow: inset 2px 0 var(--shell-gold);
+  box-shadow: inset 2px 0 var(--module-icon, var(--shell-highlight));
 }
 .subSelected svg { flex: none; }
 .subSelected:hover { color: var(--shell-text); }
@@ -242,8 +266,8 @@
 .railNote {
   margin: 8px 8px 0;
   padding-top: 19px;
-  border-top: 1px solid #e2eae3;
-  color: #81968b;
+  border-top: 1px solid #e8e8e8;
+  color: #919191;
   font-size: 10px;
 }
 .mainColumn,
@@ -264,7 +288,7 @@
   gap: 22px;
   min-height: 66px;
   padding: 10px 28px;
-  background: linear-gradient(100deg, var(--shell-forest), #183a30 90%);
+  background: linear-gradient(100deg, var(--shell-forest), #232323 95%);
   border-bottom: 1px solid var(--shell-line);
 }
 .toolbarIdentity {
@@ -289,7 +313,7 @@
   font-size: 12px;
 }
 .hmlMark {
-  color: #7c8b80;
+  color: #878787;
   font-size: 10px;
 }
 .railCollapse {
@@ -352,8 +376,7 @@
   color: var(--shell-text);
   text-align: left;
   font:
-    500 12px Inter,
-    sans-serif;
+    500 12px var(--site-font);
   cursor: pointer;
 }
 .commandButton > span {
@@ -365,8 +388,7 @@
   padding: 3px 5px;
   border-radius: 4px;
   font:
-    500 9px Inter,
-    sans-serif;
+    500 9px var(--site-font);
   color: var(--shell-muted);
   white-space: nowrap;
 }
@@ -409,7 +431,7 @@
   text-decoration: none;
 }
 .profileLink:hover { background: var(--shell-hover); }
-.profileLink:focus-visible { outline: 2px solid var(--shell-gold); outline-offset: 2px; }
+.profileLink:focus-visible { outline: 2px solid var(--shell-highlight); outline-offset: 2px; }
 .account {
   display: grid;
   place-items: center;
@@ -417,7 +439,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--shell-gold);
+  background: var(--shell-highlight);
   color: var(--shell-forest-deep);
   font-size: 10px;
   font-weight: 650;
@@ -454,8 +476,7 @@
   color: var(--shell-text);
   background: transparent;
   font:
-    550 10px Inter,
-    sans-serif;
+    550 10px var(--site-font);
   cursor: pointer;
 }
 .logoutTrigger:hover {
@@ -482,7 +503,7 @@
   align-self: flex-end;
   border: 0;
   background: transparent;
-  color: #cad9cf;
+  color: #d5d5d5;
   cursor: pointer;
   padding: 8px;
 }
@@ -491,13 +512,13 @@
   inset: 0;
   z-index: 44;
   border: 0;
-  background: #0c211f70;
+  background: #1e1e1e70;
 }
 .holdNote,
 .denied {
   padding: 22px;
   background: #fff;
-  border: 1px solid #dde7de;
+  border: 1px solid #e4e4e4;
   border-radius: 13px;
   font-size: 14px;
   line-height: 1.5;
@@ -506,7 +527,7 @@
   font-size: 24px;
 }
 .denied a {
-  color: #355b44;
+  color: #535353;
 }
 .modalBackdrop {
   position: fixed;
@@ -516,7 +537,7 @@
   align-items: flex-start;
   justify-content: center;
   padding: 12vh 18px 20px;
-  background: #132d2366;
+  background: #28282866;
   backdrop-filter: blur(5px);
 }
 .commandModal {
@@ -526,9 +547,9 @@
   flex-direction: column;
   overflow: hidden;
   background: #fff;
-  border: 1px solid #e5ede0;
+  border: 1px solid #eaeaea;
   border-radius: 15px;
-  box-shadow: 0 28px 80px #12251538;
+  box-shadow: 0 28px 80px #21212138;
 }
 .commandSearch {
   display: flex;
@@ -539,8 +560,8 @@
   min-height: 48px;
   border: 1px solid var(--app-border);
   border-radius: 14px;
-  background: #f4f8f5;
-  color: #3d6853;
+  background: #f7f7f7;
+  color: #5f5f5f;
 }
 .commandSearch input {
   flex: 1;
@@ -549,13 +570,13 @@
   outline: none;
   padding-block: 8px;
   background: transparent;
-  color: #334d37;
-  font: 500 16px/1.4 Inter, sans-serif;
+  color: #474747;
+  font: 500 16px/1.4 var(--site-font);
 }
-.commandSearch:focus-within { border-color: #40785c; box-shadow: 0 0 0 2px #b0d0ba; }
+.commandSearch:focus-within { border-color: #6d6d6d; box-shadow: 0 0 0 2px #c8c8c8; }
 .frame .commandSearch input:focus-visible { outline: none; }
 .commandHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; }
-.commandHeader h2 { margin: 0; color: #173f31; font: 750 1.18rem/1.2 Montserrat, Inter, sans-serif; letter-spacing: -.025em; }
+.commandHeader h2 { margin: 0; color: #383838; font: 750 1.18rem/1.2 var(--site-font); letter-spacing: -.025em; }
 .commandHeader button {
   display: grid;
   place-items: center;
@@ -564,15 +585,15 @@
   flex: none;
   padding: 0;
   border: 0;
-  background: #f2f6ef;
+  background: #f5f5f5;
   border-radius: 50%;
-  color: #36614d;
+  color: #585858;
   cursor: pointer;
 }
 .commandTitle {
   display: block;
   padding: 19px 21px 8px;
-  color: #8b9d81;
+  color: #989898;
   letter-spacing: 0.08em;
   font-size: 10px;
   font-weight: 650;
@@ -592,11 +613,11 @@
   min-height: 60px;
   padding: 9px 12px;
   border-radius: 8px;
-  color: #3c563b;
+  color: #505050;
   text-decoration: none;
 }
 .commandList > a:hover {
-  background: #f2f7ee;
+  background: #f5f5f5;
 }
 .commandListIcon {
   display: grid;
@@ -604,8 +625,8 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #eaf2e3;
-  color: #6a8758;
+  background: #efefef;
+  color: #7f7f7f;
 }
 .commandList a > span:nth-child(2) {
   display: flex;
@@ -619,11 +640,11 @@
 }
 .commandList small {
   font-size: 10px;
-  color: #536858;
+  color: #636363;
 }
 .commandEmpty {
   padding: 14px;
-  color: #536858;
+  color: #636363;
   font-size: 12px;
 }
 .commandFooter {
@@ -632,17 +653,17 @@
   justify-content: flex-end;
   gap: 7px;
   padding: 12px 18px;
-  border-top: 1px solid #e9efe4;
-  color: #657759;
+  border-top: 1px solid #ededed;
+  color: #727272;
   font-size: 10px;
 }
 .commandFooter kbd {
   padding: 3px 5px;
-  background: #edf3e7;
+  background: #f1f1f1;
   border-radius: 4px;
 }
 .frame :is(a, button):focus-visible {
-  outline: 3px solid #b18d45;
+  outline: 3px solid #929292;
   outline-offset: 3px;
 }
 .frame[data-rail="collapsed"] {
@@ -692,10 +713,10 @@
   transform: translateY(-50%);
   padding: 8px 11px;
   border-radius: 7px;
-  background: #243e35;
+  background: #393939;
   color: #fff;
   z-index: 70;
-  box-shadow: 0 8px 20px #122a2133;
+  box-shadow: 0 8px 20px #26262633;
 }
 .frame[data-rail="collapsed"] .ministryToggle > svg:last-child {
   display: none;
@@ -710,10 +731,10 @@
   z-index: 68;
   padding: 8px;
   margin: 0;
-  border: 1px solid #43594a;
-  background: #1b322c;
+  border: 1px solid #545454;
+  background: var(--shell-forest-deep);
   border-radius: 10px;
-  box-shadow: 0 15px 35px #16302540;
+  box-shadow: 0 15px 35px #2b2b2b40;
 }
 .frame[data-rail="collapsed"] .subList .menuLabel {
   position: static;
@@ -782,7 +803,7 @@
     transform: translateX(0);
     visibility: visible;
     pointer-events: auto;
-    box-shadow: 12px 0 40px #182d2240;
+    box-shadow: 12px 0 40px #29292940;
   }
   .drawerClose {
     display: inline-flex;
@@ -808,7 +829,7 @@
     min-height: 70px;
     padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
     background: #fffffffa;
-    border-top: 1px solid #dde7dc;
+    border-top: 1px solid #e4e4e4;
     backdrop-filter: blur(14px);
   }
   .mobileItem,
@@ -826,15 +847,14 @@
     background: transparent;
     border-radius: 9px;
     text-decoration: none;
-    color: #667b5b;
+    color: #757575;
     font:
-      550 10px/1.2 Inter,
-      sans-serif;
+      550 10px/1.2 var(--site-font);
     cursor: pointer;
   }
   .mobileActive {
-    color: #456637;
-    background: #eaf2e2;
+    color: #5d5d5d;
+    background: #efefef;
   }
 }
 @media (max-width: 660px) {
@@ -922,18 +942,18 @@
   padding-top: 12px;
   border-top: 1px solid var(--shell-line);
   color: var(--shell-muted);
-  font: 760 10px/1.35 Inter, Arial, sans-serif;
+  font: 760 10px/1.35 var(--site-font);
   letter-spacing: .13em;
 }
 .menuCaption {
   margin: 3px 11px 12px;
   color: var(--shell-muted);
-  font: 750 10px/1.3 Inter, Arial, sans-serif;
+  font: 750 10px/1.3 var(--site-font);
   letter-spacing: .14em;
 }
 .mainColumn { background: var(--app-canvas); }
-.frame :is(a,button,input,select,textarea):focus-visible { outline: 2px solid #96733c; outline-offset: 3px; }
-.rail :is(a,button):focus-visible { outline-color: #e9d2a7; outline-offset: -2px; }
+.frame :is(a,button,input,select,textarea):focus-visible { outline: 2px solid #797979; outline-offset: 3px; }
+.rail :is(a,button):focus-visible { outline-color: #e0e0e0; outline-offset: -2px; }
 .holdNote a { color: var(--app-accent); font-weight: 650; text-decoration: underline; }
 @media (max-width: 1270px) {
   .content { padding-inline: var(--app-gutter); }
@@ -958,9 +978,10 @@
   .toolbar .smallLogo { display: block; flex: none; width: 32px; height: 36px; }
   .mobileNav { gap: 4px; min-height: 61px; background: #fff; backdrop-filter: none; }
   .mobileItem, .mobileActive { min-height: 46px; border-radius: 15px; font-size: 11px; }
-  .mobileActive { color: #214f39; background: transparent; }
+  .mobileActive { color: #464646; background: transparent; }
   .mobileNav :is(.mobileItem, .mobileActive) svg { box-sizing: content-box; padding: 3px 12px; border-radius: 999px; }
-  .mobileNav .mobileActive svg { background: #e0eee4; }
+  .mobileNav :is(.mobileItem, .mobileActive) svg { color: var(--mobile-icon, var(--app-accent)); }
+  .mobileNav .mobileActive svg { background: var(--mobile-tint, var(--app-success-bg)); }
   .modalBackdrop { inset: var(--visible-top, 0px) 0 auto; height: var(--visible-height, 100dvh); align-items: stretch; padding: 0; }
   .commandModal { width: 100%; max-height: 100%; border: 0; border-radius: 0; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
   .commandList { flex: 1; padding: 2px 14px 16px; }
@@ -976,10 +997,10 @@
 
 /* Carregamento discreto: não exibir textos técnicos de autorização ao usuário. */
 .accessLoading { min-height: 210px; display: flex; align-items: center; justify-content: center; padding: 32px; }
-.accessSpinner { display: block; width: 28px; height: 28px; border: 3px solid #d6e1d9; border-top-color: #285f43; border-radius: 50%; animation: access-rotate .68s linear infinite; }
+.accessSpinner { display: block; width: 28px; height: 28px; border: 3px solid #dedede; border-top-color: #555555; border-radius: 50%; animation: access-rotate .68s linear infinite; }
 .screenReaderOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes access-rotate { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .accessSpinner { animation: none; border-top-color: #285f43; } }
+@media (prefers-reduced-motion: reduce) { .accessSpinner { animation: none; border-top-color: #555555; } }
 
 .groupHeading { display: flex; align-items: stretch; gap: 3px; }
 .groupHeading > a { flex: 1; min-width: 0; }
@@ -993,14 +1014,22 @@
   .mobileNav[data-member] {
     gap: 2px;
     padding-inline: max(7px, env(safe-area-inset-left, 0px)) max(7px, env(safe-area-inset-right, 0px));
-    box-shadow: 0 -4px 18px #163e2e0a;
+    box-shadow: 0 -4px 18px #3737370a;
   }
   .mobileNav[data-member] :is(.mobileItem, .mobileActive) {
     gap: 3px;
-    color: #475e50;
+    color: #595959;
     font-weight: 620;
     text-align: center;
   }
-  .mobileNav[data-member] .mobileActive { color: #174b36; font-weight: 760; }
-  .mobileNav[data-member] .mobileActive svg { background: #dcebe2; }
+  .mobileNav[data-member] .mobileActive { color: #424242; font-weight: 760; }
+  .mobileNav[data-member] .mobileActive svg { background: var(--mobile-tint, var(--app-success-bg)); }
 }
+
+.brandEmblem, .smallLogo { filter: invert(1); }
+
+/* RF1 2.0: coerência de navegação, contraste e alvos de toque (somente área interna). */
+.frame { --app-control-radius: 10px; --app-radius: 14px; --app-gutter: clamp(14px,2.2vw,28px); }
+.frame :is(button, input, select, textarea, a):focus-visible { outline: 3px solid #c9a76b; outline-offset: 2px; }
+.frame :is(button, input, select, textarea):disabled { opacity: .65; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .frame *, .frame *::before, .frame *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

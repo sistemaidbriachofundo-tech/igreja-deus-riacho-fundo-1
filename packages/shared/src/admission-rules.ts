@@ -76,3 +76,26 @@ export function assertAdmissionStepAllowed(
 export function isCredentialEligible(status: AdmissionStatus): boolean {
   return status === ADMISSION_STATUSES.APPROVED;
 }
+
+export interface AdmissionDocumentRequirementRule {
+  id: string;
+  label: string;
+  required: boolean;
+  active: boolean;
+}
+
+/**
+ * Só exige o que a congregação marcou como obrigatório e ativo.
+ * Lista vazia, requisito opcional ou inativo não bloqueia o protocolo.
+ */
+export function missingRequiredAdmissionDocuments(
+  requirements: readonly AdmissionDocumentRequirementRule[],
+  linkedRequirementIds: readonly (string | null | undefined)[],
+): Array<{ id: string; label: string }> {
+  const linked = new Set(
+    linkedRequirementIds.filter((id): id is string => Boolean(id)),
+  );
+  return requirements
+    .filter((item) => item.active && item.required && !linked.has(item.id))
+    .map((item) => ({ id: item.id, label: item.label }));
+}

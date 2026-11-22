@@ -11,6 +11,7 @@ export const QA_CHECKS = Object.freeze([
   { id: "health", method: "GET", path: "/health", expected: 200 },
   { id: "me-anon", method: "GET", path: "/auth/me", expected: 401 },
   { id: "audit-anon", method: "GET", path: "/audit-logs", expected: 401 },
+  { id: "credential-me-anon", method: "GET", path: "/credentials/me", expected: 401 },
   { id: "metrics-anon", method: "GET", path: "/internal/observability/metrics", expected: 404 },
 ]);
 
@@ -24,10 +25,17 @@ export function assertQaOrigin(origin) {
 
 async function probe(fetchImpl, origin, item) {
   try {
+    const headers = { accept: "application/json" };
+    for (const name of Object.keys(headers)) {
+      const normalized = name.toLowerCase();
+      if (normalized.startsWith("x-vercel-protection") || normalized === "x-vercel-set-bypass-cookie") {
+        throw new Error("Proibido contornar o SSO da Vercel");
+      }
+    }
     const options = {
       method: item.method,
       redirect: "manual",
-      headers: { accept: "application/json" },
+      headers,
       signal: AbortSignal.timeout(10000),
     };
     if (item.method === "POST") {

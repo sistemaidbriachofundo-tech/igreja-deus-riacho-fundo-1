@@ -37,13 +37,12 @@ describe("tokens de contraste", () => {
     for (const value of Object.values(dsColor)) {
       expect(css.toLowerCase()).toContain(value.toLowerCase());
     }
-    expect(css).toContain("Montserrat");
-    expect(css).toContain("Inter");
+    expect(css).toContain("--site-font");
     expect(css).toContain("min-width: 768px");
     expect(css).toContain("min-width: 1440px");
     expect(css).toContain("min-height: 2.75rem");
-    expect(css).toMatch(/\.primary\s*\{[^}]*background:\s*var\(--ds-gold\)/);
-    expect(css).toMatch(/\.primary\s*\{[^}]*color:\s*var\(--ds-on-gold\)/);
+    expect(css).toMatch(/\.primary\s*\{[^}]*background:\s*var\(--ds-brown\)/);
+    expect(css).toMatch(/\.primary\s*\{[^}]*color:\s*var\(--ds-on-dark\)/);
     expect(css).not.toContain("--color-dourado");
   });
 });
@@ -155,10 +154,10 @@ describe("kit do painel", () => {
     expect(css).toContain("min-width: 2.75rem");
     expect(css).toContain("overflow-wrap: anywhere");
     expect(css).toContain('data-appearance="dark"');
-    expect(css).toContain("#7a4a16");
-    expect(css).toContain("#243e42");
-    expect(css).toContain("#24160f");
-    expect(css).toContain("#e7d3c0");
+    expect(css).toContain("#705020");
+    expect(css).toContain("#294e70");
+    expect(css).toContain("#171717");
+    expect(css).toContain("#d6dde0");
   });
 
   it("publica os mesmos tokens no CSS global, depois das camadas antigas", () => {

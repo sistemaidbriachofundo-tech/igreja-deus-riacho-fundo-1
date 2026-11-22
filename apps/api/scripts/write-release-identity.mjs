@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 
 let checkoutSha;
 try {
-  checkoutSha = execFileSync("git", ["rev-parse", "--verify", "HEAD"], {
+  const git = ["/usr/bin/git", "/bin/git", "/usr/local/bin/git"].find(path => existsSync(path));
+  if (git) checkoutSha = execFileSync(git, ["rev-parse", "--verify", "HEAD"], {
     cwd: new URL("..", import.meta.url),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],

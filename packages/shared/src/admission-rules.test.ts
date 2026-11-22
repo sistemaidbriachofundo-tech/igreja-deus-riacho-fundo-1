@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   assertAdmissionStepAllowed,
   isCredentialEligible,
+  missingRequiredAdmissionDocuments,
   nextAdmissionStep,
 } from "./admission-rules";
 
@@ -33,6 +34,34 @@ describe("admission rules", () => {
   it("credentialEligible only when APPROVED", () => {
     assert.equal(isCredentialEligible("APPROVED"), true);
     assert.equal(isCredentialEligible("AWAITING_PASTOR"), false);
+  });
+
+  it("blocks only configured mandatory documents", () => {
+    assert.deepEqual(missingRequiredAdmissionDocuments([], ["legacy"]), []);
+    assert.deepEqual(
+      missingRequiredAdmissionDocuments(
+        [
+          { id: "opt", label: "Opcional", required: false, active: true },
+          { id: "off", label: "Inativo", required: true, active: false },
+        ],
+        [],
+      ),
+      [],
+    );
+    assert.deepEqual(
+      missingRequiredAdmissionDocuments(
+        [{ id: "req", label: "Documento fictício", required: true, active: true }],
+        [null, "outro"],
+      ),
+      [{ id: "req", label: "Documento fictício" }],
+    );
+    assert.deepEqual(
+      missingRequiredAdmissionDocuments(
+        [{ id: "req", label: "Documento fictício", required: true, active: true }],
+        ["req"],
+      ),
+      [],
+    );
   });
 
   it("advances steps in order", () => {

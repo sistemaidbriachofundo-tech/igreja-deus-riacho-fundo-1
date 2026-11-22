@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import { MEMBERSHIP_MAP_STATUSES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { assertMembershipAccess } from "./report-scope";
 import { anniversary, buildMembershipInsights, parseInsightsPeriod, saoPauloDate } from "./membership-insights-domain";
 import { normalizeAccountPhone } from "../account/account-phone";
+import { buildMembershipMap } from "./membership-map";
 
 /**
  * Dados originados diretamente de PostgreSQL/Prisma, no escopo da congregação.
@@ -75,6 +77,21 @@ export class MembershipInsightsService {
     });
     birthdayRows.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name, "pt-BR"));
     return { birthdays: birthdayRows };
+  }
+
+  async map(actor: AuthUser) {
+    const pilot = await this.pilot.getPilotChurch();
+    assertMembershipAccess(actor, pilot);
+    const memberships = await this.prisma.churchMembership.findMany({
+      where: {
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        status: { in: [...MEMBERSHIP_MAP_STATUSES] },
+        person: { organizationId: pilot.organizationId },
+      },
+      select: { status: true, person: { select: { address: true } } },
+    });
+    return buildMembershipMap(memberships);
   }
 
   async overview(actor: AuthUser, query: { from?: string; to?: string } = {}) {

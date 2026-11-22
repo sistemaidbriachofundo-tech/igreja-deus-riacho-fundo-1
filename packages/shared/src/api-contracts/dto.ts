@@ -4,6 +4,7 @@ import type {
   AdmissionStatus,
   AdmissionStep,
   CredentialStatusContract,
+  EcclesiasticalRole,
   MembershipStatusContract,
 } from "./enums";
 
@@ -66,6 +67,8 @@ export interface PersonSummaryDto {
 }
 
 export interface MembershipDto {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
+  ministryLeader?: boolean;
   id: string;
   status: MembershipStatusContract | string;
   joinedAt: string;
@@ -83,6 +86,7 @@ export interface MembershipListResponse {
 
 /** Cadastro rápido legado (v0.1) — preferir fluxo /admissions no 0.2. */
 export interface RegisterMembershipRequest {
+  ecclesiasticalRoles?: EcclesiasticalRole[];
   displayName: string;
   email?: string;
   notes?: string;
@@ -321,6 +325,7 @@ export interface PatchPersonRequest extends PersonProfileFields {
 }
 
 export interface PersonDossierResponse {
+  ministryLeader?: boolean;
   person: PersonSummaryDto & PersonProfileFields & {
     address?: string | null;
     kind: string;
@@ -339,6 +344,7 @@ export interface PersonDossierResponse {
     status: string;
     joinedAt: string;
     notes: string | null;
+    ecclesiasticalRoles?: EcclesiasticalRole[];
   }>;
   admissionHistory: Array<{
     id: string;
@@ -360,11 +366,62 @@ export interface AdmissionDocumentMetaDto {
   contentType: string;
   byteSize: number;
   createdAt: string;
+  /** Nulo quando o anexo é anterior ao vínculo com um requisito. */
+  requirementId?: string | null;
 }
 
 export interface AdmissionDocumentsListResponse {
   admissionId: string;
   documents: AdmissionDocumentMetaDto[];
+  /** Presente quando a modalidade tem requisitos configurados. Ausência não exige documento. */
+  requirements?: AdmissionDocumentRequirementDto[];
+}
+
+export interface AdmissionDocumentRequirementDto {
+  id: string;
+  modality: AdmissionModality;
+  code: string;
+  label: string;
+  required: boolean;
+  active: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  satisfied?: boolean;
+}
+
+export interface ServiceOrderItemDto {
+  id: string;
+  position: number;
+  title: string;
+  minutes: number | null;
+  responsible: string | null;
+  responsiblePersonId?: string | null;
+  microphone?: string | null;
+  equipment?: string | null;
+  notes?: string | null;
+}
+
+export interface ServiceOrderDto {
+  id: string;
+  title: string;
+  serviceAt: string;
+  notes: string | null;
+  items: ServiceOrderItemDto[];
+  status: "DRAFT" | "APPROVED" | "PUBLISHED";
+  updatedAt: string;
+}
+
+export interface ServiceOrderListResponse {
+  orders: ServiceOrderDto[];
+}
+
+export interface ServiceOrderWriteRequest {
+  title: string;
+  serviceAt: string;
+  notes?: string | null;
+  items: Array<{ title: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null }>;
+  /** Controle otimista. Se divergir de updatedAt, a mutação responde 409. */
+  expectedUpdatedAt?: string;
 }
 
 export interface MetaResponse {

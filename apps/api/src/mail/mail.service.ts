@@ -76,6 +76,9 @@ export class SmtpMailTransport implements MailTransport {
       requireTLS: config.port === 587,
       auth: { user: config.user, pass: password },
       tls: { minVersion: "TLSv1.2" },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
     const info = await transporter.sendMail({
       from: config.from,
@@ -168,6 +171,9 @@ export class MailService {
 
 function safeMailError(error: unknown): string {
   const message = error instanceof Error ? error.message : "falha de envio";
-  if (/token=|bearer |senha|password|smtp_password|secret/i.test(message)) return "falha de envio";
+  const secret = process.env.SMTP_PASSWORD ?? "";
+  if ((secret.length > 0 && message.includes(secret)) || /token=|bearer |senha|password|smtp_password|secret/i.test(message)) {
+    return "falha de envio";
+  }
   return message.slice(0, 180);
 }

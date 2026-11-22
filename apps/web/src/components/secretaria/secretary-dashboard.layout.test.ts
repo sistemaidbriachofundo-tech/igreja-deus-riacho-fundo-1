@@ -21,9 +21,10 @@ describe("Secretaria — qualidade estrutural do painel de HML", () => {
     }
     expect(source).not.toContain("Math.random");
   });
-  it("usa a identidade verde/dourado e a leitura em largura total", () => {
-    expect(styles).toContain("--forest:#1d563f");
-    expect(styles).toContain("--gold:#cba565");
+  it("usa cores para distinguir indicadores em superfícies de largura total", () => {
+    expect(styles).toContain('data-group="membros"]{--group-color:#32806d');
+    expect(styles).toContain('data-group="em_admissao"]{--group-color:#bf812a');
+    expect(styles).toContain("--surface:#ffffff");
     expect(styles).toContain(".hero{");
     expect(styles).toContain(".summary{");
     expect(styles).toContain(".top{");

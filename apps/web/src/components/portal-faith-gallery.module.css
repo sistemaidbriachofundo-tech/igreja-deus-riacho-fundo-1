@@ -9,11 +9,11 @@
 
 .heading h2 {
   margin: 0 0 11px;
-  font: 400 clamp(36px, 4.6vw, 62px)/1.04 var(--portal-display);
-  letter-spacing: -.035em;
+  font: var(--site-heading-weight) clamp(36px, 4.6vw, 62px)/1.04 var(--portal-display);
+  letter-spacing: var(--site-heading-tracking);
 }
 
-.heading h2 em { color: var(--portal-title-accent); }
+.heading h2 em { font-style: normal; color: var(--portal-title-accent); }
 .heading p { max-width: 55ch; margin: 0; color: var(--portal-muted); font-size: 16px; line-height: 1.6; }
 
 .moments {

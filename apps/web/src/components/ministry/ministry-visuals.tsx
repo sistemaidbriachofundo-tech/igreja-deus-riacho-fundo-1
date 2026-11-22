@@ -30,7 +30,6 @@ export function SyntheticAvatar({ name }: { name: string }) {
         y="40"
         textAnchor="middle"
         fontSize="24"
-        fontFamily="Montserrat, sans-serif"
         fontWeight="700"
         fill="#F7EDE0"
       >

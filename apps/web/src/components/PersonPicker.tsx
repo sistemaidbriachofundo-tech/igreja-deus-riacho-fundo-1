@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { apiGet } from "../lib/api";
 import styles from "./person-picker.module.css";
@@ -24,6 +25,7 @@ type Props = {
   help?: string;
   selectedPerson?: PersonOption | null;
   options?: readonly PersonOption[];
+  searchPath?: string;
   excludeIds?: readonly string[];
   adultsOnly?: boolean;
 };
@@ -46,12 +48,13 @@ export function filterPersonOptions(
       .replace(/\p{Diacritic}/gu, "")
       .toLocaleLowerCase("pt-BR");
   const term = normalized(query.trim());
-  return options.filter(
+  const matching = options.filter(
     (person) =>
       !excludeIds.includes(person.id) &&
       !(adultsOnly && person.isMinor) &&
       normalized(person.displayName).includes(term),
   );
+  return sortByName(matching, person => person.displayName);
 }
 
 export function PersonPicker({
@@ -66,6 +69,7 @@ export function PersonPicker({
   help,
   selectedPerson,
   options,
+  searchPath,
   excludeIds = [],
   adultsOnly = false,
 }: Props) {
@@ -81,7 +85,7 @@ export function PersonPicker({
   const [expanded, setExpanded] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [attempt, setAttempt] = useState(0);
-  const canSearch = canSearchPersons(roles);
+  const canSearch = Boolean(searchPath) || canSearchPersons(roles);
   const term = query.trim();
   const selectedName =
     selection?.id === value
@@ -132,7 +136,7 @@ export function PersonPicker({
     const timer = setTimeout(() => {
       setStatus("loading");
       void apiGet<SearchResponse>(
-        `/persons/search?q=${encodeURIComponent(term)}&limit=8`,
+        `${searchPath ?? "/persons/search"}?q=${encodeURIComponent(term)}&limit=8`,
         token,
       )
         .then((payload) => {
@@ -158,7 +162,7 @@ export function PersonPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [canSearch, token, term, value, attempt, options]);
+  }, [canSearch, token, term, value, attempt, options, searchPath]);
 
   if (!canSearch && options === undefined) {
     return (

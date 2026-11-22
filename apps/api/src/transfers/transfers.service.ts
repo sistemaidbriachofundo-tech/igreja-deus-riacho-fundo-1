@@ -88,6 +88,7 @@ export class TransfersService {
     const open = await this.prisma.membershipTransfer.findFirst({
       where: {
         personId: input.personId,
+        organizationId: pilot.organizationId,
         status: { in: ["DRAFT", "AWAITING_ORIGIN", "AWAITING_DESTINATION"] },
       },
     });
@@ -138,9 +139,12 @@ export class TransfersService {
       where: {
         id: transferId,
         organizationId: pilot.organizationId,
+        OR: [{ fromChurchId: pilot.churchId }, { toChurchId: pilot.churchId }],
       },
     });
-    if (!row) throw new NotFoundException("Transferência não encontrada");
+    if (!row || (row.fromChurchId !== pilot.churchId && row.toChurchId !== pilot.churchId)) {
+      throw new NotFoundException("Transferência não encontrada");
+    }
     if (["COMPLETED", "CANCELLED", "REJECTED"].includes(row.status)) {
       throw new ConflictException({
         message: "Transferência já encerrada",

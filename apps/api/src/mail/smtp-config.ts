@@ -8,7 +8,7 @@ export interface PublicSmtpConfig {
 }
 
 const HOST = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
-const FROM = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FROM = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
  * Lê a forma da configuração SMTP sem devolver a senha.
@@ -20,7 +20,7 @@ export function readPublicSmtpConfig(env: NodeJS.ProcessEnv = process.env): Publ
   const user = env.SMTP_USER?.trim() ?? "";
   const from = env.SMTP_FROM?.trim() ?? "";
   const password = env.SMTP_PASSWORD ?? "";
-  if (!HOST.test(host) || (port !== 465 && port !== 587) || !user || user.length > 200 || !FROM.test(from)) {
+  if (!HOST.test(host) || (port !== 465 && port !== 587) || !user || user.length > 200 || from.length > 254 || !FROM.test(from)) {
     throw new ServiceUnavailableException(
       "SMTP incompleto. Preencha host, porta 587 ou 465, usuário e remetente no ambiente autorizado.",
     );

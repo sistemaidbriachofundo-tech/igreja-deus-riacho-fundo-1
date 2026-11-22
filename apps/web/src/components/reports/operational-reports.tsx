@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AppNavLink } from "../AppShell";
+import { useEffect, useState, type ReactNode } from "react";
 import { PageHeader } from "../ui/PageHeader";
 import { FilterDisclosure } from "../ui/FilterDisclosure";
 import { UIIcon, type GlyphName } from "../ui/UIIcon";
@@ -128,24 +127,33 @@ export function OperationalReports(props: {
   onApply: () => void;
   onDownload: (report: "membership" | "ministries" | "participation" | "ministry-cost", format: "csv" | "pdf") => void;
 }) {
+  const [requested, setRequested] = useState<keyof typeof sections>();
+  useEffect(() => {
+    function readSection() {
+      const hash = window.location.hash;
+      setRequested((Object.keys(sections) as Array<keyof typeof sections>).find(key => hash === "#report-" + key));
+    }
+    readSection();
+    window.addEventListener("hashchange", readSection);
+    return () => window.removeEventListener("hashchange", readSection);
+  }, []);
+  const slots = { people: props.membership, ministries: props.ministries, events: props.participation, costs: props.cost };
+  const active = requested ?? (Object.keys(slots) as Array<keyof typeof sections>).find(key => slots[key].state !== "forbidden") ?? "people";
   const ministryOptions = props.ministryOptions ?? (props.ministries.state === "ready" ? props.ministries.data.ministries : []);
   return (
     <div className={s.page}>
       <PageHeader appearance="workspace" heading="h1" title="Relatórios"
         description="Consulte pessoas, ministérios, inscrições em eventos e despesas por ministério."
-        actions={<AppNavLink className={ui.workspaceSecondary} href="/app/tesouraria/">
-          <UIIcon name="wallet" size={17} /> Tesouraria <UIIcon name="arrow" size={15} />
-        </AppNavLink>}
       />
 
       <nav className={s.sectionLinks} aria-label="Relatórios disponíveis">
-        {Object.entries(sections).map(([id, section]) => <a href={`#report-${id}`} key={id}>
+        {Object.entries(sections).map(([id, section]) => <a href={`#report-${id}`} key={id} aria-current={active === id ? "page" : undefined}>
           <span className={s.sectionIcon}><UIIcon name={section.icon} size={19} /></span>
           <span>{section.label}</span><UIIcon name="chevron" size={14} />
         </a>)}
       </nav>
 
-      <FilterDisclosure mobileOnly closeOnSubmit count={props.appliedFilterCount}>
+      <FilterDisclosure closeOnSubmit count={props.appliedFilterCount}>
         <form className={s.filters} aria-label="Filtros dos relatórios" onSubmit={(event) => { event.preventDefault(); props.onApply(); }}>
           <fieldset className={s.period}>
             <legend><UIIcon name="calendar" size={15} /> Período</legend>
@@ -181,7 +189,7 @@ export function OperationalReports(props: {
       {props.notice && <p className={s.blocked} role="alert">{props.notice}</p>}
 
       <ReportFrame
-        section="people"
+        section="people" visible={active === "people"}
         slot={props.membership}
         busy={props.busy}
         onCsv={() => props.onDownload("membership", "csv")}
@@ -189,7 +197,7 @@ export function OperationalReports(props: {
         render={(data) => <MembershipBody data={data} />}
       />
       <ReportFrame
-        section="ministries"
+        section="ministries" visible={active === "ministries"}
         slot={props.ministries}
         busy={props.busy}
         onCsv={() => props.onDownload("ministries", "csv")}
@@ -197,7 +205,7 @@ export function OperationalReports(props: {
         render={(data) => <MinistryBody data={data} />}
       />
       <ReportFrame
-        section="events"
+        section="events" visible={active === "events"}
         slot={props.participation}
         busy={props.busy}
         onCsv={() => props.onDownload("participation", "csv")}
@@ -205,7 +213,7 @@ export function OperationalReports(props: {
         render={(data) => <ParticipationBody data={data} />}
       />
       <ReportFrame
-        section="costs"
+        section="costs" visible={active === "costs"}
         slot={props.cost}
         busy={props.busy}
         onCsv={() => props.onDownload("ministry-cost", "csv")}
@@ -218,6 +226,7 @@ export function OperationalReports(props: {
 
 function ReportFrame<T>(props: {
   section: keyof typeof sections;
+  visible: boolean;
   slot: Slot<T>;
   busy: boolean;
   onCsv: () => void;
@@ -228,7 +237,7 @@ function ReportFrame<T>(props: {
   const { label, icon } = sections[props.section];
   const id = `report-${props.section}`;
   return (
-    <section id={id} tabIndex={-1} className={s.panel} aria-labelledby={id + "-title"}>
+    <section id={id} hidden={!props.visible} tabIndex={-1} className={s.panel} aria-labelledby={id + "-title"}>
       <header className={s.panelHeader}>
         <div className={s.panelTitle}>
           <span className={s.panelIcon}><UIIcon name={icon} size={21} /></span>

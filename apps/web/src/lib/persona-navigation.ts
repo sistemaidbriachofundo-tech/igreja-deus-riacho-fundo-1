@@ -12,6 +12,7 @@ export const BUILTIN_ROLES = [
   "TESOURARIA",
   "LIDER_MINISTERIO",
   "MEMBRO",
+  "CONVIDADO",
   "EDITOR_SITE",
   "PUBLICADOR_SITE",
 ] as const;
@@ -20,13 +21,16 @@ export type BuiltinRole = (typeof BUILTIN_ROLES)[number];
 
 export type AppNavKey =
   | "visao"
+  | "pastoral"
   | "membros"
   | "secretaria"
   | "conexao"
   | "carteirinha"
   | "site"
+  | "gestao-sistema"
   | "operacao"
   | "tesouraria"
+  | "relatorios"
   | "acessos"
   | "ministerios"
   | "escalas"
@@ -34,6 +38,7 @@ export type AppNavKey =
   | "meu-espaco"
   | "eventos-gestao"
   | "eventos-membro"
+  | "convidado"
   | "demo";
 
 export type NavIcon =
@@ -65,7 +70,7 @@ export type PersonaProbe = {
  * `retired` continua autorizado na rota direta, mas sai do menu.
  * `member` fica só na visão do membro, nunca no menu administrativo.
  */
-export type NavSurface = "admin" | "member" | "retired";
+export type NavSurface = "admin" | "member" | "guest" | "retired";
 
 export type PersonaArea = {
   key: Exclude<AppNavKey, "demo">;
@@ -77,6 +82,8 @@ export type PersonaArea = {
   ribbon: { code: string; title: string; detail: string };
   /** Papéis para os quais a leitura principal não é um 403 previsível. */
   roles: readonly BuiltinRole[];
+  /** Quando definido, restringe a entrada no menu sem alterar o acesso à rota. */
+  menuRoles?: readonly BuiltinRole[];
   probe: PersonaProbe | null;
   additionalProbes?: readonly PersonaProbe[];
   surface: NavSurface;
@@ -105,6 +112,18 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     surface: "admin",
   },
   {
+    key: "pastoral",
+    href: "/app/pastoral/",
+    label: "Pastoral",
+    short: "Pastoral",
+    icon: "family",
+    hint: "Acompanhamentos e aprovações do pastor",
+    ribbon: { code: "Pastoral", title: "Mesa pastoral", detail: "Cuidado da congregação e decisões pendentes." },
+    roles: ["PASTOR", "PLATFORM_ADMIN"],
+    probe: null,
+    surface: "admin",
+  },
+  {
     key: "membros",
     href: "/app/membros/",
     label: "Pessoas da secretaria",
@@ -125,6 +144,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     hint: "Admissões em andamento",
     ribbon: { code: "Secretaria", title: "Etapas com cuidado.", detail: "Protocolos visíveis só para o papel que a API aceita." },
     roles: ADMISSIONS,
+    menuRoles: ["SECRETARIA", "PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/admissions", source: "apps/api/src/admissions/admissions.controller.ts", marker: "return this.admissions.list" },
     surface: "admin",
   },
@@ -245,6 +265,18 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     surface: "admin",
   },
   {
+    key: "convidado",
+    href: "/app/convidado/",
+    label: "Minha área",
+    short: "Minha área",
+    icon: "home",
+    hint: "Trilha da Conexão e Grupos de Amizade",
+    ribbon: { code: "Minha área", title: "Minha área", detail: "Trilha da Conexão e Grupos de Amizade" },
+    roles: ["CONVIDADO"],
+    probe: null,
+    surface: "guest",
+  },
+  {
     key: "eventos-membro",
     href: "/app/eventos/",
     label: "Eventos",
@@ -252,7 +284,7 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     icon: "calendar",
     hint: "Agenda e minhas inscrições",
     ribbon: { code: "Eventos", title: "Eventos", detail: "Agenda e minhas inscrições" },
-    roles: ["MEMBRO"],
+    roles: ["MEMBRO", "CONVIDADO"],
     probe: { method: "GET", path: "/member-events/registrations", source: "apps/api/src/events/member-events.controller.ts", marker: '@Get("registrations")' },
     surface: "member",
   },
@@ -265,10 +297,24 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     hint: "Contas e lançamentos",
     ribbon: { code: "Tesouraria", title: "Caixa da congregação.", detail: "Saldos, extrato e conciliações." },
     roles: ["TESOURARIA", "PASTOR", "PLATFORM_ADMIN"],
+    menuRoles: ["TESOURARIA", "PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/ledger/accounts", roles: ["TESOURARIA", "PLATFORM_ADMIN"], source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("accounts")' },
     additionalProbes: [
       { method: "GET", path: "/ledger/expense-approvals", roles: ["TESOURARIA", "PASTOR"], source: "apps/api/src/finance/finance.controller.ts", marker: '@Get("expense-approvals")' },
     ],
+    surface: "admin",
+  },
+  {
+    key: "relatorios",
+    href: "/app/relatorios/",
+    label: "Relatórios",
+    short: "Relatórios",
+    icon: "book",
+    hint: "Pessoas, ministérios, eventos e custos por ministério",
+    ribbon: { code: "Relatórios", title: "Relatórios de gestão", detail: "Consultas e exportações no escopo de cada perfil." },
+    roles: OPERATION,
+    menuRoles: ["PLATFORM_ADMIN"],
+    probe: null,
     surface: "admin",
   },
   {
@@ -281,6 +327,18 @@ export const PERSONA_AREAS: readonly PersonaArea[] = [
     ribbon: { code: "Acessos", title: "Acessos da congregação.", detail: "Contas e perfis atribuídos às pessoas." },
     roles: ["PLATFORM_ADMIN"],
     probe: { method: "GET", path: "/admin/access", source: "apps/api/src/auth/church-access.controller.ts", marker: "@Get()" },
+    surface: "admin",
+  },
+  {
+    key: "gestao-sistema",
+    href: "/app/gestao-do-sistema/",
+    label: "Gestão do Sistema",
+    short: "Gestão",
+    icon: "settings",
+    hint: "Regras, vigência e histórico",
+    ribbon: { code: "Administração", title: "Gestão do Sistema", detail: "Regras por escopo e data de vigência." },
+    roles: ["PLATFORM_ADMIN"],
+    probe: null,
     surface: "admin",
   },
   {
@@ -304,6 +362,7 @@ export const PERSONA_LABELS: Record<BuiltinRole, string> = {
   TESOURARIA: "Tesouraria",
   LIDER_MINISTERIO: "Liderança de ministério",
   MEMBRO: "Membro",
+  CONVIDADO: "Convidado",
   EDITOR_SITE: "Edição do site",
   PUBLICADOR_SITE: "Publicação do site",
 };
@@ -412,7 +471,7 @@ export function ministrySubmenu(
   return [...catalog, ...dynamic];
 }
 
-export type AppDestination = "/app/" | "/app/operacao/" | "/app/site/" | "/app/servir/meu-espaco/";
+export type AppDestination = "/app/" | "/app/operacao/" | "/app/site/" | "/app/servir/meu-espaco/" | "/app/convidado/";
 
 const ADMIN_SHELL_ROLES = [
   "PLATFORM_ADMIN",
@@ -427,6 +486,10 @@ const ADMIN_SHELL_ROLES = [
 const MEMBER_SHELL_KEYS = ["visao", "carteirinha", "meu-espaco", "eventos-membro"] as const;
 
 /** Membro sem papel administrativo usa outra navegação. A rota de escala continua existindo. */
+export function isGuestOnly(roles: readonly string[]): boolean {
+  return roles.length > 0 && roles.every(role => role === "CONVIDADO");
+}
+
 export function isMemberOnly(roles: readonly string[]): boolean {
   return roles.includes("MEMBRO") && !roles.some(role => (ADMIN_SHELL_ROLES as readonly string[]).includes(role));
 }
@@ -436,15 +499,20 @@ export function isMemberOnly(roles: readonly string[]): boolean {
  * A autorização da rota direta continua em `areaAllowed`.
  */
 export function shellAreasForRoles(roles: readonly string[], preview = false): PersonaArea[] {
-  if (preview) return PERSONA_AREAS.filter(area => area.surface === "admin");
+  if (preview) return PERSONA_AREAS.filter(area => area.surface === "admin" && (area.key !== "pastoral" || area.roles.some(role => roles.includes(role))));
   const allowed = areasForRoles(roles);
+  if (isGuestOnly(roles)) return allowed;
   if (isMemberOnly(roles)) {
     return allowed.filter(area => (MEMBER_SHELL_KEYS as readonly string[]).includes(area.key));
   }
-  return allowed.filter(area => area.surface === "admin" || area.key === "eventos-membro");
+  return allowed.filter(area =>
+    (area.surface === "admin" || area.key === "eventos-membro") &&
+    (!area.menuRoles || area.menuRoles.some(role => roles.includes(role))),
+  );
 }
 
 export function landingForRoles(roles: readonly string[]): AppDestination {
+  if (isGuestOnly(roles)) return "/app/convidado/";
   const has = (role: string) => roles.includes(role);
   if (has("LIDER_MINISTERIO") && !has("SECRETARIA") && !has("PASTOR") && !has("TESOURARIA")) {
     return "/app/";
@@ -461,7 +529,7 @@ export function landingForRoles(roles: readonly string[]): AppDestination {
 
 export function areasForRoles(roles: readonly string[]): PersonaArea[] {
   return PERSONA_AREAS.filter(area => area.key === "visao"
-    ? roles.length > 0
+    ? roles.length > 0 && !isGuestOnly(roles)
     : area.roles.some(role => roles.includes(role)));
 }
 

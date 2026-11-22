@@ -1,5 +1,6 @@
 "use client";
 
+import { sortByName } from "@idbrf/shared";
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../lib/api";
 import { dasError } from "../lib/das-operations";
@@ -7,7 +8,10 @@ import s from "./connection-desk.module.css";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 
 type RequestStatus = "PENDING" | "APPROVED" | "DECLINED" | "MEMBER";
-type Group = { id: string; name: string; meetsAtHint: string | null; status: RequestStatus | null };
+type Group = {
+  id: string; name: string; meetsAtHint: string | null; status: RequestStatus | null;
+  photoUrl?: string | null; leaderName?: string | null; meetingAddress?: string | null; leads?: boolean;
+};
 type Request = { id: string; status: RequestStatus; group: { name: string }; person: { displayName: string } };
 const statusLabel: Record<RequestStatus, string> = {
   PENDING: "Aguardando resposta", APPROVED: "Pedido aceito", DECLINED: "Pedido recusado", MEMBER: "Você participa",
@@ -27,7 +31,7 @@ export function GroupRequests({ token, manage = false, hideEmpty = false }: { to
     setFault("");
     const load = manage
       ? apiGet<{ requests: Request[] }>("/group-requests/inbox", token).then(result => {
-        if (current) setRequests(result.requests);
+        if (current) setRequests(sortByName(result.requests, request => request.person.displayName));
       })
       : apiGet<{ groups: Group[] }>("/group-requests/catalog", token).then(result => {
         if (current) setGroups(result.groups);
@@ -88,14 +92,21 @@ export function GroupRequests({ token, manage = false, hideEmpty = false }: { to
     {!manage && groups?.length === 0 && <p className={s.notice}>Nenhum grupo recebe pedidos neste momento.</p>}
     <div className={s.groups}>
       {manage ? requests?.map(item => <article className={s.group} key={item.id} id={"pedido-" + item.id}>
-        <h3>{item.person.displayName}</h3><p>{item.group.name}</p><p>{statusLabel[item.status]}</p>
+        <h3>{item.person.displayName}</h3><p>{item.group.name}</p>
+        <span className={s.groupState} data-status={item.status}>{statusLabel[item.status]}</span>
         {item.status === "PENDING" && <div className={s.requestActions}>
-          <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, true)}>Aceitar</button>
+          <button className={s.primaryAction} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, true)}>Aceitar</button>
           <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void decide(item, false)}>Recusar</button>
         </div>}
       </article>) : groups?.map(group => <article className={s.group} key={group.id}>
+        {group.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={s.groupPhoto} src={group.photoUrl} alt="" loading="lazy" />
+        )}
         <h3>{group.name}</h3>{group.meetsAtHint && <p>{group.meetsAtHint}</p>}
-        {group.status ? <p>{statusLabel[group.status]}</p> : <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void request(group)}>Pedir para participar</button>}
+        {group.leaderName && <p>Liderança · {group.leaderName}</p>}
+        {group.meetingAddress && <p>{group.meetingAddress}</p>}
+        {group.status ? <span className={s.groupState} data-status={group.status}>{group.leads ? "Você lidera este grupo" : statusLabel[group.status]}</span> : <button className={s.retry} type="button" disabled={Boolean(busy)} onClick={() => void request(group)}>Pedir para participar</button>}
       </article>)}
     </div>
   </section>;

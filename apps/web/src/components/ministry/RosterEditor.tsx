@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { RosterCoverVacancy } from "./RosterCoverVacancy";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
 import type { FormalMember } from "../../lib/ministry-desk";
@@ -21,6 +22,10 @@ export type RosterActionsProps = {
   onOpen: (rosterId: string, moduleId?: string) => void;
   modules?: EscalaModule[];
   moduleId?: string;
+  allowGeneral?: boolean;
+  allowPublish?: boolean;
+  requireModuleMembership?: boolean;
+  managedModuleMemberships?: boolean;
 };
 
 const churchDateTime = new Intl.DateTimeFormat("sv-SE", {
@@ -28,7 +33,7 @@ const churchDateTime = new Intl.DateTimeFormat("sv-SE", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23",
 });
 
-export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, modules = [], moduleId, buttonClass }: RosterActionsProps & { roster?: MinistryEscala; buttonClass?: string }) {
+export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, modules = [], moduleId, allowGeneral = true, buttonClass }: RosterActionsProps & { roster?: MinistryEscala; buttonClass?: string }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -82,8 +87,8 @@ export function RosterEditor({ token, ministryId, onRefresh, onOpen, roster, mod
           <label>Nome do culto<input name="title" defaultValue={roster?.title} maxLength={160} required /></label>
           <label>Data e hora de Brasília<input name="when" type="datetime-local" disabled={dateLocked} defaultValue={roster ? churchDateTime.format(new Date(roster.serviceAt)).replace(" ", "T") : ""} required /></label>
           {modules.length > 0 && !published && (
-            <label>Módulo<select name="moduleId" defaultValue={(roster ? roster.moduleId : moduleId) ?? ""}>
-              <option value="">Escala geral do ministério</option>
+            <label>Módulo<select name="moduleId" required={!allowGeneral} defaultValue={(roster ? roster.moduleId : moduleId) ?? ""}>
+              {allowGeneral && <option value="">Escala geral do ministério</option>}
               {modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
             </select></label>
           )}
@@ -105,6 +110,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [covering, setCovering] = useState("");
   const base = "/rosters/" + encodeURIComponent(roster.id);
   const draft = roster.status === "DRAFT";
   const open = draft || roster.status === "PUBLISHED";
@@ -134,8 +140,7 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
     const roleLabel = String(fields.get("roleLabel") ?? "").trim();
     const path = base + "/slots" + (position ? "/" + encodeURIComponent(position.id) : "");
     const requiresCouple = fields.has("requiresCouple");
-    const location = Object.fromEntries(Object.keys(ROSTER_LOCATION_LABELS).map(field => [field, String(fields.get(field) ?? "").trim() || null]));
-    void mutate(path, { roleLabel, ...location, ...(position ? {} : { requiresCouple }) }, position ? "PATCH" : "POST");
+    void mutate(path, { roleLabel, ...(position ? {} : { requiresCouple }) }, position ? "PATCH" : "POST");
   }
 
   function savePerson(event: FormEvent<HTMLFormElement>, position: EscalaPosition, assignment?: EscalaAssignment) {
@@ -163,14 +168,18 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
       {confirmation}
       {notice && <p className={s.success} role="status">{notice}</p>}
       {open && new Date(roster.serviceAt).getTime() > Date.now() && <RosterEditor {...props} />}
+      {draft && roster.capacity && <CapacityEditor
+        key={roster.capacity.map(group => `${group.id}:${group.count}`).join("|")}
+        groups={roster.capacity} busy={busy} onSave={groups => void mutate(base + "/capacity", { groups }, "PATCH", "Quantidade atualizada neste culto.")} />}
+      {roster.moduleId && !members.length && <p className={s.vacancy}>Cadastre integrantes neste módulo para preencher as vagas.</p>}
       {Boolean(roster.positions?.length) && <dl className={s.counts} aria-label="Cobertura do culto">
         <div><dt>Vagas abertas</dt><dd>{summary.open}</dd></div>
         <div><dt>A confirmar</dt><dd>{summary.pending}</dd></div>
         <div><dt>Confirmadas</dt><dd>{summary.confirmed}</dd></div>
       </dl>}
       {open && Boolean(roster.positions?.length) && <details className={s.previewTools}>
-        <summary>Consultar sugestões de equipe</summary>
-        <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} />
+        <summary>Preencher escala com sugestões</summary>
+        <RosterPreviewPanel key={roster.id} token={token} rosterId={roster.id} onApplied={draft ? onRefresh : undefined} />
       </details>}
       {roster.positions?.map(position => {
         const current = position.assignments.filter(item => item.status === "PENDING" || item.status === "CONFIRMED");
@@ -181,6 +190,10 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
         const eligible = members.filter(member => !position.requiredQualification ||
           rules?.qualifications[position.requiredQualification]?.includes(member.personId));
         const listed = [...current, ...position.assignments.filter(item => !current.includes(item))];
+        const coverable = roster.status === "PUBLISHED" && Boolean(roster.moduleId) && !current.length && Date.parse(roster.serviceAt) > Date.now();
+        const manualForm = <PersonForm members={eligible.filter(member => member.personId !== replacing?.personId)}
+          busy={busy} couple={position.requiresCouple} pairs={roster.moduleId ? rules?.couples ?? [] : undefined}
+          label={replacing ? "Salvar substituição" : "Escalar"} onSubmit={event => savePerson(event, position, replacing)} />;
         return (
         <section className={s.position} key={position.id} id={`posto-${position.id}`} tabIndex={-1} aria-label={position.label}>
           <header className={s.positionHeading}>
@@ -196,18 +209,21 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
           })}</div>
           {draft && <details><summary>Editar posição</summary><form className={s.form} onSubmit={event => savePosition(event, position)}>
             <label>Nome da posição<input name="roleLabel" defaultValue={position.label} maxLength={100} required /></label>
-            <PositionLocationInputs location={position} />
             <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Salvar posição</button>
           </form></details>}
           {listed.map(assignment => (
             <div key={assignment.id} className={s.person}>
               <div><strong>{names.get(assignment.personId) ?? (assignment.personName || "Integrante escalado")}</strong>
-                {assignment.partnerPersonId && <span> · {names.get(assignment.partnerPersonId) ?? (assignment.partnerName || "Parceiro escalado")}</span>}
+                {assignment.personResponseStatus && <small>{assignmentStatusLabel[assignment.personResponseStatus]}</small>}
+                {assignment.partnerPersonId && <span className={s.partner}>
+                  <strong>{names.get(assignment.partnerPersonId) ?? (assignment.partnerName || "Parceiro escalado")}</strong>
+                  {assignment.partnerResponseStatus && <small>{assignmentStatusLabel[assignment.partnerResponseStatus]}</small>}
+                </span>}
                 {assignment.declinedAt && assignment.status === "SUBSTITUTED" && <small>Recusou antes da substituição</small>}
                 {assignment.substituteForId && <small>Substituição</small>}
               </div>
               <span className={s.assignmentStatus} data-status={assignment.status}>{assignmentStatusLabel[assignment.status]}</span>
-              {open && (current.includes(assignment) || replacing?.id === assignment.id) && eligible.some(member => member.personId !== assignment.personId) && <details id={current[0]?.id === assignment.id ? `trocar-${position.id}` : undefined} tabIndex={-1}>
+              {open && (current.includes(assignment) || !coverable && replacing?.id === assignment.id) && eligible.some(member => member.personId !== assignment.personId) && <details id={current[0]?.id === assignment.id ? `trocar-${position.id}` : undefined} tabIndex={-1}>
                 <summary>{assignment.status === "DECLINED" ? "Escalar substituto" : "Substituir"}</summary>
                 <PersonForm members={eligible.filter(member => member.personId !== assignment.personId)} busy={busy} couple={position.requiresCouple}
                   pairs={roster.moduleId ? rules?.couples ?? [] : undefined}
@@ -216,31 +232,53 @@ export function RosterActions(props: RosterActionsProps & { roster: MinistryEsca
             </div>
           ))}
           {!current.length && <p className={s.vacancy}>{replacing ? "Vaga aberta após recusa" : "Vaga aberta"}</p>}
-          {open && !current.length && !replacing && (
-            <PersonForm members={eligible} busy={busy} couple={position.requiresCouple}
-              pairs={roster.moduleId ? rules?.couples ?? [] : undefined}
-              label="Escalar" onSubmit={event => savePerson(event, position)} />
-          )}
+          {coverable && <button type="button" className={ui.workspaceSecondary} aria-expanded={covering === position.id}
+            onClick={() => setCovering(value => value === position.id ? "" : position.id)}>Cobrir vaga</button>}
+          {coverable && covering === position.id && <RosterCoverVacancy key={position.id} slotId={position.id}
+            requiresCouple={position.requiresCouple} previousId={replacing?.id} token={token} serviceAt={roster.serviceAt}
+            onRefresh={onRefresh} manualForm={manualForm} />}
+          {open && !current.length && !replacing && !coverable && manualForm}
         </section>
       ); })}
-      {draft && (
+      {draft && !roster.capacity && (
         <form className={s.form} onSubmit={savePosition}>
           <label>Nova posição<input name="roleLabel" placeholder="Ex. Recepção" maxLength={100} required /></label>
-          <PositionLocationInputs />
           <label className={s.checkbox}><input type="checkbox" name="requiresCouple" /> Posição para casal</label>
           <button className={ui.workspaceSecondary} type="submit" disabled={busy}>Adicionar posição</button>
         </form>
       )}
-      {draft && Boolean(roster.positions?.length) && <button type="button" className={ui.workspacePrimary} disabled={busy} onClick={() => void publish()}>Publicar escala</button>}
+      {props.allowPublish !== false && draft && Boolean(roster.positions?.length) && <button type="button" className={ui.workspacePrimary} disabled={busy} onClick={() => void publish()}>Publicar escala</button>}
       {error && <p className={s.error} role="alert">{error}</p>}
     </div>
   );
 }
 
-function PositionLocationInputs({ location }: { location?: RosterLocation }) {
-  return Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) =>
-    <label key={field}>{label}<input name={field} maxLength={100} defaultValue={location?.[field as keyof RosterLocation] ?? ""} /></label>,
-  );
+function CapacityEditor({ groups, busy, onSave }: {
+  groups: NonNullable<MinistryEscala["capacity"]>;
+  busy: boolean;
+  onSave: (groups: { id: string; count: number }[]) => void;
+}) {
+  const form = useRef<HTMLFormElement>(null);
+  return <details className={s.previewTools}>
+    <summary>Ajustar quantidade deste culto</summary>
+    <form ref={form} className={s.form} onSubmit={event => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      onSave(groups.map(group => ({ id: group.id, count: Number(data.get(group.id)) })));
+    }}>
+      {groups.map(group => <label key={group.id}>{group.label}
+        <small>Padrão {group.defaultCount} · mínimo atual {group.minimumCount}</small>
+        <input name={group.id} type="number" min={group.minimumCount} step={1} defaultValue={group.count} required />
+      </label>)}
+      <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => {
+        for (const group of groups) {
+          const field = form.current?.elements.namedItem(group.id);
+          if (field instanceof HTMLInputElement) field.value = String(Math.max(group.minimumCount, group.defaultCount));
+        }
+      }}>Restaurar padrão</button>
+      <button type="submit" className={ui.workspacePrimary} disabled={busy}>{busy ? "Salvando…" : "Salvar quantidade"}</button>
+    </form>
+  </details>;
 }
 
 function PersonForm({ members, busy, couple, pairs, label, onSubmit }: {
@@ -248,10 +286,10 @@ function PersonForm({ members, busy, couple, pairs, label, onSubmit }: {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const [person, setPerson] = useState("");
-  const people = couple && pairs ? members.filter(member => pairs.some(pair =>
-    pair.includes(member.personId) && pair.every(id => members.some(item => item.personId === id)))) : members;
-  const partners = person ? people.filter(member => member.personId !== person &&
-    (!pairs || pairs.some(pair => pair.includes(person) && pair.includes(member.personId)))) : [];
+  if (couple && pairs) return <CoupleForm members={members} busy={busy} pairs={pairs} label={label} onSubmit={onSubmit} />;
+
+  const people = members;
+  const partners = person ? people.filter(member => member.personId !== person) : [];
   if (!people.length) return <p className={s.vacancy}>Nenhum {couple ? "casal elegível" : "integrante elegível"} disponível para esta posição.</p>;
   return (
     <form className={s.form} onSubmit={onSubmit}>
@@ -264,4 +302,23 @@ function PersonForm({ members, busy, couple, pairs, label, onSubmit }: {
       <button type="submit" className={ui.workspaceSecondary} disabled={busy || !person || (couple && !partners.length)}>{label}</button>
     </form>
   );
+}
+
+function CoupleForm({ members, busy, pairs, label, onSubmit }: {
+  members: FormalMember[]; busy: boolean; pairs: [string, string][]; label: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const [selected, setSelected] = useState("");
+  const names = new Map(members.map(member => [member.personId, member.displayName]));
+  const eligible = pairs.filter(pair => pair.every(id => names.has(id)));
+  const selectedPair = eligible.find(([first]) => first === selected);
+  if (!eligible.length) return <p className={s.vacancy}>Nenhum casal elegível disponível para esta vaga.</p>;
+  return <form className={s.form} onSubmit={onSubmit}>
+    <label>Casal<select name="personId" value={selectedPair?.[0] ?? ""} onChange={event => setSelected(event.target.value)} required>
+      <option value="">Selecionar casal</option>
+      {eligible.map(([first, second]) => <option value={first} key={first}>{names.get(first)} e {names.get(second)}</option>)}
+    </select></label>
+    <input type="hidden" name="partnerPersonId" value={selectedPair?.[1] ?? ""} />
+    <button type="submit" className={ui.workspaceSecondary} disabled={busy || !selectedPair}>{label}</button>
+  </form>;
 }

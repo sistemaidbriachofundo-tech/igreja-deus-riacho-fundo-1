@@ -43,7 +43,7 @@ export function PortalVideoShowcase() {
                 <iframe
                   key={playing.id}
                   ref={frame => frame?.focus()}
-                  src={"https://www.youtube-nocookie.com/embed/" + playing.id + "?autoplay=1"}
+                  src={"https://www.youtube-nocookie.com/embed/" + playing.id + "?autoplay=1&playsinline=1"}
                   title={featured.title + " no YouTube"}
                   allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                   allowFullScreen

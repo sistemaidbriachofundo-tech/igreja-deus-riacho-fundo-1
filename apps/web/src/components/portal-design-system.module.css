@@ -1,18 +1,18 @@
 .palette {
-  --portal-paper: #faf7f1;
-  --portal-ivory: #f5eee4;
-  --portal-sage: #eee7dd;
-  --portal-gallery-ground: #e9dfd4;
+  --portal-paper: #ffffff;
+  --portal-ivory: #f6f6f6;
+  --portal-sage: #eeeeee;
+  --portal-gallery-ground: #eaeaea;
   --portal-ink: #191a1d;
   --portal-muted: #57565a;
   --portal-green: #101113;
   --portal-green-hover: #28292d;
-  --portal-on-green: #fff7ed;
-  --portal-on-green-muted: #eee4d9;
-  --portal-green-line: #464347;
-  --portal-gold: #f36b20;
-  --portal-title-accent: #dc4c0d;
-  --portal-display: Montserrat, Inter, Arial, sans-serif;
+  --portal-on-green: #ffffff;
+  --portal-on-green-muted: #ebebeb;
+  --portal-green-line: #484848;
+  --portal-gold: #d6d6d6;
+  --portal-title-accent: #383838;
+  --portal-display: var(--site-font);
 }
 
 .palette [data-appearance="verde"], .palette[data-appearance="verde"] {
@@ -31,11 +31,11 @@
   --portal-header: 72px;
   background: var(--portal-paper);
   color: var(--portal-ink);
-  font-family: Inter, Arial, sans-serif;
+  font-family: var(--site-font);
 }
 
 .theme :is(a, button, summary, h1, h2):focus-visible {
-  outline: 2px solid #ee6216;
+  outline: 2px solid #5c5c5c;
   outline-offset: 4px;
 }
 
@@ -82,8 +82,8 @@
   letter-spacing: 0;
 }
 
-.brand strong { font: 700 14px/1.3 Inter, Arial, sans-serif; }
-.brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 Inter, Arial, sans-serif; }
+.brand strong { font: 700 14px/1.3 var(--site-font); }
+.brand small { margin-top: 2px; opacity: .84; font: 500 11px/1.3 var(--site-font); }
 .masthead .brand, .masthead .brand strong { color: var(--portal-on-green); }
 .masthead .brand small { color: var(--portal-on-green-muted); }
 .masthead :is(a, summary):focus-visible { outline-color: var(--portal-gold); }
@@ -127,7 +127,7 @@
   border: 1px solid var(--portal-green-line);
   border-radius: 999px;
   color: var(--portal-on-green);
-  font: 650 13px/1 Inter, Arial, sans-serif;
+  font: 650 13px/1 var(--site-font);
 }
 
 .headerLogin:hover, .mobileMenu > summary:hover { background: var(--portal-green-hover); }
@@ -177,7 +177,7 @@
   padding: 10px 15px;
   border: 1px solid #b78f57;
   border-radius: 6px;
-  font: 650 14px/1.3 Inter, Arial, sans-serif;
+  font: 650 14px/1.3 var(--site-font);
 }
 
 .goldButton { background: #e9cd9c; color: #162c21; }
@@ -200,11 +200,40 @@
 }
 
 /* Identidade IDB Riacho 2026. Branding público somente; não altera o verde do painel. */
-.theme .headerLogin { border-color: #ed641f; color: #fffaf3; background: #b53a0c; border-radius: 999px; gap: 6px; }
-.theme .headerLogin:hover { background: #d64a11; }
+.theme .headerLogin { border-color: #fff; color: #151515; background: #fff; border-radius: 999px; gap: 6px; }
+.theme .headerLogin:hover { background: #e6e6e6; border-color: #e6e6e6; }
 .theme .masthead { box-shadow: 0 5px 24px #07070816; }
 .theme .brand strong { letter-spacing: .035em; }
 .theme .brand img { border-radius: 0; }
+.theme .masthead[data-appearance="light"] {
+  --portal-green: #fff;
+  --portal-green-hover: #eaf1e8;
+  --portal-on-green: #1d4c39;
+  --portal-on-green-muted: #33483d;
+  --portal-green-line: #dae2d9;
+  --portal-gold: #1d4c39;
+  box-shadow: none;
+}
+.masthead[data-appearance="light"] .brand img { filter: none; }
+.masthead[data-appearance="light"] .brand strong { letter-spacing: 0; }
+.masthead[data-appearance="light"] .desktopNav a { border-radius: 0; }
+.masthead[data-appearance="light"] .desktopNav a[aria-current="location"] {
+  box-shadow: inset 0 -2px #1d4c39;
+  font-weight: 700;
+}
+.theme .masthead[data-appearance="light"] .headerLogin {
+  border-color: var(--portal-green-line);
+  border-radius: 10px;
+  color: var(--portal-on-green);
+}
+.theme .masthead[data-appearance="light"] .headerLogin:hover { background: var(--portal-green-hover); }
+.masthead[data-appearance="light"] .mobileMenu > summary { border-radius: 9px; }
+.masthead[data-appearance="light"] .mobileMenuPanel { background: #fff; border-color: var(--portal-green-line); }
+.masthead[data-appearance="light"] .mobileMenuPanel > a { color: var(--portal-on-green); }
+.masthead[data-appearance="light"] .mobileMenuPanel > a:is(:hover, [aria-current="location"]) { background: var(--portal-green-hover); }
+@media (max-width: 690px) {
+  .theme .masthead[data-appearance="light"] .headerLogin { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .theme *, .theme *::before, .theme *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
@@ -218,3 +247,14 @@
 }
 
 @media (max-width: 340px) { .headerLogin svg { display: none; } }
+
+@media (max-width: 360px) {
+  .mastheadInner:has([data-broadcast-indicator]) .brand > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

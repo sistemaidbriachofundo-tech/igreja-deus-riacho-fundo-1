@@ -3,6 +3,7 @@ import {
   canRecordPresence,
   countLines,
   eventSlugFromName,
+  generateEventCode,
   participationQuery,
   publicationBlockReason,
   readParticipation,
@@ -15,6 +16,14 @@ describe("gestão de eventos", () => {
   it("gera um endereço válido a partir do nome do evento", () => {
     expect(eventSlugFromName("  Celebração & Comunhão ")).toBe("celebracao-comunhao");
     expect(eventSlugFromName("palavra ".repeat(20))).toMatch(/^[a-z0-9-]{3,80}$/);
+  });
+
+  it("gera códigos distintos para nomes repetidos, dentro do limite do campo", () => {
+    const first = generateEventCode("Inscrição Família", 40);
+    expect(first).toMatch(/^inscricao-familia-[a-p]{12}$/);
+    expect(generateEventCode("Inscrição Família", 40)).not.toBe(first);
+    expect(generateEventCode("família ".repeat(20), 40)).toMatch(/^[a-z0-9-]{3,40}$/);
+    expect(publicationBlockReason({ name: "Inscrição Família", slug: first, description: "", locationText: "" })).toBeNull();
   });
 
   it("bloqueia publicação com contato e aceita data comum", () => {

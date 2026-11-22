@@ -82,10 +82,8 @@ function intentPrompt(intent: Intent, layout: SiteLayout): { text: string; targe
       target: "hero",
       text: [
         ...shared,
-        "Sugira três alternativas curtas de título/destaque para a capa, preservando a identidade da igreja. Escolha uma preferida e formate com Título/Destaque/Descrição.",
-        "Título atual: " + layout.hero.title,
-        "Destaque atual: " + layout.hero.accent,
-        "Descrição atual: " + layout.hero.description,
+        "Sugira três alternativas curtas para a frase da capa, preservando a identidade da igreja. Identifique a preferida com o rótulo Descrição:",
+        "Frase atual: " + layout.hero.description,
       ].join("\n"),
     };
   }
@@ -95,10 +93,8 @@ function intentPrompt(intent: Intent, layout: SiteLayout): { text: string; targe
       target: "hero",
       text: [
         ...shared,
-        "Reescreva a apresentação da capa com tom de comunicação institucional da igreja: acolhedor, claro e convidativo a uma visita presencial.",
-        "Título atual: " + layout.hero.title,
-        "Destaque atual: " + layout.hero.accent,
-        "Descrição atual: " + layout.hero.description,
+        "Reescreva a frase da capa com um tom institucional acolhedor e claro. Identifique a proposta com o rótulo Descrição:",
+        "Frase atual: " + layout.hero.description,
       ].join("\n"),
     };
   }
@@ -107,10 +103,8 @@ function intentPrompt(intent: Intent, layout: SiteLayout): { text: string; targe
     target: "hero",
     text: [
       ...shared,
-      "Revise a clareza e fluidez da capa. Apresente uma proposta de título, destaque e descrição sem acrescentar fatos.",
-      "Título atual: " + layout.hero.title,
-      "Destaque atual: " + layout.hero.accent,
-      "Descrição atual: " + layout.hero.description,
+      "Revise a clareza e a fluidez da frase da capa. Identifique a proposta com o rótulo Descrição:",
+      "Frase atual: " + layout.hero.description,
     ].join("\n"),
   };
 }

@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -135,11 +136,53 @@ class CreateRosterBody {
   serviceType?: CultType;
 }
 
+class RosterMemberInvitationBody {
+  @IsString()
+  @MinLength(1)
+  personId!: string;
+
+  @IsString()
+  @MinLength(1)
+  moduleId!: string;
+}
+
 class RosterModuleBody {
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   name!: string;
+}
+
+class RosterMembershipModulesBody {
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  addModuleIds!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  removeModuleIds!: string[];
+}
+
+class CapacityGroupBody {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  id!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  count!: number;
+}
+
+class RosterCapacityBody {
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => CapacityGroupBody)
+  groups!: CapacityGroupBody[];
 }
 
 class EditRosterBody {
@@ -297,6 +340,16 @@ class ResendAlertBody {
   kind!: "confirm" | "decline" | "substitute" | "confirm_request";
 }
 
+class ModuleCapacityBody {
+  @IsIn([...CULT_TYPES])
+  cultType!: CultType;
+
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  count!: number;
+}
+
 @Controller("ministries")
 export class MinistriesController {
   constructor(private readonly ministries: MinistriesService) {}
@@ -333,6 +386,23 @@ export class MinistriesController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-modules/:moduleId/capacity")
+  moduleCapacity(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Param("moduleId") moduleId: string) {
+    return this.ministries.moduleCapacity(user, ministryId, moduleId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/roster-modules/:moduleId/capacity")
+  updateModuleCapacity(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Body() body: ModuleCapacityBody,
+  ) {
+    return this.ministries.updateModuleCapacity(user, ministryId, moduleId, body.cultType, body.count);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Patch(":ministryId/roster-modules/:moduleId/rules")
   saveRosterModuleRules(
     @CurrentUser() user: AuthUser,
@@ -344,6 +414,30 @@ export class MinistriesController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-modules/:moduleId/invitation-people")
+  searchRosterInvitationPeople(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("moduleId") moduleId: string,
+    @Query("q") query = "",
+    @Query("limit") limit?: string,
+  ) {
+    return this.ministries.searchRosterInvitationPeople(user, ministryId, moduleId, query, limit);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get(":ministryId/roster-member-invitations")
+  listRosterMemberInvitations(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string) {
+    return this.ministries.listRosterMemberInvitations(user, ministryId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post(":ministryId/roster-member-invitations")
+  createRosterMemberInvitation(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string, @Body() body: RosterMemberInvitationBody) {
+    return this.ministries.createRosterMemberInvitation(user, ministryId, body);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Post(":ministryId/roster-modules")
   createRosterModule(
     @CurrentUser() user: AuthUser,
@@ -351,6 +445,17 @@ export class MinistriesController {
     @Body() body: RosterModuleBody,
   ) {
     return this.ministries.saveRosterModule(user, ministryId, body.name);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":ministryId/memberships/:membershipId/roster-modules")
+  updateRosterModules(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("membershipId") membershipId: string,
+    @Body() body: RosterMembershipModulesBody,
+  ) {
+    return this.ministries.updateRosterModules(user, ministryId, membershipId, body);
   }
 
   @Roles(...LEAD_ROLES)
@@ -460,6 +565,30 @@ export class RostersController {
   }
 
   @Roles(...LEAD_ROLES)
+  @Get("by-event/:eventId")
+  eventRoster(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.ministries.listEventRoster(user, eventId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post("by-event/:eventId")
+  createEventRoster(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.ministries.createEventRoster(user, eventId);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Get("by-event/:eventId/people")
+  eventRosterPeople(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Query("q") query = "") {
+    return this.ministries.searchEventRosterPeople(user, eventId, query);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Patch(":rosterId/capacity")
+  capacity(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string, @Body() body: RosterCapacityBody) {
+    return this.ministries.updateRosterCapacity(user, rosterId, body.groups);
+  }
+
+  @Roles(...LEAD_ROLES)
   @Patch(":rosterId")
   update(@CurrentUser() user: AuthUser, @Param("rosterId") rosterId: string, @Body() body: EditRosterBody) {
     return this.ministries.editRoster(user, rosterId, body);
@@ -492,6 +621,16 @@ export class RostersController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.ministries.listRosters(user);
+  }
+
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/month/:month/publish")
+  publishMonth(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("month") month: string,
+  ) {
+    return this.ministries.publishRosterMonth(user, ministryId, month);
   }
 
   @Roles(

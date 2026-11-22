@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { apiGet, apiPatch, apiPost } from "../lib/api";
+import { isProductionAdmin } from "../lib/admin-environment";
 import { churchLocalToISO, dasError, formatChurchDate, type DasRecord } from "../lib/das-operations";
 import styles from "./care-boards.module.css";
 import { PersonPicker } from "./PersonPicker";
@@ -14,6 +15,7 @@ const code=(value:string)=>encodeURIComponent(value);
 
 /** Dados pastorais só são solicitados mediante clique do próprio PASTOR. */
 export function PastoralBoard({rows,token,roles,refresh}:Shared){
+  const production = isProductionAdmin();
   const [personId,setPersonId]=useState("");
   const [title,setTitle]=useState("");
   const [kind,setKind]=useState("VISITA");
@@ -29,7 +31,7 @@ export function PastoralBoard({rows,token,roles,refresh}:Shared){
     setBusy(true);setNotice("");
     try{
       await taskAction();
-      setNotice("Alteração registrada na base de homologação.");
+      setNotice("Alteração registrada.");
       onSuccess?.();refresh();
       return true;
     }catch(err){setNotice(dasError(err));return false;}
@@ -55,28 +57,28 @@ export function PastoralBoard({rows,token,roles,refresh}:Shared){
     });
   }
   return <section className={styles.board} aria-labelledby="pastoral-heading">
-    <div className={styles.intro}><span>RF-008/009 · ACESSO PASTORAL</span><h2 id="pastoral-heading">Acompanhamento com sigilo</h2>
-      <p>Somente o perfil pastoral autorizado pode consultar casos. Não registre informações reais ou dados íntimos na HML.</p></div>
+    <div className={styles.intro}><h2 id="pastoral-heading">Acompanhamentos</h2>
+      <p>{production ? "Área reservada ao perfil pastoral." : "Use somente dados fictícios neste ambiente de teste."}</p></div>
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <form className={styles.form} onSubmit={create}>
-      <h3>Abrir caso de teste</h3>
-      <PersonPicker token={token} roles={roles} label="Pessoa atendida (fictícia)" value={personId} onChange={setPersonId} required/>
+      <h3>Novo atendimento</h3>
+      <PersonPicker token={token} roles={roles} label="Pessoa atendida" value={personId} onChange={setPersonId} required/>
       <label>Categoria de atendimento<select value={kind} onChange={e=>setKind(e.target.value)}>
         <option value="VISITA">Visita</option><option value="ACOLHIMENTO">Acolhimento</option><option value="ACOMPANHAMENTO">Acompanhamento</option>
       </select></label>
-      <label>Assunto genérico, sem detalhes íntimos<input required value={title} onChange={e=>setTitle(e.target.value)} maxLength={140} placeholder="Visita de acompanhamento (teste)"/></label>
-      <button type="submit" disabled={busy||!personId.trim()||title.trim().length<3}>Abrir atendimento de teste</button>
+      <label>Assunto do atendimento<input required value={title} onChange={e=>setTitle(e.target.value)} maxLength={140} placeholder="Visita de acompanhamento"/></label>
+      <button type="submit" disabled={busy||!personId.trim()||title.trim().length<3}>Abrir atendimento</button>
     </form>
     <div className={styles.stack}>
-      {rows.length===0&&<p className={styles.empty}>Nenhum atendimento na base de testes.</p>}
+      {rows.length===0&&<p className={styles.empty}>Nenhum atendimento registrado.</p>}
       {rows.map((row,i)=>{
         const id=value(row.id);const selected=opened===id;
         return <article key={id||i} className={styles.item}>
           <div className={styles.itemHead}>
             <div><strong>{value(row.title)||"Atendimento sem título"}</strong>
               <small>Estado: {value(row.status)||"não informado"} · {formatChurchDate(row.createdAt)}</small></div>
-            <button type="button" disabled={!id||busy} onClick={()=>{setOpened(null);setDetail(null);}} aria-expanded={selected}>
-              {selected?"Ocultar":"Abrir com autorização"}
+            <button type="button" disabled={!id||busy} onClick={()=>void showCase(id)} aria-expanded={selected}>
+              {selected?"Ocultar":"Ver atendimento"}
             </button>
           </div>
           {selected&&detail&&<div className={styles.details}>
@@ -126,7 +128,7 @@ export function DiscipleshipBoard({rows,token,roles,refresh}:Shared){
     finally{setBusy(false);}
   }
   return <section className={styles.board} aria-labelledby="discipleship-heading">
-    <div className={styles.intro}><span>RF-010 · DISCIPULADO</span><h2 id="discipleship-heading">Trilhas e mentorias</h2>
+    <div className={styles.intro}><h2 id="discipleship-heading">Trilhas e mentorias</h2>
       <p>Acompanhe trilhas existentes e vincule pessoas fictícias a um mentor, com histórico gerenciado no servidor.</p></div>
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <div className={styles.split}>
@@ -186,7 +188,7 @@ export function GroupsBoard({rows,token,roles,refresh}:Shared){
   }
   const validGroup=rows.some(row=>row.id===selected);
   return <section className={styles.board} aria-labelledby="groups-heading">
-    <div className={styles.intro}><span>RF-011 · GRUPOS E CÉLULAS</span><h2 id="groups-heading">Pessoas, encontros e presença</h2>
+    <div className={styles.intro}><h2 id="groups-heading">Pessoas, encontros e presença</h2>
       <p>Presenças e vínculos são gravados por ID de pessoa. Não utilizar nomes ou registros reais nesta base.</p></div>
     {notice&&<p role="status" className={styles.notice}>{notice}</p>}
     <label className={styles.groupSelect}>Selecionar grupo<select value={selected} onChange={e=>setSelected(e.target.value)}>

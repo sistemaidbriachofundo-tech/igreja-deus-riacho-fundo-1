@@ -1,5 +1,6 @@
 "use client";
 
+import { EcclesiasticalRoleFields } from "./EcclesiasticalRoleFields";
 import { PersonPhotoInput } from "./PersonPhotoInput";
 import { accountProblem, savePersonPhoto } from "../../lib/my-account";
 import { PersonPortrait } from "../PersonPortrait";
@@ -214,7 +215,7 @@ export function Ficha360Dialog({
                 {person?.displayName ?? "Cadastro de pessoa"}
               </h2>
               {person && <div className={s.identityMeta}>
-                <span>{dossierLabel(person.kind)} · {dossierLabel(person.status)}</span>
+                <span data-active={person.status === "ACTIVE"}>{dossierLabel(person.kind)} · {dossierLabel(person.status)}</span>
                 {dossier?.memberships[0] && <span>Matrícula {registrationLabel(dossier.memberships[0].id)}</span>}
                 {dossier?.access && <span>{dossier.access.status === "ACTIVE" ? "Acesso ativo" : "Acesso desativado"}{dossier.access.roles.length ? ` · ${dossier.access.roles.join(", ")}` : ""}</span>}
                 {dossier?.access === null && <span>Sem conta de acesso</span>}
@@ -288,6 +289,11 @@ export function Ficha360Dialog({
               <button className={s.secondary} type="button" onClick={() => setActiveTab("historico")}>Ver linha do tempo</button>
             </div>
             <form className={s.form} onSubmit={onSubmit}>
+              {form.ecclesiasticalRoles !== undefined && <fieldset disabled={busy || !canEdit || creatingFamily}>
+                <legend>Funções eclesiásticas</legend>
+                <EcclesiasticalRoleFields value={form.ecclesiasticalRoles} ministryLeader={dossier?.ministryLeader}
+                  onChange={ecclesiasticalRoles => onEdit({ ...form, ecclesiasticalRoles })} />
+              </fieldset>}
               <fieldset disabled={busy || !canEdit || creatingFamily}>
                 <legend>Dados pessoais</legend>
                 <label>

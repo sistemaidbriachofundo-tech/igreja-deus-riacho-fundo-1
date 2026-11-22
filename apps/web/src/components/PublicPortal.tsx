@@ -8,7 +8,8 @@ import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
 import { UIIcon } from "./ui/UIIcon";
 import { PortalButton } from "./PortalButton";
-import { PublicHashFocus, PortalSectionLink } from "./PublicSectionLink";
+import { PortalBroadcastHeaderLink, PortalBroadcastProvider } from "./PortalBroadcast";
+import { PublicHashFocus, PortalSectionLink, type PublicSectionId } from "./PublicSectionLink";
 import d from "./portal-design-system.module.css";
 
 export { s as portalStyles };
@@ -29,22 +30,32 @@ const navigation = [
   { href: "/#agenda", label: "Agenda" },
 ];
 
-export function PortalHeader({ light = false, overlay = false }: { light?: boolean; overlay?: boolean }) {
+type AccountLink = { href: string; label: string };
+const defaultAccountLink: AccountLink = { href: "/login/", label: "Login" };
+
+export function PortalHeader({
+  light = false, overlay = false, section, accountLink = defaultAccountLink,
+}: {
+  light?: boolean; overlay?: boolean; section?: PublicSectionId; accountLink?: AccountLink;
+}) {
   return (
     <header className={d.masthead} id="topo" data-appearance={light ? "light" : "dark"} data-overlay={overlay || undefined}>
       <div className={d.mastheadInner}>
         <Logo inverse />
-        <PortalDesktopNavigation />
+        <PortalDesktopNavigation section={section} />
         <div className={d.headerControls}>
-          <Link href="/login/" className={d.headerLogin}><UIIcon name="badge" size={17} />Login</Link>
-          <MobilePortalMenu links={navigation} />
+          {!light && <PortalBroadcastHeaderLink home={overlay} />}
+          <Link href={accountLink.href} className={d.headerLogin}>
+            {!light && <UIIcon name="badge" size={17} />}{accountLink.label}
+          </Link>
+          <MobilePortalMenu links={light ? [...navigation, accountLink] : navigation} section={section} />
         </div>
       </div>
     </header>
   );
 }
 
-export function PortalFooter() {
+export function PortalFooter({ accountLink }: { accountLink?: AccountLink } = {}) {
   return (
     <footer className={`${s.footer} ${d.footer}`}>
       <div className={s.footerTop}>
@@ -57,7 +68,7 @@ export function PortalFooter() {
             <PortalSectionLink sectionId="inicio">Início</PortalSectionLink>
             <PortalSectionLink sectionId="quem-somos">Quem somos</PortalSectionLink>
             <PortalSectionLink sectionId="agenda">Agenda</PortalSectionLink>
-            <Link href="/login/">Login</Link>
+            {accountLink ? <Link href={accountLink.href}>{accountLink.label}</Link> : <Link href="/login/">Login</Link>}
           </div>
           <div><span className={s.footerLabel}>Redes sociais</span>
             <a href={youtubeChannelUrl} target="_blank" rel="noopener noreferrer">YouTube</a>
@@ -70,8 +81,23 @@ export function PortalFooter() {
   );
 }
 
-export function PublicPage({ children, lightHeader = false, overlayHeader = false }: { children: ReactNode; lightHeader?: boolean; overlayHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} overlay={overlayHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
+export function PublicPage({
+  children, lightHeader = false, overlayHeader = false, section, accountLink,
+}: {
+  children: ReactNode; lightHeader?: boolean; overlayHeader?: boolean;
+  section?: PublicSectionId; accountLink?: AccountLink;
+}) {
+  return (
+    <PortalBroadcastProvider>
+      <div className={`${s.portal} ${d.theme}`}>
+        <a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a>
+        <PortalHeader light={lightHeader} overlay={overlayHeader} section={section} accountLink={accountLink} />
+        <PublicHashFocus />
+        {children}
+        <PortalFooter accountLink={accountLink} />
+      </div>
+    </PortalBroadcastProvider>
+  );
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {

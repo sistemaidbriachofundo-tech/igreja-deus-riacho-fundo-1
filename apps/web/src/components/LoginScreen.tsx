@@ -13,6 +13,7 @@ import { useAppRouterBridge } from "../lib/use-app-router-bridge";
 import { withBasePath } from "../lib/paths";
 import { officialLogoAsset } from "../lib/brand";
 import { authenticatedLanding } from "../lib/auth-destination";
+import { eventAuthHref, validEventSlug } from "../lib/public-event-registration";
 import { generateAuthenticatorQr } from "../lib/authenticator-qr";
 import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
@@ -29,6 +30,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const [eventSlug, setEventSlug] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [challenge, setChallenge] = useState<LoginChallenge["mfa"] | null>(null);
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
@@ -38,10 +40,15 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [expired, setExpired] = useState(false);
   const codeInput = useRef<HTMLInputElement>(null);
   const needsSetup = Boolean(challenge?.enrollmentRequired && !enrollment);
+  const submitLabel = eventSlug && validEventSlug(eventSlug) ? "Entrar para se inscrever" : "Entrar no painel";
 
   useEffect(() => {
     publishPerfProbe();
-    setPasswordChanged(!onAuthenticated && new URLSearchParams(window.location.search).get("senha") === "alterada");
+    if (!onAuthenticated) {
+      const params = new URLSearchParams(window.location.search);
+      setPasswordChanged(params.get("senha") === "alterada");
+      setEventSlug(params.get("evento"));
+    }
   }, [onAuthenticated]);
 
   // Na rota /login, uma sessão já confirmada entra sem novo /auth/me.
@@ -50,16 +57,17 @@ export function LoginScreen({ onAuthenticated }: Props) {
     if (onAuthenticated || !enabled) return;
     const token = loadStoredToken();
     if (!token) return;
+    const event = new URLSearchParams(window.location.search).get("evento");
     const cached = readValidatedSession(token);
     if (cached) {
-      openAuthenticatedArea(authenticatedLanding(cached));
+      openAuthenticatedArea(authenticatedLanding(cached, event));
       return;
     }
     let cancelled = false;
     setChecking(true);
     void apiGet<Me>("/auth/me", token)
       .then(user => {
-        if (!cancelled) openAuthenticatedArea(authenticatedLanding(user));
+        if (!cancelled) openAuthenticatedArea(authenticatedLanding(user, event));
       })
       .catch((problem: unknown) => {
         if (isInvalidSession(problem)) clearToken();
@@ -105,7 +113,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
     setCode("");
     setPassword("");
     if (onAuthenticated) onAuthenticated(login.user);
-    else openAuthenticatedArea(authenticatedLanding(login.user));
+    else openAuthenticatedArea(authenticatedLanding(login.user, new URLSearchParams(window.location.search).get("evento")));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -170,17 +178,13 @@ export function LoginScreen({ onAuthenticated }: Props) {
       {RouterBridge ? <RouterBridge /> : null}
       <Link className={styles.back} href="/">← Voltar ao site da igreja</Link>
       <div className={styles.layout}>
-        <aside className={styles.story} aria-label="Identidade da Igreja de Deus">
-          <div className={styles.brand}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={withBasePath(officialLogoAsset)} alt="Igreja de Deus — Riacho Fundo I" width={80} height={90}/>
-            <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={styles.facade} src={withBasePath("/images/fachada-igreja-riacho-fundo.jpg")} alt="Fachada da igreja" />
-        </aside>
         <section className={styles.panel} aria-labelledby="login-heading">
           <div className={styles.panelInner}>
+          <div className={styles.brand}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={withBasePath(officialLogoAsset)} alt="" width={48} height={54}/>
+            <div><strong>IGREJA DE DEUS</strong><span>RIACHO FUNDO I</span></div>
+          </div>
             <div className={styles.heading}>
               <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
               <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Acesso ao ID Riacho 1"}</p>
@@ -240,10 +244,13 @@ export function LoginScreen({ onAuthenticated }: Props) {
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
               <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}
                 aria-busy={busy || checking} aria-label={busy || checking ? "Carregando" : undefined}>
-                {checking||busy ? <span className={styles.submitSpinner} aria-hidden="true" /> : "Entrar no painel"}
+                {checking||busy ? <span className={styles.submitSpinner} aria-hidden="true" /> : submitLabel}
               </button>
             </form>}
-            <p className={styles.bottom}>Não possui acesso ou esqueceu a senha? Procure a administração da igreja.</p>
+            {!challenge && <p className={styles.bottom}>
+              {enabled && <><Link className={styles.gateLink} href={eventAuthHref("/cadastro/", eventSlug)}>Criar conta como convidado</Link><br /></>}
+              <Link className={styles.gateLink} href={eventAuthHref("/recuperar-senha/", eventSlug)}>Esqueci minha senha</Link>
+            </p>}
           </div>
         </section>
       </div>

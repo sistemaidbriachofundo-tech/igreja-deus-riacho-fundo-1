@@ -107,22 +107,27 @@ function render(tab: "visao" | "integrantes" | "escalas" | "atividades" | "recur
 describe("experiência de ministérios", () => {
   it("exibe os módulos e as escalas gerais dentro do Atmosfera", () => {
     const atmosfera = { id: "atmosfera", name: "Atmosfera", slug: "atmosfera" };
+    const currentMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date());
     const html = renderToStaticMarkup(<MinistryExperience
       {...quiet}
       token="synthetic"
       desk={{ ...ready, ministry: atmosfera, ministries: [atmosfera, ...ready.ministries] }}
       tab="escalas"
-      escalas={{ kind: "ready", modules: [{ id: "recepcao", name: "Recepção" }], items: [
-        { id: "antiga", title: "Culto geral existente", serviceAt: "2026-11-15T13:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
-        { id: "nova", moduleId: "recepcao", title: "Culto de domingo à noite", serviceAt: "2026-11-15T22:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
+      escalaId="antiga"
+      escalas={{ kind: "ready", permissions: { scope: "ministry", manageRosterMonth: true, manageModuleMemberships: true },
+        modules: [{ id: "recepcao", name: "Recepção" }], items: [
+        { id: "antiga", title: "Culto geral existente", serviceAt: currentMonth + "-15T13:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
+        { id: "nova", moduleId: "recepcao", title: "Culto de domingo à noite", serviceAt: currentMonth + "-15T22:00:00.000Z", status: "DRAFT", functions: [], assignedCount: 0 },
       ] }}
       activities={{ kind: "hidden" }}
     />);
-    expect(html).toContain("Mais");
-    expect(html).toContain('aria-pressed="false">Recepção');
+    expect(html).toContain("Gerar escala do mês");
+    expect(html).toContain("Publicar escala do mês");
+    expect(html).toContain('value="recepcao">Recepção');
     expect(html).toContain("Baixar PDF da escala Culto geral existente");
-    expect(html).toContain("Baixar Excel da escala Culto de domingo à noite");
-    expect(html).toContain("Excel da lista");
+    expect(html).toContain("Baixar Excel da escala Culto geral existente");
+    expect(html).toContain("Exportar Excel");
+    expect(html).not.toContain("Portal do Voluntário");
     expect(html).toContain("Culto geral existente");
     expect(html).toContain("Culto de domingo à noite");
   });

@@ -6,11 +6,12 @@ import {
   accountProblem, changeMyPassword, newPasswordProblem, readMyAccount, saveMyPhone, type MyAccount,
 } from "../../lib/my-account";
 import { withBasePath } from "../../lib/paths";
-import { usePersonaAccess } from "../AppShell";
+import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert, Button, Input, Loading, PageHeader, PasswordField } from "../ui";
 import { RosterNotifications } from "../serving/RosterNotifications";
 import { areaAllowed } from "../../lib/persona-navigation";
 import { ProfilePhoto } from "./ProfilePhoto";
+import { MyCredentialSection } from "./MyCredentialSection";
 import s from "./my-account.module.css";
 
 type Feedback = { tone: "success" | "danger"; message: string };
@@ -159,6 +160,8 @@ export function MyAccountPage() {
         <div className={s.layout}>
           <ProfilePhoto account={activeProfile.account} token={activeProfile.token} />
           <div className={s.details}>
+            <MyCredentialSection token={activeProfile.token} />
+            <div className={s.actions}><AppNavLink href="/app/minha-conta/carteirinha/">Abrir minha carteirinha em tela cheia →</AppNavLink></div>
             <AccountContact account={activeProfile.account} token={activeProfile.token} />
             <AccountSecurity token={activeProfile.token} />
             {areaAllowed(access.roles, "meu-espaco") && <RosterNotifications token={activeProfile.token} mode="settings" />}

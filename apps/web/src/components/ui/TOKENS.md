@@ -1,8 +1,8 @@
 # Tokens do painel — ID Riacho 1
 
 Guia da frente H (#152, epic #144) para as frentes A–G e para o integrador J (#154).
-A paleta continua a da Igreja de Deus no Riacho Fundo I: marrom `#4A2612`, creme `#F7EDE0`, ouro `#D4AF37`.
-Ouro e bronze não são texto pequeno sobre fundo claro.
+A paleta aprovada para o portal público é preto e branco. O painel utiliza preto `#171717`, superfície `#FFFFFF`, canvas `#F5F6F7`, cinza `#59616B` e ouro discreto `#C9A76B` somente como detalhe. Estados têm cores funcionais verde `#286B52`, azul `#294E70`, âmbar `#8A651F` e vermelho `#9C3041`. A cor nunca substitui rótulo, ícone ou texto de status.
+Ouro e bronze decorativos não são texto pequeno sobre fundo claro. 
 
 Os componentes vivem em `apps/web/src/components/ui`. Os nomes semânticos também estão no final de `apps/web/src/app/globals.css`, num bloco marcado `Frente H`. Esse bloco não troca o layout do portal; ele corrige texto, foco e alvo que o próprio `globals.css` deixava abaixo do critério.
 
@@ -55,7 +55,7 @@ Dentro do kit, o modo escuro é `data-appearance="dark"` no recipiente `.scope`.
 
 ## Como usar
 
-- Uma ação primária por região. O botão primário é ouro com texto marrom e borda marrom.
+- Uma ação primária por região. O botão primário é preto com texto branco e cantos suaves de 10px. Ouro só em detalhes institucionais ou em peças como carteirinhas.
 - Estado vazio, erro, carregando e sucesso levam texto. A cor não é o único sinal.
 - `PasswordField` coloca Mostrar ao lado do campo, com 44×44 px. Não use um botão absoluto de 32 px.
 - `Modal` e `Drawer` fecham com Escape, prendem o Tab e devolvem o foco. O fundo fica `inert`.

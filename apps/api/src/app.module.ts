@@ -39,10 +39,12 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { PastoralModule } from "./pastoral/pastoral.module";
 import { PersonsModule } from "./persons/persons.module";
 import { PilotModule } from "./pilot/pilot.module";
+import { PilotoModule } from "./piloto/piloto.module";
 import { PlatformSecurityModule } from "./platform-security/platform-security.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublicPortalModule } from "./public-portal/public-portal.module";
 import { ReportsModule } from "./reports/reports.module";
+import { ServiceOrdersModule } from "./service-orders/service-orders.module";
 import { StorageModule } from "./storage/storage.module";
 import { TransfersModule } from "./transfers/transfers.module";
 import { VolunteersModule } from "./volunteers/volunteers.module";
@@ -56,6 +58,7 @@ import { ViviModule } from "./vivi/vivi.module";
     ObservabilityModule.forRoot({ env: observabilityEnv() }),
     StorageModule,
     PilotModule,
+    PilotoModule,
     AuthModule,
     AccountModule,
     MfaModule,
@@ -81,6 +84,7 @@ import { ViviModule } from "./vivi/vivi.module";
     ChannelsModule,
     IndicatorsModule,
     ReportsModule,
+    ServiceOrdersModule,
     AssetsModule,
     CmsModule,
     VolunteersModule,
@@ -100,6 +104,7 @@ export class AppModule implements NestModule {
       { path: "auth/login", method: RequestMethod.POST },
       { path: "auth/activate-invite", method: RequestMethod.POST },
       { path: "auth/reset-password", method: RequestMethod.POST },
+      { path: "auth/password/forgot", method: RequestMethod.POST },
       { path: "credentials/verify/:opaqueToken", method: RequestMethod.GET },
       { path: "public/volunteer-interests", method: RequestMethod.POST },
       { path: "public/events/:slug/registrations", method: RequestMethod.POST },

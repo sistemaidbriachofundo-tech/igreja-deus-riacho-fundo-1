@@ -10,11 +10,13 @@ import {
   canApprovePastoralAdmission,
   canManageAdmissions,
   isCredentialEligible,
+  missingRequiredAdmissionDocuments,
   type AdmissionModality,
   type AdmissionStep,
   type CreateAdmissionRequest,
   type AdvanceAdmissionRequest,
 } from "@idbrf/shared";
+import type { AdmissionModality as PrismaAdmissionModality, Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
 import { PrismaService } from "../prisma/prisma.service";
@@ -37,10 +39,11 @@ export class AdmissionsService {
         churchId: pilot.churchId,
         ...(status ? { status: status as never } : {}),
       },
+      include: { person: { select: { displayName: true } } },
       orderBy: { createdAt: "desc" },
     });
 
-    return { admissions: rows.map((row) => this.toDto(row)) };
+    return { admissions: rows.map((row) => ({ ...this.toDto(row), personName: row.person?.displayName ?? null })) };
   }
 
   async getById(actor: AuthUser, admissionId: string) {
@@ -392,6 +395,13 @@ export class AdmissionsService {
         data.currentStep = "documents";
         data.status = "AWAITING_DOCUMENTS";
       } else if (completeStep === "documents") {
+        const missing = await this.missingRequiredDocuments(tx, admission);
+        if (missing.length > 0) {
+          throw new BusinessException(
+            `Faltam documentos obrigatórios configurados: ${missing.map((item) => item.label).join(", ")}`,
+            "ADMISSION_DOCUMENTS_REQUIRED",
+          );
+        }
         data.documentsComplete = true;
         data.currentStep = "secretaria";
         data.status = "AWAITING_SECRETARIA";
@@ -439,6 +449,28 @@ export class AdmissionsService {
 
       return this.toDto(updated);
     });
+  }
+
+  private async missingRequiredDocuments(
+    tx: Prisma.TransactionClient,
+    admission: { id: string; churchId: string; modality: string | null },
+  ) {
+    if (!admission.modality) return [];
+    const requirements = await tx.admissionDocumentRequirement.findMany({
+      where: {
+        churchId: admission.churchId,
+        modality: admission.modality as PrismaAdmissionModality,
+        active: true,
+        required: true,
+      },
+      select: { id: true, label: true, required: true, active: true },
+    });
+    if (requirements.length === 0) return [];
+    const documents = await tx.admissionDocument.findMany({
+      where: { admissionId: admission.id, requirementId: { in: requirements.map((item) => item.id) } },
+      select: { requirementId: true },
+    });
+    return missingRequiredAdmissionDocuments(requirements, documents.map((item) => item.requirementId));
   }
 
   private assertCanList(
