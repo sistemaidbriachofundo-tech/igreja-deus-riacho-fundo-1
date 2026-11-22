@@ -1,4 +1,11 @@
 .panel {
+  --color-dourado: #c9a76b;
+  --color-bronze: #705020;
+  --color-marrom: #171717;
+  --color-ink-muted: #59616b;
+  --color-line: #e0e4e7;
+  --color-surface: #ffffff;
+  --shadow-soft: none;
   display: grid;
   gap: 1.25rem;
   min-width: 0;
@@ -453,3 +460,7 @@
 .paymentForm p{margin:0;font-size:.84rem}
 .paymentButtons{display:flex;flex-wrap:wrap;gap:8px}
 @media(max-width:710px){.paymentForm{grid-template-columns:minmax(0,1fr)}}
+
+/* Tesouraria: base neutra, ouro apenas para destaque financeiro; estados com semântica. */
+.panel :is(button,input,select,textarea,a):focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
+.metric, .card { border-color: #e0e4e7; border-radius: 14px; }
