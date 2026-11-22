@@ -124,7 +124,6 @@ model Organization {
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   serviceOrders ServiceOrder[]
-  serviceOrderPolicy ServiceOrderPolicy?
   admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("organizations")
 }
@@ -197,6 +196,7 @@ model Church {
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   serviceOrders ServiceOrder[]
+  serviceOrderPolicy ServiceOrderPolicy?
   admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("churches")
 }
