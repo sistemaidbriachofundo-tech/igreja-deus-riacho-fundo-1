@@ -1,0 +1,65 @@
+.panel{display:grid;gap:14px;margin-top:18px;color:#171717;min-width:0}
+.layout{display:grid;gap:18px}
+.heading{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:14px}
+.heading h2{font-size:clamp(23px,2.5vw,30px);letter-spacing:-.045em;margin:4px 0 8px}
+.heading p{font-size:13px;line-height:1.55;color:#59616b;margin:0;max-width:600px}
+.overline{letter-spacing:.14em;font-weight:750;font-size:10px;color:#9c7537}
+.monthPick,.selector{display:grid;gap:6px;font-size:12px;font-weight:700}
+.monthPick input,.selector select{min-height:44px;background:#fff;padding:8px 12px;border:1px solid #d6dce0;border-radius:11px;color:#171717}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{display:grid;gap:6px;padding:18px;border-radius:15px;background:#fff;border:1px solid #e1e4e8}
+.kpi strong{font-size:clamp(29px,3vw,40px);letter-spacing:-.05em}.kpi span{font-size:12px;color:#59616b}
+.kpi[data-accent=good] strong{color:#286b52}.kpi[data-accent=warning] strong{color:#976722}
+.schedule{border:1px solid #e1e4e8;background:#fff;border-radius:17px;padding:18px;display:grid;gap:0}
+.scheduleHead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:14px}
+.scheduleHead h3{margin:0;font-size:17px;text-transform:capitalize}
+.scheduleHead span{font-size:12px;color:#59616b}
+.scheduleRow{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:start;border-top:1px solid #eff0f1;padding:14px 0}
+.dateBlock{display:grid;place-items:center;gap:0;background:#f4f5f6;padding:10px 4px;border-radius:10px}
+.dateBlock strong{font-size:23px;letter-spacing:-.04em}.dateBlock span{font-size:10px;text-transform:uppercase;color:#59616b}
+.scheduleText{min-width:0;display:grid;gap:6px}
+.scheduleText>strong{font-size:14px}.scheduleText>span{font-size:12px;color:#59616b}
+.scheduleText details{font-size:12px;color:#38434d}
+.scheduleText summary{cursor:pointer;font-weight:700;min-height:34px;display:flex;align-items:center}
+.scheduleText ol{padding-left:20px;margin:6px 0 10px}
+.scheduleText li{padding:4px 0;line-height:1.45}.scheduleText li span{color:#60666d}
+.warnings{padding-left:18px;color:#8a651f;line-height:1.55}
+.rowRight{display:grid;justify-items:end;gap:8px}
+.rowRight time{font-size:13px;font-weight:800}
+.rowRight span{font-size:10px;border-radius:8px;padding:5px 7px;background:#f1f3f5;color:#59616b}
+.rowRight span[data-state=warn]{background:#fcf0d8;color:#81591b}
+.rowRight span[data-state=ready]{background:#e1f1e5;color:#286b52}
+.generate{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px;background:#fff;border:1px solid #dce1e5;border-radius:16px}
+.generate p{font-size:12px;color:#59616b;line-height:1.5;margin:7px 0}
+.generate label{display:flex;align-items:start;gap:9px;font-size:12px}
+.generate button,.save{min-height:46px;padding:12px 18px;border:0;border-radius:11px;background:#171717;color:#fff;font-weight:750;cursor:pointer;white-space:nowrap}
+.generate button:disabled,.save:disabled{opacity:.47;cursor:not-allowed}
+.rulesGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ruleCard{min-width:0;display:grid;align-content:start;gap:17px;padding:21px;background:#fff;border:1px solid #dce1e5;border-radius:15px}
+.ruleCard h3{margin:0;font-size:17px}.ruleCard>label{display:grid;gap:8px;font-size:12px;font-weight:650;color:#30383f}
+.ruleCard input:not([type=checkbox]),.ruleCard select{min-height:43px;border:1px solid #d9dce0;border-radius:9px;padding:9px;background:#fff;color:#171717;font-size:13px;width:100%;min-width:0}
+.ruleCard input[type=range]{accent-color:#171717}
+.ruleCard .switch{display:flex;gap:11px;align-items:start;line-height:1.55}
+.switch input{margin-top:4px;accent-color:#171717;flex:none}
+.cultRow{display:grid;grid-template-columns:minmax(95px,1fr) 95px minmax(120px,2fr) 30px;gap:8px;align-items:end}
+.cultRow label{display:grid;gap:6px;font-size:11px;color:#59616b}
+.cultRow button{width:30px;height:43px;border:1px solid #e6c5c5;color:#9c3041;background:#fff;border-radius:9px;cursor:pointer}
+.add{background:#fff;color:#171717;border:1px solid #b9c1c9;border-radius:10px;padding:12px;font-weight:650;cursor:pointer}
+.save{grid-column:1/-1;justify-self:end}
+.help,.footnote{font-size:12px;color:#59616b;line-height:1.6;margin:0}
+.error,.notice{padding:13px 15px;border-radius:11px;border:1px solid #e4b2bb;background:#fff0f3;color:#842b40;font-size:13px}
+.notice{border-color:#c6e2d1;background:#e8f3ee;color:#286b52}
+.error button{padding:4px 11px;margin-left:10px;border:1px solid currentColor;border-radius:8px;cursor:pointer}
+.loading{padding:24px;border-radius:12px;border:1px dashed #c8cdd2;background:#fff;font-size:13px;color:#59616b}
+.clock{font-size:30px;letter-spacing:-.04em;font-variant-numeric:tabular-nums;font-weight:800}
+.liveSequence{display:grid;gap:10px}
+.liveRow{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:14px;align-items:center;background:#fff;border:1px solid #e2e5e8;border-left:5px solid #c4c8cb;border-radius:12px;padding:15px}
+.liveRow[data-phase=current]{border-left-color:#286b52;background:#f0f8f3}
+.liveRow[data-phase=done]{opacity:.68}
+.liveRow time{font-size:14px;font-weight:800}
+.liveRow>div{display:grid;gap:4px}.liveRow strong{font-size:14px}.liveRow div span{font-size:12px;color:#59616b}
+.liveRow>span:last-child{font-size:11px;color:#59616b}
+.panel :is(input,button,select,summary):focus-visible{outline:3px solid #171717;outline-offset:3px}
+@media(max-width:1050px){.rulesGrid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.schedule{padding:12px}.scheduleRow{grid-template-columns:43px minmax(0,1fr);gap:8px}.rowRight{grid-column:2;justify-items:start;display:flex;align-items:center}.generate{display:grid}.generate button{width:100%}.cultRow{grid-template-columns:1fr 1fr}.cultRow label:nth-child(3){grid-column:1/-1}.cultRow button{grid-column:2;justify-self:end}.kpis{gap:8px}.kpi{padding:12px}.liveRow{grid-template-columns:48px minmax(0,1fr)}.liveRow>span:last-child{grid-column:2}.ruleCard{padding:14px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
