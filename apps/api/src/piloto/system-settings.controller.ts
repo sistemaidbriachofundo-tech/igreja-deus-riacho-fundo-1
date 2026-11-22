@@ -20,6 +20,7 @@ class ReviewBody {
 }
 
 class PublishBody extends ReviewBody {
+  @IsOptional() @IsString() @MaxLength(80) replaceRevisionId?: string;
   @IsString() @MaxLength(40) effectiveFrom!: string;
   @IsOptional() @IsString() @MaxLength(40) effectiveUntil?: string | null;
 }
@@ -33,6 +34,12 @@ export class SystemSettingsController {
   @Header("Cache-Control", "private, no-store")
   catalog(@CurrentUser() actor: AuthUser) {
     return this.settings.catalog(actor);
+  }
+
+  @Get("pastors")
+  @Header("Cache-Control", "private, no-store")
+  pastors(@CurrentUser() actor: AuthUser) {
+    return this.settings.pastors(actor);
   }
 
   @Get("effective")

@@ -60,6 +60,20 @@ export class SystemSettingsService {
     };
   }
 
+  private pastoralGrants(pilot: { organizationId: string; churchId: string }) {
+    return { some: { organizationId: pilot.organizationId, churchId: pilot.churchId, role: { code: ROLE_CODES.PASTOR } } };
+  }
+
+  async pastors(actor: AuthUser) {
+    const pilot = await this.admin(actor);
+    const users = await this.prisma.user.findMany({
+      where: { status: "ACTIVE", grants: this.pastoralGrants(pilot) },
+      select: { id: true, person: { select: { displayName: true } } },
+      orderBy: { person: { displayName: "asc" } },
+    });
+    return { items: users.map(user => ({ id: user.id, name: user.person.displayName })) };
+  }
+
   async effective(actor: AuthUser, key: string, scopeKind: string, scopeId: string | undefined, at = new Date()) {
     const pilot = await this.admin(actor);
     return this.lookup(pilot, key, scopeKind, scopeId, at);
@@ -108,7 +122,7 @@ export class SystemSettingsService {
     const pilot = await this.admin(actor);
     await this.catalogRow(key);
     const revisions = await this.prisma.systemSettingRevision.findMany({
-      where: { catalogKey: key, organizationId: pilot.organizationId },
+      where: { catalogKey: key, organizationId: pilot.organizationId, churchId: pilot.churchId },
       orderBy: { createdAt: "asc" },
     });
     return { revisions: revisions.map(revision => this.view(revision)) };
@@ -123,6 +137,15 @@ export class SystemSettingsService {
     if (!EDITABLE_SETTINGS.has(catalog.key)) throw new BadRequestException("Esta regra está disponível para consulta.");
     const kind = this.scopeKind(input.scopeKind || catalog.scopeKind);
     this.assertValue(catalog.key, catalog.valueType, input.value);
+    if (kind !== catalog.scopeKind || ((kind === "CHURCH" || kind === "PLATFORM") && input.scopeId)) {
+      throw new BadRequestException("O escopo deve corresponder ao da regra.");
+    }
+    if (catalog.key.startsWith("pastoral.") && typeof input.value === "string" && input.value) {
+      const pastor = await this.prisma.user.findFirst({
+        where: { id: input.value, status: "ACTIVE", grants: this.pastoralGrants(pilot) }, select: { id: true },
+      });
+      if (!pastor) throw new BadRequestException("Escolha um pastor ativo desta congregação.");
+    }
     const created = await this.prisma.systemSettingRevision.create({
       data: {
         catalogKey: catalog.key, organizationId: pilot.organizationId, churchId: pilot.churchId,
@@ -136,7 +159,7 @@ export class SystemSettingsService {
 
   async review(actor: AuthUser, revisionId: string, expectedUpdatedAt?: string) {
     const pilot = await this.admin(actor);
-    const current = await this.revision(pilot.organizationId, revisionId);
+    const current = await this.revision(pilot, revisionId);
     this.expectFresh(current.updatedAt, expectedUpdatedAt);
     if (current.lifecycle !== "DRAFT") throw new ConflictException("Somente um rascunho segue para revisão.");
     const updated = await this.prisma.systemSettingRevision.update({
@@ -147,16 +170,17 @@ export class SystemSettingsService {
     return this.view(updated);
   }
 
-  async publish(actor: AuthUser, revisionId: string, input: { effectiveFrom: string; effectiveUntil?: string | null; expectedUpdatedAt?: string }) {
+  async publish(actor: AuthUser, revisionId: string, input: { effectiveFrom: string; effectiveUntil?: string | null; expectedUpdatedAt?: string; replaceRevisionId?: string }) {
     const pilot = await this.admin(actor);
-    const current = await this.revision(pilot.organizationId, revisionId);
+    const current = await this.revision(pilot, revisionId);
     this.expectFresh(current.updatedAt, input.expectedUpdatedAt);
     if (current.lifecycle !== "IN_REVIEW") throw new ConflictException("A publicação sai da revisão.");
-    const from = this.instant(input.effectiveFrom, "effectiveFrom");
+    const now = new Date();
+    const from = input.effectiveFrom === "now" ? now : this.instant(input.effectiveFrom, "effectiveFrom");
     const until = input.effectiveUntil ? this.instant(input.effectiveUntil, "effectiveUntil") : null;
     if (until && until <= from) throw new BadRequestException("A vigência termina depois do início.");
     const updated = await this.prisma.$transaction(async tx => {
-      const fresh = await tx.systemSettingRevision.findFirst({ where: { id: current.id, organizationId: pilot.organizationId } });
+      const fresh = await tx.systemSettingRevision.findFirst({ where: { id: current.id, organizationId: pilot.organizationId, churchId: pilot.churchId } });
       if (!fresh) throw new NotFoundException("Revisão não encontrada.");
       this.expectFresh(fresh.updatedAt, input.expectedUpdatedAt);
       if (fresh.lifecycle !== "IN_REVIEW" || fresh.scopeKind !== current.scopeKind || fresh.scopeId !== current.scopeId) {
@@ -165,14 +189,23 @@ export class SystemSettingsService {
       const published = await tx.systemSettingRevision.findMany({
         where: {
           catalogKey: fresh.catalogKey, lifecycle: "PUBLISHED", scopeKind: fresh.scopeKind,
-          scopeId: fresh.scopeId, organizationId: pilot.organizationId, id: { not: fresh.id },
+          scopeId: fresh.scopeId, organizationId: pilot.organizationId, churchId: pilot.churchId, id: { not: fresh.id },
         },
       });
-      const overlaps = published.some(revision => revision.effectiveFrom && windowsOverlap(
+      const overlaps = published.filter(revision => revision.effectiveFrom && windowsOverlap(
         { from: from.toISOString(), until: until?.toISOString() ?? null },
         { from: revision.effectiveFrom.toISOString(), until: revision.effectiveUntil?.toISOString() ?? null },
       ));
-      if (overlaps) throw new ConflictException("Já existe vigência publicada para este escopo.");
+      if (input.replaceRevisionId) {
+        const previous = overlaps[0];
+        if (overlaps.length !== 1 || previous.id !== input.replaceRevisionId || !previous.effectiveFrom ||
+            previous.effectiveFrom > now || previous.effectiveFrom >= from || previous.effectiveUntil || from < now) {
+          throw new ConflictException("A vigência mudou ou há uma publicação agendada neste período. Confira o histórico.");
+        }
+        await tx.systemSettingRevision.update({ where: { id: previous.id }, data: { effectiveUntil: from } });
+      } else if (overlaps.length) {
+        throw new ConflictException("Já existe vigência publicada para este escopo.");
+      }
       const devBefore = await tx.systemSettingCatalog.findUnique({ where: { key: fresh.catalogKey }, select: { devJson: true } });
       const row = await tx.systemSettingRevision.update({
         where: { id: fresh.id },
@@ -200,8 +233,8 @@ export class SystemSettingsService {
     return row;
   }
 
-  private async revision(organizationId: string, id: string) {
-    const row = await this.prisma.systemSettingRevision.findFirst({ where: { id, organizationId } });
+  private async revision(pilot: { organizationId: string; churchId: string }, id: string) {
+    const row = await this.prisma.systemSettingRevision.findFirst({ where: { id, organizationId: pilot.organizationId, churchId: pilot.churchId } });
     if (!row) throw new NotFoundException("Revisão não encontrada.");
     return row;
   }
