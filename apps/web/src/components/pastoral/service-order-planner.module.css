@@ -62,4 +62,4 @@
 .panel :is(input,button,select,summary):focus-visible{outline:3px solid #171717;outline-offset:3px}
 @media(max-width:1050px){.rulesGrid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.schedule{padding:12px}.scheduleRow{grid-template-columns:43px minmax(0,1fr);gap:8px}.rowRight{grid-column:2;justify-items:start;display:flex;align-items:center}.generate{display:grid}.generate button{width:100%}.cultRow{grid-template-columns:1fr 1fr}.cultRow label:nth-child(3){grid-column:1/-1}.cultRow button{grid-column:2;justify-self:end}.kpis{gap:8px}.kpi{padding:12px}.liveRow{grid-template-columns:48px minmax(0,1fr)}.liveRow>span:last-child{grid-column:2}.ruleCard{padding:14px}}
-@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+@media(prefers-reduced-motion:reduce){.panel *{scroll-behavior:auto}}
