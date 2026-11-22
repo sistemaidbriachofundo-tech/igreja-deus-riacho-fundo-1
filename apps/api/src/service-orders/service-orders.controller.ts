@@ -103,6 +103,10 @@ export class ServiceOrdersController {
   }
 
   @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("planning/people")
+  people(@CurrentUser() user: AuthUser) { return this.planner.people(user); }
+
+  @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
   @Get("planning/preview")
   preview(@CurrentUser() user: AuthUser, @Query("year") year: string, @Query("month") month: string) {
     return this.planner.previewMonth(user, { year: Number(year), month: Number(month) });

@@ -71,6 +71,73 @@ export class ServiceOrderPlannerService {
     });
   }
 
+
+  /**
+   * Lista privada de pessoas da igreja que podem ser sugeridas para a liturgia.
+   * Uma matrícula ativa, por si só, NÃO habilita alguém a pregar ou dirigir.
+   * A liderança pode, entretanto, designar manualmente outros membros ativos,
+   * registrando a escolha no responsávelPersonId da OC.
+   */
+  private async qualifiedPeople(scope: Scope) {
+    const [memberships, team, pastors] = await Promise.all([
+      this.prisma.churchMembership.findMany({
+        where: { churchId: scope.churchId, organizationId: scope.organizationId,
+          status: "ACTIVE", person: { status: "ACTIVE" } },
+        select: { ecclesiasticalRoles: true,
+          person: { select: { id: true, displayName: true, isMinor: true } } },
+      }),
+      this.prisma.ministryMembership.findMany({
+        where: { churchId: scope.churchId, organizationId: scope.organizationId, status: "ATIVO", endedAt: null },
+        select: { personId: true, role: true, ministry: { select: { name: true, slug: true } } },
+      }),
+      this.prisma.grant.findMany({
+        where: { organizationId: scope.organizationId, churchId: scope.churchId,
+          role: { code: ROLE_CODES.PASTOR } },
+        select: { user: { select: { personId: true } } },
+      }),
+    ]);
+    type PersonEntry = { id: string; displayName: string; isMinor: boolean; roles: string[]; sources: string[] };
+    const members = new Map<string, PersonEntry>();
+    for (const m of memberships) {
+      const roles = m.ecclesiasticalRoles.includes("PASTOR") ? ["director", "preacher"] :
+        m.ecclesiasticalRoles.includes("EVANGELIST") ? ["preacher"] : [];
+      const sources = m.ecclesiasticalRoles.length ? ["Função eclesiástica: " + m.ecclesiasticalRoles.join(", ")] : [];
+      members.set(m.person.id, {
+        id: m.person.id, displayName: m.person.displayName, isMinor: m.person.isMinor, roles, sources,
+      });
+    }
+    for (const grant of pastors) {
+      const member = members.get(grant.user.personId);
+      if (!member || member.isMinor) continue;
+      member.roles = [...new Set([...member.roles, "director", "preacher"])];
+      member.sources.push("Acesso pastoral da congregação");
+    }
+    for (const mm of team) {
+      const member = members.get(mm.personId);
+      if (!member) continue;
+      const slug = mm.ministry.slug.toLowerCase();
+      const designation = mm.role.toUpperCase();
+      const leads = /LIDER|MINISTR|COORDEN/.test(designation);
+      if (/louvor|adora/.test(slug)) {
+        member.sources.push(mm.ministry.name + " (" + mm.role + ")");
+        if (leads && !member.isMinor) member.roles.push("praise");
+      }
+      if (/atmosfera|acolh|recep/.test(slug)) {
+        member.sources.push(mm.ministry.name + " (" + mm.role + ")");
+        if (leads && !member.isMinor) member.roles.push("welcome");
+      }
+    }
+    return [...members.values()].map(p => ({ ...p, roles: [...new Set(p.roles)],
+      sources: [...new Set(p.sources)] })).sort((a,b)=>a.displayName.localeCompare(b.displayName,"pt-BR"));
+  }
+
+  async people(actor: AuthUser) {
+    const scope = await this.scope(actor);
+    const people = await this.qualifiedPeople(scope);
+    return { churchId: scope.churchId, people, qualified: people.filter(p => p.roles.length).length,
+      notice: "Funções documentadas e líderes de ministério; demais membros exigem designação manual do pastor. Escala confirmada é considerada no gerador." };
+  }
+
   async previewMonth(actor: AuthUser, input: MonthInput) {
     const scope = await this.scope(actor);
     return this.buildPreview(scope, input);
@@ -82,7 +149,7 @@ export class ServiceOrderPlannerService {
     const first = new Date(services[0].serviceAt), last = new Date(services[services.length - 1].serviceAt);
     const range = { gte: new Date(+first - 3 * 60 * 60 * 1000), lt: new Date(+last + 3 * 60 * 60 * 1000) };
     const monthKey = String(input.year) + "-" + String(input.month).padStart(2,"0");
-    const [rosters, existing, oldMoments] = await Promise.all([
+    const [rosters, existing, oldMoments, people] = await Promise.all([
       this.prisma.roster.findMany({
         where: { churchId: scope.churchId, status: "PUBLISHED", serviceAt: range },
         include: { slots: { include: { assignments: {
@@ -99,8 +166,12 @@ export class ServiceOrderPlannerService {
         select: { orderId: true, responsiblePersonId: true, title: true,
           order: { select: { serviceAt: true } } },
       }),
+      this.qualifiedPeople(scope),
     ]);
-    const personIds = [...new Set(rosters.flatMap(r=>r.slots.flatMap(s=>s.assignments.map(a=>a.personId))))];
+    const personIds = [...new Set([
+      ...people.filter(p=>p.roles.length).map(p=>p.id),
+      ...rosters.flatMap(r=>r.slots.flatMap(s=>s.assignments.map(a=>a.personId))),
+    ])];
     const [preferences, impediments, weekly, response] = await Promise.all([
       this.prisma.volunteerServingPreference.findMany({ where: { churchId: scope.churchId, personId: { in: personIds } } }),
       this.prisma.volunteerImpediment.findMany({ where: { churchId: scope.churchId, personId: { in: personIds },
@@ -135,7 +206,7 @@ export class ServiceOrderPlannerService {
         pref?.onlySecondSunday && fields.weekday==="Sun" && (day<8 || day>14)) return false;
       if (impediments.some(x=>x.personId===personId && x.startsAt<=target && target<x.endsAt)) return false;
       const selectedRosters = responseByPerson.get(personId);
-      if (selectedRosters && !selectedRosters.includes(rosterId)) return false;
+      if (rosterId !== "directory" && selectedRosters && !selectedRosters.includes(rosterId)) return false;
       const windows = weekly.filter(x=>x.personId===personId);
       if (windows.length) {
         const weekday = target.getUTCDay();
@@ -153,10 +224,19 @@ export class ServiceOrderPlannerService {
           sourceRosterIds: [], items: [], warnings: [`Culto excluído pela exceção registrada: ${exception.note}`] };
       }
       const matched = rosters.filter(r=>Math.abs(+r.serviceAt-time)<=90*60*1000);
-      const candidates: Candidate[] = matched.flatMap(r=>r.slots.flatMap(slot=>slot.assignments.map(a=>({
+      const rosterCandidates: Candidate[] = matched.flatMap(r=>r.slots.flatMap(slot=>slot.assignments.map(a=>({
         personId:a.personId,displayName:a.person.displayName,roleLabel:slot.roleLabel,rosterId:r.id,
         status:a.status==="CONFIRMED"?"CONFIRMED" as const:"PENDING" as const,
       }))));
+      // Complementa a escala com líderes e pastores QUALIFICADOS da igreja.
+      // Diretório não equivale a confirmação na escala: status PENDING.
+      // Se a regra exigir confirmação, eles só aparecem para escolha manual.
+      const directoryCandidates: Candidate[] = people.filter(p=>!p.isMinor).flatMap(p=>p.roles.map(role=>({
+        personId:p.id,displayName:p.displayName,rosterId:"directory",
+        roleLabel:role==="director"?"Dirigente":role==="preacher"?"Pregador":role==="praise"?"Ministro de Louvor":"Acolhimento",
+        status:"PENDING" as const,
+      })));
+      const candidates = [...directoryCandidates, ...rosterCandidates];
       const chosen = new Set<string>();
       const director = chooseRoleCandidate("director",item.serviceAt,candidates,historical,chosen,config.rules,isEligible);
       if (director) chosen.add(director.personId);
@@ -167,6 +247,7 @@ export class ServiceOrderPlannerService {
       const items = buildServiceMoments(director,preacher,praise,welcome,config.rules);
       const warnings: string[] = exception ? [`Exceção registrada: ${exception.note}`] : [];
       if (!matched.length) warnings.push("Nenhuma escala publicada compatível com este horário.");
+      if (!matched.length && config.rules.requireConfirmedRoster) warnings.push("Há pessoas no cadastro, mas ainda não há escala confirmada: utilize o editor para designar e validar os responsáveis.");
       if (!director) warnings.push("Direção sem pessoa confirmada e elegível: atribuição manual.");
       if (!preacher) warnings.push("Pregação sem pessoa confirmada e elegível: atribuição manual.");
       if (!praise) warnings.push("Ministro de louvor não identificado na escala.");
