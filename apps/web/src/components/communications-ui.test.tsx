@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CommunicationsBoard, providerIsSafeMock } from "./CommunicationsBoard";
 import { AppShell } from "./AppShell";
+import { renderAsRole, renderPending } from "../lib/test-session";
 
 describe("Comunicação F5 — monitoramento sem disparos",()=>{
   it("aceita somente canais explicitamente configurados como mock/noop",()=>{
@@ -25,20 +26,30 @@ describe("Comunicação F5 — monitoramento sem disparos",()=>{
 });
 
 describe("Navegação mobile — sem sete itens espremidos",()=>{
-  it("mantém quatro destinos e botão Mais acessível",()=>{
-    const html=renderToStaticMarkup(<AppShell active="operacao" meta="Gestão integrada">
+  it("não desenha a barra do celular sem sessão",()=>{
+    const html=renderPending(<AppShell active="operacao" meta="Gestão integrada">
+      <h1>Conteúdo do teste</h1>
+    </AppShell>);
+    expect(html).toContain('data-nav-state="pending"');
+    expect(html).not.toContain('aria-label="Navegação principal no celular"');
+    expect(html).not.toContain("Conteúdo do teste");
+  });
+  it("mantém quatro destinos do administrador e o botão Mais",()=>{
+    const html=renderAsRole("PLATFORM_ADMIN", <AppShell active="operacao" meta="Gestão integrada">
       <h1>Conteúdo do teste</h1>
     </AppShell>);
     const mobile=html.split('aria-label="Navegação principal no celular"')[1]?.split("</nav>")[0]??"";
     expect((mobile.match(/<a\s/g)||[]).length).toBe(4);
     expect(mobile).toContain("Início");
+    expect(mobile).toContain("Pastoral");
     expect(mobile).toContain("Secretaria");
     expect(mobile).toContain("Caixa");
-    expect(mobile).toContain("Ministérios");
+    expect(mobile).not.toContain("Ministérios");
     expect(mobile).toContain("Mais módulos e páginas");
     expect(mobile).toContain('aria-haspopup="dialog"');
-    expect(mobile).toContain("Ministérios");
     expect(mobile).not.toContain("Carteira");
     expect(mobile).not.toContain("Membros e famílias");
+    expect(html).toContain("Ministérios");
+    expect(html).toContain("Conteúdo do teste");
   });
 });
