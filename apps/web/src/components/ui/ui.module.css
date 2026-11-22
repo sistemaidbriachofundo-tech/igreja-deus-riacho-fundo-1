@@ -1124,14 +1124,14 @@
   .dataTable,
   .pageHeaderBlock
 ) {
-  --ds-cream: #24160f;
-  --ds-raised: #3a261c;
-  --ds-ink: #f7ede0;
-  --ds-muted: #e7d3c0;
-  --ds-line: #c4a484;
-  --ds-focus: #f7ede0;
-  --ds-on-gold: #4a2612;
-  --ds-support: #d7ecec;
+  --ds-cream: #171717;
+  --ds-raised: #292929;
+  --ds-ink: #ffffff;
+  --ds-muted: #d6dde0;
+  --ds-line: #b9c1c9;
+  --ds-focus: #ffffff;
+  --ds-on-gold: #171717;
+  --ds-support: #d4e2ef;
 }
 
 .scope[data-appearance="dark"] {
