@@ -39,7 +39,7 @@ describe("CredentialsController acesso", () => {
     );
     expect(Reflect.getMetadata(ROLES_KEY, proto.issue)).not.toContain(ROLE_CODES.MEMBRO);
     // Leitura própria é universal, mas emitir/revogar continua exclusivo da Secretaria/Admin.
-    for (const method of [proto.me, proto.getOne, proto.byMembership, proto.generatePdf, proto.getPdfMeta, proto.downloadPdf]) {
+    for (const method of [proto.me, proto.getOne, proto.byMembership, proto.generatePdf, proto.pdfMeta, proto.downloadPdf]) {
       expect(Reflect.getMetadata(ROLES_KEY, method)).toEqual(expect.arrayContaining(Object.values(ROLE_CODES)));
     }
     for (const method of [proto.issue, proto.reissue, proto.revoke]) {
