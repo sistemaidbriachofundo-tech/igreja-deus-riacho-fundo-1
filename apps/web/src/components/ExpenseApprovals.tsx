@@ -177,7 +177,9 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
       const link = document.createElement("a");
       link.href = url;
       link.download = file.displayName;
+      document.body.appendChild(link);
       link.click();
+      link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch {
       showFeedback({ tone: "error", title: "Comprovante indisponível", message: "Atualize a página e tente baixar o arquivo novamente." });
@@ -213,7 +215,14 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
     setBusyId(row.id);
     setDecisionError(null);
     try {
-      const files = receipts[row.id] ?? await listReceipts(row.id);
+      // Não permita confirmar/aprovar sem conseguir abrir a lista de anexos:
+      // 403/erro de rede não são equivalentes à lista vazia legítima ([]).
+      const files = receipts[row.id] === undefined || receipts[row.id] === null
+        ? await listReceipts(row.id) : receipts[row.id];
+      if (files === null) {
+        setDecisionError({ id: row.id, text: "Não foi possível conferir os comprovantes. Consulte os anexos antes de decidir." });
+        return;
+      }
       if (!(await confirm({
         title: reject ? "Devolver esta despesa?" : required === "PASTOR" ? "Aprovar esta despesa?" : "Confirmar a conferência da despesa?",
         subject: row.description,
@@ -297,7 +306,7 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
         </div>
         <details onToggle={event => { if (event.currentTarget.open && !receipts[row.id]) void listReceipts(row.id); }}>
           <summary>Comprovantes</summary>
-          {receipts[row.id] && receiptLinks(row.id, receipts[row.id])}
+          {Object.prototype.hasOwnProperty.call(receipts, row.id) && receiptLinks(row.id, receipts[row.id] ?? null)}
         </details>
         {showHistory && row.rejectionReason && <p>Motivo da devolução: {row.rejectionReason}</p>}
         {decisionError?.id === row.id && <p className={s.error} role="alert">{decisionError.text}</p>}
