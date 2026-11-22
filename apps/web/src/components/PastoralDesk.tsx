@@ -6,6 +6,7 @@ import type { DasRecord } from "../lib/das-operations";
 import { pastoralSections } from "../lib/pastoral-navigation";
 import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 import { PastoralBoard } from "./CareBoards";
+import { PastoralExecutiveDashboard } from "./PastoralExecutiveDashboard";
 import { CongregationSummary } from "./PastoralCommunity";
 import { WorkspacePriorities } from "./WorkspacePriorities";
 import { PageHeader } from "./ui/PageHeader";
@@ -19,8 +20,7 @@ export function PastoralDesk({ care = false }: { care?: boolean }) {
   if (access.kind !== "ready") return null;
   if (care) return access.roles.includes("PASTOR") ? <PastoralCare roles={access.roles} />
     : <PageHeader appearance="workspace" heading="h1" title="Cuidado pastoral" description="Área reservada ao perfil de Pastor." />;
-  if (access.roles.includes("PASTOR")) return <PastoralWorkspace roles={access.roles} />;
-  if (access.roles.includes("PLATFORM_ADMIN")) return <AdministrativePastoralOverview />;
+  if (access.roles.includes("PASTOR") || access.roles.includes("PLATFORM_ADMIN")) return <PastoralExecutiveDashboard roles={access.roles} />;
   return null;
 }
 
