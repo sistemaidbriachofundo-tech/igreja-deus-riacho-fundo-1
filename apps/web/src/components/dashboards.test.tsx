@@ -28,7 +28,7 @@ function board(role: string) {
 const TITLES: Record<string, string> = {
   PLATFORM_ADMIN: "Governança Ministerial",
   SECRETARIA: "Mesa da secretaria",
-  PASTOR: "Mesa pastoral",
+  PASTOR: "Mesa Pastoral",
   TESOURARIA: "Mesa da tesouraria",
   LIDER_MINISTERIO: "Mesa da liderança",
   MEMBRO: "Seu espaço",
@@ -41,7 +41,14 @@ describe("mesa por persona", () => {
     const html = board(role);
     expect(html).toContain(TITLES[role]);
     expect(html).not.toContain("Ambiente de homologação");
-    expect(html).toContain(`data-desk="${deskKeyFor([role])}"`);
+    if (role === "PASTOR") {
+      // A página /app/ do Pastor É a própria Mesa Pastoral, e não uma lista de atalhos.
+      expect(html).toContain("Prioridades de hoje");
+      expect(html).toContain("Cuidado pastoral");
+      expect(html).toContain("Visão da congregação");
+      expect(html).toContain('aria-label="Indicadores da Mesa Pastoral"');
+      expect(html).not.toContain("Abrir mesa pastoral");
+    } else expect(html).toContain(`data-desk="${deskKeyFor([role])}"`);
     expect(html).not.toMatch(/endpoint|schema|PostgreSQL|CHURCH OS|\b501\b|roster/i);
     expect(html).not.toContain("R$");
     expect(html).not.toContain("87%");
@@ -49,7 +56,7 @@ describe("mesa por persona", () => {
     expect(html).not.toContain("/app/operacao/");
     expect(html.match(/>Sair</g)).toHaveLength(1);
     if (role === "MEMBRO") expect(html).toContain('data-layout="membro"');
-    else expect(html).toContain('data-layout="admin"');
+    else if (role !== "PASTOR") expect(html).toContain('data-layout="admin"');
     if (role !== "MEMBRO") expect(html).not.toContain("/app/servir/meu-espaco/");
   });
 

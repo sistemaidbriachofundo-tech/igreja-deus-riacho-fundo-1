@@ -725,8 +725,8 @@ export function PersonaBoard() {
   if (staff || leader) {
     if (staff && (summaryReady || loading)) {
       metrics.push(
-        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: deskKey === "PASTOR" ? "/app/pastoral/admissoes/#consultar-pessoa" : "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
-        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: deskKey === "PASTOR" ? "/app/pastoral/admissoes/" : "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
+        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
+        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
       );
       if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
         metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, href: "/app/pastoral/", hint: "Acompanhamentos abertos" });
