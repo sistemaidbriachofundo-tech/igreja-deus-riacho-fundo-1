@@ -50,7 +50,10 @@ describe("mesa de carteirinhas", () => {
     expect(html).toContain("Imprimir");
     expect(html).toContain("Homens");
     expect(html).toContain('role="dialog"');
-    expect(html).toContain("Homologação");
+    expect(html).toContain("Carteirinha de membro");
+    expect(html).toContain("Sem validade cadastrada");
+    expect(html).not.toContain("Homologação");
+    expect(html).not.toMatch(/Administrador|Pastor|Secretaria|Tesouraria|PLATFORM_ADMIN/);
     expect(html).not.toMatch(/@example|mailto:|cpf|telefone/i);
     expect(html).not.toContain("localStorage");
   });

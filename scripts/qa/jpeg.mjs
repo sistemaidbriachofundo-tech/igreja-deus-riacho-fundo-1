@@ -344,3 +344,73 @@ export function bannerJpeg(spec) {
   const painted = paintBanner(spec);
   return encodeJpeg(painted.rgb, painted.width, painted.height, 68);
 }
+
+const RECEIPT_GLYPH = {
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+  "/": ["00001", "00010", "00010", "00100", "01000", "01000", "10000"],
+  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01110"],
+  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+};
+
+function stampText(rgb, width, text, x, y, scale, color) {
+  let cursor = x;
+  for (const char of text) {
+    const glyph = RECEIPT_GLYPH[char] ?? RECEIPT_GLYPH[" "];
+    for (let row = 0; row < glyph.length; row += 1) {
+      for (let col = 0; col < glyph[row].length; col += 1) {
+        if (glyph[row][col] !== "1") continue;
+        for (let py = 0; py < scale; py += 1) {
+          for (let px = 0; px < scale; px += 1) {
+            put(rgb, width, cursor + col * scale + px, y + row * scale + py, color);
+          }
+        }
+      }
+    }
+    cursor += 6 * scale;
+  }
+}
+
+/** JPEG de comprovante fictício. O texto fica legível na imagem, sem dado bancário. */
+export function receiptJpeg(caption) {
+  const width = 560;
+  const height = 360;
+  const rgb = new Uint8Array(width * height * 3);
+  const paper = [248, 244, 236];
+  const ink = [17, 17, 17];
+  const gold = [201, 167, 107];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) put(rgb, width, x, y, paper);
+  }
+  for (let y = 0; y < 18; y += 1) {
+    for (let x = 0; x < width; x += 1) put(rgb, width, x, y, gold);
+  }
+  for (let y = height - 18; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) put(rgb, width, x, y, ink);
+  }
+  stampText(rgb, width, "SEM VALOR FISCAL / QA", 28, 48, 3, ink);
+  stampText(rgb, width, "COMPROVANTE DEMONSTRATIVO", 28, 92, 2, gold);
+  stampText(rgb, width, caption, 28, 140, 3, ink);
+  stampText(rgb, width, "NAO E PAGAMENTO", 28, 196, 3, [138, 98, 48]);
+  stampText(rgb, width, "NAO ENVIAR AO BANCO", 28, 246, 2, ink);
+  return encodeJpeg(rgb, width, height, 80);
+}

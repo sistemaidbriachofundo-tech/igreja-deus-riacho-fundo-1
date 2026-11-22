@@ -21,6 +21,8 @@ export type CredentialCard = {
   } | null;
   ministryName?: string | null;
   qrSvg?: string | null;
+  /** Ausente no cadastro atual. Não preencher com data inventada. */
+  expiresAt?: string | null;
 };
 
 /** Linha vinda de GET /memberships — a mesma membresia, sem cadastro paralelo. */
@@ -74,6 +76,13 @@ export function formatCredentialDate(value: string | null | undefined): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "—";
   return date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+/** A matrícula não tem data de expiração no cadastro. Só mostra validade quando a API envia uma data real. */
+export function credentialValidityLabel(expiresAt?: string | null): string {
+  if (!expiresAt) return "Sem validade cadastrada";
+  const formatted = formatCredentialDate(expiresAt);
+  return formatted === "—" ? "Sem validade cadastrada" : formatted;
 }
 
 /** Aceita só o SVG do QR. Rejeita marcação que possa executar código. */

@@ -328,6 +328,8 @@ export class CredentialsService {
       verificationBaseUrl: process.env.CREDENTIAL_VERIFICATION_WEB_URL || process.env.ACCESS_INVITE_WEB_ORIGIN,
       issuedAt: credential.issuedAt,
       credentialId: credential.id,
+      membershipId: credential.membershipId,
+      status: credential.status,
       photo,
     });
 
@@ -387,7 +389,7 @@ export class CredentialsService {
   }
 
   private pdfPresentationHash(photo?: Buffer) {
-    const template = Buffer.from("credential-teal-2026-11", "utf8");
+    const template = Buffer.from("credential-premium-pb-gold-2026-11-22", "utf8");
     return this.storage.contentSha256(photo ? Buffer.concat([template, photo]) : template);
   }
 

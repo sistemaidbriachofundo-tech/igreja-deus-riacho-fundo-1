@@ -4,7 +4,7 @@ import {
   generateOpaqueCredentialToken,
   containsSensitiveCredentialPayload,
 } from "@idbrf/shared";
-import { credentialPdfQrPayload, renderCredentialPdf } from "./credential-pdf.renderer";
+import { credentialDocumentCopy, credentialPdfQrPayload, renderCredentialPdf } from "./credential-pdf.renderer";
 
 describe("renderCredentialPdf", () => {
   it("monta URL escaneável usando o prefixo web e um fragmento opaco", () => {
@@ -80,6 +80,31 @@ describe("renderCredentialPdf", () => {
       photo: oversized,
     });
     expect(fallback.subarray(0, 4).toString("ascii")).toBe("%PDF");
+  });
+
+  it("imprime matrícula e situação reais e não inventa validade nem cargo", () => {
+    const lines = credentialDocumentCopy({
+      displayName: "Helena Carvalho",
+      churchName: "Igreja de Deus no Riacho Fundo I",
+      membershipId: "qacomp_membership_helena",
+      status: "ACTIVE",
+      issuedAt: new Date("2026-03-10T12:00:00Z"),
+    });
+    expect(lines[0]).toBe("CARTEIRINHA DE MEMBRO");
+    expect(lines.join("\n")).toContain("Matrícula");
+    expect(lines.join("\n")).toContain("Situação Ativa");
+    expect(lines.join("\n")).toContain("Sem validade cadastrada");
+    expect(lines.join("\n")).not.toMatch(/Administrador|Pastor|Secretaria|Tesouraria/);
+    const dated = credentialDocumentCopy({
+      displayName: "Helena Carvalho",
+      churchName: "Igreja de Deus no Riacho Fundo I",
+      issuedAt: new Date("2026-03-10T12:00:00Z"),
+      expiresAt: new Date("2027-03-10T12:00:00Z"),
+      status: "REVOKED",
+    });
+    expect(dated.join("\n")).toContain("Validade 10/03/2027");
+    expect(dated.join("\n")).toContain("Situação Revogada");
+    expect(dated.join("\n")).not.toContain("Matrícula");
   });
 
   it("rejects churchName with phone-like PII", async () => {

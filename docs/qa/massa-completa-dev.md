@@ -60,6 +60,7 @@ Onde olhar depois do `--apply` no QA:
 - Escala `qacomp_roster_atmosfera`, ministério Atmosfera — DEMONSTRAÇÃO DEV: confirma, recusa, substituição, setor, zona e lado
 - Aniversário de hoje: Yara Monteiro, exclusiva da Trilha. Amanhã: Otávio Pires
 - Tesouraria: despesa `qacomp_entry_despesa` pendente; extratos fictícios BRB, Sicoob e mock; conciliação `qacomp_reconciliation_mes`
+- Comprovantes `qacomp_receipt_despesa` e `qacomp_receipt_oferta`: JPEG privado com o texto **SEM VALOR FISCAL / QA**. Não há Pix pagável, dados bancários nem aprovação real
 - Editor: banner `qacomp-banner-revisao` em revisão, fora do ar público
 
 Contas isoladas, sem senha e sem token de convite neste repositório: `qacomp-admin`, `qacomp-pastor`, `qacomp-secretaria`, `qacomp-tesouraria`, `qacomp-editor`, `qacomp-publicador`, `qacomp-lider`, `qacomp-membro` e `qacomp-convidado`, todos em `@example.test`. A ativação continua pelo convite da própria aplicação.

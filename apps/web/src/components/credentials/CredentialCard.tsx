@@ -7,6 +7,7 @@ import { withBasePath } from "../../lib/paths";
 import { PersonPortrait } from "../PersonPortrait";
 import {
   credentialStatusLabel,
+  credentialValidityLabel,
   formatCredentialDate,
   registrationLabel,
   type CredentialCard,
@@ -43,56 +44,69 @@ export function CredentialFaces({
 
   const qr = scanQr?.token === card.qrPayload ? scanQr.image : null;
   const ministry = card.ministryName?.trim();
+  const qrNode = qr ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className={s.qr} src={qr} width={176} height={176} alt="QR de verificação da credencial" />
+  ) : <p className={s.qrMissing}>{qr === "" ? "QR indisponível." : "Preparando QR…"}</p>;
+
   return (
     <div className={s.faces}>
       <article className={s.face} aria-label="Frente da carteirinha">
-        <div className={s.faceGlow} aria-hidden="true" />
         <header className={s.faceTop}>
           <span
             className={s.logo}
             role="img"
-            aria-label="Logomarca da Igreja de Deus"
+            aria-label="Selo da Igreja de Deus"
             style={{ backgroundImage: `url("${withBasePath(officialLogoAsset)}")` }}
           />
           <span className={s.brand}>
             <strong>Igreja de Deus</strong>
             <small>Riacho Fundo I</small>
           </span>
-          <span className={s.edition}>Homologação</span>
+          <span className={s.seal} aria-hidden="true">ID</span>
         </header>
+        <p className={s.docTitle}>Carteirinha de membro</p>
         <div className={s.identity}>
           <PersonPortrait name={card.displayName} photoUrl={card.photoUrl} size="card" />
-          <div>
-            <p className={s.overline}>Membro</p>
+          <div className={s.identityCopy}>
             <h3>{card.displayName}</h3>
             {ministry ? <p className={s.ministry}>{ministry}</p> : null}
           </div>
+          <div className={s.qrSlot}>
+            {qrNode}
+            {revoked ? <span className={s.stamp}>Revogada</span> : null}
+          </div>
+          <dl className={s.facts}>
+            <div>
+              <dt>Matrícula</dt>
+              <dd>
+                <span className={s.reg} aria-hidden="true">{registrationLabel(card.membershipId)}</span>
+                <span className={s.srOnly}>{card.membershipId}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Situação</dt>
+              <dd data-credential-status={card.status}>{credentialStatusLabel(card.status)}</dd>
+            </div>
+            <div>
+              <dt>Validade</dt>
+              <dd>{credentialValidityLabel(card.expiresAt)}</dd>
+            </div>
+            <div>
+              <dt>Emitida</dt>
+              <dd>{formatCredentialDate(card.issuedAt)}</dd>
+            </div>
+          </dl>
         </div>
-        <footer className={s.faceMeta}>
-          <div>
-            <span>Matrícula</span>
-            <strong>
-              <span className={s.reg} aria-hidden="true">{registrationLabel(card.membershipId)}</span>
-              <span className={s.srOnly}>{card.membershipId}</span>
-            </strong>
-          </div>
-          <div>
-            <span>Situação</span>
-            <strong data-credential-status={card.status}>{credentialStatusLabel(card.status)}</strong>
-          </div>
-        </footer>
       </article>
 
       <article className={`${s.face} ${s.back}`} aria-label="Verso da carteirinha">
         <header className={s.backTop}>
-          <p className={s.overline}>Verificação</p>
+          <p className={s.docTitle}>Verificação</p>
           <strong>{card.churchName}</strong>
         </header>
         <div className={s.qrBlock}>
-          {qr ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className={s.qr} src={qr} width={176} height={176} alt="QR de verificação da credencial" />
-          ) : <p className={s.qrMissing}>{qr === "" ? "QR indisponível." : "Preparando QR…"}</p>}
+          {qrNode}
           {revoked ? <span className={s.stamp}>Revogada</span> : null}
         </div>
         <p className={s.qrHint}>

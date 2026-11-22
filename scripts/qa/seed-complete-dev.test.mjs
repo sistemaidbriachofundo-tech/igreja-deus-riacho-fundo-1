@@ -8,7 +8,7 @@ import test from "node:test";
 import { applyQaMass } from "./apply.mjs";
 import { buildCatalog, summarize } from "./catalog.mjs";
 import { assertSeedTarget, SeedGuardError } from "./guard.mjs";
-import { jpegSize, portraitJpeg } from "./jpeg.mjs";
+import { jpegSize, portraitJpeg, receiptJpeg } from "./jpeg.mjs";
 
 const NOW = new Date("2026-11-21T15:00:00.000Z");
 const QA_URL = "postgresql://qa:segredo-nao-logar@br-twilight-bonus-b6moawk7.sa-east-1.aws.neon.tech/idriacho1_hml?sslmode=require";
@@ -196,6 +196,40 @@ test("duas aplicações mantêm os mesmos registros e não redefinem senha", asy
   const moças = second.tables.get("portalEvent").find((event) => event.slug === "qacomp-mocas");
   assert.equal(moças.ticketPolicy, "PARTICIPANT");
   assert.equal(moças.imageUrl, "/images/qa/events/qacomp-mocas.jpg");
+  const receipts = second.tables.get("ledgerEntryAttachment");
+  assert.equal(receipts.length, 2);
+  assert.ok(receipts.every((item) => item.id.startsWith("qacomp_receipt_") && item.displayName.includes("SEM VALOR FISCAL / QA")));
+  const files = second.tables.get("privateFile").filter((item) => item.key.startsWith("qacomp/receipts/"));
+  assert.equal(files.length, 2);
+  assert.ok(files.every((item) => item.bytes[0] === 0xff && item.bytes[1] === 0xd8));
+  const sample = receiptJpeg("DESPESA QA");
+  assert.equal(sample[0], 0xff);
+  assert.equal(jpegSize(sample).width, 560);
+});
+
+test("não cria segunda carteirinha nem troca o token já gravado", async () => {
+  const catalog = buildCatalog(NOW);
+  const memory = memoryDb();
+  await seedChurch(memory);
+  const helena = catalog.credentials.find((item) => item.id === "qacomp_cred_helena-carvalho");
+  await memory.db.memberCredential.create({
+    data: {
+      id: "qacomp_cred_helena_ja_emitida",
+      membershipId: helena.membershipId,
+      personId: helena.personId,
+      opaqueToken: "token-aleatorio-ja-gravado",
+      status: "ACTIVE",
+    },
+  });
+  await applyQaMass(memory.db, catalog);
+  const cards = memory.tables.get("memberCredential").filter((item) => item.membershipId === helena.membershipId);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].opaqueToken, "token-aleatorio-ja-gravado");
+  const rafael = memory.tables.get("memberCredential").find((item) => item.id === "qacomp_cred_rafael-ribeiro");
+  const before = rafael.opaqueToken;
+  await applyQaMass(memory.db, catalog);
+  const again = memory.tables.get("memberCredential").find((item) => item.id === "qacomp_cred_rafael-ribeiro");
+  assert.equal(again.opaqueToken, before);
 });
 
 test("a segunda execução do plano é idêntica e o CLI não imprime a URL", () => {

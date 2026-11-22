@@ -4,6 +4,7 @@ import {
   avatarLabel,
   credentialFailure,
   interpretQr,
+  credentialValidityLabel,
   registrationLabel,
   runCredentialJourney,
   safeQrSvg,
@@ -13,6 +14,12 @@ describe("carteirinha — rótulos e QR seguro", () => {
   it("encurta a matrícula sem trocar o identificador", () => {
     expect(registrationLabel("membership-preview-joao")).toBe("memb·ewjoao");
     expect(avatarLabel("João Silva")).toBe("JS");
+  });
+
+  it("não inventa validade quando o cadastro não tem expiração", () => {
+    expect(credentialValidityLabel(null)).toBe("Sem validade cadastrada");
+    expect(credentialValidityLabel(undefined)).toBe("Sem validade cadastrada");
+    expect(credentialValidityLabel("2027-03-10T12:00:00.000Z")).toMatch(/\d{2}\/\d{2}\/2027/);
   });
 
   it("rejeita SVG que não é só o desenho do QR", () => {

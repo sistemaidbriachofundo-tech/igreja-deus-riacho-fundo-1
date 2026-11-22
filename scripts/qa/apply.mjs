@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { CHURCH_SLUG, ORG_SLUG, buildCatalog, summarize } from "./catalog.mjs";
 import { assertLiveDatabaseName, assertQaApi, assertSeedTarget, QA_BRANCH, SeedGuardError } from "./guard.mjs";
-import { portraitJpeg } from "./jpeg.mjs";
+import { portraitJpeg, receiptJpeg } from "./jpeg.mjs";
 
 class DryRunComplete extends Error {
   constructor(report) {
@@ -185,17 +185,26 @@ export async function applyQaMass(tx, catalog, options = {}) {
   });
 
   for (const credential of catalog.credentials) {
-    await upsert(tx, "memberCredential", credential.id, {
+    const existing = await tx.memberCredential.findUnique({ where: { id: credential.id } });
+    const sibling = await tx.memberCredential.findFirst({ where: { membershipId: credential.membershipId } });
+    if (sibling && sibling.id !== credential.id) continue;
+    const data = {
       membershipId: credential.membershipId,
       personId: credential.personId,
       churchId: scope.churchId,
       organizationId: scope.organizationId,
       status: credential.status,
-      opaqueToken: credential.opaqueToken,
       revokedAt: credential.revoked ? new Date("2026-10-01T12:00:00.000Z") : null,
       issuedByUserId: secretaria.id,
       issuedAt: new Date("2026-03-10T12:00:00.000Z"),
-    });
+    };
+    if (existing) {
+      await tx.memberCredential.update({ where: { id: credential.id }, data });
+    } else {
+      await tx.memberCredential.create({
+        data: { id: credential.id, opaqueToken: credential.opaqueToken, ...data },
+      });
+    }
   }
 
   await assertOwned(tx, "ministry", { churchId: scope.churchId, slug: catalog.ministry.slug }, catalog.ministry.id);
@@ -532,6 +541,30 @@ export async function applyQaMass(tx, catalog, options = {}) {
   const pastor = catalog.users.find((user) => user.role === "PASTOR");
   await writeEntry(tx, catalog.finance.expense, scope, tesouraria.id, null, null);
   await writeEntry(tx, catalog.finance.offering, scope, tesouraria.id, tesouraria.id, pastor.id);
+  for (const receipt of catalog.finance.receipts) {
+    const jpeg = receiptJpeg(receipt.caption);
+    if (jpeg[0] !== 0xff || jpeg[1] !== 0xd8 || jpeg[2] !== 0xff) {
+      throw new SeedGuardError("BLOQUEADO: comprovante QA não é JPEG.");
+    }
+    if (!receipt.displayName.includes("SEM VALOR FISCAL / QA") || !receipt.id.startsWith("qacomp_")) {
+      throw new SeedGuardError("BLOQUEADO: comprovante sem o rótulo fictício qacomp_.");
+    }
+    await tx.privateFile.upsert({
+      where: { key: receipt.storageKey },
+      update: { bytes: jpeg },
+      create: { key: receipt.storageKey, bytes: jpeg },
+    });
+    await upsert(tx, "ledgerEntryAttachment", receipt.id, {
+      entryId: receipt.entryId,
+      organizationId: scope.organizationId,
+      churchId: scope.churchId,
+      uploadedByUserId: tesouraria.id,
+      displayName: receipt.displayName,
+      contentType: "image/jpeg",
+      byteSize: jpeg.length,
+      storageKey: receipt.storageKey,
+    });
+  }
   for (const batch of catalog.finance.imports) {
     await assertOwned(tx, "bankImportBatch", {
       churchId: scope.churchId,

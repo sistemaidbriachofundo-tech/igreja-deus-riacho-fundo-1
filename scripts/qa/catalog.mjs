@@ -396,6 +396,22 @@ export function buildCatalog(now = new Date()) {
       periodEnd: today,
       status: "OPEN",
     },
+    receipts: [
+      {
+        id: id("receipt_despesa"),
+        entryId: id("entry_despesa"),
+        storageKey: "qacomp/receipts/despesa-demonstrativa.jpg",
+        displayName: "SEM VALOR FISCAL / QA — comprovante da despesa demonstrativa",
+        caption: "DESPESA QA",
+      },
+      {
+        id: id("receipt_oferta"),
+        entryId: id("entry_oferta"),
+        storageKey: "qacomp/receipts/oferta-demonstrativa.jpg",
+        displayName: "SEM VALOR FISCAL / QA — comprovante da oferta demonstrativa",
+        caption: "OFERTA QA",
+      },
+    ],
   };
 
   const catalog = {
@@ -594,6 +610,11 @@ export function summarize(catalog) {
     ministryId: catalog.ministry.id,
     trackId: catalog.track.id,
     expenseId: catalog.finance.expense.id,
+    receipts: catalog.finance.receipts.map((item) => ({
+      id: item.id,
+      entryId: item.entryId,
+      displayName: item.displayName,
+    })),
     wrongCheckInExample: "00000000000000000000000000000000",
   };
 }
