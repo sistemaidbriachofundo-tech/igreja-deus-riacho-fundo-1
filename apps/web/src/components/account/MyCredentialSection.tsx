@@ -9,22 +9,52 @@ import { credentialFailure } from "../credentials/credential-model";
 import s from "./my-credential.module.css";
 
 type Status = "loading" | "ready" | "empty" | "error";
+type Issuance = "ISSUED" | "REVOKED" | "NOT_ISSUED" | "NO_MEMBERSHIP" | "NO_PERSON";
+type OwnCredential = { card: CredentialCard | null; issuance?: Issuance; membershipId?: string | null };
+
+function emptyCopy(issuance?: Issuance): { title: string; detail: string } {
+  if (issuance === "NOT_ISSUED") {
+    return {
+      title: "Sua matrícula está ativa e a carteirinha ainda não foi emitida.",
+      detail: "A secretaria emite o documento. O cargo no sistema não entra na carteirinha e não substitui a matrícula.",
+    };
+  }
+  if (issuance === "NO_MEMBERSHIP") {
+    return {
+      title: "Não há matrícula ativa vinculada a esta conta.",
+      detail: "Sem matrícula, não há carteirinha para abrir.",
+    };
+  }
+  if (issuance === "NO_PERSON") {
+    return {
+      title: "Esta conta ainda não está vinculada a uma pessoa da congregação.",
+      detail: "A carteirinha só existe para a pessoa vinculada ao acesso.",
+    };
+  }
+  return {
+    title: "A carteirinha ainda não foi emitida.",
+    detail: "Se você já é membro, procure a Secretaria para confirmar sua matrícula e solicitar a emissão. Seu cargo no sistema não emite automaticamente um documento.",
+  };
+}
+
 export function MyCredentialSection({ token }: { token: string }) {
   const [card, setCard] = useState<CredentialCard | null>(null);
   const [phase, setPhase] = useState<Status>("loading");
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const [verification, setVerification] = useState<QrCheck | null>(null);
+  const [issuance, setIssuance] = useState<Issuance | undefined>();
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let live = true;
     setPhase("loading");
     setProblem("");
-    void apiGet<{ card: CredentialCard | null }>("/credentials/me", token, { fresh: true })
+    void apiGet<OwnCredential>("/credentials/me", token, { fresh: true })
       .then(data => {
         if (!live) return;
         setCard(data.card);
+        setIssuance(data.issuance);
         setPhase(data.card ? "ready" : "empty");
       })
       .catch(error => {
@@ -64,8 +94,8 @@ export function MyCredentialSection({ token }: { token: string }) {
       </header>
       {phase === "loading" && <p className={s.message} role="status">Consultando sua carteirinha…</p>}
       {phase === "empty" && <div className={s.empty}>
-        <strong>A carteirinha ainda não foi emitida.</strong>
-        <p>Se você já é membro, procure a Secretaria para confirmar sua matrícula e solicitar a emissão. Seu cargo no sistema não emite automaticamente um documento.</p>
+        <strong>{emptyCopy(issuance).title}</strong>
+        <p>{emptyCopy(issuance).detail}</p>
       </div>}
       {phase === "error" && <div className={s.empty} role="alert"><p>{problem}</p>
         <button type="button" onClick={() => setRevision(n => n + 1)}>Tentar novamente</button>

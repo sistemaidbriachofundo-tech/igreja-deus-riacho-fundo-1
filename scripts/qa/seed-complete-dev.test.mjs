@@ -8,7 +8,7 @@ import test from "node:test";
 import { applyQaMass } from "./apply.mjs";
 import { buildCatalog, summarize } from "./catalog.mjs";
 import { assertSeedTarget, SeedGuardError } from "./guard.mjs";
-import { jpegSize, portraitJpeg } from "./jpeg.mjs";
+import { jpegSize, portraitJpeg, receiptJpeg } from "./jpeg.mjs";
 
 const NOW = new Date("2026-11-21T15:00:00.000Z");
 const QA_URL = "postgresql://qa:segredo-nao-logar@br-twilight-bonus-b6moawk7.sa-east-1.aws.neon.tech/idriacho1_hml?sslmode=require";
@@ -193,6 +193,13 @@ test("duas aplicações mantêm os mesmos registros e não redefinem senha", asy
   const photos = second.tables.get("personPhoto");
   assert.equal(photos.length, catalog.people.length);
   assert.ok(photos.every((photo) => photo.personId.startsWith("qacomp_person_") && photo.jpeg[0] === 0xff));
+  const receipt = second.tables.get("ledgerEntryAttachment").find((row) => row.id === "qacomp_receipt_despesa");
+  assert.equal(receipt.displayName.startsWith("SEM VALOR FISCAL / QA"), true);
+  assert.equal(receipt.storageKey, "qacomp/receipts/sem-valor-fiscal.jpg");
+  assert.equal(receipt.contentType, "image/jpeg");
+  const stored = second.tables.get("privateFile").find((row) => row.key === receipt.storageKey);
+  assert.equal(stored.bytes.subarray(0, 3).toString("hex"), "ffd8ff");
+  assert.equal(receiptJpeg().equals(stored.bytes), true);
   const moças = second.tables.get("portalEvent").find((event) => event.slug === "qacomp-mocas");
   assert.equal(moças.ticketPolicy, "PARTICIPANT");
   assert.equal(moças.imageUrl, "/images/qa/events/qacomp-mocas.jpg");

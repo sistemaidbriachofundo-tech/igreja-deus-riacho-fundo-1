@@ -323,6 +323,47 @@ describe("CredentialsService", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it("getOwn distingue matrícula sem emissão de conta sem pessoa", async () => {
+    const prisma = {
+      memberCredential: { findFirst: jest.fn().mockResolvedValue(null) },
+      churchMembership: { findFirst: jest.fn().mockResolvedValue({ id: "m-ativa" }) },
+    };
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    await expect(service.getOwn(member)).resolves.toMatchObject({
+      card: null,
+      issuance: "NOT_ISSUED",
+      membershipId: "m-ativa",
+    });
+    await expect(service.getOwn({ ...member, personId: "" })).resolves.toMatchObject({
+      card: null,
+      issuance: "NO_PERSON",
+      membershipId: null,
+    });
+    expect(prisma.memberCredential.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it("platform admin continua emitindo no contrato atual de membresia", async () => {
+    const prisma = prismaWithEligibility(true);
+    const service = new CredentialsService(
+      prisma as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      storage as never,
+    );
+    const admin: AuthUser = {
+      ...member,
+      userId: "u-admin",
+      personId: "p-admin",
+      grants: [{ roleCode: "PLATFORM_ADMIN", organizationId: "org1", churchId: "church-rf1" }],
+    };
+    const card = await service.issue(admin, "m1");
+    expect(card.personId).toBe("p-mem");
+    expect(card.qrPayload).not.toMatch(/PLATFORM_ADMIN|Administrador/);
+  });
+
   it("member cannot issue cards", async () => {
     const service = new CredentialsService(
       prismaWithEligibility(true) as never,
