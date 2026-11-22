@@ -15,7 +15,7 @@ export const dsColor = {
   terracotta: "#C46558",
   ink: "#171717",
   muted: "#59616B",
-  line: "#8D9298",
+  line: "#858B91",
   danger: "#9C3041",
   success: "#286B52",
   onGold: "#171717",
