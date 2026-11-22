@@ -1,183 +1,202 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPost, loadStoredToken } from "../lib/api";
-import { ruleState } from "../lib/system-rules-state";
 import { churchLocalToISO, dasError } from "../lib/das-operations";
+import type { SettingBehavior } from "../lib/system-rules-state";
 import { usePersonaAccess } from "./AppShell";
-import { Alert, Button, Input, Loading, PageHeader, Select } from "./ui";
-import s from "./pastoral-desk.module.css";
+import { Alert, Button, Input, Loading, Modal, Select } from "./ui";
+import { UIIcon, type GlyphName } from "./ui/UIIcon";
+import s from "./system-rules-desk.module.css";
 import ui from "./ui/ui.module.css";
 
-type Setting = {
-  key: string; title: string; description: string; valueType: string; scopeKind: string; devValue: unknown;
-  editable?: boolean; behavior?: "active" | "locked" | "documentary"; behaviorNote?: string;
-};
-type Revision = {
-  id: string; key: string; lifecycle: string; value: unknown; scopeId: string | null;
-  updatedAt: string; createdAt: string; effectiveFrom: string | null; effectiveUntil: string | null;
-};
-type Effective = { value: unknown; source: "DEV" | "PUBLISHED" };
+type Setting = { key: string; title: string; description: string; valueType: string; scopeKind: string; editable: boolean; behavior: SettingBehavior };
+type Revision = { id: string; lifecycle: string; value: unknown; scopeId: string | null; updatedAt: string; createdAt: string; effectiveFrom: string | null; effectiveUntil: string | null };
+type Effective = { value: unknown; source: "DEV" | "PUBLISHED"; revisionId: string | null };
+type Pastor = { id: string; name: string };
 const path = "/system-settings";
-const scopeLabels: Record<string, string> = {
-  PLATFORM: "Plataforma", CHURCH: "Congregação", MINISTRY: "Ministério", MODULE: "Módulo", GROUP: "Grupo", TRACK: "Trilha",
+const groups: { id: SettingBehavior; title: string; icon: GlyphName; detail: string }[] = [
+  { id: "active", title: "Editáveis", icon: "settings", detail: "Escolha uma regra para alterar seu valor e definir quando entra em vigor." },
+  { id: "locked", title: "Protegidas", icon: "lock", detail: "Essas regras são fixas nesta versão. Abra uma delas para consultar a restrição." },
+  { id: "documentary", title: "Referência", icon: "book", detail: "Estas diretrizes estão documentadas. A publicação por este painel ainda não está disponível." },
+];
+const descriptions: Record<string, string> = {
+  "pastoral.titular_user_id": "Quem recebe os pedidos de oração da congregação.",
+  "pastoral.substitute_user_id": "Quem assume os pedidos na ausência do responsável.",
+  "auth.password_reset.ttl_hours": "Por quanto tempo o link para criar uma nova senha funciona.",
+  "notices.birthday.hour_brasilia": "Quando o aviso diário de aniversários é programado, no horário de Brasília.",
 };
-const lifecycleLabels: Record<string, string> = { DRAFT: "Rascunho", IN_REVIEW: "Em revisão", PUBLISHED: "Publicada" };
-const formats = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-const searchable = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR");
+const statuses: Record<string, string> = { DRAFT: "Rascunho", IN_REVIEW: "Em revisão", PUBLISHED: "Publicada" };
+const scopes: Record<string, string> = { CHURCH: "Congregação", PLATFORM: "Plataforma", MINISTRY: "Ministério", MODULE: "Módulo", GROUP: "Grupo", TRACK: "Trilha" };
+const formatDate = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
+const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
+const ruleIcons: Record<string, GlyphName> = { auth: "shield", notices: "birthday", pastoral: "people", events: "ticket", finance: "wallet", rosters: "roster", credentials: "badge" };
 
-function display(value: unknown) {
-  if (value == null || value === "") return "A definir";
+function valueLabel(item: Setting, value: unknown, pastors: Pastor[]) {
+  if (item.key.startsWith("pastoral.")) return value ? pastors.find(p => p.id === value)?.name ?? "Pastor fora da lista atual" : "Pela ordem de vínculo pastoral";
+  if (item.valueType === "number") return String(value) + (value === 1 ? " hora" : " horas");
   if (typeof value === "boolean") return value ? "Ativo" : "Desativado";
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
+  if (value === "mock") return "Simulação";
+  if (value === "ecclesiastical") return "Situação e cargo eclesiástico";
+  if (value === "America/Sao_Paulo") return "Horário de Brasília";
+  return String(value ?? "A definir");
 }
 
 export function SystemRulesDesk() {
   const access = usePersonaAccess();
   const allowed = access.kind === "ready" && access.roles.includes("PLATFORM_ADMIN");
   const [settings, setSettings] = useState<Setting[]>();
+  const [group, setGroup] = useState<SettingBehavior>("active");
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Setting>();
-  const [effective, setEffective] = useState<Effective>();
-  const [history, setHistory] = useState<Revision[]>();
-  const [filter, setFilter] = useState("");
-  const [scopeId, setScopeId] = useState("");
-  const [draftValue, setDraftValue] = useState("");
-  const [effectiveFrom, setEffectiveFrom] = useState("");
-  const [effectiveUntil, setEffectiveUntil] = useState("");
-  const [revisionId, setRevisionId] = useState("");
-  const [reload, setReload] = useState(0);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const needsScope = Boolean(selected && !["CHURCH", "PLATFORM"].includes(selected.scopeKind));
-  const revision = history?.find(item => item.id === revisionId && item.scopeId === (scopeId || null));
-
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const token = loadStoredToken();
     if (!allowed || !token) return;
     let live = true;
-    void apiGet<{ items: Setting[] }>(path + "/catalog", token).then(
+    setError("");
+    void apiGet<{ items: Setting[] }>(path + "/catalog", token, { fresh: true }).then(
       data => { if (live) setSettings(data.items); },
-      problem => { if (live) setError(dasError(problem)); },
+      issue => { if (live) setError(dasError(issue)); },
     );
     return () => { live = false; };
-  }, [allowed]);
+  }, [allowed, attempt]);
+  if (!allowed) return null;
+  const current = groups.find(item => item.id === group)!;
+  const visible = settings?.filter(item => item.behavior === group && normalize(item.title + " " + (descriptions[item.key] ?? item.description)).includes(normalize(search)));
+  return <div className={s.desk}>
+    <header className={s.header}><h1>Gestão do Sistema</h1><p>Regras e preferências da congregação</p></header>
+    {error && <><Alert title={error} tone="danger" /><Button onClick={() => setAttempt(n => n + 1)}>Tentar novamente</Button></>}
+    {!settings && !error && <Loading label="Carregando regras" />}
+    {settings && <>
+      <div className={s.groups} role="group" aria-label="Categorias de regras">{groups.map(item =>
+        <button type="button" key={item.id} aria-pressed={group === item.id} onClick={() => { setGroup(item.id); setSearch(""); }}>
+          <UIIcon name={item.icon} size={20} /><strong>{settings.filter(rule => rule.behavior === item.id).length}</strong><span>{item.title}</span>
+        </button>)}</div>
+      <section className={s.catalog}>
+        <div className={s.toolbar}><div><h2>{group === "documentary" ? "Diretrizes de referência" : "Regras " + current.title.toLowerCase()}</h2><p>{current.detail}</p></div>
+          <Input label="Buscar nesta categoria" type="search" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <ul className={s.rows} aria-label="Regras do sistema">{visible?.map(item =>
+          <li key={item.key}><button type="button" className={s.row} onClick={() => setSelected(item)} aria-label={(item.editable ? "Editar " : "Consultar ") + item.title}>
+            <span className={s.icon}><UIIcon name={ruleIcons[item.key.split(".")[0]] ?? "settings"} /></span>
+            <span className={s.copy}><strong>{item.title}</strong><span>{descriptions[item.key] ?? item.description}</span></span>
+            <span className={s.action}>{item.editable ? "Editar" : "Consultar"} <UIIcon name="chevron" size={15} /></span>
+          </button></li>)}</ul>
+        {!visible?.length && <p role="status">Nenhuma regra encontrada nesta categoria.</p>}
+      </section>
+    </>}
+    {selected && createPortal(<RuleEditor key={selected.key} item={selected} onClose={() => setSelected(undefined)} />, document.body)}
+  </div>;
+}
+
+function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
+  const [effective, setEffective] = useState<Effective>();
+  const [history, setHistory] = useState<Revision[]>([]);
+  const [pastors, setPastors] = useState<Pastor[]>([]);
+  const [draftValue, setDraftValue] = useState("");
+  const [revisionId, setRevisionId] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [schedule, setSchedule] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
+  const pastorRule = item.key.startsWith("pastoral.");
+  const revision = history.find(row => row.id === revisionId && row.lifecycle !== "PUBLISHED");
+  const previous = history.find(row => row.id === effective?.revisionId);
+  const describe = (value: unknown) => valueLabel(item, value, pastors);
 
   useEffect(() => {
     const token = loadStoredToken();
-    if (!allowed || !selected || !token) return;
+    if (!token) return;
     let live = true;
-    setHistory(undefined);
-    setEffective(undefined);
-    const key = encodeURIComponent(selected.key);
-    const query = new URLSearchParams({ key: selected.key, scopeKind: selected.scopeKind, ...(scopeId ? { scopeId } : {}) });
+    setLoading(true);
+    setError("");
+    const query = new URLSearchParams({ key: item.key, scopeKind: item.scopeKind });
     void Promise.all([
-      apiGet<{ revisions: Revision[] }>(path + "/" + key + "/history", token, { fresh: true }),
       apiGet<Effective>(path + "/effective?" + query, token, { fresh: true }),
-    ]).then(([versions, value]) => {
-      if (live) { setHistory(versions.revisions); setEffective(value); }
-    }, problem => { if (live) setError(dasError(problem)); });
+      apiGet<{ revisions: Revision[] }>(path + "/" + encodeURIComponent(item.key) + "/history", token, { fresh: true }),
+      pastorRule ? apiGet<{ items: Pastor[] }>(path + "/pastors", token, { fresh: true }) : Promise.resolve({ items: [] as Pastor[] }),
+    ]).then(([active, changes, people]) => {
+      if (!live) return;
+      setEffective(active);
+      setHistory(changes.revisions.filter(row => row.scopeId == null).reverse());
+      setPastors(people.items);
+      setDraftValue(String(active.value ?? ""));
+    }).catch(issue => { if (live) { setEffective(undefined); setError(dasError(issue)); } })
+      .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [allowed, selected, scopeId, reload]);
+  }, [item, pastorRule, reload]);
 
-  function select(item: Setting) {
-    setSelected(item);
-    setScopeId("");
-    setRevisionId("");
-    setDraftValue(typeof item.devValue === "string" ? item.devValue : JSON.stringify(item.devValue) ?? "");
-    setError("");
-    setNotice("");
-  }
-
-  async function perform(route: string, body: unknown, success: string) {
+  async function perform(route: string, body: unknown, message: string) {
     const token = loadStoredToken();
-    if (!allowed || !token || busy) return;
-    setError("");
-    setNotice("");
-    setBusy(true);
+    if (!token || busy || loading) return;
+    setBusy(true); setError(""); setNotice("");
     try {
       const result = await apiPost<Revision>(path + route, token, body);
-      setRevisionId(result.id);
-      setNotice(success);
-      setReload(value => value + 1);
-    } catch (problem) { setError(dasError(problem)); }
+      setRevisionId(result.id); setNotice(message); setReload(n => n + 1);
+    } catch (issue) { setError(dasError(issue)); }
     finally { setBusy(false); }
   }
 
-  function save(event: FormEvent<HTMLFormElement>) {
+  function publish(event: FormEvent) {
     event.preventDefault();
-    if (!selected?.editable || (needsScope && !scopeId.trim())) return;
-    let value: unknown = draftValue.trim();
-    try {
-      if (selected.valueType === "boolean") value = draftValue === "true";
-      else if (selected.valueType === "number") {
-        if (!draftValue.trim() || !Number.isFinite(Number(draftValue))) throw new Error("number");
-        value = Number(draftValue);
-      } else if (!["string", "time"].includes(selected.valueType)) value = JSON.parse(draftValue);
-    } catch { setError("Confira o formato do novo valor."); return; }
-    void perform("/drafts", { key: selected.key, scopeKind: selected.scopeKind, scopeId: scopeId || null, value }, "Rascunho salvo.");
-  }
-
-  function publish(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!revision || revision.lifecycle !== "IN_REVIEW") return;
-    const from = churchLocalToISO(effectiveFrom);
-    const until = effectiveUntil ? churchLocalToISO(effectiveUntil) : null;
-    if (!from || (effectiveUntil && (!until || until <= from))) {
-      setError("Confira o início e o fim da vigência.");
-      return;
+    if (!revision) return;
+    const from = schedule ? churchLocalToISO(start) : "now";
+    const until = end ? churchLocalToISO(end) : null;
+    if (!from || (schedule && Date.parse(from) <= Date.now()) || (end && (!until || Date.parse(until) <= (schedule ? Date.parse(from) : Date.now())))) {
+      setError("Confira a data de início e a de término da vigência."); return;
     }
-    void perform("/revisions/" + encodeURIComponent(revision.id) + "/publish", {
-      effectiveFrom: from, effectiveUntil: until, expectedUpdatedAt: revision.updatedAt,
-    }, "Regra publicada.");
+    const replace = previous && !previous.effectiveUntil;
+    void perform("/revisions/" + revision.id + "/publish", {
+      expectedUpdatedAt: revision.updatedAt, effectiveFrom: from, effectiveUntil: until, ...(replace ? { replaceRevisionId: previous.id } : {}),
+    }, schedule ? "Publicação agendada. Consulte o início da vigência no histórico." : "Regra publicada. O novo valor já está em vigor.");
   }
 
-  if (!allowed) return null;
-  const visible = settings?.filter(item => searchable(item.title + " " + item.description + " " + item.key).includes(searchable(filter.trim())));
-  return <div className={s.desk}>
-    <PageHeader title="Gestão do Sistema" description="Consulte, revise e publique regras da igreja." appearance="workspace" heading="h1" />
+  return <Modal open appearance="workspace" title={item.title} description={descriptions[item.key] ?? item.description} onClose={() => { if (!busy) onClose(); }}>
+    {loading && <Loading label="Consultando regra" />}
     {error && <Alert appearance="workspace" tone="danger" title={error} />}
-    {notice && <Alert appearance="workspace" tone="success" title={notice} />}
-    {!settings && !error && <Loading label="Carregando regras" />}
-    {settings && <Input label="Buscar regra" type="search" value={filter} onChange={event => setFilter(event.target.value)} />}
-    {selected && <section className={`${ui.workspaceSurface} ${s.stat}`} aria-label="Revisão de regra">
-      <h2>{selected.title}</h2>
-      <p>{selected.description}</p>
-      <p>{scopeLabels[selected.scopeKind] ?? selected.scopeKind} · {ruleState(selected)} · {effective ? display(effective.value) : "Consultando…"}</p>
-      {selected.behavior !== "active" && <p>Não há formulário de alteração para esta regra.</p>}
-      {selected.editable && <form className={s.prayerForm} onSubmit={save}>
-        {needsScope && <Input label="Identificador do escopo" value={scopeId}
-          onChange={event => { setScopeId(event.target.value); setRevisionId(""); }} required />}
-        {selected.valueType === "boolean" ? <Select label="Novo valor" required value={draftValue}
-          options={[{ value: "true", label: "Ativo" }, { value: "false", label: "Desativado" }]}
-          onChange={event => setDraftValue(event.target.value)} />
-          : <Input label="Novo valor" required={!selected.key.startsWith("pastoral.")} type={selected.valueType === "time" ? "time" : selected.valueType === "number" ? "number" : "text"}
-            value={draftValue} onChange={event => setDraftValue(event.target.value)} />}
-        <Button type="submit" disabled={busy}>Salvar rascunho</Button>
+    {notice && <div role="status"><Alert appearance="workspace" tone="success" title={notice} /></div>}
+    {!loading && !effective && <Button onClick={() => setReload(n => n + 1)}>Tentar novamente</Button>}
+    {!loading && effective && <>
+      <div className={s.current}><span>{item.behavior === "documentary" ? "Valor de referência" : "Valor vigente"} · {scopes[item.scopeKind] ?? item.scopeKind}</span><strong>{describe(effective.value)}</strong></div>
+      {item.editable && !revision && <form onSubmit={event => {
+        event.preventDefault();
+        void perform("/drafts", { key: item.key, scopeKind: item.scopeKind, value: item.valueType === "number" ? Number(draftValue) : draftValue }, "Rascunho salvo. Confira o valor antes de enviar para revisão.");
+      }}>
+        {pastorRule ? <Select label="Pastor designado" value={draftValue} onChange={e => setDraftValue(e.target.value)}
+          options={[{ value: "", label: "Usar a ordem de vínculo pastoral" }, ...(draftValue && !pastors.some(p => p.id === draftValue) ? [{ value: draftValue, label: "Pastor fora da lista atual" }] : []), ...pastors.map(p => ({ value: p.id, label: p.name }))]} />
+          : <Input label={item.valueType === "time" ? "Novo horário (Brasília)" : "Validade do link em horas"} required type={item.valueType === "time" ? "time" : "number"} min={item.valueType === "number" ? 1 : undefined} max={item.valueType === "number" ? 24 : undefined} value={draftValue} onChange={e => setDraftValue(e.target.value)} />}
+        <Button className={ui.workspacePrimary} type="submit" disabled={busy || draftValue === String(effective.value ?? "")}>Salvar rascunho</Button>
       </form>}
-      <h3>Histórico e revisões</h3>
-      <ul className={s.entries}>{history?.filter(row => row.scopeId === (scopeId || null)).slice().reverse().map(row => <li key={row.id}>
-        <span>{lifecycleLabels[row.lifecycle] ?? row.lifecycle} · {display(row.value)} · {formats.format(new Date(row.effectiveFrom ?? row.createdAt))}</span>{" "}
-        {row.lifecycle !== "PUBLISHED" && <Button variant="secondary" disabled={busy}
-          onClick={() => setRevisionId(row.id)}>Abrir revisão</Button>}
-      </li>)}</ul>
-      {revision?.lifecycle === "DRAFT" && <Button variant="secondary" disabled={busy} onClick={() => void perform(
-        "/revisions/" + encodeURIComponent(revision.id) + "/review", { expectedUpdatedAt: revision.updatedAt }, "Rascunho em revisão.",
-      )}>Enviar para revisão</Button>}
-      {revision?.lifecycle === "IN_REVIEW" && <form className={s.prayerForm} onSubmit={publish}>
-        <p>Publicar · {display(revision.value)}</p>
-        <Input type="datetime-local" label="Início da vigência (Brasília)" required value={effectiveFrom} onChange={event => setEffectiveFrom(event.target.value)} />
-        <Input type="datetime-local" label="Fim da vigência (opcional)" value={effectiveUntil} onChange={event => setEffectiveUntil(event.target.value)} />
-        <Button type="submit" disabled={busy}>Publicar regra</Button>
-      </form>}
-    </section>}
-    {visible?.length ? <ul className={s.entries} aria-label="Regras do sistema">
-      {visible.map(item => <li key={item.key} className={`${ui.workspaceSurface} ${s.stat}`}>
-        <div className={s.summaryHead}><h2>{item.title}</h2><Button variant="secondary" onClick={() => select(item)} disabled={busy}>
-          Abrir<span className={ui.srOnly}> {item.title}</span>
-        </Button></div><span>{item.description}</span>
-        {item.behavior && item.behavior !== "active" && <span>{ruleState(item)}</span>}
-      </li>)}
-    </ul> : settings && <p>Nenhuma regra encontrada.</p>}
-  </div>;
+      {revision && <section className={s.workflow} aria-label="Revisão selecionada">
+        <h3>{statuses[revision.lifecycle]} · {describe(revision.value)}</h3>
+        {revision.lifecycle === "DRAFT" && <Button className={ui.workspacePrimary} disabled={busy} onClick={() => void perform("/revisions/" + revision.id + "/review", { expectedUpdatedAt: revision.updatedAt }, "Pronto para publicar. Escolha quando a regra entra em vigor.")}>Enviar para revisão</Button>}
+        {revision.lifecycle === "IN_REVIEW" && <form onSubmit={publish}>
+          <Select label="Entrada em vigor" value={schedule ? "later" : "now"} onChange={e => setSchedule(e.target.value === "later")}
+            options={[{ value: "now", label: "Ao publicar" }, { value: "later", label: "Agendar para outra data" }]} />
+          {schedule && <Input type="datetime-local" label="Início da vigência (Brasília)" required value={start} onChange={e => setStart(e.target.value)} />}
+          <Input type="datetime-local" label="Fim da vigência (opcional)" value={end} onChange={e => setEnd(e.target.value)} />
+          {previous && !previous.effectiveUntil && <p>A versão vigente será encerrada quando a nova entrar em vigor.</p>}
+          <Button className={ui.workspacePrimary} type="submit" disabled={busy}>Publicar regra</Button>
+        </form>}
+        <Button variant="ghost" disabled={busy} onClick={() => { setRevisionId(""); setNotice(""); setError(""); }}>Voltar à regra</Button>
+      </section>}
+      {item.behavior === "locked" && <p className={s.note}><UIIcon name="lock" size={18} /> Esta configuração é protegida na versão atual.</p>}
+      {item.behavior === "documentary" && <p className={s.note}><UIIcon name="book" size={18} /> Diretriz de referência. Este painel ainda não controla sua aplicação.</p>}
+      <details className={s.history}><summary>Histórico e revisões ({history.length})</summary>
+        {!history.length && <p>Ainda não há revisões para esta regra.</p>}
+        <ul>{history.map(row => <li key={row.id}><strong>{statuses[row.lifecycle] ?? row.lifecycle} · {describe(row.value)}</strong><span>
+          {formatDate(row.effectiveFrom ?? row.createdAt)}{row.effectiveUntil ? " até " + formatDate(row.effectiveUntil) : ""} · Brasília
+        </span>{item.editable && row.lifecycle !== "PUBLISHED" && <Button variant="secondary" disabled={busy} onClick={() => {
+          setRevisionId(row.id); setStart(""); setEnd(""); setSchedule(false); setNotice(""); setError("");
+        }}>Abrir revisão</Button>}</li>)}</ul>
+      </details>
+    </>}
+  </Modal>;
 }

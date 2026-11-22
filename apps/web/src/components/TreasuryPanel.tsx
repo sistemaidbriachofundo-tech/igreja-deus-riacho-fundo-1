@@ -547,17 +547,12 @@ export function TreasuryPanel() {
         {canWrite && <button type="button" aria-current={view === "integracoes" ? "page" : undefined} onClick={() => openView("integracoes")}><UIIcon name="wallet" size={17} /> Contas e integrações</button>}
         {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && view !== "integracoes" && scopeFilters}
+      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && view !== "integracoes" && view !== "visao" && scopeFilters}
       {view !== "lancar" && view !== "aprovacoes" && view !== "integracoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "integracoes" && canWrite && token && <TreasuryIntegrations token={token} accounts={accounts} accountsPending={!data && !failure} onStatement={() => openView("extrato")} />}
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
-        {view === "visao" && canWrite && token && <MinistryCostCenterSetup token={token}
-          onConfigured={() => setRevision(value => value + 1)} />}
-        {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
-          <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
-          <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
-        </section>}
+        {view === "visao" && <FilterDisclosure count={[activeCenter, from || to].filter(Boolean).length}>{scopeFilters}</FilterDisclosure>}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
             onBank={id => { clearStatementFilters(); setBankFilter(id); openView("extrato"); }}
@@ -565,6 +560,12 @@ export function TreasuryPanel() {
             onReconciliation={() => openView("conciliacao")} />
         ) : <TreasuryPositionCards state={cards} />)}
 
+        {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
+          <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
+          <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
+        </section>}
+        {view === "visao" && canWrite && token && <MinistryCostCenterSetup token={token}
+          onConfigured={() => setRevision(value => value + 1)} />}
         {view === "despesas" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Despesas da congregação">
           <FinancialHeading icon="wallet" title="Despesas da congregação">
             {data?.entries && <span className={styles.statementCount}>{expenseRows.length} {expenseRows.length === 1 ? "despesa no período" : "despesas no período"}</span>}

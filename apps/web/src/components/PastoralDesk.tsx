@@ -81,13 +81,16 @@ function PastoralWorkspace({ roles }: { roles: readonly string[] }) {
     <PageHeader appearance="workspace" heading="h1" title="Mesa pastoral"
       description="Acompanhe os atendimentos da congregação e revise as decisões que aguardam o pastor."
       actions={<button type="button" className={ui.workspaceSecondary} onClick={() => setRevision(value => value + 1)}>Atualizar</button>} />
-    <nav className={s.actions} aria-label="Rotinas pastorais">
-      {pastoralSections(roles).map(({ id, title, href, icon }) => <AppNavLink key={id} className={ui.workspaceSecondary} href={href}>
-        <UIIcon name={icon} size={18} /> {title}
-      </AppNavLink>)}
-    </nav>
-    <CongregationSummary revision={revision} />
     <WorkspacePriorities showService={false} showDecisions revision={revision} />
+    <CongregationSummary revision={revision} />
+    <section className={s.routines}>
+      <h2>Rotinas pastorais</h2>
+      <nav aria-label="Rotinas pastorais">
+        {pastoralSections(roles).map(({ id, title, href, icon }) => <AppNavLink key={id} href={href}>
+          <span><UIIcon name={icon} size={19} /></span><strong>{title}</strong><UIIcon name="chevron" size={15} />
+        </AppNavLink>)}
+      </nav>
+    </section>
   </div>;
 }
 
