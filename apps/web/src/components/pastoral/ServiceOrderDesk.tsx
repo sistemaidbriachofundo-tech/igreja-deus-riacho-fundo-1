@@ -11,6 +11,19 @@ import { ServiceOrderPlannerPanel } from "./ServiceOrderPlannerPanel";
 import ui from "../ui/ui.module.css";
 import s from "./service-order.module.css";
 
+type OrderPerson = { id: string; displayName: string; isMinor: boolean; roles: string[]; sources: string[] };
+type OrderPeopleResponse = { people: OrderPerson[]; qualified: number; notice: string };
+
+/** Liturgia de RF1: pessoa selecionada vem da membresia ativa, não de texto livre. */
+function roleForMoment(title: string): string | null {
+  if (/prega|palavra|ministrac|sermão/i.test(title)) return "preacher";
+  if (/dirig|direção|generosidade/i.test(title)) return "director";
+  if (/louvor|adora|instrumental|música/i.test(title)) return "praise";
+  if (/acolh|boas.vindas|recep/i.test(title)) return "welcome";
+  if (/bênção|benção|oração pelas famílias/i.test(title)) return "preacher";
+  return null;
+}
+
 type OrderItem = { title: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null };
 type Order = {
   id: string;
@@ -58,6 +71,15 @@ function OrderEditor({ order, token, onClose, onSaved }: {
   order: Order | null; token: string; onClose: () => void; onSaved: (order: Order) => void;
 }) {
   const [items, setItems] = useState(() => order?.items.length ? order.items.map(editorItem) : [editorItem()]);
+  const [members, setMembers] = useState<OrderPerson[]>([]);
+  const [directoryPhase, setDirectoryPhase] = useState<"loading" | "ready" | "error">("loading");
+  useEffect(() => {
+    let live = true;
+    void apiGet<OrderPeopleResponse>("/service-orders/planning/people", token, { fresh: true })
+      .then(data => { if (live) { setMembers(data.people); setDirectoryPhase("ready"); } })
+      .catch(() => { if (live) setDirectoryPhase("error"); });
+    return () => { live = false; };
+  }, [token]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   function move(index: number, direction: -1 | 1) {
@@ -120,6 +142,12 @@ function OrderEditor({ order, token, onClose, onSaved }: {
         <label>Orientações para a equipe<textarea name="notes" rows={2} maxLength={4000} defaultValue={order?.notes ?? ""} /></label>
         <section className={s.form} aria-label="Sequência do culto">
           <h3>Sequência do culto</h3>
+          {directoryPhase === "loading" && <p role="status">Buscando membros, pastores e líderes cadastrados para a Ordem de Culto…</p>}
+          {directoryPhase === "error" && <p role="alert">Não foi possível consultar o catálogo de pessoas. Você pode editar o roteiro, mas confira os responsáveis antes de publicar.</p>}
+          {directoryPhase === "ready" && <p className={s.directoryInfo} role="status">
+            <strong>{members.length} membros ativos</strong> encontrados nesta congregação; {members.filter(p => p.roles.length).length} com função documentada para este rodízio.
+            Pastores e líderes do Louvor/Atmosfera aparecem entre as opções. Outras designações exigem conferência pastoral.
+          </p>}
           {items.map((item, index) => <fieldset key={item.key} className={s.step}>
             <legend>Etapa {index + 1}</legend>
             <div className={s.stepGrid}>
@@ -127,9 +155,34 @@ function OrderEditor({ order, token, onClose, onSaved }: {
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, title: e.target.value } : row))} /></label>
               <label>Duração em minutos<input type="number" min={1} max={180} value={item.minutes}
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, minutes: e.target.value } : row))} /></label>
-              <label>Responsável<input maxLength={80} value={item.responsible}
+              <label>Responsável cadastrado
+                <select className={s.personSelect} aria-label={`Responsável cadastrado da etapa ${index+1}`} value={item.responsiblePersonId ?? ""}
+                  disabled={directoryPhase !== "ready"}
+                  onChange={e => {
+                    const choice = members.find(p => p.id === e.target.value);
+                    setItems(current => current.map(row => row.key === item.key ?
+                      { ...row, responsiblePersonId: choice?.id ?? null, responsible: choice?.displayName ?? row.responsible } : row));
+                  }}>
+                  <option value="">A definir / preencher manualmente</option>
+                  {item.responsiblePersonId && !members.some(p => p.id === item.responsiblePersonId) &&
+                    <option value={item.responsiblePersonId}>{item.responsible} (vínculo anterior; conferir)</option>}
+                  <optgroup label="Com função cadastrada para este momento">
+                    {members.filter(p => !p.isMinor && (roleForMoment(item.title) ?
+                      p.roles.includes(roleForMoment(item.title)!) : p.roles.length > 0)).map(p =>
+                      <option key={p.id} value={p.id}>{p.displayName} · {p.sources[0] ?? "Função reconhecida"}</option>)}
+                  </optgroup>
+                  <optgroup label="Demais membros ativos — validar designação pastoral">
+                    {members.filter(p => !p.isMinor && !(roleForMoment(item.title) ?
+                      p.roles.includes(roleForMoment(item.title)!) : p.roles.length > 0)).map(p =>
+                      <option key={p.id} value={p.id}>{p.displayName}</option>)}
+                  </optgroup>
+                </select>
+              </label>
+              <label>Nome / orientação da função<input maxLength={80} value={item.responsible}
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, responsible: e.target.value, responsiblePersonId: null } : row))} /></label>
             </div>
+            {item.responsiblePersonId ? <p className={s.selectionInfo}>Vinculado à ficha da pessoa · será registrado no histórico do rodízio.</p>
+              : <p className={s.selectionInfo}>Responsável não vinculado ao cadastro. Para contar no rodízio mensal, selecione a pessoa acima.</p>}
             <div className={s.stepGrid}>
               <label>Microfone<input maxLength={100} value={item.microphone} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, microphone: e.target.value } : row))} /></label>
               <label>Equipamentos<input maxLength={280} value={item.equipment} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, equipment: e.target.value } : row))} /></label>

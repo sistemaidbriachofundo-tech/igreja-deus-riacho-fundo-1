@@ -195,7 +195,8 @@ export function chooseRoleCandidate(
     return { row, uses: uses.length, monthly: monthly.length, last };
   }).filter(x => x.monthly < rules.maxMonthlyAssignments &&
     (!x.last || localDayGap(new Date(x.last).toISOString(), serviceAt) >= rules.minIntervalDays));
-  ranked.sort((a,b)=>a.uses-b.uses || a.last-b.last ||
+  ranked.sort((a,b)=>(Number(b.row.status === "CONFIRMED")-Number(a.row.status === "CONFIRMED")) ||
+    a.uses-b.uses || a.last-b.last ||
     rankHash(a.row.personId+"|"+serviceAt)-rankHash(b.row.personId+"|"+serviceAt));
   return ranked[0]?.row ?? null;
 }
