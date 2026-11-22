@@ -42,6 +42,20 @@ describe("OC: regras e prévia mensal", () => {
     ];
     expect(chooseRoleCandidate("director", late, [person], history, new Set(), { ...p, minIntervalDays: 0 }, () => true)).toBeNull();
   });
+  it("prioriza confirmação operacional e bloqueia diretório quando a regra exige escala", () => {
+    const people = [
+      { personId: "pastora", displayName: "Pastora QA", rosterId: "directory", roleLabel: "Pregador", status: "PENDING" as const },
+      { personId: "p_confirmado", displayName: "Pastor escalado", rosterId: "roster1", roleLabel: "Pregador", status: "CONFIRMED" as const },
+    ];
+    const target = "2026-12-06T22:00:00Z";
+    expect(chooseRoleCandidate("preacher", target, people, [], new Set(), p, () => true)?.personId).toBe("p_confirmado");
+    expect(chooseRoleCandidate("preacher", target, people, [], new Set(),
+      { ...p, requireConfirmedRoster: false }, () => true)?.personId).toBe("p_confirmado");
+    expect(chooseRoleCandidate("preacher", target, [people[0]], [], new Set(), p, () => true)).toBeNull();
+    expect(chooseRoleCandidate("preacher", target, [people[0]], [], new Set(),
+      { ...p, requireConfirmedRoster: false }, () => true)?.personId).toBe("pastora");
+  });
+
   it("continua o rodízio por pessoa e registra exceção sem nome fixo", () => {
     const experienced = { personId: "id-aaa", displayName: "Ana", rosterId: "r1", roleLabel: "Dirigente", status: "CONFIRMED" as const };
     const fresh = { ...experienced, personId: "id-zzz", displayName: "Bia" };

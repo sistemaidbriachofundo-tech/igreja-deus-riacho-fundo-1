@@ -252,6 +252,11 @@ export class ServiceOrderPlannerService {
       if (!preacher) warnings.push("Pregação sem pessoa confirmada e elegível: atribuição manual.");
       if (!praise) warnings.push("Ministro de louvor não identificado na escala.");
       if (!welcome) warnings.push("Acolhimento sem responsável confirmado.");
+      for (const assignment of [director, preacher, praise, welcome]) {
+        if (assignment?.rosterId === "directory") warnings.push(
+          assignment.displayName + " está habilitado no cadastro, mas não está confirmado na escala deste culto. Validar com a liderança."
+        );
+      }
       if (config.rules.blessing!=="PREACHER") warnings.push("Definir o responsável pela bênção apostólica.");
       // Registra cada participação uma vez por culto para balancear os próximos cultos, sem contar múltiplos momentos.
       for (const id of new Set(items.map(x=>x.responsiblePersonId).filter((x):x is string=>Boolean(x)))) {
