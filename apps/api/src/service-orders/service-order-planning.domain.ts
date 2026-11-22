@@ -2,6 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 
 export type BlessingChoice = "LEADERSHIP" | "PREACHER" | "DESIGNATED";
 export type CultWindow = { weekday: number; time: string; title: string };
+export type ServiceException = { serviceAt: string; kind: "SKIP" | "SPECIAL"; note: string; title?: string };
 export type ServiceOrderRules = {
   services: CultWindow[];
   minIntervalDays: number;
@@ -10,6 +11,7 @@ export type ServiceOrderRules = {
   respectAvailability: boolean;
   requireConfirmedRoster: boolean;
   blessing: BlessingChoice;
+  exceptions: ServiceException[];
 };
 export type SuggestedMoment = { title: string; minutes: number; responsible: string | null; responsiblePersonId: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null };
 export type Candidate = { personId: string; displayName: string; roleLabel: string; rosterId: string; status: "PENDING" | "CONFIRMED" };
@@ -27,6 +29,7 @@ export const RF1_SERVICE_ORDER_DEFAULTS: ServiceOrderRules = {
   respectAvailability: true,
   requireConfirmedRoster: true,
   blessing: "LEADERSHIP",
+  exceptions: [],
 };
 
 export function parseOrderRules(value: unknown): ServiceOrderRules {
@@ -60,6 +63,7 @@ export function parseOrderRules(value: unknown): ServiceOrderRules {
   if (!["LEADERSHIP","PREACHER","DESIGNATED"].includes(String(v.blessing))) {
     throw new BadRequestException("Selecione como será definida a bênção apostólica.");
   }
+  const exceptions = readExceptions(v.exceptions);
   return {
     services,
     minIntervalDays: int("minIntervalDays", 0, 90),
@@ -68,7 +72,27 @@ export function parseOrderRules(value: unknown): ServiceOrderRules {
     respectAvailability: bool("respectAvailability"),
     requireConfirmedRoster: bool("requireConfirmedRoster"),
     blessing: v.blessing as BlessingChoice,
+    exceptions,
   };
+}
+
+function readExceptions(value: unknown): ServiceException[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 40) throw new BadRequestException("As exceções precisam ser uma lista de até 40 cultos.");
+  return value.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) throw new BadRequestException("Exceção de culto inválida.");
+    const item = row as Record<string, unknown>;
+    const serviceAt = typeof item.serviceAt === "string" ? item.serviceAt.trim() : "";
+    const note = typeof item.note === "string" ? item.note.trim() : "";
+    const title = typeof item.title === "string" ? item.title.trim() : "";
+    if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{3})?Z)?)?$/.test(serviceAt) || !note || note.length > 280 || (item.kind !== "SKIP" && item.kind !== "SPECIAL")) {
+      throw new BadRequestException("Cada exceção precisa de data, tipo e observação.");
+    }
+    if (/^(bispo|bispa|pastor|pastora)\s+\S+/i.test(note) || /^(bispo|bispa|pastor|pastora)\s+\S+/i.test(title)) {
+      throw new BadRequestException("A exceção não fixa nome de bispo ou pastor.");
+    }
+    return { serviceAt, kind: item.kind, note, ...(title ? { title } : {}) };
+  });
 }
 
 const TZ = "America/Sao_Paulo";
@@ -107,6 +131,18 @@ export function monthServiceDates(year: number, month: number, rules: ServiceOrd
     }
   }
   return rows.sort((a,b)=>a.serviceAt.localeCompare(b.serviceAt));
+}
+
+export function localDateKey(serviceAt: string) {
+  const parts = localFields(Date.parse(serviceAt));
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+export function exceptionFor(rules: ServiceOrderRules, serviceAt: string) {
+  const date = localDateKey(serviceAt);
+  const parts = localFields(Date.parse(serviceAt));
+  const clock = `${date}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+  return rules.exceptions.find((item) => item.serviceAt === serviceAt || item.serviceAt === date || item.serviceAt === clock) ?? null;
 }
 
 export function localDayGap(first: string, second: string): number {
@@ -169,7 +205,7 @@ export function buildServiceMoments(
   welcome: Candidate | null, rules: ServiceOrderRules,
 ): SuggestedMoment[] {
   const m = (title:string, minutes:number, person:Candidate|null, fallback?:string, notes?:string):SuggestedMoment =>
-    ({ title, minutes, responsible:person?.displayName??fallback??null, responsiblePersonId:person?.personId??null, notes:notes??null });
+    ({ title, minutes, responsible:person?.displayName??fallback??"A definir", responsiblePersonId:person?.personId??null, notes:notes??null });
   const blessing = rules.blessing === "PREACHER" ? preacher : null;
   return [
     m("Vídeo prelúdio",10,null,"Equipe de Mídia"),

@@ -176,4 +176,14 @@ export class ServiceOrdersController {
   ) {
     return this.orders.publish(user, orderId, body?.expectedUpdatedAt);
   }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Post(":orderId/revise")
+  revise(
+    @CurrentUser() user: AuthUser,
+    @Param("orderId") orderId: string,
+    @Body() body: ServiceOrderExpectedBody,
+  ) {
+    return this.orders.revise(user, orderId, body?.expectedUpdatedAt);
+  }
 }
