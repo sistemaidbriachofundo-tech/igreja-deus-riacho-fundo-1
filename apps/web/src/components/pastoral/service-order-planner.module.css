@@ -63,3 +63,20 @@
 @media(max-width:1050px){.rulesGrid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.schedule{padding:12px}.scheduleRow{grid-template-columns:43px minmax(0,1fr);gap:8px}.rowRight{grid-column:2;justify-items:start;display:flex;align-items:center}.generate{display:grid}.generate button{width:100%}.cultRow{grid-template-columns:1fr 1fr}.cultRow label:nth-child(3){grid-column:1/-1}.cultRow button{grid-column:2;justify-self:end}.kpis{gap:8px}.kpi{padding:12px}.liveRow{grid-template-columns:48px minmax(0,1fr)}.liveRow>span:last-child{grid-column:2}.ruleCard{padding:14px}}
 @media(prefers-reduced-motion:reduce){.panel *{scroll-behavior:auto}}
+
+/* Catálogo de responsáveis: vínculo eclesiástico, ministérios e confirmação de escala são estados distintos. */
+.personnel{display:grid;gap:13px;padding:17px;background:#fff;border:1px solid #dce1e5;border-radius:15px}
+.personnel>header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:start}
+.personnel h3{margin:0;font-size:17px;letter-spacing:-.02em}
+.personnel header p,.personnelFootnote{font-size:12px;line-height:1.5;color:#5c6570;margin:6px 0 0}
+.personnel header>span{font-size:11px;color:#846128;background:#fff4df;padding:8px;border-radius:8px}
+.personnelGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.personnelGroup{padding:13px;background:#f7f8f9;border:1px solid #eceef0;border-radius:11px;min-width:0}
+.personnelGroup>strong{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.personnelGroup>strong span{background:#e2e6e9;border-radius:99px;padding:2px 7px;font-variant-numeric:tabular-nums}
+.personnelGroup ul{list-style:none;padding:0;display:grid;gap:8px;margin:10px 0 0}
+.personnelGroup li{display:grid;gap:2px;font-size:12px;font-weight:650;overflow-wrap:anywhere}
+.personnelGroup li small{font-size:10px;color:#69717a;font-weight:400;line-height:1.3}
+.personnelGroup>p{font-size:11px;color:#6a737c;margin:10px 0 0;line-height:1.5}
+@media(max-width:1050px){.personnelGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.personnelGrid{grid-template-columns:1fr}}

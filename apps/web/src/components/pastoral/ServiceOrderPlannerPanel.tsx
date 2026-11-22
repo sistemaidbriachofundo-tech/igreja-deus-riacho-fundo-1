@@ -17,6 +17,8 @@ type Moment = { title: string; minutes: number; responsible: string | null; resp
 type Planned = { serviceAt: string; title: string; alreadyExists: boolean; skipped?: boolean; warnings: string[]; sourceRosterIds: string[]; items: Moment[] };
 type Preview = { year: number; month: number; rows: Planned[]; summary: { total: number; proposed: number; existing: number; withWarnings: number }; policy: { updatedAt: string | null; rules: Rules } };
 type PolicyResponse = { rules: Rules; updatedAt: string | null };
+type EligiblePerson = { id: string; displayName: string; roles: string[]; sources: string[]; isMinor: boolean };
+type PeopleResponse = { people: EligiblePerson[]; qualified: number; notice: string };
 type Order = { id:string; title:string; serviceAt:string; status:"DRAFT"|"APPROVED"|"PUBLISHED";items:Array<{title:string;minutes?:number|null;responsible?:string|null}> };
 type View = "calendar" | "rules" | "live";
 const weekdays = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
@@ -57,6 +59,15 @@ export function ServiceOrderPlannerPanel({ token, canEdit, view, orders, onGener
   const [liveId,setLiveId]=useState("");
   const [clock,setClock]=useState(()=>Date.now());
   const [revision,setRevision]=useState(0);
+  const [catalog,setCatalog]=useState<PeopleResponse|null>(null);
+  useEffect(()=>{
+    if(view!=="calendar")return;
+    let active=true;
+    void apiGet<PeopleResponse>("/service-orders/planning/people",token,{fresh:true})
+      .then(p=>{if(active)setCatalog(p);})
+      .catch(()=>{if(active)setCatalog(null);});
+    return()=>{active=false;};
+  },[token,view,revision]);
 
   const load = useCallback(async () => {
     setError("");setNotice("");
@@ -124,6 +135,31 @@ export function ServiceOrderPlannerPanel({ token, canEdit, view, orders, onGener
             {v:plan.summary.withWarnings,l:"Cultos para revisar"},
           ].map((x,i)=><div key={x.l} className={s.kpi} data-accent={i===3?"warning":i===1?"good":"neutral"}><strong>{x.v}</strong><span>{x.l}</span></div>)}
         </div>
+        <section className={s.personnel} aria-labelledby="oc-team-heading">
+          <header><div><h3 id="oc-team-heading">Responsáveis cadastrados na congregação</h3>
+            <p>Pessoas com função eclesiástica ou liderança nos ministérios. O cadastro não substitui uma escala confirmada.</p></div>
+            <span>{catalog ? catalog.qualified+" habilitados para o rodízio" : "Consultando cadastro…"}</span>
+          </header>
+          {catalog && <div className={s.personnelGrid}>
+            {([
+              ["preacher","Pregação e Pastoral"],["director","Direção do culto"],
+              ["praise","Ministros de Louvor"],["welcome","Acolhimento"],
+            ] as const).map(([role,label])=>{
+              const registered=catalog.people.filter(p=>p.roles.includes(role));
+              return <div className={s.personnelGroup} key={role}>
+                <strong>{label}<span>{registered.length}</span></strong>
+                {registered.length>0 ? <ul>{registered.slice(0,5).map(p=>
+                  <li key={p.id}>{p.displayName}<small>{p.sources[0]??"Cadastro ativo"}</small></li>)}</ul>
+                  : <p>Não há pessoa habilitada nesta função. Vincule a função no cadastro ou defina no roteiro.</p>}
+                {registered.length>5 && <p>+ {registered.length-5} integrantes cadastrados</p>}
+              </div>;
+            })}
+          </div>}
+          <p className={s.personnelFootnote}>
+            Se o gerador indicar “A definir”, vá à aba <strong>Roteiro</strong>, edite a ordem e selecione a pessoa cadastrada.
+            Pessoas fora da escala confirmada precisam de validação pastoral antes da publicação.
+          </p>
+        </section>
         <div className={s.schedule}>
           <div className={s.scheduleHead}><h3>{monthName.format(new Date(plan.rows[0]?.serviceAt??new Date()))}</h3>
             <span>{plan.summary.total} encontros</span></div>
