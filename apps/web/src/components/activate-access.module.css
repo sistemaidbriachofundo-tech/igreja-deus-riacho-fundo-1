@@ -22,7 +22,9 @@
 .feedback{display:grid;gap:11px;padding:18px;border:1px solid #dedede;border-radius:10px;background:#fafafa;color:#252525}
 .feedback strong{font-size:15px}
 .feedback p{margin:0;color:#555;font-size:14px;line-height:1.6}
-.feedback a,.textAction{color:#222;font-weight:650;text-decoration:underline}
+.feedback a:not(.primary),.textAction{color:#222;font-weight:650;text-decoration:underline}
+.feedback a.primary,.feedback a.primary:visited{color:#fff;background:#171717;text-decoration:none;font-weight:700}
+.feedback a.primary:hover{background:#343434;color:#fff}
 .textAction{justify-self:start;min-height:44px;padding:4px 0;border:0;background:transparent;cursor:pointer;font-size:13px}
 .intro{margin:0 0 18px;color:#535353;font-size:14px;line-height:1.55}
 .footer{margin:22px 0 0;color:#535353;font:400 14px/1.55 var(--site-font)}
