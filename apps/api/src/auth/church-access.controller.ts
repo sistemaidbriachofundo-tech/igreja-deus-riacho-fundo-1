@@ -29,6 +29,26 @@ const assignableRoles = [
 ] as const;
 const accessPageSize = 25;
 
+/** QA isolada: nunca ofereça este provisionador na produção da igreja. */
+export const QA_PRESETS = [
+  { slug: "pastora", name: "Pastora - ambiente de teste", role: ROLE_CODES.PASTOR },
+  { slug: "secretaria1", name: "Secretaria 1 - ambiente de teste", role: ROLE_CODES.SECRETARIA },
+  { slug: "secretaria2", name: "Secretaria 2 - ambiente de teste", role: ROLE_CODES.SECRETARIA },
+  { slug: "louvor", name: "Lider do Louvor - ambiente de teste", role: ROLE_CODES.LIDER_MINISTERIO, ministrySlug: "louvor-demo" },
+  { slug: "atmosfera", name: "Lider Atmosfera - ambiente de teste", role: ROLE_CODES.LIDER_MINISTERIO, ministrySlug: "atmosfera" },
+  { slug: "homens", name: "Lider de Homens - ambiente de teste", role: ROLE_CODES.LIDER_MINISTERIO, ministrySlug: "homens" },
+  { slug: "mentor", name: "Mentor da Conexao - ambiente de teste", role: ROLE_CODES.MEMBRO, mentor: true },
+  { slug: "midia", name: "Equipe Midia - ambiente de teste", role: ROLE_CODES.EDITOR_SITE },
+] as const;
+
+export function qaTesterProvisionEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.IDBRF_RUNTIME_STAGE === "qa" &&
+    env.F11_QA_TESTER_PASSWORD_ONLY === "true" &&
+    env.ACCESS_INVITE_DELIVERY === "preview";
+}
+
+
+
 type ChurchScope = { organizationId: string; churchId: string };
 
 class AccessProfileInput {
@@ -208,6 +228,109 @@ export class ChurchAccessController {
     return { ministries: ministries.map(({ id, name, slug, rosterModules }) => ({
       id, name, modules: slug === "atmosfera" ? rosterModules : [],
     })) };
+  }
+
+
+  /**
+   * Provisionamento EXCLUSIVO do projeto de QA, disparado por administrador
+   * autenticado com MFA recente. Não define nem mostra senhas: o próprio
+   * testador ativa a conta com um link de uso único retornado no painel.
+   * E-mails @example.test nunca correspondem a contas pessoais reais.
+   */
+  @Post("qa-testers")
+  @Header("Cache-Control", "no-store")
+  async createQaTesters(@CurrentUser() actor: AuthUser) {
+    const { organizationId, churchId } = await this.scope(actor);
+    if (!qaTesterProvisionEnabled() || !this.invitations || !this.auth) {
+      throw new ForbiddenException("Provisionamento fictício desativado fora da QA isolada.");
+    }
+    const deliveryConfig = inviteEmailConfig();
+    if (!deliveryConfig.preview) throw new ForbiddenException("Esta operação exige entrega privada em modo preview.");
+    await this.auth.requireRecentMfa(actor);
+
+    const result: Array<{ label: string; email: string; role: string; ministry: string | null; status: string; previewUrl?: string }> = [];
+    for (const preset of QA_PRESETS) {
+      const email = "qa.rf1.tester." + preset.slug + "@example.test";
+      const personId = "qa_rf1_tester_person_" + preset.slug;
+      const userId = "qa_rf1_tester_user_" + preset.slug;
+      const role = await this.prisma.role.findUnique({ where: { code: preset.role }, select: { id: true } });
+      if (!role) throw new ServiceUnavailableException("Perfil de QA ainda não cadastrado.");
+      const ministrySlug = "ministrySlug" in preset ? preset.ministrySlug : null;
+      const ministry = ministrySlug ? await this.prisma.ministry.findFirst({
+        where: { organizationId, churchId, slug: ministrySlug }, select: { id: true, name: true },
+      }) : null;
+      if (ministrySlug && !ministry) throw new ServiceUnavailableException("Ministério QA não cadastrado: " + ministrySlug);
+      const track = "mentor" in preset ? await this.prisma.discipleshipTrack.findFirst({
+        where: { organizationId, churchId, name: "Trilha da Conexão" }, select: { id: true },
+      }) : null;
+      if ("mentor" in preset && !track) throw new ServiceUnavailableException("Trilha QA para mentor ausente.");
+
+      const existing = await this.prisma.user.findUnique({
+        where: { email }, select: { id: true, personId: true, status: true, passwordHash: true,
+          grants: { select: { roleId: true, organizationId: true, churchId: true, ministryId: true } } },
+      });
+      if (existing && (existing.id !== userId || existing.personId !== personId ||
+          !existing.grants.some(g => g.roleId === role.id && g.organizationId === organizationId &&
+            g.churchId === churchId && g.ministryId === (ministry?.id ?? null)))) {
+        throw new ConflictException("A conta de teste existente possui escopo diferente; intervenção administrativa necessária.");
+      }
+      if (existing?.status === "ACTIVE" && existing.passwordHash) {
+        result.push({ label: preset.name, email, role: preset.role, ministry: ministry?.name ?? null, status: "ACTIVE" });
+        continue;
+      }
+      if (existing && existing.status !== "DISABLED") throw new ConflictException("Conta QA em situação incompatível.");
+      const issued = this.invitations.newToken();
+      const created = await this.prisma.$transaction(async tx => {
+        if (!existing) {
+          await tx.person.create({ data: {
+            id: personId, organizationId, homeChurchId: churchId,
+            displayName: preset.name, email, status: "ACTIVE", kind: "MEMBER",
+          } });
+          await tx.user.create({ data: {
+            id: userId, personId, email, status: "DISABLED", passwordHash: null, mfaRequired: false,
+            grants: { create: { roleId: role.id, organizationId, churchId, ministryId: ministry?.id ?? null } },
+          } });
+          await tx.churchMembership.create({ data: {
+            id: "qa_rf1_tester_membership_" + preset.slug,
+            personId, organizationId, churchId, status: "ACTIVE",
+            notes: "Cadastro sintético de QA; não representa membro real.",
+          } });
+          if (ministry) await tx.ministryMembership.create({ data: {
+            id: "qa_rf1_tester_ministry_" + preset.slug, organizationId, churchId,
+            ministryId: ministry.id, personId, role: "LIDER", status: "ATIVO", source: "DIRETO",
+          } });
+          if (track) await tx.discipleshipMentorRegistration.create({
+            data: { trackId: track.id, personId },
+          });
+        }
+        if (existing) {
+          // Nenhum reset silencioso nem alteração de grants/senhas de contas ativadas.
+          await tx.accessInvitation.updateMany({
+            where: { userId, purpose: "ACTIVATION", consumedAt: null, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
+        const invite = await tx.accessInvitation.create({ data: {
+          userId, tokenHash: issued.tokenHash, email, expiresAt: issued.expiresAt,
+        }, select: { id: true } });
+        await tx.auditLog.create({ data: {
+          actorUserId: actor.userId, organizationId, churchId,
+          action: "qa.access.persona_invited",
+          resourceType: "user", resourceId: userId,
+          metadata: { role: preset.role, ministryId: ministry?.id ?? null, synthetic: true },
+        } });
+        return invite;
+      }, { isolationLevel: "Serializable" });
+      const delivery = await this.invitations.deliver({
+        inviteId: created.id, token: issued.token, email, name: preset.name,
+      });
+      result.push({
+        label: preset.name, email, role: preset.role,
+        ministry: ministry?.name ?? null, status: "ACTIVATION_REQUIRED",
+        previewUrl: delivery.previewUrl,
+      });
+    }
+    return { testOnly: true, adminMfaRequired: true, accounts: result };
   }
 
   @Post()

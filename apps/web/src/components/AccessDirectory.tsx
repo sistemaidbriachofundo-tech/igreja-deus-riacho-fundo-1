@@ -14,6 +14,8 @@ import ui from "./ui/ui.module.css";
 import s from "./access-directory.module.css";
 
 type Person = { id: string; displayName: string; email?: string | null };
+type QaTesterAccount = { label: string; email: string; role: string; ministry: string | null; status: string; previewUrl?: string };
+type QaTesterBundle = { testOnly: true; adminMfaRequired: true; accounts: QaTesterAccount[] };
 type AccessRole = Exclude<BuiltinRole, "CONVIDADO"> | "LIDER_MODULO";
 type ProfileSelection = { role: AccessRole; ministryId: string; moduleId: string };
 type AccessProfile = {
@@ -125,6 +127,24 @@ export function AccessDirectory() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
+  const [qaBundle, setQaBundle] = useState<QaTesterBundle | null>(null);
+  const [qaBusy, setQaBusy] = useState(false);
+  const isQaFrontend = process.env.NEXT_PUBLIC_API_URL === "https://id-riacho1-api-qa.vercel.app";
+  async function prepareQaTesters() {
+    if (!token || !isQaFrontend || qaBusy) return;
+    setQaBusy(true);
+    setError("");
+    try {
+      const bundle = await apiPost<QaTesterBundle>("/admin/access/qa-testers", token);
+      setQaBundle(bundle);
+      setRevision(v => v + 1);
+      showFeedback({ tone: "success", title: "Acessos fictícios preparados",
+        message: "Cada testador deve ativar seu próprio acesso e escolher uma senha no link individual." });
+    } catch (err) {
+      setError(dasError(err));
+    } finally { setQaBusy(false); }
+  }
+
   const { confirm: confirmResend, confirmation: resendConfirmation } = useActionConfirmation();
   async function grantAdministrator(account: Account) {
     if (!token || sending) return;
@@ -203,6 +223,23 @@ export function AccessDirectory() {
           <UIIcon name="plus" size={17} /> {creating ? "Fechar convite" : "Novo acesso"}
         </button>}
       />
+
+      {isQaFrontend && <div className={s.qaTesters}>
+        <div><strong>Ambiente de testes · oito perfis</strong>
+          <p>Pastora, 2 secretários, Louvor, Atmosfera, Homens, mentor e Mídia. Só contas fictícias; administrador continua com MFA.</p>
+        </div>
+        <button className={ui.workspaceSecondary} type="button" disabled={!token || qaBusy}
+          onClick={() => void prepareQaTesters()}>{qaBusy ? "Preparando convites…" : "Preparar 8 acessos de teste"}</button>
+        {qaBundle && <div className={s.qaResult} role="status">
+          {qaBundle.accounts.map(item => <div key={item.email}>
+            <strong>{item.label}</strong><span>{item.email}</span>
+            {item.previewUrl ?
+              <a href={item.previewUrl} target="_blank" rel="noopener noreferrer">Ativar conta e definir senha</a> :
+              <span>{item.status === "ACTIVE" ? "Conta ativa" : "Convite indisponível"}</span>}
+          </div>)}
+          <small>Os links são de uso único, expiram em 24 horas e não são guardados no painel. Não compartilhe com terceiros.</small>
+        </div>}
+      </div>}
       {creating && token && <AccessForm token={token} canInviteAdministrator={accounts?.canInviteAdministrator === true} onCreated={(name, delivery) => {
         setCreating(false);
         setPreviewUrl(delivery.previewUrl ?? "");
