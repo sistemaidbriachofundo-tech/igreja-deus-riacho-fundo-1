@@ -2,9 +2,9 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { AppShell } from "../components/AppShell";
 import { withBasePath } from "./paths";
+import { renderAsRole, renderPending } from "./test-session";
 
 const originalBase = process.env.NEXT_PUBLIC_BASE_PATH;
 const originalApi = process.env.NEXT_PUBLIC_API_URL;
@@ -17,8 +17,22 @@ afterEach(() => {
 });
 
 describe("navegação e renderização real de componentes", () => {
-  it("renderiza sidebar e barra inferior com o mesmo item selecionado", () => {
-    const html = renderToStaticMarkup(
+  it("não monta a barra do celular nem o módulo antes da sessão", () => {
+    const html = renderPending(
+      <AppShell active="secretaria" meta="Secretaria · teste">
+        <p>Conteúdo renderizado</p>
+      </AppShell>,
+    );
+    expect(html).toContain('aria-label="Navegação principal"');
+    expect(html).toContain('data-nav-state="pending"');
+    expect(html).not.toContain('aria-label="Navegação principal no celular"');
+    expect(html).not.toContain("Conteúdo renderizado");
+    expect(html).not.toContain("Secretaria · teste");
+    expect(html).not.toContain('aria-current="page"');
+  });
+
+  it("renderiza sidebar e barra inferior com o mesmo item selecionado para a secretaria", () => {
+    const html = renderAsRole("SECRETARIA",
       <AppShell active="secretaria" meta="Secretaria · teste">
         <p>Conteúdo renderizado</p>
       </AppShell>,
@@ -30,18 +44,20 @@ describe("navegação e renderização real de componentes", () => {
     expect(html.match(/aria-current="page"/g)).toHaveLength(2);
     expect(html).toContain("Secretaria");
     expect(html).not.toContain("Membros e famílias");
+    expect(html).not.toContain("/app/tesouraria/");
   });
 
   it("não marca uma seção como ativa se nenhum item foi selecionado", () => {
-    const html = renderToStaticMarkup(
+    const html = renderPending(
       <AppShell meta="Exemplo"><span>Conteúdo</span></AppShell>,
     );
     expect(html).not.toContain('aria-current="page"');
+    expect(html).not.toContain("Conteúdo");
   });
 
-  it("respeita o basePath do GitHub Pages nos links do menu", () => {
+  it("respeita o basePath do GitHub Pages nos links do menu autenticado", () => {
     process.env.NEXT_PUBLIC_BASE_PATH = "/igreja-deus-riacho-fundo-1";
-    const html = renderToStaticMarkup(
+    const html = renderAsRole("SECRETARIA",
       <AppShell active="secretaria" meta="Exemplo">Teste</AppShell>,
     );
     expect(html).toContain('href="/igreja-deus-riacho-fundo-1/app/secretaria/"');
