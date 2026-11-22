@@ -189,6 +189,10 @@ export class ServiceOrderPlannerService {
     }
     const result = await this.prisma.$transaction(async tx=>{
       await tx.$executeRaw`SELECT id FROM churches WHERE id = ${scope.churchId} FOR UPDATE`;
+      const policyNow = await tx.serviceOrderPolicy.findUnique({where:{churchId:scope.churchId}});
+      if ((policyNow?.updatedAt.toISOString() ?? null) !== plan.policy.updatedAt) {
+        throw new ConflictException("As regras da congregação mudaram durante a geração. Recalcule a prévia.");
+      }
       const created:string[]=[],skipped:string[]=[];
       for(const proposal of plan.rows){
         const target=new Date(proposal.serviceAt);

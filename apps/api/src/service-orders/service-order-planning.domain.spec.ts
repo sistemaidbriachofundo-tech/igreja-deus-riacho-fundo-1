@@ -21,6 +21,11 @@ describe("OC: regras e prévia mensal", () => {
     expect(chooseRoleCandidate("director","2026-12-06T13:00:00Z",c,[],new Set(),p,()=>true)).toBeNull();
     expect(buildServiceMoments(null,null,null,null,p)[6].responsible).toBeNull();
   });
+  it("participações futuras não interferem no histórico anterior",()=>{
+    const c=[{personId:"p1",displayName:"Pessoa QA",rosterId:"r1",roleLabel:"Dirigente",status:"CONFIRMED" as const}];
+    const future=[{personId:"p1",serviceAt:"2027-01-31T13:00:00Z",role:"director"}];
+    expect(chooseRoleCandidate("director","2026-12-03T23:00:00Z",c,future,new Set(),p,()=>true)?.personId).toBe("p1");
+  });
   it("não repete diretor como pregador no mesmo culto nem supera teto mensal",()=>{
     const c=[{personId:"p1",displayName:"Pessoa QA",rosterId:"r1",roleLabel:"Dirigente e Pregador",status:"CONFIRMED" as const}];
     expect(chooseRoleCandidate("preacher","2026-12-06T13:00:00Z",c,[],new Set(["p1"]),p,()=>true)).toBeNull();

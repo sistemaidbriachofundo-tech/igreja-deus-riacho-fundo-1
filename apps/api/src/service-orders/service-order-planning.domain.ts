@@ -150,7 +150,7 @@ export function chooseRoleCandidate(
     !(rules.avoidDoubleDirectorPreacher && (role === "director" || role === "preacher") && chosen.has(row.personId)));
   const unique = [...new Map(matches.map(c => [c.personId,c])).values()];
   const ranked = unique.map(row => {
-    const uses = history.filter(h => h.personId === row.personId);
+    const uses = history.filter(h => h.personId === row.personId && Date.parse(h.serviceAt) < Date.parse(serviceAt));
     const monthly = uses.filter(h => {
       const p = localFields(Date.parse(h.serviceAt));
       return String(p.year) + "-" + String(p.month).padStart(2, "0") === monthKey;
