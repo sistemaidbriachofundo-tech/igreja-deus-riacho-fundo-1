@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  color: #264c41;
+  color: #171717;
   max-width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -113,7 +113,7 @@
 }
 
 .quick button:hover:not(:disabled) {
-  border-color: #1e6453;
+  border-color: #171717;
   background: #f3faf6;
   transform: translateY(-1px);
 }
@@ -124,8 +124,8 @@
 }
 
 .quick button[aria-pressed="true"] {
-  border-color: #174c3e;
-  background: #174c3e;
+  border-color: #171717;
+  background: #171717;
   color: #fff;
 }
 
@@ -156,7 +156,7 @@
 
 .bubbleUser {
   align-self: flex-end;
-  background: #174c3e;
+  background: #171717;
   color: #f4faf7;
   border-bottom-right-radius: 5px;
 }
@@ -164,8 +164,8 @@
 .bubbleAssistant {
   align-self: flex-start;
   background: #fff;
-  color: #264c41;
-  border: 1px solid #d5e4da;
+  color: #171717;
+  border: 1px solid #e0e4e7;
   border-bottom-left-radius: 5px;
 }
 
@@ -191,7 +191,7 @@
   border: 1px solid #acc5ae;
   border-radius: 10px;
   background: #fff;
-  color: #236145;
+  color: #171717;
   font: 750 13px var(--site-font);
   cursor: pointer;
 }
@@ -239,7 +239,7 @@
   height: 20px;
   margin-top: 2px;
   flex: none;
-  accent-color: #1e6453;
+  accent-color: #171717;
 }
 
 .row {
@@ -250,8 +250,8 @@
 }
 
 .send {
-  background: #174c3e;
-  border: 1px solid #174c3e;
+  background: #171717;
+  border: 1px solid #171717;
   border-radius: 10px;
   min-height: 44px;
   padding: 12px 17px;
@@ -306,7 +306,7 @@
 }
 
 .panel :is(button, textarea, input, a):focus-visible {
-  outline: 3px solid #174c3e;
+  outline: 3px solid #171717;
   outline-offset: 3px;
 }
 

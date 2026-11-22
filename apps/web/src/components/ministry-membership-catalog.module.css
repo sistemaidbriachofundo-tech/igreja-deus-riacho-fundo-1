@@ -449,7 +449,7 @@
 }
 .moduleForm legend { font-weight: 700; }
 .moduleForm label { display: flex; align-items: center; gap: 10px; min-height: 48px; }
-.moduleForm input { accent-color: #184f43; width: 21px; height: 21px; }
+.moduleForm input { accent-color: #171717; width: 21px; height: 21px; }
 .moduleForm button { justify-self: start; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
@@ -461,16 +461,16 @@
 .teamHero {
   display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: clamp(14px, 3vw, 24px); border-radius: 14px;
-  background: radial-gradient(ellipse at 95% 70%, #2d5840, transparent 65%), #123429; color: #f6faef;
+  background: #171717; color: #f5f6f7;
 }
 .teamHero > div:last-child { display: flex; flex-wrap: wrap; gap: 7px; }
 .teamHero h2 { margin: 0; color: inherit; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.04em; line-height: 1.07; }
 .teamHero p { margin: 0 0 4px; color: #d1e9d6; font-size: .85rem; font-weight: 650; }
-.invitePrimary { display: inline-grid; place-items: center; min-height: 44px; padding: 5px 12px; background: #d7fa75; border: 1px solid #afd653; border-radius: 8px; color: #183525; font: inherit; font-weight: 740; cursor: pointer; }
+.invitePrimary { display: inline-grid; place-items: center; min-height: 44px; padding: 5px 12px; background: #171717; border: 1px solid #171717; border-radius: 10px; color: #fff; font: inherit; font-weight: 740; cursor: pointer; }
 .invitePrimary:disabled { opacity: .6; cursor: default; }
 .teamFilters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-.teamFilters button { color: #284d3c; background: #fff; border: 1px solid #d3e2d4; padding: 6px 9px; font: inherit; font-weight: 710; min-height: 43px; border-radius: 8px; cursor: pointer; }
-.teamFilters button[aria-pressed="true"] { background: #e4f6c4; border-color: #b8d787; }
+.teamFilters button { color: #171717; background: #fff; border: 1px solid #dfe3e7; padding: 6px 9px; font: inherit; font-weight: 710; min-height: 44px; border-radius: 10px; cursor: pointer; }
+.teamFilters button[aria-pressed="true"] { background: #171717; border-color: #171717; color: #fff; }
 .teamFilters span { padding: 2px 4px; margin-inline-start: 2px; border-radius: 4px; background: #edf4e9; font-size: .8em; }
 .teamSearch { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; margin-block: 8px; }
 .teamSearch > :first-child { flex: 1 1 180px; min-width: 0; }

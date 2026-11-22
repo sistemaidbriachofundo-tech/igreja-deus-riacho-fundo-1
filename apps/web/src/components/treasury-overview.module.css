@@ -2,7 +2,7 @@
 .position {
   display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 24px;
   padding: clamp(18px, 3vw, 34px); border-radius: 16px;
-  background: linear-gradient(125deg, #164439, #246051); color: #f8f8f8;
+  background: linear-gradient(125deg, #171717, #2c2c2c); color: #f5f6f7;
 }
 .available { display: grid; align-content: center; gap: 11px; min-width: 0; }
 .positionLabel { display: flex; align-items: center; gap: 8px; color: #d8d8d8; font-size: 13px; font-weight: 640; }
@@ -20,18 +20,18 @@
 .bankSection .sectionHeading > span { padding: 7px 11px; border-radius: 8px; background: #e9f5ee; color: #24574a; }
 .bankSection .sectionHeading > span strong { color: inherit; font-size: 1rem; }
 .bankGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
-.bank { appearance: none; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto 17px; align-items: center; gap: 10px; min-width: 0; min-height: 58px; padding: 8px 4px; border: 0; border-top: 1px solid #e2ebe6; background: #fff; color: #20443e; text-align: left; cursor: pointer; font: inherit; }
+.bank { appearance: none; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto 17px; align-items: center; gap: 10px; min-width: 0; min-height: 58px; padding: 8px 4px; border: 0; border-top: 1px solid #e0e4e7; background: #fff; color: #171717; text-align: left; cursor: pointer; font: inherit; }
 .bank:hover { background: #f2f9f5; }
 .bank:focus-visible { outline-offset: -2px; }
 .bankIcon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #e9f2f7; color: #285572; }
 .bankName { font-size: .9rem; overflow-wrap: anywhere; }
-.bank strong { color: #18493d; font-size: clamp(.88rem, 1.8vw, 1.13rem); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bank strong { color: #171717; font-size: clamp(.88rem, 1.8vw, 1.13rem); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bank strong[data-negative="true"] { color: #ab3944; }
 .surface { background: #fff; min-width: 0; padding: clamp(14px, 2vw, 22px); border: 1px solid var(--app-border); border-radius: 13px; }
 .analyticGrid { display: grid; gap: 12px; }
 .analyticGrid { grid-template-columns: minmax(0, 1.13fr) minmax(0, 1fr); }
 .channels { display: grid; gap: 13px; list-style: none; padding: 0; margin: 0; }
-.channels li { --bar: #32806d; }
+.channels li { --bar: #286b52; }
 .channels li[data-channel="cartao"] { --bar: #4579a4; }
 .channels li[data-channel="dinheiro"] { --bar: #b57c2e; }
 .channels li[data-channel="outras"] { --bar: #82649c; }
@@ -48,7 +48,7 @@
 .timeline li { flex: 1 0 46px; display: grid; justify-items: center; gap: 5px; font-size: 11px; color: #606060; font-variant-numeric: tabular-nums; }
 .plot { height: 126px; width: min(90%, 74px); display: grid; grid-template-rows: 18px 1fr; align-items: end; text-align: center; }
 .plot > small { font-size: 10px; }
-.plot > span { display: block; min-height: 1px; border-radius: 5px 5px 0 0; background: #32806d; }
+.plot > span { display: block; min-height: 1px; border-radius: 5px 5px 0 0; background: #286b52; }
 .timeline li[data-negative="true"] .plot > span { background: #b7685d; }
 .empty { font-size: 13px; color: #666666; }
 @media (max-width: 740px) {

@@ -207,18 +207,18 @@
 .theme .brand img { border-radius: 0; }
 .theme .masthead[data-appearance="light"] {
   --portal-green: #fff;
-  --portal-green-hover: #eaf1e8;
-  --portal-on-green: #1d4c39;
-  --portal-on-green-muted: #33483d;
-  --portal-green-line: #dae2d9;
-  --portal-gold: #1d4c39;
+  --portal-green-hover: #f0f2f4;
+  --portal-on-green: #171717;
+  --portal-on-green-muted: #59616b;
+  --portal-green-line: #e0e4e7;
+  --portal-gold: #171717;
   box-shadow: none;
 }
 .masthead[data-appearance="light"] .brand img { filter: none; }
 .masthead[data-appearance="light"] .brand strong { letter-spacing: 0; }
 .masthead[data-appearance="light"] .desktopNav a { border-radius: 0; }
 .masthead[data-appearance="light"] .desktopNav a[aria-current="location"] {
-  box-shadow: inset 0 -2px #1d4c39;
+  box-shadow: inset 0 -2px #171717;
   font-weight: 700;
 }
 .theme .masthead[data-appearance="light"] .headerLogin {

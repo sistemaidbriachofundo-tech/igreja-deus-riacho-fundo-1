@@ -2,18 +2,18 @@
 .monthlyHero {
   display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 14px;
   padding: clamp(16px, 3vw, 28px) clamp(14px, 3vw, 24px) 28px; border-radius: 16px;
-  background: radial-gradient(ellipse at 90% 65%, #29543b, transparent 68%), #123429; color: #f5faed;
+  background: #171717; color: #f5f6f7;
 }
 .monthlyHero p { margin: 0 0 4px; color: #d1e9d6; font-weight: 650; font-size: .85rem; }
 .monthlyHero h2 { margin: 0; color: inherit; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.07; letter-spacing: -.04em; }
 .heroActions, .monthlyControls, .monthlyControls > div, .teamActions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .heroActions { flex-wrap: wrap; }
 .secondary, .lime, .openCard, .rowMenu summary {
-  display: inline-flex; align-items: center; justify-content: center; min-height: 42px; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: 6px;
   border: 1px solid #cbdcd0; border-radius: 8px; padding: 7px 10px; background: #fff; color: #21523c;
   font: inherit; font-size: .84rem; font-weight: 740; text-decoration: none; cursor: pointer;
 }
-.lime { background: #d7fa75; border-color: #b9df59; color: #183525; }
+.lime { background: #171717; border-color: #171717; color: #fff; }
 .lime:disabled { opacity: .62; cursor: not-allowed; }
 .openCard { background: transparent; border-color: transparent; }
 .monthlyFilters {

@@ -447,15 +447,15 @@
 }
 
 .statementDay{border-color:#dce8e1}
-.statementDay h3{background:#ebf4ef;color:#23564b}
+.statementDay h3{background:#f0f2f4;color:#171717}
 .movementDetails dl{background:#f2f8f5;color:#26433d}
-.statementState[data-status="payable"]{background:#fff1d6;color:#774c11}
-.statementState[data-status="paid"]{background:#ddf3e8;color:#225b47}
-.markPaid{appearance:none;min-height:38px;border:1px solid #c0dacd;border-radius:8px;background:#eff8f2;color:#215847;padding:5px 12px;font:700 .82rem var(--site-font);cursor:pointer}
+.statementState[data-status="payable"]{background:#fbf1da;color:#8a651f}
+.statementState[data-status="paid"]{background:#e8f3ee;color:#286b52}
+.markPaid{appearance:none;min-height:44px;border:1px solid #c5cacf;border-radius:10px;background:#fff;color:#171717;padding:8px 12px;font:700 .82rem var(--site-font);cursor:pointer}
 .markPaid:hover{background:#e0f2e8}
 .paymentForm{flex:1 1 100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px;border:1px solid #cce4d8;border-radius:10px;background:#f3faf6;color:#21423b}
 .paymentForm label{display:grid;gap:4px;min-width:0;font-weight:650;font-size:.83rem}
-.paymentForm :is(select,input){width:100%;min-width:0;max-width:100%;box-sizing:border-box;min-height:42px;border:1px solid #a6c5b9;border-radius:8px;padding:7px 9px;background:#fff;color:#21423b;font:inherit}
+.paymentForm :is(select,input){width:100%;min-width:0;max-width:100%;box-sizing:border-box;min-height:44px;border:1px solid #c5cacf;border-radius:10px;padding:7px 9px;background:#fff;color:#171717;font:inherit}
 .paymentForm .wide,.paymentButtons{grid-column:1/-1}
 .paymentForm p{margin:0;font-size:.84rem}
 .paymentButtons{display:flex;flex-wrap:wrap;gap:8px}

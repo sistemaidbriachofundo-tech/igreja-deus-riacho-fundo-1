@@ -15,6 +15,10 @@ Refatorados os tokens do kit compartilhado, navegação do AppShell, dashboard d
 
 **Não declarar QA completo** até testes autenticados por papel em navegador, integração SMTP real e verificação de dados. Falhas ou impedimentos devem aparecer no gate de QA.
 
+## Correção P1 após o SHA ac693064
+
+Ações primárias e heróis que ainda usavam marrom (`#4A2612`) ou verde de identidade (`#184F43`, lima `#D7FA75`, floresta em tesouraria, mapa, regras, mídia, Vivi e inscrição pública) passaram à base preta/cinza. Estados confirmado, pendente, erro e informação permanecem `#286B52`, `#8A651F`, `#9C3041` e `#294E70`. O foco do miolo claro é preto; o dourado `#C9A76B` fica no trilho escuro e na faixa da carteirinha, porque sobre branco fica abaixo de 3:1. Alvos de menu, chevron, “mostrar senha”, pagamento e substituir escala ficam em 44px.
+
 ## Critérios de verificação
 
 1. Testar portal público em 320, 390, 430, 768 e 1440 px: aparência preto/branco, foto, texto, CTA e programação preservados.

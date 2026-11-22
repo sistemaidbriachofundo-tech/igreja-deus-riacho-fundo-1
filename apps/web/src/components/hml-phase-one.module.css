@@ -394,8 +394,8 @@
 .churchFunctionSummary h3 { font-size: 1rem; color: #1d5146; margin: 0 0 3px; }
 .churchFunctionSummary p { margin: 0 0 9px; font-size: .85rem; color: #526762; }
 .churchFunctionCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.churchFunctionCards button { display: grid; gap: 3px; min-width: 0; text-align: left; padding: 9px 12px; background: #f0f8f4; color: #234a40; border: 1px solid #d2e6dd; border-radius: 9px; font: inherit; cursor: pointer; }
-.churchFunctionCards button[aria-pressed="true"] { background: #205a4c; color: #fff; border-color: #205a4c; }
+.churchFunctionCards button { display: grid; gap: 3px; min-width: 0; min-height: 44px; text-align: left; padding: 9px 12px; background: #f5f6f7; color: #171717; border: 1px solid #e0e4e7; border-radius: 10px; font: inherit; cursor: pointer; }
+.churchFunctionCards button[aria-pressed="true"] { background: #171717; color: #fff; border-color: #171717; }
 .churchFunctionCards button span { font-size: .82rem; }
 .churchFunctionCards button strong { font-size: 1.36rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .churchFunctionCards button:disabled { cursor: default; opacity: .7; }

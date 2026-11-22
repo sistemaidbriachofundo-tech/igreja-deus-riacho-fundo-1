@@ -1,6 +1,6 @@
 .dashboard {
   max-width: 40rem;
-  color: var(--color-marrom, #4a2612);
+  color: var(--color-marrom, #171717);
 }
 
 .intro h1 {
@@ -20,14 +20,14 @@
 .panel p {
   margin: 0;
   max-width: 42rem;
-  color: color-mix(in srgb, var(--color-marrom, #4a2612) 72%, transparent);
+  color: color-mix(in srgb, var(--color-marrom, #171717) 72%, transparent);
   font: 500 0.98rem/1.5 var(--font-body, var(--site-font));
 }
 
 .panel {
   margin-top: 16px;
   padding: 16px;
-  border: 1px solid var(--color-line, color-mix(in srgb, var(--color-marrom, #4a2612) 14%, transparent));
+  border: 1px solid var(--color-line, color-mix(in srgb, var(--color-marrom, #171717) 14%, transparent));
   border-radius: 16px;
   background: var(--color-surface, #fff);
 }

@@ -174,9 +174,9 @@
   scroll-margin-top: 88px;
 }
 .inviteItem[data-targeted] { border-color: #628c7c; box-shadow: 0 0 0 2px #c6ddd4; }
-.inviteItem .primary { gap: .3rem; background: #184f43; color: white; }
-.agendaDecline { min-height: 2.75rem; padding-inline: .85rem; border: 1px solid #bdbdbd; border-radius: 999px; color: #4e4e4e; background: transparent; font: inherit; font-size: .86rem; font-weight: 650; cursor: pointer; }
-.agendaDecline:focus-visible { outline: 3px solid #286452; outline-offset: 2px; }
+.inviteItem .primary { gap: .3rem; background: #171717; color: white; }
+.agendaDecline { min-height: 2.75rem; padding-inline: .85rem; border: 1px solid #bdbdbd; border-radius: 10px; color: #171717; background: #fff; font: inherit; font-size: .86rem; font-weight: 650; cursor: pointer; }
+.agendaDecline:focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
 .agendaDecline:disabled { opacity: .55; cursor: not-allowed; }
 
 .invites h2 { display: flex; align-items: center; gap: .55rem; margin: 0; color: #253f35; font: 750 1.25rem/1.25 var(--font-title); }

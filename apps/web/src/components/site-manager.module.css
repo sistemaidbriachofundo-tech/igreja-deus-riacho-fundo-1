@@ -44,7 +44,7 @@
 .urlEntry{margin-top:15px;border-top:1px solid #e7e7e7;padding-top:13px}.urlEntry .lightButton{border-radius:99px;padding:11px 15px;font:750 11px var(--site-font)}
 .palettes{display:grid;gap:13px}
 .palette,.paletteSelected{display:flex;align-items:center;gap:14px;padding:12px;border-radius:14px;border:1px solid #e4e4e4;background:white;text-align:left;cursor:pointer;color:#4b4b4b}
-.paletteSelected{border:2px solid var(--app-accent);background:#f2f8f5}
+.paletteSelected{border:2px solid var(--app-accent);background:#f0f2f4}
 .palette strong{font:800 12px var(--site-font)}.paletteSelected strong{font:850 12px var(--site-font)}
 .palette small,.paletteSelected small{margin-left:auto;font-size:10px;color:#636363}
 .swatch{display:block;min-width:50px;height:45px;border-radius:10px;background:linear-gradient(130deg,#191919 50%,#ffffff 50%)}

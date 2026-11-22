@@ -154,10 +154,10 @@ describe("kit do painel", () => {
     expect(css).toContain("min-width: 2.75rem");
     expect(css).toContain("overflow-wrap: anywhere");
     expect(css).toContain('data-appearance="dark"');
-    expect(css).toContain("#7a4a16");
-    expect(css).toContain("#243e42");
-    expect(css).toContain("#24160f");
-    expect(css).toContain("#e7d3c0");
+    expect(css).toContain("#705020");
+    expect(css).toContain("#294e70");
+    expect(css).toContain("#171717");
+    expect(css).toContain("#d6dde0");
   });
 
   it("publica os mesmos tokens no CSS global, depois das camadas antigas", () => {
