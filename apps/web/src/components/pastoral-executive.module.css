@@ -68,3 +68,22 @@
 @media(max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi{padding:14px 11px;min-height:110px}.kpiIcon{width:35px;height:35px}.kpiContent strong{font-size:27px}.intro h1{font-size:30px}.quickActions{grid-template-columns:repeat(2,minmax(0,1fr))}.congregationGrid{grid-template-columns:1fr}.congregationRoutes{grid-column:auto}.panel{padding:14px}}
 @media(max-width:380px){.kpis{grid-template-columns:1fr}.kpi{min-height:84px}.kpiContent>span{min-height:0}}
 @media(prefers-reduced-motion:reduce){.kpi{transition:none}.kpi:hover{transform:none}}
+
+/* Séries da congregação exibem contagens retornadas pela API, nunca valores fixos. */
+.charts{margin-top:17px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chartPanel{padding:13px;border:1px solid #e2e6e9;border-radius:13px;min-width:0}
+.chartPanel h3{font-size:13px;margin:0 0 12px;letter-spacing:-.01em}
+.ageBody{display:flex;align-items:center;gap:12px}
+.donut{flex:none;display:grid;place-items:center;width:112px;aspect-ratio:1;border-radius:50%}
+.donut>div{display:grid;place-items:center;align-content:center;width:67%;height:67%;background:#fff;border-radius:50%;gap:0}
+.donut strong{font-size:23px}.donut span{font-size:9px;color:#59616b}
+.ageLegend{list-style:none;padding:0;margin:0;display:grid;gap:4px;flex:1}
+.ageLegend li{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px;color:#59616b}
+.ageLegend li strong{color:#171717}
+.barGrid{height:120px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);align-items:end;gap:8px}
+.barItem{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px}
+.barItem>strong{font-size:10px}
+.barItem>span{display:block;width:100%;max-width:40px;min-height:4px;background:linear-gradient(#454c55,#171717);border-radius:6px 6px 0 0}
+.barItem>small{font-size:9px;color:#59616b}
+.chartNote{font-size:10px;color:#707780;line-height:1.45;margin:11px 0 0}
+@media(max-width:720px){.charts{grid-template-columns:1fr}.ageBody{justify-content:space-evenly}}

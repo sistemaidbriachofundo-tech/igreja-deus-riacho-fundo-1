@@ -17,7 +17,7 @@ type Data = {
   members: number | null;
   pendingMembers: number | null;
 };
-type PartialAnswer = { ok: boolean; value: number | null };
+type MemberInsights = { ages?: { bands?: Array<{ label: string; count: number }> }; growth?: { months?: Array<{ label: string; newMemberships: number; exits: number }> }; totals?: { activeMembers?: number; pendingAdmission?: number } };
 const pt = new Intl.NumberFormat("pt-BR");
 
 function count(value: number | null): string {
@@ -47,11 +47,54 @@ const decisions = [
   { key: "cases" as const, text: "Pessoas em acompanhamento", href: "/app/pastoral/cuidado/", icon: "family" as const, tone: "teal" },
 ];
 
+
+const AGE_COLOR = ["#2C5D84", "#447EC0", "#4EAA91", "#DF9C43", "#9D6A9A", "#6E83BD", "#B0B6BE", "#7E6551", "#8C8F97"];
+function PastoralRealCharts({ insights }: { insights: MemberInsights }) {
+  const ages = (insights.ages?.bands ?? []).filter(row => Number.isFinite(row.count) && row.count >= 0);
+  const total = ages.reduce((sum, row) => sum + row.count, 0);
+  const recent = (insights.growth?.months ?? []).slice(-6).filter(row =>
+    Number.isFinite(row.newMemberships) && row.newMemberships >= 0);
+  const maxNew = Math.max(1, ...recent.map(row => row.newMemberships));
+  let cursor = 0;
+  const slices = ages.map((row, i) => {
+    const start = cursor;
+    cursor += total ? 100 * row.count / total : 0;
+    return `${AGE_COLOR[i % AGE_COLOR.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+  });
+  if (!total && !recent.length) return <p className={s.agendaNote}>A distribuição etária e o histórico de entradas ainda não estão disponíveis nesta consulta.</p>;
+  return <div className={s.charts} aria-label="Gráficos da congregação">
+    <section className={s.chartPanel} aria-labelledby="pastoral-ages-heading">
+      <h3 id="pastoral-ages-heading">Faixas etárias</h3>
+      {total ? <div className={s.ageBody}>
+        <div className={s.donut} role="img" aria-label={`Distribuição de ${total} membros com data de nascimento, por faixa etária`}
+          style={{ background: `conic-gradient(${slices.join(",")})` }}>
+          <div><strong>{count(total)}</strong><span>com idade</span></div>
+        </div>
+        <ul className={s.ageLegend}>{ages.filter(row => row.count > 0).map(row => <li key={row.label}>
+          <span>{row.label} anos</span><strong>{count(row.count)}</strong>
+        </li>)}</ul>
+      </div> : <p>Idades não disponíveis.</p>}
+    </section>
+    <section className={s.chartPanel} aria-labelledby="pastoral-growth-heading">
+      <h3 id="pastoral-growth-heading">Novas membresias por mês</h3>
+      {recent.length ? <div className={s.barGrid} role="img" aria-label={`Entradas registradas nos últimos ${recent.length} meses`}>
+        {recent.map(row => <div key={row.label} className={s.barItem}>
+          <strong>{count(row.newMemberships)}</strong>
+          <span style={{ height: `${Math.max(5, Math.round(row.newMemberships / maxNew * 100))}%` }} />
+          <small>{row.label.slice(5)}</small>
+        </div>)}
+      </div> : <p>Histórico ainda indisponível.</p>}
+      <p className={s.chartNote}>Entradas cadastradas no período, não evolução histórica do total de membros.</p>
+    </section>
+  </div>;
+}
+
 export function PastoralExecutiveDashboard({ roles }: { roles: readonly string[] }) {
   const isPastor = roles.includes("PASTOR");
   const [revision, setRevision] = useState(0);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
+  const [insights, setInsights] = useState<MemberInsights | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -67,11 +110,12 @@ export function PastoralExecutiveDashboard({ roles }: { roles: readonly string[]
       load<{ admissions: unknown[] }>("/admissions?status=AWAITING_PASTOR"),
       load<{ entries: Array<{ approvalFlow?: string; firstApprovedByUserId?: string | null }> }>("/ledger/entries?status=PENDING_APPROVAL"),
       isPastor ? load<{ members: number; pendingAdmissions: number; openPrayers: number; birthdaysToday: number }>("/pastoral/congregation") : Promise.resolve(null),
-      load<{ totals?: { activeMembers?: number; pendingAdmission?: number } }>("/reports/membership-insights"),
+      load<MemberInsights>("/reports/membership-insights"),
       isPastor ? load<{ requests: Array<{ status: string }> }>("/pastoral/prayers") : Promise.resolve(null),
       isPastor ? load<{ cases: Array<{ status?: string }> }>("/pastoral-cases") : Promise.resolve(null),
     ]).then(([admissions, expenses, congregation, report, prayers, cases]) => {
       if (!live) return;
+      setInsights(report);
       const stats: Data = {
         admissions: admissions?.admissions ? admissions.admissions.length : null,
         expenses: expenses?.entries ? expenses.entries.filter(e => e.approvalFlow === "TREASURER_THEN_PASTOR" && e.firstApprovedByUserId).length : null,
@@ -178,6 +222,7 @@ export function PastoralExecutiveDashboard({ roles }: { roles: readonly string[]
               <AppNavLink href="/app/ministerios/"><UIIcon name="people" size={21}/> Ministérios <UIIcon name="arrow" size={15}/></AppNavLink>
             </div>
           </div>
+          {insights && <PastoralRealCharts insights={insights} />}
           {isPastor && <div className={s.expandedSummary}><CongregationSummary revision={revision}/></div>}
         </section>
         <section className={s.panel} aria-labelledby="pastoral-actions">
