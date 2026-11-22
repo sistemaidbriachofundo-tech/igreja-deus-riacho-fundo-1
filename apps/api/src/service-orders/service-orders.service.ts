@@ -156,6 +156,33 @@ export class ServiceOrdersService {
     });
   }
 
+  async revise(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
+    const pilot = await this.scope(actor, "write");
+    return this.prisma.$transaction(async (tx) => {
+      const current = await this.lock(tx, pilot, orderId, expectedUpdatedAt);
+      if (current.status !== "PUBLISHED") {
+        throw new ConflictException({
+          code: "SERVICE_ORDER_STATE",
+          message: "Somente uma ordem publicada abre revisão versionada.",
+        });
+      }
+      const previousVersions = await tx.auditLog.count({
+        where: { churchId: pilot.churchId, resourceType: "service_order", resourceId: orderId, action: "service_order.revise" },
+      });
+      const row = await tx.serviceOrder.update({
+        where: { id: orderId },
+        data: { status: "DRAFT", approvedByUserId: null, approvedAt: null, publishedByUserId: null, publishedAt: null },
+        include: includeItems,
+      });
+      await this.audit(tx, actor, pilot, "service_order.revise", row, {
+        version: previousVersions + 1,
+        previousServiceAt: current.serviceAt.toISOString(),
+        previousItems: current.items.map((item) => ({ position: item.position, title: item.title, responsiblePersonId: item.responsiblePersonId ?? null })),
+      });
+      return this.toDto(row);
+    });
+  }
+
   async publish(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
     const pilot = await this.scope(actor, "write");
     return this.prisma.$transaction(async (tx) => {

@@ -6,13 +6,15 @@ import { AppNavLink } from "../AppShell";
 import s from "./service-order-planner.module.css";
 
 type CultWindow = { weekday: number; time: string; title: string };
+type ServiceException = { serviceAt: string; kind: "SKIP" | "SPECIAL"; note: string; title?: string };
 type Rules = {
   services: CultWindow[]; minIntervalDays: number; maxMonthlyAssignments: number;
   avoidDoubleDirectorPreacher: boolean; respectAvailability: boolean;
   requireConfirmedRoster: boolean; blessing: "LEADERSHIP" | "PREACHER" | "DESIGNATED";
+  exceptions?: ServiceException[];
 };
 type Moment = { title: string; minutes: number; responsible: string | null; responsiblePersonId: string | null; notes?: string | null };
-type Planned = { serviceAt: string; title: string; alreadyExists: boolean; warnings: string[]; sourceRosterIds: string[]; items: Moment[] };
+type Planned = { serviceAt: string; title: string; alreadyExists: boolean; skipped?: boolean; warnings: string[]; sourceRosterIds: string[]; items: Moment[] };
 type Preview = { year: number; month: number; rows: Planned[]; summary: { total: number; proposed: number; existing: number; withWarnings: number }; policy: { updatedAt: string | null; rules: Rules } };
 type PolicyResponse = { rules: Rules; updatedAt: string | null };
 type Order = { id:string; title:string; serviceAt:string; status:"DRAFT"|"APPROVED"|"PUBLISHED";items:Array<{title:string;minutes?:number|null;responsible?:string|null}> };
@@ -127,7 +129,7 @@ export function ServiceOrderPlannerPanel({ token, canEdit, view, orders, onGener
             <span>{plan.summary.total} encontros</span></div>
           {plan.rows.map((row,i)=><article className={s.scheduleRow} key={row.serviceAt}>
             <div className={s.dateBlock}><strong>{new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit"}).format(new Date(row.serviceAt))}</strong><span>{new Intl.DateTimeFormat("pt-BR",{timeZone:"America/Sao_Paulo",weekday:"short"}).format(new Date(row.serviceAt))}</span></div>
-            <div className={s.scheduleText}><strong>{row.title}</strong><span>{local.format(new Date(row.serviceAt))} · {row.alreadyExists?"OC já cadastrada":"Nova OC proposta"}</span>
+            <div className={s.scheduleText}><strong>{row.title}</strong><span>{local.format(new Date(row.serviceAt))} · {row.skipped?"Exceção registrada":row.alreadyExists?"OC já cadastrada":"Nova OC proposta"}</span>
               <details><summary>Ver roteiro e responsáveis</summary>
                 <ol>{row.items.map((item,k)=><li key={k}>{item.title} <span>· {item.responsible??"A definir"} · {item.minutes} min</span></li>)}</ol>
                 {row.warnings.length>0&&<ul className={s.warnings}>{row.warnings.map((w,k)=><li key={k}>{w}</li>)}</ul>}
@@ -175,6 +177,30 @@ export function ServiceOrderPlannerPanel({ token, canEdit, view, orders, onGener
           </div>)}
           {canEdit&&<button type="button" className={s.add} disabled={busy||rules.services.length>=15} onClick={()=>setRules({...rules,services:[...rules.services,{weekday:0,time:"17:00",title:"Novo culto"}]})}>+ Adicionar horário</button>}
         </div>
+        <form className={s.ruleCard} onSubmit={(event) => {
+          event.preventDefault();
+          if (!canEdit || busy) return;
+          const form = new FormData(event.currentTarget);
+          const serviceAt = String(form.get("exceptionDate") ?? "");
+          const note = String(form.get("exceptionNote") ?? "").trim();
+          const kind = String(form.get("exceptionKind") ?? "SPECIAL") === "SKIP" ? "SKIP" : "SPECIAL";
+          const title = String(form.get("exceptionTitle") ?? "").trim();
+          if (!serviceAt || !note) return;
+          setRules({ ...rules, exceptions: [...(rules.exceptions ?? []), { serviceAt, kind, note, ...(title ? { title } : {}) }] });
+          event.currentTarget.reset();
+        }}>
+          <h3>Exceções de um culto</h3>
+          <p className={s.help}>Ficam na regra da congregação depois de salvar. Não gerar pula o culto; especial troca o nome.</p>
+          <div className={s.cultRow}>
+            <label>Data<input name="exceptionDate" type="date" required disabled={!canEdit || busy} /></label>
+            <label>Tipo<select name="exceptionKind" defaultValue="SPECIAL" disabled={!canEdit || busy}><option value="SPECIAL">Programação especial</option><option value="SKIP">Não gerar</option></select></label>
+            <label>Nome<input name="exceptionTitle" maxLength={80} disabled={!canEdit || busy} /></label>
+            <label>Observação<input name="exceptionNote" required maxLength={280} disabled={!canEdit || busy} /></label>
+          </div>
+          {canEdit && <button type="submit" className={s.add} disabled={busy}>Registrar exceção</button>}
+          <ul>{(rules.exceptions ?? []).map((item, index) => <li key={`${item.serviceAt}-${index}`}>{item.serviceAt} · {item.kind === "SKIP" ? "Não gerar" : "Especial"} · {item.note}
+            {canEdit && <button type="button" aria-label={`Remover exceção ${index + 1}`} onClick={() => setRules({ ...rules, exceptions: (rules.exceptions ?? []).filter((_, itemIndex) => itemIndex !== index) })}>×</button>}</li>)}</ul>
+        </form>
         {canEdit&&<button type="button" className={s.save} disabled={busy} onClick={()=>void persistRules()}>{busy?"Salvando…":"Salvar regras da congregação"}</button>}
       </div>:<div className={s.loading}>Consultando configurações…</div>}
     </section>}

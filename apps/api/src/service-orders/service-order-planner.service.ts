@@ -4,7 +4,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
-  RF1_SERVICE_ORDER_DEFAULTS, buildServiceMoments, chooseRoleCandidate, localDayGap, monthServiceDates,
+  RF1_SERVICE_ORDER_DEFAULTS, buildServiceMoments, chooseRoleCandidate, exceptionFor, monthServiceDates,
   parseOrderRules, type Candidate, type ServiceOrderRules, type ServingHistory,
 } from "./service-order-planning.domain";
 
@@ -12,7 +12,7 @@ const DAY_MS = 86_400_000;
 type Scope = { churchId: string; organizationId: string };
 type MonthInput = { year: number; month: number };
 type PreviewRow = {
-  serviceAt: string; title: string; alreadyExists: boolean; sourceRosterIds: string[];
+  serviceAt: string; title: string; alreadyExists: boolean; skipped: boolean; sourceRosterIds: string[];
   items: ReturnType<typeof buildServiceMoments>; warnings: string[];
 };
 
@@ -133,7 +133,7 @@ export class ServiceOrderPlannerService {
       if (pref?.onlyMorning && hour >= 12 || pref?.onlyEvening && hour < 12 ||
         pref?.onlyFirstSunday && fields.weekday==="Sun" && day>7 ||
         pref?.onlySecondSunday && fields.weekday==="Sun" && (day<8 || day>14)) return false;
-      if (impediments.some(x=>x.personId===personId && x.startsAt<=target && x.endsAt>=target)) return false;
+      if (impediments.some(x=>x.personId===personId && x.startsAt<=target && target<x.endsAt)) return false;
       const selectedRosters = responseByPerson.get(personId);
       if (selectedRosters && !selectedRosters.includes(rosterId)) return false;
       const windows = weekly.filter(x=>x.personId===personId);
@@ -146,6 +146,12 @@ export class ServiceOrderPlannerService {
     };
     const rows: PreviewRow[] = services.map(item=>{
       const time = +new Date(item.serviceAt);
+      const exception = exceptionFor(config.rules, item.serviceAt);
+      const alreadyExists = existing.some(order=>+order.serviceAt===time);
+      if (exception?.kind === "SKIP") {
+        return { serviceAt: item.serviceAt, title: exception.title || item.title, alreadyExists, skipped: true,
+          sourceRosterIds: [], items: [], warnings: [`Culto excluído pela exceção registrada: ${exception.note}`] };
+      }
       const matched = rosters.filter(r=>Math.abs(+r.serviceAt-time)<=90*60*1000);
       const candidates: Candidate[] = matched.flatMap(r=>r.slots.flatMap(slot=>slot.assignments.map(a=>({
         personId:a.personId,displayName:a.person.displayName,roleLabel:slot.roleLabel,rosterId:r.id,
@@ -159,24 +165,23 @@ export class ServiceOrderPlannerService {
       const praise = chooseRoleCandidate("praise",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
       const welcome = chooseRoleCandidate("welcome",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
       const items = buildServiceMoments(director,preacher,praise,welcome,config.rules);
-      const warnings: string[] = [];
+      const warnings: string[] = exception ? [`Exceção registrada: ${exception.note}`] : [];
       if (!matched.length) warnings.push("Nenhuma escala publicada compatível com este horário.");
       if (!director) warnings.push("Direção sem pessoa confirmada e elegível: atribuição manual.");
       if (!preacher) warnings.push("Pregação sem pessoa confirmada e elegível: atribuição manual.");
       if (!praise) warnings.push("Ministro de louvor não identificado na escala.");
       if (!welcome) warnings.push("Acolhimento sem responsável confirmado.");
       if (config.rules.blessing!=="PREACHER") warnings.push("Definir o responsável pela bênção apostólica.");
-      const alreadyExists = existing.some(order=>+order.serviceAt===time);
       // Registra cada participação uma vez por culto para balancear os próximos cultos, sem contar múltiplos momentos.
       for (const id of new Set(items.map(x=>x.responsiblePersonId).filter((x):x is string=>Boolean(x)))) {
         if (!alreadyExists) historical.push({personId:id,serviceAt:item.serviceAt,role:"OC planejada"});
       }
-      return {serviceAt:item.serviceAt,title:item.title,alreadyExists,
+      return {serviceAt:item.serviceAt,title:exception?.title||item.title,alreadyExists,skipped:false,
         sourceRosterIds:matched.map(r=>r.id),items,warnings};
     });
     return {churchId:scope.churchId,year:input.year,month:input.month,policy:config,
       rows,summary:{total:rows.length,existing:rows.filter(r=>r.alreadyExists).length,
-        proposed:rows.filter(r=>!r.alreadyExists).length,withWarnings:rows.filter(r=>r.warnings.length).length}};
+        proposed:rows.filter(r=>!r.alreadyExists && !r.skipped).length,withWarnings:rows.filter(r=>r.warnings.length).length}};
   }
 
   async generateMonth(actor: AuthUser, input: MonthInput & { expectedPolicyUpdatedAt?: string | null }) {
@@ -195,6 +200,7 @@ export class ServiceOrderPlannerService {
       }
       const created:string[]=[],skipped:string[]=[];
       for(const proposal of plan.rows){
+        if(proposal.skipped){skipped.push(proposal.serviceAt);continue;}
         const target=new Date(proposal.serviceAt);
         const found=await tx.serviceOrder.findFirst({where:{churchId:scope.churchId,serviceAt:target},select:{id:true}});
         if(found){skipped.push(found.id);continue;}

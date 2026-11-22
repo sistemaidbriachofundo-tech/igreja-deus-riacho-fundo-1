@@ -191,6 +191,32 @@ export function ServiceOrderDesk() {
     } catch (error) { setError(orderError(error)); }
   }
 
+  async function revise(order: Order) {
+    if (!token || !canEdit || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await apiPost<Order>(`/service-orders/${encodeURIComponent(order.id)}/revise`, token, { expectedUpdatedAt: order.updatedAt });
+      update(result);
+      setNotice("A publicação ficou na auditoria e a ordem voltou a rascunho.");
+    } catch (error) {
+      setError(orderError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyLink(order: Order) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("culto", order.id);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setNotice("Link de leitura copiado. Ele continua exigindo perfil pastoral ou de administração.");
+    } catch {
+      setError("Não foi possível copiar o link de leitura neste navegador.");
+    }
+  }
+
   function update(order: Order) {
     setOrders(current => [...(current ?? []).filter(row => row.id !== order.id), order]);
     setRevision(current => current + 1);
@@ -241,7 +267,11 @@ export function ServiceOrderDesk() {
         {order.notes && <p className={s.notes}>{order.notes}</p>}
         <ol className={s.items}>{order.items.map((item, index) => <li key={index}><strong>{item.title}</strong>
           {(item.responsible || item.minutes) && <span>{[item.responsible, item.minutes ? `${item.minutes} min` : ""].filter(Boolean).join(" · ")}</span>}</li>)}</ol>
-        <div className={s.actions}><button type="button" className={ui.workspaceSecondary} onClick={() => void downloadPdf(order)}>Baixar PDF</button></div>
+        <div className={s.actions}>
+          <button type="button" className={ui.workspaceSecondary} onClick={() => void downloadPdf(order)}>Baixar PDF</button>
+          <button type="button" className={ui.workspaceQuiet} onClick={() => void copyLink(order)}>Copiar link de leitura</button>
+          {canEdit && order.status === "PUBLISHED" && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void revise(order)}>Revisar publicação</button>}
+        </div>
         {canEdit && <div className={s.actions}>
           {order.status !== "PUBLISHED" && <button type="button" className={ui.workspaceSecondary} onClick={() => setEditor({ order })}>Editar</button>}
           {order.status === "DRAFT" && <button type="button" className={ui.workspacePrimary} onClick={() => { setError(""); setDecision({ order, action: "approve" }); }}>Aprovar roteiro</button>}
