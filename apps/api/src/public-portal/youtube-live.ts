@@ -3,7 +3,7 @@ import { Public } from "../auth/decorators/public.decorator";
 import { parseYoutubeStreams, YOUTUBE_STREAMS_FEED } from "./youtube-streams.controller";
 
 const CHANNEL = "UCpd6-RQKVIKfje5usHzYiiA";
-const LIVE_PAGE = "https://www.youtube.com/c/IDBRiachoFundo1IDB/live";
+const LIVE_PAGE = "https://www.youtube.com/@IDBRiachoFundo1/live";
 const CHANNEL_LIVE_PAGE = "https://www.youtube.com/channel/" + CHANNEL + "/live";
 const REFRESH_MS = 30_000;
 
@@ -106,18 +106,27 @@ export class YoutubeLiveService {
   }
 
   private async fromChannel(budget: AbortSignal): Promise<Broadcast | null> {
-    const shortAttempt = () => AbortSignal.any([budget, AbortSignal.timeout(8_000)]);
-    const { url, html } = await fetchYoutubePage(LIVE_PAGE, shortAttempt())
-      .catch(() => fetchYoutubePage(CHANNEL_LIVE_PAGE, shortAttempt()));
-    const redirectedVideo = youtubeVideoId(url);
-    const canonical = html.match(/<link rel="canonical" href="([^"]+)"/i)?.[1];
-    const videoId = redirectedVideo ?? (canonical ? youtubeVideoId(canonical) : null);
-    if (!videoId) return null;
-
-    const live = activeYoutubeBroadcast(html, videoId);
-    if (live || redirectedVideo) return live;
-    const watch = await fetchYoutubePage("https://www.youtube.com/watch?v=" + videoId, budget);
-    return activeYoutubeBroadcast(watch.html, videoId);
+    // Canal verificado: @IDBRiachoFundo1. Tentar handle e ID do canal,
+    // pois um HTTP 200 vazio pode ser uma versão em cache de /live.
+    for (const address of [LIVE_PAGE, CHANNEL_LIVE_PAGE]) {
+      try {
+        const signal = AbortSignal.any([budget, AbortSignal.timeout(8_000)]);
+        const { url, html } = await fetchYoutubePage(address, signal);
+        const canonical = html.match(/<link rel="canonical" href="([^"]+)"/i)?.[1];
+        // O player às vezes já vem no HTML do canal, mesmo sem redirecionar.
+        const playerId = html.match(/"videoId"\\s*:\\s*"([\\w-]{11})"/)?.[1];
+        const videoId = youtubeVideoId(url) ?? (canonical ? youtubeVideoId(canonical) : null) ?? playerId;
+        if (!videoId) continue;
+        const direct = activeYoutubeBroadcast(html, videoId);
+        if (direct) return direct;
+        const watch = await fetchYoutubePage("https://www.youtube.com/watch?v=" + videoId, budget);
+        const confirmed = activeYoutubeBroadcast(watch.html, videoId);
+        if (confirmed) return confirmed;
+      } catch {
+        // Tentar o outro formato oficial antes de recorrer ao feed.
+      }
+    }
+    return null;
   }
 
   private async fromFeed(signal: AbortSignal): Promise<Broadcast | null> {

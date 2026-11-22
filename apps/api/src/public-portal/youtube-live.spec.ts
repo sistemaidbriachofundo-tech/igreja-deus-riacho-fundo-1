@@ -38,10 +38,11 @@ describe("Culto ao vivo no portal", () => {
       '</yt:channelId><title>Culto da Família</title><published>2026-11-01T11:00:00Z</published></entry>';
     const fetcher = jest.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(response("<html>Canal sem redirecionamento</html>", noVideo))
+      .mockResolvedValueOnce(response("<html>Canal sem redirecionamento</html>", noVideo))
       .mockResolvedValueOnce(response(feed, "https://www.youtube.com/feeds/videos.xml"))
       .mockResolvedValueOnce(response(page(), watchUrl));
     await expect(new YoutubeLiveService().getStatus()).resolves.toMatchObject({ broadcast: { id: videoId } });
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
   it("aceita apenas a live em andamento do canal oficial", () => {
@@ -54,7 +55,7 @@ describe("Culto ao vivo no portal", () => {
   });
 
   it("segue a URL canônica de um player servido sem redirecionamento", async () => {
-    const livePage = "https://www.youtube.com/channel/" + channel + "/live";
+    const livePage = "https://www.youtube.com/@IDBRiachoFundo1/live";
     const fetcher = jest.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(response('<link rel="canonical" href="' + watchUrl + '">', livePage))
       .mockResolvedValueOnce(response(page(), watchUrl));
@@ -62,8 +63,8 @@ describe("Culto ao vivo no portal", () => {
     expect(fetcher).toHaveBeenNthCalledWith(2, watchUrl, expect.anything());
   });
 
-  it("consulta pelo ID oficial do canal se a URL personalizada responder com erro", async () => {
-    const customUrl = "https://www.youtube.com/c/IDBRiachoFundo1IDB/live";
+  it("consulta pelo ID oficial se o handle responder com erro", async () => {
+    const customUrl = "https://www.youtube.com/@IDBRiachoFundo1/live";
     const canonicalUrl = "https://www.youtube.com/channel/" + channel + "/live";
     const fetcher = jest.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(response(null, customUrl, 503))
