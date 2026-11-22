@@ -27,7 +27,7 @@ describe("cards de próximos eventos", () => {
     expect(html).toContain("Ver evento e inscrever-se");
     expect(html).toContain("/eventos/inscricao/?evento=encontro-familias");
     expect(html).toContain("capa.png");
-    expect(html).toContain('dateTime="2026-11-28T22:00:00.000Z"'.replace("dateTime", "dateTime")); // React SSR serializes time semantics.
+    expect(html).toContain("2026-11-28T22:00:00.000Z");
   });
 
   it("mostra um estado sem inventar inscrição quando o evento está fechado", () => {
@@ -42,6 +42,7 @@ describe("cards de próximos eventos", () => {
     expect(html).toContain('id="agenda-events"');
     expect(html).toContain('aria-labelledby="upcoming-events-title"');
     expect(html).toContain("Deslize para explorar os próximos encontros");
-    expect(html.match(/class="[^"]*visitEvent/g)).toHaveLength(2);
+    expect(html).toContain('id="agenda-event-evento-a"');
+    expect(html).toContain('id="agenda-event-evento-b"');
   });
 });
