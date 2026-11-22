@@ -7,12 +7,15 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { CredentialsService } from "./credentials.service";
 
+/** Todos os perfis autenticados consultam a própria credencial; autoridade de emissão continua separada. */
+const SELF_CREDENTIAL_ROLES = Object.values(ROLE_CODES);
+
 @Controller("credentials")
 export class CredentialsController {
   constructor(private readonly credentials: CredentialsService) {}
 
   /** Membro: própria carteirinha ativa. */
-  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(...SELF_CREDENTIAL_ROLES)
   @Header("Cache-Control", "private, no-store")
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
@@ -53,11 +56,7 @@ export class CredentialsController {
    * Gera PDF real (pdfkit) com QR opaco — secretaria ou titular.
    * Substitui o stub de metadados do blueprint F2/F3.
    */
-  @Roles(
-    ROLE_CODES.MEMBRO,
-    ROLE_CODES.SECRETARIA,
-    ROLE_CODES.PLATFORM_ADMIN,
-  )
+  @Roles(...SELF_CREDENTIAL_ROLES)
   @Post(":credentialId/pdf")
   generatePdf(
     @CurrentUser() user: AuthUser,
@@ -67,11 +66,7 @@ export class CredentialsController {
   }
 
   /** Metadados do PDF — sem bytes públicos. */
-  @Roles(
-    ROLE_CODES.MEMBRO,
-    ROLE_CODES.SECRETARIA,
-    ROLE_CODES.PLATFORM_ADMIN,
-  )
+  @Roles(...SELF_CREDENTIAL_ROLES)
   @Get(":credentialId/pdf-meta")
   pdfMeta(
     @CurrentUser() user: AuthUser,
@@ -84,7 +79,7 @@ export class CredentialsController {
    * Abre a carteirinha da mesma membresia (ativa ou, se não houver, a revogada).
    * Declarado antes de `:credentialId` para o segmento fixo não cair no id.
    */
-  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(...SELF_CREDENTIAL_ROLES)
   @Header("Cache-Control", "private, no-store")
   @Get("by-membership/:membershipId")
   byMembership(
@@ -95,7 +90,7 @@ export class CredentialsController {
   }
 
   /** Abre uma carteirinha pelo id. Secretaria no escopo ou o próprio titular. */
-  @Roles(ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Roles(...SELF_CREDENTIAL_ROLES)
   @Header("Cache-Control", "private, no-store")
   @Get(":credentialId")
   getOne(
@@ -106,11 +101,7 @@ export class CredentialsController {
   }
 
   /** Download autenticado do PDF privado. */
-  @Roles(
-    ROLE_CODES.MEMBRO,
-    ROLE_CODES.SECRETARIA,
-    ROLE_CODES.PLATFORM_ADMIN,
-  )
+  @Roles(...SELF_CREDENTIAL_ROLES)
   @Get(":credentialId/pdf")
   async downloadPdf(
     @CurrentUser() user: AuthUser,

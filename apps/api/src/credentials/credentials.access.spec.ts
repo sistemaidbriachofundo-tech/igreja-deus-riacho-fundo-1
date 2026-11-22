@@ -26,12 +26,27 @@ describe("CredentialsController acesso", () => {
         ROLE_CODES.MEMBRO,
         ROLE_CODES.SECRETARIA,
         ROLE_CODES.PLATFORM_ADMIN,
+        ROLE_CODES.PASTOR,
+        ROLE_CODES.TESOURARIA,
+        ROLE_CODES.LIDER_MINISTERIO,
+        ROLE_CODES.EDITOR_SITE,
+        ROLE_CODES.PUBLICADOR_SITE,
+        ROLE_CODES.CONVIDADO,
       ]),
     );
     expect(Reflect.getMetadata(ROLES_KEY, proto.getOne)).toEqual(
       expect.arrayContaining([ROLE_CODES.MEMBRO, ROLE_CODES.SECRETARIA]),
     );
     expect(Reflect.getMetadata(ROLES_KEY, proto.issue)).not.toContain(ROLE_CODES.MEMBRO);
+    // Leitura própria é universal, mas emitir/revogar continua exclusivo da Secretaria/Admin.
+    for (const method of [proto.me, proto.getOne, proto.byMembership, proto.generatePdf, proto.getPdfMeta, proto.downloadPdf]) {
+      expect(Reflect.getMetadata(ROLES_KEY, method)).toEqual(expect.arrayContaining(Object.values(ROLE_CODES)));
+    }
+    for (const method of [proto.issue, proto.reissue, proto.revoke]) {
+      expect(Reflect.getMetadata(ROLES_KEY, method)).not.toContain(ROLE_CODES.PASTOR);
+      expect(Reflect.getMetadata(ROLES_KEY, method)).not.toContain(ROLE_CODES.LIDER_MINISTERIO);
+      expect(Reflect.getMetadata(ROLES_KEY, method)).not.toContain(ROLE_CODES.MEMBRO);
+    }
   });
 
   it("sessão anônima recebe 401 antes de abrir a carteirinha", async () => {
