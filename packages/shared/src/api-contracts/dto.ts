@@ -395,6 +395,12 @@ export interface ServiceOrderItemDto {
   title: string;
   minutes: number | null;
   responsible: string | null;
+  roleKey: string | null;
+  responsiblePersonId: string | null;
+  equipment: string | null;
+  notes: string | null;
+  alert: string | null;
+  startsAt: string;
 }
 
 export interface ServiceOrderDto {
@@ -405,6 +411,10 @@ export interface ServiceOrderDto {
   items: ServiceOrderItemDto[];
   status: "DRAFT" | "APPROVED" | "PUBLISHED";
   updatedAt: string;
+  revision: number;
+  kind: "REGULAR" | "SPECIAL";
+  /** Caminho autenticado. O papel continua sendo exigido na API. */
+  readPath: string;
 }
 
 export interface ServiceOrderListResponse {
@@ -415,7 +425,16 @@ export interface ServiceOrderWriteRequest {
   title: string;
   serviceAt: string;
   notes?: string | null;
-  items: Array<{ title: string; minutes?: number | null; responsible?: string | null }>;
+  items: Array<{
+    title: string;
+    minutes?: number | null;
+    responsible?: string | null;
+    roleKey?: string | null;
+    responsiblePersonId?: string | null;
+    equipment?: string | null;
+    notes?: string | null;
+    alert?: string | null;
+  }>;
   /** Controle otimista. Se divergir de updatedAt, a mutação responde 409. */
   expectedUpdatedAt?: string;
 }

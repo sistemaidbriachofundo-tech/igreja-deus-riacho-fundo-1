@@ -158,5 +158,15 @@ describe("ServiceOrdersService", () => {
     await expect(api.approve(admin, created.id)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(api.publish(admin, created.id)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(api.list(otherPastor)).rejects.toBeInstanceOf(ForbiddenException);
+    const member: AuthUser = {
+      userId: "u-membro", personId: "p-membro", email: "membro.demo@example.test",
+      grants: [{ roleCode: "MEMBRO", organizationId: "org1", churchId: "church-rf1" }],
+    };
+    await expect(api.list(member)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(api.preview(member, 2027, 1)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(api.generate(admin, 2027, 1)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(api.updatePolicy(admin, { minGapDays: 14, monthlyLimitPerPerson: 2, avoidDualDirectionAndPreaching: true, skipUnavailable: true, blessingRoleKey: "bencao", directionRoleKey: "direcao", preachingRoleKey: "pregacao", slots: [], roles: [], pools: [] })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(api.revise(admin, created.id)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(api.pdf(otherPastor, created.id)).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

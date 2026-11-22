@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 import { ApiRequestError, apiGet, apiGetBlob, apiPost, loadStoredToken } from "../lib/api";
 import { formatBRL } from "../lib/das-operations";
+import { RECEIPT_EMPTY, receiptFeedback } from "../lib/receipt-feedback";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
@@ -58,7 +59,7 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
   const [showHistory, setShowHistory] = useState(false);
   const listRequest = useRef(0);
   const historyToggle = useRef<HTMLButtonElement>(null);
-  const [receipts, setReceipts] = useState<Record<string, Receipt[]>>({});
+  const [receipts, setReceipts] = useState<Record<string, Receipt[] | string>>({});
   const [actorId, setActorId] = useState<string | null>(null);
   const roles = access.kind === "ready" ? access.roles : [];
   const pastor = roles.includes("PASTOR");
@@ -132,9 +133,11 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
       const data = await apiGet<{ attachments: Receipt[] }>(`/ledger/entries/${encodeURIComponent(entry)}/attachments`, token);
       setReceipts(current => ({ ...current, [entry]: data.attachments }));
       return data.attachments;
-    } catch {
-      setError("Não foi possível consultar os comprovantes desta despesa.");
-      return null;
+    } catch (cause) {
+      const message = receiptFeedback(cause);
+      setError(message);
+      setReceipts((current) => ({ ...current, [entry]: message }));
+      return message;
     }
   }
 
@@ -148,15 +151,17 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
       link.download = file.displayName;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch {
-      showFeedback({ tone: "error", title: "Comprovante indisponível", message: "Atualize a página e tente baixar o arquivo novamente." });
+    } catch (cause) {
+      const message = receiptFeedback(cause, "download");
+      showFeedback({ tone: "error", title: "Comprovante indisponível", message });
     }
   }
 
-  function receiptLinks(entry: string, files: Receipt[] | null) {
+  function receiptLinks(entry: string, files: Receipt[] | string | null) {
     return <div className={s.receipts}>
-      {files === null ? <p>Comprovantes indisponíveis. Volte para atualizar a consulta.</p> :
-        files.length === 0 ? <p>Nenhum comprovante anexado.</p> :
+      {typeof files === "string" ? <p role="alert">{files}</p> :
+        files === null ? <p role="alert">Não foi possível consultar os comprovantes.</p> :
+        files.length === 0 ? <p>{RECEIPT_EMPTY}</p> :
         files.map(file => <button className={ui.workspaceSecondary} type="button" key={file.id} onClick={() => void downloadReceipt(entry, file)}><UIIcon name="download" size={16} /> {file.displayName}</button>)}
     </div>;
   }

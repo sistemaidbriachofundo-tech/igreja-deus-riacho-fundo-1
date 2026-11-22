@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - feat/rf1-revisao-18-11
+  pull_request:
+    branches:
+      - feat/rf1-revisao-18-11
   workflow_dispatch:
 permissions:
   contents: read

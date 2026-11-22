@@ -124,6 +124,8 @@ model Organization {
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   serviceOrders ServiceOrder[]
+  serviceOrderPolicies ServiceOrderPolicy[]
+  serviceOrderExceptions ServiceOrderException[]
   admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("organizations")
 }
@@ -196,6 +198,8 @@ model Church {
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   serviceOrders ServiceOrder[]
+  serviceOrderPolicy ServiceOrderPolicy?
+  serviceOrderExceptions ServiceOrderException[]
   admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("churches")
 }
@@ -294,6 +298,7 @@ model Person {
   rosterSlotInvitationsAsPartner RosterSlotInvitation[] @relation("RosterSlotInvitationPartner")
   rosterAssignmentResponses RosterAssignmentResponse[]
   servingPreferences VolunteerServingPreference[]
+  serviceOrderItems ServiceOrderItem[]
   @@map("persons")
 }
 
@@ -352,6 +357,9 @@ model User {
   serviceOrdersCreated ServiceOrder[] @relation("ServiceOrderCreator")
   serviceOrdersApproved ServiceOrder[] @relation("ServiceOrderApprover")
   serviceOrdersPublished ServiceOrder[] @relation("ServiceOrderPublisher")
+  serviceOrderPoliciesUpdated ServiceOrderPolicy[] @relation("ServiceOrderPolicyEditor")
+  serviceOrderExceptionsCreated ServiceOrderException[] @relation("ServiceOrderExceptionAuthor")
+  serviceOrderRevisionsCreated ServiceOrderRevision[] @relation("ServiceOrderRevisionAuthor")
 
   workspaceNotificationReads WorkspaceNotificationRead[]
 
@@ -3002,15 +3010,18 @@ model ServiceOrder {
   approvedAt        DateTime?          @map("approved_at")
   publishedByUserId String?            @map("published_by_user_id")
   publishedAt       DateTime?          @map("published_at")
+  revision          Int                @default(1)
+  kind              String             @default("REGULAR")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
 
-  organization Organization       @relation(fields: [organizationId], references: [id])
-  church       Church             @relation(fields: [churchId], references: [id])
-  createdBy    User               @relation("ServiceOrderCreator", fields: [createdByUserId], references: [id])
-  approvedBy   User?              @relation("ServiceOrderApprover", fields: [approvedByUserId], references: [id])
-  publishedBy  User?              @relation("ServiceOrderPublisher", fields: [publishedByUserId], references: [id])
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  church       Church                 @relation(fields: [churchId], references: [id])
+  createdBy    User                   @relation("ServiceOrderCreator", fields: [createdByUserId], references: [id])
+  approvedBy   User?                  @relation("ServiceOrderApprover", fields: [approvedByUserId], references: [id])
+  publishedBy  User?                  @relation("ServiceOrderPublisher", fields: [publishedByUserId], references: [id])
   items        ServiceOrderItem[]
+  revisions    ServiceOrderRevision[]
 
   @@unique([churchId, serviceAt])
   @@index([organizationId, churchId, serviceAt])
@@ -3018,17 +3029,78 @@ model ServiceOrder {
 }
 
 model ServiceOrderItem {
-  id          String  @id @default(cuid())
-  orderId     String  @map("order_id")
-  position    Int
-  title       String
-  minutes     Int?
-  responsible String?
+  id                  String  @id @default(cuid())
+  orderId             String  @map("order_id")
+  position            Int
+  title               String
+  minutes             Int?
+  responsible         String?
+  roleKey             String? @map("role_key")
+  responsiblePersonId String? @map("responsible_person_id")
+  equipment           String?
+  itemNotes           String? @map("item_notes")
+  alert               String?
 
-  order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  person    Person?      @relation(fields: [responsiblePersonId], references: [id], onDelete: SetNull)
 
   @@index([orderId, position])
+  @@index([responsiblePersonId])
   @@map("service_order_items")
+}
+
+/// Regras da ordem de culto por congregação. O JSON não guarda nome de pessoa.
+model ServiceOrderPolicy {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  churchId        String   @unique @map("church_id")
+  config          Json
+  updatedByUserId String?  @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  updatedBy    User?        @relation("ServiceOrderPolicyEditor", fields: [updatedByUserId], references: [id])
+
+  @@map("service_order_policies")
+}
+
+/// Exceção explícita de um horário. SKIP omite o culto; SPECIAL marca o roteiro.
+model ServiceOrderException {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  churchId        String   @map("church_id")
+  serviceAt       DateTime @map("service_at")
+  kind            String
+  title           String?
+  note            String
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  church       Church       @relation(fields: [churchId], references: [id])
+  createdBy    User         @relation("ServiceOrderExceptionAuthor", fields: [createdByUserId], references: [id])
+
+  @@unique([churchId, serviceAt, kind])
+  @@index([churchId, serviceAt])
+  @@map("service_order_exceptions")
+}
+
+/// Cópia da ordem publicada antes de uma revisão. A linha vigente volta a rascunho.
+model ServiceOrderRevision {
+  id              String   @id @default(cuid())
+  orderId         String   @map("order_id")
+  revision        Int
+  snapshot        Json
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  order     ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("ServiceOrderRevisionAuthor", fields: [createdByUserId], references: [id])
+
+  @@unique([orderId, revision])
+  @@map("service_order_revisions")
 }
 
 model WorkspaceNotificationRead {

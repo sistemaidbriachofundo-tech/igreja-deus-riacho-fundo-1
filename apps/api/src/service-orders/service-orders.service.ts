@@ -5,32 +5,48 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { hasAccess, ROLE_CODES, type ServiceOrderDto } from "@idbrf/shared";
+import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { mapServiceOrder, type ServiceOrderRow } from "./service-order-mapper";
+import { instantMonth } from "./service-order-planner";
+import { renderServiceOrderPdf } from "./service-order-pdf";
+import {
+  briefingFor,
+  composePlan,
+  duplicateException,
+  generateDrafts,
+  readPolicy,
+  revisePublished,
+  savePolicy,
+  type PolicyWrite,
+} from "./service-order-operations";
 
 const ITEM_LIMIT = 40;
 const includeItems = {
   items: { orderBy: { position: "asc" as const } },
 };
 
-type OrderRow = {
-  id: string;
-  title: string;
-  serviceAt: Date;
-  notes: string | null;
-  status: "DRAFT" | "APPROVED" | "PUBLISHED";
-  updatedAt: Date;
-  items: Array<{ id: string; position: number; title: string; minutes: number | null; responsible: string | null }>;
-};
+type OrderRow = ServiceOrderRow;
+
+export interface ServiceOrderItemWrite {
+  title?: string;
+  minutes?: number | null;
+  responsible?: string | null;
+  roleKey?: string | null;
+  responsiblePersonId?: string | null;
+  equipment?: string | null;
+  notes?: string | null;
+  alert?: string | null;
+}
 
 export interface ServiceOrderWriteInput {
   title: string;
   serviceAt: string;
   notes?: string | null;
-  items: Array<{ title?: string; minutes?: number | null; responsible?: string | null }>;
+  items: ServiceOrderItemWrite[];
   expectedUpdatedAt?: string;
 }
 
@@ -148,6 +164,94 @@ export class ServiceOrdersService {
     });
   }
 
+  async policy(actor: AuthUser) {
+    const pilot = await this.scope(actor, "read");
+    return readPolicy(this.prisma, pilot.churchId);
+  }
+
+  async updatePolicy(actor: AuthUser, input: PolicyWrite) {
+    const pilot = await this.scope(actor, "write");
+    return savePolicy(this.prisma, pilot, actor.userId, input);
+  }
+
+  async preview(actor: AuthUser, year: number, month: number) {
+    const pilot = await this.scope(actor, "read");
+    const { plan } = await composePlan(this.prisma, pilot, year, month);
+    return plan;
+  }
+
+  async generate(actor: AuthUser, year: number, month: number) {
+    const pilot = await this.scope(actor, "write");
+    return generateDrafts(this.prisma, pilot, actor.userId, year, month);
+  }
+
+  async revise(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
+    const pilot = await this.scope(actor, "write");
+    return revisePublished(this.prisma, pilot, actor.userId, orderId, expectedUpdatedAt);
+  }
+
+  async pdf(actor: AuthUser, orderId: string) {
+    const order = await this.getById(actor, orderId);
+    return renderServiceOrderPdf(order);
+  }
+
+  async briefing(actor: AuthUser, orderId: string) {
+    const pilot = await this.scope(actor, "read");
+    const order = await this.getById(actor, orderId);
+    const context = await briefingFor(this.prisma, pilot, new Date(order.serviceAt));
+    return { order, ...context };
+  }
+
+  async exceptions(actor: AuthUser, year: number, month: number) {
+    const pilot = await this.scope(actor, "read");
+    this.assertMonth(year, month);
+    const start = new Date(Date.UTC(year, month - 1, 1) - 36 * 3_600_000);
+    const end = new Date(Date.UTC(year, month, 1) + 36 * 3_600_000);
+    const rows = await this.prisma.serviceOrderException.findMany({
+      where: { ...pilot, serviceAt: { gte: start, lt: end } },
+      orderBy: { serviceAt: "asc" },
+    });
+    return { exceptions: rows.filter((row) => {
+      const civil = instantMonth(row.serviceAt.toISOString());
+      return civil.year === year && civil.month === month;
+    }).map((row) => ({
+      id: row.id, serviceAt: row.serviceAt.toISOString(), kind: row.kind, title: row.title, note: row.note,
+    })) };
+  }
+
+  async addException(actor: AuthUser, input: { serviceAt: string; kind: "SKIP" | "SPECIAL"; title?: string | null; note: string }) {
+    const pilot = await this.scope(actor, "write");
+    const serviceAt = this.parseServiceAt(input.serviceAt);
+    const note = input.note.trim();
+    if (note.length < 3 || note.length > 500) throw new BadRequestException("Descreva a exceção em até 500 caracteres.");
+    const title = input.title?.trim() || null;
+    if (title && title.length > 120) throw new BadRequestException("O título da exceção é longo demais.");
+    try {
+      const row = await this.prisma.serviceOrderException.create({
+        data: { ...pilot, serviceAt, kind: input.kind, title, note, createdByUserId: actor.userId },
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          actorUserId: actor.userId, action: "service_order.exception", resourceType: "service_order_exception", resourceId: row.id,
+          organizationId: pilot.organizationId, churchId: pilot.churchId,
+          metadata: { kind: row.kind, serviceAt: row.serviceAt.toISOString() },
+        },
+      });
+      return { id: row.id, serviceAt: row.serviceAt.toISOString(), kind: row.kind, title: row.title, note: row.note };
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") duplicateException();
+      throw error;
+    }
+  }
+
+  async removeException(actor: AuthUser, exceptionId: string) {
+    const pilot = await this.scope(actor, "write");
+    const row = await this.prisma.serviceOrderException.findFirst({ where: { ...pilot, id: exceptionId } });
+    if (!row) throw new NotFoundException("Exceção não encontrada");
+    await this.prisma.serviceOrderException.delete({ where: { id: row.id } });
+    return { deleted: true as const, id: row.id };
+  }
+
   async publish(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
     const pilot = await this.scope(actor, "write");
     return this.prisma.$transaction(async (tx) => {
@@ -227,9 +331,23 @@ export class ServiceOrdersService {
       }
       const responsible = item.responsible?.trim() ?? "";
       if (responsible.length > 80) throw new BadRequestException("O responsável do item é longo demais.");
-      return { position, title: itemTitle, minutes, responsible: responsible || null };
+      const roleKey = optionalKey(item.roleKey);
+      const responsiblePersonId = optionalPersonId(item.responsiblePersonId);
+      const equipment = optionalText(item.equipment, 160, "O equipamento do item é longo demais.");
+      const itemNotes = optionalText(item.notes, 500, "A nota do item é longa demais.");
+      const alert = optionalText(item.alert, 240, "O alerta do item é longo demais.");
+      return {
+        position, title: itemTitle, minutes, responsible: responsible || null,
+        roleKey, responsiblePersonId, equipment, itemNotes, alert,
+      };
     });
     return { title, serviceAt, notes: notes || null, items };
+  }
+
+  private assertMonth(year: number, month: number) {
+    if (!Number.isInteger(year) || year < 2024 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+      throw new BadRequestException("Informe um ano e um mês válidos.");
+    }
   }
 
   private parseServiceAt(value: string) {
@@ -273,21 +391,28 @@ export class ServiceOrdersService {
     });
   }
 
-  private toDto(row: OrderRow): ServiceOrderDto {
-    return {
-      id: row.id,
-      title: row.title,
-      serviceAt: row.serviceAt.toISOString(),
-      notes: row.notes,
-      items: [...row.items].sort((left, right) => left.position - right.position).map((item) => ({
-        id: item.id,
-        position: item.position,
-        title: item.title,
-        minutes: item.minutes,
-        responsible: item.responsible,
-      })),
-      status: row.status,
-      updatedAt: row.updatedAt.toISOString(),
-    };
+  private toDto(row: OrderRow) {
+    return mapServiceOrder(row);
   }
+}
+
+function optionalText(value: string | null | undefined, max: number, message: string) {
+  if (value == null || value === "") return null;
+  const text = value.trim();
+  if (text.length > max) throw new BadRequestException(message);
+  return text || null;
+}
+
+function optionalKey(value: string | null | undefined) {
+  if (value == null || value.trim() === "") return null;
+  const key = value.trim().toLocaleLowerCase("pt-BR");
+  if (!/^[a-z0-9_-]{1,40}$/.test(key)) throw new BadRequestException("A função da etapa precisa ser um código curto.");
+  return key;
+}
+
+function optionalPersonId(value: string | null | undefined) {
+  if (value == null || value.trim() === "") return null;
+  const id = value.trim();
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new BadRequestException("O responsável precisa ser o identificador da pessoa.");
+  return id;
 }

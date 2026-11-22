@@ -9,6 +9,7 @@ import { useFeedback } from "./ui/FeedbackProvider";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { ApiRequestError, apiGet, apiGetBlob, apiPost, apiPostForm, loadStoredToken } from "../lib/api";
+import { RECEIPT_EMPTY, receiptFeedback } from "../lib/receipt-feedback";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, statementCashEffect, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
@@ -205,7 +206,7 @@ export function expenseWorkflowStatus(entry: Pick<EntryView, "status" | "firstAp
 }
 
 function LedgerReceipts({ token, entryId }: { token: string; entryId: string }) {
-  const [files, setFiles] = useState<Array<{ id: string; displayName: string }> | "closed" | "loading" | "error">("closed");
+  const [files, setFiles] = useState<Array<{ id: string; displayName: string }> | "closed" | "loading" | string>("closed");
 
   async function open() {
     if (files !== "closed") return;
@@ -216,8 +217,8 @@ function LedgerReceipts({ token, entryId }: { token: string; entryId: string }) 
         token,
       );
       setFiles(data.attachments);
-    } catch {
-      setFiles("error");
+    } catch (cause) {
+      setFiles(receiptFeedback(cause));
     }
   }
 
@@ -233,8 +234,8 @@ function LedgerReceipts({ token, entryId }: { token: string; entryId: string }) 
       link.download = file.displayName;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch {
-      setFiles("error");
+    } catch (cause) {
+      setFiles(receiptFeedback(cause, "download"));
     }
   }
 
@@ -243,8 +244,8 @@ function LedgerReceipts({ token, entryId }: { token: string; entryId: string }) 
       {files === "loading" ? "Consultando comprovantes…" : "Ver comprovantes"}
     </button>;
   }
-  if (files === "error") return <p role="alert">Não foi possível consultar os comprovantes.</p>;
-  if (files.length === 0) return <p>Nenhum comprovante anexado.</p>;
+  if (typeof files === "string") return <p role="alert">{files}</p>;
+  if (files.length === 0) return <p>{RECEIPT_EMPTY}</p>;
   return <div>{files.map(file => <button className={ui.workspaceSecondary} type="button" key={file.id} onClick={() => void download(file)}>{file.displayName}</button>)}</div>;
 }
 
