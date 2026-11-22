@@ -142,7 +142,8 @@ export function chooseRoleCandidate(
   rules: ServiceOrderRules,
   isEligible: (personId: string, serviceAt: string, rosterId: string) => boolean,
 ): Candidate | null {
-  const monthKey = serviceAt.slice(0,7);
+  const local = localFields(Date.parse(serviceAt));
+  const monthKey = String(local.year) + "-" + String(local.month).padStart(2, "0");
   const matches = candidates.filter(row => ROLE_REGEX[role].test(row.roleLabel) &&
     (!rules.requireConfirmedRoster || row.status === "CONFIRMED") &&
     isEligible(row.personId, serviceAt, row.rosterId) &&
@@ -150,7 +151,10 @@ export function chooseRoleCandidate(
   const unique = [...new Map(matches.map(c => [c.personId,c])).values()];
   const ranked = unique.map(row => {
     const uses = history.filter(h => h.personId === row.personId);
-    const monthly = uses.filter(h => h.serviceAt.slice(0,7) === monthKey);
+    const monthly = uses.filter(h => {
+      const p = localFields(Date.parse(h.serviceAt));
+      return String(p.year) + "-" + String(p.month).padStart(2, "0") === monthKey;
+    });
     const last = uses.reduce((x,h)=>Math.max(x,Date.parse(h.serviceAt)),0);
     return { row, uses: uses.length, monthly: monthly.length, last };
   }).filter(x => x.monthly < rules.maxMonthlyAssignments &&

@@ -25,7 +25,7 @@ export function renderServiceOrderPdf(order: ServiceOrderDto): Promise<Buffer> {
     };
     const footer=()=>{
       pdf.fillColor("#59616B").font("Helvetica").fontSize(8)
-        .text("Uso interno da congregação · Documento gerado pelo sistema ID Riacho 1",40,810,{width:515,align:"center"});
+        .text("Uso interno da congregação · Documento gerado pelo sistema ID Riacho 1",40,785,{width:515,align:"center"});
     };
     header();
     let cursor=new Date(order.serviceAt).getTime();

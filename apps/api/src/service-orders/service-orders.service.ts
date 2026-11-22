@@ -70,6 +70,7 @@ export class ServiceOrdersService {
   async create(actor: AuthUser, input: ServiceOrderWriteInput) {
     const pilot = await this.scope(actor, "write");
     const data = this.parseWrite(input);
+    await this.ensureResponsibleScope(pilot, data.items);
     try {
       return await this.prisma.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT id FROM churches WHERE id = ${pilot.churchId} FOR UPDATE`;
@@ -102,6 +103,7 @@ export class ServiceOrdersService {
   async update(actor: AuthUser, orderId: string, input: ServiceOrderWriteInput) {
     const pilot = await this.scope(actor, "write");
     const data = this.parseWrite(input);
+    await this.ensureResponsibleScope(pilot, data.items);
     try {
       return await this.prisma.$transaction(async (tx) => {
         const current = await this.lock(tx, pilot, orderId, input.expectedUpdatedAt);
@@ -173,6 +175,19 @@ export class ServiceOrdersService {
       await this.audit(tx, actor, pilot, "service_order.publish", row);
       return this.toDto(row);
     });
+  }
+
+  /** Evita atribuir pessoa de outra congregação ao roteiro, mesmo com ID válido. */
+  private async ensureResponsibleScope(scope: { organizationId: string; churchId: string },
+    items: Array<{ responsiblePersonId: string | null }>) {
+    const ids = [...new Set(items.map(x => x.responsiblePersonId).filter((v): v is string => Boolean(v)))];
+    if (!ids.length) return;
+    const found = await this.prisma.person.findMany({
+      where: { id: { in: ids }, organizationId: scope.organizationId,
+        OR: [{ homeChurchId: scope.churchId }, { memberships: { some: { churchId: scope.churchId, status: "ACTIVE" } } }] },
+      select: { id: true },
+    });
+    if (found.length !== ids.length) throw new ForbiddenException("O responsável informado não pertence à congregação ativa.");
   }
 
   private async scope(actor: AuthUser, mode: "read" | "write") {
