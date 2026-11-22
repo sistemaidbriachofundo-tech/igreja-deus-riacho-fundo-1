@@ -27,6 +27,23 @@ describe("Culto ao vivo no portal", () => {
     jest.useRealTimers();
   });
 
+  it("interpreta player com comandos adicionais no mesmo script", () => {
+    const html = page().replace(";</script>", ';var extraConfig = {"foo":1};</script>');
+    expect(activeYoutubeBroadcast(html, videoId)?.id).toBe(videoId);
+  });
+
+  it("consulta o feed quando a página /live retorna 200 sem player", async () => {
+    const noVideo = "https://www.youtube.com/channel/" + channel + "/live";
+    const feed = '<entry><yt:videoId>' + videoId + '</yt:videoId><yt:channelId>' + channel +
+      '</yt:channelId><title>Culto da Família</title><published>2026-11-01T11:00:00Z</published></entry>';
+    const fetcher = jest.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(response("<html>Canal sem redirecionamento</html>", noVideo))
+      .mockResolvedValueOnce(response(feed, "https://www.youtube.com/feeds/videos.xml"))
+      .mockResolvedValueOnce(response(page(), watchUrl));
+    await expect(new YoutubeLiveService().getStatus()).resolves.toMatchObject({ broadcast: { id: videoId } });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
   it("aceita apenas a live em andamento do canal oficial", () => {
     expect(activeYoutubeBroadcast(page(), videoId)).toEqual({ id: videoId, title: "Culto da Família", embeddable: true });
     expect(activeYoutubeBroadcast(page({ embeddable: false }), videoId)?.embeddable).toBe(false);

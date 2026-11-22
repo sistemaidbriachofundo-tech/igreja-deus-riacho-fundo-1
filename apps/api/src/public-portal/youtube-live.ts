@@ -31,19 +31,34 @@ type YoutubePlayer = {
   playabilityStatus?: { status?: string; playableInEmbed?: boolean };
 };
 
-export function activeYoutubeBroadcast(html: string, videoId: string): Broadcast | null {
+function extractPlayerJson(html: string): YoutubePlayer | null {
+  // O YouTube pode acrescentar JavaScript após o objeto; não devemos tentar
+  // JSON.parse do conteúdo inteiro até </script>.
   const marker = /\bytInitialPlayerResponse\s*=\s*/.exec(html);
   if (!marker) return null;
   const start = marker.index + marker[0].length;
-  const end = html.indexOf("</script", start);
-  if (end < 0) return null;
-
-  let player: YoutubePlayer | null;
-  try {
-    player = JSON.parse(html.slice(start, end).trim().replace(/;$/, ""));
-  } catch {
-    return null;
+  if (html[start] !== "{") return null;
+  let depth = 0, inString = false, escaped = false;
+  for (let i = start; i < html.length && i < start + 3_000_000; i++) {
+    const char = html[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+    } else {
+      if (char === '"') inString = true;
+      else if (char === "{") depth++;
+      else if (char === "}" && --depth === 0) {
+        try { return JSON.parse(html.slice(start, i + 1)) as YoutubePlayer; }
+        catch { return null; }
+      }
+    }
   }
+  return null;
+}
+
+export function activeYoutubeBroadcast(html: string, videoId: string): Broadcast | null {
+  const player = extractPlayerJson(html);
   const video = player?.videoDetails;
   const live = player?.microformat?.playerMicroformatRenderer?.liveBroadcastDetails;
   if (!/^[\w-]{11}$/.test(videoId) || video?.videoId !== videoId || video.channelId !== CHANNEL ||
@@ -73,9 +88,13 @@ export class YoutubeLiveService {
   private async refresh(): Promise<State> {
     try {
       const budget = AbortSignal.timeout(18_000);
-      // Prefer the public page with the complete player, then verify the latest
-      // official stream by ID when the channel pages are unavailable.
-      const broadcast = await this.fromChannel(budget).catch(() => this.fromFeed(budget));
+      // HTTP 200 sem player não comprova ausência de transmissão. Teste o
+      // feed oficial mesmo quando a página /live não redireciona.
+      let channelFailed: unknown = null;
+      const fromChannel = await this.fromChannel(budget).catch(error => { channelFailed = error; return null; });
+      let feedFailed: unknown = null;
+      const broadcast = fromChannel ?? await this.fromFeed(budget).catch(error => { feedFailed = error; return null; });
+      if (!broadcast && channelFailed && feedFailed) throw feedFailed;
       this.current = { broadcast };
       return this.current;
     } catch (error) {
@@ -109,10 +128,17 @@ export class YoutubeLiveService {
       await response.body?.cancel();
       throw new Error("Feed do YouTube HTTP " + response.status);
     }
-    const [candidate] = parseYoutubeStreams(await response.text());
-    if (!candidate) return null;
-    const watch = await fetchYoutubePage("https://www.youtube.com/live/" + candidate.id, signal);
-    return activeYoutubeBroadcast(watch.html, candidate.id);
+    const candidates = parseYoutubeStreams(await response.text());
+    for (const candidate of candidates) {
+      try {
+        const watch = await fetchYoutubePage("https://www.youtube.com/live/" + candidate.id, signal);
+        const verified = activeYoutubeBroadcast(watch.html, candidate.id);
+        if (verified) return verified;
+      } catch {
+        // Vídeo indisponível não deve ocultar outro vídeo ainda ao vivo.
+      }
+    }
+    return null;
   }
 
 }
