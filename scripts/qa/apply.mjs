@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { CHURCH_SLUG, ORG_SLUG, buildCatalog, summarize } from "./catalog.mjs";
 import { assertLiveDatabaseName, assertQaApi, assertSeedTarget, QA_BRANCH, SeedGuardError } from "./guard.mjs";
-import { portraitJpeg } from "./jpeg.mjs";
+import { portraitJpeg, receiptJpeg } from "./jpeg.mjs";
 
 class DryRunComplete extends Error {
   constructor(report) {
@@ -531,6 +531,19 @@ export async function applyQaMass(tx, catalog, options = {}) {
   const tesouraria = catalog.users.find((user) => user.role === "TESOURARIA");
   const pastor = catalog.users.find((user) => user.role === "PASTOR");
   await writeEntry(tx, catalog.finance.expense, scope, tesouraria.id, null, null);
+  const receipt = receiptJpeg();
+  const receiptKey = "qacomp/receipts/sem-valor-fiscal.jpg";
+  await upsert(tx, "privateFile", receiptKey, { key: receiptKey, bytes: receipt }, { where: { key: receiptKey }, idField: true });
+  await upsert(tx, "ledgerEntryAttachment", "qacomp_receipt_despesa", {
+    entryId: catalog.finance.expense.id,
+    organizationId: scope.organizationId,
+    churchId: scope.churchId,
+    uploadedByUserId: tesouraria.id,
+    displayName: "SEM VALOR FISCAL / QA — comprovante ficticio.jpg",
+    contentType: "image/jpeg",
+    byteSize: receipt.length,
+    storageKey: receiptKey,
+  });
   await writeEntry(tx, catalog.finance.offering, scope, tesouraria.id, tesouraria.id, pastor.id);
   for (const batch of catalog.finance.imports) {
     await assertOwned(tx, "bankImportBatch", {

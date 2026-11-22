@@ -340,6 +340,27 @@ export function portraitJpeg(spec) {
   return encodeJpeg(painted.rgb, painted.width, painted.height, 72);
 }
 
+/** Folha geométrica. O rótulo fiscal fica no nome do arquivo, não num QR de pagamento. */
+export function receiptJpeg() {
+  const width = 320;
+  const height = 416;
+  const rgb = new Uint8Array(width * height * 3);
+  const paper = [255, 255, 255];
+  const ink = [23, 23, 23];
+  const gold = [201, 167, 107];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let color = paper;
+      if (x < 16 || x >= width - 16 || y < 16 || y >= height - 16) color = ink;
+      if (y > 28 && y < 52) color = gold;
+      if (y > 80 && y < 300 && x > 36 && x < width - 36 && ((y - 80) % 28) < 8) color = [236, 236, 236];
+      if (y > 332 && y < 392 && x > 196 && x < 292 && ((x + y) % 6) < 3) color = ink;
+      put(rgb, width, x, y, color);
+    }
+  }
+  return encodeJpeg(rgb, width, height, 70);
+}
+
 export function bannerJpeg(spec) {
   const painted = paintBanner(spec);
   return encodeJpeg(painted.rgb, painted.width, painted.height, 68);

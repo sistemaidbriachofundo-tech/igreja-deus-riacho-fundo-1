@@ -217,11 +217,17 @@ export class CredentialsService {
   }
 
   /**
-   * Membro autenticado: a própria carteirinha mais recente.
+   * Qualquer papel autenticado: somente a carteirinha da pessoa vinculada.
    * Ativa tem prioridade; se só houver revogada, ela volta para o QR inválido aparecer.
+   * Matrícula ativa sem emissão volta card null e issuance NOT_ISSUED — sem número inventado.
+   * Emitir a carteirinha de outra pessoa continua no contrato de secretaria e administração.
    */
   async getOwn(actor: AuthUser) {
     const pilot = await this.pilot.getPilotChurch();
+    const church = { name: pilot.churchName, slug: pilot.churchSlug };
+    if (!actor.personId) {
+      return { card: null, church, issuance: "NO_PERSON" as const, membershipId: null };
+    }
 
     const credential = await this.prisma.memberCredential.findFirst({
       where: {
@@ -236,7 +242,26 @@ export class CredentialsService {
     });
 
     if (!credential) {
-      return { card: null, church: { name: pilot.churchName, slug: pilot.churchSlug } };
+      const memberships = this.prisma.churchMembership as
+        | { findFirst?: (args: unknown) => Promise<{ id: string } | null> }
+        | undefined;
+      const membership = memberships?.findFirst
+        ? await memberships.findFirst({
+            where: {
+              personId: actor.personId,
+              churchId: pilot.churchId,
+              organizationId: pilot.organizationId,
+              status: "ACTIVE",
+            },
+            select: { id: true },
+          })
+        : null;
+      return {
+        card: null,
+        church,
+        issuance: membership ? "NOT_ISSUED" as const : "NO_MEMBERSHIP" as const,
+        membershipId: membership?.id ?? null,
+      };
     }
 
     if (!canViewOwnCredential(actor.personId, credential.personId)) {
@@ -250,7 +275,9 @@ export class CredentialsService {
     );
     return {
       card: await this.withPresentation(card, pilot),
-      church: { name: pilot.churchName, slug: pilot.churchSlug },
+      church,
+      issuance: credential.status === "REVOKED" ? "REVOKED" as const : "ISSUED" as const,
+      membershipId: credential.membershipId,
     };
   }
 
