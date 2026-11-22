@@ -395,6 +395,10 @@ export interface ServiceOrderItemDto {
   title: string;
   minutes: number | null;
   responsible: string | null;
+  responsiblePersonId?: string | null;
+  microphone?: string | null;
+  equipment?: string | null;
+  notes?: string | null;
 }
 
 export interface ServiceOrderDto {
@@ -415,7 +419,7 @@ export interface ServiceOrderWriteRequest {
   title: string;
   serviceAt: string;
   notes?: string | null;
-  items: Array<{ title: string; minutes?: number | null; responsible?: string | null }>;
+  items: Array<{ title: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null }>;
   /** Controle otimista. Se divergir de updatedAt, a mutação responde 409. */
   expectedUpdatedAt?: string;
 }

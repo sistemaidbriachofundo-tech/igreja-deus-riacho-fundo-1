@@ -35,6 +35,18 @@ class ServiceOrderItemBody {
   @IsString()
   @MaxLength(80)
   responsible?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(80)
+  responsiblePersonId?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  microphone?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(280)
+  equipment?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(700)
+  notes?: string | null;
 }
 
 class ServiceOrderBody {

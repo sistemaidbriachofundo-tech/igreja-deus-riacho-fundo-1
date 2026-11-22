@@ -23,14 +23,14 @@ type OrderRow = {
   notes: string | null;
   status: "DRAFT" | "APPROVED" | "PUBLISHED";
   updatedAt: Date;
-  items: Array<{ id: string; position: number; title: string; minutes: number | null; responsible: string | null }>;
+  items: Array<{ id: string; position: number; title: string; minutes: number | null; responsible: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null }>;
 };
 
 export interface ServiceOrderWriteInput {
   title: string;
   serviceAt: string;
   notes?: string | null;
-  items: Array<{ title?: string; minutes?: number | null; responsible?: string | null }>;
+  items: Array<{ title?: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null }>;
   expectedUpdatedAt?: string;
 }
 
@@ -227,7 +227,17 @@ export class ServiceOrdersService {
       }
       const responsible = item.responsible?.trim() ?? "";
       if (responsible.length > 80) throw new BadRequestException("O responsável do item é longo demais.");
-      return { position, title: itemTitle, minutes, responsible: responsible || null };
+      const optionalText = (value: string | null | undefined, max: number, label: string) => {
+        const text = typeof value === "string" ? value.trim() : "";
+        if (text.length > max) throw new BadRequestException(label + " muito longo.");
+        return text || null;
+      };
+      return { position, title: itemTitle, minutes, responsible: responsible || null,
+        responsiblePersonId: optionalText(item.responsiblePersonId, 80, "ID do responsável"),
+        microphone: optionalText(item.microphone, 100, "Microfone"),
+        equipment: optionalText(item.equipment, 280, "Equipamento"),
+        notes: optionalText(item.notes, 700, "Orientações"),
+      };
     });
     return { title, serviceAt, notes: notes || null, items };
   }
@@ -285,6 +295,10 @@ export class ServiceOrdersService {
         title: item.title,
         minutes: item.minutes,
         responsible: item.responsible,
+        responsiblePersonId: item.responsiblePersonId ?? null,
+        microphone: item.microphone ?? null,
+        equipment: item.equipment ?? null,
+        notes: item.notes ?? null,
       })),
       status: row.status,
       updatedAt: row.updatedAt.toISOString(),
