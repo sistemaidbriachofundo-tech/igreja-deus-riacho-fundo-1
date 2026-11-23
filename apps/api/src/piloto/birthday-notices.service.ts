@@ -48,7 +48,8 @@ export class BirthdayNoticesService {
       ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO, ROLE_CODES.LIDER_MINISTERIO,
       ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN,
     ]);
-    const today = saoPauloParts(now);
+    const zone = await this.settings.getBirthdayTimeZone(pilot, now);
+    const today = zonedCivilParts(now, zone);
     if (!actor.personId) return { date: today.date, birthdays: [] as CareBirthday[] };
     const personId = actor.personId;
     const [ministries, groups, mentored] = await Promise.all([
