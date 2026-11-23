@@ -20,6 +20,7 @@ type Notice = {
   state?: string;
 };
 const PORTAL = "/app/servir/meu-espaco/";
+const BIRTHDAY_CARE = "/app/servir/aniversariantes/";
 const LIMIT = 50;
 const MONEY = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const WHEN = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
@@ -290,7 +291,7 @@ export class NotificationsService {
       id: `birthday:${row.id}`, category: "Aniversariantes" as const, title: "Há aniversariantes hoje",
       detail: pastor || secretary ? "Na congregação" : "Na sua equipe, grupo ou acompanhamento",
       action: pastor || secretary ? "Ver aniversariantes" : "Abrir meu espaço",
-      href: pastor ? "/app/pastoral/aniversariantes/" : secretary ? "/app/secretaria/aniversariantes/" : PORTAL,
+      href: pastor ? "/app/pastoral/aniversariantes/" : secretary ? "/app/secretaria/aniversariantes/" : BIRTHDAY_CARE,
       createdAt: row.createdAt,
     }));
   }

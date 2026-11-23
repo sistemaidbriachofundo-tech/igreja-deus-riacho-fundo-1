@@ -34,7 +34,11 @@ export class MembershipInsightsService {
     const people = await this.prisma.person.findMany({
       where: {
         organizationId: pilot.organizationId, status: "ACTIVE", birthDate: { not: null },
-        OR: [{ homeChurchId: pilot.churchId }, { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } }],
+        OR: [
+          { homeChurchId: pilot.churchId },
+          { memberships: { some: { churchId: pilot.churchId, status: "ACTIVE" } } },
+          { discipleshipEnrollments: { some: { status: "ACTIVE", track: { churchId: pilot.churchId } } } },
+        ],
       },
       select: {
         id: true, displayName: true, birthDate: true, isMinor: true, phone: true,

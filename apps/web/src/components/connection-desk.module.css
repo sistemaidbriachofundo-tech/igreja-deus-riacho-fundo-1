@@ -138,6 +138,11 @@ a.retry { display:inline-flex; align-items:center; text-decoration:none; }
   .stageChoices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stageChoice { font-size: .82rem; padding-inline: 8px; }
 }
+@media (max-width: 390px) {
+  .stageChoices { grid-template-columns: minmax(0, 1fr); }
+  .stageChoice { font-size: .9rem; }
+  .mentorStats { grid-template-columns: minmax(0, 1fr); }
+}
 
 .groupPhoto {
   display: block;
@@ -151,6 +156,7 @@ a.retry { display:inline-flex; align-items:center; text-decoration:none; }
   align-items: center;
   gap: 10px;
   grid-column: 1 / -1;
+  min-height: 44px;
 }
 .groupPublish input[type="checkbox"] { width: 19px; height: 19px; min-height: 0; flex: none; }
 

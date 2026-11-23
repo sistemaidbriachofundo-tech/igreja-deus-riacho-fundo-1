@@ -29,4 +29,18 @@ export class BirthdayNoticesController {
   run(@CurrentUser() actor: AuthUser) {
     return this.notices.run(actor);
   }
+
+  @Get("birthday-care")
+  @Roles(
+    ROLE_CODES.MEMBRO,
+    ROLE_CODES.CONVIDADO,
+    ROLE_CODES.LIDER_MINISTERIO,
+    ROLE_CODES.PASTOR,
+    ROLE_CODES.SECRETARIA,
+    ROLE_CODES.PLATFORM_ADMIN,
+  )
+  @Header("Cache-Control", "private, no-store")
+  care(@CurrentUser() actor: AuthUser) {
+    return this.notices.careToday(actor);
+  }
 }
