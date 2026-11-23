@@ -90,10 +90,11 @@ export function SystemRulesDesk() {
     <PageHeader appearance="workspace" heading="h1" title="Gestão do Sistema"
       description="Configure regras da congregação, com controle de escopo e histórico." />
     <section className={s.operational} aria-labelledby="operational-rules-title">
-      <div><h2 id="operational-rules-title">Configuração operacional</h2>
-        <p>Edite as regras aqui, sem navegar para outro ministério. A liderança continua com o próprio painel, limitado à sua equipe.</p></div>
+      <div className={s.operationalHeading}>
+        <h2 id="operational-rules-title">Configurações por ministério</h2>
+        <p>Gerencie módulos e escalas em um só lugar. Selecione <strong>Configurar</strong> para abrir as regras de cada equipe.</p>
+      </div>
       <OperationalMinistryRules />
-      <p className={s.operationalNote}>As políticas da Ordem do Culto e de Eventos que ainda não possuem edição central são identificadas no catálogo como referência; não são apresentadas como configurações já disponíveis. Regras protegidas não podem ser desativadas.</p>
     </section>
     {error && <><Alert title={error} tone="danger" /><Button onClick={() => setAttempt(n => n + 1)}>Tentar novamente</Button></>}
     {!settings && !error && <Loading label="Carregando regras" />}
