@@ -7,6 +7,7 @@ on:
       - chatgpt/dev-fix-timeout-sorteio-louvor-20261123
       - chatgpt/dev-fechamento-regras-20261123
       - chatgpt/dev-rc-integrado-20261123
+      - chatgpt/dev-visual-escalas-coesao-20261123
       - cursor/tesouraria-regras-backend-988e
   workflow_dispatch:
 
