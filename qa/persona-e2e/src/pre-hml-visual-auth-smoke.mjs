@@ -7,10 +7,10 @@
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
-const root = process.env.QA_VISUAL_WEB_URL || "http://127.0.0.1:8765";
+const root = process.env.QA_VISUAL_WEB_URL || "http://127.0.0.1:3000";
 const api = process.env.QA_VISUAL_API_URL || "http://127.0.0.1:4010";
 const password = process.env.STUB_PASSWORD;
-const expectedOrigins = new Set(["http://127.0.0.1:8765", "http://localhost:8765"]);
+const expectedOrigins = new Set(["http://127.0.0.1:3000", "http://localhost:3000"]);
 if (!expectedOrigins.has(root) || !/^http:\/\/(127\.0\.0\.1|localhost):4010$/.test(api)) {
   throw new Error("Visual QA deve executar somente em loopback.");
 }
