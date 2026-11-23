@@ -6,6 +6,7 @@ import type { DasRecord } from "../lib/das-operations";
 import { pastoralSections } from "../lib/pastoral-navigation";
 import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 import { PastoralBoard } from "./CareBoards";
+import { PastoralExecutiveDashboard } from "./PastoralExecutiveDashboard";
 import { CongregationSummary } from "./PastoralCommunity";
 import { WorkspacePriorities } from "./WorkspacePriorities";
 import { PageHeader } from "./ui/PageHeader";
@@ -19,8 +20,7 @@ export function PastoralDesk({ care = false }: { care?: boolean }) {
   if (access.kind !== "ready") return null;
   if (care) return access.roles.includes("PASTOR") ? <PastoralCare roles={access.roles} />
     : <PageHeader appearance="workspace" heading="h1" title="Cuidado pastoral" description="Área reservada ao perfil de Pastor." />;
-  if (access.roles.includes("PASTOR")) return <PastoralWorkspace roles={access.roles} />;
-  if (access.roles.includes("PLATFORM_ADMIN")) return <AdministrativePastoralOverview />;
+  if (access.roles.includes("PASTOR") || access.roles.includes("PLATFORM_ADMIN")) return <PastoralExecutiveDashboard roles={access.roles} />;
   return null;
 }
 
@@ -81,13 +81,16 @@ function PastoralWorkspace({ roles }: { roles: readonly string[] }) {
     <PageHeader appearance="workspace" heading="h1" title="Mesa pastoral"
       description="Acompanhe os atendimentos da congregação e revise as decisões que aguardam o pastor."
       actions={<button type="button" className={ui.workspaceSecondary} onClick={() => setRevision(value => value + 1)}>Atualizar</button>} />
-    <nav className={s.actions} aria-label="Rotinas pastorais">
-      {pastoralSections(roles).map(({ id, title, href, icon }) => <AppNavLink key={id} className={ui.workspaceSecondary} href={href}>
-        <UIIcon name={icon} size={18} /> {title}
-      </AppNavLink>)}
-    </nav>
-    <CongregationSummary revision={revision} />
     <WorkspacePriorities showService={false} showDecisions revision={revision} />
+    <CongregationSummary revision={revision} />
+    <section className={s.routines}>
+      <h2>Rotinas pastorais</h2>
+      <nav aria-label="Rotinas pastorais">
+        {pastoralSections(roles).map(({ id, title, href, icon }) => <AppNavLink key={id} href={href}>
+          <span><UIIcon name={icon} size={19} /></span><strong>{title}</strong><UIIcon name="chevron" size={15} />
+        </AppNavLink>)}
+      </nav>
+    </section>
   </div>;
 }
 

@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Header, Param, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Patch, Post, Query } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { Allow, IsOptional, IsString, MaxLength } from "class-validator";
+import { Allow, IsDateString, IsOptional, IsString, MaxLength } from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -15,11 +15,17 @@ class DraftBody {
   value!: unknown;
 }
 
+class EditDraftBody {
+  @Allow() value!: unknown;
+  @IsDateString() @MaxLength(40) expectedUpdatedAt!: string;
+}
+
 class ReviewBody {
   @IsOptional() @IsString() @MaxLength(40) expectedUpdatedAt?: string;
 }
 
 class PublishBody extends ReviewBody {
+  @IsOptional() @IsString() @MaxLength(80) replaceRevisionId?: string;
   @IsString() @MaxLength(40) effectiveFrom!: string;
   @IsOptional() @IsString() @MaxLength(40) effectiveUntil?: string | null;
 }
@@ -33,6 +39,12 @@ export class SystemSettingsController {
   @Header("Cache-Control", "private, no-store")
   catalog(@CurrentUser() actor: AuthUser) {
     return this.settings.catalog(actor);
+  }
+
+  @Get("pastors")
+  @Header("Cache-Control", "private, no-store")
+  pastors(@CurrentUser() actor: AuthUser) {
+    return this.settings.pastors(actor);
   }
 
   @Get("effective")
@@ -56,6 +68,11 @@ export class SystemSettingsController {
   @Post("drafts")
   draft(@CurrentUser() actor: AuthUser, @Body() body: DraftBody) {
     return this.settings.draft(actor, body);
+  }
+
+  @Patch("revisions/:revisionId")
+  editDraft(@CurrentUser() actor: AuthUser, @Param("revisionId") revisionId: string, @Body() body: EditDraftBody) {
+    return this.settings.editDraft(actor, revisionId, body.value, body.expectedUpdatedAt);
   }
 
   @Post("revisions/:revisionId/review")

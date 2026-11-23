@@ -7,6 +7,8 @@ import { formatBRL } from "../lib/das-operations";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 import { PageHeader } from "./ui/PageHeader";
+import { Modal } from "./ui/Modal";
+import { receiptLoadErrorMessage } from "./expense-receipt-errors";
 import s from "./expense-approvals.module.css";
 import ui from "./ui/ui.module.css";
 
@@ -58,7 +60,10 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
   const [showHistory, setShowHistory] = useState(false);
   const listRequest = useRef(0);
   const historyToggle = useRef<HTMLButtonElement>(null);
-  const [receipts, setReceipts] = useState<Record<string, Receipt[]>>({});
+  const [receipts, setReceipts] = useState<Record<string, Receipt[] | null>>({});
+  const [preview, setPreview] = useState<{ url: string; filename: string; mime: string } | null>(null);
+  const [receiptBusy, setReceiptBusy] = useState("");
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
   const [actorId, setActorId] = useState<string | null>(null);
   const roles = access.kind === "ready" ? access.roles : [];
   const pastor = roles.includes("PASTOR");
@@ -131,11 +136,37 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
     try {
       const data = await apiGet<{ attachments: Receipt[] }>(`/ledger/entries/${encodeURIComponent(entry)}/attachments`, token);
       setReceipts(current => ({ ...current, [entry]: data.attachments }));
+      setError("");
       return data.attachments;
-    } catch {
-      setError("Não foi possível consultar os comprovantes desta despesa.");
+    } catch (error) {
+      setReceipts(current => ({ ...current, [entry]: null }));
+      setError(receiptLoadErrorMessage(error));
       return null;
     }
+  }
+
+  async function previewReceipt(entry: string, file: Receipt) {
+    if (!token) return;
+    const name = file.displayName.toLowerCase();
+    const mime = name.endsWith(".pdf") ? "application/pdf" :
+      name.endsWith(".jpg") || name.endsWith(".jpeg") ? "image/jpeg" :
+      name.endsWith(".png") ? "image/png" :
+      name.endsWith(".webp") ? "image/webp" : "";
+    if (!mime) {
+      showFeedback({ tone: "error", title: "Pré-visualização indisponível",
+        message: "Este tipo de arquivo não oferece visualização segura. Use Baixar para conferir." });
+      return;
+    }
+    setReceiptBusy(file.id);
+    try {
+      const blob = await apiGetBlob(`/ledger/entries/${encodeURIComponent(entry)}/attachments/${encodeURIComponent(file.id)}`, token);
+      if (blob.size > 25 * 1024 * 1024) throw new Error("too_large");
+      const url = URL.createObjectURL(new Blob([blob], { type: mime }));
+      setPreview({ url, filename: file.displayName, mime });
+    } catch {
+      showFeedback({ tone: "error", title: "Comprovante indisponível",
+        message: "Não foi possível visualizar o arquivo autorizado. Tente novamente ou use Baixar." });
+    } finally { setReceiptBusy(""); }
   }
 
   async function downloadReceipt(entry: string, file: Receipt) {
@@ -146,7 +177,9 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
       const link = document.createElement("a");
       link.href = url;
       link.download = file.displayName;
+      document.body.appendChild(link);
       link.click();
+      link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch {
       showFeedback({ tone: "error", title: "Comprovante indisponível", message: "Atualize a página e tente baixar o arquivo novamente." });
@@ -155,9 +188,22 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
 
   function receiptLinks(entry: string, files: Receipt[] | null) {
     return <div className={s.receipts}>
-      {files === null ? <p>Comprovantes indisponíveis. Volte para atualizar a consulta.</p> :
+      {files === null ? <div role="alert"><p>Não foi possível consultar os anexos desta despesa.</p>
+          <button type="button" className={ui.workspaceSecondary} onClick={() => void listReceipts(entry)}>Tentar novamente</button>
+        </div> :
         files.length === 0 ? <p>Nenhum comprovante anexado.</p> :
-        files.map(file => <button className={ui.workspaceSecondary} type="button" key={file.id} onClick={() => void downloadReceipt(entry, file)}><UIIcon name="download" size={16} /> {file.displayName}</button>)}
+        files.map(file => <div className={s.receiptRow} key={file.id}>
+          <span className={s.receiptFile}><UIIcon name="file" size={18}/><span>{file.displayName}</span></span>
+          <div className={s.receiptButtons}>
+            <button className={ui.workspaceSecondary} type="button" disabled={receiptBusy === file.id}
+              onClick={() => void previewReceipt(entry, file)}>
+              <UIIcon name="eye" size={16} /> {receiptBusy === file.id ? "Abrindo…" : "Visualizar"}
+            </button>
+            <button className={ui.workspaceSecondary} type="button" onClick={() => void downloadReceipt(entry, file)}>
+              <UIIcon name="download" size={16} /> Baixar
+            </button>
+          </div>
+        </div>)}
     </div>;
   }
 
@@ -169,7 +215,14 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
     setBusyId(row.id);
     setDecisionError(null);
     try {
-      const files = receipts[row.id] ?? await listReceipts(row.id);
+      // Não permita confirmar/aprovar sem conseguir abrir a lista de anexos:
+      // 403/erro de rede não são equivalentes à lista vazia legítima ([]).
+      const files = receipts[row.id] === undefined || receipts[row.id] === null
+        ? await listReceipts(row.id) : receipts[row.id];
+      if (files === null) {
+        setDecisionError({ id: row.id, text: "Não foi possível conferir os comprovantes. Consulte os anexos antes de decidir." });
+        return;
+      }
       if (!(await confirm({
         title: reject ? "Devolver esta despesa?" : required === "PASTOR" ? "Aprovar esta despesa?" : "Confirmar a conferência da despesa?",
         subject: row.description,
@@ -207,6 +260,17 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
   if (!permitted) return <section className={s.panel}>Esta área é exclusiva do tesoureiro e do pastor.</section>;
   return <section className={s.root} aria-label={showHistory ? "Histórico de despesas" : "Despesas aguardando aprovação"}>
     {confirmation}
+    <Modal open={Boolean(preview)} title={preview?.filename ?? "Comprovante"}
+      description="Visualização privada da despesa. O arquivo não é publicado nem armazenado em links públicos."
+      appearance="workspace" size="wide" onClose={() => setPreview(null)}>
+      {preview && <div className={s.previewContent}>
+        {preview.mime.startsWith("image/") ?
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview.url} alt={"Comprovante " + preview.filename} /> :
+          <iframe src={preview.url} title={"Pré-visualização de " + preview.filename} />}
+        <button type="button" className={ui.workspaceSecondary} onClick={() => setPreview(null)}>Fechar visualização</button>
+      </div>}
+    </Modal>
     <PageHeader appearance="workspace" heading={embedded ? "h2" : "h1"} title="Despesas para aprovação"
       description={pastoral ? "Consulte as despesas encaminhadas pela Tesouraria para decisão pastoral." : "Confira os lançamentos da congregação e acompanhe a aprovação de cada despesa."}
       actions={(pastor || pastoral) && <AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/">
@@ -242,7 +306,7 @@ export function ExpenseApprovals({ embedded = false, pastoral = false, onApprove
         </div>
         <details onToggle={event => { if (event.currentTarget.open && !receipts[row.id]) void listReceipts(row.id); }}>
           <summary>Comprovantes</summary>
-          {receipts[row.id] && receiptLinks(row.id, receipts[row.id])}
+          {Object.prototype.hasOwnProperty.call(receipts, row.id) && receiptLinks(row.id, receipts[row.id] ?? null)}
         </details>
         {showHistory && row.rejectionReason && <p>Motivo da devolução: {row.rejectionReason}</p>}
         {decisionError?.id === row.id && <p className={s.error} role="alert">{decisionError.text}</p>}

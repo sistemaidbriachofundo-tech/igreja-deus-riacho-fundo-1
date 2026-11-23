@@ -58,7 +58,7 @@ export function CredentialFaces({
             <strong>Igreja de Deus</strong>
             <small>Riacho Fundo I</small>
           </span>
-          <span className={s.edition}>Homologação</span>
+          <span className={s.edition}>Documento de membro</span>
         </header>
         <div className={s.identity}>
           <PersonPortrait name={card.displayName} photoUrl={card.photoUrl} size="card" />
@@ -79,6 +79,9 @@ export function CredentialFaces({
           <div>
             <span>Situação</span>
             <strong data-credential-status={card.status}>{credentialStatusLabel(card.status)}</strong>
+          </div>
+          <div className={s.frontQr}>
+            {qr ? <img src={qr} width={84} height={84} alt="QR para validação oficial da carteirinha" /> : <span>QR em preparo</span>}
           </div>
         </footer>
       </article>

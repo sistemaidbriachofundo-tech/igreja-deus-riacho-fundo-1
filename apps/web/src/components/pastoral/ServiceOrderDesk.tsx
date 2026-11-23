@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { apiGet, apiPatch, apiPost, ApiRequestError, loadStoredToken } from "../../lib/api";
+import { apiGet, apiGetBlob, apiPatch, apiPost, ApiRequestError, loadStoredToken } from "../../lib/api";
 import { dasError, churchLocalToISO } from "../../lib/das-operations";
 import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert } from "../ui/Alert";
 import { Modal } from "../ui/Modal";
 import { PageHeader } from "../ui/PageHeader";
+import { ServiceOrderPlannerPanel } from "./ServiceOrderPlannerPanel";
 import ui from "../ui/ui.module.css";
 import s from "./service-order.module.css";
 
-type OrderItem = { title: string; minutes?: number | null; responsible?: string | null };
+type OrderPerson = { id: string; displayName: string; isMinor: boolean; roles: string[]; sources: string[] };
+type OrderPeopleResponse = { people: OrderPerson[]; qualified: number; notice: string };
+
+/** Liturgia de RF1: pessoa selecionada vem da membresia ativa, não de texto livre. */
+function roleForMoment(title: string): string | null {
+  if (/prega|palavra|ministrac|sermão/i.test(title)) return "preacher";
+  if (/dirig|direção|generosidade/i.test(title)) return "director";
+  if (/louvor|adora|instrumental|música/i.test(title)) return "praise";
+  if (/acolh|boas.vindas|recep/i.test(title)) return "welcome";
+  if (/bênção|benção|oração pelas famílias/i.test(title)) return "preacher";
+  return null;
+}
+
+type OrderItem = { title: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null };
 type Order = {
   id: string;
   updatedAt: string;
@@ -48,6 +62,8 @@ function editorItem(item?: OrderItem) {
     title: item?.title ?? "",
     minutes: item?.minutes == null ? "" : String(item.minutes),
     responsible: item?.responsible ?? "",
+    responsiblePersonId: item?.responsiblePersonId ?? null,
+    microphone: item?.microphone ?? "", equipment: item?.equipment ?? "", notes: item?.notes ?? "",
   };
 }
 
@@ -55,6 +71,15 @@ function OrderEditor({ order, token, onClose, onSaved }: {
   order: Order | null; token: string; onClose: () => void; onSaved: (order: Order) => void;
 }) {
   const [items, setItems] = useState(() => order?.items.length ? order.items.map(editorItem) : [editorItem()]);
+  const [members, setMembers] = useState<OrderPerson[]>([]);
+  const [directoryPhase, setDirectoryPhase] = useState<"loading" | "ready" | "error">("loading");
+  useEffect(() => {
+    let live = true;
+    void apiGet<OrderPeopleResponse>("/service-orders/planning/people", token, { fresh: true })
+      .then(data => { if (live) { setMembers(data.people); setDirectoryPhase("ready"); } })
+      .catch(() => { if (live) setDirectoryPhase("error"); });
+    return () => { live = false; };
+  }, [token]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   function move(index: number, direction: -1 | 1) {
@@ -84,6 +109,10 @@ function OrderEditor({ order, token, onClose, onSaved }: {
         title: item.title.trim(),
         ...(item.minutes !== "" ? { minutes: Number(item.minutes) } : {}),
         ...(item.responsible.trim() ? { responsible: item.responsible.trim() } : {}),
+        ...(item.responsiblePersonId ? { responsiblePersonId: item.responsiblePersonId } : {}),
+        ...(item.microphone.trim() ? { microphone: item.microphone.trim() } : {}),
+        ...(item.equipment.trim() ? { equipment: item.equipment.trim() } : {}),
+        ...(item.notes.trim() ? { notes: item.notes.trim() } : {}),
       })),
     };
     setBusy(true);
@@ -113,6 +142,12 @@ function OrderEditor({ order, token, onClose, onSaved }: {
         <label>Orientações para a equipe<textarea name="notes" rows={2} maxLength={4000} defaultValue={order?.notes ?? ""} /></label>
         <section className={s.form} aria-label="Sequência do culto">
           <h3>Sequência do culto</h3>
+          {directoryPhase === "loading" && <p role="status">Buscando membros, pastores e líderes cadastrados para a Ordem de Culto…</p>}
+          {directoryPhase === "error" && <p role="alert">Não foi possível consultar o catálogo de pessoas. Você pode editar o roteiro, mas confira os responsáveis antes de publicar.</p>}
+          {directoryPhase === "ready" && <p className={s.directoryInfo} role="status">
+            <strong>{members.length} membros ativos</strong> encontrados nesta congregação; {members.filter(p => p.roles.length).length} com função documentada para este rodízio.
+            Pastores e líderes do Louvor/Atmosfera aparecem entre as opções. Outras designações exigem conferência pastoral.
+          </p>}
           {items.map((item, index) => <fieldset key={item.key} className={s.step}>
             <legend>Etapa {index + 1}</legend>
             <div className={s.stepGrid}>
@@ -120,8 +155,38 @@ function OrderEditor({ order, token, onClose, onSaved }: {
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, title: e.target.value } : row))} /></label>
               <label>Duração em minutos<input type="number" min={1} max={180} value={item.minutes}
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, minutes: e.target.value } : row))} /></label>
-              <label>Responsável<input maxLength={80} value={item.responsible}
-                onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, responsible: e.target.value } : row))} /></label>
+              <label>Responsável cadastrado
+                <select className={s.personSelect} aria-label={`Responsável cadastrado da etapa ${index+1}`} value={item.responsiblePersonId ?? ""}
+                  disabled={directoryPhase !== "ready"}
+                  onChange={e => {
+                    const choice = members.find(p => p.id === e.target.value);
+                    setItems(current => current.map(row => row.key === item.key ?
+                      { ...row, responsiblePersonId: choice?.id ?? null, responsible: choice?.displayName ?? row.responsible } : row));
+                  }}>
+                  <option value="">A definir / preencher manualmente</option>
+                  {item.responsiblePersonId && !members.some(p => p.id === item.responsiblePersonId) &&
+                    <option value={item.responsiblePersonId}>{item.responsible} (vínculo anterior; conferir)</option>}
+                  <optgroup label="Com função cadastrada para este momento">
+                    {members.filter(p => !p.isMinor && (roleForMoment(item.title) ?
+                      p.roles.includes(roleForMoment(item.title)!) : p.roles.length > 0)).map(p =>
+                      <option key={p.id} value={p.id}>{p.displayName} · {p.sources[0] ?? "Função reconhecida"}</option>)}
+                  </optgroup>
+                  <optgroup label="Demais membros ativos — validar designação pastoral">
+                    {members.filter(p => !p.isMinor && !(roleForMoment(item.title) ?
+                      p.roles.includes(roleForMoment(item.title)!) : p.roles.length > 0)).map(p =>
+                      <option key={p.id} value={p.id}>{p.displayName}</option>)}
+                  </optgroup>
+                </select>
+              </label>
+              <label>Nome / orientação da função<input maxLength={80} value={item.responsible}
+                onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, responsible: e.target.value, responsiblePersonId: null } : row))} /></label>
+            </div>
+            {item.responsiblePersonId ? <p className={s.selectionInfo}>Vinculado à ficha da pessoa · será registrado no histórico do rodízio.</p>
+              : <p className={s.selectionInfo}>Responsável não vinculado ao cadastro. Para contar no rodízio mensal, selecione a pessoa acima.</p>}
+            <div className={s.stepGrid}>
+              <label>Microfone<input maxLength={100} value={item.microphone} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, microphone: e.target.value } : row))} /></label>
+              <label>Equipamentos<input maxLength={280} value={item.equipment} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, equipment: e.target.value } : row))} /></label>
+              <label>Orientações<input maxLength={700} value={item.notes} onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, notes: e.target.value } : row))} /></label>
             </div>
             <div className={s.actions}>
               <button type="button" className={ui.workspaceQuiet} aria-label={`Subir etapa ${index + 1}`} disabled={index === 0} onClick={() => move(index, -1)}>Subir</button>
@@ -148,6 +213,7 @@ export function ServiceOrderDesk() {
   const canEdit = access.kind === "ready" && access.roles.includes("PASTOR");
   const permitted = canEdit || (access.kind === "ready" && access.roles.includes("PLATFORM_ADMIN"));
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [screen, setScreen] = useState<"calendar" | "editor" | "rules" | "live">("calendar");
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [editor, setEditor] = useState<{ order: Order | null } | null>(null);
@@ -164,6 +230,45 @@ export function ServiceOrderDesk() {
     );
     return () => { active = false; };
   }, [token, revision]);
+
+  async function downloadPdf(order: Order) {
+    if (!token) return;
+    try {
+      const blob = await apiGetBlob(`/service-orders/${encodeURIComponent(order.id)}/pdf`, token);
+      const url = URL.createObjectURL(blob);
+      const element = document.createElement("a");
+      element.href = url;
+      element.download = "ordem-de-culto.pdf";
+      element.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) { setError(orderError(error)); }
+  }
+
+  async function revise(order: Order) {
+    if (!token || !canEdit || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await apiPost<Order>(`/service-orders/${encodeURIComponent(order.id)}/revise`, token, { expectedUpdatedAt: order.updatedAt });
+      update(result);
+      setNotice("A publicação ficou na auditoria e a ordem voltou a rascunho.");
+    } catch (error) {
+      setError(orderError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyLink(order: Order) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("culto", order.id);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setNotice("Link de leitura copiado. Ele continua exigindo perfil pastoral ou de administração.");
+    } catch {
+      setError("Não foi possível copiar o link de leitura neste navegador.");
+    }
+  }
 
   function update(order: Order) {
     setOrders(current => [...(current ?? []).filter(row => row.id !== order.id), order]);
@@ -191,10 +296,19 @@ export function ServiceOrderDesk() {
     <PageHeader appearance="workspace" heading="h1" title="Ordem de Culto"
       description="Organize a sequência dos cultos e acompanhe os roteiros aprovados e publicados."
       actions={<div className={s.actions}>
-        {canEdit && token && <button type="button" className={ui.workspacePrimary} onClick={() => setEditor({ order: null })}>Nova ordem de culto</button>}
+        {canEdit && token && screen === "editor" && <button type="button" className={ui.workspacePrimary} onClick={() => setEditor({ order: null })}>Nova ordem de culto</button>}
         <AppNavLink className={ui.workspaceSecondary} href="/app/pastoral/">Voltar à Pastoral</AppNavLink>
       </div>} />
-    {permitted && <>
+    {permitted && <nav className={s.ocTabs} aria-label="Seções da Ordem de Culto">
+      {([
+        ["calendar", "Calendário"], ["editor", "Roteiro"], ["rules", "Regras"], ["live", "Modo culto"],
+      ] as const).map(([id, name]) => <button key={id} type="button"
+        aria-current={screen === id ? "page" : undefined} data-selected={screen === id}
+        onClick={() => setScreen(id)}>{name}</button>)}
+    </nav>}
+    {permitted && token && screen !== "editor" && <ServiceOrderPlannerPanel key={token} token={token}
+      canEdit={canEdit} view={screen} orders={orders ?? []} onGenerated={() => setRevision(n => n + 1)} />}
+    {screen === "editor" && permitted && <>
       {notice && <p role="status">{notice}</p>}
       {error && !decision && <Alert appearance="workspace" tone="danger" title="Informe da Ordem de Culto">{error}
         <div><button type="button" className={ui.workspaceSecondary} onClick={() => setRevision(current => current + 1)}>Tentar novamente</button></div></Alert>}
@@ -206,6 +320,11 @@ export function ServiceOrderDesk() {
         {order.notes && <p className={s.notes}>{order.notes}</p>}
         <ol className={s.items}>{order.items.map((item, index) => <li key={index}><strong>{item.title}</strong>
           {(item.responsible || item.minutes) && <span>{[item.responsible, item.minutes ? `${item.minutes} min` : ""].filter(Boolean).join(" · ")}</span>}</li>)}</ol>
+        <div className={s.actions}>
+          <button type="button" className={ui.workspaceSecondary} onClick={() => void downloadPdf(order)}>Baixar PDF</button>
+          <button type="button" className={ui.workspaceQuiet} onClick={() => void copyLink(order)}>Copiar link de leitura</button>
+          {canEdit && order.status === "PUBLISHED" && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void revise(order)}>Revisar publicação</button>}
+        </div>
         {canEdit && <div className={s.actions}>
           {order.status !== "PUBLISHED" && <button type="button" className={ui.workspaceSecondary} onClick={() => setEditor({ order })}>Editar</button>}
           {order.status === "DRAFT" && <button type="button" className={ui.workspacePrimary} onClick={() => { setError(""); setDecision({ order, action: "approve" }); }}>Aprovar roteiro</button>}

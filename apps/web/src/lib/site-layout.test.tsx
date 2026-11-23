@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { SiteMediaLibrary } from "../components/SiteMediaLibrary";
 import { ViviEditorialAssistant } from "../components/ViviEditorialAssistant";
 import { PublishedSiteLayoutProvider } from "./use-published-site-layout";
+import { renderAsRole, renderPending } from "./test-session";
 
 describe("Gestão do Site — editor visual",()=>{
   it("accepts only safe layout and retains fallback",()=>{
@@ -76,10 +77,20 @@ describe("Gestão do Site — editor visual",()=>{
     expect(html).toContain(defaultSiteLayout.gallery.title);
     expect(html).toContain("Convite");
   });
+  it("não abre o editor de mídia sem sessão",()=>{
+    const html=renderPending(<SiteManager/>);
+    expect(html).toContain('data-nav-state="pending"');
+    expect(html).not.toContain("Mídia e conteúdo");
+    expect(html).not.toContain("/app/site/");
+  });
   it("provides an authenticated editor route without faking data",()=>{
-    const html=renderToStaticMarkup(<SiteManager/>);
+    const html=renderAsRole("EDITOR_SITE", <SiteManager/>);
+    expect(html).toContain('data-nav-state="ready"');
     expect(html).toContain("Mídia e conteúdo");
     expect(html).toContain("/app/site/");
+    expect(html).toContain("Verificando acesso");
+    expect(html).not.toContain("/app/secretaria/");
+    expect(html).not.toContain("/app/tesouraria/");
   });
   it("shows the reader exactly the published layout and keeps production behind the gate",()=>{
     const secret={...defaultSiteLayout,hero:{...defaultSiteLayout.hero,description:"RASCUNHO SECRETO 5a13"}};

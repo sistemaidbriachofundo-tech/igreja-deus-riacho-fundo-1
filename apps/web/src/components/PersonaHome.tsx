@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { AppNavLink, AppShell, UIIcon, usePersonaAccess } from "./AppShell";
 import { WorkspacePriorities } from "./WorkspacePriorities";
 import { AdministrativeOverview } from "./AdministrativeOverview";
+import { PastoralExecutiveDashboard } from "./PastoralExecutiveDashboard";
 import { readTreasuryPosition, type TreasuryPosition } from "./TreasuryPanel";
 import { ApiRequestError, apiGet, isForbidden, isUnauthorized, loadStoredToken } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
@@ -699,6 +700,11 @@ export function PersonaBoard() {
   const treasury = hasRole(access.roles, "TESOURARIA");
   const loading = mesa.phase === "idle" || mesa.phase === "loading";
   const counts = mesa.counts;
+  // A tela inicial do Pastor é a Mesa Pastoral completa, sem um segundo
+  // painel de atalhos redundante. O endereço /app/pastoral/ usa este mesmo dashboard.
+  if (deskKey === "PASTOR") {
+    return <PastoralExecutiveDashboard roles={access.roles} />;
+  }
   if (deskKey === "PLATFORM_ADMIN") {
     return <div className={s.board}><AdministrativeOverview counts={counts} distribution={mesa.bars}
       admissions={mesa.admissions} events={mesa.events}
@@ -719,8 +725,8 @@ export function PersonaBoard() {
   if (staff || leader) {
     if (staff && (summaryReady || loading)) {
       metrics.push(
-        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: deskKey === "PASTOR" ? "/app/pastoral/admissoes/#consultar-pessoa" : "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
-        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: deskKey === "PASTOR" ? "/app/pastoral/admissoes/" : "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
+        { label: "Membros ativos", value: summaryReady ? counts.membershipsActive : null, href: "/app/membros/", hint: "Vínculos ativos na congregação", icon: "people" },
+        { label: "Admissões em aberto", value: summaryReady ? counts.admissionsOpen : null, href: "/app/secretaria/", hint: "Protocolos em andamento", icon: "layers" },
       );
       if (summaryReady && counts.pastoralOpen !== null && counts.pastoralOpen !== undefined) {
         metrics.push({ label: "Cuidado pastoral", value: counts.pastoralOpen, href: "/app/pastoral/", hint: "Acompanhamentos abertos" });

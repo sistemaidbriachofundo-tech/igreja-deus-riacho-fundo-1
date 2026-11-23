@@ -7,19 +7,19 @@
  */
 
 export const dsColor = {
-  gold: "#D4AF37",
-  brown: "#4A2612",
-  cream: "#F7EDE0",
-  raised: "#FFF9F3",
-  bronze: "#B8742D",
-  terracotta: "#C6583E",
-  ink: "#4A2612",
-  muted: "#6E4A36",
-  line: "#9A7355",
-  danger: "#8C2F22",
-  success: "#0E5A38",
-  onGold: "#4A2612",
-  onDark: "#F7EDE0",
+  gold: "#C9A76B",
+  brown: "#171717",
+  cream: "#F5F6F7",
+  raised: "#FFFFFF",
+  bronze: "#A17C4F",
+  terracotta: "#C46558",
+  ink: "#171717",
+  muted: "#59616B",
+  line: "#858B91",
+  danger: "#9C3041",
+  success: "#286B52",
+  onGold: "#171717",
+  onDark: "#FFFFFF",
 } as const;
 
 export const dsType = {
@@ -37,14 +37,14 @@ export const dsSurface = {
   canvas: dsColor.cream,
   raised: dsColor.raised,
   inverse: dsColor.brown,
-  darkCanvas: "#24160F",
-  darkRaised: "#3A261C",
+  darkCanvas: "#171717",
+  darkRaised: "#292929",
 } as const;
 
 export const dsEdge = {
   default: dsColor.line,
   strong: dsColor.brown,
-  dark: "#C4A484",
+  dark: "#B9C1C9",
 } as const;
 
 export const dsRadius = {
@@ -67,7 +67,7 @@ export const dsSpace = {
 
 export const dsFocus = {
   ring: dsColor.brown,
-  onInverse: dsColor.cream,
+  onInverse: "#FFFFFF",
   width: "3px",
   offset: "3px",
 } as const;
@@ -77,10 +77,10 @@ export const dsText = {
   muted: dsColor.muted,
   onInverse: dsColor.onDark,
   onAccent: dsColor.onGold,
-  bronze: "#7A4A16",
+  bronze: "#705020",
   /** Texto de apoio do portal. Substitui o #67797E medido no PR #120. */
-  support: "#243E42",
-  onDarkMuted: "#E7D3C0",
+  support: "#294E70",
+  onDarkMuted: "#D6DDE0",
 } as const;
 
 /** Grade do conteúdo: 4 / 8 / 12 colunas. */

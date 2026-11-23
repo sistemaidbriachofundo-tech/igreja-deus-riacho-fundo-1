@@ -34,6 +34,8 @@ describe("F1.1 QA smoke seguro", () => {
     assert.equal(report.sameDeployment, true);
     assert.equal(calls.length, 1 + QA_CHECKS.length);
     assert.equal(calls.some(({ options }) => options.method === "POST"), false);
+    assert.equal(calls.some(({ options }) => JSON.stringify(options.headers).toLowerCase().includes("bypass")), false);
+    assert.equal(calls.some(({ url }) => String(url).endsWith("/credentials/me")), true);
   });
 
   it("no máximo um login fictício e não expõe corpo de autenticação", async () => {

@@ -43,3 +43,10 @@
 .prayerForm label:first-child {display:grid;gap:7px;width:100%}
 .prayerForm textarea {width:100%;font:inherit;padding:10px;border:1px solid var(--app-line,#d5dfd9);border-radius:7px;resize:vertical}
 .privateText {white-space:pre-wrap;overflow-wrap:anywhere}
+
+.routines h2 { margin: 0 0 .75rem; font-size: 1.18rem; }
+.routines nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 0 1.4rem; }
+.routines a { display: flex; align-items: center; gap: .75rem; padding: .65rem .25rem; border-bottom: 1px solid var(--app-line, #dce6df); text-decoration: none; color: var(--app-ink, #18362c); }
+.routines a > span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: #e5f1e9; color: #22523b; }
+.routines strong { flex: 1; font-size: .93rem; }
+.routines a:hover strong, .routines a:focus-visible strong { text-decoration: underline; }

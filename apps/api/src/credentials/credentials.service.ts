@@ -320,14 +320,19 @@ export class CredentialsService {
 
     const portrait = await this.getPhoto(credential.personId);
     const photo = jpegPortrait(portrait?.jpeg);
-    const pdfPortraitHash = this.pdfPresentationHash(photo);
+    const ministryName = await this.optionalMinistryName(credential.personId, pilot);
+    const pdfPortraitHash = this.pdfPresentationHash(photo, ministryName);
     const pdfBytes = await renderCredentialPdf({
       displayName: credential.person.displayName,
       churchName: pilot.churchName,
       opaqueToken: credential.opaqueToken,
       verificationBaseUrl: process.env.CREDENTIAL_VERIFICATION_WEB_URL || process.env.ACCESS_INVITE_WEB_ORIGIN,
       issuedAt: credential.issuedAt,
+      revokedAt: credential.revokedAt,
       credentialId: credential.id,
+      membershipId: credential.membershipId,
+      status: credential.status,
+      ministryName,
       photo,
     });
 
@@ -386,9 +391,13 @@ export class CredentialsService {
     );
   }
 
-  private pdfPresentationHash(photo?: Buffer) {
-    const template = Buffer.from("credential-teal-2026-11", "utf8");
-    return this.storage.contentSha256(photo ? Buffer.concat([template, photo]) : template);
+  private pdfPresentationHash(photo?: Buffer, ministryName?: string | null) {
+    const parts = [
+      Buffer.from("credential-pb-dourado-2026-11-22", "utf8"),
+      ...(photo ? [Buffer.from(photo)] : []),
+      ...(ministryName ? [Buffer.from(ministryName, "utf8")] : []),
+    ];
+    return this.storage.contentSha256(Buffer.concat(parts));
   }
 
   /** Metadados do PDF — sem bytes e sem URL pública. */
@@ -406,7 +415,8 @@ export class CredentialsService {
     const pilot = await this.pilot.getPilotChurch();
     let credential = await this.loadCredentialForPdf(actor, credentialId, pilot);
     const photo = jpegPortrait((await this.getPhoto(credential.personId))?.jpeg);
-    const currentHash = this.pdfPresentationHash(photo);
+    const ministryName = await this.optionalMinistryName(credential.personId, pilot);
+    const currentHash = this.pdfPresentationHash(photo, ministryName);
     if (credential.pdfStorageKey && (credential.pdfPortraitHash ?? null) !== currentHash) {
       await this.generatePdf(actor, credentialId);
       credential = await this.loadCredentialForPdf(actor, credentialId, pilot);

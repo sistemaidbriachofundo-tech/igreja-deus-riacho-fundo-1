@@ -19,21 +19,21 @@
 .tooltip,
 .dataTable,
 .pageHeaderBlock {
-  --ds-gold: #d4af37;
-  --ds-brown: #4a2612;
-  --ds-cream: #f7ede0;
-  --ds-raised: #fff9f3;
-  --ds-bronze: #b8742d;
-  --ds-terracotta: #c6583e;
-  --ds-ink: #4a2612;
-  --ds-muted: #6e4a36;
-  --ds-line: #9a7355;
-  --ds-danger: #8c2f22;
-  --ds-success: #0e5a38;
-  --ds-on-gold: #4a2612;
-  --ds-on-dark: #f7ede0;
-  --ds-bronze-text: #7a4a16;
-  --ds-support: #243e42;
+  --ds-gold: #c9a76b;
+  --ds-brown: #171717;
+  --ds-cream: #f5f6f7;
+  --ds-raised: #ffffff;
+  --ds-bronze: #a17c4f;
+  --ds-terracotta: #c46558;
+  --ds-ink: #171717;
+  --ds-muted: #59616b;
+  --ds-line: #858b91;
+  --ds-danger: #9c3041;
+  --ds-success: #286b52;
+  --ds-on-gold: #171717;
+  --ds-on-dark: #ffffff;
+  --ds-bronze-text: #705020;
+  --ds-support: #294e70;
   --ds-font-title: var(--site-font);
   --ds-font-body: var(--site-font);
   --ds-space-2: 0.5rem;
@@ -48,7 +48,7 @@
   --ds-radius-lg: 1rem;
   --ds-radius-pill: 999px;
   --ds-shadow: none;
-  --ds-focus: #4a2612;
+  --ds-focus: #171717;
   --ds-max: 75rem;
   --ds-target: 2.75rem;
 }
@@ -291,10 +291,10 @@
   min-height: 2.75rem;
   padding: 0.55rem 1.15rem;
   border: 2px solid transparent;
-  border-radius: var(--ds-radius-pill);
+  border-radius: 10px;
   font-family: var(--ds-font-title);
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
@@ -306,16 +306,18 @@
 }
 
 .primary {
-  background: var(--ds-gold);
-  color: var(--ds-on-gold);
+  background: var(--ds-brown);
+  color: var(--ds-on-dark);
   border-color: var(--ds-brown);
 }
+.primary:hover:not(:disabled) { background: #333333; border-color: #333333; }
 
 .secondary {
-  background: transparent;
+  background: #ffffff;
   color: var(--ds-ink);
-  border-color: var(--ds-ink);
+  border-color: #989da4;
 }
+.secondary:hover:not(:disabled) { background: #f3f4f5; }
 
 .ghost {
   background: transparent;
@@ -377,7 +379,7 @@
   display: grid;
   gap: 0.75rem;
   padding: 1.15rem 1.2rem;
-  border: 2px solid var(--ds-line);
+  border: 1px solid #e0e3e6;
   border-radius: var(--ds-radius-lg);
   background: var(--ds-raised);
   box-shadow: var(--ds-shadow);
@@ -829,7 +831,7 @@
 }
 
 .statWarning {
-  border-left-color: var(--ds-brown);
+  border-left-color: #8A651F;
 }
 
 .statDanger {
@@ -995,7 +997,7 @@
   min-height: 2.75rem;
   padding: 0.5rem 0.9rem;
   border: 2px solid var(--ds-ink);
-  border-radius: var(--ds-radius-pill);
+  border-radius: 10px;
   background: transparent;
   color: var(--ds-ink);
   font-family: var(--ds-font-title);
@@ -1005,8 +1007,8 @@
 }
 
 .tab[aria-selected="true"] {
-  background: var(--ds-gold);
-  color: var(--ds-on-gold);
+  background: var(--ds-brown);
+  color: var(--ds-on-dark);
   border-color: var(--ds-brown);
 }
 
@@ -1122,14 +1124,14 @@
   .dataTable,
   .pageHeaderBlock
 ) {
-  --ds-cream: #24160f;
-  --ds-raised: #3a261c;
-  --ds-ink: #f7ede0;
-  --ds-muted: #e7d3c0;
-  --ds-line: #c4a484;
-  --ds-focus: #f7ede0;
-  --ds-on-gold: #4a2612;
-  --ds-support: #d7ecec;
+  --ds-cream: #171717;
+  --ds-raised: #292929;
+  --ds-ink: #ffffff;
+  --ds-muted: #d6dde0;
+  --ds-line: #b9c1c9;
+  --ds-focus: #ffffff;
+  --ds-on-gold: #171717;
+  --ds-support: #d4e2ef;
 }
 
 .scope[data-appearance="dark"] {
@@ -1585,3 +1587,20 @@
   .workspaceDialog :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select, textarea),
   .actionConfirmation :is(input, select, textarea) { font-size: 16px; }
 }
+
+/* RF1 Design System 2.0: controles compartilhados com semântica de cor, não por ministério. */
+.workspacePrimary, .workspaceSecondary, .workspaceQuiet { border-radius: 10px; transition: background-color .16s ease, border-color .16s ease; }
+.workspaceTabs > :is(button, a), .workspaceChoices > :is(button, a) { border-radius: 9px; color: #3b4149; }
+.workspaceTabs > :is(button, a):hover, .workspaceChoices > :is(button, a):hover { background: #edf0f2; color: #171717; }
+.workspaceTabs > :is(button, a)[aria-current="page"], .workspaceTabs > button[aria-selected="true"] { background: #171717; color: #ffffff; }
+.workspaceTabs > :is(button, a):focus-visible, .workspaceChoices > :is(button, a):focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
+.statSuccess { background: color-mix(in srgb, #286b52 7%, #ffffff); }
+.statWarning { background: color-mix(in srgb, #8a651f 8%, #ffffff); }
+.statDanger { background: color-mix(in srgb, #9c3041 7%, #ffffff); }
+.statNeutral { background: #ffffff; }
+.control { border-width: 1px; border-color: #8d9298; border-radius: 10px; background: #fff; }
+.control:focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
+.dialog { border: 1px solid #dfe3e7; background: #fff; box-shadow: 0 24px 72px #00000025; }
+.overlay { background: #0f1114b8; }
+.workspaceSurface { border-color: var(--app-border, #dde1e5); }
+@media (prefers-reduced-motion: reduce) { .workspacePrimary, .workspaceSecondary, .workspaceQuiet { transition: none; } }

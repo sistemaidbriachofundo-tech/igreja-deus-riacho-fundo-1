@@ -58,8 +58,8 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
     } catch (error) { setNotice(dasError(error)); }
     finally { setBusy(false); }
   }
-  return <details className={s.position}>
-    <summary>Equipe e regras de {module.name}</summary>
+  return <section className={s.ruleSection} aria-label={"Regras de " + module.name}>
+    <h4>Regras de {module.name}</h4>
     <form className={s.ruleForm} onSubmit={save}>
       {actions.managedModuleMemberships ? <p>
         <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Editar vínculos em Integrantes</a>
@@ -145,5 +145,5 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
       <button className={ui.workspacePrimary} disabled={busy} type="submit">Salvar regras</button>
       {notice && <p role="status">{notice}</p>}
     </form>
-  </details>;
+  </section>;
 }

@@ -8,7 +8,7 @@ import { useFeedback } from "./ui/FeedbackProvider";
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
-import { ApiRequestError, apiGet, apiPost, apiPostForm, loadStoredToken } from "../lib/api";
+import { ApiRequestError, apiGet, apiGetBlob, apiPost, apiPostForm, loadStoredToken } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
 import { ledgerChannel, statementCashEffect, summarizeTreasury, treasuryChannels, type TreasuryAccount as Account, type TreasuryEntry as EntryView } from "../lib/treasury-overview";
 import { TreasuryOverview } from "./TreasuryOverview";
@@ -204,6 +204,50 @@ export function expenseWorkflowStatus(entry: Pick<EntryView, "status" | "firstAp
   return statusLabel(entry.status);
 }
 
+function LedgerReceipts({ token, entryId }: { token: string; entryId: string }) {
+  const [files, setFiles] = useState<Array<{ id: string; displayName: string }> | "closed" | "loading" | "error">("closed");
+
+  async function open() {
+    if (files !== "closed") return;
+    setFiles("loading");
+    try {
+      const data = await apiGet<{ attachments: Array<{ id: string; displayName: string }> }>(
+        `/ledger/entries/${encodeURIComponent(entryId)}/attachments`,
+        token,
+      );
+      setFiles(data.attachments);
+    } catch {
+      setFiles("error");
+    }
+  }
+
+  async function download(file: { id: string; displayName: string }) {
+    try {
+      const blob = await apiGetBlob(
+        `/ledger/entries/${encodeURIComponent(entryId)}/attachments/${encodeURIComponent(file.id)}`,
+        token,
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.displayName;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      setFiles("error");
+    }
+  }
+
+  if (files === "closed" || files === "loading") {
+    return <button className={ui.workspaceSecondary} type="button" onClick={() => void open()} disabled={files === "loading"}>
+      {files === "loading" ? "Consultando comprovantes…" : "Ver comprovantes"}
+    </button>;
+  }
+  if (files === "error") return <p role="alert">Não foi possível consultar os comprovantes.</p>;
+  if (files.length === 0) return <p>Nenhum comprovante anexado.</p>;
+  return <div>{files.map(file => <button className={ui.workspaceSecondary} type="button" key={file.id} onClick={() => void download(file)}>{file.displayName}</button>)}</div>;
+}
+
 export function TreasuryPanel() {
   const { showFeedback } = useFeedback();
   const access = usePersonaAccess();
@@ -221,6 +265,7 @@ export function TreasuryPanel() {
   const [failure, setFailure] = useState("");
   const [center, setCenter] = useState<string | null>(null);
   const [attachment, setAttachment] = useState<{ id: string; message: string } | null>(null);
+  const [receiptRevision, setReceiptRevision] = useState(0);
   const [targetExpense, setTargetExpense] = useState("");
   const [view, setView] = useState<TreasurySection>("visao");
   const [from, setFrom] = useState("");
@@ -406,6 +451,7 @@ export function TreasuryPanel() {
     try {
       await apiPostForm("/ledger/entries/" + encodeURIComponent(entry.id) + "/attachments", token, fields);
       form.reset();
+      setReceiptRevision(value => value + 1);
       showFeedback({ tone: "success", title: "Comprovante anexado", message: "O arquivo está disponível na revisão da despesa." });
     } catch (error) {
       setAttachment({ id: entry.id, message: dasError(error) });
@@ -547,17 +593,12 @@ export function TreasuryPanel() {
         {canWrite && <button type="button" aria-current={view === "integracoes" ? "page" : undefined} onClick={() => openView("integracoes")}><UIIcon name="wallet" size={17} /> Contas e integrações</button>}
         {canReviewApprovals && <button type="button" aria-current={view === "aprovacoes" ? "page" : undefined} onClick={() => openView("aprovacoes")}><UIIcon name="shield" size={17} /> Aprovações</button>}
       </nav>
-      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && view !== "integracoes" && scopeFilters}
+      {view !== "aprovacoes" && view !== "extrato" && view !== "despesas" && view !== "integracoes" && view !== "visao" && scopeFilters}
       {view !== "lancar" && view !== "aprovacoes" && view !== "integracoes" && !validPeriod && <p className={styles.unavailable} role="alert">Escolha uma data final posterior ou igual à inicial.</p>}
       <section className={styles.viewBody} aria-label="Conteúdo da Tesouraria">
         {view === "integracoes" && canWrite && token && <TreasuryIntegrations token={token} accounts={accounts} accountsPending={!data && !failure} onStatement={() => openView("extrato")} />}
         {view === "aprovacoes" && canReviewApprovals && <ExpenseApprovals embedded onApproved={() => setRevision(value => value + 1)} />}
-        {view === "visao" && canWrite && token && <MinistryCostCenterSetup token={token}
-          onConfigured={() => setRevision(value => value + 1)} />}
-        {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
-          <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
-          <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
-        </section>}
+        {view === "visao" && <FilterDisclosure count={[activeCenter, from || to].filter(Boolean).length}>{scopeFilters}</FilterDisclosure>}
         {view === "visao" && (summary && cards.kind === "ready" && validPeriod ? (
           <TreasuryOverview position={cards.position} summary={summary}
             onBank={id => { clearStatementFilters(); setBankFilter(id); openView("extrato"); }}
@@ -565,6 +606,12 @@ export function TreasuryPanel() {
             onReconciliation={() => openView("conciliacao")} />
         ) : <TreasuryPositionCards state={cards} />)}
 
+        {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
+          <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
+          <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
+        </section>}
+        {view === "visao" && canWrite && token && <MinistryCostCenterSetup token={token}
+          onConfigured={() => setRevision(value => value + 1)} />}
         {view === "despesas" && <section className={`${styles.card} ${styles.financialSurface}`} aria-label="Despesas da congregação">
           <FinancialHeading icon="wallet" title="Despesas da congregação">
             {data?.entries && <span className={styles.statementCount}>{expenseRows.length} {expenseRows.length === 1 ? "despesa no período" : "despesas no período"}</span>}
@@ -592,12 +639,13 @@ export function TreasuryPanel() {
               </div>
               </div>
               <strong className={styles.amount}>{entry.amountCents === null ? "—" : formatBRL(entry.amountCents)}</strong>
-              {canWrite && entry.status === "PENDING_APPROVAL" && <details className={styles.receiptUpload}>
-                <summary>Anexar comprovante</summary>
-                <form onSubmit={event => void attachReceipt(event, entry)}>
+              {token && <details className={styles.receiptUpload}>
+                <summary>Comprovantes</summary>
+                <LedgerReceipts key={`${entry.id}-${receiptRevision}`} token={token} entryId={entry.id} />
+                {canWrite && entry.status === "PENDING_APPROVAL" && <form onSubmit={event => void attachReceipt(event, entry)}>
                   <label>Arquivo (PDF, JPG ou PNG)<input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /></label>
                   <button type="submit" className={ui.workspaceSecondary} disabled={busy}>Anexar</button>
-                </form>
+                </form>}
                 {attachment?.id === entry.id && <p role="alert">{attachment.message}</p>}
               </details>}
               {canApproveExpense && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
@@ -651,6 +699,7 @@ export function TreasuryPanel() {
                 <dt>{line.side === "DEBIT" ? "Débito" : "Crédito"} · {accountMap.get(line.accountId)?.name ?? "Conta"}</dt><dd>{formatBRL(line.cents)}</dd>
               </div>)}</dl>
               {canWrite && entry.status === "PENDING_APPROVAL" && entry.approvalFlow !== "TREASURER_THEN_PASTOR" && <small>{approval.text}</small>}
+              {token && <LedgerReceipts key={`${entry.id}-${receiptRevision}`} token={token} entryId={entry.id} />}
             </>} actions={<>
               {canWrite && (entry.status === "DRAFT" || entry.status === "REJECTED") && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void runEntryAction(entry, "submit")}>Enviar para aprovação</button>}
               {canWrite && approval.canApprove && <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar aprovação</button>}

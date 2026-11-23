@@ -67,6 +67,10 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   const details = useRef<HTMLElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const ready = panel.kind === "ready";
+  const canEditModules = ready && panel.permissions?.scope !== "modules" && Boolean(actions);
+  useEffect(() => {
+    if (canEditModules && new URLSearchParams(window.location.search).get("config") === "regras") setTool("modules");
+  }, [canEditModules]);
   const visibleRoster = ready && panel.items.some(item => item.id === escalaId);
   useEffect(() => {
     if (escalaId && details.current) {
@@ -290,11 +294,11 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         {totals.pending > 0 && <span>{totals.pending} {totals.pending === 1 ? "resposta pendente" : "respostas pendentes"}</span>}
       </div>
       {access && <div>
+        {!moduleOnly && <button type="button" className={s.secondary} aria-expanded={tool === "modules"}
+          onClick={() => setTool(tool === "modules" ? null : "modules")}><UIIcon name="settings" size={16} /> Módulos e regras</button>}
         <details className={s.rowMenu}><summary>Configurar</summary><div>
           {modules.length > 0 && <button type="button" className={s.secondary} aria-expanded={tool === "capacity"}
             onClick={() => setTool(tool === "capacity" ? null : "capacity")}>Vagas por culto</button>}
-          {!moduleOnly && <button type="button" className={s.secondary} aria-expanded={tool === "modules"}
-            onClick={() => setTool(tool === "modules" ? null : "modules")}>Módulos e regras</button>}
           <button type="button" className={s.secondary} aria-expanded={tool === "availability"}
             onClick={() => setTool(tool === "availability" ? null : "availability")}>Disponibilidade semanal</button>
         </div></details>
@@ -306,9 +310,9 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
     {access && tool && <section className={s.toolbox} aria-label="Configuração da escala">
       {tool === "capacity" && <RosterCapacitySettings token={access.token} ministryId={ministryId} modules={modules}
         initialModuleId={access.moduleId} onSaved={access.onRefresh} />}
-      {tool === "modules" && !moduleOnly && <RosterModuleCatalog actions={{ ...access, onRulesSaved: rules => {
-        if (selectedModule) setUpdatedRules(previous => ({ ...previous, [selectedModule.id]: rules }));
-      } }} modules={modules} selectedId={selectedModule?.id ?? ""} louvor={louvor} />}
+      {tool === "modules" && !moduleOnly && <RosterModuleCatalog key={moduleFilter} actions={access}
+        modules={modules} initialId={selectedModule?.id} louvor={louvor}
+        onRulesSaved={(id, rules) => setUpdatedRules(previous => ({ ...previous, [id]: rules }))} />}
       {tool === "availability" && <RosterRecurringAvailability actions={access} />}
     </section>}
     {downloadError && <p role="alert" className={s.error}>{downloadError}</p>}

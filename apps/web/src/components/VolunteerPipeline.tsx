@@ -67,7 +67,7 @@ export function VolunteerPipeline({ministries,token,refresh}:Props){
 
   return <section className={styles.board} aria-labelledby="interests-heading">
     {confirmation}
-    <div className={styles.intro}><span>RF-012/015 · SERVIÇO VOLUNTÁRIO</span>
+    <div className={styles.intro}>
       <h2 id="interests-heading">Do interesse até a escala</h2>
       <p>A integração de voluntários exige avaliação humana, vínculo autorizado e disponibilidade. Esta etapa não envia mensagens automáticas.</p></div>
     <label className={styles.groupSelect}>Ministério<select value={ministryId}

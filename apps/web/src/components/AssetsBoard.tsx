@@ -130,10 +130,10 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
   }
   return <section className={s.board} aria-labelledby="asset-heading">
     {confirmation}
-    <header className={s.heading}><div><span>RF-030 · GOVERNANÇA E PATRIMÔNIO</span>
+    <header className={s.heading}><div>
       <h2 id="asset-heading">Inventário sob responsabilidade</h2>
       <p>Bens, localizações, responsáveis, manutenção e trilha de alterações por congregação.</p>
-    </div><span className={s.pill}>Auditoria obrigatória · HML</span></header>
+    </div><span className={s.pill}>Alterações auditadas</span></header>
     <div className={s.statGrid}>
       <div><strong>{stats.total}</strong><span>Itens inventariados</span></div>
       <div><strong>{stats.active}</strong><span>Em uso</span></div>
@@ -143,7 +143,7 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
     {notice&&<p role="status" className={s.notice}>{notice}</p>}
     <div className={s.split}>
       <div className={s.panel}>
-        <div className={s.panelTop}><h3>01 / Inventário</h3><small>{visible.length} registros</small></div>
+        <div className={s.panelTop}><h3>Inventário</h3><small>{visible.length} registros</small></div>
         <div className={s.filterRow}>
           <label>Busca
             <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
@@ -180,7 +180,7 @@ export function AssetsBoard({assets,token,roles,refresh}:Props){
         </form>
       </div>
       <div className={s.panel}>
-        <h3>02 / Histórico e movimentações</h3>
+        <h3>Histórico e movimentações</h3>
         {!selected?<p className={s.empty}>Selecione um bem do inventário para consultar seu histórico auditável.</p>:
         detailState==="loading"?<p role="status" className={s.empty}>Carregando cadastro e histórico…</p>:
         detailState==="error"?<div role="alert" className={s.error}>{detailError}

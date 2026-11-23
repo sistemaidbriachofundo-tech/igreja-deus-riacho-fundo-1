@@ -1,0 +1,100 @@
+name: DEV RF1 - UX UI e regressao
+on:
+  push:
+    branches:
+      - feat/rf1-revisao-18-11
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rf1-design-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  tests:
+    name: Testes do kit, frontend, API e contrato visual
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: postgresql://idbrf:idbrf_ci@localhost:5432/idbrf?schema=public
+      NEXT_PUBLIC_API_URL: https://id-riacho1-api-qa.vercel.app
+      NEXT_PUBLIC_HML_ENABLED: "true"
+      NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
+      NEXT_PUBLIC_BASE_PATH: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @idbrf/shared
+      - run: npx prisma generate --schema packages/db/prisma/schema.prisma
+      - run: npm run build -w @idbrf/db
+      - name: Testes frontend e tokens WCAG
+        id: webtests
+        continue-on-error: true
+        run: npm run test -w @idbrf/web
+      - name: Typecheck frontend
+        id: webtypes
+        continue-on-error: true
+        run: npm run typecheck -w @idbrf/web
+      - name: Testes API - sem servidor nem banco real
+        id: apitests
+        continue-on-error: true
+        run: npm run test -w @idbrf/api -- --runInBand
+      - name: Typecheck API
+        id: apitypes
+        continue-on-error: true
+        run: npm run typecheck -w @idbrf/api
+      - name: Build web estatico no DEV local do CI
+        id: webbuild
+        continue-on-error: true
+        run: npm run build -w @idbrf/web
+      - name: Capturas reais sem login - desktop e celular
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$CHROME"
+          mkdir -p qa-ux-screenshots
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory apps/web/out >/tmp/rf1-dev-ui-http.log 2>&1 &
+          SRV=$!
+          trap 'kill "$SRV" 2>/dev/null || true' EXIT
+          sleep 3
+          for VIEW in 1440 768 390 320; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size="${VIEW},1000" --screenshot="qa-ux-screenshots/inicio-${VIEW}.png" "http://127.0.0.1:8765/" >/tmp/rf1-dev-chrome.log 2>&1
+            test -s "qa-ux-screenshots/inicio-${VIEW}.png"
+          done
+          for PAGE in login recuperar-senha; do
+            "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size="390,900" --screenshot="qa-ux-screenshots/${PAGE}-390.png" "http://127.0.0.1:8765/${PAGE}/" >/tmp/rf1-dev-chrome.log 2>&1
+            test -s "qa-ux-screenshots/${PAGE}-390.png"
+          done
+      - name: Guardar imagens das telas publicas, sem dados pessoais
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rf1-uxui-publico-sem-login
+          path: qa-ux-screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Gate integral - falha se algum teste ou build falhar
+        if: always()
+        env:
+          WEB_TESTS: ${{ steps.webtests.outcome }}
+          WEB_TYPES: ${{ steps.webtypes.outcome }}
+          API_TESTS: ${{ steps.apitests.outcome }}
+          API_TYPES: ${{ steps.apitypes.outcome }}
+          WEB_BUILD: ${{ steps.webbuild.outcome }}
+        run: |
+          set -euo pipefail
+          printf 'web tests=%s, types=%s, api=%s, api types=%s, web build=%s\n' "$WEB_TESTS" "$WEB_TYPES" "$API_TESTS" "$API_TYPES" "$WEB_BUILD"
+          for RESULT in "$WEB_TESTS" "$WEB_TYPES" "$API_TESTS" "$API_TYPES" "$WEB_BUILD"; do
+            if [ "$RESULT" != "success" ]; then
+              echo "::error::NO-GO: há testes, tipos ou builds não aprovados"
+              exit 1
+            fi
+          done

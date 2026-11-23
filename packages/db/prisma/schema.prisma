@@ -196,6 +196,7 @@ model Church {
   serviceOccurrences ChurchServiceOccurrence[]
   servingPreferences VolunteerServingPreference[]
   serviceOrders ServiceOrder[]
+  serviceOrderPolicy ServiceOrderPolicy?
   admissionDocumentRequirements AdmissionDocumentRequirement[]
   @@map("churches")
 }
@@ -263,6 +264,7 @@ model Person {
   discipleshipEnrollments DiscipleshipEnrollment[]
   discipleshipMentorships DiscipleshipEnrollment[] @relation("DiscipleshipMentor")
   discipleshipMentorRegistrations DiscipleshipMentorRegistration[]
+  serviceOrderResponsibilities ServiceOrderItem[] @relation("ServiceOrderItemResponsible")
   rosterAssignments RosterAssignment[] @relation("RosterAssignee")
   rosterPartnerships RosterAssignment[] @relation("RosterPartner")
   volunteerInterests VolunteerInterest[]
@@ -3018,17 +3020,35 @@ model ServiceOrder {
 }
 
 model ServiceOrderItem {
-  id          String  @id @default(cuid())
-  orderId     String  @map("order_id")
-  position    Int
-  title       String
-  minutes     Int?
-  responsible String?
+  id                  String @id @default(cuid())
+  orderId             String @map("order_id")
+  position            Int
+  title               String
+  minutes             Int?
+  responsible         String?
+  responsiblePersonId String? @map("responsible_person_id")
+  microphone          String?
+  equipment           String?
+  notes               String?
 
-  order ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order             ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  responsiblePerson Person? @relation("ServiceOrderItemResponsible", fields: [responsiblePersonId], references: [id], onDelete: SetNull)
 
   @@index([orderId, position])
+  @@index([responsiblePersonId])
   @@map("service_order_items")
+}
+
+model ServiceOrderPolicy {
+  churchId        String   @id @map("church_id")
+  organizationId  String   @map("organization_id")
+  rules           Json     @default("{}")
+  updatedByUserId String   @map("updated_by_user_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  church          Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("service_order_policies")
 }
 
 model WorkspaceNotificationRead {

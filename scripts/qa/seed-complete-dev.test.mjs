@@ -193,6 +193,17 @@ test("duas aplicações mantêm os mesmos registros e não redefinem senha", asy
   const photos = second.tables.get("personPhoto");
   assert.equal(photos.length, catalog.people.length);
   assert.ok(photos.every((photo) => photo.personId.startsWith("qacomp_person_") && photo.jpeg[0] === 0xff));
+  const attachments = second.tables.get("ledgerEntryAttachment");
+  const files = second.tables.get("privateFile");
+  assert.ok(attachments.length >= 2);
+  assert.ok(attachments.every((row) => row.id.startsWith("qacomp_file_") && row.displayName.includes("SEM VALOR FISCAL") && row.storageKey.startsWith("qacomp/receipts/") && !("url" in row)));
+  assert.ok(files.some((row) => row.key === "qacomp/receipts/qacomp_file_despesa.jpg" && row.bytes[0] === 0xff));
+  const paid = second.tables.get("eventPaymentIntent").filter((row) => String(row.status).startsWith("CONFIRMED") && row.amountCents > 0);
+  assert.ok(paid.length >= 1);
+  assert.ok(paid.every((row) => row.ledgerEntryId?.startsWith("qacomp_entry_")));
+  const pending = second.tables.get("eventPaymentIntent").filter((row) => row.status === "PENDING" || row.status === "CANCELLED");
+  assert.ok(pending.length >= 1);
+  assert.ok(pending.every((row) => row.ledgerEntryId == null));
   const moças = second.tables.get("portalEvent").find((event) => event.slug === "qacomp-mocas");
   assert.equal(moças.ticketPolicy, "PARTICIPANT");
   assert.equal(moças.imageUrl, "/images/qa/events/qacomp-mocas.jpg");

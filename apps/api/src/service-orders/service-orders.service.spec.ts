@@ -90,7 +90,10 @@ describe("ServiceOrdersService", () => {
           return withItems(order);
         }),
       },
-      auditLog: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return data; }) },
+      auditLog: {
+        create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return data; }),
+        count: jest.fn(async ({ where }: { where: { action?: string; resourceId?: string } }) => audits.filter((entry) => entry.action === where.action && entry.resourceId === where.resourceId).length),
+      },
     };
     const prisma = { ...tx, $transaction: async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx) };
     return { prisma, orders, audits };
@@ -158,5 +161,17 @@ describe("ServiceOrdersService", () => {
     await expect(api.approve(admin, created.id)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(api.publish(admin, created.id)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(api.list(otherPastor)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(api.revise(admin, created.id)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("devolve a ordem publicada para rascunho com revisão auditada", async () => {
+    const { api, audits } = service();
+    const created = await api.create(pastor, morning);
+    const approved = await api.approve(pastor, created.id, created.updatedAt);
+    const published = await api.publish(pastor, created.id, approved.updatedAt);
+    const revised = await api.revise(pastor, created.id, published.updatedAt);
+    expect(revised.status).toBe("DRAFT");
+    expect(audits.filter((entry) => entry.action === "service_order.revise")).toMatchObject([{ metadata: { version: 1 } }]);
+    expect(JSON.stringify(audits)).not.toContain("Resumo fictício");
   });
 });

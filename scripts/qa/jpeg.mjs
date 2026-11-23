@@ -335,6 +335,71 @@ export function paintBanner(spec) {
   return { rgb, width, height };
 }
 
+const RECEIPT_FONT = {
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+  G: ["01110", "10001", "10000", "10111", "10001", "10001", "01110"],
+  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+};
+
+function stampText(rgb, width, text, originX, originY, scale, color) {
+  let cursor = originX;
+  for (const glyph of text) {
+    const rows = RECEIPT_FONT[glyph] ?? RECEIPT_FONT[" "];
+    rows.forEach((row, rowIndex) => {
+      [...row].forEach((pixel, column) => {
+        if (pixel !== "1") return;
+        for (let dy = 0; dy < scale; dy += 1) {
+          for (let dx = 0; dx < scale; dx += 1) {
+            put(rgb, width, cursor + column * scale + dx, originY + rowIndex * scale + dy, color);
+          }
+        }
+      });
+    });
+    cursor += 6 * scale;
+  }
+}
+
+/** JPEG visivelmente fictício. Não contém chave Pix, banco ou valor fiscal. */
+export function receiptJpeg(label = "QA") {
+  const width = 320;
+  const height = 160;
+  const rgb = new Uint8Array(width * height * 3);
+  const paper = [255, 255, 255];
+  const ink = [23, 23, 23];
+  const gold = [201, 167, 107];
+  const band = [215, 238, 219];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) put(rgb, width, x, y, y < 36 ? ink : paper);
+  }
+  for (let y = 36; y < 44; y += 1) {
+    for (let x = 0; x < width; x += 1) put(rgb, width, x, y, gold);
+  }
+  const shift = [...label].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 48;
+  for (let y = 120; y < 148; y += 1) {
+    for (let x = 16 + shift; x < 150 + shift; x += 1) put(rgb, width, x, y, band);
+  }
+  stampText(rgb, width, "SEM VALOR FISCAL", 18, 10, 2, [255, 255, 255]);
+  stampText(rgb, width, "QA FICTICIO", 18, 58, 3, ink);
+  stampText(rgb, width, "NAO E PAGAMENTO", 18, 92, 2, ink);
+  return encodeJpeg(rgb, width, height, 80);
+}
+
 export function portraitJpeg(spec) {
   const painted = paintPortrait(spec);
   return encodeJpeg(painted.rgb, painted.width, painted.height, 72);

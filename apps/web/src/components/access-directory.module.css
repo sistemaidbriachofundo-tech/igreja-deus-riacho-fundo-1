@@ -79,3 +79,12 @@
   padding: 8px 0;
 }
 .profileList span { display: block; color: #555; font-size: .875rem; }
+
+/* Ferramenta de QA visível apenas no frontend DEV conectado à API isolada. */
+.qaTesters{border:1px solid #e3c59c;border-radius:14px;padding:15px;display:grid;gap:13px;background:#fffaf1}
+.qaTesters strong{font-size:14px}.qaTesters p{font-size:13px;color:#574f44;margin:4px 0 0}
+.qaResult{display:grid;gap:6px}
+.qaResult>div{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;background:#fff;border:1px solid #ece5d6;border-radius:9px;padding:9px}
+.qaResult span{font-size:12px;overflow-wrap:anywhere}
+.qaResult a{font-size:12px;min-height:42px;display:inline-flex;align-items:center;color:#1c5c48}
+.qaResult small{color:#675e52;font-size:11px}

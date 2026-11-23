@@ -3,22 +3,24 @@
 import { useState, type FormEvent } from "react";
 import { apiPatch, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
-import type { EscalaModule } from "../../lib/ministry-presentation";
+import type { EscalaModule, EscalaModuleRules } from "../../lib/ministry-presentation";
 import ui from "../ui/ui.module.css";
 import type { RosterActionsProps } from "./RosterEditor";
 import { RosterModuleRulesEditor } from "./RosterModuleRulesEditor";
 import s from "./roster-editor.module.css";
 
-export function RosterModuleCatalog({ actions, modules, selectedId, louvor }: {
+export function RosterModuleCatalog({ actions, modules, initialId, louvor, onRulesSaved }: {
   actions?: RosterActionsProps;
   modules: EscalaModule[];
-  selectedId: string;
+  initialId?: string;
+  onRulesSaved: (id: string, rules: EscalaModuleRules) => void;
   louvor?: boolean;
 }) {
   const [editing, setEditing] = useState<EscalaModule | "new" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const selected = modules.find(module => module.id === selectedId);
+  const [selectedId, setSelectedId] = useState(initialId ?? "");
+  const selected = modules.find(module => module.id === selectedId) ?? modules[0];
 
   function edit(module: EscalaModule | "new") {
     setError("");
@@ -47,7 +49,12 @@ export function RosterModuleCatalog({ actions, modules, selectedId, louvor }: {
 
   return (
     <section className={s.moduleCatalog} aria-label="Módulos de escala">
+      <h3>Módulos e regras</h3>
       <div className={s.form}>
+        {modules.length > 0 && <label>Módulo para editar<select value={selected?.id ?? ""} disabled={busy}
+          onChange={event => { setSelectedId(event.target.value); setEditing(null); setError(""); }}>
+          {modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}
+        </select></label>}
         {actions && <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => edit("new")}>Novo módulo</button>}
         {actions && selected && <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => edit(selected)}>Renomear módulo</button>}
       </div>
@@ -56,7 +63,7 @@ export function RosterModuleCatalog({ actions, modules, selectedId, louvor }: {
         <button className={ui.workspacePrimary} type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar módulo"}</button>
         <button className={ui.workspaceSecondary} type="button" disabled={busy} onClick={() => setEditing(null)}>Cancelar</button>
       </form>}
-      {actions && selected && <RosterModuleRulesEditor key={selected.id} module={selected} actions={actions} louvor={louvor} />}
+      {actions && selected && <RosterModuleRulesEditor key={selected.id} module={selected} actions={{ ...actions, onRulesSaved: rules => onRulesSaved(selected.id, rules) }} louvor={louvor} />}
       {error && <p className={s.error} role="alert">{error}</p>}
     </section>
   );

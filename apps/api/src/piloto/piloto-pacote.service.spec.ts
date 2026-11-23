@@ -98,9 +98,17 @@ describe("gestão do sistema preserva o DEV", () => {
           revisions.push(row);
           return row;
         },
-        update: async ({ data }: { data: Record<string, unknown> }) => {
-          Object.assign(revisions[0], data, { updatedAt: new Date("2026-11-20T12:05:00.000Z") });
-          return revisions[0];
+        findUniqueOrThrow: async ({ where }: { where: { id: string } }) => revisions.find(row => row.id === where.id)!,
+        updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+          const row = revisions.find(row => Object.entries(where).every(([key, value]) => row[key] === value));
+          if (!row) return { count: 0 };
+          Object.assign(row, data, { updatedAt: new Date("2026-11-20T12:02:00.000Z") });
+          return { count: 1 };
+        },
+        update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+          const row = revisions.find(item => item.id === where.id)!;
+          Object.assign(row, data, { updatedAt: new Date("2026-11-20T12:05:00.000Z") });
+          return row;
         },
       },
       auditLog: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return data; } },
@@ -108,7 +116,13 @@ describe("gestão do sistema preserva o DEV", () => {
     };
     const service = new SystemSettingsService(prisma as never, { getPilotChurch: async () => pilot } as never);
     const draft = await service.draft(admin, { key: catalog.key, value: "09:00" });
-    await service.review(admin, draft.id, draft.updatedAt);
+    const edited = await service.editDraft(admin, draft.id, "09:15", draft.updatedAt);
+    expect(edited).toMatchObject({ id: draft.id, value: "09:15", lifecycle: "DRAFT" });
+    expect(revisions).toHaveLength(1);
+    await expect(service.editDraft(admin, draft.id, "10:00", draft.updatedAt)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.editDraft(admin, draft.id, "26:00", edited.updatedAt)).rejects.toBeInstanceOf(BadRequestException);
+    const reviewed = await service.review(admin, draft.id, edited.updatedAt);
+    await expect(service.editDraft(admin, draft.id, "10:00", reviewed.updatedAt)).rejects.toBeInstanceOf(ConflictException);
     const published = await service.publish(admin, draft.id, { effectiveFrom: "2026-11-21T00:00:00.000Z", expectedUpdatedAt: "2026-11-20T12:05:00.000Z" });
     expect(published.lifecycle).toBe("PUBLISHED");
     expect(catalog.devJson).toBe("08:00");
@@ -118,6 +132,15 @@ describe("gestão do sistema preserva o DEV", () => {
     await expect(service.publish(admin, "rev-2", { effectiveFrom: "2026-11-22T00:00:00.000Z" })).rejects.toBeInstanceOf(ConflictException);
     const before = await service.effective(admin, catalog.key, "CHURCH", undefined, new Date("2026-11-20T12:00:00.000Z"));
     expect(before).toMatchObject({ source: "DEV", value: "08:00" });
+    revisions[0].effectiveFrom = new Date(Date.now() - 86_400_000);
+    revisions[1].valueJson = "10:30";
+    await expect(service.publish(admin, "rev-2", { effectiveFrom: "now", replaceRevisionId: "desatualizada" })).rejects.toBeInstanceOf(ConflictException);
+    expect(revisions[0].effectiveUntil).toBeNull();
+    const replacement = await service.publish(admin, "rev-2", { effectiveFrom: "now", replaceRevisionId: "rev-1" });
+    expect((revisions[0].effectiveUntil as Date).toISOString()).toBe(replacement.effectiveFrom);
+    const effective = await service.effective(admin, catalog.key, "CHURCH", undefined);
+    expect(effective).toMatchObject({ source: "PUBLISHED", revisionId: "rev-2", value: "10:30" });
+
   });
 
   it("distingue regra ativa, bloqueio e regra que ainda não altera o sistema", async () => {

@@ -251,7 +251,7 @@ export class AuthService {
     }
 
     await this.attempts.reset(`pw:${emailFingerprint}`);
-    const stepUp = requiresStepUpMfa(loaded.grants, loaded.mfaRequired);
+    const stepUp = requiresStepUpMfa(loaded.grants, loaded.mfaRequired, process.env, loaded.email);
     const factorReady =
       loaded.factor?.status === "ENABLED" && Boolean(loaded.factor.secretCiphertext);
 
@@ -618,7 +618,7 @@ export class AuthService {
       user: { ...user, canManageConnection: canManageConnectionArea },
       mfa: {
         enabled: loaded.factor?.status === "ENABLED",
-        required: requiresStepUpMfa(loaded.grants, loaded.mfaRequired),
+        required: requiresStepUpMfa(loaded.grants, loaded.mfaRequired, process.env, loaded.email),
         challengeRequired: false,
         enrollmentRequired: false,
         oidcLive: false,
@@ -717,7 +717,7 @@ export class AuthService {
     loaded: LoadedUser,
     sessionId: string,
   ): Promise<void> {
-    if (requiresStepUpMfa(loaded.grants, loaded.mfaRequired) && !session.mfaSatisfied) {
+    if (requiresStepUpMfa(loaded.grants, loaded.mfaRequired, process.env, loaded.email) && !session.mfaSatisfied) {
       await this.sessions.revoke(sessionId);
       throw tokenFailure("SESSION_MFA_REQUIRED");
     }

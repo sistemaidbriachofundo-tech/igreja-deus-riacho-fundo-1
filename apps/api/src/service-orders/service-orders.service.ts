@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { renderServiceOrderPdf } from "./service-order-pdf";
 
 const ITEM_LIMIT = 40;
 const includeItems = {
@@ -23,14 +24,14 @@ type OrderRow = {
   notes: string | null;
   status: "DRAFT" | "APPROVED" | "PUBLISHED";
   updatedAt: Date;
-  items: Array<{ id: string; position: number; title: string; minutes: number | null; responsible: string | null }>;
+  items: Array<{ id: string; position: number; title: string; minutes: number | null; responsible: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null }>;
 };
 
 export interface ServiceOrderWriteInput {
   title: string;
   serviceAt: string;
   notes?: string | null;
-  items: Array<{ title?: string; minutes?: number | null; responsible?: string | null }>;
+  items: Array<{ title?: string; minutes?: number | null; responsible?: string | null; responsiblePersonId?: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null }>;
   expectedUpdatedAt?: string;
 }
 
@@ -61,9 +62,15 @@ export class ServiceOrdersService {
     return this.toDto(row);
   }
 
+  async pdf(actor: AuthUser, orderId: string) {
+    const order = await this.getById(actor, orderId);
+    return renderServiceOrderPdf(order);
+  }
+
   async create(actor: AuthUser, input: ServiceOrderWriteInput) {
     const pilot = await this.scope(actor, "write");
     const data = this.parseWrite(input);
+    await this.ensureResponsibleScope(pilot, data.items);
     try {
       return await this.prisma.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT id FROM churches WHERE id = ${pilot.churchId} FOR UPDATE`;
@@ -96,6 +103,7 @@ export class ServiceOrdersService {
   async update(actor: AuthUser, orderId: string, input: ServiceOrderWriteInput) {
     const pilot = await this.scope(actor, "write");
     const data = this.parseWrite(input);
+    await this.ensureResponsibleScope(pilot, data.items);
     try {
       return await this.prisma.$transaction(async (tx) => {
         const current = await this.lock(tx, pilot, orderId, input.expectedUpdatedAt);
@@ -148,6 +156,33 @@ export class ServiceOrdersService {
     });
   }
 
+  async revise(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
+    const pilot = await this.scope(actor, "write");
+    return this.prisma.$transaction(async (tx) => {
+      const current = await this.lock(tx, pilot, orderId, expectedUpdatedAt);
+      if (current.status !== "PUBLISHED") {
+        throw new ConflictException({
+          code: "SERVICE_ORDER_STATE",
+          message: "Somente uma ordem publicada abre revisão versionada.",
+        });
+      }
+      const previousVersions = await tx.auditLog.count({
+        where: { churchId: pilot.churchId, resourceType: "service_order", resourceId: orderId, action: "service_order.revise" },
+      });
+      const row = await tx.serviceOrder.update({
+        where: { id: orderId },
+        data: { status: "DRAFT", approvedByUserId: null, approvedAt: null, publishedByUserId: null, publishedAt: null },
+        include: includeItems,
+      });
+      await this.audit(tx, actor, pilot, "service_order.revise", row, {
+        version: previousVersions + 1,
+        previousServiceAt: current.serviceAt.toISOString(),
+        previousItems: current.items.map((item) => ({ position: item.position, title: item.title, responsiblePersonId: item.responsiblePersonId ?? null })),
+      });
+      return this.toDto(row);
+    });
+  }
+
   async publish(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
     const pilot = await this.scope(actor, "write");
     return this.prisma.$transaction(async (tx) => {
@@ -167,6 +202,19 @@ export class ServiceOrdersService {
       await this.audit(tx, actor, pilot, "service_order.publish", row);
       return this.toDto(row);
     });
+  }
+
+  /** Evita atribuir pessoa de outra congregação ao roteiro, mesmo com ID válido. */
+  private async ensureResponsibleScope(scope: { organizationId: string; churchId: string },
+    items: Array<{ responsiblePersonId: string | null }>) {
+    const ids = [...new Set(items.map(x => x.responsiblePersonId).filter((v): v is string => Boolean(v)))];
+    if (!ids.length) return;
+    const found = await this.prisma.person.findMany({
+      where: { id: { in: ids }, organizationId: scope.organizationId,
+        OR: [{ homeChurchId: scope.churchId }, { memberships: { some: { churchId: scope.churchId, status: "ACTIVE" } } }] },
+      select: { id: true },
+    });
+    if (found.length !== ids.length) throw new ForbiddenException("O responsável informado não pertence à congregação ativa.");
   }
 
   private async scope(actor: AuthUser, mode: "read" | "write") {
@@ -227,7 +275,17 @@ export class ServiceOrdersService {
       }
       const responsible = item.responsible?.trim() ?? "";
       if (responsible.length > 80) throw new BadRequestException("O responsável do item é longo demais.");
-      return { position, title: itemTitle, minutes, responsible: responsible || null };
+      const optionalText = (value: string | null | undefined, max: number, label: string) => {
+        const text = typeof value === "string" ? value.trim() : "";
+        if (text.length > max) throw new BadRequestException(label + " muito longo.");
+        return text || null;
+      };
+      return { position, title: itemTitle, minutes, responsible: responsible || null,
+        responsiblePersonId: optionalText(item.responsiblePersonId, 80, "ID do responsável"),
+        microphone: optionalText(item.microphone, 100, "Microfone"),
+        equipment: optionalText(item.equipment, 280, "Equipamento"),
+        notes: optionalText(item.notes, 700, "Orientações"),
+      };
     });
     return { title, serviceAt, notes: notes || null, items };
   }
@@ -285,6 +343,10 @@ export class ServiceOrdersService {
         title: item.title,
         minutes: item.minutes,
         responsible: item.responsible,
+        responsiblePersonId: item.responsiblePersonId ?? null,
+        microphone: item.microphone ?? null,
+        equipment: item.equipment ?? null,
+        notes: item.notes ?? null,
       })),
       status: row.status,
       updatedAt: row.updatedAt.toISOString(),

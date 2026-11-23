@@ -71,3 +71,14 @@
 .itemTitle span { color: #23583f; white-space: nowrap; }
 .item details { background: #f4f8f4; border-radius: 11px; padding: 6px 11px; }
 .item summary { color: #295a41; font-weight: 650; padding-block: 7px; cursor: pointer; }
+
+/* Comprovantes privados: visualizar no modal ou baixar por ação explícita. */
+.receiptRow{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;min-width:0;width:100%;border:1px solid #e0e3e7;background:#fff;border-radius:11px;padding:11px}
+.receiptFile{min-width:0;display:flex;align-items:center;gap:8px;font-size:13px;color:#262b30}
+.receiptFile>span{overflow-wrap:anywhere}
+.receiptButtons{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.receiptButtons button{display:inline-flex;align-items:center;gap:7px;min-height:42px;border-radius:10px;justify-content:center}
+.previewContent{display:grid;gap:12px;justify-items:center;min-width:0}
+.previewContent iframe{width:min(100%,980px);height:min(72vh,790px);background:#fff;border:1px solid #e0e3e7;border-radius:9px}
+.previewContent img{display:block;max-width:100%;max-height:75vh;object-fit:contain;border:1px solid #e0e3e7;border-radius:9px}
+@media(max-width:640px){.receiptRow{align-items:stretch}.receiptFile{width:100%}.receiptButtons{width:100%}.receiptButtons button{flex:1}.previewContent iframe{height:68vh}}
