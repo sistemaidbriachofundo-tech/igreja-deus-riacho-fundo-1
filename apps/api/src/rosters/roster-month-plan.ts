@@ -170,9 +170,10 @@ export function monthFingerprint(state: MonthState): string {
     churchId: state.churchId,
     ministryId: state.ministryId,
     calendar: state.calendar.map(item => [item.serviceAt, item.serviceType, item.status]),
-    modules: state.modules.map(module => [module.id, [...module.volunteerIds].sort(), module.couples, module.qualifications, module.minIntervalDays, module.maxMonthlyAssignments, module.louvor ?? false]),
+    modules: state.modules.map(module => [module.id, [...module.volunteerIds].sort(), module.couples, module.positions, module.qualifications, module.manual, module.minIntervalDays, module.maxMonthlyAssignments, module.louvor ?? false]),
     people: state.people.map(person => [person.personId, person.householdId ?? "", person.availableDates ?? null, person.onlyMorning ?? false, person.onlyEvening ?? false, person.onlyFirstSunday ?? false, person.impediments, person.availability]),
     history: state.history.map(item => [item.assignmentId, item.personId, item.partnerPersonId ?? "", item.serviceAt, item.status, item.ministryId]),
+    monthlySurveyRequired: state.monthlySurveyRequired !== false,
     rosters: state.rosters.map(roster => [roster.id, roster.moduleId, roster.serviceAt, roster.status, roster.slots.map(slot => [slot.id, slot.personId ?? "", slot.partnerPersonId ?? ""])]),
   };
   return createHash("sha256").update(JSON.stringify(stable)).digest("hex");
