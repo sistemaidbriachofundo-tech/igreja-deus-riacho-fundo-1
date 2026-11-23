@@ -55,3 +55,13 @@
 .row .copy { overflow-wrap: anywhere; }
 .desk :is(a, button, select, input):focus-visible { outline: 3px solid var(--app-accent, #171717); outline-offset: 2px; }
 @media (max-width: 390px) { .row .action { width: 100%; justify-content: center; } .operational { padding: 12px; } .catalog { padding: 12px; } }
+
+/* Regras operacionais realmente editáveis no painel central, com isolamento por escopo. */
+.centralRoster { display: grid; gap: 14px; border: 1px solid var(--app-border, #dfe3e7); border-radius: 14px; padding: clamp(12px, 2vw, 20px); background: var(--app-surface, #fff); min-width: 0; }
+.centralRosterHeader { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, 300px); gap: 14px; align-items: end; min-width: 0; }
+.centralRosterHeader h3 { margin: 0 0 5px; font-size: 1.08rem; color: var(--app-ink, #242424); }
+.centralRosterHeader p { margin: 0; max-width: 62ch; }
+.centralRosterHeader label { display: grid; gap: 7px; color: var(--app-muted, #535353); font-size: .8rem; font-weight: 700; }
+.centralRosterHeader select { min-width: 0; min-height: 44px; width: 100%; border: 1px solid var(--app-border, #dfe3e7); border-radius: 10px; background: white; color: var(--app-ink, #242424); padding: 8px 12px; font: inherit; }
+.centralRosterHint { border-top: 1px solid var(--app-border, #dfe3e7); padding-top: 12px; }
+@media(max-width: 720px) { .centralRosterHeader { grid-template-columns: minmax(0, 1fr); } .centralRosterHeader label { width: 100%; } .centralRoster { padding: 12px; } }
