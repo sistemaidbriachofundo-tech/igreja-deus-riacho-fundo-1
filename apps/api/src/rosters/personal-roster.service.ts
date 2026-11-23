@@ -463,6 +463,8 @@ export class PersonalRosterService {
       throw new ConflictException(decision);
     }
     return writeRosterAssignment(this.prisma, async tx => {
+      // Impede duas sessões de criar as mesmas vagas antes da releitura do mês.
+      await tx.$executeRaw`SELECT id FROM ministries WHERE id = ${ministryId} FOR UPDATE`;
       const reloaded = await this.monthState(actor, ministryId, month, pilot, tx);
       const fresh = request.moduleId ? { ...reloaded, modules: reloaded.modules.filter(module => module.id === request.moduleId) } : reloaded;
       const again = decideMonthSave(fresh, request);
