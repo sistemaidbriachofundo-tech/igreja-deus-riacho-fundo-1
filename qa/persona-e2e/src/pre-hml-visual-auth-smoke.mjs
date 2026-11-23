@@ -95,8 +95,9 @@ try {
         console.error("FAIL: gaveta não abriu", width);
       }
       await page.screenshot({ path: output + "/admin-drawer-" + width + ".png", fullPage: false });
-      const close = page.getByRole("button", { name: "Fechar o menu lateral" });
-      if (await close.isVisible()) await close.click();
+      const close = page.locator("#app-navigation-rail").getByRole("button", { name: "Fechar", exact: true });
+      await close.waitFor({ state: "visible", timeout: 5000 });
+      await close.click();
       const newState = await drawer.getAttribute("data-drawer");
       if (newState !== "closed") {
         failures++;
