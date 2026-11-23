@@ -136,6 +136,10 @@ export function OperationalMinistryRules() {
       <label className={s.centralMinistrySelect}>Ministério
         <select value={ministryId} onChange={event => {
           setDialog(null);
+          setModules(null);
+          setMembers([]);
+          setScopeAllowed(false);
+          setError("");
           setMinistryId(event.target.value);
         }} disabled={!ministries.length || busy}>
           {ministries.length === 0 && <option value="">Nenhum ministério disponível</option>}
@@ -197,7 +201,9 @@ export function OperationalMinistryRules() {
             onOpen: () => undefined, managedModuleMemberships: true,
             hideMembershipLinks: true,
             onRulesSaved: (rules: EscalaModuleRules) => {
-              setModules(current => current?.map(row => row.id === selectedModule.id ? { ...row, rules } : row) ?? null);
+              setModules(current => current?.map(row => row.id === selectedModule.id
+                ? { ...row, rules: { ...rules, ...(row.rules?.volunteerIds ? { volunteerIds: row.rules.volunteerIds } : {}) } }
+                : row) ?? null);
             },
           }} />
       </Modal>}
