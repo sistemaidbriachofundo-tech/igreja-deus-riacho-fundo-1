@@ -5,6 +5,7 @@ on:
       - chatgpt/dev-finalizacao-escalas-visual-20261123
       - chatgpt/dev-louvor-sorteio-mensal-20261123
       - chatgpt/dev-fix-timeout-sorteio-louvor-20261123
+      - chatgpt/dev-fechamento-regras-20261123
   workflow_dispatch:
 
 permissions:
