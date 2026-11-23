@@ -1,4 +1,4 @@
-import { planMonth, type MonthModule, type MonthState } from "./roster-month-plan";
+import { planMonth, presentMonthlySimulation, type MonthModule, type MonthState } from "./roster-month-plan";
 
 const positions = [{ label: "Equipe de Louvor", count: 7, couple: false }];
 const people = Array.from({ length: 34 }, (_, index) => ({
@@ -56,6 +56,15 @@ describe("Louvor: sorteio completo do mês", () => {
     current.modules[0].qualifications = { bateria: [people[0].personId] };
     const morning = planMonth(current).services.find(service => service.serviceType === "sunday_morning");
     expect(morning?.slots[0].personId).toBe(people[0].personId);
+  });
+
+  it("entrega prévia mensal com 14 cultos e opções editáveis sem repetir avaliação de vaga", () => {
+    const preview = presentMonthlySimulation(state());
+    expect(preview.rosters).toHaveLength(14);
+    expect(preview.rosters[0].positions).toHaveLength(7);
+    expect(preview.rosters[0].positions[0].candidates?.length).toBeGreaterThan(0);
+    expect(preview.rosters[0].positions[1].candidates)
+      .toEqual(preview.rosters[0].positions[0].candidates);
   });
 
   it("respeita a pesquisa mensal quando já foi respondida", () => {
