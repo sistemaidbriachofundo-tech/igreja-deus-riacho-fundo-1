@@ -35,7 +35,14 @@ describe("Consulta de aniversariantes", () => {
       p4: { phone: null },
       p5: { phone: null },
     });
-    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org", status: "ACTIVE" }) }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        organizationId: "org", status: "ACTIVE",
+        OR: expect.arrayContaining([
+          { discipleshipEnrollments: { some: { status: "ACTIVE", track: { churchId: "church" } } } },
+        ]),
+      }),
+    }));
     await expect(service.birthdays({ ...actor, grants: [{ ...actor.grants[0], churchId: "outra" }] })).rejects.toBeInstanceOf(ForbiddenException);
   });
 

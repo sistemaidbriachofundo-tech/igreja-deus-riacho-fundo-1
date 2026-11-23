@@ -17,7 +17,7 @@ type Group = {
   leader?: ConnectionPerson; meetingAddress?: string; photoUrl?: string; contactWhatsApp?: string; publicListed?: boolean;
 };
 type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
-type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string; currentStageId?: string | null };
+type Walk = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string; currentStageId?: string | null; groups: Array<{ id: string; name: string }> };
 type Read<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 type Journey = { track: Track; stages: Stage[] | null; enrollments: Walk[] | null };
 
@@ -186,6 +186,7 @@ function ConnectionContent() {
         {tracking.stages?.length === 0 && <p className={s.notice}>Nenhuma etapa cadastrada.</p>}
         {token && tracking.stages && tracking.enrollments && <JourneyOperations
           token={token} trackId={tracking.track.id} initialPeople={tracking.enrollments} initialStages={tracking.stages}
+          groups={groups.status === "ready" ? groups.data : []}
           onPeopleChange={enrollments => setJourney({ status: "ready", data: { ...tracking, enrollments } })}
           onStagesChange={stages => setJourney({ status: "ready", data: { ...tracking, stages } })}
         />}
@@ -296,6 +297,12 @@ export function parseWalks(value: unknown): Walk[] {
       mentorPersonId: valueText(d?.mentorPersonId) || null, mentorName: valueText(d?.mentorName) || null,
       currentStageId: valueText(d?.currentStageId) || null,
       status: valueText(d?.status),
+      groups: Array.isArray(d?.groups) ? d.groups.flatMap(item => {
+        const group = record(item);
+        const groupId = valueText(group?.id);
+        const groupName = valueText(group?.name);
+        return groupId && groupName ? [{ id: groupId, name: groupName }] : [];
+      }) : [],
     }] : [];
   });
 }

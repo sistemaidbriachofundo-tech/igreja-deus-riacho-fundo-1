@@ -9,7 +9,8 @@ import s from "./connection-desk.module.css";
 import { UIIcon } from "./ui/UIIcon";
 
 export type ConnectionPerson = { id: string; displayName: string };
-type Enrollment = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string };
+type Enrollment = { id: string; personId: string; personName: string | null; mentorPersonId: string | null; mentorName: string | null; status: string; groups: Array<{ id: string; name: string }> };
+type FriendshipGroup = { id: string; name: string };
 type Stage = { id: string; title: string; sortOrder: number; description?: string | null };
 type Progress = { stages: Array<Stage & { completed: boolean; waived?: boolean }>; currentStageId?: string | null; canComplete?: boolean; enforceOrder?: boolean };
 const statusLabels: Record<string, string> = { ACTIVE: "Em andamento", PAUSED: "Pausada", COMPLETED: "Concluída", CANCELLED: "Cancelada" };
@@ -43,8 +44,9 @@ export function PeopleSearch({ token, label, onSelect }: { token: string; label:
   </div>;
 }
 
-export function JourneyOperations({ token, trackId, initialPeople: people, initialStages: stages, onPeopleChange, onStagesChange }: {
+export function JourneyOperations({ token, trackId, initialPeople: people, initialStages: stages, groups = [], onPeopleChange, onStagesChange }: {
   token: string; trackId: string; initialPeople: Enrollment[]; initialStages: Stage[];
+  groups?: FriendshipGroup[];
   onPeopleChange: (people: Enrollment[]) => void;
   onStagesChange: (stages: Stage[]) => void;
 }) {
@@ -102,8 +104,8 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
   }
 
   async function reloadPeople() {
-    const result = await apiGet<{ enrollments: Enrollment[] }>("/discipleship/enrollments?trackId=" + track, token);
-    onPeopleChange(result.enrollments);
+    const result = await apiGet<{ enrollments: Array<Omit<Enrollment, "groups"> & { groups?: Enrollment["groups"] }> }>("/discipleship/enrollments?trackId=" + track, token);
+    onPeopleChange(result.enrollments.map(row => ({ ...row, groups: row.groups ?? [] })));
   }
 
   return <section className={s.journeyTools} aria-labelledby="journey-operations">
@@ -218,6 +220,24 @@ export function JourneyOperations({ token, trackId, initialPeople: people, initi
           await reloadPeople();
         }, "Mentor atualizado.")}>Salvar mentor</button>
       </div>
+      <form className={s.operationForm} onSubmit={event => {
+        event.preventDefault();
+        const groupId = String(new FormData(event.currentTarget).get("groupId") ?? "");
+        if (!groupId) return;
+        void operate(async () => {
+          await apiPost("/small-groups/" + encodeURIComponent(groupId) + "/members", token, { personId: current.personId, role: "MEMBER" });
+          await reloadPeople();
+        }, "Pessoa associada ao grupo.");
+      }}>
+        <label>Grupo de amizade
+          <select name="groupId" key={current.id + (current.groups ?? []).map(group => group.id).join()} defaultValue="">
+            <option value="">Escolher grupo</option>
+            {sortByName(groups, group => group.name).map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+          </select>
+        </label>
+        <button type="submit" className={s.retry} disabled={busy || groups.length === 0}>Associar ao grupo</button>
+      </form>
+      <p>{current.groups?.length ? "Grupos: " + current.groups.map(group => group.name).join(", ") : "Nenhum grupo de amizade associado. O cadastro não tem subgrupo separado."}</p>
       {stages.length > 0 && progress && <ul className={s.operationList}>{progress.stages.map(stage => <li key={stage.id}>
         <div><strong>{stage.title}</strong><span>{stage.completed ? "Concluída" : stage.waived ? "Não se aplica à modalidade de ingresso" : stage.id === progress.currentStageId ? "Próxima etapa" : "Em aberto"}</span></div>
         {!stage.waived && <button type="button" className={s.retry} disabled={busy || current.status !== "ACTIVE" ||

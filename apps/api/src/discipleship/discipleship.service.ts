@@ -337,7 +337,10 @@ export class DiscipleshipService {
         },
       },
       include: {
-        person: { select: { displayName: true } }, mentor: { select: { displayName: true } },
+        person: { select: { displayName: true, smallGroupMemberships: {
+          where: { group: { churchId: pilot.churchId } },
+          select: { group: { select: { id: true, name: true } } },
+        } } }, mentor: { select: { displayName: true } },
         track: { select: { code: true, name: true, stages: { orderBy: { sortOrder: "asc" } } } },
         progress: {
           orderBy: [{ recordedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
@@ -369,6 +372,7 @@ export class DiscipleshipService {
       churchId: pilot.churchId,
       enrollments: rows.map((row) => ({
         ...this.toEnrollmentDto(row), personName: row.person?.displayName ?? null, mentorName: row.mentor?.displayName ?? null,
+        groups: (row.person?.smallGroupMemberships ?? []).map(item => ({ id: item.group.id, name: item.group.name })),
         currentStageId: currentStages.get(row.id) ?? null,
       })),
     };

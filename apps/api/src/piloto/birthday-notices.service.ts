@@ -6,6 +6,12 @@ import { PilotService } from "../pilot/pilot.service";
 import { assertChurchRole, assertOperationalScope } from "./church";
 import { SystemSettingsService } from "./system-settings.service";
 
+type CareBirthday = { id: string; name: string; date: string };
+
+function caredRecipients(subjectId: string, ids: Array<string | null | undefined>) {
+  return ids.filter((id): id is string => Boolean(id) && id !== subjectId);
+}
+
 @Injectable()
 export class BirthdayNoticesService {
   constructor(
@@ -32,6 +38,60 @@ export class BirthdayNoticesService {
       return [{ id: person.id, name: person.displayName, mentorPersonIds: activeTracks.map(item => item.mentorPersonId).filter((id): id is string => Boolean(id)) }];
     });
     return { date: today.date, birthdays: rows };
+  }
+
+  /** Nomes de quem faz aniversário no ministério, grupo ou mentoria de quem consulta. Sem telefone. */
+  async careToday(actor: AuthUser, now = new Date()) {
+    const pilot = await this.pilot.getPilotChurch();
+    assertChurchRole(actor, pilot, [
+      ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO, ROLE_CODES.LIDER_MINISTERIO,
+      ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN,
+    ]);
+    const today = saoPauloParts(now);
+    if (!actor.personId) return { date: today.date, birthdays: [] as CareBirthday[] };
+    const personId = actor.personId;
+    const [ministries, groups, mentored] = await Promise.all([
+      this.prisma.ministry.findMany({
+        where: {
+          churchId: pilot.churchId,
+          OR: [
+            { leaderPersonId: personId },
+            { ministryMemberships: { some: { personId, role: "LIDER", status: "ATIVO", endedAt: null } } },
+          ],
+        },
+        select: { ministryMemberships: { where: { status: "ATIVO", endedAt: null, personId: { not: personId } }, select: { personId: true } } },
+      }),
+      this.prisma.smallGroup.findMany({
+        where: {
+          churchId: pilot.churchId,
+          OR: [
+            { leaderPersonId: personId },
+            { members: { some: { personId, role: "LEADER" } } },
+          ],
+        },
+        select: { members: { where: { personId: { not: personId } }, select: { personId: true } } },
+      }),
+      this.prisma.discipleshipEnrollment.findMany({
+        where: { mentorPersonId: personId, status: "ACTIVE", personId: { not: personId }, track: { churchId: pilot.churchId } },
+        select: { personId: true },
+      }),
+    ]);
+    const ids = [...new Set([
+      ...ministries.flatMap(row => row.ministryMemberships.map(item => item.personId)),
+      ...groups.flatMap(row => row.members.map(item => item.personId)),
+      ...mentored.map(row => row.personId),
+    ])];
+    if (!ids.length) return { date: today.date, birthdays: [] as CareBirthday[] };
+    const people = await this.prisma.person.findMany({
+      where: { id: { in: ids }, organizationId: pilot.organizationId, status: "ACTIVE", birthDate: { not: null } },
+      select: { id: true, displayName: true, birthDate: true },
+    });
+    const birthdays = people.flatMap(person => {
+      if (!person.birthDate || person.birthDate.toISOString().slice(5, 10) !== today.date.slice(5)) return [];
+      return [{ id: person.id, name: person.displayName, date: today.date }];
+    });
+    birthdays.sort((a, b) => a.name.localeCompare(b.name, "pt-BR") || a.id.localeCompare(b.id));
+    return { date: today.date, birthdays };
   }
 
   async run(actor: AuthUser, now = new Date()) {
@@ -61,22 +121,27 @@ export class BirthdayNoticesService {
       }),
       this.prisma.ministryMembership.findMany({
         where: { churchId: pilot.churchId, personId: { in: birthdayIds }, status: "ATIVO", endedAt: null },
-        select: { ministry: { select: { leaderPersonId: true, ministryMemberships: {
+        select: { personId: true, ministry: { select: { leaderPersonId: true, ministryMemberships: {
           where: { status: "ATIVO", role: "LIDER", endedAt: null }, select: { personId: true },
         } } } },
       }),
       this.prisma.smallGroupMember.findMany({
         where: { personId: { in: birthdayIds }, group: { churchId: pilot.churchId } },
-        select: { group: { select: { leaderPersonId: true, members: {
+        select: { personId: true, group: { select: { leaderPersonId: true, members: {
           where: { role: "LEADER" }, select: { personId: true },
         } } } },
       }),
     ]) : [[], [], []] as const;
     const recipients = [...new Set([
       ...office.map(row => row.personId),
-      ...ministries.flatMap(({ ministry }) => [ministry.leaderPersonId, ...ministry.ministryMemberships.map(row => row.personId)]),
-      ...groups.flatMap(({ group }) => [group.leaderPersonId, ...group.members.map(row => row.personId)]),
-      ...birthdays.flatMap(person => person.enrollments.filter(item => item.status === "ACTIVE").map(item => item.mentorPersonId)),
+      ...ministries.flatMap(({ personId, ministry }) => caredRecipients(personId, [
+        ministry.leaderPersonId, ...ministry.ministryMemberships.map(row => row.personId),
+      ])),
+      ...groups.flatMap(({ personId, group }) => caredRecipients(personId, [
+        group.leaderPersonId, ...group.members.map(row => row.personId),
+      ])),
+      ...birthdays.flatMap(person => caredRecipients(person.id, person.enrollments
+        .filter(item => item.status === "ACTIVE").map(item => item.mentorPersonId))),
     ].filter((id): id is string => Boolean(id)))];
     const occasionDate = new Date(`${today}T00:00:00.000Z`);
     const existing = await this.prisma.birthdayNotice.findMany({
