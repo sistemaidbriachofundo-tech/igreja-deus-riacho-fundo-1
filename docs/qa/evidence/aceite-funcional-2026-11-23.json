@@ -1,0 +1,1186 @@
+{
+  "sha": "5f32bb3fd4006e8f3276721210e4664e5a59b6d3",
+  "generatedAt": "2026-11-23T23:33:39.149Z",
+  "hosted": {
+    "api": "https://id-riacho1-api-qa.vercel.app",
+    "ready": {
+      "http": 200,
+      "commit": "5f32bb3fd400",
+      "database": "ok",
+      "mfaBlocking": true,
+      "authState": "prisma"
+    },
+    "web": {
+      "http": 302,
+      "sso": true,
+      "locationHost": "vercel.com"
+    },
+    "documentedSeedLogin": [
+      {
+        "role": "PLATFORM_ADMIN",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "PASTOR",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "SECRETARIA",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "TESOURARIA",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "TESOURARIA_2",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "LIDER_MINISTERIO",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "MEMBRO",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "EDITOR_SITE",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      },
+      {
+        "role": "PUBLICADOR_SITE",
+        "http": 401,
+        "code": "INVALID_CREDENTIALS",
+        "hasToken": false
+      }
+    ],
+    "anonymousLedger": 401,
+    "anonymousAudit": 401,
+    "verdict": "HOSTED_BLOCKED",
+    "reason": "O frontend DEV responde 302 para o SSO da Vercel. O login na API QA com a senha sintética documentada do seed devolve 401 INVALID_CREDENTIALS e este ambiente não tem QA_DEMO_PASSWORD, TOTP nem URL do Neon br-twilight-bonus-b6moawk7. Nenhuma escrita foi feita na API QA."
+  },
+  "local": {
+    "api": "http://127.0.0.1:3001",
+    "database": "postgresql://localhost:5432/idbrf",
+    "neon": "não contactado",
+    "hmlBranchForbidden": "br-jolly-darkness-b6f5mzsy",
+    "qaBranchNotContacted": "br-twilight-bonus-b6moawk7",
+    "ready": {
+      "status": "ready",
+      "service": "api",
+      "database": "ok",
+      "commit": null,
+      "authState": "memory",
+      "mfaBlocking": false
+    },
+    "email": "preview/local, nenhum SMTP",
+    "payments": "lote gratuito, sem Mercado Pago"
+  },
+  "summary": [
+    {
+      "persona": "PLATFORM_ADMIN",
+      "local": "PASS",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "PASTOR",
+      "local": "BLOCKED",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "SECRETARIA",
+      "local": "FAIL",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "TESOURARIA",
+      "local": "BLOCKED",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "TESOURARIA_2",
+      "local": "BLOCKED",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "LIDER_MINISTERIO",
+      "local": "PASS",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "MEMBRO",
+      "local": "BLOCKED",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "EDITOR_SITE",
+      "local": "FAIL",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "PUBLICADOR_SITE",
+      "local": "FAIL",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "LIDER_MODULO",
+      "local": "PASS",
+      "hosted": "BLOCKED"
+    },
+    {
+      "persona": "CONVIDADO",
+      "local": "PASS",
+      "hosted": "BLOCKED"
+    }
+  ],
+  "journeys": [
+    {
+      "persona": "PLATFORM_ADMIN",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "PLATFORM_ADMIN"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET /auth/me",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "churchId": "cmwtwf31a0002jsw2mqdvjmhq",
+          "organizationId": "cmwtwf3150000jsw2w7jspm1s"
+        },
+        {
+          "name": "GET /auth/me idempotente",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "sameChurch": true
+        },
+        {
+          "name": "GET catálogo Gestão do Sistema",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "items": 14
+        },
+        {
+          "name": "GET regra vigente antes",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "value": 0
+        },
+        {
+          "name": "POST rascunho da regra",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "lifecycle": "DRAFT",
+          "value": 7
+        },
+        {
+          "name": "POST revisão da regra",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "lifecycle": "IN_REVIEW"
+        },
+        {
+          "name": "POST publicar regra",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "lifecycle": "PUBLISHED"
+        },
+        {
+          "name": "GET regra reaberta",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "before": 0,
+          "after": 7,
+          "persisted": true
+        },
+        {
+          "name": "GET ministérios Atmosfera e Louvor",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "atmosfera": "demoMinistryAtmosfera",
+          "louvor": "louvor-demo",
+          "count": 6
+        },
+        {
+          "name": "POST criar módulo QA",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjflr000rjs8fhfg0z4g2"
+        },
+        {
+          "name": "QA-PERSONA-20261123 modulo renomeado",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "PATCH regra do módulo",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "minIntervalDays": 7
+        },
+        {
+          "name": "DB módulo reaberto",
+          "status": "PASS",
+          "http": null,
+          "before": "ausente",
+          "after": {
+            "name": "QA-PERSONA-20261123 modulo renomeado",
+            "minIntervalDays": 7
+          }
+        },
+        {
+          "name": "GET Gestão de Acessos",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "page": null
+        },
+        {
+          "name": "GET auditoria com MEMBRO",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET /auth/me sem sessão",
+          "status": "PASS",
+          "http": 401,
+          "expected": 401,
+          "code": "SESSION_INVALID"
+        },
+        {
+          "name": "POST preparar Louvor",
+          "status": "PASS",
+          "http": 409,
+          "expected": [
+            200,
+            201,
+            403,
+            409
+          ],
+          "code": "Cadastre integrantes ativos no Louvor antes de gerar o mês."
+        },
+        {
+          "name": "POST simular mês do Louvor",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201,
+            403,
+            409
+          ],
+          "code": null
+        },
+        {
+          "name": "POST simular mês da Atmosfera",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201,
+            403,
+            409
+          ],
+          "code": null
+        },
+        {
+          "name": "DB auditoria e persistência",
+          "status": "PASS",
+          "http": null,
+          "before": {
+            "auditLogs": 0
+          },
+          "after": {
+            "auditLogs": 41,
+            "expenses": 2,
+            "cms": 1,
+            "moduleLeaders": 1
+          }
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "persona": "PASTOR",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "PASTOR"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET ledger como pastor",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET dashboard pastoral",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "GET aniversários pastorais",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "GET admissões",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "count": 2
+        },
+        {
+          "name": "POST pastor decide a etapa que lhe cabe",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "statusAfter": "APPROVED"
+        },
+        {
+          "name": "POST pastor rejeita outra despesa",
+          "status": "REJECTED",
+          "http": 201,
+          "expected": [
+            200,
+            201,
+            403
+          ],
+          "code": null,
+          "httpNote": 201
+        },
+        {
+          "name": "POST ordem de culto com mídia",
+          "status": "DRAFT",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjfw4002ajs8fa28h4fux"
+        },
+        {
+          "name": "GET ordem reaberta",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "items": 2
+        },
+        {
+          "name": "GET PDF da ordem",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "POST publicar ordem",
+          "status": null,
+          "http": 409,
+          "expected": [
+            200,
+            201
+          ],
+          "code": "SERVICE_ORDER_STATE"
+        },
+        {
+          "name": "escalas reais intocadas pela ordem",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "count": 0
+        }
+      ],
+      "verdict": "BLOCKED"
+    },
+    {
+      "persona": "SECRETARIA",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "SECRETARIA",
+          "SECRETARIA"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET congregações da secretaria",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "otherChurch": "demoChurchDest02"
+        },
+        {
+          "name": "POST família sintética",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjfna000zjs8ffkug30z5"
+        },
+        {
+          "name": "GET família reaberta",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "label": "QA-PERSONA-20261123 familia"
+        },
+        {
+          "name": "POST ficha sintética",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "personId": "cmwtwjfnl0013js8fpjt261df"
+        },
+        {
+          "name": "GET Ficha360",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "found": true
+        },
+        {
+          "name": "POST admissão sintética",
+          "status": "AWAITING_DOCUMENTS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjfoc001djs8fuaqk98oo"
+        },
+        {
+          "name": "GET aniversários",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "GET mapa de membresia",
+          "status": "PASS",
+          "http": 200,
+          "expected": [
+            200,
+            404
+          ],
+          "code": null
+        },
+        {
+          "name": "POST aviso de aniversário sem canal real",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201,
+            202,
+            403,
+            404
+          ],
+          "code": null
+        },
+        {
+          "name": "GET carteirinha própria da secretaria",
+          "status": "PASS",
+          "http": 200,
+          "expected": [
+            200,
+            404
+          ],
+          "code": null
+        },
+        {
+          "name": "POST evento sintético",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjg2m002xjs8fuoec3gy8"
+        },
+        {
+          "name": "POST publicar evento gratuito",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "modality": 201,
+          "lot": 201
+        },
+        {
+          "name": "GET família de outra igreja",
+          "status": "FAIL",
+          "http": 200,
+          "expected": [
+            403,
+            404
+          ],
+          "code": null,
+          "switched": 201
+        }
+      ],
+      "verdict": "FAIL"
+    },
+    {
+      "persona": "TESOURARIA",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "TESOURARIA"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET contas",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "expense": "demoLedgerAccDespesas",
+          "bank": "demoLedgerAccBanco"
+        },
+        {
+          "name": "GET centros de custo",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "id": "demoCostCenterAdm01"
+        },
+        {
+          "name": "GET saldos antes",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "POST despesa sintética",
+          "status": "PENDING_APPROVAL",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "expense-05ed19d8-92e5-4501-b776-aa8ba8118f4e",
+          "firstApproverIsCreator": "definido"
+        },
+        {
+          "name": "POST tesoureiro não aprova a própria despesa",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "A aprovação final desta despesa pertence ao pastor da congregação."
+        },
+        {
+          "name": "GET despesa reaberta",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "before": "ausente",
+          "after": "APPROVED"
+        },
+        {
+          "name": "POST OFX fictício",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "format": "OFX",
+          "lines": 1
+        },
+        {
+          "name": "POST OFX idempotente",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "alreadyImported": true
+        },
+        {
+          "name": "POST conciliação",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjfut0026js8fbj9phe3t"
+        },
+        {
+          "name": "POST conciliar linha OFX",
+          "status": "PASS",
+          "http": 409,
+          "expected": [
+            200,
+            201,
+            409
+          ],
+          "code": "O lançamento precisa estar aprovado e ter o mesmo movimento na conta do extrato."
+        },
+        {
+          "name": "GET extrato PDF",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "content": "%PDF"
+        },
+        {
+          "name": "GET extrato Excel",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "GET saldos depois",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        }
+      ],
+      "verdict": "BLOCKED"
+    },
+    {
+      "persona": "TESOURARIA_2",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "TESOURARIA"
+        ],
+        "mfa": false
+      },
+      "steps": [],
+      "verdict": "BLOCKED"
+    },
+    {
+      "persona": "LIDER_MINISTERIO",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "LIDER_MINISTERIO"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET ministério alheio",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "MINISTRY_SCOPE_FORBIDDEN"
+        },
+        {
+          "name": "GET o próprio ministério",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "POST simular mês de jovens",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "revision": "presente"
+        },
+        {
+          "name": "POST gravar rascunho do mês",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201,
+            409
+          ],
+          "code": null
+        },
+        {
+          "name": "POST gravar o mesmo rascunho de novo",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201,
+            409
+          ],
+          "code": null
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "persona": "MEMBRO",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "MEMBRO"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET tesouraria negada ao membro",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET Minha Conta",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "GET Meu espaço",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "aceitar ou recusar escala",
+          "status": "BLOCKED",
+          "http": null,
+          "code": "Seed sem designação pendente para o membro"
+        },
+        {
+          "name": "GET secretaria negada ao membro",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET QR da própria carteirinha",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null,
+          "qr": "opaco presente"
+        },
+        {
+          "name": "POST inscrição do membro",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjg3q003bjs8fktdk5r67",
+          "ticket": true
+        },
+        {
+          "name": "GET a própria inscrição",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        }
+      ],
+      "verdict": "BLOCKED"
+    },
+    {
+      "persona": "EDITOR_SITE",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "EDITOR_SITE"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "GET tesouraria negada ao editor",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET pastoral negada ao editor",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "POST rascunho editorial",
+          "status": "RASCUNHO",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "id": "cmwtwjg64003tjs8feidj95uc"
+        },
+        {
+          "name": "GET prévia reaberta",
+          "status": "RASCUNHO",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "POST foto de capa sintética",
+          "status": "FAIL",
+          "http": 503,
+          "expected": [
+            200,
+            201
+          ],
+          "code": "O armazenamento de mídia não está habilitado neste ambiente",
+          "id": null
+        },
+        {
+          "name": "POST editor não publica",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "EDITOR_SITE prepara o rascunho. Publicar ou aprovar exige PUBLICADOR_SITE."
+        },
+        {
+          "name": "POST enviar para revisão",
+          "status": "REVISAO",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null
+        }
+      ],
+      "verdict": "FAIL"
+    },
+    {
+      "persona": "PUBLICADOR_SITE",
+      "emailDomain": "example.test",
+      "login": {
+        "http": 201,
+        "hasToken": true,
+        "roles": [
+          "PUBLICADOR_SITE"
+        ],
+        "mfa": false
+      },
+      "steps": [
+        {
+          "name": "POST publicador publica",
+          "status": null,
+          "http": 400,
+          "expected": [
+            200,
+            201
+          ],
+          "code": "Transição inválida: REVISAO → PUBLICADO"
+        },
+        {
+          "name": "GET conteúdo público",
+          "status": "FAIL",
+          "http": 404,
+          "expected": 200,
+          "code": "Conteúdo público não encontrado",
+          "title": null
+        },
+        {
+          "name": "GET tesouraria negada ao publicador",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET pastoral negada ao publicador",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        }
+      ],
+      "verdict": "FAIL"
+    },
+    {
+      "persona": "LIDER_MODULO",
+      "steps": [
+        {
+          "name": "POST conceder líder de módulo",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "invitation": "PENDING_EMAIL",
+          "preview": true
+        },
+        {
+          "name": "POST ativar convite sem e-mail real",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": "Senha definida. Faça seu login para continuar."
+        },
+        {
+          "name": "POST login do líder de módulo",
+          "status": "PASS",
+          "http": 201,
+          "roles": [
+            "LIDER_MINISTERIO"
+          ]
+        },
+        {
+          "name": "PATCH o próprio módulo",
+          "status": "PASS",
+          "http": 200,
+          "expected": 200,
+          "code": null
+        },
+        {
+          "name": "POST sorteio global de outro ministério",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Sem permissão neste ministério"
+        },
+        {
+          "name": "GET ministério alheio",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "MINISTRY_SCOPE_FORBIDDEN"
+        },
+        {
+          "name": "DB ministry_roster_module_leaders",
+          "status": "PASS",
+          "http": null,
+          "after": "vínculo presente"
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "persona": "CONVIDADO",
+      "steps": [
+        {
+          "name": "POST cadastro de convidado",
+          "status": "PASS",
+          "http": 201,
+          "code": null
+        },
+        {
+          "name": "POST retorno pelo mesmo login",
+          "status": "PASS",
+          "http": 201,
+          "roles": [
+            "CONVIDADO"
+          ]
+        },
+        {
+          "name": "POST inscrição do convidado",
+          "status": "PASS",
+          "http": 201,
+          "expected": [
+            200,
+            201
+          ],
+          "code": null,
+          "ticket": true
+        },
+        {
+          "name": "GET tesouraria negada ao convidado",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        },
+        {
+          "name": "GET secretaria negada ao convidado",
+          "status": "PASS",
+          "http": 403,
+          "expected": 403,
+          "code": "Papel insuficiente"
+        }
+      ],
+      "verdict": "PASS"
+    }
+  ],
+  "interpretedSummary": {
+    "note": "O campo summary foi calculado por um rollup que deixou o status de negócio sobrescrever PASS/FAIL. A matriz do relatório markdown é a leitura corrigida dos HTTP e do banco.",
+    "personas": {
+      "PLATFORM_ADMIN": {
+        "hosted": "BLOCKED",
+        "local": "PASS",
+        "mfa": "NAO_EXERCIDO"
+      },
+      "PASTOR": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      },
+      "SECRETARIA": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      },
+      "TESOURARIA": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      },
+      "LIDER_MINISTERIO": {
+        "hosted": "BLOCKED",
+        "local": "PASS",
+        "louvorMes": "BLOCKED"
+      },
+      "LIDER_MODULO": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      },
+      "MEMBRO": {
+        "hosted": "BLOCKED",
+        "local": "PASS",
+        "escala": "BLOCKED"
+      },
+      "CONVIDADO": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      },
+      "EDITOR_SITE": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      },
+      "PUBLICADOR_SITE": {
+        "hosted": "BLOCKED",
+        "local": "PASS"
+      }
+    }
+  }
+}
