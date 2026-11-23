@@ -974,7 +974,8 @@
 }
 
 @media (max-width: 970px) {
-  .toolbar .hamburger { display: none; }
+  /* A navegação inferior complementa, mas não substitui, o menu lateral. */
+  .toolbar .hamburger { display: grid; }
   .toolbar .commandButton { display: grid; place-items: center; flex: 0 0 44px; width: 44px; min-height: 44px; padding: 0; background: transparent; border: 0; }
   .toolbar .commandButton > span { display: none; }
   .toolbarIdentity { min-width: 0; }
