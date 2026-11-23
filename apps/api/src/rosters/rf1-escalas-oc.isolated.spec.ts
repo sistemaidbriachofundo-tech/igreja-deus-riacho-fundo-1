@@ -387,7 +387,7 @@ async function expectHttp(work: Promise<unknown>, status: number, code?: string)
 
   it("grava rascunho fictício da ordem do culto, aprova com o pastor e não promove tag a papel", async () => {
     const pastorGrantsBefore = await prisma.grant.count({ where: { role: { code: ROLE_CODES.PASTOR } } });
-    await expectHttp(orders.list(member), 403);
+    await expectHttp(orders.list(media), 403);
     await expectHttp(orders.create(admin, {
       title: "OC-SINTETICO-282", serviceAt: "2027-01-07T20:00:00-03:00",
       items: [{ title: "Acolhida", minutes: 5 }],
@@ -430,6 +430,6 @@ async function expectHttp(work: Promise<unknown>, status: number, code?: string)
     expect(published.title).toBe("OC-SINTETICO-282");
     const listed = await orders.list(admin);
     expect(listed.orders.map(order => order.id)).toContain(published.id);
-    await expectHttp(orders.list(member), 403);
+    await expectHttp(orders.list(media), 403);
   });
 });
