@@ -8,8 +8,8 @@ const eventCss = read("./events-management/event-management.module.css");
 const eventAgenda = read("./events-management/EventAgenda.tsx");
 const rules = read("./SystemRulesDesk.tsx");
 const central = read("./OperationalMinistryRules.tsx");
-const apiController = read("../../../../api/src/ministries/ministries.controller.ts");
-const apiService = read("../../../../api/src/ministries/ministries.service.ts");
+const apiController = read("../../../api/src/ministries/ministries.controller.ts");
+const apiService = read("../../../api/src/ministries/ministries.service.ts");
 
 describe("regressão da experiência visual e permissões", () => {
   it("os indicadores são cards separados e as lideranças não expandem a coluna indefinidamente", () => {
