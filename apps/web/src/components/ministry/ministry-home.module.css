@@ -316,3 +316,60 @@
 
 .directoryIdentity { display: grid; gap: 3px; flex: 1; min-width: 0; }
 .directoryIdentity small { color: var(--app-muted); font-size: .86rem; overflow-wrap: anywhere; }
+
+/* Dashboard consolidado: métricas individuais e cards com altura equilibrada. */
+.directory { gap: 18px; }
+.directoryTotals { gap: 12px; padding: 0; border-radius: 0; background: transparent; }
+.directoryTotals > div {
+  display: grid; grid-template-rows: auto 1fr; gap: 8px;
+  min-height: 106px; padding: 16px 18px;
+  border: 1px solid var(--app-border, #dfe3e7); border-radius: 15px;
+  background: var(--app-surface, #fff);
+}
+.directoryTotals > div + div { border-inline-start: 1px solid var(--app-border, #dfe3e7); }
+.directoryTotals dd { margin: 0; font-size: clamp(1.75rem, 2.3vw, 2.3rem); line-height: 1; align-self: end; }
+.directoryTotals dt { font-size: .82rem; font-weight: 600; color: var(--app-muted, #535353); }
+.directoryToolbar { align-items: end; gap: 12px 20px; }
+.directoryHeading { display: grid; gap: 4px; min-width: 0; }
+.directoryHeading h2 { margin: 0; color: var(--app-ink, #242424); font-size: clamp(1.1rem, 1.65vw, 1.42rem); }
+.directoryHeading p { margin: 0; color: var(--app-muted, #535353); font-size: .87rem; }
+.directoryList { grid-template-columns: repeat(auto-fill, minmax(min(255px, 100%), 1fr)); gap: 12px; }
+.directoryList .directoryRow {
+  display: grid; grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 183px; padding: 16px;
+  gap: 14px; align-content: stretch;
+  border: 1px solid var(--app-border, #dfe3e7); border-radius: 16px;
+  background: var(--app-surface, #fff);
+}
+.directoryList .directoryName {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) 16px;
+  align-items: start; gap: 12px; padding: 0; min-height: 0;
+  border-radius: 0; color: var(--app-ink, #242424);
+}
+.directoryList .directoryName:hover { background: transparent; }
+.directoryList .directoryName:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+.directoryList .directoryName > svg { align-self: center; }
+.directoryIdentity { align-self: start; gap: 9px; }
+.directoryIdentity strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .96rem; }
+.directoryLeadership { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 3px 6px; min-width: 0; }
+.directoryLeadership > small:first-child {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; line-height: 1.4; min-width: 0;
+  overflow-wrap: anywhere;
+}
+.directoryMore { flex: none; padding: 2px 7px; border-radius: 999px; color: var(--app-ink, #242424); background: var(--app-subtle, #f0f2f4); font-weight: 750; }
+.directoryList .directoryActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 0; padding: 12px 0 0; align-items: center; }
+.directoryActions a { display: inline-flex; justify-content: center; align-items: center; gap: 4px; min-height: 44px; padding: 5px; border-radius: 9px; white-space: nowrap; font-size: .77rem; }
+.directoryActions a span { font-size: .77rem; }
+@media (max-width: 760px) {
+  .directoryTotals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .directoryTotals > div:last-child { grid-column: 1 / -1; }
+  .directoryToolbar > label { width: 100%; }
+}
+@media (max-width: 480px) {
+  .directoryTotals { grid-template-columns: 1fr; }
+  .directoryTotals > div:last-child { grid-column: auto; }
+  .directoryList { grid-template-columns: minmax(0, 1fr); }
+  .directoryList .directoryRow { min-height: 155px; }
+  .directoryList .directoryActions { padding-inline-start: 0; }
+}
