@@ -1,5 +1,7 @@
 /** Regras puras do núcleo financeiro F4 (sem I/O). */
 
+import { sanitizeStatementText } from "./statement-text";
+
 export const LEDGER_ACCOUNT_TYPES = [
   "ASSET",
   "LIABILITY",
@@ -226,7 +228,7 @@ export function parseSyntheticCsvLines(
     if (!dateRaw.trim() || !Number.isFinite(amountCents)) {
       continue;
     }
-    const description = rest[0]?.trim() || "linha sintética";
+    const description = sanitizeStatementText(rest[0] ?? "", "linha sintética");
     const externalRef = rest[1]?.trim() || null;
     rows.push({
       postedAt: dateRaw.trim(),

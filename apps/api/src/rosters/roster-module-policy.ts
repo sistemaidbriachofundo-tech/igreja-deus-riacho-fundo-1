@@ -343,16 +343,22 @@ export function surveyMonth(now: Date): string {
   return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7);
 }
 
-export function surveyIsOpen(now: Date): boolean {
-  const day = Number(churchDayKey(now).slice(8, 10));
-  return day >= 25 && day <= 28;
+export function surveyWindow(openDay = 25): { start: number; end: number } {
+  const start = Number.isInteger(openDay) && openDay >= 20 && openDay <= 28 ? openDay : 25;
+  return { start, end: Math.min(start + 3, 28) };
 }
 
-export function monthsReadyToFill(now: Date): string[] {
+export function surveyIsOpen(now: Date, openDay = 25): boolean {
+  const day = Number(churchDayKey(now).slice(8, 10));
+  const window = surveyWindow(openDay);
+  return day >= window.start && day <= window.end;
+}
+
+export function monthsReadyToFill(now: Date, openDay = 25): string[] {
   const key = churchDayKey(now);
   const day = Number(key.slice(8, 10));
   const current = key.slice(0, 7);
-  return day > 28 ? [current, surveyMonth(now)] : [current];
+  return day > surveyWindow(openDay).end ? [current, surveyMonth(now)] : [current];
 }
 
 export function leadershipSummaryDue(now: Date): boolean {

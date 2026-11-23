@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { effectiveSettingValue, parseBrasiliaHour, ROLE_CODES, windowsOverlap, type OperationalScopeKind } from "@idbrf/shared";
+import { effectiveSettingValue, isBirthdayTimeZone, parseBrasiliaHour, ROLE_CODES, windowsOverlap, type OperationalScopeKind } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -9,11 +9,30 @@ const SCOPE_KINDS = ["PLATFORM", "CHURCH", "MINISTRY", "MODULE", "GROUP", "TRACK
 type ScopeKind = (typeof SCOPE_KINDS)[number];
 const EDITABLE_SETTINGS = new Set([
   "notices.birthday.hour_brasilia",
+  "notices.birthday.timezone",
   "pastoral.titular_user_id",
   "pastoral.substitute_user_id",
   "auth.password_reset.ttl_hours",
   "rosters.louvor.week_block",
+  "rosters.survey.open_day",
+  "events.agenda.keep_days_after_end",
 ]);
+
+/** Consumidor real. Chave ausente continua documental até existir wiring. */
+const SETTING_CONSUMERS: Record<string, string> = {
+  "auth.password_reset.ttl_hours": "access-invitation.service",
+  "notices.birthday.hour_brasilia": "birthday-notices.service",
+  "notices.birthday.timezone": "birthday-notices.service",
+  "events.registration.session_required": "inscrição exige sessão; valor não pode ser afrouxado",
+  "events.agenda.keep_days_after_end": "public-portal.controller",
+  "finance.mercado_pago.enabled": "pagamento permanece desligado até sandbox autorizado",
+  "finance.brb.mode": "somente sonda mock; API live bloqueada",
+  "finance.sicoob.mode": "somente sonda mock; API live bloqueada",
+  "rosters.louvor.week_block": "personal-roster.service",
+  "rosters.survey.open_day": "roster-notices.service",
+  "pastoral.titular_user_id": "pastoral-pack.service",
+  "pastoral.substitute_user_id": "pastoral-pack.service",
+};
 /** Regras cujo código recusa um valor mais permissivo. Não aparecem como edição ativa. */
 const LOCKED_SETTINGS = new Set([
   "events.registration.session_required",
@@ -51,6 +70,7 @@ export class SystemSettingsService {
           key: item.key, title: item.title, description: item.description, valueType: item.valueType,
           scopeKind: item.scopeKind, defaultValue: item.defaultJson, devValue: item.devJson,
           editable: behavior === "active", behavior,
+          consumer: SETTING_CONSUMERS[item.key] ?? null,
           behaviorNote: behavior === "active"
             ? "A vigência publicada altera o comportamento neste escopo."
             : behavior === "locked"
@@ -110,6 +130,43 @@ export class SystemSettingsService {
   async getBirthdayHour(pilot: { organizationId: string; churchId: string }, now: Date) {
     const result = await this.lookup(pilot, "notices.birthday.hour_brasilia", "CHURCH", undefined, now);
     return typeof result.value === "string" ? result.value : "08:00";
+  }
+
+  async getBirthdayTimeZone(pilot: { organizationId: string; churchId: string }, now = new Date()) {
+    try {
+      const result = await this.lookup(pilot, "notices.birthday.timezone", "CHURCH", undefined, now);
+      return isBirthdayTimeZone(result.value) ? result.value : "America/Sao_Paulo";
+    } catch (error) {
+      if (error instanceof NotFoundException) return "America/Sao_Paulo";
+      throw error;
+    }
+  }
+
+  async getSurveyOpenDay(pilot: { organizationId: string; churchId: string }, now = new Date()) {
+    return this.readBoundedNumber(pilot, "rosters.survey.open_day", now, 25, 20, 28);
+  }
+
+  async getAgendaKeepDays(pilot: { organizationId: string; churchId: string }, now = new Date()) {
+    return this.readBoundedNumber(pilot, "events.agenda.keep_days_after_end", now, 0, 0, 14);
+  }
+
+  private async readBoundedNumber(
+    pilot: { organizationId: string; churchId: string },
+    key: string,
+    now: Date,
+    fallback: number,
+    min: number,
+    max: number,
+  ) {
+    try {
+      const result = await this.lookup(pilot, key, "CHURCH", undefined, now);
+      return typeof result.value === "number" && Number.isInteger(result.value) && result.value >= min && result.value <= max
+        ? result.value
+        : fallback;
+    } catch (error) {
+      if (error instanceof NotFoundException) return fallback;
+      throw error;
+    }
   }
 
   async pastoralRouting(pilot: { organizationId: string; churchId: string }, now = new Date()) {
@@ -305,6 +362,15 @@ export class SystemSettingsService {
     }
     if (key === "auth.password_reset.ttl_hours" && clampPasswordResetHours(value, 0) === 0) {
       throw new BadRequestException("A recuperação fica entre 1 e 24 horas.");
+    }
+    if (key === "notices.birthday.timezone" && !isBirthdayTimeZone(value)) {
+      throw new BadRequestException("Escolha um fuso horário do Brasil.");
+    }
+    if (key === "rosters.survey.open_day" && !(typeof value === "number" && Number.isInteger(value) && value >= 20 && value <= 28)) {
+      throw new BadRequestException("O dia de abertura da pesquisa fica entre 20 e 28.");
+    }
+    if (key === "events.agenda.keep_days_after_end" && !(typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 14)) {
+      throw new BadRequestException("A agenda pode manter o evento de 0 a 14 dias após o término.");
     }
   }
 
