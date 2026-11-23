@@ -1,3 +1,5 @@
+import { sanitizeStatementText } from "./statement-text";
+
 /** Parser OFX/SGML mínimo (STMTTRN) — sem rede, sem dados bancários reais. */
 
 export interface OfxParsedLine {
@@ -41,9 +43,10 @@ export function parseOfxLines(text: string, strict = false): OfxParseResult {
     if (amountCents === 0) continue;
     const name = tagValue(block, "NAME") ?? "";
     const memo = tagValue(block, "MEMO") ?? "";
-    const description =
-      [name, memo].map((s) => s.trim()).filter(Boolean).join(" — ") ||
-      "OFX sem descrição";
+    const description = sanitizeStatementText(
+      [name, memo].map((s) => s.trim()).filter(Boolean).join(" — "),
+      "OFX sem descrição",
+    );
     const fitid = tagValue(block, "FITID");
     const checknum = tagValue(block, "CHECKNUM");
     const externalRef = (fitid || (!strict && checknum) || null)?.trim() || null;

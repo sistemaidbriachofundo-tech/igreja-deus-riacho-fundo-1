@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PilotModule } from "../pilot/pilot.module";
+import { PilotoModule } from "../piloto/piloto.module";
 import { CmsModule } from "../cms/cms.module";
 import { EventsModule } from "../events/events.module";
 import { PublicPortalController } from "./public-portal.controller";
@@ -9,7 +10,7 @@ import { YoutubeStreamsController, YoutubeStreamsService } from "./youtube-strea
 import { YoutubeLiveController, YoutubeLiveService } from "./youtube-live";
 
 @Module({
-  imports: [PilotModule, CmsModule, EventsModule],
+  imports: [PilotModule, PilotoModule, CmsModule, EventsModule],
   controllers: [PublicPortalController, YoutubeStreamsController, YoutubeLiveController],
   providers: [PublicPortalService, YoutubeStreamsService, YoutubeLiveService],
 })

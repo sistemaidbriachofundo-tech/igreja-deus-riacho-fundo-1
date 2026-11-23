@@ -94,9 +94,32 @@ export function windowsOverlap(
 
 const SAO_PAULO = "America/Sao_Paulo";
 
-export function saoPauloParts(instant: Date): { date: string; minutes: number; weekday: number } {
+export const BIRTHDAY_TIME_ZONES = [
+  "America/Sao_Paulo",
+  "America/Manaus",
+  "America/Rio_Branco",
+  "America/Noronha",
+  "America/Cuiaba",
+  "America/Belem",
+  "America/Fortaleza",
+  "America/Recife",
+  "America/Bahia",
+  "America/Porto_Velho",
+  "America/Boa_Vista",
+  "America/Campo_Grande",
+  "America/Maceio",
+  "America/Santarem",
+  "America/Araguaina",
+] as const;
+
+export function isBirthdayTimeZone(value: unknown): value is (typeof BIRTHDAY_TIME_ZONES)[number] {
+  return typeof value === "string" && (BIRTHDAY_TIME_ZONES as readonly string[]).includes(value);
+}
+
+export function zonedCivilParts(instant: Date, timeZone: string): { date: string; minutes: number; weekday: number } {
+  const zone = isBirthdayTimeZone(timeZone) ? timeZone : SAO_PAULO;
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: SAO_PAULO,
+    timeZone: zone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -114,16 +137,20 @@ export function saoPauloParts(instant: Date): { date: string; minutes: number; w
   };
 }
 
+export function saoPauloParts(instant: Date): { date: string; minutes: number; weekday: number } {
+  return zonedCivilParts(instant, SAO_PAULO);
+}
+
 export function parseBrasiliaHour(value: string): number | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
   if (!match) return null;
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
-export function isBeforeConfiguredHour(now: Date, hour: string): boolean {
+export function isBeforeConfiguredHour(now: Date, hour: string, timeZone = SAO_PAULO): boolean {
   const minutes = parseBrasiliaHour(hour);
   if (minutes == null) return true;
-  return saoPauloParts(now).minutes < minutes;
+  return zonedCivilParts(now, timeZone).minutes < minutes;
 }
 
 export function louvorWeekBounds(serviceAt: Date): { start: Date; end: Date; key: string } {

@@ -194,6 +194,12 @@ export function TreasuryPositionCards({ state }: { state: TreasuryCardState }) {
 }
 
 /** Despesas pendentes não integram o saldo até o pastor concluir a aprovação. */
+function expenseBucket(entry: EntryView): "decision" | "payable" | "settled" {
+  if (entry.payableAccountId && !entry.payment && entry.status === "APPROVED") return "payable";
+  if (entry.payment || (entry.status === "APPROVED" && !entry.payableAccountId)) return "settled";
+  return "decision";
+}
+
 export function expenseWorkflowStatus(entry: Pick<EntryView, "status" | "firstApprovedByUserId">): string {
   if (entry.status === "PENDING_APPROVAL") {
     return entry.firstApprovedByUserId ? "Aguardando aprovação do pastor" : "Aguardando conferência da Tesouraria";
@@ -280,6 +286,23 @@ export function TreasuryPanel() {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const intent = useRef("");
+  async function downloadStatement(format: "pdf" | "xls") {
+    if (!token) return;
+    setBusy(true);
+    try {
+      const blob = await apiGetBlob("/ledger/statements/export?format=" + format, token);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = format === "pdf" ? "extrato.pdf" : "extrato.xls";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      showFeedback({ tone: "error", title: "Exportação não concluída", message: dasError(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
   const [tab, setTab] = useState<Tab>("despesa");
   const treasuryRoles = access.kind === "ready" ? access.roles.join("|") : "";
 
@@ -333,6 +356,11 @@ export function TreasuryPanel() {
   const scopeEntries = entries.filter(entry => !activeCenter || entry.costCenterId === activeCenter);
   const expenseRows = scopeEntries.filter(entry => entry.approvalFlow === "TREASURER_THEN_PASTOR" &&
     (!from || entry.entryDate >= from) && (!to || entry.entryDate <= to));
+  const expenseGroups = (["decision", "payable", "settled"] as const).map(id => ({
+    id,
+    title: id === "decision" ? "Em decisão" : id === "payable" ? "Contas a pagar" : "Despesas baixadas",
+    items: expenseRows.filter(entry => expenseBucket(entry) === id),
+  }));
   const summary = cards.kind === "ready" && cards.position.countedEntryIds && data?.entries && !data.accountsNote
     ? summarizeTreasury(accounts, entries, cards.position.countedEntryIds, { from, to })
     : null;
@@ -606,6 +634,19 @@ export function TreasuryPanel() {
             onReconciliation={() => openView("conciliacao")} />
         ) : <TreasuryPositionCards state={cards} />)}
 
+        {view === "visao" && data?.balances && <section className={styles.card} aria-label="Saldos por banco e centro de custo">
+          <h2>Saldos por banco e centro de custo</h2>
+          <p>Posição aprovada do razão. BRB e Sicoob continuam sem API automática.</p>
+          {!data.balances.banks.length && <p>Nenhum saldo de caixa aprovado nesta consulta.</p>}
+          {data.balances.banks.map(bank => <article key={bank.accountId}>
+            <strong>{bank.name}</strong> <span>{formatBRL(bank.balanceCents)}</span>
+            <ul>{bank.centers.map(item => {
+              const name = data.centers.find(center => center.id === item.costCenterId)?.name ?? (item.costCenterId ? "Centro de custo" : "Sem centro de custo");
+              return <li key={item.costCenterId ?? "sem"}>{name}: {formatBRL(item.balanceCents)}</li>;
+            })}</ul>
+          </article>)}
+          <p>Contas a pagar em aberto: {formatBRL(data.balances.openPayablesCents)}</p>
+        </section>}
         {view === "visao" && data?.entries && <section className={styles.expenseQueue} aria-label="Despesas aguardando aprovação">
           <div><strong>Despesas aguardando aprovação</strong><span>{expenseRows.filter(entry => entry.status === "PENDING_APPROVAL").length} nesta seleção</span></div>
           <button className={ui.workspaceSecondary} type="button" onClick={() => openView(canReviewApprovals ? "aprovacoes" : "despesas")}>Ver despesas</button>
@@ -625,7 +666,9 @@ export function TreasuryPanel() {
           {!data && <TreasuryPositionCards state={cards} />}
           {data?.entriesNote && <p className={styles.unavailable} role="alert">{data.entriesNote}</p>}
           {data?.entries && expenseRows.length === 0 && <p className={styles.expenseEmpty}>Nenhuma despesa cadastrada neste centro de custo. {canCreateExpense ? "Use Incluir despesa para registrar a primeira." : ""}</p>}
-          {expenseRows.map(entry => {
+          {expenseGroups.map(group => group.items.length ? <div key={group.id}>
+            <h3>{group.title}</h3>
+          {group.items.map(entry => {
             const workflow = expenseWorkflowStatus(entry);
             const canApproveExpense = canWrite && approvalCopy(data?.actorId ?? null, entry, access.kind === "ready" ? access.roles : []).canApprove;
             return <article key={entry.id} className={styles.expenseItem} id={`despesa-${entry.id}`} data-target={targetExpense === entry.id}>
@@ -651,11 +694,16 @@ export function TreasuryPanel() {
               {canApproveExpense && <button type="button" className={`${ui.workspaceSecondary} ${styles.entryAction}`} disabled={busy} onClick={() => void runEntryAction(entry, "approve")}>Registrar conferência</button>}
             </article>;
           })}
+          </div> : null)}
         </section>}
 
         {view === "extrato" && <section className={styles.statementWorkspace} aria-label="Extrato">
           <FinancialHeading icon="book" title="Extrato" statement>
             {data?.entries && <span className={styles.statementCount}>{rows.length} {rows.length === 1 ? "movimento" : "movimentos"}</span>}
+            {token && canCreateExpense && <>
+              <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void downloadStatement("pdf")}>PDF</button>
+              <button type="button" className={ui.workspaceSecondary} disabled={busy} onClick={() => void downloadStatement("xls")}>Excel</button>
+            </>}
           </FinancialHeading>
           {canImportStatement && token && <TreasuryBankStatements token={token}
             accounts={banks}
@@ -929,13 +977,14 @@ function MinistryCostCenterSetup({ token, onConfigured }: { token: string; onCon
 }
 
 async function loadTreasury(token: string, centerId: string) {
-  const [me, positionResult, accountResult, entryResult, reconciliationResult, centerResult] = await Promise.allSettled([
+  const [me, positionResult, accountResult, entryResult, reconciliationResult, centerResult, balanceResult] = await Promise.allSettled([
     apiGet<{ userId?: string }>("/auth/me", token),
     apiGet<unknown>(`/treasury/position${centerId ? `?costCenterId=${encodeURIComponent(centerId)}` : ""}`, token),
     apiGet<unknown>("/ledger/accounts", token),
     apiGet<unknown>("/ledger/entries", token),
     apiGet<unknown>("/ledger/reconciliations", token),
     apiGet<unknown>("/ledger/cost-centers", token),
+    apiGet<unknown>("/ledger/balances", token),
   ]);
   const actorId = me.status === "fulfilled" && typeof me.value.userId === "string" ? me.value.userId : null;
   const cards = positionResult.status === "fulfilled"
@@ -968,7 +1017,32 @@ async function loadTreasury(token: string, centerId: string) {
     ? (reconciliations ? "" : "As conciliações vieram incompletas e não foram exibidas.")
     : "As conciliações não foram consultadas.";
   const centers = centerResult.status === "fulfilled" ? readCenters(centerResult.value) : [];
-  return { actorId, cards, accounts, accountsNote, entries, entriesNote, reconciliations, reconciliationNote, centers };
+  const balances = balanceResult.status === "fulfilled" ? readBalances(balanceResult.value) : null;
+  return { actorId, cards, accounts, accountsNote, entries, entriesNote, reconciliations, reconciliationNote, centers, balances };
+}
+
+function readBalances(payload: unknown): { banks: Array<{ accountId: string; code: string; name: string; balanceCents: number; centers: Array<{ costCenterId: string | null; balanceCents: number }> }>; openPayablesCents: number } | null {
+  if (!payload || typeof payload !== "object") return null;
+  const body = payload as { banks?: unknown; openPayablesCents?: unknown };
+  if (!Array.isArray(body.banks) || typeof body.openPayablesCents !== "number") return null;
+  const banks = body.banks.flatMap(item => {
+    if (!item || typeof item !== "object") return [];
+    const bank = item as { accountId?: unknown; code?: unknown; name?: unknown; balanceCents?: unknown; centers?: unknown };
+    if (typeof bank.accountId !== "string" || typeof bank.balanceCents !== "number" || !Array.isArray(bank.centers)) return [];
+    return [{
+      accountId: bank.accountId,
+      code: typeof bank.code === "string" ? bank.code : "",
+      name: typeof bank.name === "string" ? bank.name : "Conta",
+      balanceCents: bank.balanceCents,
+      centers: bank.centers.flatMap(center => {
+        if (!center || typeof center !== "object") return [];
+        const row = center as { costCenterId?: unknown; balanceCents?: unknown };
+        if (typeof row.balanceCents !== "number") return [];
+        return [{ costCenterId: typeof row.costCenterId === "string" ? row.costCenterId : null, balanceCents: row.balanceCents }];
+      }),
+    }];
+  });
+  return { banks, openPayablesCents: body.openPayablesCents };
 }
 
 function readEntries(payload: unknown): EntryView[] | null {

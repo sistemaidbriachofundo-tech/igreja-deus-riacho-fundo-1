@@ -405,13 +405,13 @@ export function positionsForModule(name: string | null | undefined, cult: CultTy
   return configured.length ? configured : standardPositions(name, cult, raw);
 }
 
-export async function maintainRosterCycle(db: Db, pilot: { organizationId: string; churchId: string }, now = new Date()) {
+export async function maintainRosterCycle(db: Db, pilot: { organizationId: string; churchId: string }, now = new Date(), openDay = 25) {
   if (!db.ministryRosterModule?.findMany || !db.roster?.findMany || !db.roster.create) return { prepared: 0, generated: 0 };
   const modules = await db.ministryRosterModule.findMany({
     where: { ministry: { organizationId: pilot.organizationId, churchId: pilot.churchId } },
     select: { id: true, name: true, rules: true, ministryId: true },
   });
-  const months = [...new Set([surveyMonth(now), ...monthsReadyToFill(now)])];
+  const months = [...new Set([surveyMonth(now), ...monthsReadyToFill(now, openDay)])];
   const existing = await db.roster.findMany({
     where: { organizationId: pilot.organizationId, churchId: pilot.churchId, moduleId: { not: null } },
     select: {
@@ -443,16 +443,16 @@ export async function maintainRosterCycle(db: Db, pilot: { organizationId: strin
       }
     }
   }
-  const generated = await fillVerifiedDrafts(db, pilot, modules, now);
+  const generated = await fillVerifiedDrafts(db, pilot, modules, now, openDay);
   return { prepared, generated };
 }
 
-async function fillVerifiedDrafts(db: Db, pilot: { organizationId: string; churchId: string }, modules: Array<Record<string, unknown>>, now: Date) {
+async function fillVerifiedDrafts(db: Db, pilot: { organizationId: string; churchId: string }, modules: Array<Record<string, unknown>>, now: Date, openDay = 25) {
   if (!db.rosterAssignment?.create || !db.rosterAvailabilityResponse?.findMany || !db.volunteerAvailability?.findMany || !db.volunteerImpediment?.findMany) return 0;
   const { loadMonthState } = await import("./roster-month-load");
   const { draftsToPersist, planMonth } = await import("./roster-month-plan");
   let created = 0;
-  for (const month of monthsReadyToFill(now)) {
+  for (const month of monthsReadyToFill(now, openDay)) {
     for (const ministryId of [...new Set(modules.map(module => String(module.ministryId)))]) {
       const monthState = await loadMonthState(db as never, pilot, ministryId, month);
       if (!monthState) return created;

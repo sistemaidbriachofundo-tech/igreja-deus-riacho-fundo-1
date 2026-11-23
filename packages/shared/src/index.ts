@@ -135,6 +135,13 @@ export {
 } from "./finance/ledger-rules";
 
 export {
+  sanitizeStatementText,
+  statementIdentity,
+  dedupeStatementLines,
+  type StatementLineIdentity,
+} from "./finance/statement-text";
+
+export {
   parseOfxLines,
   parseOfxAmountToCents,
   parseOfxDate,
@@ -362,6 +369,9 @@ export {
   scopeCovers,
   effectiveSettingValue,
   windowsOverlap,
+  BIRTHDAY_TIME_ZONES,
+  isBirthdayTimeZone,
+  zonedCivilParts,
   saoPauloParts,
   parseBrasiliaHour,
   isBeforeConfiguredHour,

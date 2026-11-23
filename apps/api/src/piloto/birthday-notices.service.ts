@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { isBeforeConfiguredHour, ROLE_CODES, saoPauloParts } from "@idbrf/shared";
+import { isBeforeConfiguredHour, ROLE_CODES, zonedCivilParts } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -19,7 +19,8 @@ export class BirthdayNoticesService {
   }, now = new Date()) {
     const pilot = await this.staff(actor);
     await this.assertFilters(actor, query);
-    const today = saoPauloParts(now);
+    const zone = await this.settings.getBirthdayTimeZone(pilot, now);
+    const today = zonedCivilParts(now, zone);
     const people = await this.people(pilot, query);
     const rows = people.flatMap(person => {
       if (!person.birthDate) return [];
@@ -45,11 +46,14 @@ export class BirthdayNoticesService {
   }
 
   private async runForChurch(pilot: { organizationId: string; churchId: string }, now: Date) {
-    const hour = await this.settings.getBirthdayHour(pilot, now);
-    if (isBeforeConfiguredHour(now, hour)) {
+    const [hour, zone] = await Promise.all([
+      this.settings.getBirthdayHour(pilot, now),
+      this.settings.getBirthdayTimeZone(pilot, now),
+    ]);
+    if (isBeforeConfiguredHour(now, hour, zone)) {
       return { skipped: true, reason: "BEFORE_CONFIGURED_HOUR" as const, hour, created: 0 };
     }
-    const today = saoPauloParts(now).date;
+    const today = zonedCivilParts(now, zone).date;
     const people = await this.people(pilot, {});
     const birthdays = people.filter(person => person.birthDate?.toISOString().slice(5, 10) === today.slice(5));
     const birthdayIds = birthdays.map(person => person.id);

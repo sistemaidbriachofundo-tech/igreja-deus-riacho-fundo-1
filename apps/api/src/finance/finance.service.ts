@@ -21,6 +21,7 @@ import {
   nextDualApprovalStage,
   parseOfxLines,
   parseSyntheticCsvLines,
+  dedupeStatementLines,
   type BankImportAdapterCode,
   type BankImportFormatCode,
   type BudgetStatusCode,
@@ -36,6 +37,8 @@ import { PrivateStorageService } from "../storage/private-storage.service";
 import { listBankAdapters, requireBankAdapter } from "./bank-adapters";
 import { parseMercadoPagoReleases } from "./mercado-pago-releases";
 import { pastoralExpenseLines } from "./pastoral-expense";
+import { projectBankBalances } from "./statement-balances";
+import { renderStatementPdf, renderStatementSheet } from "./statement-export";
 
 type PilotScope = {
   organizationId: string;
@@ -318,7 +321,7 @@ export class FinanceService {
     }, `expense-${input.requestId}`);
   }
 
-  async listEntries(actor: AuthUser, status?: string) {
+  async listEntries(actor: AuthUser, status?: string, bucket?: "payables" | "settled") {
     const pilot = await this.requireFinance(actor, "read");
     const rows = await this.prisma.ledgerEntry.findMany({
       where: {
@@ -330,13 +333,58 @@ export class FinanceService {
       include: { lines: { include: { account: { select: { type: true, code: true } } } } },
     });
     const payments = await this.approvedPayablePayments(this.prisma, pilot, rows.map(row => row.id));
+    const entries = rows.flatMap(row => {
+      const payableAccountId = this.payableAccountId(row);
+      const payment = payments.get(row.id) ?? null;
+      const item = { ...this.toEntryDto(row), payment, payableAccountId };
+      if (bucket === "payables" && !(payableAccountId && !payment)) return [];
+      if (bucket === "settled" && !(payment || (row.status === "APPROVED" && !payableAccountId && this.isExpenseForPastor(row.lines)))) return [];
+      return [item];
+    });
     return {
       churchId: pilot.churchId,
-      entries: rows.map(row => ({
-        ...this.toEntryDto(row),
-        payment: payments.get(row.id) ?? null,
-        payableAccountId: this.payableAccountId(row),
-      })),
+      bucket: bucket ?? "all",
+      entries,
+    };
+  }
+
+  async balances(actor: AuthUser) {
+    const pilot = await this.requireFinance(actor, "read");
+    const lines = await this.prisma.ledgerEntryLine.findMany({
+      where: {
+        entry: {
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          status: { in: ["APPROVED", "REVERSED"] },
+        },
+      },
+      select: {
+        side: true,
+        amountCents: true,
+        accountId: true,
+        account: { select: { id: true, code: true, name: true, type: true } },
+        entry: { select: { costCenterId: true } },
+      },
+    });
+    return { churchId: pilot.churchId, ...projectBankBalances(lines) };
+  }
+
+  async exportStatement(actor: AuthUser, format: "pdf" | "xls") {
+    const listed = await this.listEntries(actor);
+    const rows = listed.entries.map(entry => ({
+      date: entry.entryDate,
+      description: entry.description,
+      amountCents: entry.amountCents,
+      status: entry.payableAccountId && !entry.payment ? "A pagar" : entry.payment ? "Baixada" : entry.status,
+      costCenterId: entry.costCenterId,
+    }));
+    if (format === "pdf") {
+      return { bytes: await renderStatementPdf(rows), contentType: "application/pdf", filename: "extrato.pdf" };
+    }
+    return {
+      bytes: Buffer.from(renderStatementSheet(rows), "utf8"),
+      contentType: "application/vnd.ms-excel",
+      filename: "extrato.xls",
     };
   }
 
@@ -1075,25 +1123,23 @@ export class FinanceService {
     const { format, filename, adapter, status, stubNote, accountId, fileHash } = input;
     return this.prisma.$transaction(async (tx) => {
       let parsed = input.parsed;
+      let existing: Array<{ postedAt: string; amountCents: number; description: string; externalRef: string | null }> = [];
       if (accountId) {
         const lock = "bank-import:" + accountId;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
-        const existingRefs = await tx.bankStatementLine.findMany({
-          where: {
-            batch: { accountId, churchId: pilot.churchId },
-            externalRef: { in: input.parsed.flatMap(line => line.externalRef ? [line.externalRef] : []) },
-          },
-          select: { externalRef: true },
-          distinct: ["externalRef"],
+        const stored = await tx.bankStatementLine.findMany({
+          where: { batch: { accountId, churchId: pilot.churchId } },
+          select: { externalRef: true, postedAt: true, amountCents: true, description: true },
         });
-        const seen = new Set(existingRefs.map(line => line.externalRef));
-        parsed = parsed.filter(line => {
-          if (!line.externalRef) return true;
-          if (seen.has(line.externalRef)) return false;
-          seen.add(line.externalRef);
-          return true;
-        });
+        existing = stored.map(line => ({
+          postedAt: line.postedAt.toISOString(),
+          amountCents: line.amountCents,
+          description: line.description,
+          externalRef: line.externalRef,
+        }));
       }
+      const unique = dedupeStatementLines(parsed, existing);
+      parsed = unique.kept;
       const batch = await tx.bankImportBatch.create({
         data: {
           organizationId: pilot.organizationId,
