@@ -17,6 +17,7 @@ type Setting = { key: string; title: string; description: string; valueType: str
 type Revision = { id: string; lifecycle: string; value: unknown; scopeId: string | null; updatedAt: string; createdAt: string; effectiveFrom: string | null; effectiveUntil: string | null };
 type Effective = { value: unknown; source: "DEV" | "PUBLISHED"; revisionId: string | null };
 type Pastor = { id: string; name: string };
+type Ministry = { id: string; name: string; slug: string };
 const path = "/system-settings";
 const groups: { id: SettingBehavior; title: string; icon: GlyphName; detail: string }[] = [
   { id: "active", title: "Editáveis", icon: "settings", detail: "Escolha uma regra para alterar seu valor e definir quando entra em vigor." },
@@ -28,6 +29,7 @@ const descriptions: Record<string, string> = {
   "pastoral.substitute_user_id": "Quem assume os pedidos na ausência do responsável.",
   "auth.password_reset.ttl_hours": "Por quanto tempo o link para criar uma nova senha funciona.",
   "notices.birthday.hour_brasilia": "Quando o aviso diário de aniversários é programado, no horário de Brasília.",
+  "rosters.louvor.week_block": "Impede que um integrante do Louvor seja sorteado duas vezes na mesma semana, conforme o ministério.",
 };
 const statuses: Record<string, string> = { DRAFT: "Rascunho", IN_REVIEW: "Em revisão", PUBLISHED: "Publicada" };
 const scopes: Record<string, string> = { CHURCH: "Congregação", PLATFORM: "Plataforma", MINISTRY: "Ministério", MODULE: "Módulo", GROUP: "Grupo", TRACK: "Trilha" };
@@ -112,6 +114,22 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
   const [effective, setEffective] = useState<Effective>();
   const [history, setHistory] = useState<Revision[]>([]);
   const [pastors, setPastors] = useState<Pastor[]>([]);
+  const [ministries, setMinistries] = useState<Ministry[]>([]);
+  const [scopeId, setScopeId] = useState("");
+  useEffect(() => {
+    if (item.scopeKind !== "MINISTRY") return;
+    const token = loadStoredToken();
+    if (!token) return;
+    let live = true;
+    void apiGet<{ ministries: Ministry[] }>("/ministries", token, { fresh: true })
+      .then(result => {
+        if (!live) return;
+        const available = result.ministries.filter(ministry => /^louvor(?:-|$)/i.test(ministry.slug));
+        setMinistries(available);
+        setScopeId(current => current || available[0]?.id || "");
+      }).catch(issue => { if (live) setError(dasError(issue)); });
+    return () => { live = false; };
+  }, [item.scopeKind]);
   const [draftValue, setDraftValue] = useState("");
   const [revisionId, setRevisionId] = useState("");
   const [start, setStart] = useState("");
@@ -130,10 +148,11 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
   useEffect(() => {
     const token = loadStoredToken();
     if (!token) return;
+    if (item.scopeKind === "MINISTRY" && !scopeId) { setLoading(false); return; }
     let live = true;
     setLoading(true);
     setError("");
-    const query = new URLSearchParams({ key: item.key, scopeKind: item.scopeKind });
+    const query = new URLSearchParams({ key: item.key, scopeKind: item.scopeKind, ...(scopeId ? { scopeId } : {}) });
     void Promise.all([
       apiGet<Effective>(path + "/effective?" + query, token, { fresh: true }),
       apiGet<{ revisions: Revision[] }>(path + "/" + encodeURIComponent(item.key) + "/history", token, { fresh: true }),
@@ -141,14 +160,14 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
     ]).then(([active, changes, people]) => {
       if (!live) return;
       setEffective(active);
-      setHistory(changes.revisions.filter(row => row.scopeId == null).reverse());
+      setHistory(changes.revisions.filter(row => row.scopeId === (scopeId || null)).reverse());
       setPastors(people.items);
       const draft = changes.revisions.find(row => row.id === revisionId && row.lifecycle === "DRAFT");
       setDraftValue(String((draft ? draft.value : active.value) ?? ""));
     }).catch(issue => { if (live) { setEffective(undefined); setError(dasError(issue)); } })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [item, pastorRule, reload, revisionId]);
+  }, [item, pastorRule, reload, revisionId, scopeId]);
 
   async function perform(route: string, body: unknown, message: string, method: "POST" | "PATCH" = "POST") {
     const token = loadStoredToken();
@@ -177,6 +196,12 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
   }
 
   return <Modal open appearance="workspace" title={(item.editable ? "Editar · " : "") + item.title} description={descriptions[item.key] ?? item.description} onClose={() => { if (!busy) onClose(); }}>
+    {item.scopeKind === "MINISTRY" && <Select label="Ministério desta regra"
+      value={scopeId}
+      onChange={event => { setScopeId(event.target.value); setRevisionId(""); setEffective(undefined); }}
+      options={[{ value: "", label: "Selecione o ministério" }, ...ministries.map(ministry => ({ value: ministry.id, label: ministry.name }))]} />}
+    {item.scopeKind === "MINISTRY" && ministries.length === 0 &&
+      <Alert appearance="workspace" tone="warning" title="Cadastre um ministério de Louvor para configurar esta regra." />}
     {loading && <Loading label="Consultando regra" />}
     {error && <><Alert appearance="workspace" tone="danger" title={error} />{effective && <Button variant="secondary" onClick={() => setReload(n => n + 1)}>Recarregar regra</Button>}</>}
     {notice && <div role="status"><Alert appearance="workspace" tone="success" title={notice} /></div>}
@@ -185,15 +210,18 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
       <div className={s.current}><span>{item.behavior === "documentary" ? "Valor de referência" : "Valor vigente"} · {scopes[item.scopeKind] ?? item.scopeKind}</span><strong>{describe(effective.value)}</strong></div>
       {item.editable && (!revision || revision.lifecycle === "DRAFT") && <form onSubmit={event => {
         event.preventDefault();
-        const value = item.valueType === "number" ? Number(draftValue) : draftValue;
+        const value = item.valueType === "number" ? Number(draftValue) : item.valueType === "boolean" ? draftValue === "true" : draftValue;
         if (revision) {
           void perform("/revisions/" + revision.id, { expectedUpdatedAt: revision.updatedAt, value }, "Alterações salvas neste rascunho.", "PATCH");
           return;
         }
-        void perform("/drafts", { key: item.key, scopeKind: item.scopeKind, value }, "Rascunho salvo. Confira o valor antes de enviar para revisão.");
+        void perform("/drafts", { key: item.key, scopeKind: item.scopeKind, ...(scopeId ? { scopeId } : {}), value }, "Rascunho salvo. Confira o valor antes de enviar para revisão.");
       }}>
         {pastorRule ? <Select label="Pastor designado" value={draftValue} onChange={e => setDraftValue(e.target.value)}
           options={[{ value: "", label: "Usar a ordem de vínculo pastoral" }, ...(draftValue && !pastors.some(p => p.id === draftValue) ? [{ value: draftValue, label: "Pastor fora da lista atual" }] : []), ...pastors.map(p => ({ value: p.id, label: p.name }))]} />
+          : item.valueType === "boolean" ? <Select label="Bloqueio de escala na mesma semana" value={draftValue}
+            onChange={event => setDraftValue(event.target.value)}
+            options={[{ value: "true", label: "Ativo: não repetir na mesma semana" }, { value: "false", label: "Desativado: permitir quando as outras regras aceitarem" }]} />
           : <Input label={item.valueType === "time" ? "Novo horário (Brasília)" : "Validade do link em horas"} required type={item.valueType === "time" ? "time" : "number"} min={item.valueType === "number" ? 1 : undefined} max={item.valueType === "number" ? 24 : undefined} value={draftValue} onChange={e => setDraftValue(e.target.value)} />}
         <Button className={ui.workspacePrimary} type="submit" disabled={busy || draftValue === String((revision ? revision.value : effective.value) ?? "")}>{revision ? "Salvar alterações" : "Salvar rascunho"}</Button>
       </form>}
