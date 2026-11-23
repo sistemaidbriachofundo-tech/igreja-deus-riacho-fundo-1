@@ -13,6 +13,7 @@ import ui from "../ui/ui.module.css";
 import s from "./ministry-home.module.css";
 import { Alert } from "../ui/Alert";
 import { PageHeader } from "../ui/PageHeader";
+import { ministryLeaderSummary } from "../../lib/ministry-leader-summary";
 
 type TeamRow = {
   ministry: MinistryOption;
@@ -73,7 +74,7 @@ export function MinistryOverview({ token }: { token: string }) {
   return (
     <div className={s.directory}>
       <PageHeader appearance="workspace" heading="h1" title="Todos os ministérios"
-        description="Encontre as equipes e escalas da congregação." />
+        description="Acompanhe equipes, lideranças e escalas da congregação." />
       {error ? <Alert appearance="workspace" tone="danger" title="Não foi possível consultar os ministérios.">
         <button type="button" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button>
       </Alert> : (
@@ -89,7 +90,7 @@ export function MinistryOverview({ token }: { token: string }) {
           {rows?.length === 0 && <p className={s.note}>Nenhum ministério disponível.</p>}
           {rows && rows.length > 0 && <>
             <div className={s.directoryToolbar}>
-              <h2>Equipes da congregação</h2>
+              <div className={s.directoryHeading}><h2>Equipes da congregação</h2><p>Selecione um ministério para acompanhar a equipe e as programações.</p></div>
               <WorkspaceSearch value={query} onChange={event => setQuery(event.target.value)}
                 placeholder="Buscar ministério" aria-label="Buscar ministério" />
             </div>
@@ -99,13 +100,17 @@ export function MinistryOverview({ token }: { token: string }) {
                 const title = ministryPanelTitle(ministry);
                 const leaders = people?.filter(person => person.role === "LIDER" && person.status === "ATIVO").map(person => person.displayName) ?? [];
                 const names = leaders.length > 0 ? leaders : ministry.leadership?.map(leader => leader.displayName) ?? [];
+                const leaderSummary = ministryLeaderSummary(names);
                 const count = schedules?.filter(row => row.status === "PUBLISHED" || row.status === "DRAFT").length;
                 return <li key={ministry.id} className={s.directoryRow}>
                   <AppNavLink className={s.directoryName} href={ministryHref(ministry.id, "visao")}>
                     <span className={s.directoryIcon}><UIIcon name={ministry.slug === "atmosfera" ? "family" : "layers"} size={22} /></span>
                     <span className={s.directoryIdentity}>
                       <strong>{title}</strong>
-                      {names.length > 0 && <small>Liderança · {names.join(", ")}</small>}
+                      {leaderSummary.visible && <span className={s.directoryLeadership}>
+                        <small title={leaderSummary.full}>Liderança · {leaderSummary.visible}</small>
+                        {leaderSummary.remaining > 0 && <small className={s.directoryMore} aria-label={`Mais ${leaderSummary.remaining} líderes`}>+​{leaderSummary.remaining}</small>}
+                      </span>}
                     </span><UIIcon name="chevron" size={16} />
                   </AppNavLink>
                   <div className={s.directoryActions}>
