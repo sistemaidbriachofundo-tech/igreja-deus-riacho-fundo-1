@@ -7,7 +7,7 @@ const pastor: AuthUser = { userId: "u-pastor", personId: "pastor", email: "pasto
 const mentor: AuthUser = { userId: "u-mentor", personId: "mentor", email: "mentor@example.test", grants: [{ roleCode: "MEMBRO", organizationId: "org", churchId: "riacho" }] };
 
 describe("avisos de aniversário", () => {
-  const settings = { getBirthdayHour: async () => "08:00" };
+  const settings = { getBirthdayHour: async () => "08:00", getBirthdayTimeZone: async () => "America/Sao_Paulo" };
 
   it("grava um aviso por pessoa e não avisa o aniversariante sobre si mesmo", async () => {
     const notices: Array<{ recipientPersonId: string }> = [];
