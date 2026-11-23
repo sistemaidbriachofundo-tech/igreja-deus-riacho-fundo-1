@@ -4,6 +4,7 @@ import { grantMatchesScope, ROLE_CODES } from "@idbrf/shared";
 import webPush from "web-push";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BirthdayNoticesService } from "../piloto/birthday-notices.service";
+import { SystemSettingsService } from "../piloto/system-settings.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { churchDayKey } from "./church-day";
@@ -24,7 +25,8 @@ const PUSH_HOSTS = new Set(["fcm.googleapis.com", "updates.push.services.mozilla
 @Injectable()
 export class RosterNoticesService {
   constructor(private readonly db: PrismaService, private readonly pilot: PilotService,
-    @Optional() private readonly birthdays?: BirthdayNoticesService) {}
+    @Optional() private readonly birthdays?: BirthdayNoticesService,
+    @Optional() private readonly settings?: SystemSettingsService) {}
 
   async list(actor: AuthUser, now = new Date()) {
     const scope = await this.personScope(actor);
@@ -164,13 +166,23 @@ export class RosterNoticesService {
     return { ...roster, ...(birthdays ? { birthdays } : {}) };
   }
 
+  private async surveyOpenDay(pilot: { organizationId: string; churchId: string }, now: Date) {
+    if (!this.settings) return 25;
+    try {
+      return await this.settings.getSurveyOpenDay(pilot, now);
+    } catch {
+      return 25;
+    }
+  }
+
   async run(now: Date) {
     const { churchId, organizationId } = await this.pilot.getPilotChurch();
-    await maintainRosterCycle(this.db as never, { churchId, organizationId }, now);
+    const openDay = await this.surveyOpenDay({ churchId, organizationId }, now);
+    await maintainRosterCycle(this.db as never, { churchId, organizationId }, now, openDay);
     const [year, month, day] = churchDayKey(now).split("-").map(Number);
     const surveyMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7);
     const notices: { id: string; churchId: string; personId: string; kind: string; title: string; body: string; path: string }[] = [];
-    if (day === 25) {
+    if (day === openDay) {
       const surveyRosters = await this.db.roster.findMany({ where: {
         churchId, organizationId, ministryId: { not: null }, status: { in: ["DRAFT", "PUBLISHED"] },
         serviceAt: { gte: new Date(Date.UTC(year, month, 1, 3)), lt: new Date(Date.UTC(year, month + 1, 1, 3)) },

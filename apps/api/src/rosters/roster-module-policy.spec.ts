@@ -112,7 +112,10 @@ describe("escalas do Atmosfera", () => {
     expect(cultsInMonth("2026-11").some(cult => cult.serviceType === "sunday_morning" && cult.serviceAt.getUTCHours() === 13)).toBe(true);
     expect(surveyMonth(new Date("2026-11-25T13:00:00Z"))).toBe("2026-12");
     expect(surveyIsOpen(new Date("2026-11-25T13:00:00Z"))).toBe(true);
+    expect(surveyIsOpen(new Date("2026-11-24T13:00:00Z"))).toBe(false);
+    expect(surveyIsOpen(new Date("2026-11-24T13:00:00Z"), 24)).toBe(true);
     expect(surveyIsOpen(new Date("2026-11-29T13:00:00Z"))).toBe(false);
+    expect(monthsReadyToFill(new Date("2026-11-26T13:00:00Z"), 22)).toEqual(["2026-11", "2026-12"]);
     expect(monthsReadyToFill(new Date("2026-11-26T13:00:00Z"))).toEqual(["2026-11"]);
     expect(monthsReadyToFill(new Date("2026-11-29T13:00:00Z"))).toEqual(["2026-11", "2026-12"]);
     expect(effectiveInviteLimit("Recepção", {}, 0)).toBe(5);

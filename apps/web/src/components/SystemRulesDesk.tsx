@@ -30,7 +30,17 @@ const descriptions: Record<string, string> = {
   "auth.password_reset.ttl_hours": "Por quanto tempo o link para criar uma nova senha funciona.",
   "notices.birthday.hour_brasilia": "Quando o aviso diário de aniversários é programado, no horário de Brasília.",
   "rosters.louvor.week_block": "Impede que um integrante do Louvor seja sorteado duas vezes na mesma semana, conforme o ministério.",
+  "notices.birthday.timezone": "Fuso usado para decidir o dia civil dos aniversariantes.",
+  "rosters.survey.open_day": "Dia do mês em que a pesquisa de disponibilidade da escala abre.",
+  "events.agenda.keep_days_after_end": "Quantos dias um evento permanece na agenda pública depois de terminar.",
 };
+const birthdayZones = ["America/Sao_Paulo", "America/Manaus", "America/Rio_Branco", "America/Noronha", "America/Cuiaba", "America/Belem", "America/Fortaleza", "America/Recife", "America/Bahia", "America/Porto_Velho", "America/Boa_Vista", "America/Campo_Grande", "America/Maceio", "America/Santarem", "America/Araguaina"];
+const zoneLabel = (value: string) => value === "America/Sao_Paulo" ? "Horário de Brasília" : value.replace("America/", "").replace(/_/g, " ");
+function numberBounds(key: string) {
+  if (key === "rosters.survey.open_day") return { min: 20, max: 28, label: "Dia do mês em que a pesquisa abre" };
+  if (key === "events.agenda.keep_days_after_end") return { min: 0, max: 14, label: "Dias na agenda depois do término" };
+  return { min: 1, max: 24, label: "Validade do link em horas" };
+}
 const statuses: Record<string, string> = { DRAFT: "Rascunho", IN_REVIEW: "Em revisão", PUBLISHED: "Publicada" };
 const scopes: Record<string, string> = { CHURCH: "Congregação", PLATFORM: "Plataforma", MINISTRY: "Ministério", MODULE: "Módulo", GROUP: "Grupo", TRACK: "Trilha" };
 const formatDate = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
@@ -39,6 +49,9 @@ const ruleIcons: Record<string, GlyphName> = { auth: "shield", notices: "birthda
 
 function valueLabel(item: Setting, value: unknown, pastors: Pastor[]) {
   if (item.key.startsWith("pastoral.")) return value ? pastors.find(p => p.id === value)?.name ?? "Pastor fora da lista atual" : "Pela ordem de vínculo pastoral";
+  if (item.key === "rosters.survey.open_day") return "Dia " + String(value);
+  if (item.key === "events.agenda.keep_days_after_end") return value === 0 ? "Some ao terminar" : String(value) + " dias";
+  if (item.key === "notices.birthday.timezone" && typeof value === "string") return zoneLabel(value);
   if (item.valueType === "number") return String(value) + (value === 1 ? " hora" : " horas");
   if (typeof value === "boolean") return value ? "Ativo" : "Desativado";
   if (value === "mock") return "Simulação";
@@ -222,7 +235,10 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
           : item.valueType === "boolean" ? <Select label="Bloqueio de escala na mesma semana" value={draftValue}
             onChange={event => setDraftValue(event.target.value)}
             options={[{ value: "true", label: "Ativo: não repetir na mesma semana" }, { value: "false", label: "Desativado: permitir quando as outras regras aceitarem" }]} />
-          : <Input label={item.valueType === "time" ? "Novo horário (Brasília)" : "Validade do link em horas"} required type={item.valueType === "time" ? "time" : "number"} min={item.valueType === "number" ? 1 : undefined} max={item.valueType === "number" ? 24 : undefined} value={draftValue} onChange={e => setDraftValue(e.target.value)} />}
+          : item.key === "notices.birthday.timezone" ? <Select label="Fuso do aviso de aniversário" value={draftValue}
+            onChange={event => setDraftValue(event.target.value)}
+            options={birthdayZones.map(zone => ({ value: zone, label: zoneLabel(zone) }))} />
+          : <Input label={item.valueType === "time" ? "Novo horário (Brasília)" : numberBounds(item.key).label} required type={item.valueType === "time" ? "time" : "number"} min={item.valueType === "number" ? numberBounds(item.key).min : undefined} max={item.valueType === "number" ? numberBounds(item.key).max : undefined} value={draftValue} onChange={e => setDraftValue(e.target.value)} />}
         <Button className={ui.workspacePrimary} type="submit" disabled={busy || draftValue === String((revision ? revision.value : effective.value) ?? "")}>{revision ? "Salvar alterações" : "Salvar rascunho"}</Button>
       </form>}
       {revision && <section className={s.workflow} aria-label="Revisão selecionada">

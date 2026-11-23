@@ -105,4 +105,12 @@ DATA:OFXSGML
     assert.equal(parseOfxLines(valid, true).lines[0]?.externalRef, null);
     assert.equal(parseOfxLines(valid, true).lines[0]?.amountCents, -5220);
   });
+
+  it("neutraliza fórmula e marcação na descrição", () => {
+    const ofx = "<OFX><STMTTRN><DTPOSTED>20261102<TRNAMT>10.00<FITID>1<NAME>=cmd<script></STMTTRN></OFX>";
+    const result = parseOfxLines(ofx);
+    assert.equal(result.ok, true);
+    assert.equal(result.lines[0]?.description.startsWith("'"), true);
+    assert.equal(result.lines[0]?.description.includes("<"), false);
+  });
 });
