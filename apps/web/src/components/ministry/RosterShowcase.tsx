@@ -261,8 +261,9 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
       <div className={s.heroActions}>
         {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
         {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.secondary} />}
-        {access && canGenerateMonth && modules.length > 0 && <button type="button" className={s.lime} disabled={Boolean(publishing)} onClick={() => setTool("draw")}>
-          <UIIcon name="spark" size={17} /> Gerar escala do mês
+        {access && canGenerateMonth && <button type="button" className={s.lime} disabled={Boolean(publishing)}
+          onClick={() => setTool(modules.length ? "draw" : "modules")}>
+          <UIIcon name="spark" size={17} /> {modules.length ? "Gerar escala do mês" : "Configurar e gerar escala"}
         </button>}
         {access && canPublishMonth && <button type="button" className={s.lime} disabled={Boolean(publishing) || !monthDrafts.length}
           title={!monthDrafts.length ? "Este mês não tem rascunhos com vagas para publicar" : undefined}
@@ -271,6 +272,11 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         </button>}
       </div>
     </header>
+    {louvor && !modules.length && canEditModules && <div className={s.empty} role="status">
+      <strong>Primeira escala automática do Louvor</strong>
+      <p>Cadastre a equipe em “Módulos e regras”, aplique o modelo editável de posições para os cultos e associe os integrantes às habilitações. Depois use “Gerar escala do mês” para simular, revisar e salvar o rascunho.</p>
+      <button type="button" className={s.secondary} onClick={() => setTool("modules")}>Configurar a equipe de Louvor</button>
+    </div>}
     <section className={s.monthlyFilters} aria-label="Filtros de escala">
       <div><span id="month-label">Mês</span>
         <div className={s.monthNavigation} role="group" aria-labelledby="month-label">
