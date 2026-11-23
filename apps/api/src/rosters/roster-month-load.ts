@@ -25,6 +25,7 @@ export async function loadMonthState(
   pilot: { organizationId: string; churchId: string },
   ministryId: string,
   month: string,
+  ministrySlug = "",
 ): Promise<MonthState | null> {
   if (!db.ministryRosterModule?.findMany || !db.ministryMembership?.findMany || !db.roster?.findMany || !db.rosterAssignment?.findMany || !db.rosterAvailabilityResponse?.findMany || !db.volunteerAvailability?.findMany || !db.volunteerImpediment?.findMany) {
     return null;
@@ -51,7 +52,8 @@ export async function loadMonthState(
     db.churchServiceOccurrence?.findMany({ where: { ...scope, serviceAt: { gte: from, lt: to } } }) ?? Promise.resolve([]),
   ]);
   const teams = await volunteerIdsByModule(db as never, moduleRows.map(module => String(module.id)));
-  const modules = moduleRows.map(module => toModule(module, teams));
+  const isLouvor = /louvor/i.test(ministrySlug);
+  const modules = moduleRows.map(module => toModule(module, teams, isLouvor));
   const volunteerIds = [...new Set(modules.flatMap(module => module.volunteerIds))];
   const peopleIds = members.map(member => String(member.personId)).filter(id => !volunteerIds.length || volunteerIds.includes(id));
   const [windows, impediments, preferences] = await Promise.all([
@@ -103,14 +105,17 @@ export async function loadMonthState(
     status: item.status === "CANCELLED" ? "CANCELLED" : "SCHEDULED",
     title: item.title ?? undefined,
   }));
-  return { month, churchId: pilot.churchId, ministryId, calendar, modules, people, rosters: monthRosters, history };
+  // Na primeira geração de Louvor ainda não existem escalas para responder à pesquisa.
+  // Respostas existentes são sempre respeitadas, inclusive respostas vazias.
+  return { month, churchId: pilot.churchId, ministryId, calendar, modules, people, rosters: monthRosters, history,
+    monthlySurveyRequired: !isLouvor || responses.some(response => peopleIds.includes(String(response.personId))) };
 }
 
-function toModule(module: Record<string, unknown>, teams: Map<string, string[]> | null): MonthModule {
+function toModule(module: Record<string, unknown>, teams: Map<string, string[]> | null, isLouvor: boolean): MonthModule {
   const rules = rulesWithTeam(module.rules, String(module.id), teams);
   const cults = ["thursday_evening", "sunday_morning", "sunday_evening", "special_event"] as const;
   return {
-    id: String(module.id), name: String(module.name ?? ""), manual: moduleIsManual(String(module.name ?? "")),
+    id: String(module.id), name: String(module.name ?? ""), manual: moduleIsManual(String(module.name ?? "")), louvor: isLouvor,
     minIntervalDays: rules.minIntervalDays, maxMonthlyAssignments: rules.maxMonthlyAssignments,
     positions: Object.fromEntries(cults.map(cult => [cult, positionsForModule(String(module.name ?? ""), cult, module.rules)])),
     volunteerIds: rules.volunteerIds ?? [], couples: rules.couples, qualifications: rules.qualifications,
