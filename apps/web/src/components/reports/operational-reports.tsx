@@ -45,6 +45,7 @@ export type ParticipationReport = {
     registrationId: string;
     eventName: string;
     status: string;
+    paymentStatus?: string | null;
     partySize: number;
     syntheticLabel: string | null;
     labelRedacted: boolean;
@@ -80,6 +81,7 @@ const STATUS_LABEL: Record<string, string> = {
   CLOSED: "Encerrado",
   ATIVO: "Ativo",
   cancelled: "Canceladas",
+  refunded: "Estornadas",
   checkedIn: "Presentes",
   pendingPayment: "Pagamento pendente",
   confirmedAwaitingPresence: "Confirmadas sem presença",
@@ -347,7 +349,7 @@ function ParticipationBody({ data }: { data: ParticipationReport }) {
         {data.rows.map((row) => (
           <article key={row.registrationId}>
             <h3>{row.eventName || "Evento"}</h3>
-            <p>{publicLabel(row)} · {labelOf(row.status)} · {row.partySize} pessoa(s)</p>
+            <p>{publicLabel(row)} · {labelOf(row.status)}{row.paymentStatus === "REFUNDED" ? " · estornado" : ""} · {row.partySize} pessoa(s)</p>
           </article>
         ))}
         {data.rows.length === 0 && <p>Nenhuma inscrição adulta neste filtro.</p>}

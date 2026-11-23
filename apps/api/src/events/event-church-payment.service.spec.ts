@@ -90,6 +90,23 @@ describe("conciliação Pix do evento", () => {
     const db = {
       eventPaymentIntent: { findFirst: jest.fn(async () => ({ ...row, ledgerEntryId: row.ledgerEntryId, status: row.status })) },
       ledgerAccount: { findFirst: jest.fn().mockResolvedValue({ id: "revenue", active: true, type: "REVENUE" }) },
+      eventRegistration: {
+        findUnique: jest.fn(async () => ({
+          id: "reg1",
+          status: row.ledgerEntryId ? "CONFIRMED" : "PENDING_PAYMENT",
+          paymentStatus: row.ledgerEntryId ? "CONFIRMED_PIX" : "PENDING",
+          isMinor: false,
+          guardianAuthStatus: "NOT_REQUIRED",
+          partySize: 1,
+          displayName: "Inscrito",
+          notificationEmail: "inscrito@example.test",
+          checkInCode: "a".repeat(32),
+          participantRoster: null,
+          event: { name: "So para Mocas", ticketPolicy: "REGISTRATION" },
+          tickets: [],
+        })),
+      },
+      eventParticipantTicket: { createMany: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     };
     const mail = { deliverOnce: jest.fn().mockResolvedValue({ status: "SENT", idempotentReplay: false }) };

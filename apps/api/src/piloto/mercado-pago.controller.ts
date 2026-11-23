@@ -16,7 +16,10 @@ export class MercadoPagoController {
     return this.payments.checkout(actor, registrationId);
   }
 
-  /** Contrato oficial: x-signature (ts,v1), x-request-id e query data.id. */
+  /**
+   * Contrato oficial: x-signature (ts,v1), x-request-id e query data.id.
+   * O corpo e a URL de retorno não confirmam pagamento.
+   */
   @Public()
   @Post("webhooks/mercado-pago")
   webhook(

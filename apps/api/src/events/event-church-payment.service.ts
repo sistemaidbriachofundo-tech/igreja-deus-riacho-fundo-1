@@ -4,7 +4,7 @@ import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import { randomBytes } from "node:crypto";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
-import { queueEventCheckInNotice } from "../mail/check-in-notice";
+import { issueConfirmedParticipantTickets } from "./issue-participant-tickets";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -85,7 +85,7 @@ export class EventChurchPaymentService {
       throw new BusinessException("O crédito no extrato tem valor diferente da inscrição.", "BANK_CREDIT_AMOUNT_MISMATCH", 409);
     }
     if (intent.ledgerEntryId && intent.status === "CONFIRMED_PIX") {
-      const notice = await this.notify(intent);
+      const notice = await this.releaseTickets(intent.registrationId);
       return {
         idempotentReplay: true,
         paymentIntentId: intent.id,
@@ -211,7 +211,7 @@ export class EventChurchPaymentService {
       }
       throw error;
     });
-    const notice = await this.notify(intent);
+    const notice = await this.releaseTickets(intent.registrationId);
     return {
       idempotentReplay: recorded.replay,
       paymentIntentId: intent.id,
@@ -232,19 +232,9 @@ export class EventChurchPaymentService {
     return { txid, copiaECola: buildPixCopiaECola({ ...input, txid }) };
   }
 
-  private async notify(intent: {
-    registrationId: string;
-    registration: { notificationEmail?: string | null; checkInCode: string; status: string; tickets?: { position: number; code: string }[] };
-    event: { name: string };
-  }) {
-    if (!intent.registration.notificationEmail) return { queued: false as const };
-    return queueEventCheckInNotice(this.mail, {
-      registrationId: intent.registrationId,
-      to: intent.registration.notificationEmail,
-      eventName: intent.event.name,
-      checkInCode: intent.registration.checkInCode,
-      tickets: intent.registration.tickets,
-    });
+  private async releaseTickets(registrationId: string) {
+    const issued = await issueConfirmedParticipantTickets(this.prisma as never, this.mail, registrationId);
+    return { queued: issued.emailed > 0, held: issued.held, issued: issued.issued };
   }
 
   private async treasuryScope(actor: AuthUser) {
