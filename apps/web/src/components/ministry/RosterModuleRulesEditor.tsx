@@ -17,6 +17,17 @@ const louvorQualifications: Record<string, string> = {
   back_vocal_contralto: "Back vocal · Contralto", back_vocal_mezzo_soprano: "Back vocal · Mezzo-soprano", back_vocal_soprano: "Back vocal · Soprano",
 };
 
+/** Modelo inicial: é gravado só após o usuário revisar e salvar as regras. */
+export const LOUVOR_STARTER_POSITIONS: ModulePosition[] = [
+  { label: "Ministro de louvor", count: 1, couple: false, qualification: "ministro" },
+  { label: "Bateria", count: 1, couple: false, qualification: "bateria" },
+  { label: "Baixo", count: 1, couple: false, qualification: "baixo" },
+  { label: "Teclado", count: 1, couple: false, qualification: "teclado" },
+  { label: "Violão", count: 1, couple: false, qualification: "violao" },
+  { label: "Back vocal", count: 2, couple: false, qualification: "back_vocal" },
+];
+const LOUVOR_CULTOS: RosterServiceType[] = ["thursday_evening", "sunday_morning", "sunday_evening"];
+
 export function RosterModuleRulesEditor({ module, actions, louvor }: {
   module: EscalaModule;
   actions: RosterActionsProps;
@@ -114,6 +125,24 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
         <label>Convites por rodada<input type="number" min={0} max={5} value={rules.substituteInviteLimit} onChange={event => setRules({ ...rules, substituteInviteLimit: Number(event.target.value) })} /></label>
         {rules.substituteInviteLimit > 0 && <label>Prazo para aceitar (horas)<input type="number" min={1} max={72} value={rules.substituteInviteHours ?? 12} onChange={event => setRules({ ...rules, substituteInviteHours: Number(event.target.value) })} /></label>}
       </div>
+      {louvor && <div className={s.form}>
+        <button className={ui.workspaceSecondary} type="button" disabled={busy ||
+          LOUVOR_CULTOS.every(cult => (rules.positions[cult] ?? []).length > 0)}
+          onClick={() => {
+            setRules(current => ({
+              ...current,
+              positions: Object.fromEntries([
+                ...Object.entries(current.positions),
+                ...LOUVOR_CULTOS.filter(cult => !(current.positions[cult] ?? []).length)
+                  .map(cult => [cult, LOUVOR_STARTER_POSITIONS.map(position => ({ ...position }))]),
+              ]) as EscalaModuleRules["positions"],
+            }));
+            setNotice("Modelo sugerido aplicado somente aos cultos sem posições. Revise as vagas, as habilitações e clique em Salvar regras.");
+          }}>
+          Aplicar modelo editável do Louvor
+        </button>
+        <p>Cria posições sugeridas para quinta e domingos, sem substituir regras já salvas. A escala só será gerada depois de associar integrantes habilitados e revisar a simulação mensal.</p>
+      </div>}
       {rows.map((row, index) => <div className={s.form} key={index}>
         <label>Posição<input required maxLength={100} value={row.label} onChange={event => editRow(index, { label: event.target.value })} /></label>
         {Object.entries(ROSTER_LOCATION_LABELS).map(([field, label]) => <label key={field}>{label}<input maxLength={100} value={row[field as keyof RosterLocation] ?? ""} onChange={event => editRow(index, { [field]: event.target.value })} /></label>)}
