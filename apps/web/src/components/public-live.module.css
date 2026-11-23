@@ -104,7 +104,29 @@
   letter-spacing: -.035em;
 }
 .visitSchedule { display: grid; gap: clamp(12px, 2vw, 22px); }
-.visitSchedule h3, .upcomingEvents { min-width: 0; }
+.visitSchedule h3, .upcomingEvents h3 {
+  margin: 0;
+  font: 600 clamp(19px, 2.1vw, 28px)/1.2 var(--portal-display);
+  letter-spacing: -.025em;
+}
+.serviceGroups { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: clamp(9px, 1.6vw, 18px); }
+.familyService, .sundayServices {
+  min-width: 0;
+  padding: clamp(13px, 2.2vw, 24px);
+  border: 1px solid #4a4a46;
+  border-radius: 13px;
+  background: #1b1e1c;
+}
+.familyService { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; border-color: #a15a39; background: linear-gradient(105deg, #31241d, #211f1b); }
+.serviceGroups h4 { margin: 0; font: 750 clamp(16px, 2vw, 24px)/1.15 var(--portal-display); }
+.familyService h4 { margin-top: 5px; }
+.serviceGroups span { color: #f3d6c5; font-size: .86rem; }
+.serviceGroups time { font: 700 clamp(24px, 3.3vw, 41px)/1 var(--portal-display); font-variant-numeric: tabular-nums; }
+.familyService time { color: #ffac7d; }
+.sundayServices ul { display: flex; flex-wrap: wrap; gap: 10px clamp(18px, 3vw, 40px); margin: 9px 0 0; padding: 0; list-style: none; }
+.sundayServices li { display: flex; align-items: baseline; gap: 7px; }
+.sundayServices time { font-size: clamp(21px, 2.6vw, 32px); }
+.upcomingEvents { min-width: 0; }
 .upcomingEvents h3 {
   margin: 0;
   font: 700 clamp(25px, 3vw, 38px)/1.08 var(--portal-display);
