@@ -54,6 +54,7 @@ function database() {
     volunteerAvailability: { findMany: async () => ["ana", "bruno", "carla"].map(personId => ({ personId, weekday: 0, startMinute: 780, endMinute: 1440 })) },
     volunteerImpediment: { findMany: async () => [] },
     rosterNotice: { create: async () => { writes.push("notice"); } },
+    $executeRaw: async () => 1,
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
   };
   return { db, writes, published };
