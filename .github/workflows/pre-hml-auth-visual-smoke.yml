@@ -43,11 +43,11 @@ jobs:
           export STUB_PASSWORD="$(openssl rand -hex 32)"
           node apps/web/scripts/synthetic-auth-stub.mjs >/tmp/rf1-synthetic-auth.log 2>&1 &
           API_PID=$!
-          python3 -m http.server 8765 --bind 127.0.0.1 --directory apps/web/out >/tmp/rf1-static-http.log 2>&1 &
+          npm run dev -w @idbrf/web >/tmp/rf1-next-dev.log 2>&1 &
           WEB_PID=$!
           trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8765/login/ >/dev/null && test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:4010/auth/me)" = "401"; then break; fi
+          for attempt in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:3000/login/ >/dev/null && test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:4010/auth/me)" = "401"; then break; fi
             sleep 1
           done
           test -n "$(command -v google-chrome || true)"
