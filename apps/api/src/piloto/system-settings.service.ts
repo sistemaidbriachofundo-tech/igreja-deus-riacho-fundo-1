@@ -12,6 +12,7 @@ const EDITABLE_SETTINGS = new Set([
   "pastoral.titular_user_id",
   "pastoral.substitute_user_id",
   "auth.password_reset.ttl_hours",
+  "rosters.louvor.week_block",
 ]);
 /** Regras cujo código recusa um valor mais permissivo. Não aparecem como edição ativa. */
 const LOCKED_SETTINGS = new Set([
@@ -85,6 +86,27 @@ export class SystemSettingsService {
     return this.lookup(pilot, key, scopeKind, scopeId, at);
   }
 
+  /** Regra efetiva da equipe de Louvor. Não afeta outros ministérios. */
+  async getLouvorWeekBlock(pilot: { organizationId: string; churchId: string }, ministryId: string, at = new Date()) {
+    const row = await this.prisma.ministry.findFirst({
+      where: { id: ministryId, organizationId: pilot.organizationId, churchId: pilot.churchId, slug: { startsWith: "louvor" } },
+      select: { id: true },
+    });
+    if (!row) return true;
+    const result = await this.lookup(pilot, "rosters.louvor.week_block", "MINISTRY", ministryId, at);
+    return typeof result.value === "boolean" ? result.value : true;
+  }
+
+  private async validateLouvorScope(pilot: { organizationId: string; churchId: string }, key: string, scopeId?: string | null) {
+    if (key !== "rosters.louvor.week_block") return;
+    if (!scopeId) throw new BadRequestException("Selecione um ministério de Louvor.");
+    const ministry = await this.prisma.ministry.findFirst({
+      where: { id: scopeId, organizationId: pilot.organizationId, churchId: pilot.churchId, slug: { startsWith: "louvor" } },
+      select: { id: true },
+    });
+    if (!ministry) throw new BadRequestException("A regra pode ser alterada apenas para um ministério de Louvor desta congregação.");
+  }
+
   async getBirthdayHour(pilot: { organizationId: string; churchId: string }, now: Date) {
     const result = await this.lookup(pilot, "notices.birthday.hour_brasilia", "CHURCH", undefined, now);
     return typeof result.value === "string" ? result.value : "08:00";
@@ -136,6 +158,7 @@ export class SystemSettingsService {
     if (kind !== catalog.scopeKind || ((kind === "CHURCH" || kind === "PLATFORM") && input.scopeId)) {
       throw new BadRequestException("O escopo deve corresponder ao da regra.");
     }
+    await this.validateLouvorScope(pilot, input.key, input.scopeId);
     const created = await this.prisma.systemSettingRevision.create({
       data: {
         catalogKey: catalog.key, organizationId: pilot.organizationId, churchId: pilot.churchId,
@@ -167,6 +190,7 @@ export class SystemSettingsService {
     this.expectFresh(current.updatedAt, expectedUpdatedAt);
     if (current.lifecycle !== "DRAFT") throw new ConflictException("Somente rascunhos podem ser editados.");
     await this.validateEdit(pilot, await this.catalogRow(current.catalogKey), value);
+    await this.validateLouvorScope(pilot, current.catalogKey, current.scopeId);
     const updated = await this.prisma.$transaction(async tx => {
       const result = await tx.systemSettingRevision.updateMany({
         where: { id: current.id, organizationId: pilot.organizationId, churchId: pilot.churchId, lifecycle: "DRAFT", updatedAt: current.updatedAt },
@@ -202,6 +226,7 @@ export class SystemSettingsService {
     const current = await this.revision(pilot, revisionId);
     this.expectFresh(current.updatedAt, input.expectedUpdatedAt);
     if (current.lifecycle !== "IN_REVIEW") throw new ConflictException("A publicação sai da revisão.");
+    await this.validateLouvorScope(pilot, current.catalogKey, current.scopeId);
     const now = new Date();
     const from = input.effectiveFrom === "now" ? now : this.instant(input.effectiveFrom, "effectiveFrom");
     const until = input.effectiveUntil ? this.instant(input.effectiveUntil, "effectiveUntil") : null;
