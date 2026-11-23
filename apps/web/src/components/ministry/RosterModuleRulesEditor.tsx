@@ -73,10 +73,12 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
     <h4>Regras de {module.name}</h4>
     <form className={s.ruleForm} onSubmit={save}>
       {actions.managedModuleMemberships ? <p>
-        <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Editar vínculos em Integrantes</a>
+        {actions.hideMembershipLinks ? "Vínculos de integrantes são administrados pela liderança autorizada do ministério." :
+          <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Editar vínculos em Integrantes</a>}
       </p> : <fieldset className={s.moduleTeam}>
         <legend>Voluntários do módulo</legend>
-        <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Gerenciar integrantes do ministério</a>
+        {actions.hideMembershipLinks ? <p>Gerencie a composição da equipe na área de Integrantes.</p> :
+          <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Gerenciar integrantes do ministério</a>}
         {!actions.requireModuleMembership && <label>Quem pode servir
           <select value={team ? "team" : "ministry"} onChange={event => setRules(previous => ({
             ...previous,
