@@ -94,3 +94,38 @@
 .coverPanel footer { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
 .coverPrimary { min-height: 42px; color: #183525; background: #d7fa75; border: 1px solid #b6d665; border-radius: 8px; padding: 7px 10px; font: inherit; font-weight: 730; cursor: pointer; }
 .coverPrimary:disabled { opacity: .62; cursor: default; }
+
+/* Editor de regras progressivo (somente ao abrir no modal administrativo). */
+.ruleSection[data-compact="true"] { border: 0; padding: 0; gap: 0; min-width: 0; }
+.ruleSection[data-compact="true"] .ruleForm { display: grid; gap: 12px; align-items: start; justify-items: stretch; min-width: 0; }
+.ruleTabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--app-border,#dfe3e7); }
+.ruleTabs button {
+  border: 1px solid var(--app-border,#dfe3e7); border-radius: 9px;
+  background: #f7f8f9; color: #3f464e; padding: 9px 12px; min-height: 44px;
+  cursor: pointer; font: 700 .83rem var(--site-font);
+}
+.ruleTabs button[aria-selected="true"] { background: #171717; color: #fff; border-color: #171717; }
+.ruleTabs button:focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
+.rulePane { display: grid; gap: 14px; width: 100%; min-width: 0; }
+.rulePane > p { margin: 0; color: var(--app-muted,#535353); font: 400 .86rem/1.5 var(--site-font); }
+.rulePane > h3 { font-size: 1rem; margin: 0; }
+.rulePane .form { gap: 10px; }
+.rulePane .form label { flex-basis: 190px; color: #31363c; }
+.rulePane .form button { min-height: 44px; }
+.ruleField { display: grid; gap: 7px; font: 650 .85rem var(--site-font); color: #30363d; }
+.ruleField select { width: 100%; min-height: 44px; min-width: 0; background: #fff; color: #171717; padding: 10px; border-radius: 10px; border: 1px solid #bdc4cc; font: 500 .88rem var(--site-font); }
+.ruleField select[multiple] { min-height: 145px; }
+.ruleSaveBar {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  gap: 10px; border-top: 1px solid var(--app-border,#dfe3e7); padding-top: 13px;
+}
+.ruleSaveBar span { color: var(--app-muted,#535353); font-size: .78rem; }
+.ruleSaveBar button { min-height: 44px; margin-left: auto; }
+.ruleSaveDefault { display: flex; gap: 10px; }
+.ruleNotice { margin: 0; padding: 11px 13px; background: #f2f4f5; color: #202326; border-radius: 9px; font-size: .84rem; }
+@media(max-width:600px) {
+  .ruleTabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+  .ruleTabs button { padding-inline: 7px; }
+  .ruleSaveBar { align-items: stretch; flex-direction: column; }
+  .ruleSaveBar button { margin: 0; width: 100%; }
+}

@@ -28,16 +28,21 @@ export const LOUVOR_STARTER_POSITIONS: ModulePosition[] = [
 ];
 const LOUVOR_CULTOS: RosterServiceType[] = ["thursday_evening", "sunday_morning", "sunday_evening"];
 
-export function RosterModuleRulesEditor({ module, actions, louvor }: {
+type RuleTab = "gerais" | "vagas" | "habilitacoes" | "casais" | "equipe";
+
+export function RosterModuleRulesEditor({ module, actions, louvor, compact = false }: {
   module: EscalaModule;
   actions: RosterActionsProps;
   louvor?: boolean;
+  compact?: boolean;
 }) {
   const [rules, setRules] = useState<EscalaModuleRules>(() => ({
     positions: {}, qualifications: {}, couples: [], minIntervalDays: 10, maxMonthlyAssignments: 3, substituteInviteLimit: 0, ...module.rules,
     ...(actions.requireModuleMembership ? { volunteerIds: module.rules?.volunteerIds ?? [] } : {}),
   }));
   const [type, setType] = useState<RosterServiceType>("sunday_morning");
+  const [section, setSection] = useState<RuleTab>("gerais");
+  const [selectedQualification, setSelectedQualification] = useState(louvor ? "ministro" : "diaconia");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [newVolunteer, setNewVolunteer] = useState("");
@@ -61,6 +66,11 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
     setBusy(true);
     setNotice("");
     try {
+      if (Object.values(rules.positions).flat().some(row => !row.label.trim())) {
+        setSection("vagas");
+        setNotice("Preencha o nome de todas as posições antes de salvar.");
+        return;
+      }
       const { volunteerIds, ...otherRules } = rules;
       const payload = actions.managedModuleMemberships ? otherRules : { ...otherRules, volunteerIds };
       const saved = await apiPatch<{ rules: EscalaModuleRules }>(`/ministries/${encodeURIComponent(actions.ministryId)}/roster-modules/${encodeURIComponent(module.id)}/rules`, actions.token, payload);
@@ -69,9 +79,19 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
     } catch (error) { setNotice(dasError(error)); }
     finally { setBusy(false); }
   }
-  return <section className={s.ruleSection} aria-label={"Regras de " + module.name}>
-    <h4>Regras de {module.name}</h4>
+  const tabs: { id: RuleTab; name: string }[] = [
+    { id: "gerais", name: "Regras gerais" }, { id: "vagas", name: "Vagas por culto" },
+    { id: "habilitacoes", name: "Habilitações" }, { id: "casais", name: "Casais" },
+    ...(!actions.managedModuleMemberships ? [{ id: "equipe" as const, name: "Equipe" }] : []),
+  ];
+  return <section className={s.ruleSection} data-compact={compact ? "true" : "false"} aria-label={"Regras de " + module.name}>
+    {!compact && <h4>Regras de {module.name}</h4>}
+    {compact && <nav className={s.ruleTabs} role="tablist" aria-label="Assuntos de configuração">
+      {tabs.map(tab => <button type="button" role="tab" key={tab.id} aria-selected={section === tab.id}
+        onClick={() => { setSection(tab.id); setNotice(""); }}>{tab.name}</button>)}
+    </nav>}
     <form className={s.ruleForm} onSubmit={save}>
+      {(!compact || section === "equipe") && <>
       {actions.managedModuleMemberships ? <p>
         {actions.hideMembershipLinks ? "Vínculos de integrantes são administrados pela liderança autorizada do ministério." :
           <a href={withBasePath(ministryHref(actions.ministryId, "integrantes"))}>Editar vínculos em Integrantes</a>}
@@ -118,15 +138,23 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
           })}</ul> : <p>A equipe do módulo está vazia. Adicione pelo menos um voluntário para preencher vagas.</p>}
         </>}
       </fieldset>}
-      <div className={s.form}>
-        <label>Tipo de culto<select value={type} onChange={event => setType(event.target.value as RosterServiceType)}>
-          {Object.entries(ROSTER_SERVICE_TYPES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select></label>
+      </>}
+      {(!compact || section === "gerais") && <div className={s.rulePane}>
+        {compact && <p>Defina a frequência de participação e o fluxo de convites para todas as escalas deste módulo.</p>}
+        <div className={s.form}>
         <label>Intervalo mínimo em dias<input type="number" min={0} max={60} value={rules.minIntervalDays} onChange={event => setRules({ ...rules, minIntervalDays: Number(event.target.value) })} /></label>
         <label>Máximo de escalas por mês<input type="number" min={1} max={31} value={rules.maxMonthlyAssignments} onChange={event => setRules({ ...rules, maxMonthlyAssignments: Number(event.target.value) })} /></label>
         <label>Convites por rodada<input type="number" min={0} max={5} value={rules.substituteInviteLimit} onChange={event => setRules({ ...rules, substituteInviteLimit: Number(event.target.value) })} /></label>
         {rules.substituteInviteLimit > 0 && <label>Prazo para aceitar (horas)<input type="number" min={1} max={72} value={rules.substituteInviteHours ?? 12} onChange={event => setRules({ ...rules, substituteInviteHours: Number(event.target.value) })} /></label>}
-      </div>
+        </div>
+      </div>}
+      {(!compact || section === "vagas") && <div className={s.rulePane}>
+        {compact && <p>Escolha um culto e configure as vagas. Posições de outros cultos continuam salvas ao trocar a seleção.</p>}
+        <div className={s.form}>
+        <label>Tipo de culto<select value={type} onChange={event => setType(event.target.value as RosterServiceType)}>
+          {Object.entries(ROSTER_SERVICE_TYPES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select></label>
+        </div>
       {louvor && <div className={s.form}>
         <button className={ui.workspaceSecondary} type="button" disabled={busy ||
           LOUVOR_CULTOS.every(cult => (rules.positions[cult] ?? []).length > 0)}
@@ -159,11 +187,35 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
         <button className={ui.workspaceSecondary} type="button" onClick={() => setRows(rows.filter((_, i) => i !== index))}>Remover posição</button>
       </div>)}
       <button className={ui.workspaceSecondary} type="button" onClick={() => setRows([...rows, { label: "", count: 1, couple: false }])}>Adicionar regra de vaga</button>
+      </div>}
+      {(!compact || section === "habilitacoes") && <div className={s.rulePane}>
+        {compact ? <>
+          <p>Selecione uma função e marque os integrantes habilitados. Para selecionar vários, use Ctrl ou ⌘.</p>
+          <label className={s.ruleField}>Habilitação
+            <select value={selectedQualification} onChange={event => setSelectedQualification(event.target.value)}>
+              {tags.map(tag => <option value={tag} key={tag}>{tagNames[tag] ?? tag}</option>)}
+            </select>
+          </label>
+          <label className={s.ruleField}>Integrantes habilitados
+            <select multiple size={Math.min(8, Math.max(4, teamMembers.length))}
+              value={rules.qualifications[selectedQualification] ?? []}
+              onChange={event => setRules({ ...rules, qualifications: {
+                ...rules.qualifications,
+                [selectedQualification]: Array.from(event.target.selectedOptions, option => option.value),
+              } })}>
+              {teamMembers.map(person => <option value={person.personId} key={person.personId}>{person.displayName}</option>)}
+            </select>
+          </label>
+        </> : <>
       {tags.map(tag => <div className={s.form} key={tag}><label>{tag === "diaconia" ? "Diáconos e diaconisas habilitados" : tagNames[tag] ?? tag}
         <select multiple value={rules.qualifications[tag] ?? []} onChange={event => setRules({ ...rules, qualifications: {
           ...rules.qualifications, [tag]: Array.from(event.target.selectedOptions, option => option.value),
         } })}>{teamMembers.map(person => <option value={person.personId} key={person.personId}>{person.displayName}</option>)}</select>
       </label></div>)}
+        </>}
+      </div>}
+      {(!compact || section === "casais") && <div className={s.rulePane}>
+        {compact && <p>Cadastre casais apenas quando uma posição exigir duas pessoas juntas.</p>}
       <h3>Casais para vagas de casal</h3>
       {rules.couples.map((pair, index) => <div className={s.form} key={index}>
         {pair.map((id, side) => <label key={side}>Pessoa {side + 1} do casal<select required value={id} onChange={event => {
@@ -173,8 +225,12 @@ export function RosterModuleRulesEditor({ module, actions, louvor }: {
         <button type="button" className={ui.workspaceSecondary} onClick={() => setRules({ ...rules, couples: rules.couples.filter((_, i) => i !== index) })}>Remover casal</button>
       </div>)}
       <button className={ui.workspaceSecondary} type="button" onClick={() => setRules({ ...rules, couples: [...rules.couples, ["", ""]] })}>Cadastrar casal</button>
-      <button className={ui.workspacePrimary} disabled={busy} type="submit">Salvar regras</button>
-      {notice && <p role="status">{notice}</p>}
+      </div>}
+      <div className={compact ? s.ruleSaveBar : s.ruleSaveDefault}>
+        <span>{compact ? "Alterações só entram em vigor após salvar." : ""}</span>
+        <button className={ui.workspacePrimary} disabled={busy} type="submit">{busy ? "Salvando…" : "Salvar regras"}</button>
+      </div>
+      {notice && <p role="status" className={s.ruleNotice}>{notice}</p>}
     </form>
   </section>;
 }

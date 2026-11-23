@@ -31,7 +31,9 @@ describe("regressão da experiência visual e permissões", () => {
     expect(rules).toContain("<OperationalMinistryRules />");
     expect(rules).not.toContain('href={withBasePath("/app/servir/atmosfera/?config=regras")}');
     expect(central).toContain('roster.permissions?.scope !== "ministry"');
-    expect(central).toContain("scopeAllowed && modules");
+    expect(central).toContain("canEdit && modules");
+    expect(central).toContain("usePersonaAccess");
+    expect(central).toContain("const canEdit = allowed && scopeAllowed");
     expect(central).toContain("hideMembershipLinks: true");
     expect(apiController).toContain('@Patch(":ministryId/roster-modules/:moduleId/rules")');
     expect(apiService).toContain("this.assertManageMinistry(actor, ministry)");
