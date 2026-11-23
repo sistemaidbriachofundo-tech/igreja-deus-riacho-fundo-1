@@ -50,8 +50,21 @@ try {
     const page = await context.newPage();
     await page.goto(root + "/app/", { waitUntil: "domcontentloaded" });
     const nav = page.getByRole("navigation", { name: "Módulos" });
-    await nav.waitFor({ state: "attached", timeout: 15000 });
-    await page.waitForTimeout(1400);
+    try {
+      await nav.waitFor({ state: "attached", timeout: 12000 });
+    } catch (error) {
+      await page.screenshot({ path: output + "/debug-auth-" + width + ".png", fullPage: false });
+      const snapshot = await page.evaluate(() => ({
+        pathname: window.location.pathname,
+        title: document.title,
+        body: (document.body?.innerText ?? "").slice(0, 1600),
+        main: Boolean(document.querySelector("main")),
+        sessionPresent: Boolean(window.sessionStorage.getItem("idbrf_demo_token")),
+      }));
+      console.error("BLOCKED: shell sintético não renderizou", width, JSON.stringify(snapshot));
+      throw error;
+    }
+    await page.waitForTimeout(1100);
     const shell = await page.evaluate(() => ({
       width: window.innerWidth,
       scroll: document.documentElement.scrollWidth,
