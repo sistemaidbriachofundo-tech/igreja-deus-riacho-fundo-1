@@ -40,7 +40,7 @@ describe("design system RF1 aprovado — base neutra + status funcional", () => 
     expect(businessRules).toContain("var(--app-ink");
     expect(monthlyRoster).toContain("var(--app-border");
     expect(businessRules).toMatch(/\.desk :is\(a, button, select, input\):focus-visible/);
-    expect(monthlyRoster).toMatch(/@media \(max-width: 390px\)/);
+    expect(monthlyRoster).toMatch(/@media\s*\(max-width:\s*480px\)/);
     expect(businessRules).not.toMatch(/#203c30|#255742|#dce4dd/i);
     expect(monthlyRoster).not.toMatch(/#18382c|#21523c|#cfdfd0/i);
   });
