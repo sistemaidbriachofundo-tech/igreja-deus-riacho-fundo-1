@@ -85,7 +85,7 @@
   border-color: color-mix(in srgb, var(--color-dourado, #b3b3b3) 70%, var(--color-marrom, #2f2f2f));
 }
 .actions a > svg { flex: none; color: var(--app-accent); }
-.actions a:hover { background: var(--app-success-bg); }
+.actions a:hover { background: var(--app-subtle, #f0f2f4); }
 
 .metrics {
   display: grid;

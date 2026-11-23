@@ -1,9 +1,9 @@
 .editor { display: grid; justify-items: start; gap: 12px; min-width: 0; width: 100%; }
 .editor > button { display: inline-flex; align-items: center; gap: 8px; }
 .moduleCatalog { display: grid; gap: 1rem; padding: clamp(.35rem, 1.5vw, 1rem); min-width: 0; }
-.moduleCatalog h3, .ruleSection h4 { margin: 0; color: var(--app-ink, #22382e); }
-.ruleSection { display: grid; gap: .85rem; min-width: 0; padding-top: 1rem; border-top: 1px solid var(--app-border, #dce6de); }
-.moduleCatalog :is(select, input:not([type="checkbox"])) { border-color: var(--app-border, #dce6de); border-radius: 12px; min-height: 44px; }
+.moduleCatalog h3, .ruleSection h4 { margin: 0; color: var(--app-ink, #171717); }
+.ruleSection { display: grid; gap: .85rem; min-width: 0; padding-top: 1rem; border-top: 1px solid var(--app-border, #dfe3e7); }
+.moduleCatalog :is(select, input:not([type="checkbox"])) { border-color: var(--app-border, #dfe3e7); border-radius: 12px; min-height: 44px; }
 .form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; width: 100%; }
 .form label { display: grid; gap: 5px; min-width: 0; flex: 1 1 165px; font-size: 13px; font-weight: 650; }
 .form :is(input, select) { min-width: 0; width: 100%; padding: 9px 10px; min-height: 44px; border: 1px solid #c6c6c6; border-radius: 8px; color: #282828; background: white; }
@@ -20,7 +20,7 @@
 .positionHeading h4 { margin: 0; font-size: 15px; }
 .positionHeading span, .vacancy { color: #5e5e5e; font-size: 13px; }
 .vacancy { margin: 6px 0; }
-.position summary, .previewTools summary { cursor: pointer; min-height: 36px; padding-block: 8px; color: #4d4d4d; font-size: 13px; font-weight: 650; }
+.position summary, .previewTools summary { cursor: pointer; min-height: 44px; padding-block: 8px; color: #4d4d4d; font-size: 13px; font-weight: 650; }
 .previewTools { width: 100%; padding: 6px 13px; border: 1px solid #cfe4da; border-radius: 12px; background: #f3f9f6; }
 .previewTools > summary { color: var(--app-accent); min-height: 44px; }
 .position .form { margin-top: 8px; }

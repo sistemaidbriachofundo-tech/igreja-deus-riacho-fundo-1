@@ -327,10 +327,11 @@
   color: #636363;
   font-size: 10px;
 }
+.calendar { overflow-x: auto; }
 .calendar button {
   position: relative;
   padding: 5px 0;
-  min-height: 35px;
+  min-height: 44px;
   min-width: 0;
   border: 1px solid transparent;
   border-radius: 8px;

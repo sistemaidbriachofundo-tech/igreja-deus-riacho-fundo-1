@@ -3,7 +3,7 @@
   gap: clamp(14px, 2vw, 24px);
   padding-bottom: 28px;
   min-width: 0;
-  color: var(--app-ink, #22382e);
+  color: var(--app-ink, #171717);
 }
 
 .reportLinks, .actions, .exports {
@@ -18,7 +18,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   padding: 0 0 10px;
-  border-bottom: 1px solid var(--app-border, #dce6de);
+  border-bottom: 1px solid var(--app-border, #dfe3e7);
 }
 
 .sectionLinks a {
@@ -29,7 +29,7 @@
   min-height: 48px;
   padding: 6px 10px 6px 6px;
   border-radius: 999px;
-  color: var(--app-ink, #22382e);
+  color: var(--app-ink, #171717);
   font-size: .875rem;
   font-weight: 650;
   text-decoration: none;
@@ -37,24 +37,24 @@
 }
 
 .panel[hidden] { display: none; }
-.sectionLinks a[aria-current="page"] { background: var(--app-accent, #255742); color: white; }
+.sectionLinks a[aria-current="page"] { background: var(--app-accent, #171717); color: white; }
 .sectionLinks a[aria-current="page"] > svg { color: inherit; }
 .sectionLinks a:not([aria-current]):hover { background: #e6efe7; }
-.sectionLinks a > svg { margin-inline-start: auto; flex: none; color: var(--app-muted, #51675b); }
+.sectionLinks a > svg { margin-inline-start: auto; flex: none; color: var(--app-muted, #59616b); }
 .sectionIcon, .panelIcon {
   display: inline-grid;
   flex: none;
   place-items: center;
   border-radius: 50%;
   background: #e7f0e8;
-  color: var(--app-accent, #255742);
+  color: var(--app-accent, #171717);
 }
 .sectionIcon { width: 34px; height: 34px; }
 
 .filters, .panel {
   min-width: 0;
   padding: clamp(14px, 2vw, 25px);
-  border: 1px solid var(--app-border, #dce6de);
+  border: 1px solid var(--app-border, #dfe3e7);
   border-radius: 18px;
   background: var(--app-surface, #fff);
 }
@@ -77,7 +77,7 @@
 }
 .period legend {
   margin-bottom: 5px;
-  color: var(--app-muted, #51675b);
+  color: var(--app-muted, #59616b);
   font-size: .78rem;
   font-weight: 650;
 }
@@ -87,7 +87,7 @@
   display: grid;
   gap: 6px;
   min-width: 0;
-  color: var(--app-ink, #22382e);
+  color: var(--app-ink, #171717);
   font-size: .78rem;
   font-weight: 650;
 }
@@ -99,8 +99,8 @@
   padding: 8px 12px;
   border: 1px solid #b7cbbd;
   border-radius: 11px;
-  background: var(--app-subtle, #f5f8f5);
-  color: var(--app-ink, #22382e);
+  background: var(--app-subtle, #f0f2f4);
+  color: var(--app-ink, #171717);
   font: 500 .875rem/1.25 var(--site-font);
 }
 
@@ -121,7 +121,7 @@
 .panelHeader, .header { justify-content: space-between; }
 .panelHeader {
   padding-bottom: 15px;
-  border-bottom: 1px solid var(--app-border, #dce6de);
+  border-bottom: 1px solid var(--app-border, #dfe3e7);
 }
 
 .panelIcon { width: 42px; height: 42px; }
@@ -131,7 +131,7 @@
   flex-wrap: nowrap;
   gap: 2px;
   padding: 2px 4px;
-  border: 1px solid var(--app-border, #dce6de);
+  border: 1px solid var(--app-border, #dfe3e7);
   border-radius: 999px;
 }
 .exports button { padding-inline: 12px; }
@@ -157,7 +157,7 @@
 
 .panel h2, .header h1 {
   margin: 0;
-  color: var(--app-ink, #22382e);
+  color: var(--app-ink, #171717);
   font-family: var(--font-title, var(--site-font));
   letter-spacing: -.03em;
 }
@@ -168,8 +168,8 @@
   margin: 0;
   padding: 11px 14px;
   border-radius: 12px;
-  background: var(--app-subtle, #f5f8f5);
-  color: var(--app-muted, #51675b);
+  background: var(--app-subtle, #f0f2f4);
+  color: var(--app-muted, #59616b);
   font-size: .86rem;
   line-height: 1.55;
 }
@@ -180,13 +180,13 @@
 .lines li { display: flex; justify-content: space-between; gap: 12px; }
 .lines li, .table article {
   padding: 10px 0;
-  border-bottom: 1px solid var(--app-border, #dce6de);
+  border-bottom: 1px solid var(--app-border, #dfe3e7);
   overflow-wrap: anywhere;
   font-size: .875rem;
 }
 
 .chart { display: grid; gap: 10px; }
-.chart p, .table p, .header p { margin: 0; color: var(--app-muted, #51675b); line-height: 1.5; }
+.chart p, .table p, .header p { margin: 0; color: var(--app-muted, #59616b); line-height: 1.5; }
 .chart p, .table p { font-size: .85rem; }
 .chart ul { display: grid; gap: 10px; }
 .chart li {
@@ -201,7 +201,7 @@
 .track { height: 8px; border-radius: 999px; background: #eaf0eb; overflow: hidden; }
 .track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2d6850, #56866d); }
 
-.table h3 { margin: 0 0 4px; color: var(--app-ink, #22382e); font-size: .95rem; }
+.table h3 { margin: 0 0 4px; color: var(--app-ink, #171717); font-size: .95rem; }
 .table article:last-child { border-bottom: 0; }
 .page :focus-visible { outline: 2px solid #a8491b; outline-offset: 2px; }
 .sectionLinks a:focus-visible { outline-offset: -2px; }

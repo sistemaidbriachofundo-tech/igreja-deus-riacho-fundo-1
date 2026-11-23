@@ -15,19 +15,28 @@ try {
   process.exit(1);
 }
 
-const user = {
-  userId: "u-sintetica",
-  personId: "p-sintetica",
-  email: "secretaria.sintetica@example.test",
-  grants: [{ roleCode: "SECRETARIA", organizationId: null, churchId: null }],
-};
-const leader = {
-  ...user,
-  userId: "u-lider",
-  personId: "p-lider",
-  email: "lider.sintetico@example.test",
-  grants: [{ roleCode: "LIDER_MINISTERIO", organizationId: null, churchId: null }],
-};
+function persona(id, email, roleCode, canManageConnection = false) {
+  return {
+    userId: "u-" + id,
+    personId: "p-" + id,
+    email,
+    canManageConnection,
+    grants: [{ roleCode, organizationId: null, churchId: null }],
+  };
+}
+
+const user = persona("sintetica", "secretaria.sintetica@example.test", "SECRETARIA");
+const leader = persona("lider", "lider.sintetico@example.test", "LIDER_MINISTERIO", true);
+const personas = [
+  user,
+  leader,
+  persona("admin", "admin.sintetico@example.test", "PLATFORM_ADMIN", true),
+  persona("pastor", "pastor.sintetico@example.test", "PASTOR", true),
+  persona("tesouraria", "tesouraria.sintetica@example.test", "TESOURARIA"),
+  persona("membro", "membro.sintetico@example.test", "MEMBRO"),
+  persona("convidado", "convidado.sintetico@example.test", "CONVIDADO"),
+  persona("editor", "editor.sintetico@example.test", "EDITOR_SITE"),
+];
 
 const sessions = new Map();
 
@@ -45,9 +54,7 @@ function send(req, res, status, body) {
 }
 
 function accountFor(email) {
-  if (email === leader.email) return leader;
-  if (email === user.email) return user;
-  return null;
+  return personas.find(account => account.email === email) ?? null;
 }
 
 const server = createServer((req, res) => {

@@ -30,3 +30,9 @@
 .notice{background:#f4ecd9;border:1px solid #e4ce9d;color:#694825;border-radius:9px;padding:12px 14px;font-size:12px}
 .empty{margin:0;color:#907358;font-size:12px;padding:14px}
 @media(max-width:650px){.wrap{padding:16px;border-radius:15px}.slotHeader{flex-wrap:wrap}.assignGrid{grid-template-columns:1fr}.addSlot{align-items:stretch;flex-direction:column}.replace{align-items:stretch;flex-direction:column}}
+.wrap,.details,.toggle,.assignPanel{background:#fff;border-color:#dfe3e7;color:#171717}
+.heading p,.toggle span,.slotHeader small,.empty{color:#59616b}
+.eyebrow{color:#705020}
+.actions button,.replace button,.addSlot button,.assignPanel button:not(.cancel){background:#171717;color:#fff;min-height:44px}
+.toggle,.pick,.cancel{min-height:44px;color:#171717}
+.replace input,.addSlot input:not([type=checkbox]),.assignPanel input{border-color:#dfe3e7;background:#fff;color:#171717;min-height:44px}
