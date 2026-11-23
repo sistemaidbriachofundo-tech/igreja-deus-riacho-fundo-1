@@ -10,6 +10,7 @@ import { withBasePath } from "../lib/paths";
 import { usePersonaAccess } from "./AppShell";
 import { Alert, Button, Input, Loading, Modal, Select } from "./ui";
 import { UIIcon, type GlyphName } from "./ui/UIIcon";
+import { OperationalMinistryRules } from "./OperationalMinistryRules";
 import s from "./system-rules-desk.module.css";
 import ui from "./ui/ui.module.css";
 
@@ -86,18 +87,13 @@ export function SystemRulesDesk() {
   const current = groups.find(item => item.id === group)!;
   const visible = settings?.filter(item => item.behavior === group && normalize(item.title + " " + (descriptions[item.key] ?? item.description)).includes(normalize(search)));
   return <div className={s.desk}>
-    <PageHeader appearance="workspace" heading="h1" title="Gestão do Sistema" description="Regras e preferências da congregação"
-      actions={<a className={ui.workspaceSecondary} href={withBasePath("/app/servir/atmosfera/?config=regras")}><UIIcon name="roster" size={17} /> Regras de escala do Atmosfera</a>} />
+    <PageHeader appearance="workspace" heading="h1" title="Gestão do Sistema"
+      description="Configure regras da congregação, com controle de escopo e histórico." />
     <section className={s.operational} aria-labelledby="operational-rules-title">
-      <div><h2 id="operational-rules-title">Regras operacionais já configuráveis</h2>
-        <p>Edite equipes, vagas e escalas diretamente nos módulos. Estas telas salvam configurações da operação, sem solicitar alteração no código.</p></div>
-      <div className={s.operationalLinks}>
-        <a href={withBasePath("/app/servir/atmosfera/?config=regras")}><UIIcon name="roster" size={17} /> Atmosfera · Módulos e escalas</a>
-        <a href={withBasePath("/app/servir/louvor/?config=regras")}><UIIcon name="roster" size={17} /> Louvor · Equipe e geração mensal</a>
-        <a href={withBasePath("/app/pastoral/ordem-de-culto/")}><UIIcon name="settings" size={17} /> Ordem do Culto · Regras e integrantes</a>
-        <a href={withBasePath("/app/eventos-gestao/")}><UIIcon name="ticket" size={17} /> Eventos · Inscrições e lotes</a>
-      </div>
-      <p className={s.operationalNote}>As regras em <strong>Referência</strong> ainda não alteram o sistema. Regras protegidas, como exigência de login e controles financeiros, não podem ser afrouxadas pelo painel.</p>
+      <div><h2 id="operational-rules-title">Configuração operacional</h2>
+        <p>Edite as regras aqui, sem navegar para outro ministério. A liderança continua com o próprio painel, limitado à sua equipe.</p></div>
+      <OperationalMinistryRules />
+      <p className={s.operationalNote}>As políticas da Ordem do Culto e de Eventos que ainda não possuem edição central são identificadas no catálogo como referência; não são apresentadas como configurações já disponíveis. Regras protegidas não podem ser desativadas.</p>
     </section>
     {error && <><Alert title={error} tone="danger" /><Button onClick={() => setAttempt(n => n + 1)}>Tentar novamente</Button></>}
     {!settings && !error && <Loading label="Carregando regras" />}
