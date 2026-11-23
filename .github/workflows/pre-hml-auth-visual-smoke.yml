@@ -47,7 +47,7 @@ jobs:
           WEB_PID=$!
           trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8765/login/ >/dev/null && curl -fsS -o /dev/null http://127.0.0.1:4010/auth/me 2>/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:8765/login/ >/dev/null && test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:4010/auth/me)" = "401"; then break; fi
             sleep 1
           done
           test -n "$(command -v google-chrome || true)"
