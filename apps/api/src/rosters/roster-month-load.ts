@@ -61,12 +61,19 @@ export async function loadMonthState(
     db.volunteerImpediment.findMany({ where: { ...scope, personId: { in: peopleIds }, startsAt: { lt: to }, endsAt: { gt: from } } }),
     db.volunteerServingPreference?.findMany({ where: { churchId: pilot.churchId, personId: { in: peopleIds } } }) ?? Promise.resolve([]),
   ]);
-  const datesByRoster = new Map(rosters.map(roster => [String(roster.id), churchDayKey(new Date(String(roster.serviceAt)))]));
+  // No Louvor, respostas para escalas de outros ministérios não são confirmação
+  // de disponibilidade. Uma resposta vazia continua sendo "nenhum dia disponível".
+  const datesByRoster = new Map(rosters.filter(roster =>
+    !isLouvor || roster.ministryId === ministryId,
+  ).map(roster => [String(roster.id), churchDayKey(new Date(String(roster.serviceAt)))]));
+  const appliesToMonth = (response: { rosterIds: string[] }) =>
+    !isLouvor || response.rosterIds.length === 0 ||
+    response.rosterIds.some(rosterId => datesByRoster.has(rosterId));
   const preferenceByPerson = new Map(preferences.map(item => [String(item.personId), item]));
   const people: MonthPerson[] = members.filter(member => peopleIds.includes(String(member.personId))).map(member => {
     const person = member.person as { displayName?: string; householdId?: string | null };
     const preference = preferenceByPerson.get(String(member.personId));
-    const answer = responses.find(item => item.personId === member.personId);
+    const answer = responses.find(item => item.personId === member.personId && appliesToMonth(item));
     return {
       personId: String(member.personId), name: person?.displayName ?? String(member.personId), ministryIds: [ministryId],
       householdId: person?.householdId ?? null,
@@ -108,7 +115,7 @@ export async function loadMonthState(
   // Na primeira geração de Louvor ainda não existem escalas para responder à pesquisa.
   // Respostas existentes são sempre respeitadas, inclusive respostas vazias.
   return { month, churchId: pilot.churchId, ministryId, calendar, modules, people, rosters: monthRosters, history,
-    monthlySurveyRequired: !isLouvor || responses.some(response => peopleIds.includes(String(response.personId))) };
+    monthlySurveyRequired: !isLouvor || responses.some(response => peopleIds.includes(String(response.personId)) && appliesToMonth(response)) };
 }
 
 function toModule(module: Record<string, unknown>, teams: Map<string, string[]> | null, isLouvor: boolean): MonthModule {
