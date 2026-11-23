@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Optional,
   NotFoundException,
 } from "@nestjs/common";
 import {
@@ -15,6 +16,7 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { SystemSettingsService } from "../piloto/system-settings.service";
 import { churchDayKey, churchMonthRange } from "./church-day";
 import { assertDistinctRosterPartners, assertNoRosterDayConflict, writeRosterAssignment } from "./roster-assignment-transaction";
 import { previewSlots } from "./preview-domain/scheduler";
@@ -111,6 +113,7 @@ export class PersonalRosterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    @Optional() private readonly settings?: SystemSettingsService,
   ) {}
 
   async listMine(actor: AuthUser) {
@@ -506,6 +509,10 @@ export class PersonalRosterService {
     if (ministry.slug === "atmosfera") assertCanManageRosterMonth(actor, ministry, pilot);
     const access = await loadRosterAccess(db as never, actor, ministry, pilot);
     const state = await loadMonthState(db as never, pilot, ministryId, month, ministry.slug);
+    if (state && /^louvor(?:-|$)/i.test(ministry.slug)) {
+      const block = await this.settings?.getLouvorWeekBlock(pilot, ministryId);
+      state.modules = state.modules.map(module => ({ ...module, louvorWeekBlock: block !== false }));
+    }
     if (!state) throw new ConflictException({ code: "ROSTER_PREVIEW_UNVERIFIED", message: "A simulação não pôde ser conferida com a pesquisa, a disponibilidade e o histórico." });
     if (access.scope === "modules") state.modules = state.modules.filter(module => access.moduleIds.includes(module.id));
     return state;

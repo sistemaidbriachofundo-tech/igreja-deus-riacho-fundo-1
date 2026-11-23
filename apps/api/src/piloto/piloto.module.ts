@@ -24,7 +24,7 @@ import { WorshipService } from "./worship.service";
     ParticipantScanController,
     AccessScopesController,
   ],
-  exports: [BirthdayNoticesService],
+  exports: [BirthdayNoticesService, SystemSettingsService],
   providers: [
     SystemSettingsService,
     PastoralPackService,

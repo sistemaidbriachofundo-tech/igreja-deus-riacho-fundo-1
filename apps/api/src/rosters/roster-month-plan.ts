@@ -27,6 +27,8 @@ export type MonthModule = {
   manual: boolean;
   /** Louvor funciona por semana, mesmo quando o módulo se chama Voz, Banda etc. */
   louvor?: boolean;
+  /** Regra publicada na Gestão do Sistema para este ministério. */
+  louvorWeekBlock?: boolean;
   minIntervalDays: number;
   maxMonthlyAssignments: number;
   positions: Partial<Record<CultType, PositionRule[]>>;
@@ -170,7 +172,7 @@ export function monthFingerprint(state: MonthState): string {
     churchId: state.churchId,
     ministryId: state.ministryId,
     calendar: state.calendar.map(item => [item.serviceAt, item.serviceType, item.status]),
-    modules: state.modules.map(module => [module.id, [...module.volunteerIds].sort(), module.couples, module.positions, module.qualifications, module.manual, module.minIntervalDays, module.maxMonthlyAssignments, module.louvor ?? false]),
+    modules: state.modules.map(module => [module.id, [...module.volunteerIds].sort(), module.couples, module.positions, module.qualifications, module.manual, module.minIntervalDays, module.maxMonthlyAssignments, module.louvor ?? false, module.louvorWeekBlock ?? true]),
     people: state.people.map(person => [person.personId, person.householdId ?? "", person.availableDates ?? null, person.onlyMorning ?? false, person.onlyEvening ?? false, person.onlyFirstSunday ?? false, person.impediments, person.availability]),
     history: state.history.map(item => [item.assignmentId, item.personId, item.partnerPersonId ?? "", item.serviceAt, item.status, item.ministryId]),
     monthlySurveyRequired: state.monthlySurveyRequired !== false,
@@ -394,7 +396,7 @@ function rulesFor(module: MonthModule, requireMonthlyAvailabilityResponse = true
   return {
     ...DEFAULT_RULES, minIntervalDays: module.minIntervalDays, maxMonthlyAssignments: module.maxMonthlyAssignments,
     requireMonthlyAvailabilityResponse, familySameDayBlock: true, enforceCouples: true, avoidDoubleBooking: true, respectAvailability: true,
-    louvorWeekBlock: module.louvor === true || /louvor/i.test(module.name),
+    louvorWeekBlock: module.louvor === true ? module.louvorWeekBlock !== false : /louvor/i.test(module.name),
   };
 }
 

@@ -159,7 +159,7 @@ describe("gestão do sistema preserva o DEV", () => {
     expect(catalog.items.map((item: { key: string; behavior: string; editable: boolean }) => [item.key, item.behavior, item.editable])).toEqual([
       ["auth.password_reset.ttl_hours", "active", true],
       ["events.registration.session_required", "locked", false],
-      ["rosters.louvor.week_block", "documentary", false],
+      ["rosters.louvor.week_block", "active", true],
     ]);
     await expect(service.draft(admin, { key: "events.registration.session_required", value: false })).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.draft(admin, { key: "rosters.louvor.week_block", value: false })).rejects.toBeInstanceOf(BadRequestException);
