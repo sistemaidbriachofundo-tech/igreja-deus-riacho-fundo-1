@@ -251,7 +251,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   }
 
   if (tool === "draw" && access && canGenerateMonth) return <MonthlyRosterPreview token={access.token} ministryId={ministryId}
-    modules={modules} initialModuleId={selectedModule?.id} initialMonth={monthFilter}
+    modules={modules} louvor={louvor} initialModuleId={selectedModule?.id} initialMonth={monthFilter}
     onRefresh={access.onRefresh} onClose={() => setTool(null)} />;
 
   return <div className={s.showcase}>
@@ -262,8 +262,8 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
         {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
         {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.secondary} />}
         {access && canGenerateMonth && <button type="button" className={s.lime} disabled={Boolean(publishing)}
-          onClick={() => setTool(modules.length ? "draw" : "modules")}>
-          <UIIcon name="spark" size={17} /> {modules.length ? "Gerar escala do mês" : "Configurar e gerar escala"}
+          onClick={() => setTool(louvor || modules.length ? "draw" : "modules")}>
+          <UIIcon name="spark" size={17} /> {louvor ? "Sortear escala do mês" : modules.length ? "Gerar escala do mês" : "Configurar e gerar escala"}
         </button>}
         {access && canPublishMonth && <button type="button" className={s.lime} disabled={Boolean(publishing) || !monthDrafts.length}
           title={!monthDrafts.length ? "Este mês não tem rascunhos com vagas para publicar" : undefined}
@@ -273,9 +273,9 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
       </div>
     </header>
     {louvor && !modules.length && canEditModules && <div className={s.empty} role="status">
-      <strong>Primeira escala automática do Louvor</strong>
-      <p>Cadastre a equipe em “Módulos e regras”, aplique o modelo editável de posições para os cultos e associe os integrantes às habilitações. Depois use “Gerar escala do mês” para simular, revisar e salvar o rascunho.</p>
-      <button type="button" className={s.secondary} onClick={() => setTool("modules")}>Configurar a equipe de Louvor</button>
+      <strong>Sorteio automático de todo o mês</strong>
+      <p>O primeiro sorteio prepara uma equipe genérica com os integrantes ativos do Louvor e monta todos os cultos de quinta-feira e domingo. Depois você pode configurar instrumentos, vozes e habilitações em “Módulos e regras” para sortear por função.</p>
+      <button type="button" className={s.secondary} onClick={() => setTool("draw")}>Preparar e sortear o mês inteiro</button>
     </div>}
     <section className={s.monthlyFilters} aria-label="Filtros de escala">
       <div><span id="month-label">Mês</span>
