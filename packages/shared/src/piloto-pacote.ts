@@ -185,6 +185,7 @@ export type TicketScanResult =
   | { result: "WRONG_EVENT" }
   | { result: "UNPAID" }
   | { result: "REFUNDED" }
+  | { result: "CANCELLED" }
   | { result: "GUARDIAN" }
   | { result: "EVENT_CLOSED" }
   | { result: "UNKNOWN" }
@@ -210,8 +211,9 @@ export function decideTicketScan(input: {
   if (input.eventStatus === "CANCELLED" || input.eventStatus === "ARCHIVED") return { result: "EVENT_CLOSED" };
   if (!input.onEventDay) return { result: "NOT_TODAY" };
   if (input.paymentStatus === "REFUNDED") return { result: "REFUNDED" };
+  if (input.registrationStatus === "CANCELLED") return { result: "CANCELLED" };
   if (input.guardianAuthorized === false) return { result: "GUARDIAN" };
-  if (input.registrationStatus === "CANCELLED" || !CONFIRMED_PAYMENTS.has(input.paymentStatus ?? "")) return { result: "UNPAID" };
+  if (!CONFIRMED_PAYMENTS.has(input.paymentStatus ?? "")) return { result: "UNPAID" };
   if (input.checkedInAt) return { result: "ALREADY_READ", checkedInAt: input.checkedInAt, scannedByUserId: input.scannedByUserId ?? null };
   return { result: "READ", checkedInAt: input.now };
 }
