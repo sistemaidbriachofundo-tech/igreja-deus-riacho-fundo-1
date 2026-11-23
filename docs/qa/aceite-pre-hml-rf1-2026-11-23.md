@@ -15,6 +15,15 @@ Escopo: Igreja de Deus Riacho Fundo I.
 - Produção: fora do escopo. Não acessar, publicar ou copiar registros pessoais/bancários.
 - Antes de qualquer promoção: confirmar **idêntico SHA** da web e API, versões de migrações e URL pública/API, e proteger/backup a branch de HML.
 
+### Confronto do histórico de migrações (somente leitura, 23/11/2026)
+
+- Código da candidata: **56** diretórios de migração Prisma.
+- DEV QA: **55** migrações aplicadas. Falta no histórico somente `20261123190000_treasury_operational_settings` (as duas chaves de catálogo foram inseridas anteriormente de forma idempotente; não inserir marca de migração manualmente).
+- HML: **40** migrações aplicadas; faltam **16**, incluindo agenda de escalas, grupos e mentores, vínculos ministeriais, Ordem do Culto e catálogo financeiro. Não tratar HML como estruturalmente pronta.
+- A branch HML é a **padrão** do projeto Neon e não está protegida; reforçar backup, revisão de DATABASE_URL e isolamento antes de qualquer migração, operação destrutiva ou publicação.
+- A aplicação das 16 migrações deve acontecer **somente após autorização expressa**, com script de checagem `prisma migrate status`, backup e rollback planeado. O CI já exercita todas as 56 migrações em PostgreSQL temporário.
+
+
 ## 2. Evidências técnicas verificadas
 
 | Gate | Evidência | Estado |
