@@ -8,6 +8,7 @@ import { Alert } from "../ui/Alert";
 import { Modal } from "../ui/Modal";
 import { PageHeader } from "../ui/PageHeader";
 import { ServiceOrderPlannerPanel } from "./ServiceOrderPlannerPanel";
+import { ServiceOrderTeamPanel } from "./ServiceOrderTeamPanel";
 import ui from "../ui/ui.module.css";
 import s from "./service-order.module.css";
 
@@ -16,11 +17,14 @@ type OrderPeopleResponse = { people: OrderPerson[]; qualified: number; notice: s
 
 /** Liturgia de RF1: pessoa selecionada vem da membresia ativa, não de texto livre. */
 function roleForMoment(title: string): string | null {
+  if (/mídia|midia|vídeo|video|idb news|projeção|transmissão/i.test(title)) return "media";
+  if (/instrumental|backstage/i.test(title)) return "instrumental";
+  if (/bênção|benção|oração|oracao|intercessão/i.test(title)) return "prayer";
+  if (/generosidade|oferta|coleta/i.test(title) && !/louvor/i.test(title)) return "generosity";
   if (/prega|palavra|ministrac|sermão/i.test(title)) return "preacher";
-  if (/dirig|direção|generosidade/i.test(title)) return "director";
-  if (/louvor|adora|instrumental|música/i.test(title)) return "praise";
+  if (/dirig|direção/i.test(title)) return "director";
+  if (/louvor|adora|música/i.test(title)) return "praise";
   if (/acolh|boas.vindas|recep/i.test(title)) return "welcome";
-  if (/bênção|benção|oração pelas famílias/i.test(title)) return "preacher";
   return null;
 }
 
@@ -213,7 +217,7 @@ export function ServiceOrderDesk() {
   const canEdit = access.kind === "ready" && access.roles.includes("PASTOR");
   const permitted = canEdit || (access.kind === "ready" && access.roles.includes("PLATFORM_ADMIN"));
   const [orders, setOrders] = useState<Order[] | null>(null);
-  const [screen, setScreen] = useState<"calendar" | "editor" | "rules" | "live">("calendar");
+  const [screen, setScreen] = useState<"calendar" | "editor" | "team" | "rules" | "live">("calendar");
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [editor, setEditor] = useState<{ order: Order | null } | null>(null);
@@ -301,13 +305,15 @@ export function ServiceOrderDesk() {
       </div>} />
     {permitted && <nav className={s.ocTabs} aria-label="Seções da Ordem de Culto">
       {([
-        ["calendar", "Calendário"], ["editor", "Roteiro"], ["rules", "Regras"], ["live", "Modo culto"],
+        ["calendar", "Calendário"], ["editor", "Roteiro"], ["team", "Integrantes"], ["rules", "Regras"], ["live", "Modo culto"],
       ] as const).map(([id, name]) => <button key={id} type="button"
         aria-current={screen === id ? "page" : undefined} data-selected={screen === id}
         onClick={() => setScreen(id)}>{name}</button>)}
     </nav>}
-    {permitted && token && screen !== "editor" && <ServiceOrderPlannerPanel key={token} token={token}
-      canEdit={canEdit} view={screen} orders={orders ?? []} onGenerated={() => setRevision(n => n + 1)} />}
+    {permitted && token && screen === "team" && <ServiceOrderTeamPanel token={token} canEdit={canEdit} />}
+    {permitted && token && (screen === "calendar" || screen === "rules" || screen === "live") &&
+      <ServiceOrderPlannerPanel key={token} token={token}
+        canEdit={canEdit} view={screen} orders={orders ?? []} onGenerated={() => setRevision(n => n + 1)} />}
     {screen === "editor" && permitted && <>
       {notice && <p role="status">{notice}</p>}
       {error && !decision && <Alert appearance="workspace" tone="danger" title="Informe da Ordem de Culto">{error}
