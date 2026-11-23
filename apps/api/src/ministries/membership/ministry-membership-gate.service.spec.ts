@@ -166,6 +166,32 @@ describe("MinistryMembershipGateService", () => {
     expect(volunteerInterest.update).not.toHaveBeenCalled();
   });
 
+  it("permite editar função simples da própria equipe e audita, sem dar acesso de liderança", async () => {
+    const { service, prisma } = setup();
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const createAudit = jest.fn().mockResolvedValue({ id: "audit01" });
+    const row = { id: "mmb1", personId: "person1", role: "INTEGRANTE" };
+    Object.assign(prisma, {
+      ministryMembership: { findFirst: jest.fn().mockResolvedValue(row) },
+      $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({ ministryMembership: { updateMany }, auditLog: { create: createAudit } }),
+    });
+    await expect(service.updateMembershipRole(liderHomens, homens.id, row.id, "APOIO"))
+      .resolves.toEqual({ memberId: row.id, role: "APOIO", changed: true });
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ ministryId: homens.id, churchId: pilot.churchId, role: "INTEGRANTE" }),
+      data: { role: "APOIO" },
+    }));
+    expect(createAudit).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: "ministry.membership.role.update", resourceId: row.id }),
+    }));
+    await expect(service.updateMembershipRole(liderHomens, homens.id, row.id, "LIDER"))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.updateMembershipRole(liderHomens, mulheres.id, row.id, "APOIO"))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it("nega tesouraria no catálogo do ministério", async () => {
     const { service } = setup();
     const error = await capture(() =>
