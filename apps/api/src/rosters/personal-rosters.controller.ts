@@ -229,6 +229,13 @@ export class PersonalRostersController {
     return this.rosters.monthlyPreview(user, ministryId, month);
   }
 
+  /** Primeiro uso: cria a equipe-base do Louvor somente sob ação do líder autorizado. */
+  @Roles(...LEAD_ROLES)
+  @Post("by-ministry/:ministryId/prepare-louvor")
+  prepareLouvor(@CurrentUser() user: AuthUser, @Param("ministryId") ministryId: string) {
+    return this.rosters.prepareLouvorMonth(user, ministryId);
+  }
+
   /** Contrato do #239. Não grava cultos faltantes. `revision` identifica os dados, não as decisões. */
   @Roles(...LEAD_ROLES)
   @Post("by-ministry/:ministryId/monthly-simulation")

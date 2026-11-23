@@ -25,6 +25,8 @@ export type MonthModule = {
   id: string;
   name: string;
   manual: boolean;
+  /** Louvor funciona por semana, mesmo quando o módulo se chama Voz, Banda etc. */
+  louvor?: boolean;
   minIntervalDays: number;
   maxMonthlyAssignments: number;
   positions: Partial<Record<CultType, PositionRule[]>>;
@@ -75,6 +77,8 @@ export type MonthState = {
   people: MonthPerson[];
   rosters: MonthRosterState[];
   history: ExistingAssignment[];
+  /** A primeira escala de Louvor pode ser sorteada antes de existir uma pesquisa de respostas. */
+  monthlySurveyRequired?: boolean;
 };
 
 export type MonthPin = { serviceKey: string; slotKey: string; personId: string; partnerPersonId?: string | null };
@@ -166,9 +170,10 @@ export function monthFingerprint(state: MonthState): string {
     churchId: state.churchId,
     ministryId: state.ministryId,
     calendar: state.calendar.map(item => [item.serviceAt, item.serviceType, item.status]),
-    modules: state.modules.map(module => [module.id, [...module.volunteerIds].sort(), module.couples, module.qualifications, module.minIntervalDays, module.maxMonthlyAssignments]),
+    modules: state.modules.map(module => [module.id, [...module.volunteerIds].sort(), module.couples, module.positions, module.qualifications, module.manual, module.minIntervalDays, module.maxMonthlyAssignments, module.louvor ?? false]),
     people: state.people.map(person => [person.personId, person.householdId ?? "", person.availableDates ?? null, person.onlyMorning ?? false, person.onlyEvening ?? false, person.onlyFirstSunday ?? false, person.impediments, person.availability]),
     history: state.history.map(item => [item.assignmentId, item.personId, item.partnerPersonId ?? "", item.serviceAt, item.status, item.ministryId]),
+    monthlySurveyRequired: state.monthlySurveyRequired !== false,
     rosters: state.rosters.map(roster => [roster.id, roster.moduleId, roster.serviceAt, roster.status, roster.slots.map(slot => [slot.id, slot.personId ?? "", slot.partnerPersonId ?? ""])]),
   };
   return createHash("sha256").update(JSON.stringify(stable)).digest("hex");
@@ -208,14 +213,16 @@ export function planMonth(state: MonthState, options: { pins?: readonly MonthPin
       for (const slot of planned.filter(item => item.pinned && item.personId)) history.push(assignmentFrom(slot, cult.serviceAt, state, module.id, roster?.id ?? key));
       const free = planned.filter(slot => !slot.locked && !slot.pinned && !heldOpen.has(slot.key) && !module.manual && status !== "CANCELLED");
       if (recalculate && free.length && module.volunteerIds.length) {
-        const rules = rulesFor(module);
+        const rules = rulesFor(module, state.monthlySurveyRequired !== false);
         const plan = previewSlots(free.map(slot => ({
           slotId: slot.key, rosterId: roster?.id ?? key, churchId: state.churchId, ministryId: state.ministryId,
           positionId: slot.roleLabel, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple,
           requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [],
           priority: slot.requiresCouple || slot.requiredQualification ? 0 : 1,
           serviceAt: cult.serviceAt, serviceType: cult.serviceType,
-        })), candidates, history, rules);
+        })), candidates, history, rules, personId => module.louvor || /louvor/i.test(module.name)
+          ? createHash("sha256").update(`${state.month}|${module.id}|${cult.serviceAt}|${personId}`).digest("hex")
+          : personId);
         const picks = new Map(plan.drafts.map(item => [item.slotId, item]));
         const reasons = new Map(plan.unfilled.map(item => [item.slotId, item.reasons]));
         for (const slot of free) {
@@ -371,7 +378,7 @@ function validatePins(slots: PlannedSlot[], candidates: readonly Candidate[], hi
       slotId: slot.key, rosterId: state.ministryId, churchId: state.churchId, ministryId: state.ministryId,
       positionId: slot.roleLabel, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple,
       requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [], serviceAt, serviceType: "special_event",
-    }, candidates, history, rulesFor(module)) : { eligible: false, reasons: ["NOT_IN_MINISTRY" as const] };
+    }, candidates, history, rulesFor(module, state.monthlySurveyRequired !== false)) : { eligible: false, reasons: ["NOT_IN_MINISTRY" as const] };
     if (!decision.eligible || (slot.requiresCouple && slot.partnerPersonId && slot.partnerPersonId !== candidate?.spousePersonId)) {
       slot.personId = undefined;
       slot.partnerPersonId = undefined;
@@ -383,11 +390,11 @@ function validatePins(slots: PlannedSlot[], candidates: readonly Candidate[], hi
   }
 }
 
-function rulesFor(module: MonthModule): Rules {
+function rulesFor(module: MonthModule, requireMonthlyAvailabilityResponse = true): Rules {
   return {
     ...DEFAULT_RULES, minIntervalDays: module.minIntervalDays, maxMonthlyAssignments: module.maxMonthlyAssignments,
-    requireMonthlyAvailabilityResponse: true, familySameDayBlock: true, enforceCouples: true, avoidDoubleBooking: true, respectAvailability: true,
-    louvorWeekBlock: /louvor/i.test(module.name),
+    requireMonthlyAvailabilityResponse, familySameDayBlock: true, enforceCouples: true, avoidDoubleBooking: true, respectAvailability: true,
+    louvorWeekBlock: module.louvor === true || /louvor/i.test(module.name),
   };
 }
 
@@ -454,7 +461,7 @@ function listSlotCandidates(state: MonthState, module: MonthModule, serviceAt: s
       slotId: slot.key, rosterId: state.ministryId, churchId: state.churchId, ministryId: state.ministryId,
       positionId: slot.roleLabel, roleLabel: slot.roleLabel, requiresCouple: slot.requiresCouple,
       requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [], serviceAt, serviceType: "special_event",
-    }, people, history, rulesFor(module));
+    }, people, history, rulesFor(module, state.monthlySurveyRequired !== false));
     if (!decision.eligible) return [];
     const partnerPersonId = decision.personIds[1] ?? null;
     return [{ personId: person.personId, personName: state.people.find(item => item.personId === person.personId)?.name ?? person.personId, partnerPersonId, partnerName: partnerPersonId ? state.people.find(item => item.personId === partnerPersonId)?.name ?? null : null }];

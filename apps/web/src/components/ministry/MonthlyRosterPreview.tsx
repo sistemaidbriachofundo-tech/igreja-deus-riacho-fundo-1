@@ -14,13 +14,13 @@ import { UIIcon } from "../ui/UIIcon";
 import { useActionConfirmation } from "../ui/ActionConfirmation";
 import s from "./monthly-roster-simulation.module.css";
 
-type Props = { token: string; ministryId: string; modules: readonly EscalaModule[]; initialModuleId?: string; initialMonth?: string; onRefresh: () => void; onClose: () => void };
+type Props = { token: string; ministryId: string; modules: readonly EscalaModule[]; louvor?: boolean; initialModuleId?: string; initialMonth?: string; onRefresh: () => void; onClose: () => void };
 type Session = { preview: MonthlyPreview; moduleId?: string };
 const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
 const dateLabel = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
 const clock = new Intl.DateTimeFormat("pt-BR", { hour: "numeric", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
-export function MonthlyRosterPreview({ token, ministryId, modules, initialModuleId, initialMonth, onRefresh, onClose }: Props) {
+export function MonthlyRosterPreview({ token, ministryId, modules, louvor, initialModuleId, initialMonth, onRefresh, onClose }: Props) {
   const [session, setSession] = useState<Session>();
   const [edits, setEdits] = useState<Record<string, MonthlyDraftChoice>>({});
   const [quantities, setQuantities] = useState<Record<string, string>>({});
@@ -92,7 +92,17 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
     if (!(await allowDiscard())) return;
     start("generating");
     try {
-      const result = await simulateRosterMonth(ministryId, token, { month, moduleId }, true);
+      // O primeiro sorteio cria apenas a equipe genérica a partir dos membros ativos.
+      // Não distribui funções instrumentais específicas sem habilitação documentada.
+      if (louvor && !modules.length) {
+        const prepared = await apiPost<{ created: boolean; people: number }>(
+          `/rosters/by-ministry/${encodeURIComponent(ministryId)}/prepare-louvor`, token, {});
+        if (prepared.created) {
+          setNotice(`Equipe inicial criada com ${prepared.people} integrantes. As funções instrumentais podem ser personalizadas em Módulos e regras.`);
+        }
+        onRefresh();
+      }
+      const result = await simulateRosterMonth(ministryId, token, { month, moduleId }, false);
       setSession({ preview: result, moduleId });
       setOnlyOpen(false);
       setRecalculatedEdits(false);
@@ -188,7 +198,7 @@ export function MonthlyRosterPreview({ token, ministryId, modules, initialModule
         </select>
       </label>}
       <button type="submit" className={s.primary} disabled={Boolean(busy)}>
-        <UIIcon name="spark" size={18} /> {busy === "generating" ? "Gerando…" : "Gerar simulação"}
+        <UIIcon name="spark" size={18} /> {busy === "generating" ? "Sorteando cultos…" : louvor ? "Sortear o mês inteiro" : "Gerar simulação"}
       </button>
     </form>
     {error && <p role="alert" className={s.error}>{error}</p>}
