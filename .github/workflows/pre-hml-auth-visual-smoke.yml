@@ -1,0 +1,62 @@
+name: "PRE-HML RF1 · Chrome autenticado sintético"
+on:
+  push:
+    branches:
+      - chatgpt/dev-prehml-final-gates-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prehml-auth-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-auth:
+    name: "Chrome real: admin local 1440/768/390/320"
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    env:
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:4010
+      NEXT_PUBLIC_BASE_PATH: ""
+      NEXT_PUBLIC_HML_ENABLED: "true"
+      NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm ci --prefix qa/persona-e2e --include=dev
+      - run: npm run build -w @idbrf/shared
+      - run: npx prisma generate --schema packages/db/prisma/schema.prisma
+      - run: npm run build -w @idbrf/db
+      - run: npm run build -w @idbrf/web
+      - name: Navegador real e API estritamente sintética local
+        shell: bash
+        run: |
+          set -euo pipefail
+          export STUB_PASSWORD="$(openssl rand -hex 32)"
+          node apps/web/scripts/synthetic-auth-stub.mjs >/tmp/rf1-synthetic-auth.log 2>&1 &
+          API_PID=$!
+          npm run dev -w @idbrf/web >/tmp/rf1-next-dev.log 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:3000/login/ >/dev/null && test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:4010/auth/me)" = "401"; then break; fi
+            sleep 1
+          done
+          test -n "$(command -v google-chrome || true)"
+          node qa/persona-e2e/src/pre-hml-visual-auth-smoke.mjs
+      - name: Capturas apenas com perfis fictícios (não contém credenciais)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rf1-prehml-auth-synthetic
+          path: qa-visual-auth-screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 7

@@ -6,6 +6,7 @@ on:
       - chatgpt/dev-visual-rc-consolidated-20261123
       - chatgpt/dev-fix-ministerios-eventos-density-20261123
       - chatgpt/dev-ux-gestao-regras-compacta-20261123
+      - chatgpt/dev-prehml-final-gates-20261123
   workflow_dispatch:
 permissions:
   contents: read
