@@ -2,10 +2,41 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { paymentSettlement, ROLE_CODES } from "@idbrf/shared";
 import { verifyMercadoPagoWebhook } from "./mercado-pago-signature";
 import type { AuthUser } from "../auth/types/auth-user";
-import { queueParticipantTicketNotices } from "../mail/check-in-notice";
+import { issueConfirmedParticipantTickets } from "../events/issue-participant-tickets";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+
+/** mock não cobra. sandbox exige token de teste. live é recusado. */
+export function mercadoPagoRuntime(env: NodeJS.ProcessEnv): { mode: "mock" } | { mode: "sandbox"; token: string } {
+  const stage = (env.MERCADO_PAGO_ENV ?? "mock").trim().toLowerCase();
+  if (stage === "live" || stage === "production") {
+    throw new BadRequestException("A cobrança real do Mercado Pago não está habilitada. Use mock ou sandbox.");
+  }
+  if (stage === "mock" || stage === "") return { mode: "mock" };
+  if (stage !== "sandbox") {
+    throw new BadRequestException("MERCADO_PAGO_ENV inválido. Use mock ou sandbox.");
+  }
+  const token = env.MERCADO_PAGO_ACCESS_TOKEN?.trim() ?? "";
+  if (!token || token === "mock") {
+    throw new BadRequestException("Sandbox do Mercado Pago sem token de teste. Nenhuma cobrança foi aberta.");
+  }
+  return { mode: "sandbox", token };
+}
+
+/** Sem auto_return e sem back_urls: a volta do navegador não confirma o pagamento. */
+export function mercadoPagoPreferenceBody(input: { attemptRef: string; amountCents: number; title: string }) {
+  return {
+    items: [{
+      title: input.title.slice(0, 120),
+      quantity: 1,
+      currency_id: "BRL",
+      unit_price: input.amountCents / 100,
+    }],
+    external_reference: input.attemptRef,
+    binary_mode: false,
+  };
+}
 
 export interface GatewayPayment {
   id: string;
@@ -26,32 +57,33 @@ export class EnvMercadoPagoGateway implements MercadoPagoGateway {
   constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
   async createPreference(input: { attemptRef: string; amountCents: number; title: string }) {
-    const token = this.env.MERCADO_PAGO_ACCESS_TOKEN?.trim();
-    const stage = this.env.MERCADO_PAGO_ENV?.trim();
-    if (stage === "live") {
-      throw new BadRequestException("A cobrança real do Mercado Pago não está habilitada. Use o mock ou o sandbox.");
-    }
-    if (!token || token === "mock" || stage !== "sandbox") {
-      return { preferenceId: `pref_${input.attemptRef}`, initPoint: `https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_${encodeURIComponent(input.attemptRef)}`, mode: "mock" as const };
+    const runtime = mercadoPagoRuntime(this.env);
+    if (runtime.mode === "mock") {
+      return {
+        preferenceId: `pref_${input.attemptRef}`,
+        initPoint: `https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_${encodeURIComponent(input.attemptRef)}`,
+        mode: "mock" as const,
+      };
     }
     const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: [{ title: input.title, quantity: 1, currency_id: "BRL", unit_price: input.amountCents / 100 }],
-        external_reference: input.attemptRef,
-      }),
+      headers: { Authorization: `Bearer ${runtime.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(mercadoPagoPreferenceBody(input)),
     });
-    if (!response.ok) throw new BadRequestException("O Mercado Pago não abriu o checkout.");
-    const payload = await response.json() as { id?: string; init_point?: string };
-    if (!payload.id || !payload.init_point) throw new BadRequestException("O Mercado Pago não devolveu o checkout.");
-    return { preferenceId: payload.id, initPoint: payload.init_point, mode: "sandbox" as const };
+    if (!response.ok) throw new BadRequestException("O Mercado Pago sandbox não abriu o checkout.");
+    const payload = await response.json() as { id?: string; sandbox_init_point?: string };
+    if (!payload.id || !payload.sandbox_init_point?.startsWith("https://sandbox.mercadopago.com.br/")) {
+      throw new BadRequestException("O Mercado Pago sandbox não devolveu o checkout de teste.");
+    }
+    return { preferenceId: payload.id, initPoint: payload.sandbox_init_point, mode: "sandbox" as const };
   }
 
   async getPayment(id: string): Promise<GatewayPayment | null> {
-    const token = this.env.MERCADO_PAGO_ACCESS_TOKEN?.trim();
-    const stage = this.env.MERCADO_PAGO_ENV?.trim();
-    if (!token || token === "mock" || stage !== "sandbox") return null;
+    const runtime = mercadoPagoRuntime(this.env);
+    if (runtime.mode === "mock") {
+      throw new ConflictException("O ambiente mock não consulta o Mercado Pago. Confirme somente pelo webhook com fixture assinada, ou configure o sandbox.");
+    }
+    const token = runtime.token;
     const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -101,6 +133,7 @@ export class MercadoPagoService {
 
   async handleWebhook(input: { signatureHeader: string; requestId: string; dataId: string }) {
     const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET?.trim() ?? "";
+    if (!secret) throw new UnauthorizedException("MERCADO_PAGO_WEBHOOK_SECRET não está configurado.");
     if (!verifyMercadoPagoWebhook({
       secret, signatureHeader: input.signatureHeader, requestId: input.requestId, dataId: input.dataId,
     })) {
@@ -110,7 +143,10 @@ export class MercadoPagoService {
     if (!payment || payment.id !== input.dataId) throw new ConflictException("O pagamento não foi confirmado na consulta.");
     const idempotencyKey = `${payment.id}:${payment.status}`;
     const existing = await this.prisma.eventPaymentWebhookReceipt.findUnique({ where: { idempotencyKey } });
-    if (existing) return { idempotencyKey, replay: true, resultStatus: existing.resultStatus };
+    if (existing) {
+      if (existing.resultStatus === "CONFIRMED") await this.releaseTicketsForIntent(existing.paymentIntentId);
+      return { idempotencyKey, replay: true, resultStatus: existing.resultStatus };
+    }
     const intent = await this.prisma.eventPaymentIntent.findFirst({
       where: { attemptRef: payment.externalReference },
       include: { registration: true, event: { select: { id: true, status: true, name: true } } },
@@ -187,8 +223,16 @@ export class MercadoPagoService {
       return "REFUNDED";
     });
     await this.receipt(intent, idempotencyKey, payment.status, result);
-    if (result === "CONFIRMED") await this.deliverTickets(intent.registrationId, intent.eventId);
+    if (result === "CONFIRMED") await this.deliverTickets(intent.registrationId);
     return { idempotencyKey, replay: false, resultStatus: result };
+  }
+
+  private async releaseTicketsForIntent(paymentIntentId: string) {
+    const intent = await this.prisma.eventPaymentIntent.findFirst({
+      where: { id: paymentIntentId },
+      select: { registrationId: true },
+    });
+    if (intent?.registrationId) await this.deliverTickets(intent.registrationId);
   }
 
   private async ledgerAccounts(churchId: string, receivingAccountId: string | null, needsFee: boolean) {
@@ -231,17 +275,7 @@ export class MercadoPagoService {
     });
   }
 
-  private async deliverTickets(registrationId: string, eventId: string) {
-    const [tickets, event] = await Promise.all([
-      this.prisma.eventParticipantTicket.findMany({
-        where: { registrationId },
-        select: { id: true, position: true, code: true, participantEmail: true },
-      }),
-      this.prisma.portalEvent.findUnique({ where: { id: eventId }, select: { name: true } }),
-    ]);
-    await queueParticipantTicketNotices(this.mail, {
-      eventName: event?.name ?? "evento",
-      tickets: tickets.flatMap(ticket => ticket.participantEmail ? [{ ...ticket, email: ticket.participantEmail }] : []),
-    });
+  private async deliverTickets(registrationId: string) {
+    await issueConfirmedParticipantTickets(this.prisma as never, this.mail, registrationId);
   }
 }

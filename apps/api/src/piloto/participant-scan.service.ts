@@ -56,6 +56,7 @@ export class ParticipantScanService {
     if (decision.result === "EVENT_CLOSED") throw new ConflictException("O evento está encerrado para leitura.");
     if (decision.result === "NOT_TODAY") throw new ConflictException("A leitura vale no dia do evento.");
     if (decision.result === "REFUNDED") throw new ConflictException("O ingresso foi estornado.");
+    if (decision.result === "CANCELLED") throw new ConflictException("A inscrição foi cancelada.");
     if (decision.result === "GUARDIAN") throw new ConflictException("A autorização do responsável ainda não foi registrada.");
     if (decision.result === "UNPAID") throw new ConflictException("O ingresso ainda não está confirmado.");
     if (decision.result === "ALREADY_READ" || !ticket) return { ...decision, duplicate: true };

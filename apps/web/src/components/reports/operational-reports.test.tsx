@@ -79,6 +79,43 @@ describe("relatórios operacionais", () => {
     expect(html).not.toContain("R$");
   });
 
+  it("mostra estorno na linha da inscrição sem tratar como presença", () => {
+    const html = renderToStaticMarkup(
+      <OperationalReports
+        membership={idle()}
+        ministries={idle()}
+        participation={{
+          state: "ready",
+          data: {
+            counts: {
+              registrations: 1, cancelled: 0, refunded: 1, checkedIn: 0,
+              pendingPayment: 0, confirmedAwaitingPresence: 0, unclassified: 0, minorsOmitted: 0,
+            },
+            rows: [{
+              registrationId: "r-estorno", eventName: "Encontro", status: "CONFIRMED",
+              paymentStatus: "REFUNDED", partySize: 1, syntheticLabel: "Inscrição sintética", labelRedacted: false,
+            }],
+          },
+        }}
+        cost={idle()}
+        from=""
+        to=""
+        ministryId=""
+        status=""
+        busy={false}
+        onFrom={noop}
+        onTo={noop}
+        onMinistry={noop}
+        onStatus={noop}
+        onApply={noop}
+        onDownload={noop}
+      />,
+    );
+    expect(html).toContain("estornado");
+    expect(html).toContain("Estornadas");
+    expect(html).toContain("Inscrição sintética");
+  });
+
   it("mostra o zero somente quando o ledger vinculou o ministério", () => {
     const html = view({
       state: "ready",

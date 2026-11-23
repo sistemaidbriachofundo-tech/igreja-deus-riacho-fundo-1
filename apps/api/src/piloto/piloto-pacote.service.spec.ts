@@ -290,7 +290,15 @@ describe("Mercado Pago e leitura do ingresso", () => {
       churchReceivingAccount: { findFirst: async () => ({ ledgerAccountId: "banco" }) },
       ledgerAccount: { findFirst: async ({ where }: { where: { type: string } }) => ({ id: where.type === "EXPENSE" ? "taxa" : "receita" }) },
       ledgerEntry: { create: async ({ data }: { data: Record<string, unknown> }) => { const row = { id: `led-${entries.length + 1}`, ...data }; entries.push(row); intents[0].ledgerEntryId = String(row.id); return row; } },
-      eventRegistration: { updateMany: async () => ({ count: 1 }) },
+      eventRegistration: {
+        updateMany: async () => ({ count: 1 }),
+        findUnique: async () => ({
+          id: "reg", status: "PENDING_PAYMENT", paymentStatus: "PENDING", isMinor: false,
+          guardianAuthStatus: "NOT_REQUIRED", partySize: 1, displayName: "Ana",
+          notificationEmail: null, checkInCode: "a".repeat(32), participantRoster: null,
+          event: { name: "Encontro", ticketPolicy: "REGISTRATION" }, tickets: [],
+        }),
+      },
       eventParticipantTicket: { findMany: async () => [] },
       portalEvent: { findUnique: async () => ({ name: "Encontro" }) },
       $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),

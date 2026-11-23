@@ -23,6 +23,7 @@ describe("gráficos de relatório", () => {
       unclassified: 0,
     })).toEqual([
       { label: "cancelled", value: 1 },
+      { label: "refunded", value: 0 },
       { label: "checkedIn", value: 1 },
       { label: "pendingPayment", value: 0 },
       { label: "confirmedAwaitingPresence", value: 0 },

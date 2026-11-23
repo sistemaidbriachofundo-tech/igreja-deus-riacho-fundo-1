@@ -1623,6 +1623,16 @@ describe("EventRegistrationsService", () => {
       const prismaAuth = {
         eventRegistration: {
           findFirst: jest.fn().mockResolvedValue(pendingReg),
+          findUnique: jest.fn().mockResolvedValue({
+            ...authorizedReg,
+            partySize: 1,
+            displayName: "Menor Demo",
+            notificationEmail: null,
+            checkInCode: "b".repeat(32),
+            participantRoster: null,
+            event: { name: "Retiro", ticketPolicy: "REGISTRATION" },
+            tickets: [],
+          }),
         },
         portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
         ...withTx(txAuth),
