@@ -1,9 +1,9 @@
 .page{max-width:1740px;margin:auto;color:#363636}
-.hero{background:linear-gradient(120deg,#363636,#242424 75%);border:1px solid #4c4c4c;min-height:188px;border-radius:23px;padding:clamp(22px,3vw,39px);display:flex;align-items:center;justify-content:space-between;gap:24px;color:white;position:relative;overflow:hidden}
-.hero:after{content:"";position:absolute;width:370px;height:370px;border:1px solid #b0b0b055;border-radius:100%;right:-85px;top:-95px;box-shadow:0 0 0 62px #9e9e9e13,0 0 0 125px #dadada09;pointer-events:none}
+.hero{background:#171717;border:1px solid #171717;min-height:0;border-radius:12px;padding:16px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;color:white;position:relative;overflow:hidden}
+.hero:after{content:none}
 .eyebrow,.mutedLabel{font:800 10px/1.5 var(--site-font);letter-spacing:.13em;color:#bcbcbc}
 .mutedLabel{color:#5c5c5c}
-.hero h1{font:850 clamp(25px,3.3vw,43px)/1.14 var(--site-font);letter-spacing:-.055em;margin:10px 0}
+.hero h1{font:700 clamp(1.45rem,2.2vw,2rem)/1.15 var(--site-font);letter-spacing:-.04em;margin:6px 0 8px}
 .hero h1 em{color:#bdbdbd;font-family:var(--site-font);font-weight:400}
 .hero p{font:500 12px/1.7 var(--site-font);color:#e0e0e0;max-width:590px;margin:0}
 .statusPill{position:relative;z-index:1;display:flex;align-items:center;gap:7px;border:1px solid #b8b8b877;padding:11px 16px;background:#bcbcbc19;border-radius:99px;color:#e4e4e4;font:800 11px var(--site-font);white-space:nowrap}
@@ -15,20 +15,20 @@
 .form label,.controls label{display:flex;flex-direction:column;gap:7px;font:750 12px/1.5 var(--site-font);color:#535353}
 .form input,.controls input:not([type=checkbox]),.controls textarea,.controls select{background:#fff;border:1px solid #d6d6d6;border-radius:11px;padding:12px 14px;min-height:45px;width:100%;color:#373737;font:500 13px/1.5 var(--site-font);box-sizing:border-box}
 .form textarea,.controls textarea{resize:vertical}
-.primary,.saveButton,.publishButton{background:#b0b0b0;border:1px solid #a4a4a4;border-radius:99px;padding:12px 18px;color:#303030;font:850 12px var(--site-font);cursor:pointer}
+.primary,.saveButton,.publishButton{background:#171717;border:1px solid #171717;border-radius:10px;padding:12px 18px;color:#fff;font:700 12px var(--site-font);cursor:pointer}
 .workspace{padding-top:22px}
 .actionbar{display:flex;justify-content:space-between;align-items:center;gap:20px;background:#fff;border:1px solid #e6e6e6;border-radius:17px;padding:14px 19px;margin-bottom:19px}
 .actionbar>div:first-child{display:flex;flex-direction:column;gap:4px}.actionbar strong{font:750 13px var(--site-font);color:#434343}
 .actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.actions button{border-radius:99px;padding:11px 16px;cursor:pointer;font:800 11px/1.2 var(--site-font);white-space:nowrap;min-height:44px}
+.actions button{border-radius:10px;padding:11px 16px;cursor:pointer;font:700 11px/1.2 var(--site-font);white-space:nowrap;min-height:44px}
 .lightButton,.logout{background:#fff;border:1px solid #cacaca;color:#525252;cursor:pointer}
 .publishButton{background:#424242;border-color:#424242;color:white}
 .actions button:disabled,.form button:disabled,.controls button:disabled{opacity:.42;cursor:not-allowed}
 .columns{display:grid;grid-template-columns:minmax(300px,.78fr) minmax(0,1.22fr);gap:18px;align-items:start}
-.editor,.preview{background:#fff;border:1px solid #e4e4e4;border-radius:18px;min-width:0;box-shadow:0 9px 23px #4e4e4e11;overflow:hidden}
+.editor,.preview{background:#fff;border:1px solid #e4e4e4;border-radius:12px;min-width:0;overflow:hidden}
 .tabs{display:flex;gap:4px;padding:10px;border-bottom:1px solid #eaeaea;overflow-x:auto}
-.tab,.activeTab{flex:1 0 auto;padding:12px 9px;border:0;border-radius:10px;background:transparent;color:#727272;cursor:pointer;font:800 11px var(--site-font)}
-.activeTab{background:var(--app-info-bg);color:var(--app-info)}
+.tab,.activeTab{flex:1 0 auto;min-height:44px;padding:12px 9px;border:0;border-radius:10px;background:transparent;color:#3b4149;cursor:pointer;font:700 11px var(--site-font)}
+.activeTab{background:#171717;color:#fff}
 .controls{padding:24px;max-height:1050px;overflow-y:auto}
 .controls h2{margin:0 0 8px;font:850 22px/1.2 var(--site-font);letter-spacing:-.04em;color:#333333}
 .controls>p,.previewNote{font:500 12px/1.7 var(--site-font);color:#636363;margin:0 0 20px}

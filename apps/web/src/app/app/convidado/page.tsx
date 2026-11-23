@@ -3,6 +3,8 @@
 import { AppNavLink, AppShell } from "../../../components/AppShell";
 import { GroupRequests } from "../../../components/GroupRequests";
 import { ConnectionJourney } from "../../../components/serving/ConnectionJourney";
+import { PageHeader } from "../../../components/ui/PageHeader";
+import ui from "../../../components/ui/ui.module.css";
 import { loadStoredToken } from "../../../lib/api";
 import styles from "../../../components/connection-desk.module.css";
 
@@ -11,10 +13,8 @@ function GuestHome() {
   if (!token) return null;
 
   return <div className={styles.page}>
-    <header className={styles.sectionTitle}>
-      <h1>Minha área de convidado</h1>
-      <AppNavLink className={styles.primaryAction} href="/app/eventos/">Ver eventos e minhas inscrições</AppNavLink>
-    </header>
+    <PageHeader appearance="workspace" heading="h1" title="Minha área de convidado"
+      actions={<AppNavLink className={ui.workspacePrimary} href="/app/eventos/">Ver eventos e minhas inscrições</AppNavLink>} />
     <ConnectionJourney />
     <GroupRequests token={token} />
   </div>;
