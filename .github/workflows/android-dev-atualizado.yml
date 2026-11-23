@@ -1,0 +1,96 @@
+name: Android APK DEV atualizado
+
+on:
+  push:
+    branches: [feature/mobile-dev-atualizado-20261123]
+    paths:
+      - "mobile/**"
+      - "apps/web/**"
+      - "packages/shared/**"
+      - ".github/workflows/android-dev-atualizado.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-dev-atualizado-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android_debug:
+    name: APK da versão recente do DEV, sem produção
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: postgresql://idbrf:idbrf_ci@localhost:5432/idbrf?schema=public
+      NEXT_PUBLIC_API_URL: https://id-riacho1-api-hml.vercel.app
+      NEXT_PUBLIC_HML_ENABLED: "true"
+      NEXT_PUBLIC_ADMIN_PRODUCTION: "false"
+      NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
+      NEXT_PUBLIC_RIACHINHO_PUBLIC_ENABLED: "false"
+      NEXT_PUBLIC_SITE_LAYOUT_LIVE_ENABLED: "false"
+      NEXT_PUBLIC_BASE_PATH: ""
+      IDBRF_STATIC_APEX: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirmar visual do DEV atualizado
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Fonte: $(git rev-parse HEAD)"
+          echo "Branch: ${GITHUB_REF_NAME}"
+          grep -q "PortalBroadcastSection" apps/web/src/app/page.tsx
+          grep -q -- '--color-marrom:' apps/web/src/app/globals.css
+          echo "OK: código do portal e tema DEV recente confirmados"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Instalar projeto
+        run: npm ci
+      - name: Compilar shared e db para export Next.js
+        run: |
+          npm run build -w @idbrf/shared
+          npx prisma generate --schema packages/db/prisma/schema.prisma
+          npm run build -w @idbrf/db
+      - name: Gerar frontend DEV recente (API de HML, não de produção)
+        run: npm run build -w @idbrf/web
+      - name: Validar export e rastreabilidade
+        run: |
+          node mobile/scripts/verify-web-build.mjs
+          node -e 'const fs=require("fs");fs.writeFileSync("apps/web/out/mobile-build.json", JSON.stringify({commit:process.env.GITHUB_SHA,branch:process.env.GITHUB_REF_NAME,stage:"DEV",api:"https://id-riacho1-api-hml.vercel.app"},null,2))'
+      - name: Instalar ferramenta Android
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+      - name: Gerar projeto nativo Android e sincronizar frontend
+        working-directory: mobile
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Compilar APK debug
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Validar APK e gerar hash
+        run: |
+          set -euo pipefail
+          FILE=mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$FILE"
+          unzip -l "$FILE" | grep -F 'assets/public/index.html'
+          unzip -l "$FILE" | grep -F 'assets/public/mobile-build.json'
+          sha256sum "$FILE" > "$FILE.sha256"
+      - name: Anexar APK para instalar no celular
+        uses: actions/upload-artifact@v4
+        with:
+          name: id-riacho-1-dev-atualizado-apk
+          path: |
+            mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            mobile/android/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
