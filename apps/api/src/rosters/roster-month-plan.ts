@@ -408,6 +408,21 @@ function assignmentFrom(slot: PlannedSlot, serviceAt: string, state: MonthState,
 export function presentMonthlySimulation(state: MonthState, options: { moduleId?: string; pins?: readonly MonthPin[]; decisions?: readonly MonthDecision[]; capacities?: readonly MonthCapacityRequest[]; recalculate?: boolean; fillOnlyOpen?: boolean } = {}) {
   const scoped = options.moduleId ? { ...state, modules: state.modules.filter(module => module.id === options.moduleId) } : state;
   const simulation = planMonth(scoped, options);
+  // As vagas equivalentes de um mesmo culto têm a mesma elegibilidade.
+  // Evita recalcular avaliações para cada uma das sete vagas idênticas do Louvor.
+  const candidateCache = new Map<string, ReturnType<typeof listSlotCandidates>>();
+  const savedHistorySlotIds = new Set(scoped.history.map(item => item.slotId));
+  const candidatesForPosition = (module: MonthModule, serviceAt: string, slot: PlannedSlot) => {
+    // Histórico da própria vaga precisa ser excluído em uma substituição manual.
+    const ownHistorySlot = savedHistorySlotIds.has(slot.key) ? slot.key : "";
+    const key = JSON.stringify([module.id, serviceAt, slot.roleLabel, slot.requiredQualification,
+      slot.requiresCouple, ownHistorySlot]);
+    const known = candidateCache.get(key);
+    if (known) return known;
+    const eligible = listSlotCandidates(scoped, module, serviceAt, slot);
+    candidateCache.set(key, eligible);
+    return eligible;
+  };
   return {
     month: simulation.month,
     revision: simulation.fingerprint,
@@ -445,7 +460,7 @@ export function presentMonthlySimulation(state: MonthState, options: { moduleId?
             partnerName: slot.partnerName ?? null,
             reasons: slot.reasonCodes,
             openVacancy: slot.openVacancy ?? null,
-            candidates: positionReadOnly || !module ? [] : listSlotCandidates(scoped, module, service.serviceAt, slot),
+            candidates: positionReadOnly || !module ? [] : candidatesForPosition(module, service.serviceAt, slot),
           };
         }),
       };
@@ -455,6 +470,7 @@ export function presentMonthlySimulation(state: MonthState, options: { moduleId?
 
 function listSlotCandidates(state: MonthState, module: MonthModule, serviceAt: string, slot: PlannedSlot) {
   const people = candidatesFor(module, state);
+  const names = new Map(state.people.map(item => [item.personId, item.name]));
   const history = state.history.filter(item => item.slotId !== slot.key);
   return people.flatMap(person => {
     const decision = evaluateCandidate(person, {
@@ -464,7 +480,7 @@ function listSlotCandidates(state: MonthState, module: MonthModule, serviceAt: s
     }, people, history, rulesFor(module, state.monthlySurveyRequired !== false));
     if (!decision.eligible) return [];
     const partnerPersonId = decision.personIds[1] ?? null;
-    return [{ personId: person.personId, personName: state.people.find(item => item.personId === person.personId)?.name ?? person.personId, partnerPersonId, partnerName: partnerPersonId ? state.people.find(item => item.personId === partnerPersonId)?.name ?? null : null }];
+    return [{ personId: person.personId, personName: names.get(person.personId) ?? person.personId, partnerPersonId, partnerName: partnerPersonId ? names.get(partnerPersonId) ?? null : null }];
   }).slice(0, 40);
 }
 

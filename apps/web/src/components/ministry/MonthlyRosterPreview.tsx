@@ -80,7 +80,11 @@ export function MonthlyRosterPreview({ token, ministryId, modules, louvor, initi
     setStale(failure instanceof ApiRequestError && failure.status === 409);
     setError(failure instanceof ApiRequestError && failure.status === 409
       ? "A escala mudou desde que você abriu a simulação. Atualize a prévia para revisar os conflitos."
-      : dasError(failure));
+      : failure instanceof ApiRequestError && failure.kind === "timeout"
+        ? "O sorteio levou mais tempo que o permitido. A equipe já cadastrada foi preservada. Tente sortear o mês novamente."
+        : failure instanceof ApiRequestError && failure.kind === "network"
+          ? "A conexão com a API foi interrompida durante o sorteio. A equipe já cadastrada foi preservada; tente novamente."
+          : dasError(failure));
   }
 
   async function generate(event: FormEvent<HTMLFormElement>) {
@@ -201,6 +205,9 @@ export function MonthlyRosterPreview({ token, ministryId, modules, louvor, initi
         <UIIcon name="spark" size={18} /> {busy === "generating" ? "Sorteando cultos…" : louvor ? "Sortear o mês inteiro" : "Gerar simulação"}
       </button>
     </form>
+    {busy === "generating" && <p className={s.availability} role="status" aria-live="polite">
+      Consultando integrantes, conferindo impedimentos e sorteando todos os cultos do mês. A geração pode levar alguns segundos.
+    </p>}
     {error && <p role="alert" className={s.error}>{error}</p>}
     {notice && <p role="status" className={s.notice}>{notice}</p>}
     {preview && <>

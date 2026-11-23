@@ -19,6 +19,8 @@ export type MonthlyPosition = Partial<MonthlyChoice> & {
 };
 export type MonthlyCapacity = { id: string; label: string; count: number; minimumCount: number };
 export const MONTHLY_CAPACITY_MAX = 30;
+/** Sorteios envolvem múltiplos cultos e a API QA pode precisar de mais de oito segundos. */
+export const MONTHLY_ROSTER_TIMEOUT_MS = 60_000;
 export type MonthlyRoster = {
   id: string;
   moduleId?: string;
@@ -91,7 +93,7 @@ export async function simulateRosterMonth(ministryId: string, token: string, inp
   const base = endpoint(ministryId);
   let preview: MonthlyPreview;
   try {
-    preview = await apiPost<MonthlyPreview>(base + "/monthly-simulation", token, input);
+    preview = await apiPost<MonthlyPreview>(base + "/monthly-simulation", token, input, { timeoutMs: MONTHLY_ROSTER_TIMEOUT_MS });
     if (!preview?.revision) throw new Error("A API devolveu uma simulação sem revisão. Atualize a página e tente novamente.");
   } catch (error) {
     if (!allowLegacy || !(error instanceof ApiRequestError) || (error.status !== 404 && error.status !== 405)) throw error;
@@ -104,7 +106,7 @@ export async function simulateRosterMonth(ministryId: string, token: string, inp
 }
 
 export function saveRosterMonth(ministryId: string, token: string, input: MonthlyRequest & { revision: string }) {
-  return apiPost<{ savedRosters: number }>(endpoint(ministryId) + "/monthly-simulation/save", token, input);
+  return apiPost<{ savedRosters: number }>(endpoint(ministryId) + "/monthly-simulation/save", token, input, { timeoutMs: MONTHLY_ROSTER_TIMEOUT_MS });
 }
 
 const explanations: Record<string, string> = {

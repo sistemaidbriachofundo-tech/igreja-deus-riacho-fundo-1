@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  monthlyDecisions, monthlySlotChoice, monthlyVacancyMessage, nextRosterMonth, rosterEditable,
+  MONTHLY_ROSTER_TIMEOUT_MS, monthlyDecisions, monthlySlotChoice, monthlyVacancyMessage, nextRosterMonth, rosterEditable,
   type MonthlyPreview,
 } from "./monthly-roster-simulation";
 
@@ -47,6 +47,11 @@ describe("simulação mensal de escalas", () => {
   it("distingue pesquisa sem resposta de indisponibilidade declarada", () => {
     expect(monthlyVacancyMessage({ slotId: "x", roleLabel: "Apoio", reasons: ["MONTHLY_UNANSWERED"] })).toMatch(/ainda não informada/);
     expect(monthlyVacancyMessage({ slotId: "x", roleLabel: "Apoio", reasons: ["MONTHLY_NOT_AVAILABLE"] })).toMatch(/Indisponibilidade informada/);
+  });
+
+  it("não cancela o sorteio depois de oito segundos quando a API retorna mais tarde", () => {
+    expect(MONTHLY_ROSTER_TIMEOUT_MS).toBeGreaterThan(8_475);
+    expect(MONTHLY_ROSTER_TIMEOUT_MS).toBe(60_000);
   });
 
   it("sugere o próximo mês pela data de Brasília", () => {
