@@ -1198,9 +1198,9 @@
   min-height: 44px;
   padding: 10px 14px;
   border: 1px solid var(--app-border, #dce6de);
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--app-surface, #fff);
-  color: var(--app-accent, #255742);
+  color: var(--app-ink, #171717);
   font: 600 14px/1.25 var(--site-font);
   text-align: center;
   text-decoration: none;
@@ -1208,14 +1208,14 @@
 }
 
 .workspacePrimary {
-  border-color: var(--app-accent, #255742);
-  background: var(--app-accent, #255742);
+  border-color: #171717;
+  background: #171717;
   color: #fff;
 }
 
 .workspacePrimary:hover:not(:disabled) {
-  border-color: var(--app-accent-hover, #1b4935);
-  background: var(--app-accent-hover, #1b4935);
+  border-color: #333333;
+  background: #333333;
 }
 
 .workspaceSecondary:hover:not(:disabled) { background: var(--app-subtle, #f5f8f5); }
@@ -1251,9 +1251,9 @@
   min-height: 44px;
   padding: 8px 13px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 9px;
   background: transparent;
-  color: #496557;
+  color: #3b4149;
   font: 600 13px/1.25 var(--site-font);
   white-space: nowrap;
   text-decoration: none;
@@ -1263,15 +1263,15 @@
 .workspaceTabs > :is(button, a) svg,
 .workspaceChoices > :is(button, a) svg { flex: none; }
 .workspaceTabs > :is(button, a):hover,
-.workspaceChoices > :is(button, a):hover { background: #e7eee8; color: #234e3c; }
+.workspaceChoices > :is(button, a):hover { background: #edf0f2; color: #171717; }
 .workspaceTabs > :is(button, a)[aria-current="page"],
 .workspaceTabs > button[aria-selected="true"] {
-  background: #dceae0;
-  color: #164933;
+  background: #171717;
+  color: #ffffff;
   font-weight: 700;
 }
 .workspaceTabs > :is(button, a):focus-visible,
-.workspaceChoices > :is(button, a):focus-visible { outline: 2px solid #a8491b; outline-offset: -3px; }
+.workspaceChoices > :is(button, a):focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
 
 .workspaceChoices {
   display: inline-flex;
@@ -1292,19 +1292,19 @@
   min-height: 44px;
   padding: 6px clamp(8px, 2vw, 14px);
   border: 0;
-  border-radius: 999px;
+  border-radius: 9px;
   background: transparent;
-  color: #3c5b4d;
+  color: #3b4149;
   font: 650 .8125rem/1.2 var(--site-font);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
 }
 .workspaceChoices > button[aria-pressed="true"] {
-  background: #24513e;
+  background: #171717;
   color: #fff;
 }
-.workspaceChoices > button[aria-pressed="true"]:focus-visible { outline-color: #ffd0a5; }
+.workspaceChoices > button[aria-pressed="true"]:focus-visible { outline-color: #171717; }
 @media (max-width: 420px) {
   .workspaceChoices > :is(button, a) { padding-inline: 8px; font-size: .75rem; }
 }
@@ -1515,7 +1515,7 @@
 .filterDisclosure { display: grid; gap: 10px; min-width: 0; }
 .filterRail { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .filterRail button { flex: none; }
-.filterRail button[aria-expanded="true"] { background: #e8f0e9; border-color: #b7cdbd; }
+.filterRail button[aria-expanded="true"] { background: #edf0f2; border-color: #8d9298; }
 .filterCount {
   display: grid;
   place-items: center;
@@ -1523,7 +1523,7 @@
   min-height: 20px;
   padding-inline: 4px;
   border-radius: 999px;
-  background: #24513e;
+  background: #171717;
   color: #fff;
   font-size: .72rem;
 }
