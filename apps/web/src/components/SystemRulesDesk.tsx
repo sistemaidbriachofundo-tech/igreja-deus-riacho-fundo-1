@@ -73,6 +73,17 @@ export function SystemRulesDesk() {
   return <div className={s.desk}>
     <PageHeader appearance="workspace" heading="h1" title="Gestão do Sistema" description="Regras e preferências da congregação"
       actions={<a className={ui.workspaceSecondary} href={withBasePath("/app/servir/atmosfera/?config=regras")}><UIIcon name="roster" size={17} /> Regras de escala do Atmosfera</a>} />
+    <section className={s.operational} aria-labelledby="operational-rules-title">
+      <div><h2 id="operational-rules-title">Regras operacionais já configuráveis</h2>
+        <p>Edite equipes, vagas e escalas diretamente nos módulos. Estas telas salvam configurações da operação, sem solicitar alteração no código.</p></div>
+      <div className={s.operationalLinks}>
+        <a href={withBasePath("/app/servir/atmosfera/?config=regras")}><UIIcon name="roster" size={17} /> Atmosfera · Módulos e escalas</a>
+        <a href={withBasePath("/app/servir/louvor/?config=regras")}><UIIcon name="roster" size={17} /> Louvor · Equipe e geração mensal</a>
+        <a href={withBasePath("/app/pastoral/ordem-de-culto/")}><UIIcon name="settings" size={17} /> Ordem do Culto · Regras e integrantes</a>
+        <a href={withBasePath("/app/eventos-gestao/")}><UIIcon name="ticket" size={17} /> Eventos · Inscrições e lotes</a>
+      </div>
+      <p className={s.operationalNote}>As regras em <strong>Referência</strong> ainda não alteram o sistema. Regras protegidas, como exigência de login e controles financeiros, não podem ser afrouxadas pelo painel.</p>
+    </section>
     {error && <><Alert title={error} tone="danger" /><Button onClick={() => setAttempt(n => n + 1)}>Tentar novamente</Button></>}
     {!settings && !error && <Loading label="Carregando regras" />}
     {settings && <>

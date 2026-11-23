@@ -1,0 +1,63 @@
+name: "DEV RF1 · gate integral de fechamento"
+on:
+  push:
+    branches:
+      - chatgpt/dev-finalizacao-escalas-visual-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-fechamento-rf1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-dev:
+    name: Lint, Typecheck, API, Web e PostgreSQL isolado
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://idbrf:idbrf_ci@127.0.0.1:5432/idbrf?schema=public
+      NEXT_PUBLIC_BASE_PATH: ""
+      NEXT_PUBLIC_API_URL: ""
+      NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: idbrf
+          POSTGRES_PASSWORD: idbrf_ci
+          POSTGRES_DB: idbrf
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U idbrf -d idbrf"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm run build -w @idbrf/shared
+      - run: npx prisma generate --schema packages/db/prisma/schema.prisma
+      - run: npm run build -w @idbrf/db
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Guardar banco produtivo contra operações acidentais
+        run: node scripts/release/assert-local-database.mjs
+      - name: Migração apenas no PostgreSQL temporário
+        run: npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
+      - name: Todos os testes do monorepo
+        run: npm run test
+      - name: Compilar API
+        run: npm run build -w @idbrf/api
+      - name: Compilar frontend
+        run: npm run build -w @idbrf/web

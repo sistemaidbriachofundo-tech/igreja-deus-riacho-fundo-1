@@ -85,6 +85,10 @@ export function MinistryMembershipCatalog({
   const [page, setPage] = useState(0);
   const [moduleFilter, setModuleFilter] = useState("");
   const [editingModules, setEditingModules] = useState("");
+  const [editingRoleId, setEditingRoleId] = useState("");
+  const [nextRole, setNextRole] = useState<FormalRole>("INTEGRANTE");
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [roleFeedback, setRoleFeedback] = useState("");
   const [moduleFeedback, setModuleFeedback] = useState("");
   const [openedPerson, setOpenedPerson] = useState<FormalMember | null>(null);
   const members = desk.membership.kind === "ready"
@@ -149,6 +153,22 @@ export function MinistryMembershipCatalog({
     Math.max(0, Math.ceil(filtered.length / pageSize) - 1),
   );
   const firstRow = visiblePage * pageSize;
+
+  async function saveRole(member: FormalMember) {
+    if (!token || moduleOnly || roleBusy || nextRole === member.role) return;
+    setRoleBusy(true);
+    setRoleFeedback("");
+    try {
+      await apiPatch(`/ministry-scope/${encodeURIComponent(ministryId)}/formal-memberships/${encodeURIComponent(member.id)}/role`, token, { role: nextRole });
+      setEditingRoleId("");
+      setRoleFeedback("Função atualizada. A alteração ficou registrada no histórico da congregação.");
+      onModulesSaved?.();
+    } catch (failure) {
+      setRoleFeedback("Não foi possível editar a função: " + dasError(failure));
+    } finally {
+      setRoleBusy(false);
+    }
+  }
 
   async function requestRemoval(member: FormalMember) {
     const accepted = await confirm({
@@ -230,6 +250,7 @@ export function MinistryMembershipCatalog({
               }
             />}
             {moduleFeedback && <p role="status">{moduleFeedback}</p>}
+            {roleFeedback && <p role="status">{roleFeedback}</p>}
             {rosterModules && rosterModules.length > 0 && <div className={styles.teamFilters} role="group" aria-label="Equipes">
               {(!moduleOnly || rosterModules.length > 1) && <button type="button" aria-pressed={!filteredModule}
                 onClick={() => { setModuleFilter(""); setPage(0); }}>Todas as equipes <span>{active.length}</span></button>}
@@ -289,6 +310,12 @@ export function MinistryMembershipCatalog({
                       </small>}
                     </div>
                     <div className={styles.memberActions}>
+                    {!moduleOnly && canWrite && token && member.status === "ATIVO" &&
+                      <button type="button" className={ui.workspaceSecondary}
+                        aria-expanded={editingRoleId === member.id}
+                        onClick={() => { setEditingRoleId(current => current === member.id ? "" : member.id); setNextRole(member.role); setRoleFeedback(""); }}>
+                        Editar função <span className={styles.srOnly}>de {member.displayName}</span>
+                      </button>}
                     {louvor && canWrite && token && member.status === "ATIVO" &&
                       <VocalProfile token={token} personId={member.personId} name={member.displayName} />}
                     {Boolean(rosterModules?.length) && manageRosterModules && token && member.status === "ATIVO" &&
@@ -309,6 +336,21 @@ export function MinistryMembershipCatalog({
                       </button>
                     ) : null}
                     </div>
+                    {editingRoleId === member.id && !moduleOnly && token && <form className={styles.roleEditor}
+                      onSubmit={event => { event.preventDefault(); void saveRole(member); }}>
+                      <label>Função de {member.displayName}
+                        <select value={nextRole} disabled={roleBusy}
+                          onChange={event => setNextRole(event.target.value as FormalRole)}>
+                          <option value="INTEGRANTE">Integrante</option>
+                          <option value="APOIO">Apoio</option>
+                          <option value="COORDENADOR">Coordenador (Pastoral/Admin)</option>
+                          <option value="LIDER">Líder (Pastoral/Admin)</option>
+                        </select>
+                      </label>
+                      <button type="submit" className={ui.workspacePrimary} disabled={roleBusy || nextRole === member.role}>Salvar função</button>
+                      <button type="button" className={ui.workspaceSecondary} disabled={roleBusy}
+                        onClick={() => setEditingRoleId("")}>Cancelar</button>
+                    </form>}
                     {editingModules === member.id && token && rosterModules && manageRosterModules &&
                       <MemberModuleForm key={member.id} member={member} modules={rosterModules} token={token}
                         ministryId={desk.ministry.id} onSaved={() => {

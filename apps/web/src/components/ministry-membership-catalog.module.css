@@ -485,3 +485,11 @@
 .teamDrawer p { margin: 0; }
 .teamDrawer footer { display: flex; justify-content: end; }
 .invitationError { color: #8a3128; }
+
+
+/* Edição de vínculo formal: usa a mesma linguagem visual do workspace. */
+.roleEditor { grid-column: 1 / -1; display:flex; align-items:end; flex-wrap:wrap; gap:10px; padding:14px; border:1px solid var(--app-border,#d9e3e1); border-radius:12px; background:#f4f9f6; }
+.roleEditor label { display:grid; gap:5px; min-width:min(220px,100%); color:var(--app-accent,#245944); font-size:12px; font-weight:700; }
+.roleEditor select { min-height:44px; padding:9px 12px; background:#fff; color:#1a2824; border:1px solid #cbd9d1; border-radius:9px; }
+.roleEditor button { min-height:44px; }
+@media (max-width:500px) { .roleEditor { flex-direction:column; align-items:stretch; } .roleEditor label { min-width:0; width:100%; } }

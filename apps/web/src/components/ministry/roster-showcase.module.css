@@ -1,23 +1,26 @@
 .showcase { display: grid; min-width: 0; gap: 12px; color: #18382c; }
 .monthlyHero {
-  display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 14px;
-  padding: clamp(16px, 3vw, 28px) clamp(14px, 3vw, 24px) 28px; border-radius: 16px;
-  background: radial-gradient(ellipse at 90% 65%, #29543b, transparent 68%), #123429; color: #f5faed;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: center; gap: 16px 20px;
+  padding: clamp(18px, 2.4vw, 26px); border-radius: 17px;
+  border: 1px solid var(--app-border, #dce5dd);
+  background: var(--app-surface, #fff); color: var(--app-text, #1b3028);
 }
-.monthlyHero p { margin: 0 0 4px; color: #d1e9d6; font-weight: 650; font-size: .85rem; }
-.monthlyHero h2 { margin: 0; color: inherit; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.07; letter-spacing: -.04em; }
+.monthlyHero p { margin: 0 0 5px; color: var(--app-muted, #66776e); font-weight: 650; font-size: .8rem; }
+.monthlyHero h2 { margin: 0; color: inherit; font-size: clamp(1.65rem, 2.6vw, 2.35rem); line-height: 1.09; letter-spacing: -.04em; }
 .heroActions, .monthlyControls, .monthlyControls > div, .teamActions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
-.heroActions { flex-wrap: wrap; }
+.heroActions { justify-content: flex-end; max-width: 760px; }
+.heroActions > * { flex: 0 1 auto; }
 .secondary, .lime, .openCard, .rowMenu summary {
   display: inline-flex; align-items: center; justify-content: center; min-height: 42px; gap: 6px;
   border: 1px solid #cbdcd0; border-radius: 8px; padding: 7px 10px; background: #fff; color: #21523c;
   font: inherit; font-size: .84rem; font-weight: 740; text-decoration: none; cursor: pointer;
 }
-.lime { background: #d7fa75; border-color: #b9df59; color: #183525; }
+.lime { background: var(--app-accent, #265d49); border-color: var(--app-accent, #265d49); color: #fff; }
 .lime:disabled { opacity: .62; cursor: not-allowed; }
 .openCard { background: transparent; border-color: transparent; }
 .monthlyFilters {
-  display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; margin: -21px 12px 0;
+  display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; margin: 0;
   background: #fff; border: 1px solid #dbe7db; border-radius: 13px; padding: 11px 12px; z-index: 1;
 }
 .monthlyFilters > :is(label, div) { display: grid; gap: 4px; min-width: 0; font-size: .81rem; font-weight: 720; color: #405d4e; }
@@ -65,10 +68,13 @@
 .showcase :is(a, button, select, summary):focus-visible { outline: 3px solid #31785b; outline-offset: 2px; }
 .showcase button:disabled { opacity: .65; cursor: default; }
 @media (max-width: 800px) {
+  .monthlyHero { grid-template-columns: minmax(0, 1fr); }
+  .heroActions { justify-content: flex-start; }
   .teamLine { grid-template-columns: minmax(0, 1fr) auto; }
   .teamActions { gap: 2px; }
 }
 @media (max-width: 480px) {
+  .heroActions > * { width: 100%; justify-content: center; }
   .monthlyFilters { grid-template-columns: 1fr 1fr; margin-inline: 5px; }
   .monthlyFilters > div { grid-column: 1 / -1; }
   .cultGroup { grid-template-columns: 39px minmax(0, 1fr); gap: 7px; }

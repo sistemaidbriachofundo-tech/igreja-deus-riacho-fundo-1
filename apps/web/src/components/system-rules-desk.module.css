@@ -37,3 +37,14 @@
   .groups button > svg { display: none; }
   .icon { width: 33px; height: 33px; }
 }
+
+
+.operational { padding:clamp(15px,2vw,23px); border:1px solid var(--app-border,#d9e4de); border-radius:17px; background:var(--app-surface,#fff); display:grid; gap:14px; }
+.operational h2 { margin:0 0 6px; font-size:clamp(17px,2vw,21px); letter-spacing:-.025em; color:var(--app-text,#1f332b); }
+.operational p { margin:0; color:var(--app-muted,#536b5c); line-height:1.5; font-size:13px; }
+.operationalLinks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.operationalLinks a { display:flex; align-items:center; gap:10px; border:1px solid var(--app-border,#d9e4de); background:var(--app-surface-muted,#f6f9f6); padding:12px 13px; border-radius:11px; color:var(--app-accent,#285d43); font-size:13px; font-weight:750; text-decoration:none; min-height:48px; }
+.operationalLinks a:hover { border-color:var(--app-accent,#285d43); background:#eaf4ec; }
+.operationalLinks a:focus-visible { outline:3px solid var(--app-accent,#285d43); outline-offset:2px; }
+.operationalNote { border-top:1px solid var(--app-border,#e0e8e1); padding-top:12px; }
+@media(max-width:640px) { .operationalLinks { grid-template-columns:1fr; } }

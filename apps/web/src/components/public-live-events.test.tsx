@@ -25,7 +25,7 @@ describe("cards de próximos eventos", () => {
     expect(html).toContain("Riacho Fundo I");
     expect(html).toContain("Inscrições abertas");
     expect(html).toContain("Ver evento e inscrever-se");
-    expect(html).toContain("/eventos/inscricao/?evento=encontro-familias");
+    expect(html).toContain("/eventos/inscricao?evento=encontro-familias"); // Next.js normaliza a barra final no SSR.
     expect(html).toContain("capa.png");
     expect(html).toContain("2026-11-28T22:00:00.000Z");
   });

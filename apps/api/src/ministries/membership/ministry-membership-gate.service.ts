@@ -115,6 +115,39 @@ export class MinistryMembershipGateService {
     return body;
   }
 
+  /** Ajusta somente a função formal neste ministério; não altera cargo eclesiástico nem grants. */
+  async updateMembershipRole(actor: AuthUser, ministryId: string, membershipId: string, role: string) {
+    const scope = await this.scope(actor, ministryId);
+    if (!isFormalRole(role)) throw new BadRequestException("Função do ministério inválida.");
+    const supervisor = actor.grants.some(grant =>
+      (grant.roleCode === "PLATFORM_ADMIN" || grant.roleCode === "PASTOR") &&
+      grant.organizationId === scope.organizationId &&
+      (!grant.churchId || grant.churchId === scope.churchId));
+    const current = await this.prisma.ministryMembership.findFirst({
+      where: { id: membershipId, ...scope, status: "ATIVO", endedAt: null },
+      select: { id: true, personId: true, role: true },
+    });
+    if (!current) throw new NotFoundException("Integrante ativo não encontrado neste ministério.");
+    if (!supervisor && [role, current.role].some(value => value === "LIDER" || value === "COORDENADOR")) {
+      throw new ForbiddenException("Apenas Administração ou Pastoral pode alterar vínculos de liderança.");
+    }
+    if (current.role === role) return { memberId: current.id, role, changed: false };
+    return this.prisma.$transaction(async tx => {
+      const changed = await tx.ministryMembership.updateMany({
+        where: { id: current.id, ...scope, status: "ATIVO", endedAt: null, role: current.role },
+        data: { role },
+      });
+      if (!changed.count) throw new ConflictException("O vínculo mudou. Atualize a lista antes de tentar novamente.");
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "ministry.membership.role.update",
+        resourceType: "ministry_membership", resourceId: current.id,
+        organizationId: scope.organizationId, churchId: scope.churchId,
+        metadata: { ministryId, personId: current.personId, fromRole: current.role, toRole: role },
+      } });
+      return { memberId: current.id, role, changed: true };
+    });
+  }
+
   async convertInterest(actor: AuthUser, ministryId: string, volunteerInterestId: string) {
     const scope = await this.scope(actor, ministryId);
     const interestId = volunteerInterestId?.trim();
