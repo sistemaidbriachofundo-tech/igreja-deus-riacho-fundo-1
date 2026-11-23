@@ -426,12 +426,40 @@ export class FinanceController {
   }
 
   @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("balances")
+  balances(@CurrentUser() user: AuthUser) {
+    return this.finance.balances(user);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
+  @Get("statements/export")
+  async exportStatement(
+    @CurrentUser() user: AuthUser,
+    @Query("format") format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (format !== "pdf" && format !== "xls") {
+      throw new BadRequestException("Informe o formato pdf ou xls.");
+    }
+    const file = await this.finance.exportStatement(user, format);
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+    res.setHeader("Cache-Control", "private, no-store");
+    return new StreamableFile(file.bytes);
+  }
+
+  @Roles(ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN)
   @Get("entries")
   listEntries(
     @CurrentUser() user: AuthUser,
     @Query("status") status?: string,
+    @Query("bucket") bucket?: string,
   ) {
-    return this.finance.listEntries(user, status);
+    const view = bucket === "payables" || bucket === "settled" ? bucket : undefined;
+    if (bucket && !view) {
+      throw new BadRequestException("O recorte do extrato deve ser payables ou settled.");
+    }
+    return this.finance.listEntries(user, status, view);
   }
 
   @Post("entries/:entryId/mark-paid")

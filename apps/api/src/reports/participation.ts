@@ -30,6 +30,7 @@ export interface ParticipationSource {
   isMinor: boolean;
   guardianDisplayName?: string | null;
   status: string;
+  paymentStatus?: string | null;
   checkedInAt: string | null;
   checkInCode?: string | null;
 }
@@ -39,6 +40,7 @@ export interface ParticipationRow {
   eventId: string;
   eventName: string;
   status: string;
+  paymentStatus: string | null;
   partySize: number;
   checkedInAt: string | null;
   syntheticLabel: string | null;
@@ -48,6 +50,7 @@ export interface ParticipationRow {
 export interface ParticipationCounts {
   registrations: number;
   cancelled: number;
+  refunded: number;
   checkedIn: number;
   pendingPayment: number;
   confirmedAwaitingPresence: number;
@@ -62,6 +65,7 @@ export function emptyParticipationCounts(): ParticipationCounts {
   return {
     registrations: 0,
     cancelled: 0,
+    refunded: 0,
     checkedIn: 0,
     pendingPayment: 0,
     confirmedAwaitingPresence: 0,
@@ -93,21 +97,23 @@ export function summarizeParticipation(input: readonly ParticipationSource[]): {
     const party =
       Number.isInteger(row.partySize) && row.partySize > 0 ? row.partySize : 0;
     counts.registrations += 1;
-    if (row.status === "CANCELLED") {
+    if (row.paymentStatus === "REFUNDED") {
+      counts.refunded += 1;
+    } else if (row.status === "CANCELLED") {
       counts.cancelled += 1;
     } else {
       counts.participants += party;
-    }
-    if (row.status === "CHECKED_IN") {
-      counts.checkedIn += 1;
-      counts.presentParticipants += row.presentParticipants ?? party;
-    } else if (row.status === "PENDING_PAYMENT") {
-      counts.pendingPayment += 1;
-    } else if (row.status === "CONFIRMED") {
-      counts.confirmedAwaitingPresence += 1;
-      counts.presentParticipants += row.presentParticipants ?? 0;
-    } else if (row.status !== "CANCELLED") {
-      counts.unclassified += 1;
+      if (row.status === "CHECKED_IN") {
+        counts.checkedIn += 1;
+        counts.presentParticipants += row.presentParticipants ?? party;
+      } else if (row.status === "PENDING_PAYMENT") {
+        counts.pendingPayment += 1;
+      } else if (row.status === "CONFIRMED") {
+        counts.confirmedAwaitingPresence += 1;
+        counts.presentParticipants += row.presentParticipants ?? 0;
+      } else {
+        counts.unclassified += 1;
+      }
     }
 
     if (row.isMinor) {
@@ -121,6 +127,7 @@ export function summarizeParticipation(input: readonly ParticipationSource[]): {
       eventId: row.eventId,
       eventName: row.eventName,
       status: row.status,
+      paymentStatus: row.paymentStatus ?? null,
       partySize: party,
       checkedInAt: row.checkedInAt,
       syntheticLabel: redact ? null : row.displayName,
@@ -134,6 +141,7 @@ export function countsAreBalanced(counts: ParticipationCounts): boolean {
   return (
     counts.registrations ===
     counts.cancelled +
+      counts.refunded +
       counts.checkedIn +
       counts.pendingPayment +
       counts.confirmedAwaitingPresence +

@@ -273,6 +273,8 @@ export const API_ENDPOINT_STATUS = {
   "GET /ledger/accounts/:accountId": "implemented",
   "PATCH /ledger/accounts/:accountId": "implemented",
   "GET /ledger/entries": "implemented",
+  "GET /ledger/balances": "implemented",
+  "GET /ledger/statements/export": "implemented",
   "POST /ledger/entries": "implemented",
   "GET /ledger/entries/:entryId": "implemented",
   "POST /ledger/entries/:entryId/submit": "implemented",

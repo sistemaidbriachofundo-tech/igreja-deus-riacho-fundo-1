@@ -92,12 +92,12 @@ test("G autentica as oito personas em /auth/login e /auth/me", async ({ request 
 
   for (const persona of PHASE_G_PERSONAS) {
     const started = Date.now();
-    const login = await apiCall(request, null, "POST", "/auth/login", {
-      email: persona.email,
-      password: demoPassword(),
-    });
-    const token = recordOf(login.body)?.accessToken;
-    const me = typeof token === "string" ? await apiCall(request, token, "GET", "/auth/me") : { status: null, body: null };
+    const login = await openSession(request, persona);
+    if (login.blocked) {
+      keep(row(`G/auth-${persona.id.toLowerCase()}`, personaOf(persona.id), `Login e /auth/me de ${persona.id}`, "BLOCKED", login.blocked, { durationMs: Date.now() - started }), bucket);
+      continue;
+    }
+    const me = login.session ? await apiCall(request, login.session.token, "GET", "/auth/me") : { status: null, body: null };
     const meBody = recordOf(me.body);
     const grants = Array.isArray(meBody?.grants) ? meBody.grants : [];
     const roles = grants
@@ -324,18 +324,31 @@ test("G grava rascunho do editor e restaura sem publicar", async ({ request }) =
   }
   const editor = await openSession(request, PHASE_G_PERSONAS[6]);
   const member = await openSession(request, PHASE_G_PERSONAS[5]);
-  const publisher = await apiCall(request, null, "POST", "/auth/login", {
-    email: "publicador.demo@example.test",
-    password: demoPassword(),
-  });
-  const publisherRow = classifyLoginMe({
-    seeded: false,
-    expectedEmail: "publicador.demo@example.test",
-    expectedRole: "PUBLICADOR_SITE",
-    loginStatus: publisher.status,
-    meStatus: null,
-  });
-  keep(row("G/cms-publicador", "EDITOR", "Conta sintética de publicador", publisherRow.status, publisherRow.detail), bucket);
+  const publisher = await openSession(request, PHASE_G_PERSONAS[7]);
+  if (publisher.blocked) {
+    keep(row("G/cms-publicador", "EDITOR", "Conta sintética de publicador", "BLOCKED", publisher.blocked), bucket);
+  } else {
+    const publisherMe = publisher.session
+      ? await apiCall(request, publisher.session.token, "GET", "/auth/me")
+      : { status: null, body: null };
+    const publisherBody = recordOf(publisherMe.body);
+    const publisherRoles = Array.isArray(publisherBody?.grants)
+      ? publisherBody.grants.map((grant) => recordOf(grant)?.roleCode).filter((role): role is string => typeof role === "string")
+      : [];
+    const publisherRow = classifyLoginMe({
+      seeded: true,
+      expectedEmail: "publicador.demo@example.test",
+      expectedRole: "PUBLICADOR_SITE",
+      loginStatus: publisher.status,
+      meStatus: publisherMe.status,
+      email: typeof publisherBody?.email === "string" ? publisherBody.email : null,
+      roles: publisherRoles,
+      organizationId: typeof publisherBody?.organizationId === "string" ? publisherBody.organizationId : null,
+      churchId: typeof publisherBody?.churchId === "string" ? publisherBody.churchId : null,
+      personId: typeof publisherBody?.personId === "string" ? publisherBody.personId : null,
+    });
+    keep(row("G/cms-publicador", "EDITOR", "Conta sintética de publicador", publisherRow.status, publisherRow.detail), bucket);
+  }
   if (!editor.session || !member.session) {
     keep(row("G/cms-rascunho", "EDITOR", "Rascunho do editor", "BLOCKED", "Login do editor ou do membro indisponível."), bucket);
     finish(bucket);

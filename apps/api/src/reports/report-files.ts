@@ -22,6 +22,7 @@ export function participationCsv(input: ParticipationFileInput): string {
     "evento",
     "inscricao_id",
     "situacao",
+    "pagamento",
     "pessoas",
     "presenca_em",
     "rotulo_sintetico",
@@ -34,6 +35,7 @@ export function participationCsv(input: ParticipationFileInput): string {
         row.eventName,
         row.registrationId,
         row.status,
+        row.paymentStatus ?? "",
         row.partySize,
         row.checkedInAt ?? "",
         row.labelRedacted ? "" : (row.syntheticLabel ?? ""),
@@ -74,6 +76,7 @@ export function renderParticipationPdf(
     `Gerado em ${input.generatedAt}`,
     `Inscrições ${input.counts.registrations}`,
     `Presenças ${input.counts.checkedIn}`,
+    `Estornos ${input.counts.refunded}`,
     `Participantes ${input.counts.participants}`,
     `Presentes ${input.counts.presentParticipants}`,
     `Menores omitidos ${input.counts.minorsOmitted}`,
@@ -82,7 +85,8 @@ export function renderParticipationPdf(
       const label = row.labelRedacted
         ? "rótulo omitido"
         : (row.syntheticLabel ?? "sem rótulo");
-      return `${row.eventName} · ${row.status} · ${row.partySize} · ${label}`;
+      const payment = row.paymentStatus === "REFUNDED" ? " · estornado" : "";
+      return `${row.eventName} · ${row.status}${payment} · ${row.partySize} · ${label}`;
     }),
   ];
   return renderTextPdf("Relatório de participação", lines);

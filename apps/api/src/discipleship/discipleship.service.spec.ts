@@ -569,6 +569,7 @@ describe("DiscipleshipService", () => {
       status: "ACTIVE",
     });
     expect(result.enrollments).toHaveLength(1);
+    expect(result.enrollments[0]).toMatchObject({ groups: [] });
     expect(prisma.discipleshipEnrollment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

@@ -26,7 +26,7 @@ import { utcWeeklyWindowsToRiachoLocal } from "./preview-domain/timezone-availab
 import { assertOpenModuleSlot, assertSlotEligibility, cultTypeAt, CULT_TYPES, isModuleVolunteer, type CultType } from "./roster-operating-rules";
 import { loadMonthState } from "./roster-month-load";
 import { capacitySlotChanges, decideMonthSave, draftsToPersist, monthFingerprint, presentMonthlySimulation, type MonthCapacityRequest, type MonthDecision, type MonthPin } from "./roster-month-plan";
-import { openVacancyText, responseStatuses, rosterInScope } from "./roster-module-policy";
+import { openVacancyText, responseStatuses, rosterInScope, surveyIsOpen } from "./roster-module-policy";
 import { inviteSlotCandidate, listMyRosterMemberInvitations, listSlotCandidates, respondRosterMemberInvitation } from "./roster-team";
 import {
   appendParticipantResponse,
@@ -46,9 +46,9 @@ function monthRange(month: string) {
   return churchMonthRange(month);
 }
 
-function surveyPeriod(now = new Date()) {
-  const [year, month, day] = churchDayKey(now).split("-").map(Number);
-  return { month: new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7), open: day >= 25 && day <= 28 };
+function surveyPeriod(now = new Date(), openDay = 25) {
+  const [year, month] = churchDayKey(now).split("-").map(Number);
+  return { month: new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7), open: surveyIsOpen(now, openDay) };
 }
 
 function rosterCultType(roster: { serviceType?: string | null; serviceAt: Date }): CultType {
@@ -329,11 +329,22 @@ export class PersonalRosterService {
     return { dto, drafts: plan.drafts };
   }
 
+  private async surveyOpenDay(now: Date) {
+    if (!this.settings) return 25;
+    try {
+      const pilot = await this.pilot.getPilotChurch();
+      return await this.settings.getSurveyOpenDay(pilot, now);
+    } catch {
+      return 25;
+    }
+  }
+
   async monthlySurvey(actor: AuthUser, now = new Date()) {
     const { churchId, organizationId } = await this.pilot.getPilotChurch();
     const scope = { churchId, organizationId };
     if (!actor.personId) throw new ForbiddenException("A sessão precisa estar vinculada a uma pessoa.");
-    const { month, open } = surveyPeriod(now);
+    const openDay = await this.surveyOpenDay(now);
+    const { month, open } = surveyPeriod(now, openDay);
     const memberships = await this.prisma.ministryMembership.findMany({
       where: { ...scope, personId: actor.personId, status: "ATIVO", person: { status: "ACTIVE" } }, select: { ministryId: true },
     });
@@ -452,6 +463,8 @@ export class PersonalRosterService {
       throw new ConflictException(decision);
     }
     return writeRosterAssignment(this.prisma, async tx => {
+      // Impede duas sessões de criar as mesmas vagas antes da releitura do mês.
+      await tx.$executeRaw`SELECT id FROM ministries WHERE id = ${ministryId} FOR UPDATE`;
       const reloaded = await this.monthState(actor, ministryId, month, pilot, tx);
       const fresh = request.moduleId ? { ...reloaded, modules: reloaded.modules.filter(module => module.id === request.moduleId) } : reloaded;
       const again = decideMonthSave(fresh, request);

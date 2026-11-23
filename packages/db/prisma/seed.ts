@@ -608,6 +608,18 @@ async function main() {
     },
   });
 
+  await prisma.discipleshipTrack.upsert({
+    where: { id: "demoTrackConexao" },
+    update: { name: "Trilha da Conexão" },
+    create: {
+      id: "demoTrackConexao",
+      organizationId: org.id,
+      churchId: church.id,
+      name: "Trilha da Conexão",
+      description: "Trilha sintética usada pelo mentor fictício de QA.",
+    },
+  });
+
   await prisma.ministry.upsert({
     where: {
       churchId_slug: { churchId: church.id, slug: "louvor-demo" },

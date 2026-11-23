@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -155,7 +156,7 @@ export class GroupsService {
     const pilot = await this.pilot.getPilotChurch();
     await requireConnectionManagement(this.prisma, actor, pilot);
     await this.requireGroup(groupId, pilot);
-    await this.requirePerson(input.personId, pilot.organizationId);
+    await this.requireCongregationPerson(input.personId, pilot);
 
     const role = this.requireMemberRole(input.role ?? "MEMBER");
 
@@ -185,6 +186,11 @@ export class GroupsService {
         role: member.role,
         joinedAt: member.joinedAt.toISOString(),
       };
+    }).catch((error: unknown) => {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        throw new ConflictException("Esta pessoa já está neste grupo.");
+      }
+      throw error;
     });
   }
 
@@ -402,13 +408,22 @@ export class GroupsService {
     if (!person) throw new BadRequestException("Escolha um responsável adulto com acesso ativo nesta congregação.");
   }
 
-  private async requirePerson(personId: string, organizationId: string) {
+  private async requireCongregationPerson(personId: string, pilot: { organizationId: string; churchId: string }) {
     const person = await this.prisma.person.findFirst({
-      where: { id: personId, organizationId },
+      where: {
+        id: personId,
+        organizationId: pilot.organizationId,
+        status: "ACTIVE",
+        OR: [
+          { homeChurchId: pilot.churchId },
+          { memberships: { some: { churchId: pilot.churchId, status: { in: ["ACTIVE", "PENDING_ADMISSION"] } } } },
+          { discipleshipEnrollments: { some: { status: "ACTIVE", track: { churchId: pilot.churchId } } } },
+        ],
+      },
       select: { id: true },
     });
     if (!person) {
-      throw new BadRequestException("Pessoa não encontrada neste escopo");
+      throw new BadRequestException("Pessoa não encontrada nesta congregação");
     }
     return person;
   }

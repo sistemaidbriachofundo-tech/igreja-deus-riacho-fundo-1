@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
@@ -231,6 +232,30 @@ describe("GroupsService", () => {
       personId: "p1",
     });
     expect(result.role).toBe("MEMBER");
+    expect(prisma.person.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: "p1", organizationId: "org1", status: "ACTIVE",
+        OR: expect.arrayContaining([
+          expect.objectContaining({ discipleshipEnrollments: { some: { status: "ACTIVE", track: { churchId: "church-rf1" } } } }),
+        ]),
+      }),
+    }));
+  });
+
+  it("recusa pessoa de outra congregação e avisa quando ela já está no grupo", async () => {
+    const tx = {
+      smallGroupMember: { create: jest.fn().mockRejectedValue({ code: "P2002" }) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      smallGroup: { findFirst: jest.fn().mockResolvedValue(groupRow) },
+      person: { findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "p1" }) },
+      ...withTx(tx),
+    };
+    const service = new GroupsService(prisma as never, { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never);
+    await expect(service.addMember(secretaria, "g1", { personId: "fora" })).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.smallGroupMember.create).not.toHaveBeenCalled();
+    await expect(service.addMember(secretaria, "g1", { personId: "p1" })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("creates meeting with attendance", async () => {

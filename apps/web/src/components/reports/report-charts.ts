@@ -12,6 +12,7 @@ export function barsFromCounts(record: Record<string, number> | null | undefined
 
 const PARTICIPATION_PARTS = [
   "cancelled",
+  "refunded",
   "checkedIn",
   "pendingPayment",
   "confirmedAwaitingPresence",
@@ -21,12 +22,15 @@ const PARTICIPATION_PARTS = [
 export function participationBars(counts: Record<string, number> | null | undefined): Bar[] | null {
   if (!counts) return null;
   if (typeof counts.registrations !== "number" || !Number.isFinite(counts.registrations)) return null;
-  if (PARTICIPATION_PARTS.some((key) => typeof counts[key] !== "number" || !Number.isFinite(counts[key]))) {
-    return null;
-  }
-  const sum = PARTICIPATION_PARTS.reduce((total, key) => total + counts[key], 0);
+  const values = PARTICIPATION_PARTS.map((key) => {
+    const value = counts[key];
+    if (key === "refunded" && value === undefined) return 0;
+    return value;
+  });
+  if (values.some((value) => typeof value !== "number" || !Number.isFinite(value))) return null;
+  const sum = values.reduce((total, value) => total + value, 0);
   if (sum !== counts.registrations) return null;
-  return PARTICIPATION_PARTS.map((key) => ({ label: key, value: counts[key] }));
+  return PARTICIPATION_PARTS.map((key, index) => ({ label: key, value: values[index] }));
 }
 
 export function costBars(

@@ -6,6 +6,8 @@ on:
       - chatgpt/dev-louvor-sorteio-mensal-20261123
       - chatgpt/dev-fix-timeout-sorteio-louvor-20261123
       - chatgpt/dev-fechamento-regras-20261123
+      - chatgpt/dev-rc-integrado-20261123
+      - cursor/tesouraria-regras-backend-988e
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,8 @@ jobs:
       NEXT_PUBLIC_BASE_PATH: ""
       NEXT_PUBLIC_API_URL: ""
       NEXT_PUBLIC_PORTAL_LIVE_ENABLED: "false"
+      RUN_RF1_ISOLATED_DB: "1"
+      EKLESIA_ENABLE_ROSTER_NOTIFICATIONS: "false"
     services:
       postgres:
         image: postgres:16-alpine

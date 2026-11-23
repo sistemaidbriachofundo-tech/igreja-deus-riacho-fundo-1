@@ -99,6 +99,14 @@ describe("summarizeParticipation", () => {
     expect(JSON.stringify(summary)).not.toContain("segredo-nao-exportar");
     expect(summary.rows[0]?.syntheticLabel).toBe("TESTE Adulto");
     expect(summary.rows[1]?.syntheticLabel).toBeNull();
+    const refunded = summarizeParticipation([{
+      id: "r4", eventId: "e1", eventName: "Encontro", displayName: "TESTE Estorno",
+      partySize: 1, isMinor: false, status: "CONFIRMED", paymentStatus: "REFUNDED", checkedInAt: null,
+    }]);
+    expect(refunded.counts.refunded).toBe(1);
+    expect(refunded.counts.confirmedAwaitingPresence).toBe(0);
+    expect(countsAreBalanced(refunded.counts)).toBe(true);
+    expect(refunded.rows[0]?.paymentStatus).toBe("REFUNDED");
 
     const csv = participationCsv({
       generatedAt: "2026-11-09T00:00:00.000Z",

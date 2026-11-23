@@ -664,6 +664,7 @@ export class ReportsService {
       isMinor: boolean;
       guardianDisplayName?: string | null;
       status: string;
+      paymentStatus?: string | null;
       checkedInAt: Date | null;
       checkInCode?: string | null;
       event?: { name?: string | null } | null;
@@ -681,6 +682,7 @@ export class ReportsService {
         isMinor: row.isMinor,
         guardianDisplayName: row.guardianDisplayName,
         status: row.status,
+        paymentStatus: row.paymentStatus ?? null,
         checkedInAt: row.checkedInAt?.toISOString() ?? null,
         checkInCode: row.checkInCode,
       })),

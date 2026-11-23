@@ -16,6 +16,7 @@ import {
   filterRowsForMinistryLeader,
 } from "../common/ministry-access";
 import { queueEventCheckInNotice, queueParticipantTicketNotices } from "../mail/check-in-notice";
+import { issueConfirmedParticipantTickets } from "./issue-participant-tickets";
 import { MailService } from "../mail/mail.service";
 import { smtpSendEnabled } from "../mail/smtp-config";
 import { PrismaService } from "../prisma/prisma.service";
@@ -482,7 +483,7 @@ export class EventRegistrationsService {
       throw new BadRequestException("Inscrição cancelada");
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       let auth = await tx.eventGuardianAuthorization.findUnique({
         where: { registrationId: registration.id },
       });
@@ -552,6 +553,10 @@ export class EventRegistrationsService {
         guardianAuthorization: this.toGuardianAuthDto(updatedAuth),
       };
     });
+    if (next === "AUTHORIZED") {
+      await issueConfirmedParticipantTickets(this.prisma as never, this.mail, registration.id);
+    }
+    return result;
   }
 
   async listRegistrations(actor: AuthUser, eventId: string) {

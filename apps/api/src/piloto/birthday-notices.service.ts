@@ -1,10 +1,16 @@
 import { Injectable } from "@nestjs/common";
-import { isBeforeConfiguredHour, ROLE_CODES, saoPauloParts } from "@idbrf/shared";
+import { isBeforeConfiguredHour, ROLE_CODES, zonedCivilParts } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { assertChurchRole, assertOperationalScope } from "./church";
 import { SystemSettingsService } from "./system-settings.service";
+
+type CareBirthday = { id: string; name: string; date: string };
+
+function caredRecipients(subjectId: string, ids: Array<string | null | undefined>) {
+  return ids.filter((id): id is string => Boolean(id) && id !== subjectId);
+}
 
 @Injectable()
 export class BirthdayNoticesService {
@@ -19,7 +25,8 @@ export class BirthdayNoticesService {
   }, now = new Date()) {
     const pilot = await this.staff(actor);
     await this.assertFilters(actor, query);
-    const today = saoPauloParts(now);
+    const zone = await this.settings.getBirthdayTimeZone(pilot, now);
+    const today = zonedCivilParts(now, zone);
     const people = await this.people(pilot, query);
     const rows = people.flatMap(person => {
       if (!person.birthDate) return [];
@@ -34,6 +41,61 @@ export class BirthdayNoticesService {
     return { date: today.date, birthdays: rows };
   }
 
+  /** Nomes de quem faz aniversário no ministério, grupo ou mentoria de quem consulta. Sem telefone. */
+  async careToday(actor: AuthUser, now = new Date()) {
+    const pilot = await this.pilot.getPilotChurch();
+    assertChurchRole(actor, pilot, [
+      ROLE_CODES.MEMBRO, ROLE_CODES.CONVIDADO, ROLE_CODES.LIDER_MINISTERIO,
+      ROLE_CODES.PASTOR, ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN,
+    ]);
+    const zone = await this.settings.getBirthdayTimeZone(pilot, now);
+    const today = zonedCivilParts(now, zone);
+    if (!actor.personId) return { date: today.date, birthdays: [] as CareBirthday[] };
+    const personId = actor.personId;
+    const [ministries, groups, mentored] = await Promise.all([
+      this.prisma.ministry.findMany({
+        where: {
+          churchId: pilot.churchId,
+          OR: [
+            { leaderPersonId: personId },
+            { ministryMemberships: { some: { personId, role: "LIDER", status: "ATIVO", endedAt: null } } },
+          ],
+        },
+        select: { ministryMemberships: { where: { status: "ATIVO", endedAt: null, personId: { not: personId } }, select: { personId: true } } },
+      }),
+      this.prisma.smallGroup.findMany({
+        where: {
+          churchId: pilot.churchId,
+          OR: [
+            { leaderPersonId: personId },
+            { members: { some: { personId, role: "LEADER" } } },
+          ],
+        },
+        select: { members: { where: { personId: { not: personId } }, select: { personId: true } } },
+      }),
+      this.prisma.discipleshipEnrollment.findMany({
+        where: { mentorPersonId: personId, status: "ACTIVE", personId: { not: personId }, track: { churchId: pilot.churchId } },
+        select: { personId: true },
+      }),
+    ]);
+    const ids = [...new Set([
+      ...ministries.flatMap(row => row.ministryMemberships.map(item => item.personId)),
+      ...groups.flatMap(row => row.members.map(item => item.personId)),
+      ...mentored.map(row => row.personId),
+    ])];
+    if (!ids.length) return { date: today.date, birthdays: [] as CareBirthday[] };
+    const people = await this.prisma.person.findMany({
+      where: { id: { in: ids }, organizationId: pilot.organizationId, status: "ACTIVE", birthDate: { not: null } },
+      select: { id: true, displayName: true, birthDate: true },
+    });
+    const birthdays = people.flatMap(person => {
+      if (!person.birthDate || person.birthDate.toISOString().slice(5, 10) !== today.date.slice(5)) return [];
+      return [{ id: person.id, name: person.displayName, date: today.date }];
+    });
+    birthdays.sort((a, b) => a.name.localeCompare(b.name, "pt-BR") || a.id.localeCompare(b.id));
+    return { date: today.date, birthdays };
+  }
+
   async run(actor: AuthUser, now = new Date()) {
     const pilot = await this.staff(actor);
     return this.runForChurch(pilot, now);
@@ -45,11 +107,14 @@ export class BirthdayNoticesService {
   }
 
   private async runForChurch(pilot: { organizationId: string; churchId: string }, now: Date) {
-    const hour = await this.settings.getBirthdayHour(pilot, now);
-    if (isBeforeConfiguredHour(now, hour)) {
+    const [hour, zone] = await Promise.all([
+      this.settings.getBirthdayHour(pilot, now),
+      this.settings.getBirthdayTimeZone(pilot, now),
+    ]);
+    if (isBeforeConfiguredHour(now, hour, zone)) {
       return { skipped: true, reason: "BEFORE_CONFIGURED_HOUR" as const, hour, created: 0 };
     }
-    const today = saoPauloParts(now).date;
+    const today = zonedCivilParts(now, zone).date;
     const people = await this.people(pilot, {});
     const birthdays = people.filter(person => person.birthDate?.toISOString().slice(5, 10) === today.slice(5));
     const birthdayIds = birthdays.map(person => person.id);
@@ -61,22 +126,27 @@ export class BirthdayNoticesService {
       }),
       this.prisma.ministryMembership.findMany({
         where: { churchId: pilot.churchId, personId: { in: birthdayIds }, status: "ATIVO", endedAt: null },
-        select: { ministry: { select: { leaderPersonId: true, ministryMemberships: {
+        select: { personId: true, ministry: { select: { leaderPersonId: true, ministryMemberships: {
           where: { status: "ATIVO", role: "LIDER", endedAt: null }, select: { personId: true },
         } } } },
       }),
       this.prisma.smallGroupMember.findMany({
         where: { personId: { in: birthdayIds }, group: { churchId: pilot.churchId } },
-        select: { group: { select: { leaderPersonId: true, members: {
+        select: { personId: true, group: { select: { leaderPersonId: true, members: {
           where: { role: "LEADER" }, select: { personId: true },
         } } } },
       }),
     ]) : [[], [], []] as const;
     const recipients = [...new Set([
       ...office.map(row => row.personId),
-      ...ministries.flatMap(({ ministry }) => [ministry.leaderPersonId, ...ministry.ministryMemberships.map(row => row.personId)]),
-      ...groups.flatMap(({ group }) => [group.leaderPersonId, ...group.members.map(row => row.personId)]),
-      ...birthdays.flatMap(person => person.enrollments.filter(item => item.status === "ACTIVE").map(item => item.mentorPersonId)),
+      ...ministries.flatMap(({ personId, ministry }) => caredRecipients(personId, [
+        ministry.leaderPersonId, ...ministry.ministryMemberships.map(row => row.personId),
+      ])),
+      ...groups.flatMap(({ personId, group }) => caredRecipients(personId, [
+        group.leaderPersonId, ...group.members.map(row => row.personId),
+      ])),
+      ...birthdays.flatMap(person => caredRecipients(person.id, person.enrollments
+        .filter(item => item.status === "ACTIVE").map(item => item.mentorPersonId))),
     ].filter((id): id is string => Boolean(id)))];
     const occasionDate = new Date(`${today}T00:00:00.000Z`);
     const existing = await this.prisma.birthdayNotice.findMany({

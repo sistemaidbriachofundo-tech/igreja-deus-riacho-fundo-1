@@ -96,6 +96,10 @@ describe("pacote de DEV", () => {
       registrationStatus: "PENDING_PAYMENT", onEventDay: true, now: "2026-11-20T15:00:00.000Z",
     }).result, "UNPAID");
     assert.equal(decideTicketScan({
+      found: true, ticketEventId: "mocas", requestedEventId: "mocas", paymentStatus: "CONFIRMED_GATEWAY",
+      registrationStatus: "CANCELLED", onEventDay: true, now: "2026-11-20T15:00:00.000Z",
+    }).result, "CANCELLED");
+    assert.equal(decideTicketScan({
       found: true, ticketEventId: "mocas", requestedEventId: "mocas", paymentStatus: "CONFIRMED_PIX",
       registrationStatus: "CONFIRMED", onEventDay: true, checkedInAt: "2026-11-20T15:00:00.000Z",
       scannedByUserId: "lider", now: "2026-11-20T15:05:00.000Z",

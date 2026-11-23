@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Header, Optional, Param, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Public } from "../auth/decorators/public.decorator";
@@ -8,6 +8,8 @@ import { EventRegistrationsService } from "../events/event-registrations.service
 import { PublicRegistrationBody } from "../events/registration.dto";
 import { PublicPortalService } from "./public-portal.service";
 import { SiteLayoutService } from "../cms/site-layout.service";
+import { PilotService } from "../pilot/pilot.service";
+import { SystemSettingsService } from "../piloto/system-settings.service";
 
 @Controller("public")
 export class PublicPortalController {
@@ -15,7 +17,18 @@ export class PublicPortalController {
     private readonly portal: PublicPortalService,
     private readonly site: SiteLayoutService,
     private readonly registrations: EventRegistrationsService,
+    @Optional() private readonly settings?: SystemSettingsService,
+    @Optional() private readonly pilot?: PilotService,
   ) {}
+
+  private async keepDays(now: Date) {
+    if (!this.settings || !this.pilot) return 0;
+    try {
+      return await this.settings.getAgendaKeepDays(await this.pilot.getPilotChurch(), now);
+    } catch {
+      return 0;
+    }
+  }
 
   @Public()
   @Get("site-layout")
@@ -27,9 +40,11 @@ export class PublicPortalController {
   @Get("home")
   async home() {
     const payload = await this.portal.home();
+    const now = new Date();
+    const keepDays = await this.keepDays(now);
     return {
       ...payload,
-      featuredEvents: payload.featuredEvents.filter(event => eventIsCurrent(event)),
+      featuredEvents: payload.featuredEvents.filter(event => eventIsCurrent(event, +now, keepDays)),
     };
   }
 
@@ -49,7 +64,9 @@ export class PublicPortalController {
   @Get("ministries/:slug")
   async getMinistry(@Param("slug") slug: string) {
     const detail = await this.portal.getMinistryBySlug(slug);
-    return { ...detail, relatedEvents: detail.relatedEvents.filter(event => eventIsCurrent(event)) };
+    const now = new Date();
+    const keepDays = await this.keepDays(now);
+    return { ...detail, relatedEvents: detail.relatedEvents.filter(event => eventIsCurrent(event, +now, keepDays)) };
   }
 
   @Public()
@@ -57,7 +74,8 @@ export class PublicPortalController {
   async listEvents() {
     const catalog = await this.portal.listEvents();
     const now = new Date();
-    const current = catalog.events.filter(event => eventIsCurrent(event, +now));
+    const keepDays = await this.keepDays(now);
+    const current = catalog.events.filter(event => eventIsCurrent(event, +now, keepDays));
     const open = await this.registrations.openPublicRegistrationEvents(current.map(event => event.id), now);
     return { ...catalog, events: current.map(event => ({ ...event, registrationOpen: open.has(event.id) })) };
   }
@@ -94,7 +112,8 @@ export class PublicPortalController {
   }
 }
 
-function eventIsCurrent(event: { startsAt: string; endsAt?: string | null }, now = Date.now()) {
+export function eventIsCurrent(event: { startsAt: string; endsAt?: string | null }, now = Date.now(), keepDays = 0) {
   const end = Date.parse(event.endsAt || event.startsAt);
-  return Number.isFinite(end) && end >= now;
+  const extra = Number.isInteger(keepDays) && keepDays > 0 ? keepDays * 86_400_000 : 0;
+  return Number.isFinite(end) && end + extra >= now;
 }

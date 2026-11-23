@@ -21,6 +21,8 @@ describe("Conexão logada, liderança e grupos", () => {
     expect(parseTracks({ tracks: [] })).toEqual([]);
     expect(parseGroups({ groups: [] })).toEqual([]);
     expect(parseWalks({ enrollments: [] })).toEqual([]);
+    expect(parseWalks({ enrollments: [{ id: "e1", personId: "p1", personName: "Ana", status: "ACTIVE", groups: [{ id: "g1", name: "Grupo Centro" }, { id: "", name: "Sem id" }] }] }))
+      .toEqual([expect.objectContaining({ id: "e1", groups: [{ id: "g1", name: "Grupo Centro" }] })]);
     expect(parseStages({ stages: [] })).toEqual([]);
     expect(parseTracks({ tracks: [{ id: "t1", name: "Trilha Conexão" }] })[0].name).toBe("Trilha Conexão");
     expect(parseGroups({ groups: [{ id: "g1", name: "Grupo Centro", leaderPersonId: null, members: [{ id: "m1" }] }] })[0])
