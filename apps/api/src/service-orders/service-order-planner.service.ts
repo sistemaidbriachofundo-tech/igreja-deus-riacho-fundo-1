@@ -1,11 +1,11 @@
-import { ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
   RF1_SERVICE_ORDER_DEFAULTS, buildServiceMoments, chooseRoleCandidate, exceptionFor, monthServiceDates,
-  parseOrderRules, type Candidate, type ServiceOrderRules, type ServingHistory,
+  parseOrderRules, validateOcTeamRoles, type OcTeamMember, type Candidate, type ServiceOrderRules, type ServingHistory,
 } from "./service-order-planning.domain";
 
 const DAY_MS = 86_400_000;
@@ -47,13 +47,16 @@ export class ServiceOrderPlannerService {
 
   async saveRules(actor: AuthUser, value: unknown, expectedUpdatedAt?: string | null) {
     const scope = await this.scope(actor, true);
-    const rules = parseOrderRules(value);
+    const requested = parseOrderRules(value);
     return this.prisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT id FROM churches WHERE id = ${scope.churchId} FOR UPDATE`;
       const current = await tx.serviceOrderPolicy.findUnique({ where: { churchId: scope.churchId } });
       if (expectedUpdatedAt !== undefined && (current?.updatedAt.toISOString() ?? null) !== expectedUpdatedAt) {
         throw new ConflictException("As regras foram alteradas por outra pessoa. Atualize antes de salvar.");
       }
+      // A edição de regras nunca apaga habilitações cadastradas na aba Integrantes.
+      const saved = current ? parseOrderRules(current.rules) : RF1_SERVICE_ORDER_DEFAULTS;
+      const rules: ServiceOrderRules = { ...requested, teamMembers: saved.teamMembers ?? [] };
       const result = await tx.serviceOrderPolicy.upsert({
         where: { churchId: scope.churchId },
         create: { churchId: scope.churchId, organizationId: scope.organizationId,
@@ -72,13 +75,59 @@ export class ServiceOrderPlannerService {
   }
 
 
+  /** Designações são armazenadas na política desta igreja, sem duplicar o cadastro da membresia. */
+  async saveTeamMember(actor: AuthUser, personId: string, value: unknown, expectedUpdatedAt?: string | null) {
+    const scope = await this.scope(actor, true);
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(personId)) throw new BadRequestException("Pessoa inválida.");
+    const roles = validateOcTeamRoles(value);
+    return this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT id FROM churches WHERE id = ${scope.churchId} FOR UPDATE`;
+      const current = await tx.serviceOrderPolicy.findUnique({ where: { churchId: scope.churchId } });
+      if (expectedUpdatedAt !== undefined && (current?.updatedAt.toISOString() ?? null) !== expectedUpdatedAt) {
+        throw new ConflictException("A equipe foi alterada por outra sessão. Atualize a lista.");
+      }
+      const membership = await tx.churchMembership.findFirst({
+        where: { churchId: scope.churchId, organizationId: scope.organizationId, personId,
+          status: "ACTIVE", person: { status: "ACTIVE" } },
+        select: { ecclesiasticalRoles: true },
+      });
+      if (!membership) throw new BadRequestException("Selecione um membro ativo desta congregação.");
+      if (roles.includes("pastor") && !membership.ecclesiasticalRoles.includes("PASTOR")) {
+        const pastorGrant = await tx.grant.findFirst({
+          where: { organizationId: scope.organizationId, churchId: scope.churchId,
+            user: { personId }, role: { code: ROLE_CODES.PASTOR } },
+          select: { id: true },
+        });
+        if (!pastorGrant) throw new BadRequestException("A tag Pastor exige função pastoral registrada para esta pessoa.");
+      }
+      const currentRules = current ? parseOrderRules(current.rules) : RF1_SERVICE_ORDER_DEFAULTS;
+      const prior = currentRules.teamMembers ?? [];
+      const remaining = prior.filter(m => m.personId !== personId);
+      const teamMembers: OcTeamMember[] = roles.length ? [...remaining, { personId, roles }] : remaining;
+      const rules: ServiceOrderRules = { ...currentRules, teamMembers };
+      const updated = await tx.serviceOrderPolicy.upsert({
+        where: { churchId: scope.churchId },
+        create: { churchId: scope.churchId, organizationId: scope.organizationId,
+          rules, updatedByUserId: actor.userId },
+        update: { rules, updatedByUserId: actor.userId },
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "service_order.team.update",
+        resourceType: "service_order_policy", resourceId: updated.churchId,
+        organizationId: scope.organizationId, churchId: scope.churchId,
+        metadata: { personId, roles, removed: roles.length === 0 },
+      } });
+      return { personId, roles, updatedAt: updated.updatedAt.toISOString() };
+    });
+  }
+
   /**
    * Lista privada de pessoas da igreja que podem ser sugeridas para a liturgia.
    * Uma matrícula ativa, por si só, NÃO habilita alguém a pregar ou dirigir.
    * A liderança pode, entretanto, designar manualmente outros membros ativos,
    * registrando a escolha no responsávelPersonId da OC.
    */
-  private async qualifiedPeople(scope: Scope) {
+  private async qualifiedPeople(scope: Scope, assigned?: OcTeamMember[]) {
     const [memberships, team, pastors] = await Promise.all([
       this.prisma.churchMembership.findMany({
         where: { churchId: scope.churchId, organizationId: scope.organizationId,
@@ -96,20 +145,20 @@ export class ServiceOrderPlannerService {
         select: { user: { select: { personId: true } } },
       }),
     ]);
-    type PersonEntry = { id: string; displayName: string; isMinor: boolean; roles: string[]; sources: string[] };
+    type PersonEntry = { id: string; displayName: string; isMinor: boolean; roles: string[]; sources: string[]; teamRoles: string[] };
     const members = new Map<string, PersonEntry>();
     for (const m of memberships) {
-      const roles = m.ecclesiasticalRoles.includes("PASTOR") ? ["director", "preacher"] :
+      const roles = m.ecclesiasticalRoles.includes("PASTOR") ? ["pastor", "director", "preacher"] :
         m.ecclesiasticalRoles.includes("EVANGELIST") ? ["preacher"] : [];
       const sources = m.ecclesiasticalRoles.length ? ["Função eclesiástica: " + m.ecclesiasticalRoles.join(", ")] : [];
       members.set(m.person.id, {
-        id: m.person.id, displayName: m.person.displayName, isMinor: m.person.isMinor, roles, sources,
+        id: m.person.id, displayName: m.person.displayName, isMinor: m.person.isMinor, roles, sources, teamRoles: [],
       });
     }
     for (const grant of pastors) {
       const member = members.get(grant.user.personId);
       if (!member || member.isMinor) continue;
-      member.roles = [...new Set([...member.roles, "director", "preacher"])];
+      member.roles = [...new Set([...member.roles, "pastor", "director", "preacher"])];
       member.sources.push("Acesso pastoral da congregação");
     }
     for (const mm of team) {
@@ -127,14 +176,22 @@ export class ServiceOrderPlannerService {
         if (leads && !member.isMinor) member.roles.push("welcome");
       }
     }
+    for (const designation of assigned ?? (await this.policy(scope)).rules.teamMembers ?? []) {
+      const member = members.get(designation.personId);
+      if (!member) continue; // membro inativo não é elegível mesmo que ainda exista no histórico
+      member.teamRoles = [...designation.roles];
+      member.roles.push(...designation.roles);
+      member.sources.push("Equipe da Ordem do Culto (designação pastoral)");
+    }
     return [...members.values()].map(p => ({ ...p, roles: [...new Set(p.roles)],
       sources: [...new Set(p.sources)] })).sort((a,b)=>a.displayName.localeCompare(b.displayName,"pt-BR"));
   }
 
   async people(actor: AuthUser) {
     const scope = await this.scope(actor);
-    const people = await this.qualifiedPeople(scope);
-    return { churchId: scope.churchId, people, qualified: people.filter(p => p.roles.length).length,
+    const policy = await this.policy(scope);
+    const people = await this.qualifiedPeople(scope, policy.rules.teamMembers ?? []);
+    return { churchId: scope.churchId, updatedAt: policy.updatedAt, people, qualified: people.filter(p => p.roles.length).length,
       notice: "Funções documentadas e líderes de ministério; demais membros exigem designação manual do pastor. Escala confirmada é considerada no gerador." };
   }
 
@@ -166,7 +223,7 @@ export class ServiceOrderPlannerService {
         select: { orderId: true, responsiblePersonId: true, title: true,
           order: { select: { serviceAt: true } } },
       }),
-      this.qualifiedPeople(scope),
+      this.qualifiedPeople(scope, config.rules.teamMembers ?? []),
     ]);
     const personIds = [...new Set([
       ...people.filter(p=>p.roles.length).map(p=>p.id),
@@ -233,7 +290,11 @@ export class ServiceOrderPlannerService {
       // Se a regra exigir confirmação, eles só aparecem para escolha manual.
       const directoryCandidates: Candidate[] = people.filter(p=>!p.isMinor).flatMap(p=>p.roles.map(role=>({
         personId:p.id,displayName:p.displayName,rosterId:"directory",
-        roleLabel:role==="director"?"Dirigente":role==="preacher"?"Pregador":role==="praise"?"Ministro de Louvor":"Acolhimento",
+        roleLabel:({
+          pastor:"Pastor", director:"Dirigente", preacher:"Pregador", praise:"Ministro de Louvor",
+          welcome:"Acolhimento", media:"Equipe de Mídia", generosity:"Generosidade",
+          prayer:"Oração e bênção", instrumental:"Instrumental e Backstage",
+        } as Record<string,string>)[role] ?? "Acolhimento",
         status:"PENDING" as const,
       })));
       const candidates = [...directoryCandidates, ...rosterCandidates];
@@ -244,7 +305,11 @@ export class ServiceOrderPlannerService {
       if (preacher) chosen.add(preacher.personId);
       const praise = chooseRoleCandidate("praise",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
       const welcome = chooseRoleCandidate("welcome",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
-      const items = buildServiceMoments(director,preacher,praise,welcome,config.rules);
+      const media = chooseRoleCandidate("media",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
+      const generosity = chooseRoleCandidate("generosity",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
+      const prayer = chooseRoleCandidate("prayer",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
+      const instrumental = chooseRoleCandidate("instrumental",item.serviceAt,candidates,historical,new Set(),config.rules,isEligible);
+      const items = buildServiceMoments(director,preacher,praise,welcome,config.rules,{media,generosity,prayer,instrumental});
       const warnings: string[] = exception ? [`Exceção registrada: ${exception.note}`] : [];
       if (!matched.length) warnings.push("Nenhuma escala publicada compatível com este horário.");
       if (!matched.length && config.rules.requireConfirmedRoster) warnings.push("Há pessoas no cadastro, mas ainda não há escala confirmada: utilize o editor para designar e validar os responsáveis.");
