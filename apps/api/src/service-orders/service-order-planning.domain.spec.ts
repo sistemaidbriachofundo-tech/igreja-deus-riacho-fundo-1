@@ -56,6 +56,33 @@ describe("OC: regras e prévia mensal", () => {
       { ...p, requireConfirmedRoster: false }, () => true)?.personId).toBe("pastora");
   });
 
+  it("guarda tags da OC sem conceder acesso de pastor a uma pessoa", () => {
+    const parsed = parseOrderRules({ ...p, teamMembers: [
+      { personId: "p-media", roles: ["media", "instrumental"] },
+      { personId: "p-pastor", roles: ["pastor", "prayer"] },
+    ] });
+    expect(parsed.teamMembers).toHaveLength(2);
+    expect(parsed.teamMembers?.[0].roles).toEqual(["media", "instrumental"]);
+    expect(parseOrderRules({ ...p, teamMembers: undefined }).teamMembers).toEqual([]);
+    expect(() => parseOrderRules({ ...p, teamMembers: [
+      { personId: "p1", roles: ["media"] }, { personId: "p1", roles: ["media"] },
+    ] })).toThrow(BadRequestException);
+    expect(() => parseOrderRules({ ...p, teamMembers: [
+      { personId: "p1", roles: ["platform_admin"] },
+    ] })).toThrow(BadRequestException);
+  });
+  it("preenche mídia e oração quando há participantes confirmados e elegíveis", () => {
+    const target = "2026-12-06T13:00:00Z";
+    const media = {personId: "m1", displayName: "Responsável Mídia", rosterId: "roster1", roleLabel: "Equipe de Mídia", status: "CONFIRMED" as const};
+    const prayer = {personId: "p2", displayName: "Intercessão", rosterId: "roster1", roleLabel: "Oração e bênção", status: "CONFIRMED" as const};
+    const m = chooseRoleCandidate("media", target, [media], [], new Set(), p, () => true);
+    const o = chooseRoleCandidate("prayer", target, [prayer], [], new Set(), p, () => true);
+    const moments = buildServiceMoments(null, null, null, null, p, { media: m, prayer: o });
+    expect(moments[0].responsiblePersonId).toBe("m1");
+    expect(moments[3].responsiblePersonId).toBe("m1");
+    expect(moments[7].responsiblePersonId).toBe("p2");
+  });
+
   it("continua o rodízio por pessoa e registra exceção sem nome fixo", () => {
     const experienced = { personId: "id-aaa", displayName: "Ana", rosterId: "r1", roleLabel: "Dirigente", status: "CONFIRMED" as const };
     const fresh = { ...experienced, personId: "id-zzz", displayName: "Bia" };
