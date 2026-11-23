@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { apiGet, apiPatch, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
 import { readMinistries, presentMembership, type FormalMember, type MinistryOption } from "../lib/ministry-desk";
@@ -185,7 +186,7 @@ export function OperationalMinistryRules() {
       As alterações respeitam o acesso de cada ministério. Os líderes continuam gerenciando apenas as regras de sua equipe.
     </p>
 
-    {dialog?.kind === "rules" && canEdit && selectedModule &&
+    {dialog?.kind === "rules" && canEdit && selectedModule && typeof document !== "undefined" && createPortal(
       <Modal open appearance="workspace" size="wide" title={`Configurar · ${selectedModule.name}`}
         description={`Ministério: ${selectedMinistry?.name ?? "selecionado"}. Altere as regras por assunto e salve ao concluir.`}
         onClose={closeDialog}>
@@ -206,9 +207,9 @@ export function OperationalMinistryRules() {
                 : row) ?? null);
             },
           }} />
-      </Modal>}
+      </Modal>, document.body)}
 
-    {dialog && dialog.kind !== "rules" && canEdit &&
+    {dialog && dialog.kind !== "rules" && canEdit && typeof document !== "undefined" && createPortal(
       <Modal open appearance="workspace"
         title={dialog.kind === "create" ? "Novo módulo" : "Renomear módulo"}
         description="A alteração será gravada somente neste ministério."
@@ -227,6 +228,6 @@ export function OperationalMinistryRules() {
             </button>
           </div>
         </form>
-      </Modal>}
+      </Modal>, document.body)}
   </div>;
 }
