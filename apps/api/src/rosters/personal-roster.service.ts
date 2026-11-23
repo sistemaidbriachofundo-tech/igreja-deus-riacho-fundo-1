@@ -362,6 +362,63 @@ export class PersonalRosterService {
     return { month, answered: true, availableRosterIds: ids };
   }
 
+  /**
+   * Primeiro uso do sorteio mensal do Louvor: prepara UMA equipe com vagas genéricas.
+   * Não presume quem é baterista, tecladista ou ministro sem habilitação documentada.
+   * O responsável pode depois personalizar funções/habilitações em Módulos e regras.
+   * Só é executado mediante clique autorizado; não publica nem emite convites.
+   */
+  async prepareLouvorMonth(actor: AuthUser, ministryId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const ministry = await this.requireMinistry(ministryId, pilot);
+    if (!/^louvor(?:-|$)/i.test(ministry.slug)) {
+      throw new BadRequestException("A preparação automática inicial é exclusiva do Louvor.");
+    }
+    assertCanManageRosterMonth(actor, ministry, pilot);
+    return this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT id FROM ministries WHERE id = ${ministryId} FOR UPDATE`;
+      const existing = await tx.ministryRosterModule.findFirst({
+        where: { ministryId }, select: { id: true, name: true },
+      });
+      if (existing) return { moduleId: existing.id, created: false, people: 0 };
+      const members = await tx.ministryMembership.findMany({
+        where: { ministryId, churchId: pilot.churchId, organizationId: pilot.organizationId,
+          status: "ATIVO", endedAt: null, person: { status: "ACTIVE" } },
+        select: { id: true, personId: true },
+      });
+      if (!members.length) {
+        throw new ConflictException("Cadastre integrantes ativos no Louvor antes de gerar o mês.");
+      }
+      // Início seguro: posições genéricas. Cargos específicos exigem habilitação prévia.
+      const genericPositions = [{ label: "Equipe de Louvor", count: 7, couple: false }];
+      const rules = {
+        positions: { thursday_evening: genericPositions, sunday_morning: genericPositions,
+          sunday_evening: genericPositions },
+        qualifications: {}, couples: [], minIntervalDays: 7, maxMonthlyAssignments: 4,
+        substituteInviteLimit: 0, substituteInviteHours: 12,
+        volunteerIds: members.map(member => member.personId),
+      };
+      const module = await tx.ministryRosterModule.create({
+        data: { ministryId, name: "Louvor", nameKey: "louvor", rules },
+        select: { id: true },
+      });
+      await tx.ministryRosterModuleMembership.createMany({
+        data: members.map(member => ({
+          organizationId: pilot.organizationId, churchId: pilot.churchId,
+          ministryId, moduleId: module.id, membershipId: member.id, personId: member.personId,
+        })),
+        skipDuplicates: true,
+      });
+      await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "roster.louvor.month_bootstrap",
+        resourceType: "ministry_roster_module", resourceId: module.id,
+        churchId: pilot.churchId, organizationId: pilot.organizationId,
+        metadata: { ministryId, activePeople: members.length, positions: "generic", published: false },
+      } });
+      return { moduleId: module.id, created: true, people: members.length };
+    });
+  }
+
   async monthlySimulation(actor: AuthUser, ministryId: string, request: { month: string; moduleId?: string; revision?: string; decisions?: MonthDecision[]; capacities?: MonthCapacityRequest[]; fillOnlyOpen?: boolean }) {
     const pilot = await this.pilot.getPilotChurch();
     const loaded = await this.monthState(actor, ministryId, request.month, pilot);
@@ -448,7 +505,7 @@ export class PersonalRosterService {
     this.assertCanOperateMinistry(actor, ministry, pilot);
     if (ministry.slug === "atmosfera") assertCanManageRosterMonth(actor, ministry, pilot);
     const access = await loadRosterAccess(db as never, actor, ministry, pilot);
-    const state = await loadMonthState(db as never, pilot, ministryId, month);
+    const state = await loadMonthState(db as never, pilot, ministryId, month, ministry.slug);
     if (!state) throw new ConflictException({ code: "ROSTER_PREVIEW_UNVERIFIED", message: "A simulação não pôde ser conferida com a pesquisa, a disponibilidade e o histórico." });
     if (access.scope === "modules") state.modules = state.modules.filter(module => access.moduleIds.includes(module.id));
     return state;
