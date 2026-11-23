@@ -20,7 +20,7 @@
 .scheduleText{min-width:0;display:grid;gap:6px}
 .scheduleText>strong{font-size:14px}.scheduleText>span{font-size:12px;color:#59616b}
 .scheduleText details{font-size:12px;color:#38434d}
-.scheduleText summary{cursor:pointer;font-weight:700;min-height:34px;display:flex;align-items:center}
+.scheduleText summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
 .scheduleText ol{padding-left:20px;margin:6px 0 10px}
 .scheduleText li{padding:4px 0;line-height:1.45}.scheduleText li span{color:#60666d}
 .warnings{padding-left:18px;color:#8a651f;line-height:1.55}

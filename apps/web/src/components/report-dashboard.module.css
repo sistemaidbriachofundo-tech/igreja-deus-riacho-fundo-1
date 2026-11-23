@@ -18,20 +18,20 @@
 .metric span { grid-column: 1 / -1; color: #dae5dd; font-size: 12px; }
 .metric strong { color: #f5f1e6; font-size: clamp(20px, 3vw, 32px); font-weight: 650; letter-spacing: -.04em; }
 a.metric:hover { background: #ffffff20; }
-.panel { min-width: 0; padding: clamp(17px, 2vw, 26px); border: 1px solid var(--app-border, #dce6de); border-radius: 14px; background: #fff; }
-.panel h2 { margin: 0; color: var(--app-ink, #22382e); font-size: 18px; letter-spacing: -.03em; }
-.panel header p, .empty { margin: 6px 0 0; color: var(--app-muted, #5f7368); font-size: 13px; line-height: 1.5; }
+.panel { min-width: 0; padding: clamp(17px, 2vw, 26px); border: 1px solid var(--app-border, #dfe3e7); border-radius: 14px; background: #fff; }
+.panel h2 { margin: 0; color: var(--app-ink, #171717); font-size: 18px; letter-spacing: -.03em; }
+.panel header p, .empty { margin: 6px 0 0; color: var(--app-muted, #59616b); font-size: 13px; line-height: 1.5; }
 .empty { margin-top: 18px; }
 .bars { display: grid; gap: 4px; margin: 15px 0 0; padding: 0; list-style: none; }
 .bars li { --bar: #34735a; min-width: 0; }
 .bars li[data-tone="teal"] { --bar: #4e8582; }
 .bars li[data-tone="gold"] { --bar: #b68744; }
 .bars li[data-tone="slate"] { --bar: #667d92; }
-.barRow { display: grid; gap: 7px; padding: 9px 0; color: var(--app-ink, #22382e); text-decoration: none; }
-a.barRow:hover .barCaption { color: var(--app-accent, #255742); text-decoration: underline; }
+.barRow { display: grid; gap: 7px; padding: 9px 0; color: var(--app-ink, #171717); text-decoration: none; }
+a.barRow:hover .barCaption { color: var(--app-accent, #171717); text-decoration: underline; }
 .barCaption { display: flex; align-items: center; gap: 7px; font-size: 13px; }
 .barCaption > span { flex: 1; min-width: 0; }
-.barCaption small { display: block; margin-top: 3px; color: var(--app-muted, #5f7368); font-size: 11px; }
+.barCaption small { display: block; margin-top: 3px; color: var(--app-muted, #59616b); font-size: 11px; }
 .barCaption strong { font-variant-numeric: tabular-nums; font-size: 15px; }
 .track { height: 9px; overflow: hidden; border-radius: 20px; background: #edf2ef; }
 .track i { display: block; height: 100%; border-radius: inherit; background: var(--bar); }

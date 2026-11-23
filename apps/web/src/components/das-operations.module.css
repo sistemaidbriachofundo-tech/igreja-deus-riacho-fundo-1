@@ -54,4 +54,17 @@
 .resourceTabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .resourceTab,.resourceActive{font:inherit;font-size:12px;font-weight:750;border-radius:999px;padding:10px 15px;cursor:pointer;border:1px solid #decbb4;color:#715237;background:#fffdf9;min-height:40px}
 .resourceTab:hover{border-color:#b99150}.resourceActive{color:#fff5e2;background:#6a3f23;border-color:#6a3f23}
-.resourceTab:focus-visible,.resourceActive:focus-visible{outline:2px solid #ad7d37;outline-offset:3px}
+.resourceTab:focus-visible,.resourceActive:focus-visible{outline:2px solid #171717;outline-offset:3px}
+
+/* Área interna: a paleta quente antiga cede à base neutra do painel. */
+.page{color:#171717}
+.hero{background:#171717;color:#fff;border-radius:16px;padding:24px 28px;box-shadow:none}
+.hero h1 em,.eyebrow{color:#c9a76b}
+.hero p{color:#d1d5d9}
+.card,.module,.search,.sessionBar,.metrics div{background:#fff;border-color:#dfe3e7;color:#171717}
+.module small,.moduleActive small,.phase,.breadcrumb{color:#705020}
+.moduleActive,.primary,.primaryLink,.resourceActive{background:#171717;border-color:#171717;color:#fff}
+.moduleActive small{color:#c9a76b}
+.resourceTab,.refresh,.search{min-height:44px;border-color:#dfe3e7;background:#fff;color:#171717}
+.field input,.field select{border-color:#dfe3e7;color:#171717;min-height:44px}
+.entryMain strong,.card h2,.moduleTop h2{color:#171717}

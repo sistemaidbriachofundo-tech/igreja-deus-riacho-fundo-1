@@ -114,7 +114,7 @@
   font: 700 12px var(--site-font);
   text-decoration: underline;
   cursor: pointer;
-  min-height: 34px;
+  min-height: 44px;
 }
 .tableWrap { width: 100%; overflow-x: auto; border-radius: var(--app-control-radius, 8px); border: 1px solid var(--app-border, #e3e3e3); }
 .tableWrap table { width: 100%; border-collapse: collapse; background: #fff; }
