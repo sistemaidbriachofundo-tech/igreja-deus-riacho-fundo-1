@@ -220,8 +220,9 @@ export function planMonth(state: MonthState, options: { pins?: readonly MonthPin
           requiredRoleTags: slot.requiredQualification ? [slot.requiredQualification] : [],
           priority: slot.requiresCouple || slot.requiredQualification ? 0 : 1,
           serviceAt: cult.serviceAt, serviceType: cult.serviceType,
-        })), candidates, history, rules, personId => createHash("sha256")
-          .update(`${state.month}|${module.id}|${cult.serviceAt}|${personId}`).digest("hex"));
+        })), candidates, history, rules, personId => module.louvor || /louvor/i.test(module.name)
+          ? createHash("sha256").update(`${state.month}|${module.id}|${cult.serviceAt}|${personId}`).digest("hex")
+          : personId);
         const picks = new Map(plan.drafts.map(item => [item.slotId, item]));
         const reasons = new Map(plan.unfilled.map(item => [item.slotId, item.reasons]));
         for (const slot of free) {
