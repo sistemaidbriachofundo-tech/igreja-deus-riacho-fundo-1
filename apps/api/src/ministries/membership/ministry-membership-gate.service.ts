@@ -119,18 +119,18 @@ export class MinistryMembershipGateService {
   async updateMembershipRole(actor: AuthUser, ministryId: string, membershipId: string, role: string) {
     const scope = await this.scope(actor, ministryId);
     if (!isFormalRole(role)) throw new BadRequestException("Função do ministério inválida.");
-    if (role === "LIDER" || role === "COORDENADOR") {
-      const supervisor = actor.grants.some(grant =>
-        (grant.roleCode === "PLATFORM_ADMIN" || grant.roleCode === "PASTOR") &&
-        grant.organizationId === scope.organizationId &&
-        (!grant.churchId || grant.churchId === scope.churchId));
-      if (!supervisor) throw new ForbiddenException("Somente a Administração ou a Pastoral pode designar liderança.");
-    }
+    const supervisor = actor.grants.some(grant =>
+      (grant.roleCode === "PLATFORM_ADMIN" || grant.roleCode === "PASTOR") &&
+      grant.organizationId === scope.organizationId &&
+      (!grant.churchId || grant.churchId === scope.churchId));
     const current = await this.prisma.ministryMembership.findFirst({
       where: { id: membershipId, ...scope, status: "ATIVO", endedAt: null },
       select: { id: true, personId: true, role: true },
     });
     if (!current) throw new NotFoundException("Integrante ativo não encontrado neste ministério.");
+    if (!supervisor && [role, current.role].some(value => value === "LIDER" || value === "COORDENADOR")) {
+      throw new ForbiddenException("Apenas Administração ou Pastoral pode alterar vínculos de liderança.");
+    }
     if (current.role === role) return { memberId: current.id, role, changed: false };
     return this.prisma.$transaction(async tx => {
       const changed = await tx.ministryMembership.updateMany({
