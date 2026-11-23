@@ -30,7 +30,7 @@ export const PHASE_G_PERSONAS: readonly GPersona[] = [
   { id: "LIDER", email: "lider.jovens.demo@example.test", role: "LIDER_MINISTERIO", seeded: true },
   { id: "MEMBRO", email: "bruno.demo@example.test", role: "MEMBRO", seeded: true },
   { id: "EDITOR", email: "editor.demo@example.test", role: "EDITOR_SITE", seeded: true },
-  { id: "PUBLICADOR", email: "publicador.demo@example.test", role: "PUBLICADOR_SITE", seeded: false },
+  { id: "PUBLICADOR", email: "publicador.demo@example.test", role: "PUBLICADOR_SITE", seeded: true },
 ];
 
 const MENU = {
