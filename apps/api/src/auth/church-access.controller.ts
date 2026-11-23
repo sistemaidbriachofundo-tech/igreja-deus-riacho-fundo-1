@@ -47,6 +47,21 @@ export function qaTesterProvisionEnabled(env: NodeJS.ProcessEnv = process.env) {
     env.ACCESS_INVITE_DELIVERY === "preview";
 }
 
+/**
+ * Uma dependência ausente não pode derrubar o lote: o token de uso único
+ * só existe na resposta. Se o handler lançasse no meio, as contas já
+ * gravadas ficariam desativadas e sem link.
+ */
+export function qaPresetGap(
+  preset: (typeof QA_PRESETS)[number],
+  found: { role: boolean; ministry: boolean; track: boolean },
+): "role" | "ministry" | "track" | null {
+  if (!found.role) return "role";
+  if ("ministrySlug" in preset && !found.ministry) return "ministry";
+  if ("mentor" in preset && !found.track) return "track";
+  return null;
+}
+
 
 
 type ChurchScope = { organizationId: string; churchId: string };
@@ -254,16 +269,19 @@ export class ChurchAccessController {
       const personId = "qa_rf1_tester_person_" + preset.slug;
       const userId = "qa_rf1_tester_user_" + preset.slug;
       const role = await this.prisma.role.findUnique({ where: { code: preset.role }, select: { id: true } });
-      if (!role) throw new ServiceUnavailableException("Perfil de QA ainda não cadastrado.");
       const ministrySlug = "ministrySlug" in preset ? preset.ministrySlug : null;
       const ministry = ministrySlug ? await this.prisma.ministry.findFirst({
         where: { organizationId, churchId, slug: ministrySlug }, select: { id: true, name: true },
       }) : null;
-      if (ministrySlug && !ministry) throw new ServiceUnavailableException("Ministério QA não cadastrado: " + ministrySlug);
       const track = "mentor" in preset ? await this.prisma.discipleshipTrack.findFirst({
         where: { organizationId, churchId, name: "Trilha da Conexão" }, select: { id: true },
       }) : null;
-      if ("mentor" in preset && !track) throw new ServiceUnavailableException("Trilha QA para mentor ausente.");
+      if (!role || qaPresetGap(preset, { role: Boolean(role), ministry: Boolean(ministry), track: Boolean(track) })) {
+        result.push({
+          label: preset.name, email, role: preset.role, ministry: ministry?.name ?? null, status: "UNAVAILABLE",
+        });
+        continue;
+      }
 
       const existing = await this.prisma.user.findUnique({
         where: { email }, select: { id: true, personId: true, status: true, passwordHash: true,
@@ -272,13 +290,17 @@ export class ChurchAccessController {
       if (existing && (existing.id !== userId || existing.personId !== personId ||
           !existing.grants.some(g => g.roleId === role.id && g.organizationId === organizationId &&
             g.churchId === churchId && g.ministryId === (ministry?.id ?? null)))) {
-        throw new ConflictException("A conta de teste existente possui escopo diferente; intervenção administrativa necessária.");
+        result.push({ label: preset.name, email, role: preset.role, ministry: ministry?.name ?? null, status: "UNAVAILABLE" });
+        continue;
       }
       if (existing?.status === "ACTIVE" && existing.passwordHash) {
         result.push({ label: preset.name, email, role: preset.role, ministry: ministry?.name ?? null, status: "ACTIVE" });
         continue;
       }
-      if (existing && existing.status !== "DISABLED") throw new ConflictException("Conta QA em situação incompatível.");
+      if (existing && existing.status !== "DISABLED") {
+        result.push({ label: preset.name, email, role: preset.role, ministry: ministry?.name ?? null, status: "UNAVAILABLE" });
+        continue;
+      }
       const issued = this.invitations.newToken();
       const created = await this.prisma.$transaction(async tx => {
         if (!existing) {

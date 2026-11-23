@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import type { Persona } from "./matrix.ts";
 
@@ -43,11 +44,99 @@ type LoginBody = {
 };
 
 const sessions = new Map<string, Session | { missing: true; status: number }>();
+const totpSecrets = new Map<string, string>();
+
+type MfaLoginBody = LoginBody & {
+  mfa?: { challengeId?: string; enrollmentRequired?: boolean };
+};
+
+function totp(secret: string, now = Date.now()): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const cleaned = secret.replace(/=+$/, "").toUpperCase();
+  let bits = 0;
+  let value = 0;
+  const bytes: number[] = [];
+  for (const ch of cleaned) {
+    value = (value << 5) | alphabet.indexOf(ch);
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((value >>> bits) & 0xff);
+    }
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(now / 30000)));
+  const digest = createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
+  const offset = digest[digest.length - 1] & 15;
+  const binary = (digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
+  return String(binary).padStart(6, "0");
+}
+
+function sessionFrom(email: string, body: LoginBody): Session | undefined {
+  if (!body.accessToken || !body.user?.personId) return undefined;
+  return {
+    token: body.accessToken,
+    email: body.user.email ?? email,
+    personId: body.user.personId,
+    roles: (body.user.grants ?? []).map((grant) => grant.roleCode).filter((role): role is string => Boolean(role)),
+  };
+}
+
+async function confirmFactor(
+  request: APIRequestContext,
+  challengeId: string,
+  secret: string,
+  enroll: boolean,
+): Promise<LoginBody | undefined> {
+  const path = enroll ? "/auth/mfa/enroll/confirm" : "/auth/mfa/challenge";
+  for (const instant of [Date.now(), Date.now() - 30_000]) {
+    const verified = await request.post(`${apiBase()}${path}`, {
+      data: { challengeId, code: totp(secret, instant) },
+      failOnStatusCode: false,
+    });
+    if (verified.status() >= 400) continue;
+    return (await verified.json()) as LoginBody;
+  }
+  return undefined;
+}
+
+/**
+ * Conclui o segundo fator quando a API pede enrollment.
+ * O segredo TOTP fica só na memória deste processo e não entra no retorno.
+ */
+async function finishMfa(
+  request: APIRequestContext,
+  email: string,
+  body: MfaLoginBody,
+): Promise<{ session?: Session; blocked?: string }> {
+  const challengeId = body.mfa?.challengeId;
+  if (!challengeId) return { blocked: "A API não devolveu sessão nem desafio MFA." };
+  let secret = totpSecrets.get(email);
+  if (body.mfa?.enrollmentRequired) {
+    const started = await request.post(`${apiBase()}/auth/mfa/enroll`, {
+      data: { challengeId },
+      failOnStatusCode: false,
+    });
+    const enrollment = (await started.json().catch(() => ({}))) as { secret?: unknown };
+    if (started.status() >= 400 || typeof enrollment.secret !== "string" || enrollment.secret.length < 16) {
+      return { blocked: "O cadastro do autenticador falhou. Nenhum segredo foi registrado." };
+    }
+    secret = enrollment.secret;
+    totpSecrets.set(email, secret);
+  }
+  if (!secret) {
+    return { blocked: "O segundo fator já está ativo e o segredo TOTP não está em memória. Nada foi gravado." };
+  }
+  const verified = await confirmFactor(request, challengeId, secret, Boolean(body.mfa?.enrollmentRequired));
+  const session = verified ? sessionFrom(email, verified) : undefined;
+  if (!session) return { blocked: "O código do autenticador foi recusado. Nenhum segredo foi registrado." };
+  return { session };
+}
 
 export async function loginAccount(
   request: APIRequestContext,
   account: PersonaAccount,
-): Promise<{ session?: Session; status: number }> {
+): Promise<{ session?: Session; status: number; blocked?: string }> {
   const cached = sessions.get(account.email);
   if (cached && "token" in cached) return { session: cached, status: 200 };
   if (cached && "missing" in cached) return { status: cached.status };
@@ -61,18 +150,15 @@ export async function loginAccount(
     sessions.set(account.email, { missing: true, status });
     return { status };
   }
-  const body = (await response.json()) as LoginBody;
-  if (!body.accessToken || !body.user?.personId) {
-    return { status };
+  const body = (await response.json()) as MfaLoginBody;
+  const direct = sessionFrom(account.email, body);
+  if (direct) {
+    sessions.set(account.email, direct);
+    return { session: direct, status };
   }
-  const session: Session = {
-    token: body.accessToken,
-    email: body.user.email ?? account.email,
-    personId: body.user.personId,
-    roles: (body.user.grants ?? []).map((grant) => grant.roleCode).filter((role): role is string => Boolean(role)),
-  };
-  sessions.set(account.email, session);
-  return { session, status };
+  const finished = await finishMfa(request, account.email, body);
+  if (finished.session) sessions.set(account.email, finished.session);
+  return { status, ...finished };
 }
 
 export async function apiStatus(
