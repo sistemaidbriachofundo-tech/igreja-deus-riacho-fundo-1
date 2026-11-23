@@ -5,6 +5,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -20,6 +21,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { ServiceOrdersService } from "./service-orders.service";
 import { ServiceOrderPlannerService } from "./service-order-planner.service";
+import { OC_TEAM_ROLES } from "./service-order-planning.domain";
 
 class ServiceOrderItemBody {
   @IsString()
@@ -87,6 +89,18 @@ class ServiceOrderExpectedBody {
   expectedUpdatedAt?: string;
 }
 
+class ServiceOrderTeamBody {
+  @IsArray()
+  @ArrayMaxSize(9)
+  @IsIn([...OC_TEAM_ROLES], { each: true })
+  roles!: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  expectedUpdatedAt?: string | null;
+}
+
 @Controller("service-orders")
 export class ServiceOrdersController {
   constructor(private readonly orders: ServiceOrdersService, private readonly planner: ServiceOrderPlannerService) {}
@@ -105,6 +119,13 @@ export class ServiceOrdersController {
   @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
   @Get("planning/people")
   people(@CurrentUser() user: AuthUser) { return this.planner.people(user); }
+
+  @Roles(ROLE_CODES.PASTOR)
+  @Patch("planning/team/:personId")
+  saveTeamMember(@CurrentUser() user: AuthUser, @Param("personId") personId: string,
+    @Body() body: ServiceOrderTeamBody) {
+    return this.planner.saveTeamMember(user, personId, body.roles, body.expectedUpdatedAt);
+  }
 
   @Roles(ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN)
   @Get("planning/preview")

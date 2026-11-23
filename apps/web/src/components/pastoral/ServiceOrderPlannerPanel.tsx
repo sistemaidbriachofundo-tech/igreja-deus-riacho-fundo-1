@@ -142,8 +142,9 @@ export function ServiceOrderPlannerPanel({ token, canEdit, view, orders, onGener
           </header>
           {catalog && <div className={s.personnelGrid}>
             {([
-              ["preacher","Pregação e Pastoral"],["director","Direção do culto"],
-              ["praise","Ministros de Louvor"],["welcome","Acolhimento"],
+              ["pastor","Pastor"],["director","Direção"],["preacher","Pregação"],
+              ["praise","Louvor"],["welcome","Acolhimento"],["media","Mídia"],
+              ["generosity","Generosidade"],["prayer","Oração e bênção"],["instrumental","Instrumental"],
             ] as const).map(([role,label])=>{
               const registered=catalog.people.filter(p=>p.roles.includes(role));
               return <div className={s.personnelGroup} key={role}>
@@ -157,6 +158,7 @@ export function ServiceOrderPlannerPanel({ token, canEdit, view, orders, onGener
           </div>}
           <p className={s.personnelFootnote}>
             Se o gerador indicar “A definir”, vá à aba <strong>Roteiro</strong>, edite a ordem e selecione a pessoa cadastrada.
+            A aba <strong>Integrantes</strong> permite definir as funções autorizadas, inclusive Pastor e Mídia.
             Pessoas fora da escala confirmada precisam de validação pastoral antes da publicação.
           </p>
         </section>

@@ -1,6 +1,34 @@
 import { BadRequestException } from "@nestjs/common";
 
 export type BlessingChoice = "LEADERSHIP" | "PREACHER" | "DESIGNATED";
+/** Tags de participação na OC; nunca concedem permissões de usuário (RBAC). */
+export const OC_TEAM_ROLES = ["pastor", "director", "preacher", "praise", "welcome", "media", "generosity", "prayer", "instrumental"] as const;
+export type OcTeamRole = (typeof OC_TEAM_ROLES)[number];
+export type OcTeamMember = { personId: string; roles: OcTeamRole[] };
+const isOcTeamRole = (value: unknown): value is OcTeamRole =>
+  typeof value === "string" && (OC_TEAM_ROLES as readonly string[]).includes(value);
+export function validateOcTeamRoles(value: unknown): OcTeamRole[] {
+  if (!Array.isArray(value) || value.length > OC_TEAM_ROLES.length ||
+    !value.every(isOcTeamRole) || new Set(value).size !== value.length) {
+    throw new BadRequestException("Escolha funções válidas e sem repetição para a Ordem do Culto.");
+  }
+  return value as OcTeamRole[];
+}
+function readTeamMembers(value: unknown): OcTeamMember[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 500) throw new BadRequestException("Equipe da OC excedeu o limite.");
+  const members = value.map((row: unknown) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) throw new BadRequestException("Integrante inválido.");
+    const item = row as Record<string, unknown>;
+    if (typeof item.personId !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(item.personId))
+      throw new BadRequestException("Vínculo de integrante inválido.");
+    const roles = validateOcTeamRoles(item.roles);
+    if (!roles.length) throw new BadRequestException("Integrante precisa ter ao menos uma função.");
+    return { personId: item.personId, roles };
+  });
+  if (new Set(members.map(x => x.personId)).size !== members.length) throw new BadRequestException("Integrante repetido na OC.");
+  return members;
+}
 export type CultWindow = { weekday: number; time: string; title: string };
 export type ServiceException = { serviceAt: string; kind: "SKIP" | "SPECIAL"; note: string; title?: string };
 export type ServiceOrderRules = {
@@ -12,6 +40,7 @@ export type ServiceOrderRules = {
   requireConfirmedRoster: boolean;
   blessing: BlessingChoice;
   exceptions: ServiceException[];
+  teamMembers?: OcTeamMember[];
 };
 export type SuggestedMoment = { title: string; minutes: number; responsible: string | null; responsiblePersonId: string | null; microphone?: string | null; equipment?: string | null; notes?: string | null };
 export type Candidate = { personId: string; displayName: string; roleLabel: string; rosterId: string; status: "PENDING" | "CONFIRMED" };
@@ -30,6 +59,7 @@ export const RF1_SERVICE_ORDER_DEFAULTS: ServiceOrderRules = {
   requireConfirmedRoster: true,
   blessing: "LEADERSHIP",
   exceptions: [],
+  teamMembers: [],
 };
 
 export function parseOrderRules(value: unknown): ServiceOrderRules {
@@ -73,6 +103,7 @@ export function parseOrderRules(value: unknown): ServiceOrderRules {
     requireConfirmedRoster: bool("requireConfirmedRoster"),
     blessing: v.blessing as BlessingChoice,
     exceptions,
+    teamMembers: readTeamMembers(v.teamMembers),
   };
 }
 
@@ -158,12 +189,16 @@ function rankHash(input: string) {
   for (const char of input) state = Math.imul(state ^ char.charCodeAt(0), 16777619);
   return state >>> 0;
 }
-export type RoleKey = "director" | "preacher" | "praise" | "welcome";
+export type RoleKey = "director" | "preacher" | "praise" | "welcome" | "media" | "generosity" | "prayer" | "instrumental";
 const ROLE_REGEX: Record<RoleKey, RegExp> = {
   director: /dire(?:ç|c|t|g)|dirig|conduzir/i,
   preacher: /prega|pastor|bispo|palavra/i,
   praise: /louvor|adora|ministro.*música|música/i,
   welcome: /acolh|recep|conexão|boas.vindas/i,
+  media: /mídia|midia|vídeo|video|news|projeção|som/i,
+  generosity: /generosidade|oferta|coleta/i,
+  prayer: /oração|oracao|bênção|bencao|intercessão/i,
+  instrumental: /instrumental|backstage/i,
 };
 /**
  * Apenas candidatos efetivamente presentes nas escalas do culto; históricos identificados por pessoa.
@@ -204,20 +239,21 @@ export function chooseRoleCandidate(
 export function buildServiceMoments(
   director: Candidate | null, preacher: Candidate | null, praise: Candidate | null,
   welcome: Candidate | null, rules: ServiceOrderRules,
+  extra: { media?: Candidate | null; generosity?: Candidate | null; prayer?: Candidate | null; instrumental?: Candidate | null } = {},
 ): SuggestedMoment[] {
   const m = (title:string, minutes:number, person:Candidate|null, fallback?:string, notes?:string):SuggestedMoment =>
     ({ title, minutes, responsible:person?.displayName??fallback??"A definir", responsiblePersonId:person?.personId??null, notes:notes??null });
   const blessing = rules.blessing === "PREACHER" ? preacher : null;
   return [
-    m("Vídeo prelúdio",10,null,"Equipe de Mídia"),
+    m("Vídeo prelúdio",10,extra.media ?? null,"Equipe de Mídia"),
     m("Louvor e adoração",25,praise,"Ministério de Louvor"),
     m("Momento de acolher",5,welcome??director),
-    m("IDB News",3,null,"Equipe de Mídia"),
-    m("Generosidade",5,director??welcome),
+    m("IDB News",3,extra.media ?? null,"Equipe de Mídia"),
+    m("Generosidade",5,extra.generosity??director??welcome),
     m("Louvor durante a coleta",5,praise,"Ministério de Louvor"),
     m("Pregação e ministração",40,preacher),
-    m("Oração pelas famílias / bênção apostólica",5,blessing,undefined,
+    m("Oração pelas famílias / bênção apostólica",5,blessing??extra.prayer??null,undefined,
       rules.blessing==="LEADERSHIP"?"Responsável definido pela liderança pastoral.":rules.blessing==="DESIGNATED"?"Escolha manualmente quem realizará a bênção.":undefined),
-    m("Instrumental de despedida",5,praise,"Louvor / Backstage"),
+    m("Instrumental de despedida",5,extra.instrumental??praise,"Louvor / Backstage"),
   ];
 }
