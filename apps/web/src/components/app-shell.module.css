@@ -915,17 +915,20 @@
 }
 @media (max-width: 350px) {
   .toolbar {
-    gap: 3px;
-    padding-inline: 7px;
+    flex-wrap: wrap;
+    gap: 4px;
+    row-gap: 4px;
+    padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
   }
   .toolbarIdentity {
-    gap: 2px;
+    gap: 4px;
+    flex: 1 1 auto;
   }
   .toolbarIdentity strong {
-    font-size: 10px;
+    font-size: 12px;
   }
   .toolbarAlerts {
-    display: none;
+    display: inline-flex;
   }
   .content {
     padding-inline: 11px;
@@ -1035,3 +1038,10 @@
 .frame :is(button, input, select, textarea, a):focus-visible { outline: 3px solid #c9a76b; outline-offset: 2px; }
 .frame :is(button, input, select, textarea):disabled { opacity: .65; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .frame *, .frame *::before, .frame *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* Pre-HML: no mobile de 320px o menu e os avisos continuam acessíveis. */
+@media (max-width: 350px) {
+  .toolbar .hamburger { display: grid; }
+  .toolbarAlerts { min-height: 44px; }
+}
+.frame .content { overflow-x: clip; }
