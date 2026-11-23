@@ -49,7 +49,10 @@ try {
     }, token);
     const page = await context.newPage();
     await page.goto(root + "/app/", { waitUntil: "domcontentloaded" });
-    const nav = page.getByRole("navigation", { name: "Módulos" });
+    // O painel troca a sidebar desktop pela navegação inferior até 970px.
+    const nav = page.getByRole("navigation", {
+      name: width <= 970 ? "Navegação principal no celular" : "Módulos",
+    });
     try {
       await nav.waitFor({ state: "attached", timeout: 12000 });
     } catch (error) {
