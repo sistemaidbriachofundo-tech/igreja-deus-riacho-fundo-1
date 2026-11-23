@@ -28,7 +28,7 @@
   min-width: 0;
   min-height: 48px;
   padding: 6px 10px 6px 6px;
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--app-ink, #22382e);
   font-size: .875rem;
   font-weight: 650;
@@ -37,7 +37,7 @@
 }
 
 .panel[hidden] { display: none; }
-.sectionLinks a[aria-current="page"] { background: var(--app-accent, #255742); color: white; }
+.sectionLinks a[aria-current="page"] { background: #171717; color: white; }
 .sectionLinks a[aria-current="page"] > svg { color: inherit; }
 .sectionLinks a:not([aria-current]):hover { background: #e6efe7; }
 .sectionLinks a > svg { margin-inline-start: auto; flex: none; color: var(--app-muted, #51675b); }
@@ -46,8 +46,8 @@
   flex: none;
   place-items: center;
   border-radius: 50%;
-  background: #e7f0e8;
-  color: var(--app-accent, #255742);
+  background: #f3f4f5;
+  color: #171717;
 }
 .sectionIcon { width: 34px; height: 34px; }
 
@@ -55,7 +55,7 @@
   min-width: 0;
   padding: clamp(14px, 2vw, 25px);
   border: 1px solid var(--app-border, #dce6de);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--app-surface, #fff);
 }
 
@@ -108,7 +108,7 @@
   display: grid;
   gap: 17px;
   scroll-margin-top: 88px;
-  box-shadow: 0 8px 28px #113f3009;
+  box-shadow: none;
 }
 
 .panelHeader, .panelTitle, .header {
@@ -141,14 +141,14 @@
   margin: 0;
   padding: 12px 4px;
   border-radius: 16px;
-  background: #edf4ee;
+  background: #f5f6f7;
 }
 .highlights div { min-width: 0; padding: 6px clamp(7px, 2vw, 18px); }
 .highlights div + div { border-inline-start: 1px solid #d4e3d7; }
 .highlights dt { color: #466456; font-size: .78rem; line-height: 1.35; }
 .highlights dd {
   margin: 4px 0 0;
-  color: #194b36;
+  color: #171717;
   font-size: clamp(1.3rem, 4vw, 1.85rem);
   font-weight: 750;
   line-height: 1.2;
@@ -199,11 +199,11 @@
 .chart li > span { overflow-wrap: anywhere; }
 .lines strong, .chart strong { font-variant-numeric: tabular-nums; }
 .track { height: 8px; border-radius: 999px; background: #eaf0eb; overflow: hidden; }
-.track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2d6850, #56866d); }
+.track span { display: block; height: 100%; border-radius: inherit; background: var(--app-success, #286b52); }
 
 .table h3 { margin: 0 0 4px; color: var(--app-ink, #22382e); font-size: .95rem; }
 .table article:last-child { border-bottom: 0; }
-.page :focus-visible { outline: 2px solid #a8491b; outline-offset: 2px; }
+.page :focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
 .sectionLinks a:focus-visible { outline-offset: -2px; }
 
 @media (max-width: 1100px) {

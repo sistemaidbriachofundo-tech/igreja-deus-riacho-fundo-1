@@ -225,7 +225,7 @@
 
 /* Lançamentos financeiros: ações visíveis, informação de governança e foco em despesa. */
 .approvalInfo{padding:14px 18px;margin:0;background:var(--app-info-bg);border:1px solid #d3e4f2;color:var(--app-info);border-radius:10px;font-size:.91rem;line-height:1.5}
-@media(max-width:680px){.views{display:flex;overflow-x:auto;scrollbar-width:thin;padding-bottom:5px}.views button{flex-shrink:0}.tabs{display:flex;overflow-x:auto}.tabs button{flex-shrink:0}}
+@media(max-width:680px){.views,.tabs{display:flex;flex-wrap:wrap;overflow-x:visible;gap:6px}.views button,.tabs button{flex:1 1 auto}}
 
 .movementType {
   display: grid;
