@@ -67,6 +67,28 @@ describe("Louvor: sorteio completo do mês", () => {
       .toEqual(preview.rosters[0].positions[0].candidates);
   });
 
+  it("inclui a regra efetiva no fingerprint e altera o sorteio da mesma semana", () => {
+    const withBlock = state();
+    withBlock.modules[0].volunteerIds = [people[0].personId];
+    withBlock.people = [people[0]];
+    withBlock.modules[0].positions = {
+      thursday_evening: [{ label: "Equipe", count: 1, couple: false }],
+      sunday_morning: [{ label: "Equipe", count: 1, couple: false }],
+      sunday_evening: [{ label: "Equipe", count: 1, couple: false }],
+    };
+    withBlock.modules[0].minIntervalDays = 0;
+    withBlock.modules[0].maxMonthlyAssignments = 31;
+    withBlock.modules[0].louvorWeekBlock = true;
+    const withoutBlock = structuredClone(withBlock);
+    withoutBlock.modules[0].louvorWeekBlock = false;
+    const locked = planMonth(withBlock);
+    const relaxed = planMonth(withoutBlock);
+    expect(locked.fingerprint).not.toBe(relaxed.fingerprint);
+    const lockedCount = locked.services.flatMap(service => service.slots).filter(slot => slot.personId).length;
+    const relaxedCount = relaxed.services.flatMap(service => service.slots).filter(slot => slot.personId).length;
+    expect(relaxedCount).toBeGreaterThan(lockedCount);
+  });
+
   it("respeita a pesquisa mensal quando já foi respondida", () => {
     const current = state({ monthlySurveyRequired: true });
     const result = planMonth(current);
