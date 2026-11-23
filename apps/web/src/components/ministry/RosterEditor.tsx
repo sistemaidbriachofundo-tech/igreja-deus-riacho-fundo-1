@@ -26,6 +26,7 @@ export type RosterActionsProps = {
   allowPublish?: boolean;
   requireModuleMembership?: boolean;
   managedModuleMemberships?: boolean;
+  hideMembershipLinks?: boolean;
 };
 
 const churchDateTime = new Intl.DateTimeFormat("sv-SE", {

@@ -218,3 +218,34 @@
 .page :is(button,input,select,textarea,a):focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
 .panel button.secondary { border-color: #c8cdd2; background: #fff; color: #171717; }
 @media (max-width: 760px) { .panel { padding: 16px; } }
+
+/* Calendário compacto: cada célula representa um dia, e os eventos ficam na lista acessível abaixo. */
+.agenda .calendar { width: 100%; table-layout: fixed; border-spacing: 0; border-radius: 13px; }
+.agenda .calendar .weekday { padding: 6px 0; font-size: .72rem; }
+.agenda .calendar :is(.day,.dayOutside) { padding: 2px; height: 48px; vertical-align: middle; }
+.agenda .calendarDayButton {
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; min-height: 44px; padding: 3px;
+  border: 1px solid transparent; border-radius: 9px;
+  color: var(--app-ink, #242424); background: transparent; font: inherit; cursor: pointer;
+}
+.agenda .calendarDayButton:disabled { opacity: .45; cursor: default; }
+.agenda .calendarDayButton:not(:disabled):hover { background: var(--app-subtle, #f0f2f4); }
+.agenda .calendarDayButton[aria-pressed="true"] { color: #fff; background: var(--app-accent, #171717); }
+.agenda .calendarDayButton:focus-visible { outline: 3px solid var(--app-info, #294e70); outline-offset: -2px; }
+.agenda .calendarDayButton time { font-weight: 750; font-size: .82rem; }
+.agenda .calendarDayButton .eventCount {
+  display: inline-flex; justify-content: center; align-items: center;
+  min-width: 19px; height: 19px; padding: 0 4px; line-height: 1; border-radius: 999px;
+  color: var(--app-info, #294e70); background: var(--app-info-bg, #e9f1f9);
+  font-size: .66rem; font-weight: 800;
+}
+.agenda .calendarDayButton[aria-pressed="true"] .eventCount { color: var(--app-accent, #171717); background: #fff; }
+.agenda .agendaResults { margin-top: 2px; }
+.moreCalendarEvents { display: block; width: 100%; padding: 12px 16px; border: 0; background: var(--app-subtle, #f0f2f4); color: var(--app-ink, #242424); font-weight: 700; text-align: center; cursor: pointer; }
+.moreCalendarEvents:hover { background: var(--app-info-bg, #e9f1f9); }
+@media(max-width:620px) {
+  .agenda .calendar :is(.day,.dayOutside) { height: 46px; padding: 1px; }
+  .agenda .calendarDayButton { flex-direction: column; gap: 0; min-height: 44px; padding: 2px 0; }
+  .agenda .calendarDayButton .eventCount { min-width: 17px; height: 17px; }
+}
