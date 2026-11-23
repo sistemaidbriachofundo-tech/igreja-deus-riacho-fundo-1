@@ -1,0 +1,467 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    {
+      "id": "auth/anon",
+      "persona": "ANON",
+      "journey": "Sessão ausente",
+      "status": "PASS",
+      "detail": "GET /auth/me sem sessão respondeu 401."
+    },
+    {
+      "id": "link/anon--persons-search",
+      "persona": "ANON",
+      "journey": "Link direto /persons/search",
+      "status": "PASS",
+      "detail": "Sem sessão o link direto respondeu 401."
+    },
+    {
+      "id": "link/anon--ledger-accounts",
+      "persona": "ANON",
+      "journey": "Link direto /ledger/accounts",
+      "status": "PASS",
+      "detail": "Sem sessão o link direto respondeu 401."
+    },
+    {
+      "id": "link/anon--pastoral-prayers",
+      "persona": "ANON",
+      "journey": "Link direto /pastoral/prayers",
+      "status": "PASS",
+      "detail": "Sem sessão o link direto respondeu 401."
+    },
+    {
+      "id": "link/anon--admin-access",
+      "persona": "ANON",
+      "journey": "Link direto /admin/access",
+      "status": "PASS",
+      "detail": "Sem sessão o link direto respondeu 401."
+    },
+    {
+      "id": "link/anon--indicators-summary",
+      "persona": "ANON",
+      "journey": "Link direto /indicators/summary",
+      "status": "PASS",
+      "detail": "Sem sessão o link direto respondeu 401."
+    },
+    {
+      "id": "link/anon--indicators-membership",
+      "persona": "ANON",
+      "journey": "Link direto /indicators/membership",
+      "status": "PASS",
+      "detail": "Sem sessão o link direto respondeu 401."
+    },
+    {
+      "id": "auth/admin-mfa",
+      "persona": "ADMIN",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/admin-replay",
+      "persona": "ADMIN",
+      "journey": "Replay do desafio MFA",
+      "status": "PASS",
+      "detail": "O mesmo desafio não emitiu outra sessão."
+    },
+    {
+      "id": "auth/admin",
+      "persona": "ADMIN",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "PLATFORM_ADMIN confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "auth/pastor-mfa",
+      "persona": "PASTOR",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/pastor",
+      "persona": "PASTOR",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "PASTOR confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "auth/secretaria-mfa",
+      "persona": "SECRETARIA",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/secretaria",
+      "persona": "SECRETARIA",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "SECRETARIA confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "auth/tesouraria-mfa",
+      "persona": "TESOURARIA",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/tesouraria",
+      "persona": "TESOURARIA",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "TESOURARIA confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "auth/lider_ministerio-mfa",
+      "persona": "LIDER_MINISTERIO",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/lider_ministerio",
+      "persona": "LIDER_MINISTERIO",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "LIDER_MINISTERIO confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "auth/membro",
+      "persona": "MEMBRO",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "MEMBRO confirmado na congregação ativa."
+    },
+    {
+      "id": "auth/editor-mfa",
+      "persona": "EDITOR",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/editor",
+      "persona": "EDITOR",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "EDITOR_SITE confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "auth/publicador-mfa",
+      "persona": "PUBLICADOR",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/publicador",
+      "persona": "PUBLICADOR",
+      "journey": "Login e /auth/me",
+      "status": "PASS",
+      "detail": "PUBLICADOR_SITE confirmado na congregação ativa depois do MFA."
+    },
+    {
+      "id": "scope/tesouraria--persons-search",
+      "persona": "TESOURARIA",
+      "journey": "Tesouraria não busca pessoas",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/membro--persons-demoPersonRiacho01",
+      "persona": "MEMBRO",
+      "journey": "Membro não abre ficha alheia",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/membro--persons-demoPersonMembro01",
+      "persona": "MEMBRO",
+      "journey": "Membro abre a própria ficha",
+      "status": "PASS",
+      "detail": "HTTP 200, como o contrato determina."
+    },
+    {
+      "id": "scope/admin--pastoral-cases",
+      "persona": "ADMIN",
+      "journey": "Admin técnico sem pastoral",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/admin--ledger-accounts",
+      "persona": "ADMIN",
+      "journey": "Administrador lê o plano de contas",
+      "status": "PASS",
+      "detail": "HTTP 200, como o contrato determina."
+    },
+    {
+      "id": "scope/admin--ledger-receiving-accounts",
+      "persona": "ADMIN",
+      "journey": "Administrador não cria conta de recebimento",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/secretaria--ledger-accounts",
+      "persona": "SECRETARIA",
+      "journey": "Secretaria sem ledger",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/editor--persons-search",
+      "persona": "EDITOR",
+      "journey": "Editor não busca pessoas",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/lider_ministerio--ministry-scope-demoMinistryHomens-formal-memberships",
+      "persona": "LIDER_MINISTERIO",
+      "journey": "Líder não lê outro ministério",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/membro--events",
+      "persona": "MEMBRO",
+      "journey": "Membro não lista eventos internos",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/publicador--persons-search",
+      "persona": "PUBLICADOR",
+      "journey": "Publicador não busca pessoas",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/pastor--ledger-accounts",
+      "persona": "PASTOR",
+      "journey": "Pastor não lê o ledger",
+      "status": "PASS",
+      "detail": "HTTP 403, como o contrato determina."
+    },
+    {
+      "id": "scope/membro-igreja",
+      "persona": "MEMBRO",
+      "journey": "Troca para congregação sem grant",
+      "status": "PASS",
+      "detail": "A troca foi recusada e a sessão permaneceu fora da congregação destino."
+    },
+    {
+      "id": "auth/convidado",
+      "persona": "CONVIDADO",
+      "journey": "Cadastro de convidado",
+      "status": "PASS",
+      "detail": "Conta CONVIDADO criada com senha efêmera e JWT próprio."
+    },
+    {
+      "id": "scope/convidado--indicators-summary",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /indicators/summary",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "scope/convidado--indicators-membership",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /indicators/membership",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "scope/convidado--pastoral-prayers",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /pastoral/prayers",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "scope/convidado--pastoral-congregation",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /pastoral/congregation",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "scope/convidado--ledger-accounts",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /ledger/accounts",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "scope/convidado--admin-access",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /admin/access",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "scope/convidado--persons-search",
+      "persona": "CONVIDADO",
+      "journey": "Convidado sem /persons/search",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "privacy/convidado-carteirinha",
+      "persona": "CONVIDADO",
+      "journey": "Carteirinha própria",
+      "status": "PASS",
+      "detail": "A leitura não trouxe carteirinha de outra pessoa."
+    },
+    {
+      "id": "privacy/oracao-eco",
+      "persona": "CONVIDADO",
+      "journey": "Pedido de oração não ecoa o texto",
+      "status": "PASS",
+      "detail": "A criação devolveu só o identificador."
+    },
+    {
+      "id": "privacy/oracao-convidado",
+      "persona": "CONVIDADO",
+      "journey": "Convidado não lê o pedido",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "privacy/oracao-lista",
+      "persona": "PASTOR",
+      "journey": "Listagem sem o texto",
+      "status": "PASS",
+      "detail": "Listagem HTTP 200 sem o texto."
+    },
+    {
+      "id": "privacy/oracao-sino",
+      "persona": "PASTOR",
+      "journey": "Sino sem o texto",
+      "status": "PASS",
+      "detail": "Sino HTTP 200 sem o texto."
+    },
+    {
+      "id": "access/convite",
+      "persona": "ADMIN",
+      "journey": "Convite e ativação",
+      "status": "PASS",
+      "detail": "Convite de uso único ativado sem e-mail externo."
+    },
+    {
+      "id": "access/concessao",
+      "persona": "MEMBRO",
+      "journey": "Concessão de MEMBRO",
+      "status": "PASS",
+      "detail": "A conta ativada entrou como MEMBRO."
+    },
+    {
+      "id": "access/edicao-modulo",
+      "persona": "LIDER_MODULO",
+      "journey": "Edição para líder de módulo",
+      "status": "PASS",
+      "detail": "O perfil passou a líder de módulo do Atmosfera."
+    },
+    {
+      "id": "access/sessao-revogada",
+      "persona": "LIDER_MODULO",
+      "journey": "Sessão antiga revogada na edição",
+      "status": "PASS",
+      "detail": "O JWT anterior deixou de valer."
+    },
+    {
+      "id": "auth/lider_modulo-mfa",
+      "persona": "LIDER_MODULO",
+      "journey": "MFA antes do JWT",
+      "status": "PASS",
+      "detail": "Desafio MFA emitido antes do JWT."
+    },
+    {
+      "id": "auth/lider-modulo",
+      "persona": "LIDER_MODULO",
+      "journey": "Login do líder de módulo",
+      "status": "PASS",
+      "detail": "Líder de módulo autenticado com MFA."
+    },
+    {
+      "id": "scope/lider-modulo-proprio",
+      "persona": "LIDER_MODULO",
+      "journey": "Módulo do próprio ministério",
+      "status": "PASS",
+      "detail": "HTTP 200 no Atmosfera."
+    },
+    {
+      "id": "scope/lider-modulo-alheio",
+      "persona": "LIDER_MODULO",
+      "journey": "Outro ministério recusado",
+      "status": "PASS",
+      "detail": "HTTP 403."
+    },
+    {
+      "id": "access/revogacao",
+      "persona": "ADMIN",
+      "journey": "Revogação do perfil",
+      "status": "PASS",
+      "detail": "O grant de liderança foi removido."
+    },
+    {
+      "id": "access/revogacao-sessao",
+      "persona": "LIDER_MODULO",
+      "journey": "Sessão revogada na revogação",
+      "status": "PASS",
+      "detail": "HTTP 401."
+    },
+    {
+      "id": "access/recuperacao",
+      "persona": "ADMIN",
+      "journey": "Recuperação por link de uso único",
+      "status": "PASS",
+      "detail": "A senha anterior foi recusada e a nova foi aceita. Nenhum e-mail externo foi enviado."
+    },
+    {
+      "id": "access/forgot-enumeracao",
+      "persona": "ANON",
+      "journey": "Recuperação pública sem enumerar conta",
+      "status": "PASS",
+      "detail": "Conta existente e inexistente receberam a mesma resposta, sem token."
+    },
+    {
+      "id": "access/qa-testers",
+      "persona": "ADMIN",
+      "journey": "Provisionamento qa.rf1.tester",
+      "status": "PASS",
+      "detail": "8 convites de ativação e 0 indisponíveis. Nenhum link foi registrado."
+    },
+    {
+      "id": "auth/qa-pastora",
+      "persona": "PASTOR",
+      "journey": "QA tester sem MFA e sem ledger",
+      "status": "PASS",
+      "detail": "A conta fictícia entrou por senha, com PASTOR, e o ledger respondeu 403."
+    },
+    {
+      "id": "auth/logout",
+      "persona": "PUBLICADOR",
+      "journey": "Logout revoga a sessão",
+      "status": "PASS",
+      "detail": "Depois do logout, /auth/me voltou 401."
+    },
+    {
+      "id": "hosted/web",
+      "persona": "PLATAFORMA",
+      "journey": "Site DEV hospedado",
+      "status": "BLOCKED",
+      "detail": "O site DEV respondeu com a proteção de SSO da Vercel. Nenhum bypass foi tentado e nenhuma credencial foi transmitida."
+    },
+    {
+      "id": "hosted/api",
+      "persona": "PLATAFORMA",
+      "journey": "API QA hospedada",
+      "status": "BLOCKED",
+      "detail": "API QA: /ready HTTP 200, database=ok, mfaBlocking=true. /auth/me sem sessão HTTP 401. Nenhuma credencial foi transmitida."
+    }
+  ]
+}
