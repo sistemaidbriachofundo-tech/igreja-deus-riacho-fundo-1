@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
 import { IsIn, IsString, MinLength } from "class-validator";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator";
@@ -17,6 +17,12 @@ class AdmitMemberBody {
   @MinLength(1)
   personId!: string;
 
+  @IsString()
+  @IsIn(["LIDER", "COORDENADOR", "INTEGRANTE", "APOIO"])
+  role!: string;
+}
+
+class UpdateMemberRoleBody {
   @IsString()
   @IsIn(["LIDER", "COORDENADOR", "INTEGRANTE", "APOIO"])
   role!: string;
@@ -59,6 +65,16 @@ export class MinistryScopeController {
     @Body() body: AdmitMemberBody,
   ) {
     return this.gate.admit(user, ministryId, body.personId, body.role);
+  }
+
+  @Patch(":ministryId/formal-memberships/:membershipId/role")
+  updateMembershipRole(
+    @CurrentUser() user: AuthUser,
+    @Param("ministryId") ministryId: string,
+    @Param("membershipId") membershipId: string,
+    @Body() body: UpdateMemberRoleBody,
+  ) {
+    return this.gate.updateMembershipRole(user, ministryId, membershipId, body.role);
   }
 
   @Post(":ministryId/formal-memberships/from-interest")
