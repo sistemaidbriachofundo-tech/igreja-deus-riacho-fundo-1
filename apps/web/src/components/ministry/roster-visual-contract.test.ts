@@ -25,3 +25,18 @@ describe("Escalas — contrato visual do workspace RF1", () => {
     expect(css).toContain(".monthlyFilters > div { grid-column: auto; }");
   });
 });
+
+describe("barra mensal de escalas — regressão da captura do Louvor", () => {
+  const source = readFileSync(join(__dirname, "RosterShowcase.tsx"), "utf8");
+  it("separa o título e o acesso secundário das ações operacionais", () => {
+    expect(source).toContain("className={s.heroHeading}");
+    expect(source).toContain("className={s.heroShortcut}");
+    expect(source).toContain("data-roster-toolbar");
+    expect(source).toContain("className={s.heroEditor}");
+  });
+  it("editor recolhido não força nova linha; formulário aberto ocupa a largura disponível", () => {
+    expect(css).toMatch(/\.heroEditor > div \{ width: auto;/);
+    expect(css).toMatch(/\.heroEditor:has\(form\) \{ flex: 1 0 100%;/);
+    expect(css).toContain(".heroActions :is(.secondary,.lime) { white-space: normal;");
+  });
+});

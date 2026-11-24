@@ -257,15 +257,17 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
   return <div className={s.showcase}>
     {confirmation}
     <header className={s.monthlyHero}>
-      <div><p>{volunteerPortal ? "Ministérios / Atmosfera" : ministryName}</p><h2>Escalas</h2></div>
-      <div className={s.heroActions}>
-        {shortcut && <a className={s.secondary} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
-        {access && <RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.secondary} />}
+      <div className={s.heroHeading}>
+        <div><h2>Escalas</h2><p>Planejamento, distribuição e publicação dos cultos do mês.</p></div>
+        {shortcut && <a className={s.heroShortcut} href={withBasePath(shortcut.href)}>{shortcut.label}</a>}
+      </div>
+      <div className={s.heroActions} data-roster-toolbar>
+        {access && <div className={s.heroEditor}><RosterEditor key={access.moduleId ?? "general"} {...access} buttonClass={s.secondary} /></div>}
         {access && canGenerateMonth && <button type="button" className={s.lime} disabled={Boolean(publishing)}
           onClick={() => setTool(louvor || modules.length ? "draw" : "modules")}>
           <UIIcon name="spark" size={17} /> {louvor ? "Sortear escala do mês" : modules.length ? "Gerar escala do mês" : "Configurar e gerar escala"}
         </button>}
-        {access && canPublishMonth && <button type="button" className={s.lime} disabled={Boolean(publishing) || !monthDrafts.length}
+        {access && canPublishMonth && <button type="button" className={s.secondary} disabled={Boolean(publishing) || !monthDrafts.length}
           title={!monthDrafts.length ? "Este mês não tem rascunhos com vagas para publicar" : undefined}
           onClick={() => void publishMonth()}>
           <UIIcon name="check" size={17} /> {publishing === "month" ? "Publicando mês…" : "Publicar escala do mês"}
