@@ -224,7 +224,7 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
         const pending = conflict.existing.status === "PENDING_PAYMENT";
         const accepted = await confirm({
           title: "Você já possui esta inscrição",
-          subject: catalog.event.title ?? catalog.event.slug,
+          subject: catalog.event.name,
           description: pending
             ? "Sua inscrição está aguardando pagamento. Recupere a cobrança existente sem criar outra inscrição."
             : "Encontramos sua inscrição anterior. Consulte a situação e o ingresso, quando estiver liberado, sem reservar outra vaga.",
