@@ -3,11 +3,12 @@
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { getApiBaseUrl } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import { resolveSitePhoto, siteMediaLibrary } from "../lib/site-layout";
 import s from "./site-media-library.module.css";
+import ui from "./ui/ui.module.css";
 
 type MediaAsset = { url:string; pathname:string; name:string; size:number; uploadedAt:string };
 type MediaList = { configured:boolean; assets:MediaAsset[]; hasMore?:boolean; message?:string|null };
@@ -19,6 +20,9 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
   const [ready,setReady]=useState(false),[configured,setConfigured]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
   const [message,setMessage]=useState("");
+  const fileInput=useRef<HTMLInputElement>(null);
+  const uploadLock=useRef(false);
+  const [retrying,setRetrying]=useState(false);
   const refresh=useCallback(async()=>{
     const response=await fetch(getApiBaseUrl()+"/cms/site-media",{
       mode:"cors",credentials:"omit",cache:"no-store",
@@ -26,28 +30,39 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
     });
     if(!response.ok)throw new Error(response.status===403?"Sem permissão para acessar a biblioteca.":"Falha ao consultar as imagens ("+response.status+").");
     const data=await response.json() as MediaList;
-    setMedia(data.assets??[]);setConfigured(data.configured);setMessage(data.message??"");setReady(true);
+    setMedia(data.assets??[]);setConfigured(data.configured===true);setMessage(data.message??"");setError("");setReady(true);
   },[token]);
   useEffect(()=>{
     let cancelled=false;
     void refresh().catch(err=>{if(!cancelled){setError(err instanceof Error?err.message:"Biblioteca indisponível");setReady(true);}});
     return()=>{cancelled=true;};
   },[refresh]);
+  async function retry(){
+    setRetrying(true);setError("");
+    try{await refresh();}catch(err){setConfigured(false);setError(err instanceof Error?err.message:"Biblioteca indisponível");}
+    finally{setRetrying(false);setReady(true);}
+  }
+  function chooseFile(){
+    if(busy||uploadLock.current)return;
+    if(!configured){showFeedback({tone:"warning",title:"Envio indisponível",message:"Verifique a conexão com a biblioteca e tente novamente. As fotos do acervo continuam disponíveis."});return;}
+    fileInput.current?.click();
+  }
   async function upload(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];event.target.value="";
-    if(!file)return;
+    if(!file||!configured||uploadLock.current)return;
     setError("");
     const allowed=["image/jpeg","image/png","image/webp","image/avif"];
     if(file.size===0||file.size>3*1024*1024||!allowed.includes(file.type)){
       showFeedback({ tone: "error", title: "Arquivo incompatível", message: "Escolha uma foto JPG, PNG, WebP ou AVIF de até 3 MB." });return;
     }
+    uploadLock.current=true;
     if (!(await confirm({
       title: "Enviar foto à biblioteca pública?",
       subject: file.name,
       description: "Envie apenas imagens que você tem autorização para divulgar e que não contenham dados pessoais sensíveis.",
       action: "Enviar foto",
       cancel: "Voltar à biblioteca",
-    }))) return;
+    }))) {uploadLock.current=false;return;}
     setBusy(true);
     try{
       const form=new FormData();
@@ -61,21 +76,24 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
       const data=await response.json() as {asset:MediaAsset};
       onChoose(data.asset.url);
       showFeedback({ tone: "success", title: "Foto enviada", message: "A imagem foi selecionada. Salve o rascunho para guardar a mudança." });
-      await refresh();
+      try{await refresh();}catch{setError("Foto enviada, mas não foi possível atualizar a lista. Use Atualizar biblioteca.");}
     }catch(err){showFeedback({ tone: "error", title: "Envio não concluído", message: err instanceof Error?err.message:"Não foi possível enviar a foto." });}
-    finally{setBusy(false);}
+    finally{setBusy(false);uploadLock.current=false;}
   }
   return <div className={s.section}>
     {confirmation}
     <div className={s.toolbar}>
       <div><strong>Fotos da igreja</strong><p>Envie uma nova foto ou reutilize uma já autorizada. Arquivos são públicos somente para divulgação do portal.</p></div>
-      <label className={s.uploadButton} aria-disabled={!configured||busy}>
-        <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={!configured||busy} onChange={upload} aria-label="Enviar foto da igreja"/>
-        {busy?"Enviando…":"+ Enviar foto"}
-      </label>
+      <div className={s.uploadActions}>
+        <input ref={fileInput} type="file" hidden accept="image/jpeg,image/png,image/webp,image/avif" disabled={!configured||busy} onChange={upload} aria-label="Arquivo da foto da igreja"/>
+        <button type="button" className={ui.workspacePrimary} disabled={!ready||busy||retrying} onClick={chooseFile}>
+          {busy?"Enviando…":"+ Enviar foto"}
+        </button>
+      </div>
     </div>
     {!ready&&<p role="status">Carregando a biblioteca…</p>}
-    {ready&&!configured&&<p className={s.warning}>O armazenamento ainda não está habilitado para este ambiente. Você pode usar as fotos já incluídas no site.</p>}
+    {ready&&!configured&&<p className={s.warning} role="status">O envio de fotos está indisponível neste momento. Você pode usar o acervo aprovado ou tentar reconectar a biblioteca.</p>}
+    {ready&&(!configured||error)&&<button type="button" className={ui.workspaceSecondary} onClick={retry} disabled={retrying||busy}>{retrying?"Consultando…":"Atualizar biblioteca"}</button>}
     {message&&<p className={s.warning}>{message}</p>}
     {error&&<p className={s.error} role="alert">{error}</p>}
     {media.length>0&&<>
