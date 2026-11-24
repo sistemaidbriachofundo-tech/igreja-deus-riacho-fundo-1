@@ -89,14 +89,16 @@ describe("ledger-rules", () => {
       { postedAt: "2026-11-02", amountCents: 25000, description: "Oferta", externalRef: "FIT-1" },
       { postedAt: "2026-11-02", amountCents: 25000, description: "Oferta", externalRef: null },
       { postedAt: "2026-11-03", amountCents: -5000, description: "=saque", externalRef: null },
+      { postedAt: "2026-11-02", amountCents: 25000, description: "Oferta do culto", externalRef: null },
     ];
     const first = dedupeStatementLines(incoming);
-    assert.equal(first.kept.length, 2);
+    assert.equal(first.kept.length, 3);
+    assert.equal(first.kept[2].description, "Oferta do culto");
     assert.equal(first.skipped, 2);
     assert.equal(first.kept[1].description, "'=saque");
     const again = dedupeStatementLines(first.kept, first.kept);
     assert.equal(again.kept.length, 0);
-    assert.equal(again.skipped, 2);
+    assert.equal(again.skipped, 3);
   });
 
   it("validates competence year/month", () => {

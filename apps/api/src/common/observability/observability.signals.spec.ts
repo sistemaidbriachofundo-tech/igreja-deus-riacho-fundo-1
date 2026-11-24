@@ -156,6 +156,36 @@ describe("logs, metrics and public errors", () => {
     expect(JSON.stringify(body)).not.toContain("stack");
   });
 
+  it("publishes duplicate context at the root and drops ticket or payment fields", () => {
+    const lines = new LineBuffer();
+    const filter = new ObservabilityExceptionFilter(new JsonLogger(runtime().config, lines), new MetricsRegistry(), runtime());
+    const safe = response();
+    filter.catch(new HttpException({
+      code: "EVENT_REGISTRATION_DUPLICATE",
+      message: "Esta participação já está inscrita neste evento. Abra a inscrição anterior; não há nova cobrança.",
+      overlap: "FULL",
+      existing: { id: "reg_1", status: "PENDING_PAYMENT" },
+    }, 409), host(safe));
+    expect(safe.statusCode).toBe(409);
+    expect(safe.body).toMatchObject({
+      code: "EVENT_REGISTRATION_DUPLICATE",
+      overlap: "FULL",
+      existing: { id: "reg_1", status: "PENDING_PAYMENT" },
+    });
+    expect(safe.body).not.toHaveProperty("checkInCode");
+
+    const poisoned = response();
+    filter.catch(new HttpException({
+      code: "LEDGER_POSSIBLE_DUPLICATE",
+      message: "Há um lançamento parecido nesta data, valor e conta. Revise antes de gravar outro.",
+      existing: { id: "le_1", status: "PENDING_APPROVAL", checkInCode: "segredo", pixCopiaECola: "00020126", description: "ana@igreja.org" },
+    }, 409), host(poisoned));
+    const body = poisoned.body as Record<string, unknown>;
+    expect(body.code).toBe("LEDGER_POSSIBLE_DUPLICATE");
+    expect(body.existing).toBeUndefined();
+    expect(JSON.stringify(body)).not.toMatch(/segredo|00020126|ana@igreja.org/);
+  });
+
   it("preserves a safe business message and strips a poisoned readiness payload", () => {
     expect(toPublicError({
       status: 429,

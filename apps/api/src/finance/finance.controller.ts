@@ -171,6 +171,24 @@ class CreateExpenseBody {
   @IsOptional()
   @IsString()
   costCenterId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  duplicateJustification?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  duplicateExistingId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  externalDocumentId?: string;
 }
 
 class MarkPayablePaidBody {

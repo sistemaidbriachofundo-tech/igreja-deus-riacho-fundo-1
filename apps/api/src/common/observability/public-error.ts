@@ -3,11 +3,21 @@ import { HttpException } from "@nestjs/common";
 import { redactText } from "./redaction";
 import { generateRequestId, isSafeRequestId } from "./request-id";
 
+export interface DuplicateExistingView {
+  id: string;
+  status: string;
+  description?: string;
+  entryDate?: string;
+  amountCents?: number;
+}
+
 export interface PublicErrorBody {
   statusCode: number;
   message: string | string[];
   code: string;
   requestId: string;
+  existing?: DuplicateExistingView;
+  overlap?: "FULL" | "PARTIAL";
 }
 
 const SAFE_CODE = /^[A-Z][A-Z0-9_]{0,48}$/;
@@ -20,6 +30,50 @@ const GENERIC: Record<number, { message: string; code: string }> = {
   409: { message: "Conflito", code: "CONFLICT" },
   429: { message: "Muitas tentativas — aguarde e tente de novo", code: "RATE_LIMITED" },
 };
+
+const EXISTING_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const EXISTING_STATUS = /^[A-Z][A-Z0-9_]{0,40}$/;
+const ENTRY_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function readDuplicateContext(response: unknown): {
+  existing?: DuplicateExistingView;
+  overlap?: "FULL" | "PARTIAL";
+} {
+  if (!response || typeof response !== "object" || Array.isArray(response)) return {};
+  const body = response as Record<string, unknown>;
+  const overlap = body.overlap === "FULL" || body.overlap === "PARTIAL" ? body.overlap : undefined;
+  const existing = sanitizeExisting(body.existing);
+  return {
+    ...(overlap ? { overlap } : {}),
+    ...(existing ? { existing } : {}),
+  };
+}
+
+function sanitizeExisting(value: unknown): DuplicateExistingView | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Record<string, unknown>;
+  const allowed = new Set(["id", "status", "description", "entryDate", "amountCents"]);
+  if (Object.keys(row).some(key => !allowed.has(key))) return undefined;
+  if (typeof row.id !== "string" || !EXISTING_ID.test(row.id)) return undefined;
+  if (typeof row.status !== "string" || !EXISTING_STATUS.test(row.status)) return undefined;
+  const existing: DuplicateExistingView = { id: row.id, status: row.status };
+  if (row.description !== undefined) {
+    if (typeof row.description !== "string") return undefined;
+    const description = cleanMessage(row.description);
+    if (!description) return undefined;
+    existing.description = description;
+  }
+  if (row.entryDate !== undefined) {
+    if (typeof row.entryDate !== "string" || !ENTRY_DATE.test(row.entryDate)) return undefined;
+    existing.entryDate = row.entryDate;
+  }
+  if (row.amountCents !== undefined) {
+    if (typeof row.amountCents !== "number" || !Number.isInteger(row.amountCents)
+      || row.amountCents < 0 || row.amountCents > 2_147_483_647) return undefined;
+    existing.amountCents = row.amountCents;
+  }
+  return existing;
+}
 
 export function toPublicError(input: {
   status: number;
@@ -72,14 +126,18 @@ export function toClientPayload(exception: unknown, requestId: string): ClientPa
   if (exception instanceof HttpException) {
     const status = normalizeStatus(exception.getStatus());
     const response = exception.getResponse();
+    const duplicate = status >= 500 ? {} : readDuplicateContext(response);
     return {
       status,
-      body: toPublicError({
-        status,
-        message: status >= 500 ? undefined : readMessage(response, exception.message),
-        code: readCode(response),
-        requestId,
-      }),
+      body: {
+        ...toPublicError({
+          status,
+          message: status >= 500 ? undefined : readMessage(response, exception.message),
+          code: readCode(response),
+          requestId,
+        }),
+        ...duplicate,
+      },
     };
   }
   return { status: 500, body: toPublicError({ status: 500, requestId }) };

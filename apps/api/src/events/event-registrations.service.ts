@@ -22,6 +22,13 @@ import { smtpSendEnabled } from "../mail/smtp-config";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { buildPixCopiaECola } from "./pix-payload";
+import { participationIdentityKeys, preferredOwned } from "./participation-identity";
+import {
+  loadParticipationConflict,
+  participationConstraint,
+  participationStore,
+  registrationDuplicateException,
+} from "./registration-duplicate";
 
 type PaymentSettlement = {
   idempotencyKey: string;
@@ -926,6 +933,7 @@ export class EventRegistrationsService {
           cancelledAt: new Date(),
         },
       });
+      await participationStore(tx)?.deleteMany?.({ where: { registrationId } });
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -1306,6 +1314,24 @@ export class EventRegistrationsService {
       if (lot.modalityId && lot.modalityId !== modality.id) {
         throw new BadRequestException("lote não pertence à modalidade");
       }
+    } else if (params.source === "member") {
+      throw new BadRequestException("lotId é obrigatório na inscrição pelo portal");
+    }
+    const identityKeys = participationIdentityKeys({
+      registrantPersonId: params.registrantPersonId,
+      isMinor,
+      partySize,
+      displayName,
+      notificationEmail: params.input.notificationEmail,
+      participants,
+    });
+    await this.rejectDuplicateParticipation({
+      eventId: params.event.id,
+      eventStatus: params.event.status,
+      identityKeys,
+      registrantPersonId: params.registrantPersonId,
+    });
+    if (lot) {
       if (params.source !== "staff" && lot.status !== "OPEN") {
         throw new BadRequestException("lote indisponível");
       }
@@ -1319,8 +1345,6 @@ export class EventRegistrationsService {
       if (lot.closesAt && lot.closesAt.getTime() < now) {
         throw new BadRequestException("lote encerrado");
       }
-    } else if (params.source === "member") {
-      throw new BadRequestException("lotId é obrigatório na inscrição pelo portal");
     }
 
     const [lodgingCatalog, mealCatalog, transportCatalog] = await Promise.all([
@@ -1421,6 +1445,15 @@ export class EventRegistrationsService {
     const guardianAuthStatus = isMinor ? "PENDING" : "NOT_REQUIRED";
 
     const created = await this.prisma.$transaction(async (tx) => {
+      await this.holdEventRegistration(tx, params.event.id);
+      await this.rejectDuplicateParticipation({
+        client: tx,
+        releaseStale: true,
+        eventId: params.event.id,
+        eventStatus: params.event.status,
+        identityKeys,
+        registrantPersonId: params.registrantPersonId,
+      });
       // A transação serializável mantém a última vaga consistente sob concorrência.
       const occModTx = await tx.eventRegistration.aggregate({
         where: {
@@ -1493,6 +1526,18 @@ export class EventRegistrationsService {
           ...(participantMode ? { participantRoster: participants } : {}),
         },
       });
+      const keyStore = participationStore(tx);
+      if (keyStore?.createMany && identityKeys.length) {
+        await keyStore.createMany({
+          data: identityKeys.map(identityKey => ({
+            organizationId: params.pilot.organizationId,
+            churchId: params.pilot.churchId,
+            eventId: params.event.id,
+            registrationId: registration.id,
+            identityKey,
+          })),
+        });
+      }
 
       const issueParticipants = participantMode && !needsPayment && guardianAuthStatus !== "PENDING";
       const tickets = issueParticipants
@@ -1622,9 +1667,18 @@ export class EventRegistrationsService {
             }
           : null,
       };
-    }, { isolationLevel: "Serializable" }).catch((error: unknown) => {
+    }, { isolationLevel: "Serializable" }).catch(async (error: unknown) => {
       if (error && typeof error === "object" && "code" in error && error.code === "P2034") {
         throw new ConflictException("As vagas foram atualizadas. Confira o lote e tente novamente.");
+      }
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002" && participationConstraint(error)) {
+        const conflict = await loadParticipationConflict(this.prisma, params.event.id, identityKeys, params.event.status);
+        if (conflict.kind === "full" || conflict.kind === "partial") {
+          throw registrationDuplicateException({
+            overlap: conflict.kind === "full" ? "FULL" : "PARTIAL",
+            owned: preferredOwned(conflict.matches, params.registrantPersonId),
+          });
+        }
       }
       throw error;
     });
@@ -2112,6 +2166,35 @@ export class EventRegistrationsService {
       throw new BadRequestException("Conta ativa da igreja não encontrada.");
     }
     return account.id;
+  }
+
+  private async holdEventRegistration(tx: object, eventId: string) {
+    if (!("$executeRaw" in tx) || typeof (tx as { $executeRaw?: unknown }).$executeRaw !== "function") return;
+    const lock = `event-reg:${eventId}`;
+    await (tx as { $executeRaw(query: TemplateStringsArray, ...values: unknown[]): Promise<unknown> })
+      .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+  }
+
+  private async rejectDuplicateParticipation(input: {
+    client?: object;
+    releaseStale?: boolean;
+    eventId: string;
+    eventStatus: string;
+    identityKeys: string[];
+    registrantPersonId?: string;
+  }) {
+    const client = input.client ?? this.prisma;
+    const store = participationStore(client);
+    if (!store || !input.identityKeys.length) return;
+    const conflict = await loadParticipationConflict(client, input.eventId, input.identityKeys, input.eventStatus);
+    if (input.releaseStale && conflict.staleRegistrationIds.length) {
+      await store.deleteMany?.({ where: { registrationId: { in: conflict.staleRegistrationIds } } });
+    }
+    if (conflict.kind === "none") return;
+    throw registrationDuplicateException({
+      overlap: conflict.kind === "full" ? "FULL" : "PARTIAL",
+      owned: preferredOwned(conflict.matches, input.registrantPersonId),
+    });
   }
 
   private async pixInstruction(

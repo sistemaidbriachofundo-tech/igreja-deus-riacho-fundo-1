@@ -63,6 +63,30 @@ describe("NotificationsService", () => {
     expect(assignments.findMany.mock.calls[0][0].where.slot.roster.ministryId.in).toEqual(["atmosfera"]);
   });
 
+  it("keeps one event bell per registration and recipient, without a form error", async () => {
+    const { service } = fixture();
+    const now = new Date();
+    const db = (service as unknown as { db: { eventRegistration: { findMany: jest.Mock } } }).db;
+    db.eventRegistration = { findMany: jest.fn().mockResolvedValue([
+      { id: "reg-1", status: "PENDING_PAYMENT", guardianAuthStatus: "NOT_REQUIRED", registrantPersonId: volunteer.personId, updatedAt: now, event: { name: "Retiro" } },
+      { id: "reg-1", status: "PENDING_PAYMENT", guardianAuthStatus: "NOT_REQUIRED", registrantPersonId: volunteer.personId, updatedAt: now, event: { name: "Retiro" } },
+      { id: "reg-2", status: "CONFIRMED", guardianAuthStatus: "PENDING", registrantPersonId: "outra", updatedAt: now, event: { name: "Retiro" } },
+    ]) };
+    const member = await service.list(volunteer, now);
+    const payment = member.items.filter(item => item.id === "event:reg-1:payment");
+    expect(payment).toHaveLength(1);
+    expect(payment[0]).toMatchObject({ category: "Eventos", href: "/app/eventos/?inscricao=reg-1", detail: "Retiro" });
+    expect(JSON.stringify(payment)).not.toMatch(/@|checkIn|pix/i);
+    const secretary = { ...volunteer, grants: [{ ...scope, roleCode: "SECRETARIA" }] };
+    const staff = await service.list(secretary, now);
+    expect(staff.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "event-guardian:reg-2", href: "/app/eventos-gestao/", detail: "Retiro" }),
+    ]));
+    expect(staff.items.filter(item => item.id.startsWith("event")).map(item => item.id).sort()).toEqual([
+      "event-guardian:reg-2", "event:reg-1:payment",
+    ]);
+  });
+
   it("links pastoral decisions to their own queues", async () => {
     const { service, ministries, ledger, admissionProtocol } = fixture();
     const pastor = { ...volunteer, grants: [{ ...scope, roleCode: "PASTOR" }] };

@@ -11,7 +11,7 @@ import { pastoralExpenseLines } from "../finance/pastoral-expense";
 type Scope = Pick<PilotChurch, "churchId" | "organizationId">;
 type Notice = {
   id: string;
-  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade" | "Pastoral" | "Aniversariantes" | "Louvor";
+  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade" | "Pastoral" | "Aniversariantes" | "Louvor" | "Eventos";
   title: string;
   detail: string;
   action: string;
@@ -99,8 +99,18 @@ export class NotificationsService {
     const groups = await Promise.all([
       this.volunteer(actor, now), this.declines(actor, scope, since, now), this.finance(actor, scope, since),
       this.admissions(actor, scope, since), this.groupRequests(actor, since), this.prayerBells(actor, scope), this.birthdayBells(actor, scope, now), this.worshipBells(actor, scope, now),
+      this.events(actor, scope, since),
     ]);
-    return groups.flat().sort((a, b) => +b.createdAt - +a.createdAt || a.id.localeCompare(b.id)).slice(0, LIMIT);
+    const ranked = groups.flat().sort((a, b) => +b.createdAt - +a.createdAt || a.id.localeCompare(b.id));
+    const seen = new Set<string>();
+    const unique: Notice[] = [];
+    for (const item of ranked) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      unique.push(item);
+      if (unique.length === LIMIT) break;
+    }
+    return unique;
   }
 
   private async volunteer(actor: AuthUser, now: Date): Promise<Notice[]> {
@@ -295,6 +305,83 @@ export class NotificationsService {
       createdAt: row.createdAt,
     }));
   }
+  private async events(actor: AuthUser, scope: Scope, since: Date): Promise<Notice[]> {
+    const registrations = this.db.eventRegistration;
+    if (!registrations?.findMany) return [];
+    const staff = hasAccess(actor.grants, {
+      ...scope, roleCodes: [ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN],
+    });
+    const rows = await registrations.findMany({
+      where: {
+        ...scope,
+        paymentStatus: { notIn: ["REFUNDED", "CANCELLED"] },
+        status: { in: ["PENDING_PAYMENT", "CONFIRMED"] },
+        event: { status: "PUBLISHED" },
+        OR: [
+          { registrantPersonId: actor.personId ?? "__none__" },
+          ...(staff ? [{ isMinor: true, guardianAuthStatus: "PENDING" as const }] : []),
+        ],
+      },
+      select: {
+        id: true, status: true, guardianAuthStatus: true, registrantPersonId: true, updatedAt: true,
+        event: { select: { name: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: LIMIT,
+    });
+    const notices: Notice[] = [];
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const own = Boolean(actor.personId) && row.registrantPersonId === actor.personId;
+      if (own) {
+        const notice = this.ownEventNotice(row, since);
+        if (notice && !seen.has(notice.id)) {
+          seen.add(notice.id);
+          notices.push(notice);
+        }
+      } else if (staff && row.guardianAuthStatus === "PENDING") {
+        const id = `event-guardian:${row.id}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        notices.push({
+          id, category: "Eventos", title: "Autorização de inscrição pendente",
+          detail: row.event.name, action: "Abrir gestão de eventos",
+          href: "/app/eventos-gestao/", createdAt: row.updatedAt, state: "Aguardando autorização",
+        });
+      }
+    }
+    return notices;
+  }
+
+  private ownEventNotice(row: {
+    id: string;
+    status: string;
+    guardianAuthStatus: string;
+    updatedAt: Date;
+    event: { name: string };
+  }, since: Date): Notice | null {
+    const href = `/app/eventos/?inscricao=${encodeURIComponent(row.id)}`;
+    if (row.status === "PENDING_PAYMENT") {
+      return {
+        id: `event:${row.id}:payment`, category: "Eventos", title: "Pagamento da inscrição pendente",
+        detail: row.event.name, action: "Abrir inscrição", href, createdAt: row.updatedAt, state: "Aguardando pagamento",
+      };
+    }
+    if (row.guardianAuthStatus === "PENDING") {
+      return {
+        id: `event:${row.id}:guardian`, category: "Eventos", title: "Autorização do responsável pendente",
+        detail: row.event.name, action: "Abrir inscrição", href, createdAt: row.updatedAt, state: "Aguardando autorização",
+      };
+    }
+    if (row.status === "CONFIRMED" && row.updatedAt >= since) {
+      return {
+        id: `event:${row.id}:check-in`, category: "Eventos", title: "Inscrição confirmada",
+        detail: row.event.name, action: "Abrir ingresso", href, createdAt: row.updatedAt, state: "Ingresso disponível",
+      };
+    }
+    return null;
+  }
+
   private async worshipBells(actor: AuthUser, scope: Scope, now: Date): Promise<Notice[]> {
     if (!this.db.worshipRepertoire?.findMany) return [];
     const assignments = await this.db.rosterAssignment.findMany({
