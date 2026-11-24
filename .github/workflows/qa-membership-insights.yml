@@ -35,7 +35,7 @@ jobs:
       - run: node scripts/hml/write-pages-release.mjs
       - run: npm run build -w @idbrf/web
       - name: Entregar código-fonte da evolução em ZIP
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: riacho1-ficha360-dashboard-codigo
           retention-days: 30
@@ -66,7 +66,7 @@ jobs:
             apps/web/src/app/app/secretaria/indicadores/page.tsx
             docs/entrega-ficha360-membresia-20261111.md
       - name: Entregar preview estático compilado
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: riacho1-ficha360-dashboard-preview
           retention-days: 14

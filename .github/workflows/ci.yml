@@ -159,7 +159,7 @@ jobs:
       # sem publicar ou substituir o GitHub Pages da igreja.
       - name: Archive web preview (pull requests only)
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: church-os-pr-preview
           path: apps/web/out
@@ -325,7 +325,7 @@ jobs:
           rm -rf portal-screenshots/host
       - name: Archive portal screenshots
         if: github.event_name == 'pull_request' && steps.portal_screen.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: portal-pr-screenshots
           path: portal-screenshots/*.png
@@ -509,7 +509,7 @@ jobs:
         run: node scripts/hml/eklesia-release-gate.mjs --screenshots off
       - name: Publicar a matriz
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eklesia-release-matrix
           path: qa/eklesia-h/matriz.*
