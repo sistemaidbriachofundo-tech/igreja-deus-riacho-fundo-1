@@ -147,7 +147,7 @@ export class MembershipsService {
 
     const ecclesiasticalRoles = input.ecclesiasticalRoles === undefined
       ? undefined : normalizeEcclesiasticalRoles(input.ecclesiasticalRoles);
-    let personId = input.personId?.trim();
+    const personId = input.personId?.trim();
 
     // Regras de dados apenas para novos cadastros; pessoas existentes não são
     // modificadas indiretamente por este endpoint.
