@@ -127,3 +127,22 @@
 .currentPhoto { display: block; width: 100%; max-height: 235px; aspect-ratio: 16 / 9; object-position: center; }
 .photoPreview figcaption { margin-top: 6px; color: #636363; font-size: .76rem; }
 .photoFields summary { padding-block: 8px; color: #4a4a4a; cursor: pointer; font: 700 .82rem var(--site-font); }
+
+/* Editorial workspace: balanced columns, no nested scroll trap. */
+.workspace { padding-top:12px; }
+.columns { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:start; }
+.editor,.preview { border-color:var(--app-border,#dfe3e7); border-radius:14px; min-width:0; }
+.controls { padding:16px; max-height:none; overflow:visible; }
+.controls h2 { font:750 1.15rem/1.3 var(--site-font); letter-spacing:-.02em; }
+.controls > p { font:500 .86rem/1.5 var(--site-font); margin:0 0 12px; }
+.controls .photoTargets { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.photoTargets button { padding:8px 6px; min-height:44px; white-space:normal; }
+.photoPreview { margin:12px 0; }
+.currentPhoto { max-height:205px; }
+.previewHead { flex-wrap:wrap; padding:12px; gap:8px; }
+.deviceSwitch { border-radius:10px; }
+.deviceSwitch button { border-radius:7px; }
+.previewCanvas { margin:10px auto; max-width:calc(100% - 20px); }
+.previewCover h2 { font-size:clamp(18px,1.7vw,27px); }
+@media(max-width:1100px) { .columns { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:480px) { .controls { padding:12px; } .photoTargets button { font-size:.76rem; } .previewCanvas[data-device="mobile"] .previewCover h2 { font-size:20px; } }
