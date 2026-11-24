@@ -220,6 +220,8 @@ export class MercadoPagoService {
         where: { id: intent.registrationId, status: "CONFIRMED" },
         data: { paymentStatus: "REFUNDED" },
       });
+      const participation = (tx as { eventParticipationKey?: { deleteMany(args: unknown): Promise<unknown> } }).eventParticipationKey;
+      await participation?.deleteMany({ where: { registrationId: intent.registrationId } });
       return "REFUNDED";
     });
     await this.receipt(intent, idempotencyKey, payment.status, result);

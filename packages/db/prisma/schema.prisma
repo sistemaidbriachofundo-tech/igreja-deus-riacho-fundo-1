@@ -1243,6 +1243,7 @@ model EventRegistration {
   paymentIntents EventPaymentIntent[]
   guardianAuthorization EventGuardianAuthorization?
   tickets EventParticipantTicket[]
+  participationKeys EventParticipationKey[]
 
   @@index([organizationId, churchId])
   @@index([eventId, status])
@@ -1253,6 +1254,24 @@ model EventRegistration {
   @@index([mealOptionId])
   @@index([transportOptionId])
   @@map("event_registrations")
+}
+
+/// Chave ativa da mesma participação. Some no cancelamento ou estorno; a inscrição histórica permanece.
+model EventParticipationKey {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  churchId       String   @map("church_id")
+  eventId        String   @map("event_id")
+  registrationId String   @map("registration_id")
+  identityKey    String   @map("identity_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, identityKey])
+  @@index([registrationId])
+  @@index([organizationId, churchId])
+  @@map("event_participation_keys")
 }
 
 model EventParticipantTicket {
@@ -2318,6 +2337,8 @@ model LedgerEntry {
   /// Competência contábil (ano/mês); default = entryDate.
   competenceYear         Int?              @map("competence_year")
   competenceMonth        Int?              @map("competence_month")
+  /// Documento ou pagamento informado pela tesouraria. Nulo não entra na unicidade.
+  externalDocumentId     String?           @map("external_document_id")
   createdAt              DateTime          @default(now()) @map("created_at")
   updatedAt              DateTime          @updatedAt @map("updated_at")
 
@@ -2344,6 +2365,7 @@ model LedgerEntry {
   @@index([fundId])
   @@index([costCenterId])
   @@index([churchId, competenceYear, competenceMonth])
+  @@unique([churchId, externalDocumentId], map: "ledger_entries_church_document_key")
   @@map("ledger_entries")
 }
 

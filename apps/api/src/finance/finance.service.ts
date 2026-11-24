@@ -36,6 +36,7 @@ import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
 import { listBankAdapters, requireBankAdapter } from "./bank-adapters";
 import { parseMercadoPagoReleases } from "./mercado-pago-releases";
+import { formatEntryDate, ledgerDuplicateMessage, reviewLedgerDuplicates, type LedgerDuplicateCandidate } from "./ledger-duplicate";
 import { pastoralExpenseLines } from "./pastoral-expense";
 import { projectBankBalances } from "./statement-balances";
 import { renderStatementPdf, renderStatementSheet } from "./statement-export";
@@ -309,7 +310,22 @@ export class FinanceService {
     cashAccountId: string;
     amountCents: number;
     costCenterId?: string;
+    duplicateJustification?: string;
+    duplicateExistingId?: string;
+    externalDocumentId?: string;
   }) {
+    const duplicateJustification = input.duplicateJustification?.trim() || undefined;
+    const duplicateExistingId = input.duplicateExistingId?.trim() || undefined;
+    if (Boolean(duplicateJustification) !== Boolean(duplicateExistingId)) {
+      throw new BadRequestException("Informe a justificativa e o lançamento indicado juntos.");
+    }
+    if (duplicateJustification && (duplicateJustification.length < 10 || duplicateJustification.length > 500)) {
+      throw new BadRequestException("A justificativa precisa ter entre 10 e 500 caracteres.");
+    }
+    const externalDocumentId = input.externalDocumentId?.trim() || undefined;
+    if (externalDocumentId && (externalDocumentId.length > 80 || /[\r\n<>]/.test(externalDocumentId))) {
+      throw new BadRequestException("Identificador do documento inválido.");
+    }
     return this.createEntry(actor, {
       entryDate: input.entryDate,
       description: input.description,
@@ -318,7 +334,7 @@ export class FinanceService {
         { accountId: input.expenseAccountId, side: "DEBIT", amountCents: input.amountCents, memo: "treasury:expense" },
         { accountId: input.cashAccountId, side: "CREDIT", amountCents: input.amountCents, memo: "treasury:cash" },
       ],
-    }, `expense-${input.requestId}`);
+    }, `expense-${input.requestId}`, { duplicateJustification, duplicateExistingId, externalDocumentId });
   }
 
   async listEntries(actor: AuthUser, status?: string, bucket?: "payables" | "settled") {
@@ -468,7 +484,19 @@ export class FinanceService {
           where: { ...pilot, action: PAYABLE_PAYMENT_ACTION, metadata: { path: ["settlementId"], equals: candidate.id } },
           select: { id: true },
         });
-        if (previousLink) throw new ConflictException("Esse pagamento já está vinculado a uma conta.");
+        if (previousLink) {
+          throw new ConflictException({
+            code: "LEDGER_DUPLICATE_CONFIRMED",
+            message: ledgerDuplicateMessage("confirmed"),
+            existing: {
+              id: candidate.id,
+              status: candidate.status,
+              description: candidate.description,
+              entryDate: candidate.entryDate.toISOString().slice(0, 10),
+              amountCents: candidate.amountCents,
+            },
+          });
+        }
         settlement = candidate;
       } else {
         const paidOn = input.paidOn ?? "";
@@ -484,6 +512,16 @@ export class FinanceService {
         const competenceYear = entryDate.getUTCFullYear();
         const competenceMonth = entryDate.getUTCMonth() + 1;
         await this.assertPeriodOpen(pilot, competenceYear, competenceMonth, tx);
+        await this.rejectLedgerDuplicate(tx, pilot, {
+          entryDate,
+          description: `Pagamento · ${payable.description}`,
+          amountCents: payable.amountCents,
+          costCenterId: payable.costCenterId,
+          lines: [
+            { accountId: payableAccountId, side: "DEBIT" },
+            { accountId: account.id, side: "CREDIT" },
+          ],
+        });
         settlement = await tx.ledgerEntry.create({
           data: {
             ...pilot,
@@ -528,6 +566,11 @@ export class FinanceService {
       competenceMonth?: number;
     },
     expenseId?: string,
+    duplicate?: {
+      duplicateJustification?: string;
+      duplicateExistingId?: string;
+      externalDocumentId?: string;
+    },
   ) {
     const pilot = await this.requireFinance(actor, expenseId ? "expense-create" : "write");
     const description = input.description?.trim();
@@ -595,13 +638,29 @@ export class FinanceService {
     }
 
     const submittedAt = expenseId ? new Date() : null;
+    const externalDocumentId = duplicate?.externalDocumentId?.trim() || null;
     return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$executeRaw === "function") {
+        const lock = `ledger-entry:${pilot.churchId}`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+      }
+      const acknowledgedId = await this.rejectLedgerDuplicate(tx, pilot, {
+        entryDate,
+        description,
+        amountCents: balance.amountCents,
+        costCenterId,
+        lines: input.lines.map(line => ({ accountId: line.accountId, side: line.side })),
+        externalDocumentId,
+        duplicateJustification: expenseId ? duplicate?.duplicateJustification : undefined,
+        duplicateExistingId: expenseId ? duplicate?.duplicateExistingId : undefined,
+      });
       const row = await tx.ledgerEntry.create({
         data: {
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
           entryDate,
           description,
+          externalDocumentId,
           status: "DRAFT",
           ...(expenseId ? {
             id: expenseId,
@@ -656,19 +715,127 @@ export class FinanceService {
           metadata: { approvalStage: "PASTOR", treasuryAction: "expense_registration" },
         } });
       }
+      if (acknowledgedId && duplicate?.duplicateJustification) {
+        await tx.auditLog.create({ data: {
+          ...pilot,
+          actorUserId: actor.userId,
+          action: "ledger.entry.duplicate_justified",
+          resourceType: "ledger_entry",
+          resourceId: row.id,
+          metadata: {
+            duplicateExistingId: acknowledgedId,
+            justification: duplicate.duplicateJustification,
+          },
+        } });
+      }
 
       return this.toEntryDto(row);
     }).catch(async (error: unknown) => {
-      if (!expenseId || !error || typeof error !== "object" || !("code" in error) || error.code !== "P2002") throw error;
-      const existing = await this.prisma.ledgerEntry.findFirst({
-        where: { ...pilot, id: expenseId, createdByUserId: actor.userId },
-        include: { lines: { include: { account: { select: { type: true, code: true } } } } },
+      if (!error || typeof error !== "object" || !("code" in error) || error.code !== "P2002") throw error;
+      if (expenseId) {
+        const existing = await this.prisma.ledgerEntry.findFirst({
+          where: { ...pilot, id: expenseId, createdByUserId: actor.userId },
+          include: { lines: { include: { account: { select: { type: true, code: true } } } } },
+        });
+        if (existing && existing.description === description && existing.entryDate.getTime() === entryDate.getTime()
+          && existing.costCenterId === costCenterId && existing.lines.length === input.lines.length
+          && input.lines.every(line => existing.lines.some(saved => saved.accountId === line.accountId
+            && saved.side === line.side && saved.amountCents === line.amountCents))) return this.toEntryDto(existing);
+        if (existing) throw this.confirmedLedgerDuplicate(existing);
+      }
+      if (externalDocumentId) {
+        const byDocument = await this.prisma.ledgerEntry.findFirst({
+          where: { ...pilot, externalDocumentId },
+        });
+        if (byDocument) throw this.confirmedLedgerDuplicate(byDocument);
+      }
+      throw error;
+    });
+  }
+
+  private confirmedLedgerDuplicate(row: {
+    id: string;
+    status: string;
+    description: string;
+    entryDate: Date | string;
+    amountCents: number;
+  }) {
+    const entryDate = new Date(formatEntryDate(row.entryDate));
+    return new ConflictException({
+      code: "LEDGER_DUPLICATE_CONFIRMED",
+      message: ledgerDuplicateMessage("confirmed"),
+      existing: {
+        id: row.id,
+        status: row.status,
+        description: row.description,
+        entryDate: entryDate.toISOString().slice(0, 10),
+        amountCents: row.amountCents,
+      },
+    });
+  }
+
+  private async rejectLedgerDuplicate(
+    tx: Prisma.TransactionClient,
+    pilot: { organizationId: string; churchId: string },
+    input: {
+      entryDate: Date;
+      description: string;
+      amountCents: number;
+      costCenterId: string | null;
+      lines: Array<{ accountId: string; side: string }>;
+      externalDocumentId?: string | null;
+      duplicateJustification?: string;
+      duplicateExistingId?: string;
+    },
+  ): Promise<string | null> {
+    const ledger = tx.ledgerEntry as unknown as {
+      findMany?: (args: unknown) => Promise<Array<LedgerDuplicateCandidate & { entryDate: Date | string; lines?: LedgerDuplicateCandidate["lines"] }>>;
+      findFirst?: (args: unknown) => Promise<(LedgerDuplicateCandidate & { entryDate: Date | string }) | null>;
+    };
+    if (input.externalDocumentId && ledger.findFirst) {
+      const confirmed = await ledger.findFirst({
+        where: { ...pilot, externalDocumentId: input.externalDocumentId },
+        select: {
+          id: true, status: true, description: true, entryDate: true, amountCents: true, costCenterId: true,
+          lines: { select: { accountId: true, side: true } },
+        },
       });
-      if (existing && existing.description === description && existing.entryDate.getTime() === entryDate.getTime()
-        && existing.costCenterId === costCenterId && existing.lines.length === input.lines.length
-        && input.lines.every(line => existing.lines.some(saved => saved.accountId === line.accountId
-          && saved.side === line.side && saved.amountCents === line.amountCents))) return this.toEntryDto(existing);
-      throw new ConflictException("Este envio já foi usado. Atualize a Tesouraria e confira a despesa antes de tentar novamente.");
+      if (confirmed) throw this.confirmedLedgerDuplicate(confirmed);
+    }
+    if (!ledger.findMany) return null;
+    const rows = await ledger.findMany({
+      where: {
+        ...pilot,
+        entryDate: input.entryDate,
+        amountCents: input.amountCents,
+        costCenterId: input.costCenterId,
+        status: { in: ["DRAFT", "PENDING_APPROVAL", "APPROVED"] },
+      },
+      select: {
+        id: true, status: true, description: true, entryDate: true, amountCents: true, costCenterId: true,
+        lines: { select: { accountId: true, side: true } },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 20,
+    });
+    const decision = reviewLedgerDuplicates({
+      candidates: rows.map(row => ({
+        ...row,
+        entryDate: formatEntryDate(row.entryDate as Date | string),
+        lines: row.lines ?? [],
+      })),
+      incoming: {
+        description: input.description,
+        costCenterId: input.costCenterId,
+        lines: input.lines,
+      },
+      acknowledgedId: input.duplicateJustification ? input.duplicateExistingId : null,
+    });
+    if (decision.action === "allow") return decision.acknowledgedId ?? null;
+    throw new ConflictException({
+      code: "LEDGER_POSSIBLE_DUPLICATE",
+      message: ledgerDuplicateMessage(decision.reason),
+      existing: decision.existing,
     });
   }
 
