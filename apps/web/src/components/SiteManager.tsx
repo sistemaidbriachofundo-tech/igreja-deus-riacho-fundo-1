@@ -101,6 +101,12 @@ export function SiteManager() {
   const [publishedAt,setPublishedAt]=useState<string|null>(null);
   const [revisions,setRevisions]=useState<Revision[]>([]);
   const [dirty,setDirty]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const [imageSlot,setImageSlot]=useState<"hero"|"identity"|number>("hero");
 
   const configured=Boolean(process.env.NEXT_PUBLIC_API_URL);

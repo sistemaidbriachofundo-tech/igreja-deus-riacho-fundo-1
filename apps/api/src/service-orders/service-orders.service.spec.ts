@@ -174,4 +174,12 @@ describe("ServiceOrdersService", () => {
     expect(audits.filter((entry) => entry.action === "service_order.revise")).toMatchObject([{ metadata: { version: 1 } }]);
     expect(JSON.stringify(audits)).not.toContain("Resumo fictício");
   });
+
+  it("FAIL pastor não aprova ordem sem responsável", async () => {
+    const { api } = service();
+    const created = await api.create(pastor, { ...morning, items: [{ title: "Oração" }] });
+    await expect(api.approve(pastor, created.id)).rejects.toMatchObject({
+      response: { code: "SERVICE_ORDER_MISSING_RESPONSIBLE", blocking: true },
+    });
+  });
 });

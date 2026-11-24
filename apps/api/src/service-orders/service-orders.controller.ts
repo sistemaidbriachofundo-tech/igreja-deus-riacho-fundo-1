@@ -5,6 +5,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -87,6 +88,10 @@ class ServiceOrderExpectedBody {
   @IsString()
   @MaxLength(40)
   expectedUpdatedAt?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acknowledgeScheduleConflict?: boolean;
 }
 
 class ServiceOrderTeamBody {
@@ -189,7 +194,7 @@ export class ServiceOrdersController {
     @Param("orderId") orderId: string,
     @Body() body: ServiceOrderExpectedBody,
   ) {
-    return this.orders.approve(user, orderId, body?.expectedUpdatedAt);
+    return this.orders.approve(user, orderId, body?.expectedUpdatedAt, body?.acknowledgeScheduleConflict === true);
   }
 
   @Roles(ROLE_CODES.PASTOR)
@@ -199,7 +204,7 @@ export class ServiceOrdersController {
     @Param("orderId") orderId: string,
     @Body() body: ServiceOrderExpectedBody,
   ) {
-    return this.orders.publish(user, orderId, body?.expectedUpdatedAt);
+    return this.orders.publish(user, orderId, body?.expectedUpdatedAt, body?.acknowledgeScheduleConflict === true);
   }
 
   @Roles(ROLE_CODES.PASTOR)

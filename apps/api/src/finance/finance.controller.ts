@@ -134,6 +134,21 @@ class CreateEntryBody {
   @Min(1)
   @Max(12)
   competenceMonth?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  reviewDuplicates?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  duplicateExistingId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  duplicateJustification?: string;
 }
 
 class RejectEntryBody {

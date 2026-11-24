@@ -7,6 +7,7 @@ import {
 import {
   canSearchPersons,
   canManageMemberships,
+  familyLinkDecision,
   isStrongPersonDedupeMatch,
   scorePersonDedupeMatch,
   PERSON_PROFILE_DATES,
@@ -19,6 +20,7 @@ import {
 } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
+import { throwPreventive } from "../common/preventive-conflict";
 import { portraitDataUrl } from "./person-photo";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
@@ -652,6 +654,11 @@ export class PersonsService {
           }
         }
         if (input.householdId !== person.householdId) {
+          throwPreventive(familyLinkDecision({
+            people: [{ id: personId, householdId: person.householdId }],
+            targetHouseholdId: input.householdId ?? "",
+            confirmMove: input.confirmHouseholdMove === true || !person.householdId || !input.householdId,
+          }));
           data.householdId = input.householdId;
         }
       }

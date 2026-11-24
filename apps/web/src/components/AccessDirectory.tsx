@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import { apiGet, apiPatch, apiPost, loadStoredToken } from "../lib/api";
 import { dasError } from "../lib/das-operations";
+import { readPreventiveConflict } from "../lib/preventive-conflict";
 import { BUILTIN_ROLES, PERSONA_LABELS, type BuiltinRole } from "../lib/persona-navigation";
 import { UIIcon } from "./AppShell";
 import { PageHeader } from "./ui/PageHeader";
@@ -449,7 +450,30 @@ function AccessForm({ token, canInviteAdministrator = false, onCreated }: {
       const result = await apiPost<{ invite: AccessLinkDelivery }>("/admin/access", token, { personId: person.id, email, ...profile });
       onCreated(person.displayName, result.invite);
     } catch (error) {
-      showFeedback({ tone: "error", title: "Não foi possível concluir", message: dasError(error) });
+      const conflict = readPreventiveConflict(error);
+      if (conflict?.code === "ACCESS_INVITE_OPEN" && conflict.existing) {
+        const resend = await confirm({
+          title: conflict.title,
+          description: conflict.message,
+          action: conflict.action,
+          cancel: conflict.cancel,
+        });
+        if (resend) {
+          try {
+            const delivery = await apiPost<AccessLinkDelivery>("/admin/access/" + encodeURIComponent(conflict.existing.id) + "/invite/resend", token);
+            onCreated(person.displayName, delivery);
+            return;
+          } catch (issue) {
+            showFeedback({ tone: "error", title: "Convite não reenviado", message: dasError(issue) });
+            return;
+          }
+        }
+      }
+      showFeedback({
+        tone: conflict ? "warning" : "error",
+        title: conflict?.title ?? "Não foi possível concluir",
+        message: conflict?.message ?? dasError(error),
+      });
     } finally {
       setBusy(false);
     }

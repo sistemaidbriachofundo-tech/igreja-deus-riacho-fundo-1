@@ -228,6 +228,8 @@ model Person {
   email                String?
   /// Telefone da própria pessoa. Quem grava é Minha Conta; o PATCH da Secretaria continua recusando o campo.
   phone                String?      @map("phone")
+  /// HMAC do CPF com pimenta do servidor. O número em claro não é gravado nem devolvido.
+  identityFingerprint  String?      @map("identity_fingerprint")
   address              String?
   birthDate            DateTime?    @db.Date @map("birth_date")
   baptismDate          DateTime?    @db.Date @map("baptism_date")
@@ -296,6 +298,7 @@ model Person {
   rosterSlotInvitationsAsPartner RosterSlotInvitation[] @relation("RosterSlotInvitationPartner")
   rosterAssignmentResponses RosterAssignmentResponse[]
   servingPreferences VolunteerServingPreference[]
+  @@unique([organizationId, identityFingerprint])
   @@map("persons")
 }
 

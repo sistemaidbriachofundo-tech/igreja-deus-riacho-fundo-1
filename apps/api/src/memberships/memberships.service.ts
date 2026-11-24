@@ -5,9 +5,19 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canManageMemberships, type EcclesiasticalRole } from "@idbrf/shared";
+import {
+  canManageMemberships,
+  cpfDigits,
+  homonymWarningEnabled,
+  identityDecision,
+  isValidCpf,
+  normalizePersonName,
+  type EcclesiasticalRole,
+  type PreventiveExisting,
+} from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { BusinessException } from "../common/business.exception";
+import { identityFingerprint, identityPepper, throwPreventive } from "../common/preventive-conflict";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import {
@@ -36,6 +46,10 @@ export interface RegisterMembershipInput {
   legalGuardianPersonId?: string;
   /** Se informado, vincula pessoa existente; senão cria pessoa fictícia. */
   personId?: string;
+  /** Onze dígitos. O serviço grava só o HMAC e não devolve o número. */
+  identityDocument?: string;
+  /** Confirma cadastro mesmo com homônimo. Não dispensa e-mail ou CPF exato. */
+  acknowledgeHomonym?: boolean;
 }
 
 /** Apenas datas civis válidas; jamais deixar Date normalizar 31 de fevereiro. */
@@ -171,47 +185,9 @@ export class MembershipsService {
         throw new NotFoundException("Pessoa não encontrada neste escopo");
       }
     } else {
-      let householdId: string | undefined;
-      if (input.householdId && input.householdLabel) {
-        throw new BadRequestException("Selecione a família existente ou cadastre um novo núcleo.");
-      }
-      if (input.householdId?.trim()) {
-        const family = await this.prisma.household.findFirst({
-          where: { id: input.householdId, organizationId: pilot.organizationId, churchId: pilot.churchId },
-          select: { id: true },
-        });
-        if (!family) throw new BadRequestException("Família não encontrada nesta congregação.");
-        householdId = family.id;
-      } else if (input.householdLabel?.trim()) {
-        const household = await this.prisma.household.create({
-          data: {
-            organizationId: pilot.organizationId,
-            churchId: pilot.churchId,
-            label: input.householdLabel.trim(),
-          },
-        });
-        householdId = household.id;
-      }
-
-      const person = await this.prisma.person.create({
-        data: {
-          organizationId: pilot.organizationId,
-          homeChurchId: pilot.churchId,
-          householdId,
-          displayName,
-          email: input.email?.trim().toLowerCase() || null,
-          address: input.address?.trim() || null,
-          birthDate,
-          baptismDate,
-          weddingDate,
-          firstAttendedOn,
-          sex: input.sex ?? null,
-          isMinor,
-          legalGuardianPersonId: input.legalGuardianPersonId?.trim() || null,
-          status: "ACTIVE",
-        },
+      return this.registerNewPerson(actor, pilot, input, {
+        displayName, birthDate, baptismDate, weddingDate, firstAttendedOn, isMinor, ecclesiasticalRoles,
       });
-      personId = person.id;
     }
 
     const duplicate = await this.prisma.churchMembership.findUnique({
@@ -417,6 +393,166 @@ export class MembershipsService {
         ? { updatedAt: row.updatedAt.toISOString() }
         : {}),
     };
+  }
+
+  private async registerNewPerson(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    input: RegisterMembershipInput,
+    profile: {
+      displayName: string;
+      birthDate?: Date;
+      baptismDate?: Date;
+      weddingDate?: Date;
+      firstAttendedOn?: Date;
+      isMinor: boolean;
+      ecclesiasticalRoles?: EcclesiasticalRole[];
+    },
+  ) {
+    if (input.householdId && input.householdLabel) {
+      throw new BadRequestException("Selecione a família existente ou cadastre um novo núcleo.");
+    }
+    const email = input.email?.trim().toLowerCase() || null;
+    const digits = input.identityDocument ? cpfDigits(input.identityDocument) : "";
+    let fingerprint: string | null = null;
+    if (digits) {
+      if (!isValidCpf(digits)) throw new BadRequestException("Confira o CPF. O cadastro não foi criado.");
+      const pepper = identityPepper();
+      if (!pepper) {
+        throw new BadRequestException("A conferência de CPF não está disponível neste ambiente. Deixe o campo em branco para continuar sem ela.");
+      }
+      fingerprint = identityFingerprint(pilot.organizationId, digits, pepper);
+    }
+    const nameKey = normalizePersonName(profile.displayName);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${pilot.organizationId + ":" + (fingerprint ?? email ?? nameKey)}))`;
+      const emailHit = email
+        ? await tx.person.findFirst({
+          where: { organizationId: pilot.organizationId, email: { equals: email, mode: "insensitive" } },
+          select: { id: true, status: true },
+        })
+        : null;
+      const fingerprintHit = fingerprint
+        ? await tx.person.findFirst({
+          where: { organizationId: pilot.organizationId, identityFingerprint: fingerprint },
+          select: { id: true, status: true },
+        })
+        : null;
+      const homonymWarning = await this.homonymWarning(tx as never, pilot.organizationId, pilot.churchId);
+      const homonymHit = homonymWarning ? await this.findHomonym(tx as never, pilot.organizationId, nameKey) : null;
+      throwPreventive(identityDecision({
+        acknowledgeHomonym: input.acknowledgeHomonym === true,
+        homonymWarning,
+        emailHit,
+        fingerprintHit,
+        homonymHit,
+      }));
+
+      let householdId: string | undefined;
+      if (input.householdId?.trim()) {
+        const family = await tx.household.findFirst({
+          where: { id: input.householdId, organizationId: pilot.organizationId, churchId: pilot.churchId },
+          select: { id: true },
+        });
+        if (!family) throw new BadRequestException("Família não encontrada nesta congregação.");
+        householdId = family.id;
+      } else if (input.householdLabel?.trim()) {
+        const household = await tx.household.create({
+          data: { organizationId: pilot.organizationId, churchId: pilot.churchId, label: input.householdLabel.trim() },
+        });
+        householdId = household.id;
+      }
+      const person = await tx.person.create({
+        data: {
+          organizationId: pilot.organizationId,
+          homeChurchId: pilot.churchId,
+          householdId,
+          displayName: profile.displayName,
+          email,
+          address: input.address?.trim() || null,
+          birthDate: profile.birthDate,
+          baptismDate: profile.baptismDate,
+          weddingDate: profile.weddingDate,
+          firstAttendedOn: profile.firstAttendedOn,
+          sex: input.sex ?? null,
+          isMinor: profile.isMinor,
+          legalGuardianPersonId: input.legalGuardianPersonId?.trim() || null,
+          identityFingerprint: fingerprint,
+          status: "ACTIVE",
+        },
+      });
+      const membership = await tx.churchMembership.create({
+        data: {
+          personId: person.id,
+          churchId: pilot.churchId,
+          organizationId: pilot.organizationId,
+          status: "PENDING_ADMISSION",
+          notes: input.notes?.trim() || null,
+          ...(profile.ecclesiasticalRoles === undefined ? {} : { ecclesiasticalRoles: profile.ecclesiasticalRoles }),
+        },
+        include: {
+          person: {
+            select: { id: true, displayName: true, email: true, status: true, householdId: true, kind: true, isMinor: true },
+          },
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: "membership.register",
+          resourceType: "church_membership",
+          resourceId: membership.id,
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+          metadata: { personId: person.id, homonymAcknowledged: input.acknowledgeHomonym === true },
+        },
+      });
+      return {
+        id: membership.id,
+        status: membership.status,
+        joinedAt: membership.joinedAt.toISOString(),
+        notes: membership.notes,
+        person: membership.person,
+        churchId: membership.churchId,
+        organizationId: membership.organizationId,
+      };
+    });
+  }
+
+  private async homonymWarning(tx: {
+    systemSettingCatalog?: { findUnique: (args: unknown) => Promise<{ devJson: unknown } | null> };
+    systemSettingRevision?: { findFirst: (args: unknown) => Promise<{ valueJson: unknown } | null> };
+  }, organizationId: string, churchId: string): Promise<boolean> {
+    const published = tx.systemSettingRevision?.findFirst
+      ? await tx.systemSettingRevision.findFirst({
+        where: { catalogKey: "secretaria.homonym_warning", lifecycle: "PUBLISHED", organizationId, churchId },
+        orderBy: { effectiveFrom: "desc" },
+        select: { valueJson: true },
+      })
+      : null;
+    if (published) return homonymWarningEnabled(published.valueJson);
+    if (!tx.systemSettingCatalog?.findUnique) return true;
+    const catalog = await tx.systemSettingCatalog.findUnique({
+      where: { key: "secretaria.homonym_warning" },
+      select: { devJson: true },
+    });
+    return homonymWarningEnabled(catalog?.devJson ?? true);
+  }
+
+  private async findHomonym(
+    tx: { person: { findMany: (args: unknown) => Promise<Array<{ id: string; status: string; displayName: string }>> } },
+    organizationId: string,
+    nameKey: string,
+  ): Promise<PreventiveExisting | null> {
+    const token = nameKey.split(" ").filter((part) => part.length >= 3).at(-1);
+    if (!token || !tx.person.findMany) return null;
+    const rows = await tx.person.findMany({
+      where: { organizationId, displayName: { contains: token, mode: "insensitive" } },
+      select: { id: true, status: true, displayName: true },
+      take: 30,
+    });
+    const hit = rows.find((row) => normalizePersonName(row.displayName) === nameKey);
+    return hit ? { id: hit.id, status: hit.status } : null;
   }
 
   private assertCanManage(

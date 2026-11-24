@@ -7,6 +7,7 @@
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:7px}
 .fields label{display:grid;align-content:start;gap:7px;min-width:0;font-size:.79rem;font-weight:750;color:#545454}
 .fields label small{font-size:.63rem;color:#707070;font-weight:700}
+.fields [role="alert"]{margin:0;color:#7a1f1f;font-weight:700;line-height:1.4}
 .fields :is(input,textarea,select){width:100%;min-width:0;border:1px solid #d7d7d7;border-radius:10px;padding:11px 12px;color:#3d3d3d;background:#fff;min-height:44px;font:520 .86rem var(--site-font);outline-offset:2px}
 .fields :is(input,textarea,select):focus-visible{outline:3px solid #bacf87;border-color:#64743d}
 .fields textarea{resize:vertical;line-height:1.5}

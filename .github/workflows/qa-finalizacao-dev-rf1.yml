@@ -11,6 +11,7 @@ on:
       - chatgpt/dev-fix-ministerios-eventos-density-20261123
       - chatgpt/dev-ux-gestao-regras-compacta-20261123
       - chatgpt/dev-prehml-final-gates-20261123
+      - cursor/preventive-ux-modulos-1ebf
       - chatgpt/dev-visual-escalas-coesao-20261123
       - cursor/tesouraria-regras-backend-988e
   workflow_dispatch:

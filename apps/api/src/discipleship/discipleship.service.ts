@@ -12,6 +12,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { BusinessException } from "../common/business.exception";
+import { preventiveConflict } from "../common/preventive-conflict";
 import { baptismWaived, CONNECTION_STAGES, CONNECTION_TRACK_CODE, CONNECTION_TRACK_NAME, isConnectionTrack, isConnectionTrackName } from "./connection-rules";
 
 const ENROLLMENT_STATUSES = [
@@ -307,9 +308,13 @@ export class DiscipleshipService {
         },
       });
       return this.toEnrollmentDto(enrollment);
-    }).catch((error: unknown) => {
+    }).catch(async (error: unknown) => {
       if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
-        throw new ConflictException("Esta pessoa já está matriculada na trilha.");
+        const existing = await this.prisma.discipleshipEnrollment.findUnique({
+          where: { trackId_personId: { trackId: track.id, personId: person.id } },
+          select: { id: true, status: true },
+        });
+        throw preventiveConflict("CONNECTION_TRAIL_ALREADY_LINKED", existing ?? undefined);
       }
       throw error;
     });
@@ -554,10 +559,10 @@ export class DiscipleshipService {
       if (!result.count) {
         const previous = await tx.discipleshipEnrollment.findUniqueOrThrow({
           where: { trackId_personId: { trackId: track.id, personId: person.id } },
-          select: { status: true },
+          select: { id: true, status: true },
         });
         if (previous.status === "CANCELLED") throw new ConflictException("Procure a equipe da Conexão para retomar sua trilha.");
-        return;
+        throw preventiveConflict("CONNECTION_TRAIL_ALREADY_LINKED", { id: previous.id, status: previous.status });
       }
       const enrollment = await tx.discipleshipEnrollment.findUniqueOrThrow({
         where: { trackId_personId: { trackId: track.id, personId: person.id } },

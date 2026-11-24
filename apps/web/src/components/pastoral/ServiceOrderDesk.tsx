@@ -3,6 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiGetBlob, apiPatch, apiPost, ApiRequestError, loadStoredToken } from "../../lib/api";
 import { dasError, churchLocalToISO } from "../../lib/das-operations";
+import { readPreventiveConflict } from "../../lib/preventive-conflict";
+import { useActionConfirmation } from "../ui/ActionConfirmation";
 import { AppNavLink, usePersonaAccess } from "../AppShell";
 import { Alert } from "../ui/Alert";
 import { Modal } from "../ui/Modal";
@@ -40,6 +42,8 @@ type Order = {
 };
 
 function orderError(error: unknown) {
+  const conflict = readPreventiveConflict(error);
+  if (conflict) return conflict.title + ". " + conflict.message;
   if (error instanceof ApiRequestError && error.message.includes("SERVICE_ORDER_DUPLICATE")) {
     return "Já existe uma ordem para este culto. Atualize a lista para abri-la.";
   }
@@ -159,6 +163,7 @@ function OrderEditor({ order, token, onClose, onSaved }: {
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, title: e.target.value } : row))} /></label>
               <label>Duração em minutos<input type="number" min={1} max={180} value={item.minutes}
                 onChange={e => setItems(current => current.map(row => row.key === item.key ? { ...row, minutes: e.target.value } : row))} /></label>
+              {!item.responsible.trim() && !item.responsiblePersonId && <p role="status">Indique um responsável antes de aprovar ou publicar.</p>}
               <label>Responsável cadastrado
                 <select className={s.personSelect} aria-label={`Responsável cadastrado da etapa ${index+1}`} value={item.responsiblePersonId ?? ""}
                   disabled={directoryPhase !== "ready"}
@@ -224,6 +229,7 @@ export function ServiceOrderDesk() {
   const [decision, setDecision] = useState<{ order: Order; action: "approve" | "publish" } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const { confirm, confirmation } = useActionConfirmation();
   const token = permitted ? loadStoredToken() : null;
   useEffect(() => {
     if (!token) return;
@@ -283,12 +289,38 @@ export function ServiceOrderDesk() {
     if (!token || !canEdit || !decision || busy) return;
     setBusy(true);
     setError("");
+    const send = (acknowledgeScheduleConflict = false) => apiPost<Order | { order: Order }>(
+      `/service-orders/${encodeURIComponent(decision.order.id)}/${decision.action}`,
+      token,
+      { expectedUpdatedAt: decision.order.updatedAt, ...(acknowledgeScheduleConflict ? { acknowledgeScheduleConflict: true } : {}) },
+    );
     try {
-      const result = await apiPost<Order | { order: Order }>(`/service-orders/${encodeURIComponent(decision.order.id)}/${decision.action}`, token, { expectedUpdatedAt: decision.order.updatedAt });
+      let result = await send();
       update("order" in result ? result.order : result);
       setNotice(decision.action === "approve" ? "Ordem de culto aprovada." : "Ordem de culto publicada.");
       setDecision(null);
     } catch (error) {
+      const conflict = readPreventiveConflict(error);
+      if (conflict?.code === "SERVICE_ORDER_SCHEDULE_CONFLICT" && conflict.acknowledgeField) {
+        const accepted = await confirm({
+          title: conflict.title,
+          description: conflict.message,
+          action: decision.action === "approve" ? "Aprovar mesmo assim" : conflict.action,
+          cancel: conflict.cancel,
+        });
+        if (accepted) {
+          try {
+            const result = await send(true);
+            update("order" in result ? result.order : result);
+            setNotice(decision.action === "approve" ? "Ordem de culto aprovada." : "Ordem de culto publicada.");
+            setDecision(null);
+            return;
+          } catch (issue) {
+            setError(orderError(issue));
+            return;
+          }
+        }
+      }
       setError(orderError(error));
     } finally {
       setBusy(false);
@@ -297,6 +329,7 @@ export function ServiceOrderDesk() {
 
   const upcoming = [...(orders ?? [])].sort((a, b) => b.serviceAt.localeCompare(a.serviceAt));
   return <div className={s.page}>
+    {confirmation}
     <PageHeader appearance="workspace" heading="h1" title="Ordem de Culto"
       description="Organize a sequência dos cultos e acompanhe os roteiros aprovados e publicados."
       actions={<div className={s.actions}>

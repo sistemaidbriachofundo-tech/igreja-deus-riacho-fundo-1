@@ -16,6 +16,8 @@ const EDITABLE_SETTINGS = new Set([
   "rosters.louvor.week_block",
   "rosters.survey.open_day",
   "events.agenda.keep_days_after_end",
+  "secretaria.homonym_warning",
+  "service_orders.schedule_conflict",
 ]);
 
 /** Consumidor real. Chave ausente continua documental até existir wiring. */
@@ -30,6 +32,10 @@ const SETTING_CONSUMERS: Record<string, string> = {
   "finance.sicoob.mode": "somente sonda mock; API live bloqueada",
   "rosters.louvor.week_block": "personal-roster.service",
   "rosters.survey.open_day": "roster-notices.service",
+  "secretaria.homonym_warning": "memberships.service",
+  "secretaria.identity_exact": "e-mail ou CPF exato sempre aponta para a ficha; valor não pode ser afrouxado",
+  "household.move_requires_confirmation": "mudar de família sempre pede confirmação; valor não pode ser afrouxado",
+  "service_orders.schedule_conflict": "service-orders.service",
   "pastoral.titular_user_id": "pastoral-pack.service",
   "pastoral.substitute_user_id": "pastoral-pack.service",
 };
@@ -39,6 +45,8 @@ const LOCKED_SETTINGS = new Set([
   "finance.mercado_pago.enabled",
   "finance.brb.mode",
   "finance.sicoob.mode",
+  "secretaria.identity_exact",
+  "household.move_requires_confirmation",
 ]);
 
 export type SettingBehavior = "active" | "locked" | "documentary";
@@ -371,6 +379,9 @@ export class SystemSettingsService {
     }
     if (key === "events.agenda.keep_days_after_end" && !(typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 14)) {
       throw new BadRequestException("A agenda pode manter o evento de 0 a 14 dias após o término.");
+    }
+    if (key === "service_orders.schedule_conflict" && value !== "warn" && value !== "block") {
+      throw new BadRequestException("Escolha avisar com confirmação ou impedir a publicação.");
     }
   }
 

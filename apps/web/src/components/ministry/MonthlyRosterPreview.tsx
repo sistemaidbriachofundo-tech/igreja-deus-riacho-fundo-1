@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { ApiRequestError, apiPost } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
+import { readPreventiveConflict } from "../../lib/preventive-conflict";
 import { type EscalaModule } from "../../lib/ministry-presentation";
 import {
   monthlyChoiceKey, monthlyDecisions, monthlySlotChoice, monthlyVacancyMessage, nextRosterMonth,
@@ -77,6 +78,12 @@ export function MonthlyRosterPreview({ token, ministryId, modules, louvor, initi
   }
 
   function report(failure: unknown) {
+    const conflict = readPreventiveConflict(failure);
+    if (conflict) {
+      setStale(false);
+      setError(conflict.title + ". " + conflict.message);
+      return;
+    }
     setStale(failure instanceof ApiRequestError && failure.status === 409);
     setError(failure instanceof ApiRequestError && failure.status === 409
       ? "A escala mudou desde que você abriu a simulação. Atualize a prévia para revisar os conflitos."

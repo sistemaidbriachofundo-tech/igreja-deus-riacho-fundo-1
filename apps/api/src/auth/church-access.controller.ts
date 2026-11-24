@@ -1,4 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Header, NotFoundException, Optional, Patch, Post, Query, Param, ServiceUnavailableException } from "@nestjs/common";
+import { preventiveConflict } from "../common/preventive-conflict";
 import { AuthService } from "./auth.service";
 import { Prisma } from "@prisma/client";
 import { Type } from "class-transformer";
@@ -409,7 +410,31 @@ export class ChurchAccessController {
       return { ...created.user, person: { id: created.person.id, displayName: created.person.displayName }, invite: delivery, invitationStatus: delivery.sent ? "INVITED" : "PENDING_EMAIL" };
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && (error.code === "P2002" || error.code === "P2034")) {
-        throw new ConflictException("Esta pessoa ou e-mail já tem acesso, ou outro cadastro está sendo salvo. Atualize a lista.");
+        const existing = await this.prisma.user.findFirst({
+          where: {
+            OR: [{ personId: input.personId }, { email }],
+            person: { organizationId, homeChurchId: churchId },
+          },
+          select: {
+            id: true,
+            status: true,
+            accessInvitations: {
+              where: { consumedAt: null, revokedAt: null, purpose: "ACTIVATION", expiresAt: { gt: new Date() } },
+              select: { id: true },
+              take: 1,
+            },
+          },
+        });
+        if (!existing) {
+          throw new ConflictException({
+            code: "ACCESS_SAVE_CONFLICT",
+            message: "Outro cadastro está sendo salvo. Atualize a lista e tente novamente.",
+          });
+        }
+        if (existing.status === "DISABLED" && existing.accessInvitations.length) {
+          throw preventiveConflict("ACCESS_INVITE_OPEN", { id: existing.id, status: "INVITED" });
+        }
+        throw preventiveConflict("ACCESS_ALREADY_GRANTED", { id: existing.id, status: existing.status });
       }
       throw error;
     }

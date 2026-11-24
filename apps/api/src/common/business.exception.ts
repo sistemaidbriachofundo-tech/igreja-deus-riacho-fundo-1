@@ -6,6 +6,7 @@ export class BusinessException extends HttpException {
     message: string,
     code: string,
     status: HttpStatus | number = HttpStatus.CONFLICT,
+    details?: Record<string, unknown>,
   ) {
     const statusCode = Number(status);
     super(
@@ -14,6 +15,7 @@ export class BusinessException extends HttpException {
         message,
         error: HttpStatus[statusCode] ?? "Error",
         code,
+        ...details,
       },
       statusCode,
     );

@@ -11,6 +11,7 @@ export interface CadastralPersonPatch extends PersonProfileFields {
   isMinor?: boolean;
   legalGuardianPersonId?: string | null;
   householdId?: string | null;
+  confirmHouseholdMove?: boolean;
   expectedUpdatedAt?: string;
   status?: string;
   kind?: string;

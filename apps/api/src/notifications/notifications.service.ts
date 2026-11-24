@@ -11,7 +11,7 @@ import { pastoralExpenseLines } from "../finance/pastoral-expense";
 type Scope = Pick<PilotChurch, "churchId" | "organizationId">;
 type Notice = {
   id: string;
-  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade" | "Pastoral" | "Aniversariantes" | "Louvor";
+  category: "Escalas" | "Tesouraria" | "Admissões" | "Grupos de Amizade" | "Pastoral" | "Aniversariantes" | "Louvor" | "Eventos";
   title: string;
   detail: string;
   action: string;
@@ -98,7 +98,7 @@ export class NotificationsService {
     const since = new Date(+now - 30 * 86_400_000);
     const groups = await Promise.all([
       this.volunteer(actor, now), this.declines(actor, scope, since, now), this.finance(actor, scope, since),
-      this.admissions(actor, scope, since), this.groupRequests(actor, since), this.prayerBells(actor, scope), this.birthdayBells(actor, scope, now), this.worshipBells(actor, scope, now),
+      this.admissions(actor, scope, since), this.groupRequests(actor, since), this.prayerBells(actor, scope), this.birthdayBells(actor, scope, now), this.worshipBells(actor, scope, now), this.events(actor, scope, since),
     ]);
     return groups.flat().sort((a, b) => +b.createdAt - +a.createdAt || a.id.localeCompare(b.id)).slice(0, LIMIT);
   }
@@ -316,6 +316,57 @@ export class NotificationsService {
       href: PORTAL + "#escala-" + encodeURIComponent(byRoster.get(row.rosterId ?? "") ?? ""),
       createdAt: row.scheduledAt ?? row.createdAt,
     }));
+  }
+
+  /** Pendências de evento no sino. Sem código de ingresso, e-mail ou nome de terceiro. */
+  private async events(actor: AuthUser, scope: Scope, since: Date): Promise<Notice[]> {
+    const table = (this.db as unknown as { eventRegistration?: { findMany: (args: unknown) => Promise<Array<{
+      id: string; status: string; updatedAt: Date; event: { name: string };
+    }>> } }).eventRegistration;
+    if (!table?.findMany) return [];
+    const notices: Notice[] = [];
+    if (actor.personId) {
+      const own = await table.findMany({
+        where: { ...scope, registrantPersonId: actor.personId, updatedAt: { gte: since }, status: { in: ["PENDING_PAYMENT", "CONFIRMED"] } },
+        select: { id: true, status: true, updatedAt: true, event: { select: { name: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      });
+      for (const row of own) {
+        const pending = row.status === "PENDING_PAYMENT";
+        notices.push({
+          id: pending ? `event-payment:${row.id}` : `event-confirmed:${row.id}`,
+          category: "Eventos",
+          title: pending ? "Pagamento de inscrição pendente" : "Inscrição confirmada",
+          detail: row.event.name,
+          action: pending ? "Continuar pagamento" : "Ver inscrição",
+          href: "/app/eventos/",
+          createdAt: row.updatedAt,
+          state: pending ? "Aguardando pagamento" : "Confirmada",
+        });
+      }
+    }
+    const staff = hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.SECRETARIA, ROLE_CODES.PASTOR, ROLE_CODES.PLATFORM_ADMIN, ROLE_CODES.LIDER_MINISTERIO] });
+    if (!staff) return notices;
+    const pendingAuth = await table.findMany({
+      where: { ...scope, guardianAuthStatus: "PENDING", updatedAt: { gte: since }, status: { not: "CANCELLED" } },
+      select: { id: true, status: true, updatedAt: true, event: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    });
+    for (const row of pendingAuth) {
+      notices.push({
+        id: `event-guardian:${row.id}`,
+        category: "Eventos",
+        title: "Autorização de responsável pendente",
+        detail: row.event.name,
+        action: "Conferir autorização",
+        href: "/app/eventos-gestao/",
+        createdAt: row.updatedAt,
+        state: "Aguardando autorização",
+      });
+    }
+    return notices;
   }
 
 }

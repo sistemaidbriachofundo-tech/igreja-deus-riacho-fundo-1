@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
 import { apiGet, apiPost } from "../lib/api";
 import { dasError, formatBRL, parseAmountCents, readDasRows, type DasRecord } from "../lib/das-operations";
+import { readPreventiveConflict } from "../lib/preventive-conflict";
 import styles from "./finance-board.module.css";
 
 type Props = { tab:string; rows:DasRecord[]; token:string; refresh:()=>void };
@@ -72,16 +73,51 @@ export function FinanceBoard({tab,rows,token,refresh}:Props){
     }catch(err){showFeedback({ tone: "error", title: "Operação não concluída", message: dasError(err) });return false;}
     finally{setBusy(false);}
   }
-  function createEntry(e:FormEvent<HTMLFormElement>){
+  async function createEntry(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
     const amountCents=parseAmountCents(amount);
     if(!amountCents||!debit||!credit||debit===credit||!entryDate||description.trim().length<4){
       showFeedback({ tone: "error", title: "Confira o lançamento", message: "Informe descrição, data, contas diferentes e valor positivo com até duas casas decimais." });return;
     }
-    void action("/ledger/entries",{
-      entryDate,description:description.trim(),
-      lines:[{accountId:debit,side:"DEBIT",amountCents},{accountId:credit,side:"CREDIT",amountCents}]
-    }).then(ok=>{if(ok){setDescription("");setAmount("");setDebit("");setCredit("");}});
+    const payload={
+      entryDate,description:description.trim(),reviewDuplicates:true,
+      lines:[{accountId:debit,side:"DEBIT",amountCents},{accountId:credit,side:"CREDIT",amountCents}],
+    };
+    if(busy)return;
+    setBusy(true);
+    try{
+      try {
+        await apiPost("/ledger/entries",token,payload);
+      } catch (error) {
+        const conflict=readPreventiveConflict(error);
+        if(conflict?.code!=="LEDGER_POSSIBLE_DUPLICATE"||!conflict.ledger||!conflict.existing) throw error;
+        let justification="";
+        const accepted=await confirm({
+          title:conflict.title,
+          description:conflict.message,
+          action:conflict.action,
+          cancel:conflict.cancel,
+          content:<label>Justificativa (mínimo de 10 caracteres)
+            <textarea rows={3} maxLength={500} onChange={event=>{justification=event.currentTarget.value;}}
+              placeholder="Explique por que este lançamento é diferente." />
+          </label>,
+        });
+        if(!accepted)return;
+        if(justification.trim().length<10){
+          showFeedback({ tone:"warning", title:"Justificativa necessária", message:"Nenhum lançamento foi criado. Informe pelo menos 10 caracteres." });
+          return;
+        }
+        await apiPost("/ledger/entries",token,{
+          ...payload,
+          duplicateExistingId:conflict.existing.id,
+          duplicateJustification:justification.trim(),
+        });
+      }
+      refresh();
+      showFeedback({ tone:"success", title:"Lançamento registrado", message:"Consulte o histórico para acompanhar o lançamento." });
+      setDescription("");setAmount("");setDebit("");setCredit("");
+    }catch(err){showFeedback({ tone:"error", title:"Operação não concluída", message:dasError(err) });}
+    finally{setBusy(false);}
   }
   function createReconciliation(e:FormEvent<HTMLFormElement>){
     e.preventDefault();

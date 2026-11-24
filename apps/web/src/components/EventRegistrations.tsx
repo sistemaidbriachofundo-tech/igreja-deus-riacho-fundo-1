@@ -123,7 +123,14 @@ export function EventRegistrations({events,token}:{events:DasRecord[];token:stri
       if(path.endsWith("/registrations")&&typeof registration?.checkInCode==="string"&&registration.isMinor!==true){
         setIssuedCode(registration.checkInCode);
       }
-      showFeedback({ tone: "success", title: "Registro atualizado", message: "A alteração foi salva na homologação. Confira os dados atualizados." });
+      const repeated = wrapper?.alreadyCheckedIn === true;
+      showFeedback({
+        tone: repeated ? "info" : "success",
+        title: repeated ? "Presença já registrada" : "Registro atualizado",
+        message: repeated
+          ? "Esta inscrição já tinha presença. Nenhum novo check-in foi gravado."
+          : "A alteração foi salva na homologação. Confira os dados atualizados.",
+      });
       setReload(v=>v+1);
       return true;
     } catch(err){showFeedback({ tone: "error", title: "Operação não concluída", message: dasError(err) });return false;}
