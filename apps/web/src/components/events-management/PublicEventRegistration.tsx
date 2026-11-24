@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiRequestError, clearToken, isInvalidSession, loadStoredToken } from "../../lib/api";
+import { readDuplicateConflict } from "../../lib/duplicate-conflict";
 import {
   availableEventLots, cancelMemberRegistration, eventRegistrationChoices, loadEventRegistration, loadMemberReceipt,
   eventAuthHref, loadMemberRegistrations, memberEventsHref, mercadoPagoCheckoutLink, openMercadoPagoCheckout, registerForEvent, validRegistrationCode,
@@ -182,6 +183,7 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const { confirm, confirmation } = useActionConfirmation();
   const choices = eventRegistrationChoices(catalog);
   const modality = choices.find(choice => choice.id === modalityId);
   const lots = availableEventLots(catalog.lots, modalityId, quantity);
@@ -217,7 +219,26 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
         ...resources,
       }, member.token));
     } catch (error) {
-      if (onSessionExpired && isInvalidSession(error)) onSessionExpired(member.token);
+      const conflict = readDuplicateConflict(error);
+      if (conflict?.code === "EVENT_REGISTRATION_DUPLICATE") {
+        const pending = conflict.existing.status === "PENDING_PAYMENT";
+        const accepted = await confirm({
+          title: "Você já possui esta inscrição",
+          subject: catalog.event.title ?? catalog.event.slug,
+          description: pending
+            ? "Sua inscrição está aguardando pagamento. Recupere a cobrança existente sem criar outra inscrição."
+            : "Encontramos sua inscrição anterior. Consulte a situação e o ingresso, quando estiver liberado, sem reservar outra vaga.",
+          action: pending ? "Continuar pagamento" : "Acessar minha inscrição",
+          cancel: "Voltar ao evento",
+        });
+        if (accepted) {
+          try { setReceipt(await loadMemberReceipt(member.token, conflict.existing.id)); }
+          catch (issue) {
+            if (onSessionExpired && isInvalidSession(issue)) onSessionExpired(member.token);
+            else setError("Não foi possível recuperar sua inscrição. Consulte Minhas inscrições antes de tentar novamente.");
+          }
+        }
+      } else if (onSessionExpired && isInvalidSession(error)) onSessionExpired(member.token);
       else setError(message(error));
     }
     finally { submitting.current = false; setBusy(false); }
@@ -228,6 +249,7 @@ export function EventRegistrationForm({ catalog, member, onSessionExpired }: {
     return <Alert appearance="workspace" tone="info" title="Inscrições indisponíveis neste momento" />;
   }
   return <form className={s.panel} onSubmit={submit}>
+    {confirmation}
     <div className={s.fields}>
       <Select label="Modalidade" value={modalityId} onChange={event => {
         const id = event.target.value;
@@ -367,7 +389,10 @@ function RegistrationEvent({ slug }: { slug: string }) {
           <img src={resolvePublishedImage(catalog.event.imageUrl) ?? withBasePath("/images/fe-discipulado-provisorio.webp")} alt="" decoding="async" />
         </div>
         <section className={s.eventAction} aria-labelledby="event-registration">
-          {!open ? <h2 id="event-registration">Inscrições indisponíveis neste momento</h2> :
+          {!open ? <><h2 id="event-registration">Inscrições indisponíveis neste momento</h2>
+            <p>Já se inscreveu? Consulte sua inscrição e o pagamento, mesmo com as novas vagas encerradas.</p>
+            <Link className={s.primaryAccess} href={access.kind === "ready" ? memberEventsHref(slug) : eventAuthHref("/login/", slug)}>Consultar minhas inscrições</Link>
+          </> :
             access.kind === "anonymous" ? <RegistrationAccess slug={slug} /> : <>
               <h2 id="event-registration">Faça sua inscrição</h2>
               {access.kind === "checking" && <Loading label="Verificando sua conta" />}
@@ -379,7 +404,10 @@ function RegistrationEvent({ slug }: { slug: string }) {
                   retryProfile(attempt => attempt + 1);
                 }}>Tentar novamente</Button>
               </>}
-              {access.kind === "ready" && <EventRegistrationForm catalog={catalog} member={access} onSessionExpired={sessionExpired} />}
+              {access.kind === "ready" && <>
+                <Link href={memberEventsHref(slug)}>Já se inscreveu? Consulte suas inscrições</Link>
+                <EventRegistrationForm catalog={catalog} member={access} onSessionExpired={sessionExpired} />
+              </>}
             </>}
         </section>
         {catalog.event.description && <section className={s.eventAbout} aria-labelledby="event-about">
