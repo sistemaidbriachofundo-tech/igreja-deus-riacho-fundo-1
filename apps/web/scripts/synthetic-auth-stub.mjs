@@ -128,6 +128,9 @@ const server = createServer((req, res) => {
   }
   // Isolated, read-only fixture for the real ministry roster page visual regression.
   if (req.method === "GET" && session.user.grants.some(grant => grant.roleCode === "PLATFORM_ADMIN")) {
+    if (url.pathname === "/cms/site-media") {
+      send(req,res,200,{configured:true,storage:"synthetic",assets:[]}); return;
+    }
     const ministryId = "qa-visual-louvor";
     const scope = "/ministry-scope/" + ministryId;
     if (url.pathname === "/ministries") {
