@@ -121,8 +121,9 @@ export function MemberSpace({
       <section aria-labelledby="member-next-roster">
         <h2 id="member-next-roster">Próxima escala</h2>
         {upcoming[0] ? renderAssignment(upcoming[0], true) : <div className={styles.empty} role="status" data-agenda="empty">
-          <strong>Você ainda não tem uma próxima escala publicada.</strong>
-          <p>Quando a liderança publicar seu próximo compromisso, ele aparecerá aqui.</p>
+          <span className={styles.emptyIcon}><UIIcon name="calendar" size={25} /></span>
+          <div><strong>Você ainda não tem uma próxima escala publicada.</strong>
+          <p>Quando a liderança publicar seu próximo compromisso, ele aparecerá aqui.</p></div>
         </div>}
       </section>
       {invitations}
@@ -132,7 +133,7 @@ export function MemberSpace({
         <div className={styles.list}>{upcoming.slice(1).map(item => renderAssignment(item))}</div>
       </section>}
       {previous.length > 0 && <details className={styles.history}>
-        <summary>Histórico de escalas</summary>
+        <summary>Histórico de escalas <span className={styles.historyCount}>{previous.length}</span></summary>
         <div className={styles.list}>{previous.map(item => renderAssignment(item))}</div>
       </details>}
     </div>
