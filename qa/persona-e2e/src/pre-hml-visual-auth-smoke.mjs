@@ -140,10 +140,6 @@ try {
     console.log("ROSTER VISUAL", width, JSON.stringify({ contained, sameRow, noOverflow, formFits }));
 
     // Check the real media editor with a synthetic storage response; no file leaves localhost.
-    await page.route("**/cms/site-media", async route => {
-      if(route.request().method() !== "GET") { await route.abort(); return; }
-      await route.fulfill({status:200,contentType:"application/json",headers:{"Access-Control-Allow-Origin":root},body:JSON.stringify({configured:true,assets:[]})});
-    });
     await page.goto(root+"/app/site/",{waitUntil:"domcontentloaded"});
     const upload=page.getByRole("button",{name:"Enviar foto",exact:true});
     await upload.waitFor({state:"visible",timeout:20000});
@@ -154,7 +150,6 @@ try {
     await upload.click();
     await chooserPromise;
     await page.screenshot({path:output+"/midia-"+width+".png",fullPage:false});
-    await page.unroute("**/cms/site-media");
 
     console.log("AUTH VISUAL", width, failures ? "CHECK" : "PASS", JSON.stringify(shell));
     await context.close();
@@ -171,7 +166,7 @@ try {
       await memberPage.getByRole("button",{name:"Entrar no painel",exact:true}).click();
       const loginResponse=await responsePromise;
       if(!loginResponse.ok()) throw new Error("Login sintético falhou: "+loginResponse.status());
-      await memberPage.waitForURL(url => /\\/app\\/?$/.test(url.pathname), {timeout:20000,waitUntil:"domcontentloaded"});
+      await memberPage.waitForURL(url => url.pathname === "/app/" || url.pathname === "/app", {timeout:20000,waitUntil:"domcontentloaded"});
       const next = memberPage.locator('[data-member-next="scheduled"]');
       await next.waitFor({state:"visible",timeout:20000});
       const cta = memberPage.getByRole("link",{name:"Responder à escala"});
