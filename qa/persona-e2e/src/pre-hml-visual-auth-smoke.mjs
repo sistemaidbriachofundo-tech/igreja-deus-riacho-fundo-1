@@ -135,6 +135,63 @@ try {
     await toolbar.getByLabel("Nome do culto").waitFor({ state: "hidden" });
     console.log("ROSTER VISUAL", width, JSON.stringify({ contained, sameRow, noOverflow, formFits }));
 
+    // CMS photo flow: real click -> file chooser -> authorization modal -> multipart POST.
+    // Intercept ONLY the loopback API in this synthetic context, never actual storage.
+    let mediaConfigured = false;
+    let uploaded = false;
+    let uploadCount = 0;
+    const photoUrl = "/images/riacho/louvor.webp";
+    const asset = { url: photoUrl, pathname: "qa/photo.png", name: "Foto sintética", size: 68, uploadedAt: "2026-11-24T12:00:00Z" };
+    const cors = { "Access-Control-Allow-Origin": root, "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
+    await page.route(api + "/cms/site-layout", async route => {
+      if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+      return route.fulfill({ status: 200, headers: cors, json: {
+        draft: { version: 1, hero: { title: "Igreja", accent: "Riacho", description: "Uma igreja para Deus", imageUrl: "/images/capa-igreja-riacho-fundo.jpg" },
+          gallery: { title: "Galeria", accent: "Fotos", description: "Registros", items: [{ title: "Foto", subtitle: "Culto", alt: "Foto de teste", imageUrl: "/images/fachada-igreja-riacho-fundo.jpg" }] },
+          appearance: "dourado", sections: ["essencia","ministerios","galeria","atmosfera","visita","acontece","videos","convite"], hidden: [] },
+        published: null, draftUpdatedAt: null, publishedAt: null, revisions: [], permissions: { canPublish: true },
+      }});
+    });
+    await page.route(api + "/cms/site-media", async route => {
+      const request = route.request();
+      if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+      if (request.method() === "POST") {
+        uploadCount++;
+        if (!(request.headers()["content-type"] ?? "").startsWith("multipart/form-data") || !request.postDataBuffer()?.includes(Buffer.from("qa-photo.png"))) {
+          return route.fulfill({ status: 400, headers: cors, json: { message: "Arquivo multipart ausente" } });
+        }
+        uploaded = true;
+        return route.fulfill({ status: 201, headers: cors, json: { asset, configured: true } });
+      }
+      return route.fulfill({ status: 200, headers: cors, json: { configured: mediaConfigured, assets: uploaded ? [asset] : [] } });
+    });
+    await page.goto(root + "/app/site/", { waitUntil: "domcontentloaded" });
+    const uploadButton = page.getByRole("button", { name: "+ Enviar foto", exact: true });
+    await page.getByText("O envio de fotos está indisponível neste momento.", { exact: false }).waitFor();
+    await uploadButton.click();
+    await page.getByRole("heading", { name: "Envio indisponível" }).waitFor();
+    await page.getByRole("button", { name: "Entendi", exact: true }).click();
+    mediaConfigured = true;
+    await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).click();
+    await page.getByRole("button", { name: "Atualizar biblioteca", exact: true }).waitFor({ state: "hidden" });
+    const image = { name: "qa-photo.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=", "base64") };
+    const chooser = page.waitForEvent("filechooser");
+    await uploadButton.click();
+    await (await chooser).setFiles(image);
+    await page.getByRole("heading", { name: "Enviar foto à biblioteca pública?" }).waitFor();
+    await page.getByRole("button", { name: "Voltar à biblioteca", exact: true }).click();
+    if (uploadCount !== 0) throw new Error("Upload ocorreu sem confirmação");
+    const chooserAgain = page.waitForEvent("filechooser");
+    await uploadButton.click();
+    await (await chooserAgain).setFiles(image);
+    await page.getByRole("dialog", { name: "Enviar foto à biblioteca pública?" }).getByRole("button", { name: "Enviar foto", exact: true }).click();
+    await page.getByRole("heading", { name: "Foto enviada", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Entendi", exact: true }).click();
+    await page.getByRole("button", { name: /Foto sintética/ }).waitFor();
+    if (uploadCount !== 1) throw new Error("Upload duplicado ou ausente");
+    await page.screenshot({ path: output + "/cms-photo-" + width + ".png", fullPage: false });
+    console.log("CMS PHOTO PASS (API sintética)", width, "chooser, aviso, retry, cancelamento, multipart e sucesso");
+
     console.log("AUTH VISUAL", width, failures ? "CHECK" : "PASS", JSON.stringify(shell));
     await context.close();
   }
