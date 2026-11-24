@@ -89,7 +89,7 @@ describe("menu por persona", () => {
     expect(landingForRoles(["LIDER_MINISTERIO", "SECRETARIA"])).toBe("/app/");
     expect(landingForRoles(["EDITOR_SITE"])).toBe("/app/site/");
     expect(landingForRoles(["PUBLICADOR_SITE"])).toBe("/app/site/");
-    expect(landingForRoles(["MEMBRO"])).toBe("/app/servir/meu-espaco/");
+    expect(landingForRoles(["MEMBRO"])).toBe("/app/");
     expect(landingForRoles(["CONVIDADO"])).toBe("/app/convidado/");
     expect(shellAreasForRoles(["CONVIDADO"]).map(area => area.key)).toEqual(["convidado", "eventos-membro"]);
     expect(landingForRoles(["PLATFORM_ADMIN"])).toBe("/app/");
