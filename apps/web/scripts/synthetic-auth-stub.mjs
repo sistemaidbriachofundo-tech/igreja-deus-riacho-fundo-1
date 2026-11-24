@@ -116,6 +116,16 @@ const server = createServer((req, res) => {
     send(req, res, 200, session.user);
     return;
   }
+  if (req.method === "GET" && session.user.grants.some(grant => grant.roleCode === "MEMBRO")) {
+    if (url.pathname === "/rosters/me") {
+      send(req, res, 200, { source:"jwt", personId:session.user.personId, assignments:[{
+        id:"qa-member-future",title:"Culto de teste",participation:"assignee",roleLabel:"Recepção",moduleName:"Recepção",
+        serviceAt:new Date(Date.now()+7*86400000).toISOString(),rosterStatus:"PUBLISHED",status:"PENDING",
+        ministryName:"Atmosfera",ministrySlug:"atmosfera",sameDayConflict:false
+      }] }); return;
+    }
+    if (url.pathname === "/credentials/me") { send(req,res,200,{card:null}); return; }
+  }
   // Isolated, read-only fixture for the real ministry roster page visual regression.
   if (req.method === "GET" && session.user.grants.some(grant => grant.roleCode === "PLATFORM_ADMIN")) {
     const ministryId = "qa-visual-louvor";
