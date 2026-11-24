@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AppShell } from "./AppShell";
 import { CredentialCards, type CredentialPreviewProps } from "./HmlPhaseOne";
-import { PersonaBoard, dashboardPaths, parseIndicatorCounts, parseOwnCard, parseEntries, deskKeyFor, readFailure } from "./PersonaHome";
+import { PersonaBoard, dashboardPaths, parseIndicatorCounts, parseOwnCard, parseEntries, parseAssignments, deskKeyFor, readFailure } from "./PersonaHome";
 import { ApiRequestError, type AuthUser } from "../lib/api";
 
 const originalHml = process.env.NEXT_PUBLIC_HML_ENABLED;
@@ -138,5 +138,21 @@ describe("carteirinhas na secretaria", () => {
     expect(html).toContain("PREVIEW-João Silva-ativa");
     expect(html).toContain("Revogar credencial");
     expect(html).not.toContain("qrPayload");
+  });
+});
+
+describe("agenda pessoal na página inicial", () => {
+  it("mostra só compromissos publicados futuros, usa resposta própria e ordena pela data", () => {
+    const row = { id:"a", title:"Culto", participation:"assignee", roleLabel:"Recepção", serviceAt:"2027-01-10T13:00:00Z", rosterStatus:"PUBLISHED", status:"PENDING", ministryName:"Atmosfera", ministrySlug:"atmosfera", sameDayConflict:false };
+    const payload = {source:"jwt",personId:"p1",assignments:[
+      {...row,id:"pending",serviceAt:"2027-01-17T13:00:00Z"},
+      {...row,id:"confirmed",ownResponseStatus:"CONFIRMED"},
+      {...row,id:"draft",rosterStatus:"DRAFT"},
+      {...row,id:"declined",ownResponseStatus:"DECLINED"},
+      {...row,id:"closed",rosterStatus:"CLOSED"},
+      {...row,id:"past",serviceAt:"2026-01-01T13:00:00Z"}
+    ]};
+    expect(parseAssignments(payload, Date.parse("2027-01-01T00:00:00Z"))?.map(row=>[row.id,row.response])).toEqual([["confirmed","CONFIRMED"],["pending","PENDING"]]);
+    expect(parseAssignments({...payload,source:"other"})).toBeNull();
   });
 });

@@ -17,6 +17,7 @@ import {
   parsePublishedHome,
 } from "../lib/portal-live-data";
 import { usePublishedResource } from "../lib/use-published-resource";
+import { parseMyAgenda, assignmentStatusLabel } from "../lib/serving-rosters";
 import s from "./persona-home.module.css";
 
 type DeskKey =
@@ -148,7 +149,7 @@ export type IndicatorCounts = {
 };
 
 export type StatusBar = { status: string; count: number };
-export type NamedRow = { id: string; title: string; detail: string; when?: string };
+export type NamedRow = { id: string; title: string; detail: string; when?: string; response?: "PENDING" | "CONFIRMED" };
 export type OwnCard =
   | { state: "absent" }
   | { state: "active" | "revoked"; name: string; photoUrl?: string };
@@ -291,24 +292,18 @@ export function parseEvents(value: unknown): NamedRow[] | null {
   });
 }
 
-export function parseAssignments(value: unknown): NamedRow[] | null {
-  const list = rowsFrom(value, "assignments");
-  if (!list) return null;
-  return list.flatMap(item => {
-    const row = asRecord(item);
-    const id = text(row?.id);
-    const title = text(row?.title);
-    const serviceAt = text(row?.serviceAt);
-    if (!id || !title) return [];
-    const ministry = text(row?.ministryName);
-    const role = text(row?.roleLabel);
-    return [{
-      id,
-      title,
-      detail: [ministry, role, labelOf(text(row?.status))].filter(Boolean).join(" · "),
-      when: serviceAt ?? undefined,
-    }];
-  });
+export function parseAssignments(value: unknown, now = Date.now()): NamedRow[] | null {
+  try {
+    return parseMyAgenda(value).assignments.flatMap(row => {
+      const response = row.ownResponseStatus ?? row.status;
+      if (row.rosterStatus !== "PUBLISHED" || Date.parse(row.serviceAt) < now ||
+          !Number.isFinite(Date.parse(row.serviceAt)) ||
+          (response !== "PENDING" && response !== "CONFIRMED")) return [];
+      return [{ id: row.id, title: row.title,
+        detail: [row.ministryName, row.moduleName ?? row.roleLabel].filter(Boolean).join(" · "),
+        when: row.serviceAt, response }];
+    }).sort((a,b) => Date.parse(a.when ?? "") - Date.parse(b.when ?? ""));
+  } catch { return null; }
 }
 
 /** Lê só nome e situação. O conteúdo do QR não entra no painel. */
@@ -719,7 +714,8 @@ export function PersonaBoard() {
   const agendaRows = agenda ? upcoming(agenda) : [];
   const marks = new Set(agendaRows.flatMap(row => row.when ? [spDayKey(new Date(row.when))] : []));
   const showChart = staff && (mesa.bars !== null || loading);
-  const pendingAssignments = (mesa.assignments ?? []).filter(row => row.detail.includes("A confirmar"));
+  const pendingAssignments = (mesa.assignments ?? []).filter(row => row.response === "PENDING");
+  const nextAssignment = mesa.assignments?.[0];
 
   const metrics: Array<Parameters<typeof Metric>[0]> = [];
   if (staff || leader) {
@@ -786,20 +782,46 @@ export function PersonaBoard() {
       )}
 
       <div className={s.columns}>
-        {memberView && <Panel id="avisos" title="Sua escala">
-          {mesa.assignments ? (pendingAssignments.length > 0
-            ? <RowList rows={pendingAssignments} hrefFor={() => "/app/servir/meu-espaco/"} empty="" />
-            : <p className={s.empty}>Nenhuma confirmação pendente na sua escala.</p>) : !loading && <p className={s.empty}>Não foi possível consultar sua escala.</p>}
-        </Panel>}
+        {memberView && <div className={s.memberStack}>
+          <Panel id="avisos" title="Minha escala" action={<AppNavLink href="/app/servir/meu-espaco/">Ver todas</AppNavLink>}>
+            {mesa.assignments === null ? <p className={s.empty} role="status">{loading ? "Carregando sua escala…" : "Não foi possível consultar sua escala."}</p>
+              : <>
+                <div className={s.memberNext} data-member-next={nextAssignment ? "scheduled" : "empty"}>
+                  <span className={s.memberIcon}><UIIcon name="calendar" size={24} /></span>
+                  <div className={s.memberNextCopy}>
+                    <small>PRÓXIMO COMPROMISSO</small>
+                    <strong>{nextAssignment?.title ?? "Nenhuma escala publicada para você"}</strong>
+                    {nextAssignment ? <>
+                      <span>{nextAssignment.when ? formatPortalDate(nextAssignment.when).dayAndTime : ""}</span>
+                      <span>{nextAssignment.detail}</span>
+                      <span className={s.memberResponse} data-response={nextAssignment.response}>{nextAssignment.response ? assignmentStatusLabel[nextAssignment.response] : ""}</span>
+                    </> : <span>Quando sua liderança publicar uma escala, você poderá acompanhá-la aqui.</span>}
+                  </div>
+                </div>
+                {nextAssignment && <AppNavLink className={s.memberPrimary} href={`/app/servir/meu-espaco/#escala-${encodeURIComponent(nextAssignment.id)}`}>
+                  {nextAssignment.response === "PENDING" ? "Responder à escala" : "Ver meu compromisso"} <UIIcon name="chevron" size={16} />
+                </AppNavLink>}
+                {pendingAssignments.length > 0 && <p className={s.memberPending}><UIIcon name="calendar" size={17} /> {pendingAssignments.length} {pendingAssignments.length === 1 ? "escala aguardando sua resposta" : "escalas aguardando sua resposta"} <AppNavLink href="/app/servir/meu-espaco/">Consultar</AppNavLink></p>}
+              </>}
+          </Panel>
+          <AppNavLink className={s.memberAvailability} href="/app/servir/meu-espaco/#pesquisa-de-servico">
+            <span className={s.memberIcon}><UIIcon name="calendar" size={22} /></span>
+            <span><strong>Disponibilidade para servir</strong><small>Consulte o período da pesquisa e informe seus dias.</small></span>
+            <UIIcon name="chevron" size={18} />
+          </AppNavLink>
+          {mesa.card && <Panel title="Minha carteirinha" action={<AppNavLink href="/app/membros/carteirinha/">Abrir</AppNavLink>}>
+            {mesa.card.state !== "absent" ? <p className={s.cardLine}><PersonPortrait name={mesa.card.name} photoUrl={mesa.card.photoUrl} size="small" /><span className={s.rowText}><strong>{mesa.card.name}</strong><small>{mesa.card.state === "active" ? "Carteirinha ativa" : "Carteirinha revogada"}</small></span></p> : <p className={s.empty}>Ainda não há carteirinha emitida para você.</p>}
+          </Panel>}
+        </div>}
 
-        <Panel title="Agenda" action={<AppNavLink href="/#agenda">Ver agenda</AppNavLink>}>
+        <Panel title="Agenda" action={<AppNavLink href={memberView ? "/app/eventos/" : "/#agenda"}>Ver agenda</AppNavLink>}>
           <WeekStrip marks={marks} />
           {agenda === null && <p className={s.empty}>{loading || showPublicAgenda ? "Carregando a agenda…" : "Agenda indisponível no momento."}</p>}
           {agendaRows.length > 0 ? (
             <ul className={s.agenda}>
               {agendaRows.map(event => (
                 <li key={event.id}>
-                  <AppNavLink href="/#agenda">
+                  <AppNavLink href={memberView ? "/app/eventos/" : "/#agenda"}>
                     <span className={s.dateMark}>
                       <strong>{event.when ? formatPortalDate(event.when).day : "—"}</strong>
                       {event.when ? formatPortalDate(event.when).month : ""}
@@ -815,7 +837,7 @@ export function PersonaBoard() {
         </Panel>
       </div>
 
-      <div className={s.columns}>
+      {!memberView && <div className={s.columns}>
         {showChart && (
           <Panel title="Situação dos vínculos">
             {mesa.bars === null ? <p className={s.empty}>Carregando a distribuição…</p> : mesa.bars.length === 0 ? (
@@ -846,20 +868,6 @@ export function PersonaBoard() {
           </Panel>
         )}
 
-        {memberView && mesa.card && (
-          <Panel title="Sua carteirinha" action={<AppNavLink href="/app/membros/carteirinha/">Abrir</AppNavLink>}>
-            {mesa.card.state !== "absent" ? (
-              <p className={s.cardLine}><PersonPortrait name={mesa.card.name} photoUrl={mesa.card.photoUrl} size="small" /><span className={s.rowText}><strong>{mesa.card.name}</strong><small>{mesa.card.state === "active" ? "Carteirinha ativa" : "Carteirinha revogada"}</small></span></p>
-            ) : <p className={s.empty}>Ainda não há carteirinha emitida para você.</p>}
-          </Panel>
-        )}
-
-        {memberView && mesa.assignments && (
-          <Panel title="Minha escala" action={<AppNavLink href="/app/servir/meu-espaco/">Abrir</AppNavLink>}>
-            <RowList rows={upcoming(mesa.assignments).length ? upcoming(mesa.assignments) : mesa.assignments.slice(0, 5)} hrefFor={() => "/app/servir/meu-espaco/"} empty="Nenhum compromisso na sua escala." />
-          </Panel>
-        )}
-
         {treasury && (
           <Panel title="Lançamentos" action={<AppNavLink href="/app/tesouraria/">Abrir tesouraria</AppNavLink>}>
             {mesa.entries === null ? <p className={s.empty}>Carregando lançamentos…</p> : mesa.entries.length > 0 ? (
@@ -882,7 +890,7 @@ export function PersonaBoard() {
             <RowList rows={mesa.contents} hrefFor={() => "/app/site/"} empty="Nenhum conteúdo registrado." />
           </Panel>
         )}
-      </div>
+      </div>}
       {memberView && <ConnectionJourney compact />}
     </div>
   );

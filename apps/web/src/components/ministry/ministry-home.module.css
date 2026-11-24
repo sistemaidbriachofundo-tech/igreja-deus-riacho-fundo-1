@@ -373,3 +373,19 @@
   .directoryList .directoryRow { min-height: 155px; }
   .directoryList .directoryActions { padding-inline-start: 0; }
 }
+
+/* Stable card alignment with long leadership lists. */
+.directoryTotals > div { min-height:88px; padding:12px 15px; gap:8px; }
+.directoryList { gap:12px; align-items:stretch; }
+.directoryList .directoryRow { min-height:0; padding:14px; gap:10px; grid-template-rows:1fr auto; }
+.directoryList .directoryName { align-items:start; align-content:start; grid-template-columns:36px minmax(0,1fr) 16px; gap:9px; }
+.directoryIcon { width:36px; height:36px; border-radius:10px; align-self:start; }
+.directoryIdentity { align-self:start; gap:6px; }
+.directoryIdentity strong { font-size:.94rem; min-height:1.3em; }
+.directoryLeadership { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:5px; }
+.directoryLeadership > small:first-child { font-size:.79rem; }
+.directoryMore { align-self:start; font-size:.7rem; padding:2px 5px; }
+.directoryList .directoryName > svg { align-self:start; margin-top:9px; }
+.directoryList .directoryActions { margin-top:0; padding:7px 0 0; gap:5px; }
+.directoryActions a { justify-content:flex-start; }
+@media(max-width:480px) { .directoryTotals { grid-template-columns:repeat(2,minmax(0,1fr)); } .directoryTotals > div:last-child { grid-column:1/-1; } .directoryTotals > div { min-height:74px; } .directoryTotals dt { min-height:0; flex-direction:row; } .directoryList .directoryRow { padding:12px; } }

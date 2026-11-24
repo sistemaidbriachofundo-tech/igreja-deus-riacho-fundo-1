@@ -3,11 +3,12 @@
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
 
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { getApiBaseUrl } from "../lib/api";
 import { withBasePath } from "../lib/paths";
 import { resolveSitePhoto, siteMediaLibrary } from "../lib/site-layout";
 import s from "./site-media-library.module.css";
+import { UIIcon } from "./ui/UIIcon";
 
 type MediaAsset = { url:string; pathname:string; name:string; size:number; uploadedAt:string };
 type MediaList = { configured:boolean; assets:MediaAsset[]; hasMore?:boolean; message?:string|null };
@@ -15,18 +16,20 @@ type MediaList = { configured:boolean; assets:MediaAsset[]; hasMore?:boolean; me
 export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:string)=>void}){
   const { showFeedback } = useFeedback();
   const { confirm, confirmation } = useActionConfirmation();
+  const inputRef=useRef<HTMLInputElement>(null);
   const [media,setMedia]=useState<MediaAsset[]>([]);
   const [ready,setReady]=useState(false),[configured,setConfigured]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
   const [message,setMessage]=useState("");
   const refresh=useCallback(async()=>{
+    setError("");
     const response=await fetch(getApiBaseUrl()+"/cms/site-media",{
       mode:"cors",credentials:"omit",cache:"no-store",
       headers:{Authorization:"Bearer "+token,Accept:"application/json"},
     });
     if(!response.ok)throw new Error(response.status===403?"Sem permissão para acessar a biblioteca.":"Falha ao consultar as imagens ("+response.status+").");
     const data=await response.json() as MediaList;
-    setMedia(data.assets??[]);setConfigured(data.configured);setMessage(data.message??"");setReady(true);
+    setMedia(data.assets??[]);setConfigured(data.configured===true);setMessage(data.message??"");setReady(true);
   },[token]);
   useEffect(()=>{
     let cancelled=false;
@@ -68,14 +71,19 @@ export function SiteMediaLibrary({token,onChoose}:{token:string;onChoose:(url:st
   return <div className={s.section}>
     {confirmation}
     <div className={s.toolbar}>
-      <div><strong>Fotos da igreja</strong><p>Envie uma nova foto ou reutilize uma já autorizada. Arquivos são públicos somente para divulgação do portal.</p></div>
-      <label className={s.uploadButton} aria-disabled={!configured||busy}>
-        <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={!configured||busy} onChange={upload} aria-label="Enviar foto da igreja"/>
-        {busy?"Enviando…":"+ Enviar foto"}
-      </label>
+      <div><strong>Biblioteca de fotos</strong><p>Envie uma imagem ou selecione uma foto autorizada do acervo.</p></div>
+      <button type="button" className={s.uploadButton} disabled={!ready||!configured||busy}
+        onClick={()=>inputRef.current?.click()} aria-describedby="media-upload-help">
+        <UIIcon name="plus" size={18}/>{busy?"Enviando…":"Enviar foto"}
+      </button>
+      <input ref={inputRef} type="file" hidden accept="image/jpeg,image/png,image/webp,image/avif"
+        disabled={!ready||!configured||busy} onChange={upload} aria-label="Arquivo de foto da igreja"/>
     </div>
+    <p id="media-upload-help" className={s.uploadHelp}>JPG, PNG, WebP ou AVIF · até 3 MB</p>
     {!ready&&<p role="status">Carregando a biblioteca…</p>}
-    {ready&&!configured&&<p className={s.warning}>O armazenamento ainda não está habilitado para este ambiente. Você pode usar as fotos já incluídas no site.</p>}
+    {ready&&!configured&&<div className={s.warning} role="status">Envio indisponível: {error?"não foi possível consultar o armazenamento.":"o armazenamento de imagens não está habilitado neste ambiente."} Você ainda pode usar o acervo.
+      <button type="button" onClick={()=>{setReady(false);void refresh().catch(err=>{setConfigured(false);setError(err instanceof Error?err.message:"Biblioteca indisponível");setReady(true);});}}>Tentar novamente</button>
+    </div>}
     {message&&<p className={s.warning}>{message}</p>}
     {error&&<p className={s.error} role="alert">{error}</p>}
     {media.length>0&&<>

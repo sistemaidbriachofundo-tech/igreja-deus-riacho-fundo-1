@@ -139,8 +139,47 @@ try {
     await toolbar.getByLabel("Nome do culto").waitFor({ state: "hidden" });
     console.log("ROSTER VISUAL", width, JSON.stringify({ contained, sameRow, noOverflow, formFits }));
 
+    // Check the real media editor with a synthetic storage response; no file leaves localhost.
+    await page.goto(root+"/app/site/",{waitUntil:"domcontentloaded"});
+    const upload=page.getByRole("button",{name:"Enviar foto",exact:true});
+    await upload.waitFor({state:"visible",timeout:20000});
+    await page.waitForFunction(()=>Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Enviar foto"&&!b.disabled));
+    const mediaGeometry=await upload.evaluate(b=>({width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height,color:getComputedStyle(b).color,background:getComputedStyle(b).backgroundColor,overflow:document.documentElement.scrollWidth>innerWidth+2}));
+    if(mediaGeometry.height<43||mediaGeometry.color!=="rgb(255, 255, 255)"||mediaGeometry.overflow) throw new Error("Media upload geometry "+JSON.stringify(mediaGeometry));
+    const chooserPromise=page.waitForEvent("filechooser");
+    await upload.click();
+    await chooserPromise;
+    await page.screenshot({path:output+"/midia-"+width+".png",fullPage:false});
+
     console.log("AUTH VISUAL", width, failures ? "CHECK" : "PASS", JSON.stringify(shell));
     await context.close();
+    // Log in through the real member UI in a clean browser session.
+    const member = await browser.newContext({viewport:{width,height:930}, locale:"pt-BR",timezoneId:"America/Sao_Paulo"});
+    const memberPage = await member.newPage();
+    try {
+      await memberPage.goto(root + "/login/", {waitUntil:"load"});
+      // Wait for LoginScreen's mounted effect before interacting with the hydrated form.
+      await memberPage.waitForFunction(() => Boolean(window.__IDBRF_PERF__), {timeout:20000});
+      await memberPage.getByLabel("E-mail", {exact:true}).fill("membro.sintetico@example.test");
+      await memberPage.getByLabel("Senha", {exact:true}).fill(password);
+      const responsePromise = memberPage.waitForResponse(r=>r.request().method()==="POST" && new URL(r.url()).pathname==="/auth/login",{timeout:20000});
+      await memberPage.getByRole("button",{name:"Entrar no painel",exact:true}).click();
+      const loginResponse=await responsePromise;
+      if(!loginResponse.ok()) throw new Error("Login sintético falhou: "+loginResponse.status());
+      await memberPage.waitForURL(url => url.pathname === "/app/" || url.pathname === "/app", {timeout:20000,waitUntil:"domcontentloaded"});
+      const next = memberPage.locator('[data-member-next="scheduled"]');
+      await next.waitFor({state:"visible",timeout:20000});
+      const cta = memberPage.getByRole("link",{name:"Responder à escala"});
+      await cta.waitFor({state:"visible"});
+      if (!(await memberPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2))) {
+        failures++; console.error("FAIL: member dashboard overflow",width);
+      }
+      await memberPage.screenshot({path:output+"/membro-inicio-"+width+".png",fullPage:false});
+      if (!(await cta.getAttribute("href"))?.includes("#escala-qa-member-future")) {
+        failures++; console.error("FAIL: member assignment target",width);
+      }
+    } finally { await member.close(); }
+
   }
 } finally {
   await browser.close();

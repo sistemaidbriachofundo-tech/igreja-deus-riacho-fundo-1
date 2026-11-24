@@ -522,7 +522,7 @@ export function landingForRoles(roles: readonly string[]): AppDestination {
     return "/app/site/";
   }
   if (has("MEMBRO") && !broad && !has("EDITOR_SITE") && !has("PUBLICADOR_SITE")) {
-    return "/app/servir/meu-espaco/";
+    return "/app/";
   }
   return "/app/";
 }

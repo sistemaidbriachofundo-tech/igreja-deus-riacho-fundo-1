@@ -84,3 +84,19 @@
 .teamInvites h2 { margin: 0; }
 .teamInvites article { padding: 11px; border: 1px solid #d5e5d3; border-radius: 9px; background: #f4f9f0; }
 .teamInvites .actions { margin-top: 7px; }
+
+/* Use the same neutral workspace surfaces as the member home. */
+.workspace { --roster-green:#242424; --roster-ink:#242424; --roster-muted:#51565b; gap:16px; }
+.workspace h2 { font-size:1.15rem; }
+.empty { display:flex; align-items:flex-start; gap:12px; background:var(--app-surface,#fff); border-color:var(--app-border,#dfe3e7); }
+.emptyIcon { display:grid; place-items:center; flex:none; width:44px; height:44px; border-radius:10px; background:var(--app-subtle,#f1f2f3); }
+.empty strong { font-size:1rem; }
+.empty p { font-size:.88rem; line-height:1.5; margin-top:4px; }
+.assignment[data-featured="true"] { background:var(--app-success-bg,#edf6f2); border-color:#d7e6de; border-inline-start:3px solid #28614d; }
+.assignment[data-featured="true"] .primary,.teamInvites .primary { background:#171717; color:#fff; border-color:#171717; }
+.heading h3 { font-size:clamp(1.2rem,2.4vw,1.65rem); }
+.heading p,.arrival p,.context,.when { font-size:.93rem; }
+.when strong { font-size:clamp(1.45rem,3vw,2rem); }
+.actions button,.history > summary { font-size:.92rem; min-height:44px; }
+.history > summary { background:var(--app-surface,#fff); border-color:var(--app-border,#dfe3e7); }
+.historyCount { display:inline-block; margin-left:6px; padding:3px 8px; border-radius:999px; background:var(--app-subtle,#f1f2f3); font-size:.77rem; }
