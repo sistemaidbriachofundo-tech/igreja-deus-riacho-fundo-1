@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - chatgpt/dev-prehml-final-gates-20261123
+      - chatgpt/dev-roster-toolbar-20261124
   workflow_dispatch:
 
 permissions:
