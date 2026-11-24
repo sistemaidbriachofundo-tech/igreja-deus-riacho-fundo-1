@@ -110,12 +110,14 @@ export class AdmissionsService {
               organizationId: pilot.organizationId,
               email: { equals: emailNorm, mode: "insensitive" },
             },
-            select: { id: true, displayName: true, email: true },
+            select: { id: true, status: true },
           });
           if (emailHit) {
             throw new BusinessException(
-              "Já existe pessoa com este e-mail — use personId (POST /persons/candidates). Merge automático é proibido.",
+              "Encontramos uma ficha com o mesmo e-mail. Nenhum contato foi exibido. Abra a ficha existente em vez de criar outra.",
               "PERSON_EMAIL_CANDIDATE",
+              409,
+              { existing: { id: emailHit.id, status: "ACTIVE" } },
             );
           }
         }
@@ -149,8 +151,10 @@ export class AdmissionsService {
       });
       if (duplicateOpen) {
         throw new BusinessException(
-          "Já existe protocolo de admissão em andamento para esta pessoa",
+          "Esta pessoa já tem um protocolo de admissão aberto. Nenhum protocolo novo foi criado. Abra a ficha para continuar o que está em análise.",
           "ADMISSION_ALREADY_OPEN",
+          409,
+          { existing: { id: personId!, status: "OPEN" } },
         );
       }
 
@@ -175,8 +179,10 @@ export class AdmissionsService {
         });
       } else if (membership.status === "ACTIVE") {
         throw new BusinessException(
-          "Pessoa já possui membresia ACTIVE nesta congregação",
+          "Esta pessoa já é membro ativo. A admissão não foi reaberta.",
           "MEMBERSHIP_ALREADY_ACTIVE",
+          409,
+          { existing: { id: personId!, status: "ACTIVE" } },
         );
       }
 

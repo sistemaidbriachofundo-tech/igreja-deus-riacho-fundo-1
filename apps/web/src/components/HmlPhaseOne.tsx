@@ -1,6 +1,6 @@
 "use client";
 
-import { ECCLESIASTICAL_ROLES, sortByName, type EcclesiasticalRole } from "@idbrf/shared";
+import { ECCLESIASTICAL_ROLES, cpfDigits, isValidCpf, sortByName, type EcclesiasticalRole } from "@idbrf/shared";
 
 import { isAdminEnabled, isProductionAdmin } from "../lib/admin-environment";
 import { WorkspaceSearch } from "./ui/WorkspaceSearch";
@@ -24,6 +24,8 @@ import { clearPanelReads, readPanel } from "../lib/panel-read";
 import { Alert } from "./ui/Alert";
 import { Modal } from "./ui/Modal";
 import { useFeedback } from "./ui/FeedbackProvider";
+import { useActionConfirmation } from "./ui/ActionConfirmation";
+import { readPreventiveConflict } from "../lib/preventive-conflict";
 import { PageHeader } from "./ui/PageHeader";
 import ui from "./ui/ui.module.css";
 import s from "./hml-phase-one.module.css";
@@ -185,6 +187,7 @@ export function CredentialCards({
 export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection = "resumo" }: HmlPhaseOneProps) {
   const pastoralView = view === "pastoral";
   const { showFeedback } = useFeedback();
+  const { confirm, confirmation } = useActionConfirmation();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [checking, setChecking] = useState(true);
@@ -219,6 +222,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
   const [searchedPerson, setSearchedPerson] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [identityDocument, setIdentityDocument] = useState("");
+  const [documentError, setDocumentError] = useState("");
   const emptyNewProfile = (): NewPersonProfile => ({
     address: "", birthDate: "", baptismDate: "", firstAttendedOn: "",
     weddingDate: "", sex: "", isMinor: false,
@@ -396,6 +401,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setAdmissionForm(null);
     setNewName("");
     setNewEmail("");
+    setIdentityDocument("");
+    setDocumentError("");
     setIntakePhoto(null);
     setNewProfile(emptyNewProfile());
     setAdmissionPerson("");
@@ -470,7 +477,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     setError("");
     setNotice(null);
     try {
-      await action();
+      const result = await action();
+      if (result === null) return false;
       const updated = await refresh(token, true).catch(() => false);
       showFeedback({
         tone: updated ? "success" : "warning",
@@ -482,7 +490,18 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       });
       return true;
     } catch (err) {
-      reportError(displayError(err));
+      const conflict = readPreventiveConflict(err);
+      if (conflict?.existing && (conflict.code === "ADMISSION_ALREADY_OPEN" || conflict.code === "MEMBERSHIP_ALREADY_ACTIVE" || conflict.code === "PERSON_IDENTITY_EXACT")) {
+        const open = await confirm({
+          title: conflict.title,
+          description: conflict.message,
+          action: conflict.action,
+          cancel: conflict.cancel,
+        });
+        if (open) setFichaId(conflict.existing.id);
+        return false;
+      }
+      reportError(conflict?.message ?? displayError(err));
       return false;
     } finally {
       setBusy(false);
@@ -514,6 +533,12 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
       showFormIssue("Para cadastrar uma pessoa menor de idade, selecione um responsável legal adulto.");
       return;
     }
+    const documentDigits = cpfDigits(identityDocument);
+    if (admissionForm === "new" && documentDigits && !isValidCpf(documentDigits)) {
+      setDocumentError("Confira o CPF. O cadastro não foi criado.");
+      showFormIssue("Confira o CPF. O cadastro não foi criado.", "intake-person-document");
+      return;
+    }
     if (admissionForm === "new" && newProfile.householdId && newProfile.householdLabel.trim()) {
       showFormIssue("Escolha uma família existente ou informe uma nova, não as duas opções ao mesmo tempo.");
       return;
@@ -523,26 +548,44 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
     const completed = admissionForm === "existing"
       ? await run(() => apiPost("/admissions", token, { personId: admissionPerson, modality }), "Protocolo de admissão aberto.", showFormIssue)
       : await run(async () => {
-          const candidates = await apiPost<{ hits: Array<{ person: { email: string | null } }> }>(
-            "/persons/candidates", token, { displayName: name, email },
-          );
-          if (candidates.hits.some(hit => hit.person.email?.toLowerCase() === email)) {
-            throw new Error("E-mail já cadastrado.");
+          let acknowledgeHomonym = false;
+          let created: { person?: { id: string } } | undefined;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+              created = await apiPost<{person:{id:string}}>("/memberships", token, {
+                displayName: name, email,
+                ...(documentDigits ? { identityDocument: documentDigits } : {}),
+                ...(acknowledgeHomonym ? { acknowledgeHomonym: true } : {}),
+                address: newProfile.address.trim() || undefined,
+                birthDate: newProfile.birthDate || undefined,
+                baptismDate: newProfile.baptismDate || undefined,
+                weddingDate: newProfile.weddingDate || undefined,
+                firstAttendedOn: newProfile.firstAttendedOn || undefined,
+                sex: newProfile.sex || undefined,
+                ecclesiasticalRoles: newProfile.ecclesiasticalRoles,
+                isMinor: computedMinor,
+                legalGuardianPersonId: newProfile.legalGuardianPersonId || undefined,
+                householdId: newProfile.householdId || undefined,
+                householdLabel: newProfile.householdLabel.trim() || undefined,
+              });
+              break;
+            } catch (error) {
+              const conflict = readPreventiveConflict(error);
+              if (conflict?.code === "PERSON_POSSIBLE_HOMONYM" && conflict.acknowledgeField && !acknowledgeHomonym) {
+                const accepted = await confirm({
+                  title: conflict.title,
+                  description: conflict.message,
+                  action: conflict.action,
+                  cancel: conflict.cancel,
+                });
+                if (!accepted) return null;
+                acknowledgeHomonym = true;
+                continue;
+              }
+              throw error;
+            }
           }
-          const created = await apiPost<{person:{id:string}}>("/memberships", token, {
-            displayName: name, email,
-            address: newProfile.address.trim() || undefined,
-            birthDate: newProfile.birthDate || undefined,
-            baptismDate: newProfile.baptismDate || undefined,
-            weddingDate: newProfile.weddingDate || undefined,
-            firstAttendedOn: newProfile.firstAttendedOn || undefined,
-            sex: newProfile.sex || undefined,
-            ecclesiasticalRoles: newProfile.ecclesiasticalRoles,
-            isMinor: computedMinor,
-            legalGuardianPersonId: newProfile.legalGuardianPersonId || undefined,
-            householdId: newProfile.householdId || undefined,
-            householdLabel: newProfile.householdLabel.trim() || undefined,
-          });
+          if (!created) return null;
           createdPersonId = created?.person?.id ?? null;
           if (intakePhoto && createdPersonId) {
             try {
@@ -643,6 +686,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
 
   return (
     <AppShell active={activeNav} meta={names[view]} pastoralSection={pastoralView ? "admissoes" : undefined} secretarySection={view === "secretary" ? secretary ? secretarySection : "admissoes" : undefined}>
+      {confirmation}
       <div className={s.page} data-ficha-open={fichaId ? "true" : undefined} data-hml-view={view}>
         <div className={s.workspace}>
             {view !== "overview" && (
@@ -940,6 +984,8 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                     <NewPersonIntake
                       name={newName}
                       email={newEmail}
+                      document={identityDocument}
+                      documentError={documentError}
                       profile={newProfile}
                       families={households}
                       token={token}
@@ -947,6 +993,7 @@ export function HmlPhaseOne({ view, CredentialPreview, initialSecretarySection =
                       busy={busy}
                       onName={setNewName}
                       onEmail={setNewEmail}
+                      onDocument={value => { setIdentityDocument(value); if (documentError) setDocumentError(""); }}
                       onProfile={setNewProfile}
                     />
                     <PersonPhotoInput photo={intakePhoto} onChange={setIntakePhoto} disabled={busy} />

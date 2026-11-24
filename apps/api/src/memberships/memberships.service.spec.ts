@@ -62,10 +62,13 @@ describe("MembershipsService scope", () => {
         findUnique: jest.fn(),
         create: jest.fn(),
       },
-      person: { findFirst: jest.fn(), create: jest.fn() },
-      household: { create: jest.fn() },
+      person: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      household: { findFirst: jest.fn(), create: jest.fn() },
       auditLog: { create: jest.fn() },
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma));
     const pilotService = {
       getPilotChurch: jest.fn().mockResolvedValue(pilot),
     };

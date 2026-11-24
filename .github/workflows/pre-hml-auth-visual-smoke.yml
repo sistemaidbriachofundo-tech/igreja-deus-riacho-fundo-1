@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - chatgpt/dev-prehml-final-gates-20261123
+      - cursor/preventive-ux-modulos-1ebf
   workflow_dispatch:
 
 permissions:

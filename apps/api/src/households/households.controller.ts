@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
 import { ROLE_CODES } from "@idbrf/shared";
-import { IsArray, IsOptional, IsString, ArrayMinSize } from "class-validator";
+import { IsArray, IsBoolean, IsOptional, IsString, ArrayMinSize } from "class-validator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -22,6 +22,10 @@ class AddMembersBody {
   @ArrayMinSize(1)
   @IsString({ each: true })
   memberPersonIds!: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  confirmMove?: boolean;
 }
 
 @Controller("households")
@@ -53,7 +57,7 @@ export class HouseholdsController {
     @Param("householdId") householdId: string,
     @Body() body: AddMembersBody,
   ) {
-    return this.households.addMembers(user, householdId, body.memberPersonIds);
+    return this.households.addMembers(user, householdId, body.memberPersonIds, body.confirmMove === true);
   }
 
   @Roles(ROLE_CODES.SECRETARIA, ROLE_CODES.PLATFORM_ADMIN)

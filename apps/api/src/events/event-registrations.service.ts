@@ -737,7 +737,7 @@ export class EventRegistrationsService {
     this.assertCheckInAllowed(registration);
 
     if (registration.status === "CHECKED_IN") {
-      return this.toRegistrationDto(registration);
+      return { ...this.toRegistrationDto(registration), alreadyCheckedIn: true };
     }
 
     return this.persistCheckIn(actor, pilot, registration, event.id);
@@ -773,7 +773,7 @@ export class EventRegistrationsService {
       throw new NotFoundException("Inscrição não encontrada neste evento");
     }
     if (registration.status === "CHECKED_IN") {
-      return this.toRegistrationDto(registration);
+      return { ...this.toRegistrationDto(registration), alreadyCheckedIn: true };
     }
     await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
     this.assertCheckInAllowed(registration);

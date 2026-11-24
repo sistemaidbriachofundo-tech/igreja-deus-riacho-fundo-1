@@ -387,6 +387,28 @@ export {
 } from "./piloto-pacote";
 
 export {
+  ACKNOWLEDGE_FIELD,
+  PREVENTIVE_CODES,
+  PREVENTIVE_COPY,
+  cpfDigits,
+  familyLinkDecision,
+  homonymWarningEnabled,
+  identityDecision,
+  isValidCpf,
+  ledgerDuplicateDecision,
+  normalizePersonName,
+  scheduleCommitDecision,
+  scheduleMode,
+  type FamilyLinkInput,
+  type IdentityDecisionInput,
+  type LedgerDuplicateInput,
+  type PreventiveCode,
+  type PreventiveDecision,
+  type PreventiveExisting,
+  type ScheduleCommitInput,
+} from "./preventive-ux";
+
+export {
   DF_MEMBERSHIP_REGIONS,
   MEMBERSHIP_MAP_STATUSES,
   type MembershipMapStatus,

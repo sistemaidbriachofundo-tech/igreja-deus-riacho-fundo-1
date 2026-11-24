@@ -144,7 +144,7 @@ export function humanWriteNotice(code: string, applied: boolean, fallback: strin
     return "Alteração salva.";
   }
   if (code.includes("FORBIDDEN")) return "Esta conta não altera este ministério.";
-  if (code.includes("ALREADY_ACTIVE")) return "Esta pessoa já integra este ministério.";
+  if (code.includes("ALREADY_ACTIVE")) return "Esta pessoa já integra este ministério. Confira a lista de integrantes; nenhum vínculo novo foi criado.";
   if (code.includes("ALREADY_ENDED")) return "Este vínculo já está encerrado.";
   if (code.includes("WITHOUT_PERSON")) {
     return "Este interesse ainda não está ligado a uma pessoa cadastrada.";

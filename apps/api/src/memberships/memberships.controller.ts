@@ -55,6 +55,15 @@ class RegisterMembershipBody implements RegisterMembershipInput {
 
   @IsOptional()
   @IsString()
+  @MaxLength(14)
+  identityDocument?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  acknowledgeHomonym?: boolean;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
   address?: string;
 

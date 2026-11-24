@@ -4,10 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canManageMemberships } from "@idbrf/shared";
+import { canManageMemberships, familyLinkDecision } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { throwPreventive } from "../common/preventive-conflict";
 
 @Injectable()
 export class HouseholdsService {
@@ -148,6 +149,7 @@ export class HouseholdsService {
     actor: AuthUser,
     householdId: string,
     memberPersonIds: string[],
+    confirmMove = false,
   ) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertManage(actor, pilot.organizationId, pilot.churchId);
@@ -163,7 +165,7 @@ export class HouseholdsService {
           id: { in: ids },
           organizationId: pilot.organizationId,
         },
-        select: { id: true, isMinor: true, legalGuardianPersonId: true },
+        select: { id: true, isMinor: true, legalGuardianPersonId: true, householdId: true },
       });
       if (found.length !== ids.length) {
         throw new BadRequestException(
@@ -173,12 +175,19 @@ export class HouseholdsService {
       for (const p of found) {
         if (p.isMinor && !p.legalGuardianPersonId) {
           throw new BadRequestException(
-            `Menor ${p.id} exige responsável legal antes de vincular à família`,
+            "Um menor exige responsável legal antes de vincular à família.",
           );
         }
       }
+      throwPreventive(familyLinkDecision({
+        people: found.map((person) => ({ id: person.id, householdId: person.householdId ?? null })),
+        targetHouseholdId: household.id,
+        confirmMove,
+      }));
+      const moving = found.filter((person) => person.householdId !== household.id).map((person) => person.id);
+      if (!moving.length) return;
       await tx.person.updateMany({
-        where: { id: { in: ids } },
+        where: { id: { in: moving } },
         data: { householdId: household.id },
       });
       await tx.auditLog.create({

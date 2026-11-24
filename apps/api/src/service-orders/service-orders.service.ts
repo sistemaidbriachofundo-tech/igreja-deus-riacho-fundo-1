@@ -5,12 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { hasAccess, ROLE_CODES, type ServiceOrderDto } from "@idbrf/shared";
+import { hasAccess, ROLE_CODES, scheduleCommitDecision, type ServiceOrderDto } from "@idbrf/shared";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { renderServiceOrderPdf } from "./service-order-pdf";
+import { throwPreventive } from "../common/preventive-conflict";
 
 const ITEM_LIMIT = 40;
 const includeItems = {
@@ -141,11 +142,12 @@ export class ServiceOrdersService {
     }
   }
 
-  async approve(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
+  async approve(actor: AuthUser, orderId: string, expectedUpdatedAt?: string, acknowledgeScheduleConflict = false) {
     const pilot = await this.scope(actor, "write");
     return this.prisma.$transaction(async (tx) => {
       const current = await this.lock(tx, pilot, orderId, expectedUpdatedAt);
       if (current.status === "APPROVED" || current.status === "PUBLISHED") return this.toDto(current);
+      await this.assertServiceCommit(tx, pilot, current, acknowledgeScheduleConflict);
       const row = await tx.serviceOrder.update({
         where: { id: orderId },
         data: { status: "APPROVED", approvedByUserId: actor.userId, approvedAt: new Date() },
@@ -183,7 +185,7 @@ export class ServiceOrdersService {
     });
   }
 
-  async publish(actor: AuthUser, orderId: string, expectedUpdatedAt?: string) {
+  async publish(actor: AuthUser, orderId: string, expectedUpdatedAt?: string, acknowledgeScheduleConflict = false) {
     const pilot = await this.scope(actor, "write");
     return this.prisma.$transaction(async (tx) => {
       const current = await this.lock(tx, pilot, orderId, expectedUpdatedAt);
@@ -194,6 +196,7 @@ export class ServiceOrdersService {
           message: "A publicação exige uma ordem aprovada.",
         });
       }
+      await this.assertServiceCommit(tx, pilot, current, acknowledgeScheduleConflict);
       const row = await tx.serviceOrder.update({
         where: { id: orderId },
         data: { status: "PUBLISHED", publishedByUserId: actor.userId, publishedAt: new Date() },
@@ -202,6 +205,62 @@ export class ServiceOrdersService {
       await this.audit(tx, actor, pilot, "service_order.publish", row);
       return this.toDto(row);
     });
+  }
+
+  private async assertServiceCommit(
+    tx: Prisma.TransactionClient,
+    pilot: { organizationId: string; churchId: string },
+    current: OrderRow,
+    acknowledge: boolean,
+  ) {
+    const missingResponsible = current.items.some((item) => !item.responsible?.trim() && !item.responsiblePersonId);
+    const personIds = [...new Set(current.items.map((item) => item.responsiblePersonId).filter((id): id is string => Boolean(id)))];
+    let conflictRosterId: string | null = null;
+    const roster = (tx as unknown as { rosterAssignment?: { findMany: (args: unknown) => Promise<Array<{ slot?: { roster?: { id: string } | null } | null }>> } }).rosterAssignment;
+    if (personIds.length && roster?.findMany) {
+      const rows = await roster.findMany({
+        where: {
+          personId: { in: personIds },
+          status: { in: ["PENDING", "CONFIRMED"] },
+          slot: { roster: { churchId: pilot.churchId, organizationId: pilot.organizationId, status: "PUBLISHED", serviceAt: current.serviceAt } },
+        },
+        select: { slot: { select: { roster: { select: { id: true } } } } },
+        take: 1,
+      });
+      conflictRosterId = rows[0]?.slot?.roster?.id ?? null;
+    }
+    throwPreventive(scheduleCommitDecision({
+      missingResponsible,
+      conflictRosterId,
+      mode: conflictRosterId ? await this.scheduleConflictMode(pilot) : "warn",
+      acknowledge,
+    }));
+  }
+
+  private async scheduleConflictMode(pilot: { organizationId: string; churchId: string }): Promise<unknown> {
+    const db = this.prisma as unknown as {
+      systemSettingCatalog?: { findUnique: (args: unknown) => Promise<{ devJson: unknown } | null> };
+      systemSettingRevision?: { findFirst: (args: unknown) => Promise<{ valueJson: unknown } | null> };
+    };
+    const published = db.systemSettingRevision?.findFirst
+      ? await db.systemSettingRevision.findFirst({
+        where: {
+          catalogKey: "service_orders.schedule_conflict",
+          lifecycle: "PUBLISHED",
+          organizationId: pilot.organizationId,
+          churchId: pilot.churchId,
+        },
+        orderBy: { effectiveFrom: "desc" },
+        select: { valueJson: true },
+      })
+      : null;
+    if (published) return published.valueJson;
+    if (!db.systemSettingCatalog?.findUnique) return "warn";
+    const catalog = await db.systemSettingCatalog.findUnique({
+      where: { key: "service_orders.schedule_conflict" },
+      select: { devJson: true },
+    });
+    return catalog?.devJson ?? "warn";
   }
 
   /** Evita atribuir pessoa de outra congregação ao roteiro, mesmo com ID válido. */

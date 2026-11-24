@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost, loadStoredToken } from "../../lib/api";
 import { dasError } from "../../lib/das-operations";
+import { readPreventiveConflict } from "../../lib/preventive-conflict";
 import { withBasePath } from "../../lib/paths";
 import { readPanel } from "../../lib/panel-read";
 import { UIIcon } from "../ui/UIIcon";
@@ -31,7 +32,11 @@ export function ConnectionJourney({ compact = false }: { compact?: boolean }) {
       setAttempt(value => value + 1);
       setMessage("Inscrição confirmada.");
     } catch (error) {
-      setEnrollmentError(dasError(error));
+      const conflict = readPreventiveConflict(error);
+      if (conflict?.code === "CONNECTION_TRAIL_ALREADY_LINKED") {
+        setMessage(conflict.message);
+        setAttempt(value => value + 1);
+      } else setEnrollmentError(conflict?.message ?? dasError(error));
     } finally {
       setEnrolling(false);
     }

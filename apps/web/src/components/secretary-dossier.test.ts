@@ -90,6 +90,7 @@ describe("contrato de PATCH da ficha 360", () => {
       "isMinor",
       "legalGuardianPersonId",
       "householdId",
+      "confirmHouseholdMove",
       "expectedUpdatedAt",
     ]);
     expect(REGULATED_PERSON_FIELDS.map((field) => field.key)).toEqual(["status", "kind"]);

@@ -122,6 +122,20 @@ export function SecretaryDossier({
     event.preventDefault();
     if (!state.form || !state.baseline || !canEdit) return;
     const started = performance.now();
+    const movingHousehold = Boolean(
+      state.form.householdId
+      && state.baseline.householdId
+      && state.form.householdId !== state.baseline.householdId,
+    );
+    if (movingHousehold && !(await confirm({
+      title: "Mover o vínculo de família?",
+      description: "Esta pessoa já está em uma família. A mudança tira o vínculo atual e não lista os outros integrantes. O histórico da ficha é mantido.",
+      action: "Mover vínculo",
+      cancel: "Manter família atual",
+    }))) {
+      dispatch({ type: "save-unchanged" });
+      return;
+    }
     dispatch({ type: "saving" });
     const saved = await savePersonDossier(
       client,
@@ -130,6 +144,7 @@ export function SecretaryDossier({
       state.form,
       state.baseline,
       state.versions,
+      movingHousehold ? { confirmHouseholdMove: true } : undefined,
     );
     if (!saved.ok) {
       if ("unchanged" in saved) dispatch({ type: "save-unchanged" });

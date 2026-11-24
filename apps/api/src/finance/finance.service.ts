@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { BusinessException } from "../common/business.exception";
 import {
   BadRequestException,
   ConflictException,
@@ -15,6 +16,8 @@ import {
   hasAccess,
   ROLE_CODES,
   checkBalancedLines,
+  ledgerDuplicateDecision,
+  PREVENTIVE_COPY,
   isBankStatementAccount,
   isMercadoPagoStatementAccount,
   isValidCompetence,
@@ -526,6 +529,9 @@ export class FinanceService {
       costCenterId?: string;
       competenceYear?: number;
       competenceMonth?: number;
+      reviewDuplicates?: boolean;
+      duplicateExistingId?: string;
+      duplicateJustification?: string;
     },
     expenseId?: string,
   ) {
@@ -596,6 +602,48 @@ export class FinanceService {
 
     const submittedAt = expenseId ? new Date() : null;
     return this.prisma.$transaction(async (tx) => {
+      let duplicateJustification: string | undefined;
+      if (!expenseId && input.reviewDuplicates) {
+        const candidate = await tx.ledgerEntry.findFirst({
+          where: {
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+            entryDate,
+            amountCents: balance.amountCents,
+            description: { equals: description, mode: "insensitive" },
+            reversalOfEntryId: null,
+            status: { not: "REJECTED" },
+          },
+          select: { id: true, status: true, description: true, entryDate: true, amountCents: true },
+        });
+        const decision = ledgerDuplicateDecision({
+          review: true,
+          candidate: candidate ? {
+            id: candidate.id,
+            status: candidate.status,
+            description: candidate.description,
+            entryDate: candidate.entryDate.toISOString().slice(0, 10),
+            amountCents: candidate.amountCents,
+          } : null,
+          duplicateExistingId: input.duplicateExistingId,
+          duplicateJustification: input.duplicateJustification,
+        });
+        if (decision.action === "conflict" && candidate) {
+          throw new BusinessException(
+            PREVENTIVE_COPY.LEDGER_POSSIBLE_DUPLICATE.message,
+            "LEDGER_POSSIBLE_DUPLICATE",
+            409,
+            { existing: {
+              id: candidate.id,
+              status: candidate.status,
+              description: candidate.description,
+              entryDate: candidate.entryDate.toISOString().slice(0, 10),
+              amountCents: candidate.amountCents,
+            } },
+          );
+        }
+        duplicateJustification = decision.justification;
+      }
       const row = await tx.ledgerEntry.create({
         data: {
           organizationId: pilot.organizationId,
@@ -642,6 +690,7 @@ export class FinanceService {
             costCenterId,
             competenceYear,
             competenceMonth,
+            ...(duplicateJustification ? { duplicateExistingId: input.duplicateExistingId, duplicateJustification } : {}),
           },
         },
       });

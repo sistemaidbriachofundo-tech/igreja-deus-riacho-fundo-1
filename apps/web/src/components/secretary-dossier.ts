@@ -18,6 +18,7 @@ export const PATCHABLE_PERSON_FIELDS = [
   "isMinor",
   "legalGuardianPersonId",
   "householdId",
+  "confirmHouseholdMove",
   "expectedUpdatedAt",
 ] as const;
 
@@ -124,6 +125,7 @@ export type PersonPatchBody = PersonProfileFields & {
   isMinor?: boolean;
   legalGuardianPersonId?: string | null;
   householdId?: string | null;
+  confirmHouseholdMove?: boolean;
   expectedUpdatedAt?: string;
 };
 
@@ -542,6 +544,7 @@ export async function savePersonDossier(
   current: EditablePersonFields,
   baseline: EditablePersonFields,
   versions: DossierVersions,
+  options?: { confirmHouseholdMove?: boolean },
 ): Promise<
   | { ok: true; person: PersonRecord | null; membershipRoles?: { id: string; roles: EcclesiasticalRole[] } }
   | { ok: false; unchanged: true }
@@ -570,6 +573,9 @@ export async function savePersonDossier(
     baseline,
     versions.personUpdatedAt,
   );
+  if (personPatch && options?.confirmHouseholdMove && personPatch.householdId) {
+    personPatch.confirmHouseholdMove = true;
+  }
   const notesPatch = buildMembershipNotesPatch(current, baseline, versions);
   if (!personPatch && !notesPatch) return { ok: false, unchanged: true };
 

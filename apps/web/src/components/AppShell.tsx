@@ -696,6 +696,7 @@ export function AppShell({
                 Aniversariantes: <UIIcon name="birthday" size={18} />,
                 Pastoral: <UIIcon name="family" size={18} />,
                 Louvor: <UIIcon name="roster" size={18} />,
+                Eventos: <UIIcon name="ticket" size={18} />,
                 "Grupos de Amizade": <UIIcon name="people" size={18} />,
               }} />}
             {accessKind === "ready" ? (

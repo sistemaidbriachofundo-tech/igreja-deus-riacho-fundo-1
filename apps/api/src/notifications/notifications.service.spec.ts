@@ -81,4 +81,26 @@ describe("NotificationsService", () => {
       expect.objectContaining({ href: "/app/pastoral/admissoes/?protocolo=admission-1" }),
     ]));
   });
+
+  it("PASS membro vê a própria inscrição e a secretaria vê a autorização, sem ingresso", async () => {
+    const updatedAt = new Date();
+    const eventRegistration = { findMany: jest.fn(async ({ where }: { where: { registrantPersonId?: string; guardianAuthStatus?: string } }) => {
+      if (where.guardianAuthStatus === "PENDING") return [{ id: "reg-2", status: "CONFIRMED", updatedAt, event: { name: "Retiro sintético" } }];
+      if (where.registrantPersonId === "me") return [{ id: "reg-1", status: "PENDING_PAYMENT", updatedAt, event: { name: "Retiro sintético" } }];
+      return [];
+    }) };
+    const scoped = new NotificationsService(
+      { eventRegistration, workspaceNotificationRead: { findMany: jest.fn().mockResolvedValue([]) }, ministry: { findMany: jest.fn().mockResolvedValue([]) }, rosterAssignment: { findMany: jest.fn().mockResolvedValue([]) }, ledgerEntry: { findMany: jest.fn().mockResolvedValue([]) }, admissionProtocol: { findMany: jest.fn().mockResolvedValue([]) }, auditLog: { findMany: jest.fn().mockResolvedValue([]) } } as never,
+      { getPilotChurch: async () => ({ churchId: "riacho", organizationId: "church-org" }) } as never,
+      { list: jest.fn().mockResolvedValue({ notices: [] }) } as never,
+      { inbox: jest.fn().mockResolvedValue([]) } as never,
+    );
+    const scope = { organizationId: "church-org", churchId: "riacho" };
+    const member = await scoped.list({ userId: "user-me", personId: "me", email: "user@example.test", ...scope, grants: [{ roleCode: "MEMBRO", ...scope }] });
+    expect(member.items.map(item => item.id)).toEqual(["event-payment:reg-1"]);
+    expect(JSON.stringify(member)).not.toMatch(/checkInCode|notificationEmail/);
+    const secretary = await scoped.list({ userId: "user-sec", personId: "sec", email: "sec@example.test", ...scope, grants: [{ roleCode: "SECRETARIA", ...scope }] });
+    expect(secretary.items.map(item => item.id)).toEqual(["event-guardian:reg-2"]);
+    expect(JSON.stringify(secretary)).not.toMatch(/checkInCode|displayName/);
+  });
 });

@@ -23,6 +23,8 @@ export type NewPersonProfile = {
 type Props = {
   name: string;
   email: string;
+  document: string;
+  documentError: string;
   profile: NewPersonProfile;
   families: Array<{ id: string; label: string }>;
   token: string;
@@ -30,11 +32,12 @@ type Props = {
   busy: boolean;
   onName: (value: string) => void;
   onEmail: (value: string) => void;
+  onDocument: (value: string) => void;
   onProfile: (next: NewPersonProfile) => void;
 };
 
 export function NewPersonIntake({
-  name,email,profile,families,token,roles,busy,onName,onEmail,onProfile,
+  name,email,document,documentError,profile,families,token,roles,busy,onName,onEmail,onDocument,onProfile,
 }: Props) {
   const update = (patch: Partial<NewPersonProfile>) => onProfile({...profile,...patch});
   const isMinor = profile.birthDate ? personUnder18(profile.birthDate) : profile.isMinor;
@@ -53,6 +56,13 @@ export function NewPersonIntake({
           </label>
           <label>E-mail de homologação <small>Obrigatório</small>
             <input id="intake-person-email" type="email" required value={email} onChange={e=>onEmail(e.target.value)} maxLength={254} placeholder="pessoa@example.test" autoComplete="off"/>
+          </label>
+          <label className={s.wide}>CPF para evitar cadastro duplicado <small>Opcional</small>
+            <input id="intake-person-document" inputMode="numeric" autoComplete="off" value={document}
+              aria-invalid={documentError ? true : undefined} aria-describedby={documentError ? "intake-person-document-error" : undefined}
+              onChange={e=>onDocument(e.target.value)} maxLength={14} placeholder="Somente números"/>
+            <small>O número não fica gravado. Usamos só para apontar uma ficha já existente, sem mostrar o documento de outra pessoa.</small>
+            {documentError && <p id="intake-person-document-error" role="alert">{documentError}</p>}
           </label>
           <label>Data de nascimento
             <input type="date" value={profile.birthDate} onChange={e=>update({birthDate:e.target.value,isMinor:personUnder18(e.target.value)})}/>

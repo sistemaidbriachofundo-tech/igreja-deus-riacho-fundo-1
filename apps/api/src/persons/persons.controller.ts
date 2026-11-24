@@ -83,6 +83,10 @@ export class PatchPersonBody implements PatchPersonRequest {
   householdId?: string | null;
 
   @IsOptional()
+  @IsBoolean()
+  confirmHouseholdMove?: boolean;
+
+  @IsOptional()
   @IsISO8601()
   expectedUpdatedAt?: string;
 

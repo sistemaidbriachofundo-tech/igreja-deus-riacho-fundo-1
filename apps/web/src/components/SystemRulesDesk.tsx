@@ -34,6 +34,10 @@ const descriptions: Record<string, string> = {
   "notices.birthday.timezone": "Fuso usado para decidir o dia civil dos aniversariantes.",
   "rosters.survey.open_day": "Dia do mês em que a pesquisa de disponibilidade da escala abre.",
   "events.agenda.keep_days_after_end": "Quantos dias um evento permanece na agenda pública depois de terminar.",
+  "secretaria.homonym_warning": "Pede confirmação quando o nome já existe. Nunca bloqueia o cadastro e não mostra contato nem documento.",
+  "secretaria.identity_exact": "E-mail ou CPF já usado abre a ficha existente. Esta conferência não pode ser desligada.",
+  "household.move_requires_confirmation": "Mudar uma pessoa de família sempre pede confirmação. A gestão não dispensa essa etapa.",
+  "service_orders.schedule_conflict": "Avisar pede confirmação. Impedir recusa aprovar ou publicar enquanto a pessoa estiver na escala do mesmo horário.",
 };
 const birthdayZones = ["America/Sao_Paulo", "America/Manaus", "America/Rio_Branco", "America/Noronha", "America/Cuiaba", "America/Belem", "America/Fortaleza", "America/Recife", "America/Bahia", "America/Porto_Velho", "America/Boa_Vista", "America/Campo_Grande", "America/Maceio", "America/Santarem", "America/Araguaina"];
 const zoneLabel = (value: string) => value === "America/Sao_Paulo" ? "Horário de Brasília" : value.replace("America/", "").replace(/_/g, " ");
@@ -46,7 +50,7 @@ const statuses: Record<string, string> = { DRAFT: "Rascunho", IN_REVIEW: "Em rev
 const scopes: Record<string, string> = { CHURCH: "Congregação", PLATFORM: "Plataforma", MINISTRY: "Ministério", MODULE: "Módulo", GROUP: "Grupo", TRACK: "Trilha" };
 const formatDate = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
-const ruleIcons: Record<string, GlyphName> = { auth: "shield", notices: "birthday", pastoral: "people", events: "ticket", finance: "wallet", rosters: "roster", credentials: "badge" };
+const ruleIcons: Record<string, GlyphName> = { auth: "shield", notices: "birthday", pastoral: "people", events: "ticket", finance: "wallet", rosters: "roster", credentials: "badge", secretaria: "badge", household: "family", service_orders: "calendar" };
 
 function valueLabel(item: Setting, value: unknown, pastors: Pastor[]) {
   if (item.key.startsWith("pastoral.")) return value ? pastors.find(p => p.id === value)?.name ?? "Pastor fora da lista atual" : "Pela ordem de vínculo pastoral";
@@ -54,6 +58,8 @@ function valueLabel(item: Setting, value: unknown, pastors: Pastor[]) {
   if (item.key === "events.agenda.keep_days_after_end") return value === 0 ? "Some ao terminar" : String(value) + " dias";
   if (item.key === "notices.birthday.timezone" && typeof value === "string") return zoneLabel(value);
   if (item.valueType === "number") return String(value) + (value === 1 ? " hora" : " horas");
+  if (item.key === "service_orders.schedule_conflict") return value === "block" ? "Impedir a publicação" : "Avisar e pedir confirmação";
+  if (item.key === "secretaria.homonym_warning") return value === false ? "Somente o cadastro exato" : "Avisar e permitir continuar";
   if (typeof value === "boolean") return value ? "Ativo" : "Desativado";
   if (value === "mock") return "Simulação";
   if (value === "ecclesiastical") return "Situação e cargo eclesiástico";
@@ -229,9 +235,14 @@ function RuleEditor({ item, onClose }: { item: Setting; onClose: () => void }) {
       }}>
         {pastorRule ? <Select label="Pastor designado" value={draftValue} onChange={e => setDraftValue(e.target.value)}
           options={[{ value: "", label: "Usar a ordem de vínculo pastoral" }, ...(draftValue && !pastors.some(p => p.id === draftValue) ? [{ value: draftValue, label: "Pastor fora da lista atual" }] : []), ...pastors.map(p => ({ value: p.id, label: p.name }))]} />
-          : item.valueType === "boolean" ? <Select label="Bloqueio de escala na mesma semana" value={draftValue}
+          : item.key === "service_orders.schedule_conflict" ? <Select label="Quando a escala ocupa o mesmo horário" value={draftValue === "block" ? "block" : "warn"}
             onChange={event => setDraftValue(event.target.value)}
-            options={[{ value: "true", label: "Ativo: não repetir na mesma semana" }, { value: "false", label: "Desativado: permitir quando as outras regras aceitarem" }]} />
+            options={[{ value: "warn", label: "Avisar e pedir confirmação" }, { value: "block", label: "Impedir a publicação" }]} />
+          : item.valueType === "boolean" ? <Select label={item.key === "secretaria.homonym_warning" ? "Aviso de homônimo" : "Bloqueio de escala na mesma semana"} value={draftValue}
+            onChange={event => setDraftValue(event.target.value)}
+            options={item.key === "secretaria.homonym_warning"
+              ? [{ value: "true", label: "Avisar e permitir continuar" }, { value: "false", label: "Não avisar homônimo" }]
+              : [{ value: "true", label: "Ativo: não repetir na mesma semana" }, { value: "false", label: "Desativado: permitir quando as outras regras aceitarem" }]} />
           : item.key === "notices.birthday.timezone" ? <Select label="Fuso do aviso de aniversário" value={draftValue}
             onChange={event => setDraftValue(event.target.value)}
             options={birthdayZones.map(zone => ({ value: zone, label: zoneLabel(zone) }))} />
