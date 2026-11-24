@@ -464,3 +464,10 @@
 /* Tesouraria: base neutra, ouro apenas para destaque financeiro; estados com semântica. */
 .panel :is(button,input,select,textarea,a):focus-visible { outline: 3px solid #171717; outline-offset: 2px; }
 .metric, .card { border-color: #e0e4e7; border-radius: 14px; }
+
+/* Contextual duplicate review shares the existing workspace confirmation dialog. */
+.duplicateReview { display:grid; gap:12px; min-width:0; text-align:left; }
+.duplicateReview a { color:var(--app-ink,#242424); text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.duplicateReview label { display:grid; gap:6px; color:var(--app-ink,#242424); font-size:.88rem; font-weight:600; }
+.duplicateReview textarea { width:100%; min-height:92px; box-sizing:border-box; resize:vertical; border:1px solid #b8bec5; border-radius:10px; background:#fff; color:#171717; padding:10px 12px; font:inherit; }
+.duplicateReview textarea:focus-visible { outline:2px solid #171717; outline-offset:2px; }

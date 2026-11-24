@@ -5,6 +5,7 @@ import { AppNavLink, UIIcon, usePersonaAccess } from "./AppShell";
 
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useFeedback } from "./ui/FeedbackProvider";
+import { readDuplicateConflict } from "../lib/duplicate-conflict";
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { nextDualApprovalStage } from "@idbrf/shared";
@@ -530,9 +531,56 @@ export function TreasuryPanel() {
           action: "Enviar ao pastor",
         }))) return;
         if (!intent.current) intent.current = crypto.randomUUID();
-        const entry = await apiPost<{ status: string }>("/ledger/expenses", token, {
-          ...common, requestId: intent.current, expenseAccountId: primary, cashAccountId: secondary, amountCents,
-        });
+        const payload = { ...common, requestId: intent.current, expenseAccountId: primary, cashAccountId: secondary, amountCents };
+        let entry: { status: string };
+        try {
+          entry = await apiPost<{ status: string }>("/ledger/expenses", token, payload);
+        } catch (issue) {
+          const duplicate = readDuplicateConflict(issue);
+          if (!duplicate || duplicate.code === "EVENT_REGISTRATION_DUPLICATE") throw issue;
+          const prior = duplicate.existing;
+          const details = <dl className={styles.expenseReview}>
+            <div><dt>Descrição</dt><dd>{prior.description}</dd></div>
+            <div><dt>Valor</dt><dd>{formatBRL(prior.amountCents)}</dd></div>
+            <div><dt>Data</dt><dd>{displayDate(prior.entryDate)}</dd></div>
+            <div><dt>Situação</dt><dd>{statusLabel(prior.status)}</dd></div>
+          </dl>;
+          if (duplicate.code === "LEDGER_DUPLICATE_CONFIRMED") {
+            const viewExisting = await confirm({
+              title: "Lançamento já registrado",
+              description: "O mesmo lançamento foi identificado. Nenhuma nova despesa foi criada.",
+              content: details,
+              action: "Consultar lançamento", cancel: "Voltar",
+            });
+            if (viewExisting) {
+              setCenter(null); setFrom(""); setTo(""); setTargetExpense(prior.id);
+              openView("despesas"); setRevision(value => value + 1);
+            }
+            return;
+          }
+          let justification = "";
+          const proceed = await confirm({
+            title: "Possível lançamento duplicado",
+            description: "Confira a despesa existente. Continue somente se for uma obrigação diferente; a justificativa ficará registrada na auditoria.",
+            content: <div className={styles.duplicateReview}>
+              {details}
+              <a href={"?despesa=" + encodeURIComponent(prior.id) + "#despesas"} target="_blank" rel="noopener noreferrer">Consultar lançamento existente (nova aba)</a>
+              <label>Justificativa (mínimo de 10 caracteres)
+                <textarea rows={3} minLength={10} maxLength={500} onChange={event => { justification = event.currentTarget.value; }}
+                  placeholder="Explique por que este é um lançamento diferente." />
+              </label>
+            </div>,
+            action: "Registrar com justificativa", cancel: "Revisar lançamento",
+          });
+          if (!proceed) return;
+          if (justification.trim().length < 10) {
+            showFeedback({ tone: "warning", title: "Justificativa necessária", message: "Nenhuma despesa foi criada. Informe pelo menos 10 caracteres ao confirmar a duplicidade." });
+            return;
+          }
+          entry = await apiPost<{ status: string }>("/ledger/expenses", token, {
+            ...payload, duplicateExistingId: prior.id, duplicateJustification: justification.trim(),
+          });
+        }
         success = entry.status === "APPROVED"
           ? "Esta despesa já foi aprovada pelo pastor."
           : "Despesa registrada e encaminhada para aprovação do pastor.";
