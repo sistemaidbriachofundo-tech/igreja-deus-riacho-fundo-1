@@ -141,6 +141,28 @@ try {
 
     console.log("AUTH VISUAL", width, failures ? "CHECK" : "PASS", JSON.stringify(shell));
     await context.close();
+    // Log in through the real member UI in a clean browser session.
+    const member = await browser.newContext({viewport:{width,height:930}, locale:"pt-BR",timezoneId:"America/Sao_Paulo"});
+    const memberPage = await member.newPage();
+    try {
+      await memberPage.goto(root + "/login/", {waitUntil:"domcontentloaded"});
+      await memberPage.getByLabel("E-mail", {exact:true}).fill("membro.sintetico@example.test");
+      await memberPage.getByLabel("Senha", {exact:true}).fill(password);
+      await memberPage.locator('button[type="submit"]').click();
+      await memberPage.waitForURL(url => url.pathname === "/app/", {timeout:20000});
+      const next = memberPage.locator('[data-member-next="scheduled"]');
+      await next.waitFor({state:"visible",timeout:20000});
+      const cta = memberPage.getByRole("link",{name:"Responder à escala"});
+      await cta.waitFor({state:"visible"});
+      if (!(await memberPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2))) {
+        failures++; console.error("FAIL: member dashboard overflow",width);
+      }
+      await memberPage.screenshot({path:output+"/membro-inicio-"+width+".png",fullPage:false});
+      if (!(await cta.getAttribute("href"))?.includes("#escala-qa-member-future")) {
+        failures++; console.error("FAIL: member assignment target",width);
+      }
+    } finally { await member.close(); }
+
   }
 } finally {
   await browser.close();
