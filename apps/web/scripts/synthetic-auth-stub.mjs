@@ -116,6 +116,27 @@ const server = createServer((req, res) => {
     send(req, res, 200, session.user);
     return;
   }
+  // Isolated, read-only fixture for the real ministry roster page visual regression.
+  if (req.method === "GET" && session.user.grants.some(grant => grant.roleCode === "PLATFORM_ADMIN")) {
+    const ministryId = "qa-visual-louvor";
+    const scope = "/ministry-scope/" + ministryId;
+    if (url.pathname === "/ministries") {
+      send(req, res, 200, { ministries: [{ id: ministryId, name: "Louvor (sintético)", slug: "louvor" }] });
+      return;
+    }
+    if (url.pathname === scope + "/formal-memberships") { send(req, res, 200, { members: [] }); return; }
+    if (url.pathname === scope + "/agenda") { send(req, res, 200, { blocked: false, items: [] }); return; }
+    if (url.pathname === scope + "/requests") { send(req, res, 200, { blocked: false, requests: [] }); return; }
+    if (url.pathname === scope + "/cost-center-balance") { send(req, res, 200, { currency: "BRL", configured: false, balanceCents: null }); return; }
+    if (url.pathname === "/rosters/by-ministry/" + ministryId) {
+      const month = new Intl.DateTimeFormat("sv-SE", {timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit"}).format(new Date());
+      send(req, res, 200, {
+        ministryId, modules: [{ id: "qa-visual-equipe", name: "Equipe sintética" }],
+        permissions: { scope: "ministry", manageRosterMonth: true, manageModuleMemberships: true },
+        rosters: [{ id: "qa-visual-culto", ministryId, moduleId: "qa-visual-equipe", title: "Culto sintético", serviceAt: month + "-15T13:00:00.000Z", status: "DRAFT", slots: [{ id: "qa-visual-slot", roleLabel: "Voz", assignments: [] }] }],
+      }); return;
+    }
+  }
   if (req.method === "GET" && (url.pathname === "/memberships" || url.pathname === "/admissions" || url.pathname === "/households")) {
     const key = url.pathname.slice(1);
     send(req, res, 200, { [key]: [] });
