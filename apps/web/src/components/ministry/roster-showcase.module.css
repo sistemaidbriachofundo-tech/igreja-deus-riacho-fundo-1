@@ -82,3 +82,41 @@
   .teamLine p, .teamActions { grid-column: 1 / -1; }
   .teamActions { justify-content: start; }
 }
+
+/* Escalas: heading + action bar, same density and controls as the workspace. */
+.monthlyHero {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px; padding: 16px;
+}
+.heroHeading {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px 16px; min-width: 0;
+}
+.heroHeading > div { min-width: 0; flex: 1 1 220px; }
+.heroHeading h2 { font-size: clamp(1.15rem, 1.6vw, 1.5rem); }
+.heroHeading p { margin: 5px 0 0; font-weight: 400; font-size: .85rem; }
+.heroShortcut {
+  display: inline-flex; align-items: center; min-height: 44px;
+  color: var(--app-muted, #535353); font-size: .82rem; font-weight: 650;
+  text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere;
+}
+.heroActions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start;
+  max-width: none; gap: 8px; min-width: 0;
+}
+.heroActions > * { flex: 0 1 auto; max-width: 100%; min-width: 0; }
+.heroActions > .heroEditor { display: grid; min-width: 0; flex: 0 1 auto; }
+.heroEditor > div { width: auto; min-width: 0; gap: 0; }
+.heroEditor:has(form) { flex: 1 0 100%; order: 2; }
+.heroEditor:has(form) > div { width: 100%; gap: 12px; }
+.heroEditor:has(form) form { width: 100%; }
+.heroActions :is(.secondary,.lime) { min-height: 44px; justify-content: center; }
+.heroActions :is(.secondary,.lime) svg { flex: none; }
+@media (max-width: 480px) {
+  .monthlyHero { padding: 12px; gap: 10px; }
+  .heroHeading > div { flex-basis: 100%; }
+  .heroHeading { gap: 0; }
+  .heroActions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .heroActions > *, .heroActions > .heroEditor, .heroEditor > div > button { width: 100%; min-width: 0; }
+  .heroActions :is(.secondary,.lime) { white-space: normal; text-align: center; }
+}
