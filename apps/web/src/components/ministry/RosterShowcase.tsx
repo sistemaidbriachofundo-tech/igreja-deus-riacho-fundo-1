@@ -267,7 +267,7 @@ export function RosterShowcase({ ministryId, ministryName, panel, escalaId, shor
           onClick={() => setTool(louvor || modules.length ? "draw" : "modules")}>
           <UIIcon name="spark" size={17} /> {louvor ? "Sortear escala do mês" : modules.length ? "Gerar escala do mês" : "Configurar e gerar escala"}
         </button>}
-        {access && canPublishMonth && <button type="button" className={s.lime} disabled={Boolean(publishing) || !monthDrafts.length}
+        {access && canPublishMonth && <button type="button" className={s.secondary} disabled={Boolean(publishing) || !monthDrafts.length}
           title={!monthDrafts.length ? "Este mês não tem rascunhos com vagas para publicar" : undefined}
           onClick={() => void publishMonth()}>
           <UIIcon name="check" size={17} /> {publishing === "month" ? "Publicando mês…" : "Publicar escala do mês"}

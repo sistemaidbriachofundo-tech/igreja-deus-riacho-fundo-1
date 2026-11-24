@@ -18,7 +18,7 @@
   --app-ink: #f4f4f4;
   --app-accent: #f4f4f4;
   --app-subtle: #505050;
-  background: linear-gradient(113deg, #172827, #234740);
+  background: var(--shell-forest, #171717);
   border-radius: var(--app-radius, 9px);
   padding: clamp(14px, 1.8vw, 24px) clamp(16px, 2.5vw, 34px);
 }

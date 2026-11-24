@@ -113,6 +113,10 @@ try {
     const publish = toolbar.getByRole("button", { name: "Publicar escala do mês", exact: true });
     await Promise.all([create.waitFor(), draw.waitFor(), publish.waitFor()]);
     const boxes = await Promise.all([create.boundingBox(), draw.boundingBox(), publish.boundingBox()]);
+    const actionBackground = button => button.evaluate(element => getComputedStyle(element).backgroundColor);
+    if (await actionBackground(draw) === await actionBackground(publish)) {
+      throw new Error(`Gerar e publicar têm o mesmo destaque visual em ${width}px.`);
+    }
     const toolbarBox = await toolbar.boundingBox();
     const contained = toolbarBox && boxes.every(box => box && box.height >= 43 &&
       box.x >= toolbarBox.x - 2 && box.x + box.width <= toolbarBox.x + toolbarBox.width + 2);
