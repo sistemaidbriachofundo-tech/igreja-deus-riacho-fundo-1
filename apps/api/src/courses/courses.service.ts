@@ -367,7 +367,10 @@ export class CoursesService {
     organizationId: string,
     churchId: string,
   ): void {
-    if (!canLeadMinistry(actor.grants, { organizationId, churchId })) {
+    // Cursos/EBD são da congregação, não de um ministério: grant restrito a
+    // um ministryId não alcança cursos de outros ministérios.
+    const churchWideGrants = actor.grants.filter((grant) => !grant.ministryId);
+    if (!canLeadMinistry(churchWideGrants, { organizationId, churchId })) {
       throw new ForbiddenException(
         "Sem permissão para operar cursos/EBD nesta congregação",
       );

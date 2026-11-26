@@ -186,9 +186,11 @@ export class ViviService {
     const refusedSensitive = lastUser
       ? detectSensitiveUserIntent(lastUserText)
       : false;
-    const refusedInjection = lastUser
-      ? detectPromptInjection(lastUserText)
-      : false;
+    // O histórico vem do cliente: turnos anteriores (inclusive "assistant"
+    // forjado) também chegam ao modelo e precisam passar pelo filtro.
+    const refusedInjection = messages.some(
+      (m) => m.role !== "system" && detectPromptInjection(m.content),
+    );
     const refused = refusedSensitive || refusedInjection;
 
     const started = Date.now();

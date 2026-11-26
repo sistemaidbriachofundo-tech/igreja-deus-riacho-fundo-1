@@ -246,6 +246,13 @@ const EVENT_STAFF = [
   ROLE_CODES.PLATFORM_ADMIN,
 ] as const;
 
+/** Dar uma inscrição como paga sem lançamento contábil não cabe a líder de ministério. */
+const EVENT_PAYMENT_STAFF = [
+  ROLE_CODES.SECRETARIA,
+  ROLE_CODES.PASTOR,
+  ROLE_CODES.PLATFORM_ADMIN,
+] as const;
+
 @Controller("events")
 export class EventsController {
   constructor(
@@ -524,7 +531,7 @@ export class RegistrationsController {
   }
 
   /** Confirma pagamento externo (Pix/transferência) sem gateway — staff only. */
-  @Roles(...EVENT_STAFF)
+  @Roles(...EVENT_PAYMENT_STAFF)
   @Post(":registrationId/confirm-manual-payment")
   confirmManualPayment(
     @CurrentUser() user: AuthUser,

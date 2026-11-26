@@ -32,6 +32,23 @@ if (!/Igreja de Deus/i.test(html)) {
   fail("index.html não parece o portal da igreja");
 }
 
+const loginPath = join(outDir, "login", "index.html");
+if (!existsSync(loginPath)) {
+  fail("login/index.html ausente — portal sem tela de acesso");
+}
+const loginHtml = readFileSync(loginPath, "utf8");
+if (
+  loginHtml.includes("O acesso ao painel está indisponível") ||
+  !/<button\b(?=[^>]*\btype="submit")(?![^>]*\bdisabled\b)[^>]*>/i.test(loginHtml)
+) {
+  fail(
+    "login desabilitado no HTML — rebuild com NEXT_PUBLIC_ADMIN_PRODUCTION=true e NEXT_PUBLIC_API_URL=https://api.igrejadeusrf1.com.br (ver deploy/prod/apex-guards.md)",
+  );
+}
+if (!/<input[^>]+type="email"/i.test(loginHtml) || !/<input[^>]+type="password"/i.test(loginHtml)) {
+  fail("login sem campos email/senha");
+}
+
 const releasePath = join(outDir, "release.json");
 if (existsSync(releasePath)) {
   const release = JSON.parse(readFileSync(releasePath, "utf8"));

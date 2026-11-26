@@ -545,6 +545,13 @@ export class FinanceService {
           include: { lines: true },
         });
 
+        if (stage.stage === "SECOND" && row.reversalOfEntryId) {
+          await tx.ledgerEntry.update({
+            where: { id: row.reversalOfEntryId, status: "APPROVED" },
+            data: { status: "REVERSED" },
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             actorUserId: actor.userId,
@@ -669,6 +676,8 @@ export class FinanceService {
       });
     }
 
+    // O estorno segue a mesma dupla aprovação de qualquer lançamento: nasce
+    // pendente e o original só vira REVERSED na segunda aprovação.
     return this.prisma.$transaction(async (tx) => {
       const reversal = await tx.ledgerEntry.create({
         data: {
@@ -676,14 +685,12 @@ export class FinanceService {
           churchId: pilot.churchId,
           entryDate: new Date(),
           description: `Estorno de ${row.id}: ${row.description}`,
-          status: "APPROVED",
+          status: "PENDING_APPROVAL",
           amountCents: row.amountCents,
+          costCenterId: row.costCenterId,
+          fundId: row.fundId,
           createdByUserId: actor.userId,
           submittedAt: new Date(),
-          firstApprovedByUserId: actor.userId,
-          firstApprovedAt: new Date(),
-          secondApprovedByUserId: actor.userId,
-          secondApprovedAt: new Date(),
           reversalOfEntryId: row.id,
           lines: {
             create: row.lines.map((l) => ({
@@ -695,11 +702,6 @@ export class FinanceService {
           },
         },
         include: { lines: true },
-      });
-
-      await tx.ledgerEntry.update({
-        where: { id: row.id },
-        data: { status: "REVERSED" },
       });
 
       await tx.auditLog.create({

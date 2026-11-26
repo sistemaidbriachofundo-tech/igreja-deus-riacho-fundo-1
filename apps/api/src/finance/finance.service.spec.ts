@@ -348,9 +348,9 @@ describe("FinanceService", () => {
       secondApprovedAt: now,
     };
     const reversal = {
-      ...fullyApproved,
+      ...pending,
       id: "le-rev",
-      status: "APPROVED",
+      status: "PENDING_APPROVAL",
       reversalOfEntryId: "le1",
       description: "Estorno de le1: Oferta",
       lines: [
@@ -418,6 +418,68 @@ describe("FinanceService", () => {
 
     const rev = await service.reverseEntry(treasurer, "le1");
     expect(rev.reversalOfEntryId).toBe("le1");
+    expect(rev.status).toBe("PENDING_APPROVAL");
+    const created = tx.ledgerEntry.create.mock.calls[0][0].data;
+    expect(created).toMatchObject({ status: "PENDING_APPROVAL", createdByUserId: treasurer.userId });
+    expect(created.firstApprovedByUserId).toBeUndefined();
+    expect(created.secondApprovedByUserId).toBeUndefined();
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it("only marks the original REVERSED when a second, distinct approver approves the reversal", async () => {
+    const reversalPending = {
+      id: "le-rev",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      entryDate: now,
+      description: "Estorno de le1: Oferta",
+      status: "PENDING_APPROVAL",
+      amountCents: 1000,
+      createdByUserId: treasurer.userId,
+      submittedAt: now,
+      firstApprovedByUserId: treasurer2.userId,
+      firstApprovedAt: now,
+      secondApprovedByUserId: null,
+      secondApprovedAt: null,
+      rejectedByUserId: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      reversalOfEntryId: "le1",
+      importBatchId: null,
+      reconciliationId: null,
+      costCenterId: null,
+      fundId: null,
+      createdAt: now,
+      updatedAt: now,
+      lines: [],
+      reversedBy: null,
+    };
+    const update = jest
+      .fn()
+      .mockResolvedValueOnce({ ...reversalPending, status: "APPROVED", secondApprovedByUserId: "u-tesoura-3" })
+      .mockResolvedValueOnce({ id: "le1", status: "REVERSED" });
+    const tx = {
+      ledgerEntry: { update },
+      ledgerAccount: { findFirst: jest.fn() },
+      ledgerEntryLine: { groupBy: jest.fn().mockResolvedValue([]) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new FinanceService(
+      {
+        ...withTx(tx),
+        ledgerEntry: { findFirst: jest.fn().mockResolvedValue(reversalPending) },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    const third: AuthUser = { ...treasurer2, userId: "u-tesoura-3", personId: "p-tesoura-3" };
+
+    const approved = await service.approveEntry(third, "le-rev");
+    expect(approved.status).toBe("APPROVED");
+    expect(update).toHaveBeenNthCalledWith(2, {
+      where: { id: "le1", status: "APPROVED" },
+      data: { status: "REVERSED" },
+    });
   });
 
   it("submits and rejects entry", async () => {

@@ -82,7 +82,20 @@ export function toClientPayload(exception: unknown, requestId: string): ClientPa
       }),
     };
   }
+  const clientStatus = exposedClientStatus(exception);
+  if (clientStatus) {
+    return { status: clientStatus, body: toPublicError({ status: clientStatus, requestId }) };
+  }
   return { status: 500, body: toPublicError({ status: 500, requestId }) };
+}
+
+/** Erros `http-errors` do body-parser (413 corpo grande, 400 JSON malformado). */
+function exposedClientStatus(exception: unknown): number | null {
+  if (!exception || typeof exception !== "object") return null;
+  const err = exception as { expose?: unknown; status?: unknown; statusCode?: unknown };
+  const status = typeof err.status === "number" ? err.status : err.statusCode;
+  if (err.expose !== true || typeof status !== "number") return null;
+  return status >= 400 && status < 500 ? status : null;
 }
 
 export function toPublicReadiness(ok: boolean): { status: "ready" | "unavailable" } {

@@ -61,6 +61,29 @@ describe("CoursesService", () => {
     );
   });
 
+  it("forbids a leader scoped to one ministry from operating church-wide courses", async () => {
+    const service = new CoursesService(
+      {} as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+    const ministryLeader: AuthUser = {
+      userId: "u-ml",
+      personId: "p-ml",
+      email: "ml@example.test",
+      grants: [
+        {
+          roleCode: "LIDER_MINISTERIO",
+          organizationId: "org1",
+          churchId: "church-rf1",
+          ministryId: "min-louvor",
+        },
+      ],
+    };
+    await expect(service.listCourses(ministryLeader)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
   it("creates course and audits (distinct from discipleship)", async () => {
     const course = {
       id: "c1",
