@@ -45,7 +45,7 @@ export const BLOCKED_INTEGRATIONS = [
   {
     id: "messages",
     issue: "#128",
-    text: "Confirmar, recusar, designar e substituir por esta tela não envia WhatsApp, e-mail ou push. A substituição fica pendente até a pessoa aceitar em Meu Espaço. Publicar ainda pode gravar outbox mock no endpoint legado.",
+    text: "Confirmar, recusar, designar e substituir não disparam mensagem pela plataforma. O botão WhatsApp abre o aplicativo (ou WhatsApp Web) com texto pronto — o líder envia. A substituição fica pendente até a pessoa aceitar em Meu Espaço.",
   },
   {
     id: "design-system",
@@ -436,8 +436,12 @@ export function findSameDayBlocks(rosters: readonly RosterView[]): SimultaneousB
 export type PersonalAssignment = {
   id: string;
   status: AssignmentStatus;
+  substituteForId?: string;
   participation: "assignee" | "partner";
   roleLabel: string;
+  sector?: string | null;
+  zone?: string | null;
+  side?: string | null;
   title: string;
   serviceAt: string;
   rosterStatus: RosterStatus;
@@ -479,11 +483,16 @@ function parsePersonalAssignment(value: unknown): PersonalAssignment {
   if (!Number.isFinite(Date.parse(serviceAt))) {
     throw new Error("Formato inesperado: horário da agenda inválido.");
   }
+  const substituteForId = optionalString(row.substituteForId);
   return {
     id: requiredString(row.id, "atribuição"),
     status: oneOf(row.status, ASSIGNMENT_STATUSES, "estado da atribuição"),
+    ...(substituteForId ? { substituteForId } : {}),
     participation,
     roleLabel: requiredString(row.roleLabel, "função"),
+    ...(row.sector ? { sector: optionalString(row.sector) } : {}),
+    ...(row.zone ? { zone: optionalString(row.zone) } : {}),
+    ...(row.side ? { side: optionalString(row.side) } : {}),
     title: requiredString(row.title, "título da escala"),
     serviceAt,
     rosterStatus: oneOf(row.rosterStatus, ROSTER_STATUSES, "estado da escala"),

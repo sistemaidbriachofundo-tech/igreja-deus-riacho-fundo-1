@@ -37,12 +37,12 @@ function hrefs(html: string): string[] {
 }
 
 const MENU: Record<(typeof BUILTIN_ROLES)[number], string[]> = {
-  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "acessos", "editorial", "site"],
-  SECRETARIA: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "editorial", "site"],
-  PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "tesouraria", "editorial", "site"],
-  TESOURARIA: ["visao", "operacao", "tesouraria"],
-  LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco"],
-  MEMBRO: ["visao", "carteirinha", "meu-espaco"],
+  PLATFORM_ADMIN: ["visao", "membros", "secretaria", "conexao", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "acessos", "site"],
+  SECRETARIA: ["visao", "membros", "secretaria", "carteirinha", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "site"],
+  PASTOR: ["visao", "membros", "secretaria", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao", "tesouraria", "site"],
+  TESOURARIA: ["visao", "operacao", "eventos-gestao", "tesouraria"],
+  LIDER_MINISTERIO: ["visao", "conexao", "operacao", "ministerios", "escalas", "atmosfera", "meu-espaco", "eventos-gestao"],
+  MEMBRO: ["visao", "carteirinha", "meu-espaco", "eventos-membro"],
   EDITOR_SITE: ["visao", "site"],
   PUBLICADOR_SITE: ["visao", "site"],
 };
@@ -66,7 +66,7 @@ describe("menu por persona", () => {
     expect(keys).toContain("tesouraria");
     expect(keys).toContain("secretaria");
     expect(areasForRoles(["MEMBRO", "EDITOR_SITE"]).map(area => area.key)).toEqual(
-      ["visao", "carteirinha", "meu-espaco", "site"],
+      ["visao", "carteirinha", "meu-espaco", "eventos-membro", "site"],
     );
   });
 
@@ -75,7 +75,7 @@ describe("menu por persona", () => {
     expect(isMemberOnly(["MEMBRO", "SECRETARIA"])).toBe(false);
     expect(shellAreasForRoles(["SECRETARIA"]).map(area => area.key)).not.toContain("operacao");
     expect(shellAreasForRoles(["SECRETARIA"]).map(area => area.key)).not.toContain("meu-espaco");
-    expect(shellAreasForRoles(["MEMBRO"]).map(area => area.key)).toEqual(["visao", "carteirinha", "meu-espaco"]);
+    expect(shellAreasForRoles(["MEMBRO"]).map(area => area.key)).toEqual(["visao", "carteirinha", "meu-espaco", "eventos-membro"]);
     expect(areaAllowed(["SECRETARIA"], "operacao")).toBe(true);
     expect(areaAllowed(["MEMBRO"], "meu-espaco")).toBe(true);
     expect(shellAreasForRoles([], true).map(area => area.key)).not.toContain("operacao");
@@ -303,6 +303,19 @@ describe("grupo Ministérios e ferramentas", () => {
       "Todos os ministérios", "Homens", "Louvor", "Jovens",
     ]);
     expect(entries.filter(entry => entry.href === "/app/ministerios/?ministry=m-louvor")).toHaveLength(1);
+  });
+
+  it("oferece Escalas como submenu do Atmosfera autorizado", () => {
+    const areas = areasForRoles(["LIDER_MINISTERIO"]);
+    const entries = ministrySubmenu(areas, [
+      { id: "m-atm", name: "Atmosfera", slug: "atmosfera" },
+      { id: "m-louvor", name: "Louvor", slug: "louvor" },
+    ]);
+    expect(entries.find(entry => entry.label === "Atmosfera")?.scales).toEqual({
+      ministryId: "m-atm",
+      href: "/app/ministerios/?ministry=m-atm&aba=escalas",
+    });
+    expect(entries.find(entry => entry.label === "Louvor")?.scales).toBeUndefined();
   });
 
   it.each(BUILTIN_ROLES)("decide o grupo de ministérios e o canal conforme o papel %s", role => {

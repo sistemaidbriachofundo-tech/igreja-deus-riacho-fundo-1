@@ -26,7 +26,7 @@ function board(role: string) {
 }
 
 const TITLES: Record<string, string> = {
-  PLATFORM_ADMIN: "Painel administrativo",
+  PLATFORM_ADMIN: "Governança Ministerial",
   SECRETARIA: "Mesa da secretaria",
   PASTOR: "Mesa pastoral",
   TESOURARIA: "Mesa da tesouraria",
@@ -58,7 +58,6 @@ describe("mesa por persona", () => {
       "/indicators/summary",
       "/indicators/membership",
       "/admissions",
-      "/ministries",
       "/events",
       "/treasury/position",
     ]);
@@ -82,11 +81,12 @@ describe("mesa por persona", () => {
     expect(readFailure(new ApiRequestError("falha", 500, "http"))).toBe("error");
   });
 
-  it("membro navega só para a própria carteirinha e a própria escala", () => {
+  it("membro navega para a própria carteirinha, escala e eventos", () => {
     const html = board("MEMBRO");
     const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map(match => match[1] ?? "");
     expect(hrefs.some(href => href.endsWith("/app/membros/carteirinha/"))).toBe(true);
     expect(hrefs.some(href => href.endsWith("/app/servir/meu-espaco/"))).toBe(true);
+    expect(hrefs.some(href => href.endsWith("/app/eventos/"))).toBe(true);
     expect(hrefs.some(href => href.endsWith("/app/tesouraria/"))).toBe(false);
     expect(hrefs.some(href => href.endsWith("/app/secretaria/"))).toBe(false);
     expect(hrefs.some(href => href.endsWith("/app/membros/"))).toBe(false);

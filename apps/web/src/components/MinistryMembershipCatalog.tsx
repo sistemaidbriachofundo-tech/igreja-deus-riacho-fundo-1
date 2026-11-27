@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WorkspaceSearch } from "./ui/WorkspaceSearch";
 import type {
   ConversionResult,
   DeskReady,
@@ -156,18 +157,9 @@ export function MinistryMembershipCatalog({
               </div>
             ) : null}
             {members.length > 0 && (
-              <label className={styles.memberSearch}>
-                Buscar integrante por nome
-                <input
-                  type="search"
-                  value={query}
-                  placeholder="Nome da pessoa"
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    setPage(0);
-                  }}
-                />
-              </label>
+              <WorkspaceSearch className={styles.memberSearch}
+                aria-label="Buscar integrante por nome" value={query} placeholder="Buscar integrante por nome"
+                onChange={(event) => { setQuery(event.target.value); setPage(0); }} />
             )}
             {filtered.length > 0 ? (
               <div className={styles.people}>

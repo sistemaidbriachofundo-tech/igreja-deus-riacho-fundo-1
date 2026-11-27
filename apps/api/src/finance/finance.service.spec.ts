@@ -107,6 +107,23 @@ describe("FinanceService", () => {
     );
   });
 
+  it("permite ao administrador da congregação enviar OFX sem liberar a conciliação", async () => {
+    const admin = { ...treasurer, grants: [{ ...treasurer.grants[0], roleCode: "PLATFORM_ADMIN" }] };
+    const foreignAdmin = { ...admin, grants: [{ ...admin.grants[0], churchId: "outra-igreja" }] };
+    const accountLookup = jest.fn().mockResolvedValue({ ...accountRow, code: "1.1.10.01" });
+    const service = new FinanceService(
+      { ledgerAccount: { findFirst: accountLookup } } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    await expect(service.uploadBankStatement(admin, accountRow.id)).rejects.toBeInstanceOf(BadRequestException);
+    expect(accountLookup).toHaveBeenCalledWith({
+      where: { id: accountRow.id, organizationId: pilot.organizationId, churchId: pilot.churchId },
+    });
+    await expect(service.uploadBankStatement(foreignAdmin, accountRow.id)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.matchBankLine(admin, "line", { entryId: "entry" })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it("lists chart of accounts for TESOURARIA", async () => {
     const service = new FinanceService(
       {
@@ -331,9 +348,9 @@ describe("FinanceService", () => {
       secondApprovedAt: now,
     };
     const reversal = {
-      ...fullyApproved,
+      ...pending,
       id: "le-rev",
-      status: "APPROVED",
+      status: "PENDING_APPROVAL",
       reversalOfEntryId: "le1",
       description: "Estorno de le1: Oferta",
       lines: [
@@ -401,6 +418,68 @@ describe("FinanceService", () => {
 
     const rev = await service.reverseEntry(treasurer, "le1");
     expect(rev.reversalOfEntryId).toBe("le1");
+    expect(rev.status).toBe("PENDING_APPROVAL");
+    const created = tx.ledgerEntry.create.mock.calls[0][0].data;
+    expect(created).toMatchObject({ status: "PENDING_APPROVAL", createdByUserId: treasurer.userId });
+    expect(created.firstApprovedByUserId).toBeUndefined();
+    expect(created.secondApprovedByUserId).toBeUndefined();
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it("only marks the original REVERSED when a second, distinct approver approves the reversal", async () => {
+    const reversalPending = {
+      id: "le-rev",
+      organizationId: pilot.organizationId,
+      churchId: pilot.churchId,
+      entryDate: now,
+      description: "Estorno de le1: Oferta",
+      status: "PENDING_APPROVAL",
+      amountCents: 1000,
+      createdByUserId: treasurer.userId,
+      submittedAt: now,
+      firstApprovedByUserId: treasurer2.userId,
+      firstApprovedAt: now,
+      secondApprovedByUserId: null,
+      secondApprovedAt: null,
+      rejectedByUserId: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      reversalOfEntryId: "le1",
+      importBatchId: null,
+      reconciliationId: null,
+      costCenterId: null,
+      fundId: null,
+      createdAt: now,
+      updatedAt: now,
+      lines: [],
+      reversedBy: null,
+    };
+    const update = jest
+      .fn()
+      .mockResolvedValueOnce({ ...reversalPending, status: "APPROVED", secondApprovedByUserId: "u-tesoura-3" })
+      .mockResolvedValueOnce({ id: "le1", status: "REVERSED" });
+    const tx = {
+      ledgerEntry: { update },
+      ledgerAccount: { findFirst: jest.fn() },
+      ledgerEntryLine: { groupBy: jest.fn().mockResolvedValue([]) },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new FinanceService(
+      {
+        ...withTx(tx),
+        ledgerEntry: { findFirst: jest.fn().mockResolvedValue(reversalPending) },
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+      mockStorage as never,
+    );
+    const third: AuthUser = { ...treasurer2, userId: "u-tesoura-3", personId: "p-tesoura-3" };
+
+    const approved = await service.approveEntry(third, "le-rev");
+    expect(approved.status).toBe("APPROVED");
+    expect(update).toHaveBeenNthCalledWith(2, {
+      where: { id: "le1", status: "APPROVED" },
+      data: { status: "REVERSED" },
+    });
   });
 
   it("submits and rejects entry", async () => {
@@ -1171,8 +1250,8 @@ describe("FinanceService", () => {
     const meta = await service.uploadAttachment(treasurer, "e1", {
       originalname: "recibo.pdf",
       mimetype: "application/pdf",
-      buffer: Buffer.from("%PDF"),
-      size: 4,
+      buffer: Buffer.from("%PDF-"),
+      size: 5,
     });
     expect(meta.displayName).toBe("recibo.pdf");
     expect(mockStorage.put).toHaveBeenCalled();
@@ -1702,8 +1781,16 @@ describe("FinanceService", () => {
       attSvc.uploadAttachment(treasurer, "e1", {
         originalname: "foto.png",
         mimetype: "image/png",
-        buffer: Buffer.from("PNG"),
-        size: 3,
+        buffer: Buffer.from("%PDF-"),
+        size: 5,
+      }),
+    ).rejects.toThrow("Conteúdo do arquivo não corresponde ao tipo informado");
+    await expect(
+      attSvc.uploadAttachment(treasurer, "e1", {
+        originalname: "foto.png",
+        mimetype: "image/png",
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        size: 8,
       }),
     ).resolves.toMatchObject({ contentType: "image/png" });
     await expect(

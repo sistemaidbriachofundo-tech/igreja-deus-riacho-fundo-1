@@ -1,3 +1,4 @@
+import { containsEmailAddress } from "@idbrf/shared";
 export const REGISTRATION_STATUSES = [
   "PENDING_PAYMENT",
   "CONFIRMED",
@@ -7,14 +8,13 @@ export const REGISTRATION_STATUSES = [
 
 export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
 export function textLooksPersonal(value: string | null | undefined): boolean {
   if (!value) return false;
   return (
-    PERSONAL_EMAIL.test(value) ||
+    containsEmailAddress(value) ||
     PERSONAL_CPF.test(value) ||
     PERSONAL_PHONE.test(value)
   );
@@ -26,6 +26,7 @@ export interface ParticipationSource {
   eventName: string;
   displayName: string;
   partySize: number;
+  presentParticipants?: number;
   isMinor: boolean;
   guardianDisplayName?: string | null;
   status: string;
@@ -99,11 +100,12 @@ export function summarizeParticipation(input: readonly ParticipationSource[]): {
     }
     if (row.status === "CHECKED_IN") {
       counts.checkedIn += 1;
-      counts.presentParticipants += party;
+      counts.presentParticipants += row.presentParticipants ?? party;
     } else if (row.status === "PENDING_PAYMENT") {
       counts.pendingPayment += 1;
     } else if (row.status === "CONFIRMED") {
       counts.confirmedAwaitingPresence += 1;
+      counts.presentParticipants += row.presentParticipants ?? 0;
     } else if (row.status !== "CANCELLED") {
       counts.unclassified += 1;
     }

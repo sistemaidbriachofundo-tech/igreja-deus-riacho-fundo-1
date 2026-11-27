@@ -69,6 +69,6 @@ import {
     { provide: APP_GUARD, useClass: ScopeGuard },
     { provide: APP_GUARD, useClass: AccessPolicyGuard },
   ],
-  exports: [AuthService],
+  exports: [AuthService, SESSION_STORE, AUTH_ATTEMPT_LIMITER],
 })
 export class AuthModule {}

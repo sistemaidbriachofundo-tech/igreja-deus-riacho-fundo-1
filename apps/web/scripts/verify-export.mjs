@@ -1,18 +1,26 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hasEnabledLoginForm } from "./production-login.mjs";
 
 // Executado após o build estático do Next.js para GitHub Pages.
 // Confere rotas exportadas, navegação e assets locais.
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = resolve(process.env.STATIC_EXPORT_DIR ?? join(projectRoot, "out"));
-const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1")).replace(/\/$/, "");
+// Apex/produção: IDBRF_STATIC_APEX=1 (PowerShell apaga env vazia).
+// Caso contrário: NEXT_PUBLIC_BASE_PATH, Vercel na raiz, ou default Pages.
+const base = (
+  process.env.IDBRF_STATIC_APEX === "1"
+    ? ""
+    : process.env.NEXT_PUBLIC_BASE_PATH ?? (process.env.VERCEL === "1" ? "" : "/igreja-deus-riacho-fundo-1")
+).replace(/\/$/, "");
 // V1: public content stays on the homepage; institutional deep links may
 // redirect to sections. QA/engineering/demo routes are intentionally absent.
 const requiredPages = [
-  "index.html", "a-igreja/index.html", "eventos/index.html", "login/index.html",
+  "index.html", "a-igreja/index.html", "eventos/index.html", "eventos/inscricao/index.html", "login/index.html",
   "app/index.html", "app/membros/index.html", "app/secretaria/index.html",
-  "app/membros/carteirinha/index.html", "app/editorial/index.html", "app/site/index.html",
+  "app/membros/carteirinha/index.html", "app/minha-conta/index.html", "app/eventos/index.html", "validar-carteirinha/index.html",
+  "app/editorial/index.html", "app/site/index.html",
 ];
 const forbiddenPages = [
   "contato/index.html", "visita/index.html", "ministerios/index.html",
@@ -56,6 +64,8 @@ for (const page of findHtml(outDir)) {
       }
       let target;
       if (url.startsWith("/")) {
+        // Apex/produção (basePath vazio): paths absolutos na raiz são esperados.
+        // GitHub Pages: path deve permanecer sob NEXT_PUBLIC_BASE_PATH.
         if (base && pathname !== base && !pathname.startsWith(base + "/")) {
           failures.push(`Escapes GitHub Pages basePath in ${relative(outDir, page)}: ${url}`);
           continue;
@@ -75,8 +85,7 @@ for (const page of findHtml(outDir)) {
       failures.push("Login must display email and password inputs before opening the dashboard.");
     }
     if (process.env.NEXT_PUBLIC_ADMIN_PRODUCTION === "true" &&
-        (html.includes("O acesso ao painel está indisponível") ||
-          !/<button\b(?=[^>]*\btype="submit")(?![^>]*\bdisabled\b)[^>]*>/.test(html))) {
+        !hasEnabledLoginForm(html)) {
       failures.push("O login da candidata de produção precisa estar habilitado.");
     }
   }

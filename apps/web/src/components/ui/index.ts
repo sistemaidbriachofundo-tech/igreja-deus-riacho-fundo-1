@@ -20,7 +20,7 @@ export { Skeleton } from "./Skeleton";
 export { StatCard } from "./StatCard";
 export { Table, type TableColumn } from "./Table";
 export { Tabs, type TabItem } from "./Tabs";
-export { nextTabIndex } from "./tabs";
+export { nextTabIndex } from "./nextTabIndex";
 export { Tooltip } from "./Tooltip";
 export {
   contrastRatio,

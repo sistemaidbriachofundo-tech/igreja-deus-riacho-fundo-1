@@ -8,6 +8,14 @@ import { EventRegistrationsService } from "./event-registrations.service";
 import type { AuthUser } from "../auth/types/auth-user";
 
 describe("EventRegistrationsService", () => {
+  const mockSecret = "fixture-only-payment-key-with-more-than-32-characters";
+
+  beforeEach(() => {
+    jest.replaceProperty(process, "env", { ...process.env, EVENT_PAYMENT_WEBHOOK_SECRET: mockSecret });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
   const pilot = {
     organizationId: "org1",
     churchId: "church-rf1",
@@ -28,6 +36,31 @@ describe("EventRegistrationsService", () => {
       },
     ],
   };
+
+  it("busca ingresso e Pix somente para a pessoa da sessão e a congregação", async () => {
+    const actor: AuthUser = {
+      userId: "u-membro", personId: "p-membro", email: "membro@example.test",
+      grants: [{ roleCode: "MEMBRO", organizationId: pilot.organizationId, churchId: pilot.churchId }],
+    };
+    const db = {
+      person: { findFirst: jest.fn(async ({ where }: { where: { id: string } }) => ({ id: where.id })) },
+      eventRegistration: { findFirst: jest.fn().mockResolvedValue({
+        id: "r1", status: "PENDING_PAYMENT", checkInCode: "a".repeat(32),
+        event: { status: "PUBLISHED", name: "Encontro" },
+        paymentIntents: [{ amountCents: 1000, pixCopiaECola: "pix-da-inscricao", pixTxid: "ref" }],
+      }) },
+    };
+    const service = new EventRegistrationsService(db as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.getMyRegistration(actor, "r1")).resolves.toMatchObject({
+      eventName: "Encontro", paymentIntent: { mode: "CHURCH_PIX", pixCopiaECola: "pix-da-inscricao" },
+    });
+    expect(db.eventRegistration.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "r1", registrantPersonId: actor.personId, organizationId: pilot.organizationId, churchId: pilot.churchId },
+    }));
+    db.eventRegistration.findFirst.mockResolvedValueOnce(null);
+    await expect(service.getMyRegistration({ ...actor, personId: "outra-pessoa" }, "r1")).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getMyRegistration({ ...actor, churchId: "outra-igreja" }, "r1")).rejects.toMatchObject({ status: 403 });
+  });
 
   const now = new Date("2026-11-07T12:00:00Z");
   const event = {
@@ -285,11 +318,10 @@ describe("EventRegistrationsService", () => {
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
 
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-key-001";
     const status = "CONFIRMED_MOCK" as const;
     const canonical = `${idem}:pi1:${status}`;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(canonical)
       .digest("hex");
 
@@ -311,6 +343,44 @@ describe("EventRegistrationsService", () => {
     });
     expect(replay.idempotentReplay).toBe(true);
     expect(replay.resultStatus).toBe("CONFIRMED_MOCK");
+  });
+
+  it.each(["production", "missing-secret"])("blocks the mock payment endpoint before database access: %s", async mode => {
+    if (mode === "production") process.env.IDBRF_RUNTIME_STAGE = "production";
+    else delete process.env.EVENT_PAYMENT_WEBHOOK_SECRET;
+
+    const service = new EventRegistrationsService({} as never, {} as never);
+    await expect(service.handleMockPaymentWebhook({
+      idempotencyKey: "payment-fixture-001",
+      paymentIntentId: "fixture",
+      status: "CONFIRMED_MOCK",
+      signatureHeader: undefined,
+    })).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("manually confirms a payment in production with the staff audit in the same transaction", async () => {
+    process.env.IDBRF_RUNTIME_STAGE = "production";
+    delete process.env.EVENT_PAYMENT_WEBHOOK_SECRET;
+    const pendingRegistration = { ...registration, id: "reg1", eventId: event.id, status: "PENDING_PAYMENT" };
+    const intent = { id: "pi-manual", status: "PENDING", registration: pendingRegistration, ...pilot, eventId: event.id };
+    const tx = {
+      eventPaymentWebhookReceipt: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      eventPaymentIntent: { update: jest.fn() },
+      eventRegistration: { update: jest.fn().mockResolvedValue({ ...pendingRegistration, status: "CONFIRMED", paymentStatus: "CONFIRMED_MOCK" }) },
+      auditLog: { create: jest.fn() },
+    };
+    const prisma = {
+      portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+      eventRegistration: { findFirst: jest.fn().mockResolvedValue(pendingRegistration) },
+      eventPaymentIntent: { findFirst: jest.fn().mockResolvedValue(intent) },
+      eventPaymentWebhookReceipt: { findUnique: jest.fn().mockResolvedValue(null) },
+      ...withTx(tx),
+    };
+    const service = new EventRegistrationsService(prisma as never, { getPilotChurch: async () => pilot } as never);
+    await expect(service.confirmManualPayment(secretaria, "reg1")).resolves.toMatchObject({ resultStatus: "CONFIRMED_MOCK" });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      actorUserId: secretaria.userId, action: "event_payment.manual_confirm",
+    }) });
   });
 
   it("rejects webhook with bad signature", async () => {
@@ -340,7 +410,10 @@ describe("EventRegistrationsService", () => {
       checkedInAt: now,
     };
     const tx = {
-      eventRegistration: { update: jest.fn().mockResolvedValue(checked) },
+      eventRegistration: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(checked),
+      },
       auditLog: { create: jest.fn() },
     };
     const prisma = {
@@ -688,6 +761,34 @@ describe("EventRegistrationsService", () => {
     ).rejects.toThrow(/não confere/);
   });
 
+  it("returns the first committed check-in and skips a duplicate audit on concurrent requests", async () => {
+    const confirmed = { ...registration, status: "CONFIRMED" };
+    const checkedIn = { ...confirmed, status: "CHECKED_IN", checkedInAt: now };
+    const tx = {
+      eventRegistration: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(checkedIn),
+      },
+      auditLog: { create: jest.fn() },
+    };
+    const service = new EventRegistrationsService(
+      {
+        eventRegistration: { findFirst: jest.fn().mockResolvedValue(confirmed) },
+        portalEvent: { findFirst: jest.fn().mockResolvedValue(event) },
+        ...withTx(tx),
+      } as never,
+      { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
+    );
+
+    const result = await service.checkIn(secretaria, "reg1", confirmed.checkInCode);
+
+    expect(result.checkedInAt).toBe(now.toISOString());
+    expect(tx.eventRegistration.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: "CONFIRMED" }) }),
+    );
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it("cancel is idempotent when already cancelled", async () => {
     const cancelled = {
       ...registration,
@@ -742,10 +843,9 @@ describe("EventRegistrationsService", () => {
       }),
     ).rejects.toThrow(/status mock/);
 
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-key-404";
     const status = "FAILED_MOCK" as const;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(`${idem}:pi-missing:${status}`)
       .digest("hex");
     await expect(
@@ -803,10 +903,9 @@ describe("EventRegistrationsService", () => {
       prisma as never,
       { getPilotChurch: jest.fn().mockResolvedValue(pilot) } as never,
     );
-    const secret = "event-payment-mock-dev-secret";
     const idem = "idem-fail-001";
     const status = "FAILED_MOCK" as const;
-    const signature = createHmac("sha256", secret)
+    const signature = createHmac("sha256", mockSecret)
       .update(`${idem}:pi1:${status}`)
       .digest("hex");
     const result = await service.handleMockPaymentWebhook({
@@ -851,10 +950,33 @@ describe("EventRegistrationsService", () => {
     );
     const catalog = await service.publicCatalogForEvent("e1");
     expect(catalog.paymentMode).toBe("MOCK_ONLY");
+    expect(catalog.settlementPolicy?.kind).toBe("EXTERNAL_MANUAL");
     expect(catalog.rf022LodgingPending).toBe(false);
     expect(catalog.requiresGuardianAuthorizationForMinors).toBe(true);
-    expect(catalog.lots.map((l) => l.id)).toEqual(["lot1"]);
+    expect(catalog.lots.map((l: { id: string }) => l.id)).toEqual(["lot1"]);
     expect(catalog.modalities[0].remaining).toBe(10);
+  });
+
+  it("só indica inscrição aberta quando existe uma combinação disponível para o tamanho mínimo", async () => {
+    const free = { ...lot, priceCents: 0, receivingAccount: null };
+    const catalog = { modalities: [modality], lodgingOptions: [], mealOptions: [], transportOptions: [] };
+    const prisma = {
+      portalEvent: { findMany: jest.fn().mockResolvedValue([
+        { ...catalog, id: "open", lots: [free] },
+        { ...catalog, id: "no-lot", lots: [] },
+        { ...catalog, id: "no-pix", lots: [{ ...lot, id: "paid", receivingAccount: { active: false } }] },
+        { ...catalog, id: "full", lots: [{ ...free, id: "full-lot", capacity: 1 }] },
+        { ...catalog, id: "no-resource", lots: [free], mealOptions: [{ id: "meal", capacity: 1 }] },
+        { ...catalog, id: "no-pair", lots: [{ ...free, capacity: 1 }], modalities: [{ ...modality, minPartySize: 2 }] },
+      ]) },
+      eventRegistration: { groupBy: jest.fn().mockResolvedValue([
+        { modalityId: "mod1", lotId: "full-lot", mealOptionId: "meal", _sum: { partySize: 1 } },
+      ]) },
+    };
+    const service = new EventRegistrationsService(prisma as never, {} as never);
+    expect(await service.openPublicRegistrationEvents(["open", "no-lot", "no-pix", "full", "no-resource", "no-pair"], now))
+      .toEqual(new Set(["open"]));
+    expect(prisma.eventRegistration.groupBy).toHaveBeenCalledTimes(1);
   });
 
   it("rejects guardian on adult and partySize out of range", async () => {
@@ -1119,6 +1241,7 @@ describe("EventRegistrationsService", () => {
         aggregate: jest.fn().mockResolvedValue({ _sum: { partySize: 0 } }),
         create: jest.fn().mockResolvedValue(confirmed),
       },
+      eventParticipantTicket: { createMany: jest.fn() },
       auditLog: { create: jest.fn() },
     };
     const prismaReg = {
@@ -1143,6 +1266,9 @@ describe("EventRegistrationsService", () => {
     });
     expect(result.status).toBe("CONFIRMED");
     expect(result.paymentIntent).toBeNull();
+    expect(result.tickets.map(ticket => ticket.position)).toEqual([1, 2]);
+    expect(new Set(result.tickets.map(ticket => ticket.code)).size).toBe(2);
+    expect(txReg.eventParticipantTicket.createMany).toHaveBeenCalledTimes(1);
   });
 
   describe("RF-022 lodging/meal/transport + guardian authorization", () => {
@@ -1506,7 +1632,8 @@ describe("EventRegistrationsService", () => {
 
       const txCheck = {
         eventRegistration: {
-          update: jest.fn().mockResolvedValue(checkedIn),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue(checkedIn),
         },
         auditLog: { create: jest.fn() },
       };

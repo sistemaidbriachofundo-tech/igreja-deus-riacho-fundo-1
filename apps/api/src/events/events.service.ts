@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { canAdministerMinistries } from "@idbrf/shared";
+import { canAdministerMinistries, containsEmailAddress } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
@@ -187,7 +187,26 @@ export class EventsService {
     if (blocked) {
       throw new BadRequestException(blocked);
     }
+    await this.assertReceivingAccountsActive(eventId);
     return this.patch(actor, eventId, { status: "PUBLISHED" });
+  }
+
+  /** Lote pago com conta da igreja só publica se essa conta continuar ativa. */
+  private async assertReceivingAccountsActive(eventId: string): Promise<void> {
+    if (!this.prisma.eventLot?.findMany) return;
+    const lots = await this.prisma.eventLot.findMany({
+      where: { eventId, priceCents: { gt: 0 }, receivingAccountId: { not: null } },
+      select: { receivingAccountId: true },
+    });
+    const ids = [...new Set(lots.map((lot) => lot.receivingAccountId).filter((id): id is string => Boolean(id)))];
+    if (!ids.length || !this.prisma.churchReceivingAccount?.findMany) return;
+    const accounts = await this.prisma.churchReceivingAccount.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, active: true },
+    });
+    if (accounts.length !== ids.length || accounts.some((account) => !account.active)) {
+      throw new BadRequestException("A conta que recebe o evento pago não está ativa.");
+    }
   }
 
   async cancel(actor: AuthUser, eventId: string) {
@@ -300,7 +319,6 @@ function parseDate(value: string, field: string): Date {
   return d;
 }
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
@@ -322,7 +340,7 @@ export function eventPublicationBlockReason(event: {
     .filter((value): value is string => typeof value === "string" && value.length > 0)
     .join("\n");
   if (
-    PERSONAL_EMAIL.test(text) ||
+    containsEmailAddress(text) ||
     PERSONAL_CPF.test(text) ||
     PERSONAL_PHONE.test(text)
   ) {

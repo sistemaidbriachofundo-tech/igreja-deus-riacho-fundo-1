@@ -1,6 +1,6 @@
+import { containsEmailAddress } from "@idbrf/shared";
 import type { DasRecord } from "./das-operations";
 
-const PERSONAL_EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PERSONAL_CPF = /\d{3}\.\d{3}\.\d{3}-\d{2}/;
 const PERSONAL_PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\(?\d{2}\)?[\s-]?)?\d{4,5}-\d{4}/;
 
@@ -13,6 +13,18 @@ export type ManagedEvent = {
   locationText: string;
   startsAt: string;
 };
+
+export type EventPaymentAccount = { id: string; name: string };
+
+export function readEventPaymentAccounts(value: unknown): EventPaymentAccount[] | null {
+  if (!value || typeof value !== "object" || !("accounts" in value) || !Array.isArray(value.accounts)) return null;
+  return value.accounts.flatMap((account: unknown) => {
+    if (!account || typeof account !== "object" || !("id" in account)) return [];
+    const id = text(account.id);
+    const name = text("displayName" in account ? account.displayName : "name" in account ? account.name : null);
+    return id && name ? [{ id, name }] : [];
+  });
+}
 
 export type ManagedRegistration = {
   id: string;
@@ -48,6 +60,11 @@ export type ParticipationView = {
 
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
+export function eventSlugFromName(name: string): string {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80).replace(/-$/, "");
+}
+
 export function publicationBlockReason(event: {
   name: string;
   slug: string;
@@ -55,7 +72,7 @@ export function publicationBlockReason(event: {
   locationText: string;
 }): string | null {
   const joined = [event.name, event.slug, event.description, event.locationText].join("\n");
-  if (PERSONAL_EMAIL.test(joined) || PERSONAL_CPF.test(joined) || PERSONAL_PHONE.test(joined)) {
+  if (containsEmailAddress(joined) || PERSONAL_CPF.test(joined) || PERSONAL_PHONE.test(joined)) {
     return "Publicação bloqueada: revise nome, descrição ou local. O texto parece conter e-mail, telefone ou CPF.";
   }
   return null;

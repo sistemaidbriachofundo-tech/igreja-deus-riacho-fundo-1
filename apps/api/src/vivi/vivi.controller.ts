@@ -14,6 +14,7 @@ import {
 import { Type } from "class-transformer";
 import type { Request } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { clientAddress } from "../auth/login/client-address";
 import { Public } from "../auth/decorators/public.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
@@ -46,14 +47,6 @@ class ViviChatBody {
   sessionId?: string | null;
 }
 
-function clientKeyFrom(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim()) {
-    return forwarded.split(",")[0]!.trim();
-  }
-  return req.ip || req.socket.remoteAddress || "unknown";
-}
-
 @Controller()
 export class ViviController {
   constructor(private readonly vivi: ViviService) {}
@@ -72,7 +65,7 @@ export class ViviController {
   @Public()
   @Post("public/vivi/chat")
   chatPublic(@Body() body: ViviChatBody, @Req() req: Request) {
-    return this.vivi.chatPublic(body, clientKeyFrom(req));
+    return this.vivi.chatPublic(body, clientAddress(req));
   }
 
   /**

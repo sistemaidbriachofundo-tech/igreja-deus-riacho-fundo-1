@@ -602,7 +602,10 @@ function hmlVerdict(text) {
 
 function externalSend(text, outbox) {
   if (outbox && outbox.status >= 200 && outbox.status < 300) return "FAIL";
-  if (/whatsapp|enviar mensagem|pagar com pix|gerar pix/i.test(text)) return "FAIL";
+  // Deep link wa.me / mailto / "Abrir WhatsApp" é permitido; proíbe disparo pela plataforma.
+  if (/\b(enviar mensagem pela plataforma|disparar whatsapp|pagar com pix|gerar pix|checkout pix)\b/i.test(text)) {
+    return "FAIL";
+  }
   if (outbox && outbox.status !== 401 && outbox.status !== 403) return "FAIL";
   return "PASS";
 }
@@ -613,9 +616,11 @@ function externalSeverity(text, outbox) {
 
 function externalDetail(text, outbox) {
   if (outbox && outbox.status >= 200 && outbox.status < 300) return `POST /channels/outbox sem sessão respondeu ${outbox.status}.`;
-  if (/whatsapp|enviar mensagem|pagar com pix|gerar pix/i.test(text)) return "Há controle visível de mensagem externa ou Pix.";
+  if (/\b(enviar mensagem pela plataforma|disparar whatsapp|pagar com pix|gerar pix|checkout pix)\b/i.test(text)) {
+    return "Há controle de disparo pela plataforma ou Pix gateway.";
+  }
   if (outbox && outbox.status !== 401 && outbox.status !== 403) return `POST /channels/outbox sem sessão respondeu ${outbox?.status ?? 0}, não 401.`;
-  return `Não há botão de WhatsApp, e-mail externo ou Pix. POST /channels/outbox sem sessão respondeu ${outbox?.status}.`;
+  return `Outbox sem sessão protegido (${outbox?.status}). Deep links wa.me/mailto são permitidos.`;
 }
 
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

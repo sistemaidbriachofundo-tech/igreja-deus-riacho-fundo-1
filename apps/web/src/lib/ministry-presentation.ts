@@ -4,13 +4,35 @@
  * Interesse de voluntariado continua no adaptador formal e não vira integrante.
  */
 
-import { loadMinistryDesk, type DeskResult } from "./ministry-desk";
+import { loadMinistryDesk, readMinistryActivities, type DeskResult, type MinistryActivity } from "./ministry-desk";
+import type { AssignmentStatus } from "./serving-rosters";
 
-export type EscalaAssignment = { id: string; personId: string; partnerPersonId: string; status: string; personName: string; partnerName: string };
-export type EscalaPosition = { id: string; label: string; requiresCouple: boolean; assignments: EscalaAssignment[] };
+export const ROSTER_LOCATION_LABELS = { sector: "Setor", zone: "Zona", side: "Lado" } as const;
+export type RosterLocation = Partial<Record<keyof typeof ROSTER_LOCATION_LABELS, string | null>>;
+export type EscalaAssignment = {
+  id: string; personId: string; partnerPersonId: string; status: AssignmentStatus;
+  personName: string; partnerName: string; substituteForId?: string; declinedAt?: string;
+};
+export type EscalaPosition = RosterLocation & { id: string; label: string; requiresCouple: boolean; requiredQualification?: string; assignments: EscalaAssignment[] };
+export const ROSTER_SERVICE_TYPES = {
+  thursday_evening: "Quinta à noite", sunday_morning: "Domingo de manhã",
+  sunday_evening: "Domingo à noite", special_event: "Evento especial",
+} as const;
+export type RosterServiceType = keyof typeof ROSTER_SERVICE_TYPES;
+export type ModulePosition = RosterLocation & { label: string; count: number; couple: boolean; qualification?: string };
+export type EscalaModuleRules = {
+  positions: Partial<Record<RosterServiceType, ModulePosition[]>>;
+  qualifications: Record<string, string[]>;
+  volunteerIds?: string[];
+  couples: [string, string][];
+  minIntervalDays: number;
+  maxMonthlyAssignments: number; substituteInviteLimit: number; substituteInviteHours?: number;
+};
+export type EscalaModule = { id: string; name: string; rules?: EscalaModuleRules };
 
 export type MinistryEscala = {
   id: string;
+  moduleId?: string;
   title: string;
   serviceAt: string;
   status: string;
@@ -19,17 +41,9 @@ export type MinistryEscala = {
   positions?: EscalaPosition[];
 };
 
-export type MinistryActivity = {
-  id: string;
-  name: string;
-  startsAt: string;
-  locationText: string | null;
-  status: string;
-};
-
 export type EscalaPanel =
   | { kind: "hidden" }
-  | { kind: "ready"; items: MinistryEscala[] }
+  | { kind: "ready"; items: MinistryEscala[]; modules?: EscalaModule[] }
   | { kind: "denied"; message: string }
   | { kind: "unavailable"; message: string };
 
@@ -100,22 +114,29 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
       const label = textOf(card?.roleLabel);
       if (label) functions.push(label);
       const assignments = Array.isArray(card?.assignments) ? card.assignments : [];
-      const assigned = assignments.flatMap(assignment => {
+      const assigned = assignments.flatMap<EscalaAssignment>(assignment => {
         const item = asRecord(assignment);
         const status = textOf(item?.status);
-        if (status !== "PENDING" && status !== "CONFIRMED") return [];
-        assignedCount += 1;
         const id = textOf(item?.id), personId = textOf(item?.personId);
-        return id && personId ? [{
+        if (!id || !personId || (status !== "PENDING" && status !== "CONFIRMED" && status !== "DECLINED" && status !== "SUBSTITUTED")) return [];
+        if (status === "PENDING" || status === "CONFIRMED") assignedCount += textOf(item?.partnerPersonId) ? 2 : 1;
+        return [{
           id, personId, status, partnerPersonId: textOf(item?.partnerPersonId),
           personName: textOf(item?.personName), partnerName: textOf(item?.partnerName),
-        }] : [];
+          substituteForId: textOf(item?.substituteForId),
+          declinedAt: textOf(item?.declinedAt),
+        }];
       });
       const id = textOf(card?.id);
-      if (id && label) positions.push({ id, label, requiresCouple: card?.requiresCouple === true, assignments: assigned });
+      if (id && label) positions.push({
+        id, label, requiresCouple: card?.requiresCouple === true,
+        sector: textOf(card?.sector), zone: textOf(card?.zone), side: textOf(card?.side),
+        requiredQualification: textOf(card?.requiredQualification), assignments: assigned,
+      });
     }
     items.push({
       id,
+      ...(textOf(row.moduleId) ? { moduleId: textOf(row.moduleId) } : {}),
       title,
       serviceAt,
       status: textOf(row.status) || "DRAFT",
@@ -128,29 +149,29 @@ export function readScopedEscalas(body: unknown, ministryId: string): MinistryEs
   return items;
 }
 
-/** Atividade sem ministryId, ou de outro ministério, não aparece neste painel. */
-export function readScopedActivities(body: unknown, ministryId: string): MinistryActivity[] | null {
-  const rows = asRecord(body)?.events;
-  if (!Array.isArray(rows)) return null;
-  const items: MinistryActivity[] = [];
-  for (const item of rows) {
-    const row = asRecord(item);
+export function rosterPositionSummary(positions: readonly EscalaPosition[]) {
+  const summary = { open: 0, pending: 0, confirmed: 0 };
+  for (const position of positions) {
+    if (position.assignments.some(item => item.status === "PENDING")) summary.pending++;
+    else if (position.assignments.some(item => item.status === "CONFIRMED")) summary.confirmed++;
+    else summary.open++;
+  }
+  return summary;
+}
+
+function readEscalaModules(body: unknown, ministryId: string): EscalaModule[] {
+  const result = asRecord(body);
+  if (result?.ministryId !== ministryId || !Array.isArray(result.modules)) return [];
+  return result.modules.flatMap((value) => {
+    const row = asRecord(value);
     const id = textOf(row?.id);
     const name = textOf(row?.name);
-    const startsAt = textOf(row?.startsAt);
-    if (!row || !id || !name || !startsAt || textOf(row.ministryId) !== ministryId) continue;
-    if (!Number.isFinite(Date.parse(startsAt))) continue;
-    const location = textOf(row.locationText);
-    items.push({
-      id,
-      name,
-      startsAt,
-      locationText: location || null,
-      status: textOf(row.status) || "DRAFT",
-    });
-  }
-  items.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.name.localeCompare(b.name, "pt-BR"));
-  return items;
+    return id && name ? [{ id, name, ...(asRecord(row?.rules) ? { rules: row?.rules as EscalaModuleRules } : {}) }] : [];
+  });
+}
+
+export function readScopedActivities(body: unknown, ministryId: string): MinistryActivity[] | null {
+  return readMinistryActivities(asRecord(body)?.events, ministryId);
 }
 
 function presentList<T>(
@@ -168,6 +189,7 @@ export async function loadMinistryBoard(options: {
   token: string;
   baseUrl: string;
   ministryId?: string;
+  ministrySlug?: string;
   fetchImpl?: FetchLike;
 }): Promise<MinistryBoardData> {
   const fetchImpl = options.fetchImpl ?? (fetch as unknown as FetchLike);
@@ -175,6 +197,7 @@ export async function loadMinistryBoard(options: {
     token: options.token,
     baseUrl: options.baseUrl,
     ministryId: options.ministryId,
+    ministrySlug: options.ministrySlug,
     fetchImpl,
   });
   if (desk.kind !== "ready") {
@@ -182,21 +205,25 @@ export async function loadMinistryBoard(options: {
   }
   const base = options.baseUrl.replace(/\/$/, "");
   const ministryId = desk.ministry.id;
-  const [escalaRes, activityRes] = await Promise.all([
+  const [escalaRes, legacyActivityRes] = await Promise.all([
     requestJson(fetchImpl, `${base}/rosters/by-ministry/${encodeURIComponent(ministryId)}`, options.token),
-    requestJson(fetchImpl, `${base}/events`, options.token),
+    desk.agenda.kind === "blocked" && desk.agenda.code === "MINISTRY_AGENDA_MODEL_BLOCKED"
+      ? requestJson(fetchImpl, `${base}/events`, options.token)
+      : null,
   ]);
+  const escalas = presentList(
+    escalaRes.status,
+    readScopedEscalas(escalaRes.body, ministryId),
+    "Esta conta não vê as escalas deste ministério.",
+    "As escalas deste ministério não puderam ser lidas.",
+  );
+  const modules = readEscalaModules(escalaRes.body, ministryId);
   return {
     desk,
-    escalas: presentList(
-      escalaRes.status,
-      readScopedEscalas(escalaRes.body, ministryId),
-      "Esta conta não vê as escalas deste ministério.",
-      "As escalas deste ministério não puderam ser lidas.",
-    ),
-    activities: presentList(
-      activityRes.status,
-      readScopedActivities(activityRes.body, ministryId),
+    escalas: escalas.kind === "ready" && modules.length ? { ...escalas, modules } : escalas,
+    activities: desk.agenda.kind === "ready" ? { kind: "ready", items: desk.agenda.items } : presentList(
+      legacyActivityRes?.status ?? (desk.agenda.kind === "denied" ? 403 : 0),
+      readScopedActivities(legacyActivityRes?.body, ministryId),
       "Esta conta não vê as atividades deste ministério.",
       "As atividades deste ministério não puderam ser lidas.",
     ),

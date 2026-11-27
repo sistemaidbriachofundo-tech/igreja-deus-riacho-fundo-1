@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./ui.module.css";
 
@@ -10,6 +10,7 @@ type Confirmation = {
   action: string;
   cancel?: string;
   subject?: string;
+  content?: ReactNode;
   tone?: "normal" | "danger";
 };
 
@@ -66,6 +67,7 @@ function ActionConfirmation({
         <p id={descriptionId} className={styles.confirmationDescription}>
           {details.description}
         </p>
+        {details.content}
       </div>
       <div className={styles.confirmationActions}>
         <button

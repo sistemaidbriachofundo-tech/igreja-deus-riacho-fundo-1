@@ -2,13 +2,14 @@
 
 import { isAdminEnabled } from "../lib/admin-environment";
 import { useCallback, useEffect, useState } from "react";
-import { AppNavLink, AppShell } from "./AppShell";
+import { AppNavLink, AppShell, UIIcon } from "./AppShell";
 import { ApiRequestError, apiGet, loadStoredToken } from "../lib/api";
 import {
   fmtNumber, formattedDate, makeCsv, makeLinePoints,
   type CountBand, type GrowthPoint, type MembershipInsightsData,
 } from "./membership-insights-model";
 import s from "./membership-insights.module.css";
+import ui from "./ui/ui.module.css";
 
 type Phase = "checking" | "signed-out" | "forbidden" | "unavailable" | "disabled" | "ready";
 type OccasionType = "birthday" | "baptism" | "wedding";
@@ -83,7 +84,7 @@ function Trend({ months, years }: { months: GrowthPoint[]; years: GrowthPoint[] 
   return <section className={s.panel}>
     <header className={s.panelHead}>
       <div><span className={s.eyebrow}>MOVIMENTAÇÃO</span><h2>Entradas e saídas registradas</h2><p>Vínculos iniciados e encerrados no período, conforme datas cadastradas.</p></div>
-      <div className={s.tabs} role="group" aria-label="Agrupar evolução">
+      <div className={`${ui.workspaceChoices} ${s.choiceGroup}`} role="group" aria-label="Agrupar evolução">
         <button type="button" aria-pressed={tab === "months"} onClick={() => setTab("months")}>Mensal</button>
         <button type="button" aria-pressed={tab === "years"} onClick={() => setTab("years")}>Anual</button>
       </div>
@@ -156,7 +157,7 @@ export function MembershipInsights() {
   }
   const occasionRows = data?.occasions.filter(entry => entry.type === occasion) ?? [];
   return <AppShell active="secretaria" secretarySection="resumo" meta="Indicadores de membresia">
-    <main className={s.page} data-membership-insights>
+    <div className={s.page} data-membership-insights>
       <header className={s.hero}>
         <div className={s.heroContent}>
           <span className={s.heroKicker}><i/> SECRETARIA · RIA­CHO FUNDO I</span>
@@ -175,8 +176,8 @@ export function MembershipInsights() {
         </div>
         <label>De <input type="date" value={draftFrom} max={draftTo || undefined} onChange={e => setDraftFrom(e.target.value)} /></label>
         <label>Até <input type="date" value={draftTo} min={draftFrom || undefined} onChange={e => setDraftTo(e.target.value)} /></label>
-        <button type="submit">Aplicar filtros</button>
-        <button type="button" className={s.subtleButton} onClick={() => setRequestId(x => x+1)}>Atualizar</button>
+        <button className={ui.workspacePrimary} type="submit"><UIIcon name="filter" size={17} /> Aplicar filtros</button>
+        <button type="button" className={ui.workspaceSecondary} onClick={() => setRequestId(x => x+1)}><UIIcon name="refresh" size={17} /> Atualizar</button>
       </form>
       {notice && <div role="alert" className={s.notice}>{notice}</div>}
       {phase !== "ready" && <section className={s.statePanel} role="status">
@@ -190,7 +191,7 @@ export function MembershipInsights() {
           phase === "forbidden" ? "Os dados permanecem protegidos pela autorização do servidor." :
           phase === "checking" ? "Lendo dados da congregação com o seu acesso." :
           "Os dados não foram substituídos por valores simulados."}</p>
-        {phase === "unavailable" && <button type="button" onClick={() => setRequestId(n => n+1)}>Tentar novamente</button>}
+        {phase === "unavailable" && <button className={ui.workspaceSecondary} type="button" onClick={() => setRequestId(n => n+1)}><UIIcon name="refresh" size={17} /> Tentar novamente</button>}
         {phase === "signed-out" && <AppNavLink href="/login/">Ir para o login</AppNavLink>}
       </section>}
       {phase === "ready" && data && <>
@@ -201,8 +202,8 @@ export function MembershipInsights() {
           <Metric label="Membros inativos" value={data.totals.inactiveMembers} hint="Vínculos inativos" tone="slate" />
         </section>
         <div className={s.sectionIntro}><div><span className={s.eyebrow}>OLHAR SOBRE A IGREJA</span><h2>Quem faz parte da nossa comunidade</h2></div><div className={s.exportActions}>
-          <button type="button" onClick={downloadCsv}>Exportar CSV</button>
-          <button type="button" onClick={() => window.print()}>Imprimir / salvar PDF</button>
+          <button className={ui.workspaceSecondary} type="button" onClick={downloadCsv}><UIIcon name="download" size={16} /> Exportar CSV</button>
+          <button className={ui.workspaceSecondary} type="button" onClick={() => window.print()}><UIIcon name="book" size={16} /> Imprimir / salvar PDF</button>
         </div></div>
         <div className={s.twoColumns}>
           <LegendBar title="Situação eclesiástica" baseLabel="Base de vínculos" values={STATUS} total={data.byStatus}/>
@@ -226,7 +227,7 @@ export function MembershipInsights() {
         <div className={s.twoColumns}>
           <section className={s.panel}>
             <header className={s.panelHead}><div><span className={s.eyebrow}>DATAS IMPORTANTES</span><h2>Celebrar cada história</h2><p>Próximos 30 dias · somente pessoas adultas</p></div></header>
-            <div className={s.tabs} role="group" aria-label="Tipo de comemoração">{OCCASIONS.map(item =>
+            <div className={`${ui.workspaceChoices} ${s.choiceGroup}`} role="group" aria-label="Tipo de comemoração">{OCCASIONS.map(item =>
               <button key={item.id} type="button" aria-pressed={occasion === item.id} onClick={() => setOccasion(item.id)}>{item.label}</button>
             )}</div>
             {occasionRows.length ? <ul className={s.personList}>{occasionRows.slice(0,12).map(row =>
@@ -251,6 +252,6 @@ export function MembershipInsights() {
           <p>Dados exclusivos do perfil autorizado. Acesso indevido e informações de menores permanecem protegidos.</p>
         </aside>
       </>}
-    </main>
+    </div>
   </AppShell>;
 }

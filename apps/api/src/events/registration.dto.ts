@@ -1,10 +1,12 @@
 import {
   IsBoolean,
+  IsEmail,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from "class-validator";
@@ -40,6 +42,11 @@ export class RegistrationRf022Fields {
   @IsOptional()
   @IsBoolean()
   guardianAcknowledged?: boolean;
+
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  notificationEmail?: string | null;
 }
 
 export class CreateRegistrationBody extends RegistrationRf022Fields {

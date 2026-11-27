@@ -16,6 +16,7 @@ const OPERATIONAL_MARKERS = [
   "Carteirinhas digitais",
   "Uma plataforma.",
   "Gestão do site",
+  "Mídia e conteúdo",
   "Textos e fotos",
   "Nenhuma área habilitada para este perfil",
   "Conectado como",

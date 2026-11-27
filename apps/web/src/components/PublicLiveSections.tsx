@@ -1,7 +1,8 @@
 "use client";
 
+import { familyService, sundayServices } from "../lib/public-service-schedule";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PortalSectionLink } from "./PublicSectionLink";
 import { instagramUrl } from "../lib/portal-content";
 import {
@@ -74,32 +75,118 @@ export function PublishedHomeSpotlight() {
 }
 
 export function PublishedAgenda() {
-  const { data } = usePublishedResource("/public/events", parsePublishedEvents);
+  const { status, data } = usePublishedResource("/public/events", parsePublishedEvents);
   const events = useMemo(() => currentPublishedEvents(data ?? []), [data]);
 
   return (
     <div className={s.visitAgenda}>
-      <h2 id="agenda-title" tabIndex={-1}>Cultos de domingo</h2>
-      <div className={s.visitSchedule}>
-        <ul className={s.sundayTimes} aria-label="Horários dos cultos de domingo">
-          <li><span>Manhã</span><time dateTime="10:00">10h</time></li>
-          <li><span>Noite</span><time dateTime="19:00">19h</time></li>
-        </ul>
-        {events.length > 0 && (
-          <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
+      <h2 id="agenda-title" tabIndex={-1}>Agenda</h2>
+      <section className={s.visitSchedule} aria-labelledby="weekly-services">
+        <h3 id="weekly-services">Cultos da semana</h3>
+        <div className={s.serviceGroups}>
+          <article className={s.familyService}>
+            <div><span>Toda quinta-feira</span><h4>{familyService.name}</h4></div>
+            <time dateTime={familyService.clock}>{familyService.label}</time>
+          </article>
+          <article className={s.sundayServices}>
+            <h4>Todo domingo</h4>
+            <ul>{sundayServices.map(service => <li key={service.clock}><span>{service.shift}</span><time dateTime={service.clock}>{service.label}</time></li>)}</ul>
+          </article>
+        </div>
+      </section>
+      {status !== "unavailable" && (
+        <section className={s.upcomingEvents} aria-labelledby="upcoming-events-title">
+          {events.length > 0 ? <AgendaEventStrip events={events} /> : <>
             <h3 id="upcoming-events-title">Próximos eventos</h3>
-            {events.map(event => (
-              <article key={event.id} className={s.visitEvent}>
-                <time dateTime={event.startsAt}>{formatPortalDate(event.startsAt).dayAndTime}</time>
-                <h4>{event.name}</h4>
-                {event.locationText && <p>{event.locationText}</p>}
-                {event.description && <p>{event.description}</p>}
-              </article>
-            ))}
-          </section>
+            {status === "loading" && <p className={s.agendaStatus} role="status">Carregando eventos…</p>}
+            {status === "ready" && <p className={s.agendaStatus}>Nenhum evento previsto no momento.</p>}
+          </>}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function AgendaEventStrip({ events }: { events: PublishedEvent[] }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [position, setPosition] = useState({ before: false, after: false });
+
+  function updatePosition() {
+    const list = listRef.current;
+    if (!list) return;
+    const before = list.scrollLeft > 1;
+    const after = list.scrollLeft + list.clientWidth < list.scrollWidth - 1;
+    setPosition(previous => previous.before === before && previous.after === after ? previous : { before, after });
+  }
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(list);
+    updatePosition();
+    return () => observer.disconnect();
+  }, [events.length]);
+
+  function move(direction: -1 | 1) {
+    const list = listRef.current;
+    const first = list?.children[0];
+    const second = list?.children[1];
+    if (!list || !first || !second) return;
+    const step = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
+    list.scrollBy({ left: direction * step });
+  }
+
+  return (
+    <>
+      <div className={s.agendaEventHeading}>
+        <h3 id="upcoming-events-title">Próximos eventos</h3>
+        {(position.before || position.after) && (
+          <div className={s.agendaEventControls}>
+            <button type="button" aria-label="Eventos anteriores" aria-controls="agenda-events" disabled={!position.before} onClick={() => move(-1)}>
+              <span aria-hidden="true">←</span>
+            </button>
+            <button type="button" aria-label="Próximos eventos da lista" aria-controls="agenda-events" disabled={!position.after} onClick={() => move(1)}>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
         )}
       </div>
-    </div>
+      <ul ref={listRef} id="agenda-events" className={s.eventStrip} aria-labelledby="upcoming-events-title" role="list" onScroll={updatePosition}>
+        {events.map(event => <li key={event.id}><AgendaEvent event={event} /></li>)}
+      </ul>
+    </>
+  );
+}
+
+function AgendaEvent({ event }: { event: PublishedEvent }) {
+  const date = formatPortalDate(event.startsAt);
+  const titleId = "agenda-event-" + encodeURIComponent(event.id);
+
+  return (
+    <article className={s.visitEvent} aria-labelledby={titleId}>
+      {event.imageUrl && (
+        <div className={s.agendaEventImage}>
+          {/* A arte pode vir de qualquer origem HTTPS aprovada na publicação. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+        </div>
+      )}
+      <div className={s.agendaEventContent}>
+        <time className={s.agendaEventDate} dateTime={event.startsAt}>
+          <span className={s.agendaDateBlock} aria-hidden="true"><strong>{date.day}</strong><span>{date.month}</span></span>
+          <span className={s.agendaDateText}>{date.dayAndTime}</span>
+        </time>
+        <h4 id={titleId}>{event.name}</h4>
+        {event.locationText && <p className={s.agendaEventLocation}>{event.locationText}</p>}
+        {event.description && <p className={s.agendaEventDescription}>{event.description}</p>}
+        {event.registrationOpen === true && <Link className={s.agendaEventAction}
+          href={"/eventos/inscricao/?evento=" + encodeURIComponent(event.slug)} aria-label={"Inscrever-se em " + event.name}>
+          Inscrever-se <span aria-hidden="true">→</span>
+        </Link>}
+        {event.registrationOpen === false && <span className={s.agendaEventStatus}>Inscrições indisponíveis</span>}
+      </div>
+    </article>
   );
 }
 

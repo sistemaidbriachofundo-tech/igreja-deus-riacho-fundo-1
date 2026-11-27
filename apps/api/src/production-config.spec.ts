@@ -19,6 +19,17 @@ describe("configuração do ambiente real", () => {
     expect(() => assertProductionConfiguration(configured)).not.toThrow();
   });
 
+  it("aceita Postgres na rede Docker interna sem TLS quando a flag explícita está ligada", () => {
+    expect(() =>
+      assertProductionConfiguration({
+        ...configured,
+        IDBRF_DOCKER_INTERNAL_DB: "1",
+        DATABASE_URL: "postgresql://service:test-fixture@postgresql-prod-1:5432/riacho?schema=public",
+        PRODUCTION_DATABASE_HOST: "postgresql-prod-1",
+      }),
+    ).not.toThrow();
+  });
+
   it.each([
     { DATABASE_URL: "postgresql://service:test-fixture@database.example.org/riacho_hml?sslmode=require" },
     { PRODUCTION_DATABASE_HOST: "other.example.org" },
@@ -27,6 +38,7 @@ describe("configuração do ambiente real", () => {
     { CORS_ORIGIN: "http://igreja.example.org" },
     { PRIVATE_BLOB_READ_WRITE_TOKEN: "test-public-token" },
     { HML_DEMO_PASSWORD_HASH: "synthetic-fixture" },
+    { SEED_ON_BOOT: "1" },
     { TRUST_PROXY: "0" },
     { F11_MFA_BLOCKING: "false" },
     { F11_MFA_ENFORCEMENT: "OFF" },

@@ -1,13 +1,15 @@
 "use client";
 
 import { isAdminEnabled } from "../lib/admin-environment";
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createContext, Suspense, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { AnchorHTMLAttributes, CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   beginClientNavigation, finishClientNavigation, hasAppRouter, publishPerfProbe,
   pushAppRoute, shouldInterceptAppNavigation,
 } from "../lib/app-navigation";
 import { useAppRouterBridge } from "../lib/use-app-router-bridge";
+import { useSearchParams } from "next/navigation";
+import { parseMinistryRoute } from "../lib/ministry-view";
 import { withBasePath } from "../lib/paths";
 import { officialLogoAsset } from "../lib/brand";
 import { treasurySectionFromHash, treasurySectionHref, treasurySidebarItems, type TreasurySection } from "../lib/treasury-navigation";
@@ -15,65 +17,41 @@ import {
   SESSION_UNAUTHORIZED_EVENT, apiGet, isForbidden, isUnauthorized, loadStoredToken, readValidatedSession, signOutSession, type AuthUser,
 } from "../lib/api";
 import { readPanel } from "../lib/panel-read";
+import { NotificationCenter } from "./NotificationCenter";
+import { AdminSessionContext } from "./AdminAccessGate";
 import {
   SHELL_MINISTRY_STORAGE_KEY, SHELL_RAIL_STORAGE_KEY,
   accountInitials, areaAllowed, canListMinistries,
   isMemberOnly, isMinistryGroupKey, landingForRoles, ministryContextHref, ministrySubmenu, parseMinistryNav,
   personaLabel, readGroupPreference, readRailPreference, shellAreasForRoles,
-  type AppNavKey, type MinistryNavItem, type PersonaArea,
+  type AppNavKey, type MinistryNavItem, type MinistrySubmenuEntry, type PersonaArea,
 } from "../lib/persona-navigation";
 import { useActionConfirmation } from "./ui/ActionConfirmation";
 import { useDialogLifecycle } from "./ui/dialog";
 import { dsColor, dsGrid } from "./ui/tokens";
 import s from "./app-shell.module.css";
+import { UIIcon, type GlyphName } from "./ui/UIIcon";
 
 export type { AppNavKey };
-
-type GlyphName = "grid" | "people" | "layers" | "badge" | "search" | "plus" | "arrow" |
-  "chevron" | "command" | "spark" | "clock" | "check" | "close" | "home" | "shield" |
-  "activity" | "calendar" | "book" | "wallet" | "bell" | "filter" | "download" | "refresh" |
-  "family" | "more" | "mail" | "settings" | "menu" | "logout";
-
-export function UIIcon({ name, size = 20 }: { name: GlyphName; size?: number }) {
-  const paths: Record<GlyphName, ReactNode> = {
-    grid: <><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></>,
-    people: <><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1H3Z"/><path d="M16 5.6a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 4 5"/></>,
-    layers: <><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></>,
-    badge: <><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="11" r="2"/><path d="M6 16a3.2 3.2 0 0 1 5 0M14 10h4M14 14h4"/></>,
-    search: <><circle cx="10.8" cy="10.8" r="6.4"/><path d="m16 16 5 5"/></>,
-    plus: <path d="M12 5v14M5 12h14"/>,
-    arrow: <><path d="M4 12h16m-6-6 6 6-6 6"/></>,
-    chevron: <path d="m9 18 6-6-6-6"/>,
-    command: <><path d="M9 7V5a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v14a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V7"/></>,
-    spark: <><path d="m12 2 2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1L12 2Z"/></>,
-    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></>,
-    check: <path d="m4 12 5 5L20 6"/>,
-    close: <path d="M5 5 19 19M19 5 5 19"/>,
-    home: <><path d="m3 10 9-7 9 7v11H3V10Z"/><path d="M9 21v-8h6v8"/></>,
-    wallet: <><path d="M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15v-4"/><path d="M3 7h17v3h-6a3 3 0 0 0 0 6h6v-6M16 13h1"/></>,
-    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></>,
-    activity: <path d="M2 12h5l3-8 4 16 3-8h5"/>,
-    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18"/></>,
-    book: <><path d="M12 6c-3-2-7-2-10-1v15c3-1 7-1 10 1 3-2 7-2 10-1V5c-3-1-7-1-10 1ZM12 6v15"/></>,
-    bell: <><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 8h18c0-1-3-2-3-8ZM10 21h4"/></>,
-    filter: <><path d="M4 6h16M7 12h10M10 18h4"/></>,
-    download: <><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></>,
-    refresh: <><path d="M20 7V3l-3 3a8 8 0 1 0 2 10M20 3v5h-5"/></>,
-    family: <><circle cx="8" cy="7" r="3"/><circle cx="17" cy="8" r="2.5"/><path d="M3 21v-3a5 5 0 0 1 10 0v3M14 14a5 5 0 0 1 7 4v3"/></>,
-    more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
-    mail: <><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></>,
-    settings: <><circle cx="12" cy="12" r="3"/><path d="m10 2-.5 2-2 1-2-.8-2 3 1.5 1.5-.2 2.3-1.8 1 1 4 2.2.1 1.4 1.7-.4 2.1 3.8 1 1.1-1.8 2.2-.4 1.7 1.3 3-2-1.1-2 1-2 2.2-.3V9l-2-.4-1-2 1-2-3-2-1.8 1.4-2.2-.4L10 2Z"/></>,
-    menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
-    logout: <><path d="M10 7V5H4v14h6v-2"/><path d="M10 12h10m-3-3 3 3-3 3"/></>,
-  };
-  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">{paths[name]}</svg>;
-}
+export { UIIcon };
 
 const MOBILE_PRIMARY: readonly AppNavKey[] = ["visao", "secretaria", "tesouraria", "ministerios"];
+
+const CONNECTION_SECTIONS = [
+  { title: "Trilha da Conexão", id: "trilha", icon: "layers" },
+  { title: "Grupos de Amizade", id: "grupos", icon: "people" },
+  { title: "Pedidos de entrada", id: "pedidos", icon: "mail" },
+] as const;
+const EVENT_SECTIONS = [{ title: "Cadastrar evento", id: "novo-evento", icon: "plus" }] as const;
+
+function searchable(text: string) {
+  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("pt-BR").trim();
+}
 
 export type PersonaAccessState = {
   kind: "preview" | "pending" | "anonymous" | "held" | "ready";
   roles: string[];
+  canManageConnection?: boolean;
   email: string;
   label: string;
 };
@@ -91,7 +69,8 @@ type LoadedAccess =
   | { kind: "held" }
   | { kind: "ready"; user: AuthUser };
 
-function mobileItems(menu: readonly PersonaArea[]): PersonaArea[] {
+function mobileItems(menu: readonly PersonaArea[], member: boolean): PersonaArea[] {
+  if (member) return menu.slice(0, 4);
   const preferred = MOBILE_PRIMARY.flatMap(key => {
     const item = menu.find(entry => entry.key === key);
     return item ? [item] : [];
@@ -117,6 +96,75 @@ export function AppNavLink({
   }}>{children}</a>;
 }
 
+function SidebarGroup({ label, href, icon, active, current = active, compact, onNavigate, children }: {
+  label: string;
+  href: string;
+  icon: GlyphName;
+  active: boolean;
+  current?: boolean;
+  compact: boolean;
+  onNavigate: () => void;
+  children: ReactNode;
+}) {
+  const id = useId();
+  const key = "idbrf-menu:" + href;
+  const [expanded, setExpanded] = useState(active);
+  useEffect(() => {
+    const value = window.localStorage.getItem(key);
+    setExpanded(active || value === "open");
+  }, [key, active]);
+  return <div>
+    <div className={s.groupHeading}>
+      <AppNavLink href={href} className={active ? s.menuActive : s.menuItem} aria-current={current ? "page" : undefined} title={compact ? label : undefined} onNavigate={onNavigate}>
+        <UIIcon name={icon} size={19} /><span className={s.menuLabel}>{label}</span>
+      </AppNavLink>
+      {!compact && <button className={s.groupChevron} type="button" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label}
+        aria-expanded={expanded} aria-controls={id} onClick={() => {
+          setExpanded(!expanded);
+          window.localStorage.setItem(key, expanded ? "closed" : "open");
+        }}><UIIcon name="chevron" size={15} /></button>}
+    </div>
+    <div className={s.subList} id={id} role="group" aria-label={label === "Tesouraria" || label === "Secretaria" ? "Submenu da " + label : "Submenu de " + label} hidden={compact || !expanded}>
+      {children}
+    </div>
+  </div>;
+}
+
+function MinistrySubmenu({ entries, active, onNavigate, search = "" }: {
+  entries: MinistrySubmenuEntry[];
+  search?: string;
+  active?: AppNavKey | null;
+  onNavigate: () => void;
+}) {
+  const route = parseMinistryRoute(search);
+  return entries.map(entry => {
+    const selectedMinistry = active === "ministerios" && Boolean(route.ministryId)
+      && entry.key === `ministry:${route.ministryId}`;
+    const selectedScales = Boolean(entry.scales) && (active === "atmosfera"
+      || (selectedMinistry && route.tab === "escalas"));
+    const selected = entry.key === "ministerios"
+      ? active === "ministerios" && !route.ministryId
+      : selectedMinistry && !selectedScales;
+    return <div key={entry.key} role={entry.scales ? "group" : undefined} aria-label={entry.scales ? entry.label : undefined}>
+      <AppNavLink href={entry.href} className={selected ? s.subSelected : s.subItem}
+        aria-current={selected ? "page" : undefined} onNavigate={onNavigate}>
+        <UIIcon name={entry.icon} size={16} /><span className={s.menuLabel}>{entry.label}</span>
+      </AppNavLink>
+      {entry.scales && <div className={s.ministrySubList}>
+        <AppNavLink href={entry.scales.href} className={selectedScales ? s.subSelected : s.subItem}
+          aria-current={selectedScales ? "page" : undefined} onNavigate={onNavigate}>
+          <UIIcon name="calendar" size={16} /><span className={s.menuLabel}>Escalas</span>
+        </AppNavLink>
+      </div>}
+    </div>;
+  });
+}
+
+function CurrentMinistrySubmenu(props: Omit<Parameters<typeof MinistrySubmenu>[0], "search">) {
+  const search = useSearchParams().toString();
+  return <MinistrySubmenu {...props} search={search} />;
+}
+
 function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last") {
   const root = current.closest("[data-rail-keys]");
   if (!root) return;
@@ -131,13 +179,12 @@ function focusRailItem(current: HTMLElement, direction: 1 | -1 | "first" | "last
 }
 
 export function AppShell({
-  active, meta, children, editorial = false, viewer, secretarySection,
+  active, meta, children, viewer, secretarySection,
 }: {
   active?: AppNavKey | null;
   meta: string;
   children: ReactNode;
-  editorial?: boolean;
-  secretarySection?: "resumo" | "pessoas" | "admissoes";
+  secretarySection?: "resumo" | "pessoas" | "admissoes" | "aniversariantes";
   /** Sessão já resolvida. Usada por testes e por quem já confirmou /auth/me. */
   viewer?: AuthUser;
 }) {
@@ -147,6 +194,7 @@ export function AppShell({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [loaded, setLoaded] = useState<LoadedAccess | null>(viewer ? { kind: "ready", user: viewer } : null);
   const [term, setTerm] = useState("");
+  const [sectionId, setSectionId] = useState("");
   const [viewport, setViewport] = useState<"unknown" | "desktop" | "mobile">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -159,6 +207,7 @@ export function AppShell({
   const searchId = useId();
   const ministryListId = useId();
   const paletteRef = useRef<HTMLElement>(null);
+  const paletteBackdropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const deniedRef = useRef<HTMLHeadingElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -175,8 +224,9 @@ export function AppShell({
     publishPerfProbe();
   }, []);
 
+  const session = useContext(AdminSessionContext);
   useEffect(() => {
-    if (preview || viewer) return;
+    if (preview || viewer || session) return;
     let mounted = true;
     const token = loadStoredToken();
     if (!token) {
@@ -184,20 +234,20 @@ export function AppShell({
       return;
     }
     const cached = readValidatedSession(token);
-    if (cached) {
+    if (cached && typeof cached.canManageConnection === "boolean") {
       setLoaded({ kind: "ready", user: cached });
       return;
     }
-    void apiGet<AuthUser>("/auth/me", token)
+    void apiGet<AuthUser>("/auth/me", token, { fresh: true })
       .then(user => { if (mounted) setLoaded({ kind: "ready", user }); })
       .catch((error: unknown) => {
         if (!mounted) return;
         setLoaded(isUnauthorized(error) || isForbidden(error) ? { kind: "anonymous" } : { kind: "held" });
       });
     return () => { mounted = false; };
-  }, [preview, viewer]);
+  }, [preview, viewer, session]);
 
-  const readyUser = viewer ?? (loaded?.kind === "ready" ? loaded.user : null);
+  const readyUser = viewer ?? (loaded?.kind === "anonymous" ? null : session ?? (loaded?.kind === "ready" ? loaded.user : null));
   const roles = readyUser ? readyUser.grants.map(grant => grant.roleCode) : [];
   const accessKind: PersonaAccessState["kind"] = preview
     ? "preview"
@@ -212,24 +262,25 @@ export function AppShell({
   const menu = preview
     ? shellAreasForRoles(roles, true)
     : accessKind === "ready"
-      ? shellAreasForRoles(roles)
+      ? shellAreasForRoles(roles).filter(item => item.key !== "conexao" || readyUser?.canManageConnection === true)
       : [];
-  const allowed = areaAllowed(roles, active, preview);
+  const allowed = areaAllowed(roles, active, preview) &&
+    (preview || active !== "conexao" || readyUser?.canManageConnection === true);
   const showModule = preview || (accessKind === "ready" && allowed);
   const denied = accessKind === "ready" && !allowed;
-  const filtered = menu.filter(item => (item.label + " " + item.hint).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
-  const phone = mobileItems(menu);
+  const query = searchable(term);
+  const matches = (label: string) => searchable(label).includes(query);
+  const filtered = menu.filter(item => matches(item.label + " " + item.hint));
+  const phone = mobileItems(menu, memberShell);
   const phoneActive = active === "carteirinha" && phone.some(item => item.key === "secretaria") ? "secretaria" : active;
   const phoneHasActive = phoneActive != null && phone.some(item => item.key === phoneActive);
-  const shownMeta = showModule ? meta : "Área administrativa";
+  const shownMeta = showModule ? meta : "Governança Ministerial";
   const accountEmail = readyUser?.email ?? "";
   const accountLabel = preview
     ? "Acesso local"
     : accessKind === "ready"
       ? personaLabel(roles)
-      : accessKind === "pending"
-        ? "Confirmando perfil"
-        : "Sessão não confirmada";
+      : "Sessão não confirmada";
   const accountName = preview ? "Visitante" : accessKind === "ready"
     ? (/(@example\.test$|\.demo@)/i.test(accountEmail) ? "Conta de homologação" : accountEmail)
     : accountLabel;
@@ -237,9 +288,20 @@ export function AppShell({
   const accessState: PersonaAccessState = {
     kind: accessKind,
     roles,
+    canManageConnection: readyUser?.canManageConnection,
     email: accountEmail,
     label: accessKind === "ready" ? personaLabel(roles) : accountLabel,
   };
+
+  const accountLink = (
+    <>
+      <span className={s.account} aria-hidden="true" data-initials={initials} />
+      <span className={s.accountInfo} title={accountEmail || accountName}>
+        <strong>{accessKind === "ready" ? "Minha conta" : accountName}</strong>
+        <small>{accountLabel}</small>
+      </span>
+    </>
+  );
 
   const roleKey = roles.join("|");
   useEffect(() => {
@@ -249,9 +311,17 @@ export function AppShell({
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, [active, roleKey]);
+  useEffect(() => {
+    const sync = () => setSectionId(window.location.hash.slice(1));
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [active]);
   const treasuryChildren = treasurySidebarItems(roles);
   const showMinistries = canListMinistries(roles, preview);
   const ministryEntries = showMinistries ? ministrySubmenu(menu, ministries) : [];
+  const atmosferaScales = ministryEntries.find(entry => entry.scales)?.scales;
+  const showAtmosferaSearch = Boolean(atmosferaScales && matches("Atmosfera Escalas"));
   const secretaryMenu = menu.some(item => item.key === "secretaria");
   const credentialMenu = menu.find(item => item.key === "carteirinha");
   const secretaryChildren = [
@@ -259,8 +329,25 @@ export function AppShell({
       ? [{ key: "pessoas", title: "Pessoas", href: "/app/secretaria/pessoas/", icon: "people" as const }]
       : []),
     { key: "admissoes", title: "Admissões", href: "/app/secretaria/admissoes/", icon: "layers" as const },
+    { key: "aniversariantes", title: "Aniversariantes", href: "/app/secretaria/aniversariantes/", icon: "birthday" as const },
     ...(credentialMenu ? [{ key: "carteirinha", title: "Carteirinhas", href: credentialMenu.href, icon: "badge" as const }] : []),
   ];
+  const canCreateEvents = preview || roles.some(role => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR", "LIDER_MINISTERIO"].includes(role));
+  const sectionLinks = {
+    conexao: CONNECTION_SECTIONS,
+    "eventos-gestao": canCreateEvents ? EVENT_SECTIONS : [],
+  };
+  const commandSections = [
+    ...(secretaryMenu ? secretaryChildren.filter(item => item.key !== "carteirinha").map(item => ({
+      href: item.href, title: item.title, icon: item.icon, area: "Secretaria",
+    })) : []),
+    ...menu.flatMap(item => {
+      const sections = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
+      return sections.map(section => ({
+        href: item.href + "#" + section.id, title: section.title, icon: section.icon, area: item.label,
+      }));
+    }),
+  ].filter(item => matches(item.title + " " + item.area));
   const menuBlocks: Array<{ kind: "link"; item: PersonaArea } | { kind: "secretary" } | { kind: "treasury" } | { kind: "ministries" } | { kind: "divider" }> = [];
   let ministryInserted = false;
   let supportingSectionInserted = false;
@@ -281,13 +368,14 @@ export function AppShell({
       }
       continue;
     }
-    if (!supportingSectionInserted && ["acessos", "editorial", "site"].includes(item.key)) {
+    if (!supportingSectionInserted && ["acessos", "site"].includes(item.key)) {
       menuBlocks.push({ kind: "divider" });
       supportingSectionInserted = true;
     }
     menuBlocks.push({ kind: "link", item });
   }
-  const commandMinistries = (ministries ?? []).filter(item => item.name.toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR")));
+  const commandTreasury = treasuryChildren.filter(item => matches(`Tesouraria financeiro ${item.label}`));
+  const commandMinistries = (ministries ?? []).filter(item => matches(item.name));
   const railCollapsed = viewport === "desktop" && collapsed;
   const menuExpanded = viewport === "mobile" ? drawerOpen : viewport === "desktop" ? !collapsed : false;
   const menuButtonLabel = viewport === "mobile"
@@ -379,6 +467,7 @@ export function AppShell({
       setMinistryNote("");
       return;
     }
+    if (!ministryOpen && !paletteOpen) return;
     const token = loadStoredToken();
     if (!token) {
       setMinistries(null);
@@ -403,7 +492,7 @@ export function AppShell({
         setMinistryNote("Não foi possível atualizar a lista de ministérios.");
       });
     return () => { cancelled = true; };
-  }, [preview, roleKey, showMinistries]);
+  }, [preview, roleKey, showMinistries, ministryOpen, paletteOpen]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.defaultPrevented || event.target instanceof HTMLElement && event.target.closest('dialog[open], [role="dialog"]')) return;
@@ -424,7 +513,28 @@ export function AppShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [accessKind, preview, paletteOpen, drawerOpen]);
-  useEffect(() => { if (paletteOpen) inputRef.current?.focus(); else setTerm(""); }, [paletteOpen]);
+  useEffect(() => {
+    if (!paletteOpen) setTerm("");
+    else if (viewport === "desktop") inputRef.current?.focus();
+  }, [paletteOpen, viewport]);
+  useEffect(() => {
+    const visualViewport = window.visualViewport;
+    const backdrop = paletteBackdropRef.current;
+    if (!paletteOpen || viewport !== "mobile" || !visualViewport || !backdrop) return;
+    const fit = () => {
+      backdrop.style.setProperty("--visible-height", `${visualViewport.height}px`);
+      backdrop.style.setProperty("--visible-top", `${visualViewport.offsetTop}px`);
+    };
+    fit();
+    visualViewport.addEventListener("resize", fit);
+    visualViewport.addEventListener("scroll", fit);
+    return () => {
+      visualViewport.removeEventListener("resize", fit);
+      visualViewport.removeEventListener("scroll", fit);
+      backdrop.style.removeProperty("--visible-height");
+      backdrop.style.removeProperty("--visible-top");
+    };
+  }, [paletteOpen, viewport]);
   useEffect(() => { if (denied) deniedRef.current?.focus(); }, [denied]);
   useEffect(() => {
     if (viewport === "mobile" && drawerOpen) drawerCloseRef.current?.focus();
@@ -464,7 +574,7 @@ export function AppShell({
           <UIIcon name="close" size={18}/><span>Fechar</span>
         </button>
         <div className={s.railHeader}>
-          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — painel administrativo" onNavigate={afterNavigate}>
+          <AppNavLink href="/app/" className={s.brand} aria-label="ID Riacho 1 — Governança Ministerial" onNavigate={afterNavigate}>
             {/* SVG oficial já é vetorial e não precisa de otimização raster. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={s.brandEmblem} src={withBasePath(officialLogoAsset)} width={43} height={48} alt="Logotipo da Igreja de Deus" loading="eager" />
@@ -478,51 +588,50 @@ export function AppShell({
           </button>
         </div>
 
-        <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "ÁREA ADMINISTRATIVA"}</p>
+        <p className={s.menuCaption}>{memberShell ? "MINHA ÁREA" : "Governança Ministerial"}</p>
         <nav className={s.menu} aria-label="Módulos" aria-busy={accessKind === "pending"}>
           {menuBlocks.map(block => {
             if (block.kind === "divider") return <span key="supporting-separator" className={s.menuDivider}>GESTÃO E CONTEÚDO</span>;
             if (block.kind === "secretary") return (
-              <div key="secretaria">
-                <AppNavLink href="/app/secretaria/" className={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? s.menuActive : s.menuItem}
-                  aria-current={active === "secretaria" && (!secretarySection || secretarySection === "resumo") ? "page" : undefined} title={railCollapsed ? "Secretaria" : undefined} onNavigate={afterNavigate}>
-                  <UIIcon name="layers" size={19}/><span className={s.menuLabel}>Secretaria</span>
-                </AppNavLink>
-                {!railCollapsed && <div className={s.subList} role="group" aria-label="Submenu da Secretaria">
-                  {secretaryChildren.map(item => {
-                    const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
-                    return <AppNavLink key={item.key} href={item.href} className={selected ? s.menuActive : s.subItem} aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
-                      <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.title}</span>
-                    </AppNavLink>;
-                  })}
-                </div>}
-              </div>
+              <SidebarGroup key="secretaria" label="Secretaria" href="/app/secretaria/" icon="layers"
+                active={active === "secretaria" || active === "carteirinha"} current={active === "secretaria" && (!secretarySection || secretarySection === "resumo")} compact={railCollapsed} onNavigate={afterNavigate}>
+                {secretaryChildren.map(item => {
+                  const selected = active === "carteirinha" ? item.key === active : active === "secretaria" && item.key === secretarySection;
+                  return <AppNavLink key={item.key} href={item.href} className={selected ? s.subSelected : s.subItem}
+                    aria-current={selected ? "page" : undefined} onNavigate={afterNavigate}>
+                    <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.title}</span>
+                  </AppNavLink>;
+                })}
+              </SidebarGroup>
             );
-            if (block.kind === "treasury") {
-              const currentParent = active === "tesouraria";
-              return <div key="tesouraria" className={s.treasuryBlock}>
-                <AppNavLink href="/app/tesouraria/"
-                  className={currentParent ? s.menuActive : s.menuItem}
-                  title={railCollapsed ? "Tesouraria" : undefined} onNavigate={afterNavigate}>
-                  <UIIcon name="wallet" size={19}/><span className={s.menuLabel}>Tesouraria</span>
-                  {currentParent && <span className={s.activeIndicator}/>}
-                </AppNavLink>
-                {!railCollapsed && treasuryChildren.length > 0 && <div className={s.subList}
-                  role="group" aria-label="Submenu da Tesouraria">
-                  {treasuryChildren.map(item => {
-                    const selected = currentParent && treasurySection === item.section;
-                    return <a key={item.section} href={withBasePath(treasurySectionHref(item.section))}
-                      className={selected ? s.subSelected : s.subItem}
-                      aria-current={selected ? "page" : undefined}
-                      onClick={() => { setTreasurySection(item.section); afterNavigate(); }}>
-                      <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.label}</span>
-                    </a>;
-                  })}
-                </div>}
-              </div>;
-            }
+            if (block.kind === "treasury") return (
+              <SidebarGroup key="tesouraria" label="Tesouraria" href="/app/tesouraria/" icon="wallet"
+                active={active === "tesouraria"} current={false} compact={railCollapsed} onNavigate={afterNavigate}>
+                {treasuryChildren.map(item => {
+                  const selected = active === "tesouraria" && treasurySection === item.section;
+                  return <a key={item.section} href={withBasePath(treasurySectionHref(item.section))}
+                    className={selected ? s.subSelected : s.subItem} aria-current={selected ? "page" : undefined}
+                    onClick={() => { setTreasurySection(item.section); afterNavigate(); }}>
+                    <UIIcon name={item.icon} size={16}/><span className={s.menuLabel}>{item.label}</span>
+                  </a>;
+                })}
+              </SidebarGroup>
+            );
             if (block.kind === "link") {
               const item = block.item;
+              const children = item.key === "conexao" || item.key === "eventos-gestao" ? sectionLinks[item.key] : [];
+              if (children.length) return (
+                <SidebarGroup key={item.key} label={item.label} href={item.href} icon={item.icon}
+                  active={active === item.key} current={active === item.key && !children.some(child => child.id === sectionId)}
+                  compact={railCollapsed} onNavigate={afterNavigate}>
+                  {children.map(child => {
+                    const selected = active === item.key && sectionId === child.id;
+                    return <a key={child.id} href={withBasePath(item.href + "#" + child.id)}
+                      className={selected ? s.subSelected : s.subItem} aria-current={selected ? "location" : undefined}
+                      onClick={afterNavigate}><UIIcon name={child.icon} size={16}/><span className={s.menuLabel}>{child.title}</span></a>;
+                  })}
+                </SidebarGroup>
+              );
               const label = itemLabel(item);
               return <AppNavLink key={item.key} href={item.href} className={active === item.key ? s.menuActive : s.menuItem} aria-current={active === item.key ? "page" : undefined} title={railCollapsed ? label : undefined} onNavigate={afterNavigate}>
                 <UIIcon name={item.icon} size={19}/><span className={s.menuLabel}>{label}</span>{active === item.key && <span className={s.activeIndicator}/>}
@@ -533,9 +642,9 @@ export function AppShell({
                 <UIIcon name="family" size={19}/><span className={s.menuLabel}>Ministérios</span><UIIcon name="chevron" size={15}/>
               </button>
               <div id={ministryListId} className={s.subList} role="group" aria-label="Ministérios autorizados" hidden={!ministryOpen}>
-                {ministryEntries.map(entry => <AppNavLink key={entry.key} href={entry.href} className={s.subItem} onNavigate={afterNavigate}>
-                  <UIIcon name={entry.icon} size={16}/><span className={s.menuLabel}>{entry.label}</span>
-                </AppNavLink>)}
+                <Suspense fallback={<MinistrySubmenu entries={ministryEntries} active={active} onNavigate={afterNavigate} />}>
+                  <CurrentMinistrySubmenu entries={ministryEntries} active={active} onNavigate={afterNavigate} />
+                </Suspense>
                 {ministryNote && <p className={s.menuWait} role="status">{ministryNote}</p>}
               </div>
             </div>;
@@ -563,15 +672,24 @@ export function AppShell({
             <UIIcon name="search" size={18}/><span>Buscar no painel</span>
           </button>
           <div className={s.toolbarRight}>
-            {showModule && <AppNavLink className={s.toolbarAlerts} href="/app/#avisos" aria-label="Ver pendências"><UIIcon name="bell" size={20}/><strong>Avisos</strong></AppNavLink>}
-            <span className={s.profileCluster}>
-              <span className={s.account} aria-hidden="true">{initials}</span>
-              <span className={s.accountInfo} aria-label={`${accountEmail || accountName}, ${accountLabel}`} title={accountEmail || accountName}><strong>{accountName}</strong><small>{accountLabel}</small></span>
-            </span>
+            {readyUser && <NotificationCenter key={readyUser.userId} userId={readyUser.userId}
+              icon={<UIIcon name="bell" size={20} />} closeIcon={<UIIcon name="close" size={20} />}
+              categoryIcons={{
+                Escalas: <UIIcon name="calendar" size={18} />,
+                Tesouraria: <UIIcon name="wallet" size={18} />,
+                Admissões: <UIIcon name="badge" size={18} />,
+                "Grupos de Amizade": <UIIcon name="people" size={18} />,
+              }} />}
+            {accessKind === "ready" ? (
+              <AppNavLink className={`${s.profileCluster} ${s.profileLink}`} href="/app/minha-conta/" aria-label={`Minha conta · ${accountLabel}`}>
+                {accountLink}
+              </AppNavLink>
+            ) : accessKind !== "pending" && <span className={s.profileCluster}>{accountLink}</span>}
             {renderLogout()}
           </div>
         </header>
         <main className={s.content}>
+          <div className={s.workspace}>
           {showModule && children}
           {accessKind === "pending" && <div className={s.accessLoading} role="status" aria-label="Carregando painel"><span className={s.accessSpinner} aria-hidden="true" /><span className={s.screenReaderOnly}>Carregando painel</span></div>}
           {denied && <section className={s.denied} role="alert" data-nav-denied={active ?? "rota"}>
@@ -580,28 +698,41 @@ export function AppShell({
           </section>}
           {accessKind === "anonymous" && <div className={s.holdNote}><p>Entre na sua conta para acessar o painel.</p><AppNavLink href="/login/">Ir para o login</AppNavLink></div>}
           {accessKind === "held" && <p className={s.holdNote} role="alert">Não foi possível verificar seu acesso. Atualize a página para tentar de novo.</p>}
+          </div>
         </main>
       </div>
 
-      {menu.length > 0 && <nav className={s.mobileNav} aria-label="Navegação principal no celular">
+      {menu.length > 0 && <nav className={s.mobileNav} data-member={memberShell || undefined} aria-label="Navegação principal no celular">
         {phone.map(item => <AppNavLink key={item.key} href={item.href} className={phoneActive === item.key ? s.mobileActive : s.mobileItem} aria-current={active === item.key ? "page" : undefined} onNavigate={afterNavigate}>
           <UIIcon name={item.icon} size={20}/><span>{memberShell && item.key === "meu-espaco" ? "Escala" : memberShell && item.key === "carteirinha" ? "Carteira" : item.short}</span>
         </AppNavLink>)}
         <button type="button" className={active && !phoneHasActive ? s.mobileActive : s.mobileItem}
           aria-label="Mais módulos e páginas" aria-haspopup="dialog" aria-expanded={paletteOpen}
           onClick={() => setPaletteOpen(true)}>
-          <UIIcon name="more" size={20}/><span>Mais</span>
+          <UIIcon name={memberShell ? "menu" : "more"} size={20}/><span>Mais</span>
         </button>
       </nav>}
 
       {confirmation}
 
-      {paletteOpen && <div className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
+      {paletteOpen && <div ref={paletteBackdropRef} className={s.modalBackdrop} onMouseDown={event => { if (event.target === event.currentTarget) setPaletteOpen(false); }}>
         <section ref={paletteRef} tabIndex={-1} className={s.commandModal} role="dialog" aria-modal="true" aria-label={viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}>
-          <div className={s.commandSearch}><label htmlFor={searchId} aria-label="Buscar página ou ministério"><UIIcon name="search" size={20}/></label><input ref={inputRef} id={searchId} value={term} onChange={event => setTerm(event.target.value)} placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off"/><button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={18}/></button></div>
+          <header className={s.commandHeader}>
+            <h2>{viewport === "mobile" ? "Mais áreas do painel" : "Buscar no painel"}</h2>
+            <button type="button" aria-label="Fechar busca" onClick={() => setPaletteOpen(false)}><UIIcon name="close" size={21} /></button>
+          </header>
+          <label className={s.commandSearch}>
+            <UIIcon name="search" size={20} />
+            <input ref={inputRef} id={searchId} type="search" value={term} onChange={event => setTerm(event.target.value)}
+              placeholder="Buscar página ou ministério" aria-label="Buscar página ou ministério" autoComplete="off" />
+          </label>
           <div className={s.commandList}>
-            {filtered.map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {treasuryChildren.filter(item => !term.trim() || (`Tesouraria financeiro ${item.label}`).toLocaleLowerCase("pt-BR").includes(term.trim().toLocaleLowerCase("pt-BR"))).map(item =>
+            {filtered.filter(item => item.key !== "atmosfera" || !atmosferaScales).map(item => <AppNavLink key={item.key} href={item.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name={item.icon}/></span><span><strong>{item.label}</strong><small>{item.hint}</small></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
+            {commandSections.map(item => <AppNavLink key={item.href} href={item.href} onNavigate={afterNavigate}>
+              <span className={s.commandListIcon}><UIIcon name={item.icon} /></span>
+              <span><strong>{item.title}</strong><small>{item.area}</small></span><UIIcon name="arrow" size={16} />
+            </AppNavLink>)}
+            {commandTreasury.map(item =>
               <a key={`financeiro-${item.section}`} href={withBasePath(treasurySectionHref(item.section))}
                 onClick={afterNavigate}>
                 <span className={s.commandListIcon}><UIIcon name={item.icon}/></span>
@@ -610,7 +741,8 @@ export function AppShell({
               </a>
             )}
             {showMinistries && commandMinistries.map(item => <AppNavLink key={item.id} href={ministryContextHref(item)} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="family"/></span><span><strong>{item.name}</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>)}
-            {filtered.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
+            {showAtmosferaSearch && atmosferaScales && <AppNavLink href={atmosferaScales.href} onNavigate={afterNavigate}><span className={s.commandListIcon}><UIIcon name="calendar"/></span><span><strong>Atmosfera · Escalas</strong></span><UIIcon name="arrow" size={16}/></AppNavLink>}
+            {!showAtmosferaSearch && filtered.length === 0 && commandSections.length === 0 && commandTreasury.length === 0 && commandMinistries.length === 0 && <p className={s.commandEmpty}>Nenhuma página encontrada. Tente outro termo.</p>}
           </div>
         </section>
       </div>}

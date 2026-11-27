@@ -101,7 +101,7 @@ export class AuthController {
   /** Quem sou eu — exige JWT de sessão viva (inclui claims organizationId/churchId). */
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
-    return user;
+    return this.authService.describeSession(user);
   }
 
   /**

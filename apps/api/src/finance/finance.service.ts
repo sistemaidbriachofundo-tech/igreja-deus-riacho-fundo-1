@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   BadRequestException,
   ConflictException,
@@ -14,6 +15,7 @@ import {
   hasAccess,
   ROLE_CODES,
   checkBalancedLines,
+  isBankStatementAccount,
   isValidCompetence,
   nextDualApprovalStage,
   parseOfxLines,
@@ -26,6 +28,7 @@ import {
 } from "@idbrf/shared";
 import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../auth/types/auth-user";
+import { requireMinistryInPilot } from "../common/ministry-access";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
 import { PrivateStorageService } from "../storage/private-storage.service";
@@ -36,10 +39,10 @@ type PilotScope = {
   churchId: string;
 };
 
-const ATTACHMENT_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
+const ATTACHMENT_SIGNATURES = new Map([
+  ["application/pdf", Buffer.from("%PDF-")],
+  ["image/jpeg", Buffer.from([0xff, 0xd8, 0xff])],
+  ["image/png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
 ]);
 const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -542,6 +545,13 @@ export class FinanceService {
           include: { lines: true },
         });
 
+        if (stage.stage === "SECOND" && row.reversalOfEntryId) {
+          await tx.ledgerEntry.update({
+            where: { id: row.reversalOfEntryId, status: "APPROVED" },
+            data: { status: "REVERSED" },
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             actorUserId: actor.userId,
@@ -596,8 +606,19 @@ export class FinanceService {
     entryId: string,
     reason?: string,
   ) {
-    const pilot = await this.requireFinance(actor);
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const pilot = { organizationId, churchId };
     const row = await this.requireEntryInPilot(pilot, entryId);
+    const expense = this.isExpenseForPastor(row.lines);
+    const required = expense && row.firstApprovedByUserId ? ROLE_CODES.PASTOR : ROLE_CODES.TESOURARIA;
+    if ((actor.churchId && actor.churchId !== churchId) ||
+        (actor.organizationId && actor.organizationId !== organizationId) ||
+        !hasAccess(actor.grants, { ...pilot, roleCodes: [required] })) {
+      throw new ForbiddenException("Sem permissão para decidir nesta etapa da despesa.");
+    }
+    if (expense && (row.createdByUserId === actor.userId || row.firstApprovedByUserId === actor.userId)) {
+      throw new ForbiddenException("A decisão precisa ser registrada por outro responsável.");
+    }
     if (row.status !== "PENDING_APPROVAL") {
       throw new ConflictException({
         code: "LEDGER_ENTRY_NOT_PENDING",
@@ -605,31 +626,38 @@ export class FinanceService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.ledgerEntry.update({
-        where: { id: entryId },
-        data: {
-          status: "REJECTED",
-          rejectedByUserId: actor.userId,
-          rejectedAt: new Date(),
-          rejectionReason: reason?.trim() || null,
-        },
-        include: { lines: true },
-      });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.ledgerEntry.update({
+          where: { id: entryId, status: "PENDING_APPROVAL", firstApprovedByUserId: row.firstApprovedByUserId },
+          data: {
+            status: "REJECTED",
+            rejectedByUserId: actor.userId,
+            rejectedAt: new Date(),
+            rejectionReason: reason?.trim() || null,
+          },
+          include: { lines: true },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          actorUserId: actor.userId,
-          action: "ledger.entry.reject",
-          resourceType: "ledger_entry",
-          resourceId: entryId,
-          organizationId: pilot.organizationId,
-          churchId: pilot.churchId,
-        },
-      });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: "ledger.entry.reject",
+            resourceType: "ledger_entry",
+            resourceId: entryId,
+            organizationId: pilot.organizationId,
+            churchId: pilot.churchId,
+          },
+        });
 
-      return this.toEntryDto(updated);
-    });
+        return this.toEntryDto(updated);
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+        throw new ConflictException("A despesa já mudou de etapa. Atualize a lista antes de decidir.");
+      }
+      throw error;
+    }
   }
 
   async reverseEntry(actor: AuthUser, entryId: string) {
@@ -648,6 +676,8 @@ export class FinanceService {
       });
     }
 
+    // O estorno segue a mesma dupla aprovação de qualquer lançamento: nasce
+    // pendente e o original só vira REVERSED na segunda aprovação.
     return this.prisma.$transaction(async (tx) => {
       const reversal = await tx.ledgerEntry.create({
         data: {
@@ -655,14 +685,12 @@ export class FinanceService {
           churchId: pilot.churchId,
           entryDate: new Date(),
           description: `Estorno de ${row.id}: ${row.description}`,
-          status: "APPROVED",
+          status: "PENDING_APPROVAL",
           amountCents: row.amountCents,
+          costCenterId: row.costCenterId,
+          fundId: row.fundId,
           createdByUserId: actor.userId,
           submittedAt: new Date(),
-          firstApprovedByUserId: actor.userId,
-          firstApprovedAt: new Date(),
-          secondApprovedByUserId: actor.userId,
-          secondApprovedAt: new Date(),
           reversalOfEntryId: row.id,
           lines: {
             create: row.lines.map((l) => ({
@@ -674,11 +702,6 @@ export class FinanceService {
           },
         },
         include: { lines: true },
-      });
-
-      await tx.ledgerEntry.update({
-        where: { id: row.id },
-        data: { status: "REVERSED" },
       });
 
       await tx.auditLog.create({
@@ -697,22 +720,69 @@ export class FinanceService {
     });
   }
 
-  // —— Import stubs ——
+  // —— Extratos bancários ——
 
-  async listImports(actor: AuthUser) {
-    const pilot = await this.requireFinance(actor);
+  async listImports(actor: AuthUser, bankStatementsOnly = false) {
+    const pilot = await this.requireFinance(actor, bankStatementsOnly ? "read" : "write");
     const batches = await this.prisma.bankImportBatch.findMany({
       where: {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
+        ...(bankStatementsOnly ? { accountId: { not: null } } : {}),
       },
       orderBy: { createdAt: "desc" },
-      include: { lines: true },
+      include: { lines: !bankStatementsOnly },
     });
     return {
       churchId: pilot.churchId,
       batches: batches.map((b) => this.toImportDto(b)),
     };
+  }
+
+  async uploadBankStatement(
+    actor: AuthUser,
+    accountId: string,
+    file?: { originalname: string; buffer: Buffer },
+  ) {
+    const pilot = await this.requireFinance(actor, "import-statements");
+    if (typeof accountId !== "string" || !accountId.trim()) {
+      throw new BadRequestException("Selecione a conta bancária do extrato.");
+    }
+    const account = await this.requireAccountInPilot(pilot, accountId.trim());
+    if (!isBankStatementAccount(account)) {
+      throw new BadRequestException("Selecione uma conta bancária ativa.");
+    }
+    if (!file?.buffer?.length || !/\.ofx$/i.test(file.originalname)) {
+      throw new BadRequestException("Selecione um arquivo .ofx exportado pelo banco.");
+    }
+
+    let content = file.buffer.toString("utf8");
+    if (content.includes("\uFFFD")) {
+      content = new TextDecoder("windows-1252").decode(file.buffer);
+    }
+    const result = parseOfxLines(content, true);
+    const accountStatements = content.match(/<STMTRS\s*>/gi);
+    const currencies = [...content.matchAll(/<CURDEF>\s*([A-Z]{3})/gi)];
+    if (!/<OFX\s*>/i.test(content) || !result.ok || (accountStatements?.length ?? 0) > 1 ||
+        /<CCSTMTRS\s*>/i.test(content) || currencies.some(([, currency]) => currency.toUpperCase() !== "BRL")) {
+      throw new BadRequestException("O OFX precisa conter movimentos válidos de uma única conta em reais.");
+    }
+    const fileHash = createHash("sha256").update(file.buffer).digest("hex");
+    try {
+      const batch = await this.saveBankImport(actor, pilot, {
+        format: "OFX", filename: file.originalname, adapter: "FILE", status: "PARSED",
+        stubNote: null, parsed: result.lines, accountId: account.id, fileHash,
+      });
+      return { ...batch, alreadyImported: false };
+    } catch (error) {
+      if ((error as { code?: string } | null)?.code !== "P2002") throw error;
+      const existing = await this.prisma.bankImportBatch.findUnique({
+        where: { churchId_accountId_fileHash: { churchId: pilot.churchId, accountId: account.id, fileHash } },
+        include: { lines: true },
+      });
+      if (!existing) throw error;
+      return { ...this.toImportDto(existing), alreadyImported: true };
+    }
   }
 
   async createImport(
@@ -790,7 +860,41 @@ export class FinanceService {
         : "PDF_META: somente metadados do arquivo (META_ONLY) — 0 linhas; OCR/tabela não implementados";
     }
 
+    return this.saveBankImport(actor, pilot, { format, filename, adapter, status, stubNote, parsed });
+  }
+
+  private saveBankImport(actor: AuthUser, pilot: PilotScope, input: {
+    format: BankImportFormatCode;
+    filename: string;
+    adapter: BankImportAdapterCode;
+    status: "PARSED" | "PARSED_STUB" | "META_ONLY" | "FAILED";
+    stubNote: string | null;
+    parsed: Array<{ postedAt: string; amountCents: number; description: string; externalRef: string | null }>;
+    accountId?: string;
+    fileHash?: string;
+  }) {
+    const { format, filename, adapter, status, stubNote, accountId, fileHash } = input;
     return this.prisma.$transaction(async (tx) => {
+      let parsed = input.parsed;
+      if (accountId) {
+        const lock = "bank-import:" + accountId;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+        const existingRefs = await tx.bankStatementLine.findMany({
+          where: {
+            batch: { accountId, churchId: pilot.churchId },
+            externalRef: { in: input.parsed.flatMap(line => line.externalRef ? [line.externalRef] : []) },
+          },
+          select: { externalRef: true },
+          distinct: ["externalRef"],
+        });
+        const seen = new Set(existingRefs.map(line => line.externalRef));
+        parsed = parsed.filter(line => {
+          if (!line.externalRef) return true;
+          if (seen.has(line.externalRef)) return false;
+          seen.add(line.externalRef);
+          return true;
+        });
+      }
       const batch = await tx.bankImportBatch.create({
         data: {
           organizationId: pilot.organizationId,
@@ -798,6 +902,8 @@ export class FinanceService {
           format,
           status,
           adapter,
+          accountId,
+          fileHash,
           filename,
           stubNote,
           lineCount: parsed.length,
@@ -827,23 +933,26 @@ export class FinanceService {
             format,
             status,
             adapter,
+            accountId,
             lineCount: batch.lineCount,
+            skippedLineCount: input.parsed.length - parsed.length,
             liveBankApi: false,
           },
         },
       });
 
-      return this.toImportDto(batch);
+      return { ...this.toImportDto(batch), skippedLineCount: input.parsed.length - parsed.length };
     });
   }
 
   async getImport(actor: AuthUser, batchId: string) {
-    const pilot = await this.requireFinance(actor);
+    const pilot = await this.requireFinance(actor, "read");
     const batch = await this.prisma.bankImportBatch.findFirst({
       where: {
         id: batchId,
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
+        ...(!canAccessFinance(actor.grants, pilot) ? { accountId: { not: null } } : {}),
       },
       include: { lines: true },
     });
@@ -1099,7 +1208,15 @@ export class FinanceService {
     }
 
     const entry = await this.requireEntryInPilot(pilot, entryId);
-    if (Math.abs(line.amountCents) !== Math.abs(entry.amountCents)) {
+    if (line.batch.accountId) {
+      const bankAmount = entry.lines.reduce((total, part) => {
+        if (part.accountId !== line.batch.accountId) return total;
+        return total + (part.side === "DEBIT" ? part.amountCents : -part.amountCents);
+      }, 0);
+      if (entry.status !== "APPROVED" || bankAmount !== line.amountCents) {
+        throw new ConflictException("O lançamento precisa estar aprovado e ter o mesmo movimento na conta do extrato.");
+      }
+    } else if (Math.abs(line.amountCents) !== Math.abs(entry.amountCents)) {
       throw new ConflictException({
         code: "BANK_LINE_AMOUNT_MISMATCH",
         message:
@@ -1107,20 +1224,7 @@ export class FinanceService {
       });
     }
 
-    const otherMatch = await this.prisma.bankStatementLine.findFirst({
-      where: {
-        matchedEntryId: entryId,
-        id: { not: lineId },
-        matchStatus: "MATCHED",
-      },
-      select: { id: true },
-    });
-    if (otherMatch) {
-      throw new ConflictException({
-        code: "LEDGER_ENTRY_ALREADY_MATCHED",
-        message: "Lançamento já casado com outra linha do extrato",
-      });
-    }
+    if (!line.batch.accountId) await this.requireAvailableBankMatch(this.prisma, lineId, entryId);
 
     let reconciliationId: string | null = input.reconciliationId?.trim() || null;
     if (reconciliationId) {
@@ -1139,12 +1243,27 @@ export class FinanceService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      if (line.batch.accountId) {
+        const lock = "bank-match:" + line.batch.accountId + ":" + entryId;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+        await this.requireAvailableBankMatch(tx, lineId, entryId, line.batch.accountId);
+      }
       const updated = await tx.bankStatementLine.update({
-        where: { id: lineId },
+        where: {
+          id: lineId,
+          ...(line.batch.accountId ? {
+            OR: [{ matchStatus: { in: ["UNMATCHED", "SUGGESTED"] } }, { matchStatus: "MATCHED", matchedEntryId: entryId }],
+          } : {}),
+        },
         data: {
           matchStatus: "MATCHED",
           matchedEntryId: entryId,
         },
+      }).catch((error: unknown) => {
+        if (line.batch.accountId && (error as { code?: string } | null)?.code === "P2025") {
+          throw new ConflictException("Este movimento já recebeu outro vínculo. Atualize o extrato.");
+        }
+        throw error;
       });
 
       if (reconciliationId && entry.reconciliationId !== reconciliationId) {
@@ -1172,6 +1291,29 @@ export class FinanceService {
 
       return this.toBankLineDto(updated);
     });
+  }
+
+  private async requireAvailableBankMatch(
+    db: Pick<Prisma.TransactionClient, "bankStatementLine">,
+    lineId: string,
+    entryId: string,
+    accountId?: string,
+  ) {
+    const otherMatch = await db.bankStatementLine.findFirst({
+      where: {
+        matchedEntryId: entryId,
+        id: { not: lineId },
+        matchStatus: "MATCHED",
+        ...(accountId ? { batch: { OR: [{ accountId }, { accountId: null }] } } : {}),
+      },
+      select: { id: true },
+    });
+    if (otherMatch) {
+      throw new ConflictException({
+        code: "LEDGER_ENTRY_ALREADY_MATCHED",
+        message: "Este lançamento já está vinculado a outro movimento do extrato.",
+      });
+    }
   }
 
   async unmatchBankLine(actor: AuthUser, lineId: string) {
@@ -1337,6 +1479,39 @@ export class FinanceService {
       churchId: pilot.churchId,
       costCenters: rows.map((r) => this.toCostCenterDto(r)),
     };
+  }
+
+  async listMinistryCostCenterOptions(actor: AuthUser) {
+    const scope = await this.requireFinance(actor);
+    const [ministries, centers] = await Promise.all([
+      this.prisma.ministry.findMany({
+        where: scope, select: { id: true, name: true, slug: true }, orderBy: { name: "asc" },
+      }),
+      this.prisma.costCenter.findMany({ where: scope, select: { code: true } }),
+    ]);
+    const configured = new Set(centers.map((center) => center.code));
+    return { ministries: ministries.flatMap(({ id, name, slug }) =>
+      configured.has(`MIN:${id}`) || configured.has(slug) ? [] : [{ id, name }],
+    ) };
+  }
+
+  async configureMinistryCostCenter(actor: AuthUser, ministryId: string) {
+    const scope = await this.requireFinance(actor);
+    const ministry = await requireMinistryInPilot(this.prisma, ministryId, scope, "notFound");
+    const code = `MIN:${ministry.id}`;
+    const existing = await this.prisma.costCenter.findFirst({
+      where: { ...scope, code: { in: [code, ministry.slug] } },
+    });
+    if (existing) return this.toCostCenterDto(existing);
+    try {
+      return await this.createCostCenter(actor, { code, name: ministry.name });
+    } catch (error) {
+      // A second request may create the same center while the form is open.
+      if (!(error instanceof ConflictException) && (error as { code?: string })?.code !== "P2002") throw error;
+      const concurrent = await this.prisma.costCenter.findFirst({ where: { ...scope, code } });
+      if (!concurrent) throw error;
+      return this.toCostCenterDto(concurrent);
+    }
   }
 
   async createCostCenter(
@@ -1685,9 +1860,27 @@ export class FinanceService {
 
   // —— Comprovantes / anexos (RF-016) ——
 
+  private async requireAttachmentReader(actor: AuthUser, entryId: string) {
+    const pilot = await this.pilot.getPilotChurch();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
+    if (actor.churchId && actor.churchId !== scope.churchId || actor.organizationId && actor.organizationId !== scope.organizationId) {
+      throw new ForbiddenException("Despesa fora da congregação ativa.");
+    }
+    if (!hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PASTOR] }) ||
+        hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.TESOURARIA, ROLE_CODES.PLATFORM_ADMIN] })) {
+      const financeScope = await this.requireFinance(actor);
+      await this.requireEntryInPilot(financeScope, entryId);
+      return financeScope;
+    }
+    const entry = await this.requireEntryInPilot(pilot, entryId);
+    if (!this.isExpenseForPastor(entry.lines) || !entry.firstApprovedByUserId) {
+      throw new ForbiddenException("O comprovante ainda não está em revisão pastoral.");
+    }
+    return pilot;
+  }
+
   async listAttachments(actor: AuthUser, entryId: string) {
-    const pilot = await this.requireFinance(actor);
-    await this.requireEntryInPilot(pilot, entryId);
+    const pilot = await this.requireAttachmentReader(actor, entryId);
     const rows = await this.prisma.ledgerEntryAttachment.findMany({
       where: {
         entryId,
@@ -1714,13 +1907,17 @@ export class FinanceService {
   ) {
     const pilot = await this.requireFinance(actor);
     await this.requireEntryInPilot(pilot, entryId);
-    if (!ATTACHMENT_TYPES.has(file.mimetype)) {
+    const fileSignature = ATTACHMENT_SIGNATURES.get(file.mimetype);
+    if (!fileSignature) {
       throw new BadRequestException(
         "Tipo não permitido — use PDF, JPEG ou PNG",
       );
     }
-    if (file.size <= 0 || file.size > ATTACHMENT_MAX_BYTES) {
+    if (file.size !== file.buffer.length || file.size <= 0 || file.size > ATTACHMENT_MAX_BYTES) {
       throw new BadRequestException("Arquivo deve ter entre 1 byte e 5 MiB");
+    }
+    if (!file.buffer.subarray(0, fileSignature.length).equals(fileSignature)) {
+      throw new BadRequestException("Conteúdo do arquivo não corresponde ao tipo informado");
     }
     const displayName = sanitizeDisplayName(file.originalname);
     const ext =
@@ -1773,8 +1970,7 @@ export class FinanceService {
     entryId: string,
     attachmentId: string,
   ) {
-    const pilot = await this.requireFinance(actor);
-    await this.requireEntryInPilot(pilot, entryId);
+    const pilot = await this.requireAttachmentReader(actor, entryId);
     const row = await this.prisma.ledgerEntryAttachment.findFirst({
       where: {
         id: attachmentId,
@@ -1841,10 +2037,10 @@ export class FinanceService {
 
   // —— helpers ——
 
-  private async requireFinance(actor: AuthUser, action: "read" | "write" | "expense-create" = "write"): Promise<PilotScope> {
+  private async requireFinance(actor: AuthUser, action: "read" | "write" | "expense-create" | "import-statements" = "write"): Promise<PilotScope> {
     const pilot = await this.pilot.getPilotChurch();
     const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId };
-    // Admin pode cadastrar uma despesa pendente, mas nunca recebe aprovação ou operações gerais.
+    // Admin consulta, cadastra despesas pendentes e carrega extratos para conferência.
     const adminAllowed = action !== "write" && hasAccess(actor.grants, { ...scope, roleCodes: [ROLE_CODES.PLATFORM_ADMIN] });
     if (!adminAllowed && !canAccessFinance(actor.grants, scope)) {
       throw new ForbiddenException(
@@ -1942,6 +2138,7 @@ export class FinanceService {
             id: true,
             organizationId: true,
             churchId: true,
+            accountId: true,
           },
         },
       },
@@ -2167,13 +2364,14 @@ export class FinanceService {
     format: string;
     status: string;
     adapter?: string;
+    accountId?: string | null;
     filename: string;
     stubNote: string | null;
     lineCount: number;
     createdByUserId: string;
     createdAt: Date;
     updatedAt: Date;
-    lines: Array<{
+    lines?: Array<{
       id: string;
       postedAt: Date;
       amountCents: number;
@@ -2189,12 +2387,13 @@ export class FinanceService {
       format: row.format,
       status: row.status,
       adapter: row.adapter ?? "FILE",
+      accountId: row.accountId ?? null,
       filename: row.filename,
       stubNote: row.stubNote,
       lineCount: row.lineCount,
       createdByUserId: row.createdByUserId,
       liveBankApi: false as const,
-      lines: row.lines.map((l) => ({
+      lines: (row.lines ?? []).map((l) => ({
         id: l.id,
         postedAt: l.postedAt.toISOString(),
         amountCents: l.amountCents,

@@ -17,7 +17,7 @@ import { generateAuthenticatorQr } from "../lib/authenticator-qr";
 import { Alert } from "./ui/Alert";
 import styles from "./login-screen.module.css";
 
-type Props = { onAuthenticated?: () => void };
+type Props = { onAuthenticated?: (user: LoginResult["user"]) => void };
 type Me = LoginResult["user"];
 
 export function LoginScreen({ onAuthenticated }: Props) {
@@ -28,6 +28,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const [error, setError] = useState("");
   const [challenge, setChallenge] = useState<LoginChallenge["mfa"] | null>(null);
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
@@ -38,7 +39,10 @@ export function LoginScreen({ onAuthenticated }: Props) {
   const codeInput = useRef<HTMLInputElement>(null);
   const needsSetup = Boolean(challenge?.enrollmentRequired && !enrollment);
 
-  useEffect(() => { publishPerfProbe(); }, []);
+  useEffect(() => {
+    publishPerfProbe();
+    setPasswordChanged(!onAuthenticated && new URLSearchParams(window.location.search).get("senha") === "alterada");
+  }, [onAuthenticated]);
 
   // Na rota /login, uma sessão já confirmada entra sem novo /auth/me.
   // Quando usado pelo gate, essa validação já ocorreu no componente pai.
@@ -100,7 +104,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
     setEnrollment(null);
     setCode("");
     setPassword("");
-    if (onAuthenticated) onAuthenticated();
+    if (onAuthenticated) onAuthenticated(login.user);
     else openAuthenticatedArea(authenticatedLanding(login.user));
   }
 
@@ -181,6 +185,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
               <h1 id="login-heading">{challenge ? "Verificação em duas etapas" : "Entre na sua conta"}</h1>
               <p>{challenge ? "Use o aplicativo autenticador para confirmar o acesso." : "Acesso ao ID Riacho 1"}</p>
             </div>
+            {passwordChanged && !challenge && <Alert appearance="workspace" tone="success" title="Senha alterada. Entre com a nova senha." />}
             {challenge ? <form onSubmit={submitChallenge} className={styles.form}>
               {expired ? <Alert appearance="workspace" tone="warning" title="O tempo para verificar terminou. Entre novamente." /> : <>
                 {needsSetup && <p className={styles.mfaHelp}>Ative a verificação em um aplicativo autenticador antes de continuar.</p>}
@@ -213,7 +218,7 @@ export function LoginScreen({ onAuthenticated }: Props) {
                 </button>
               </>}
               <button type="button" className={styles.mfaBack} disabled={busy} onClick={restartLogin}>Voltar ao login</button>
-            </form> : <form onSubmit={submit} className={styles.form}>
+            </form> : <form method="post" onSubmit={submit} className={styles.form}>
               <label htmlFor="church-email">E-mail</label>
               <input id="church-email" type="email" name="email" required
                 autoComplete="username" inputMode="email"
@@ -233,11 +238,12 @@ export function LoginScreen({ onAuthenticated }: Props) {
               </div>
               {error && <Alert appearance="workspace" tone="danger" title={error} />}
               {!enabled&&<p className={styles.warning} role="status">O acesso ao painel está indisponível neste endereço. Procure a secretaria da igreja.</p>}
-              <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}>
-                {checking||busy ? "Aguarde…" : "Entrar no painel"}
+              <button className={styles.submit} type="submit" disabled={!enabled||busy||checking}
+                aria-busy={busy || checking} aria-label={busy || checking ? "Carregando" : undefined}>
+                {checking||busy ? <span className={styles.submitSpinner} aria-hidden="true" /> : "Entrar no painel"}
               </button>
             </form>}
-            <p className={styles.bottom}>Não possui acesso? Procure a secretaria ou a administração da igreja.</p>
+            <p className={styles.bottom}>Não possui acesso ou esqueceu a senha? Procure a administração da igreja.</p>
           </div>
         </section>
       </div>

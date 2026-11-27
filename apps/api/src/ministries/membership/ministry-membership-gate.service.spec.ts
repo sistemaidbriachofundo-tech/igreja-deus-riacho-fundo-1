@@ -7,11 +7,8 @@ import {
 import type { AuthUser } from "../../auth/types/auth-user";
 import { MinistryMembershipGateService } from "./ministry-membership-gate.service";
 import {
-  MINISTRY_AGENDA_MODEL_BLOCKED,
-  MINISTRY_FINANCE_CONTRACT_BLOCKED,
   MINISTRY_INTEREST_CONVERSION_BLOCKED,
   MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED,
-  MINISTRY_REQUEST_MODEL_BLOCKED,
   MINISTRY_SCOPE_FORBIDDEN,
 } from "./ministry-membership.contract";
 
@@ -91,7 +88,7 @@ describe("MinistryMembershipGateService", () => {
       return null;
     });
     const volunteerInterest = {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
@@ -99,6 +96,7 @@ describe("MinistryMembershipGateService", () => {
     const prisma = {
       $queryRaw: jest.fn().mockResolvedValue([]),
       ministry: { findFirst },
+      portalEvent: { findMany: jest.fn().mockResolvedValue([]) },
       volunteerInterest,
       ledgerEntry: { findMany: jest.fn() },
       costCenter: { findMany: jest.fn() },
@@ -123,8 +121,8 @@ describe("MinistryMembershipGateService", () => {
     const { service, prisma } = setup();
     prisma.$queryRaw.mockResolvedValueOnce([{ balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 }]);
     await expect(service.readCostCenterBalance(liderHomens, homens.id))
-      .resolves.toEqual({ ministryId: homens.id, currency: "BRL", balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 });
-    expect(prisma.$queryRaw).toHaveBeenCalledWith(expect.anything(), pilot.organizationId, pilot.churchId, "MIN:" + homens.id);
+      .resolves.toEqual({ ministryId: homens.id, currency: "BRL", configured: true, balanceCents: 4500, incomeCents: 6000, expenseCents: 1500 });
+    expect(prisma.$queryRaw).toHaveBeenCalledWith(expect.anything(), pilot.organizationId, pilot.churchId, "MIN:" + homens.id, homens.slug);
     await expect(service.readCostCenterBalance(secretaria, homens.id)).rejects.toBeInstanceOf(HttpException);
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
@@ -148,7 +146,7 @@ describe("MinistryMembershipGateService", () => {
   });
 
   it("nega agenda, solicitações, saldo e conversão cruzada com 403", async () => {
-    const { service, volunteerInterest } = setup();
+    const { service, volunteerInterest, prisma } = setup();
     const calls = [
       () => service.readAgenda(liderHomens, mulheres.id),
       () => service.readRequests(liderHomens, mulheres.id),
@@ -161,6 +159,9 @@ describe("MinistryMembershipGateService", () => {
       expect(error).toBeInstanceOf(ForbiddenException);
       expect((error as ForbiddenException).getStatus()).toBe(403);
     }
+    expect(prisma.portalEvent.findMany).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(volunteerInterest.findMany).not.toHaveBeenCalled();
     expect(volunteerInterest.findFirst).not.toHaveBeenCalled();
     expect(volunteerInterest.update).not.toHaveBeenCalled();
   });
@@ -174,21 +175,30 @@ describe("MinistryMembershipGateService", () => {
     expect((error as ForbiddenException).getStatus()).toBe(403);
   });
 
-  it("no próprio ministério devolve 501 sem integrantes nem saldo", async () => {
+  it("consulta agenda e solicitações no próprio ministério, mesmo sem tabela de vínculos", async () => {
     const { service, volunteerInterest, prisma } = setup();
+    const scope = { organizationId: pilot.organizationId, churchId: pilot.churchId, ministryId: homens.id };
+    const event = { id: "evento-1", ministryId: homens.id, name: "Encontro", startsAt: new Date(), status: "DRAFT", locationText: null };
+    const interest = { id: "int-sint-01", displayName: "Voluntário fictício", stage: "INTERESSE", status: "OPEN" };
+    prisma.portalEvent.findMany.mockResolvedValueOnce([event]);
+    volunteerInterest.findMany.mockResolvedValueOnce([interest]);
 
-    const membership = await capture(() =>
-      service.readMemberships(liderHomens, homens.id),
-    );
-    const agenda = await capture(() =>
-      service.readAgenda(liderHomens, homens.id),
-    );
-    const requests = await capture(() =>
-      service.readRequests(liderHomens, homens.id),
-    );
-    const balance = await capture(() =>
-      service.readCostCenterBalance(liderHomens, homens.id),
-    );
+    await expect(service.readAgenda(liderHomens, homens.id)).resolves.toEqual({
+      blocked: false, scheduleText: homens.scheduleText, items: [event],
+    });
+    await expect(service.readRequests(liderHomens, homens.id)).resolves.toEqual({ blocked: false, requests: [interest] });
+    expect(prisma.portalEvent.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: scope,
+      select: { id: true, name: true, ministryId: true, startsAt: true, status: true, locationText: true },
+    }));
+    expect(volunteerInterest.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: scope, select: { id: true, displayName: true, stage: true, status: true },
+    }));
+    await expect(service.readCostCenterBalance(liderHomens, homens.id)).resolves.toEqual({
+      ministryId: homens.id, currency: "BRL", configured: false, balanceCents: null, incomeCents: null, expenseCents: null,
+    });
+
+    const membership = await capture(() => service.readMemberships(liderHomens, homens.id));
     const conversion = await capture(() =>
       service.convertInterest(liderHomens, homens.id, "int-sint-01"),
     );
@@ -199,23 +209,6 @@ describe("MinistryMembershipGateService", () => {
       blocked: true,
       code: MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED,
       members: null,
-    });
-    expect((agenda as HttpException).getResponse()).toMatchObject({
-      blocked: true,
-      code: MINISTRY_AGENDA_MODEL_BLOCKED,
-      items: null,
-      scheduleText: homens.scheduleText,
-    });
-    expect((requests as HttpException).getResponse()).toMatchObject({
-      blocked: true,
-      code: MINISTRY_REQUEST_MODEL_BLOCKED,
-      requests: null,
-    });
-    expect((balance as HttpException).getResponse()).toMatchObject({
-      blocked: true,
-      code: MINISTRY_FINANCE_CONTRACT_BLOCKED,
-      balance: null,
-      dependency: "issue-96",
     });
     expect((conversion as HttpException).getResponse()).toMatchObject({
       blocked: true,

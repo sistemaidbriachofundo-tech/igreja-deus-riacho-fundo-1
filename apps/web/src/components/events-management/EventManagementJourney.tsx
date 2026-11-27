@@ -2,29 +2,37 @@
 
 import { isAdminEnabled, isProductionAdmin } from "../../lib/admin-environment";
 import { useEffect, useState, type FormEvent } from "react";
+import { PageHeader } from "../ui/PageHeader";
+import ui from "../ui/ui.module.css";
 import { AppShell } from "../AppShell";
+import { UIIcon } from "../ui/UIIcon";
 import { apiGet, apiPatch, apiPost, getApiBaseUrl, loadStoredToken, type LoginResult } from "../../lib/api";
 import { dasError, churchLocalToISO, readDasRows } from "../../lib/das-operations";
 import { isSyntheticLabel } from "../../lib/event-registrations";
 import {
   canRecordPresence,
+  eventSlugFromName,
   participationQuery,
   publicationBlockReason,
+  readEventPaymentAccounts,
   readParticipation,
   registrationLabel,
   toManagedEvent,
   toManagedRegistration,
+  type EventPaymentAccount,
   type ManagedEvent,
   type ManagedRegistration,
   type ParticipationView,
 } from "../../lib/event-management";
+import { parseMinistryNav, type MinistryNavItem } from "../../lib/persona-navigation";
 import { withBasePath } from "../../lib/paths";
 import { eventStatusLabel } from "./calendar";
+import { EventRegistrationDesk } from "./EventRegistrationDesk";
 import { EventAgenda } from "./EventAgenda";
 import s from "./event-management.module.css";
 
 type Phase = "disabled" | "signed-out" | "loading" | "forbidden" | "error" | "ready";
-type Draft = { name: string; slug: string; description: string; locationText: string; startsAt: string };
+type Draft = { name: string; slug: string; description: string; locationText: string; startsAt: string; ministryId?: string };
 const EMPTY: Draft = { name: "", slug: "", description: "", locationText: "", startsAt: "" };
 
 export function EventManagementJourney() {
@@ -34,6 +42,16 @@ export function EventManagementJourney() {
   const [token, setToken] = useState("");
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [canReconcile, setCanReconcile] = useState(false);
+  useEffect(() => {
+    if (phase !== "ready" || window.location.hash !== "#novo-evento") return;
+    const form = document.getElementById("novo-evento");
+    form?.scrollIntoView({ block: "start" });
+    form?.querySelector("input")?.focus({ preventScroll: true });
+  }, [phase]);
+  const [treasuryOnly, setTreasuryOnly] = useState(false);
+  const [leaderMinistries, setLeaderMinistries] = useState<MinistryNavItem[] | null>(null);
+  const [paymentAccounts, setPaymentAccounts] = useState<EventPaymentAccount[] | null>(null);
   const [creating, setCreating] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<Draft>(EMPTY);
   const [registrations, setRegistrations] = useState<ManagedRegistration[]>([]);
@@ -54,11 +72,25 @@ export function EventManagementJourney() {
     if (!stored) { setPhase("signed-out"); return; }
     let cancelled = false;
     void apiGet<LoginResult["user"]>("/auth/me", stored)
-      .then(async () => {
+      .then(async user => {
         if (cancelled) return;
         setToken(stored);
-        const body = await apiGet<unknown>("/events", stored);
+        const treasury = user.grants.some(grant => grant.roleCode === "TESOURARIA");
+        const churchStaff = user.grants.some(grant => ["PLATFORM_ADMIN", "SECRETARIA", "PASTOR"].includes(grant.roleCode));
+        const leader = user.grants.some(grant => grant.roleCode === "LIDER_MINISTERIO");
+        const staff = churchStaff || leader;
+        setCanReconcile(treasury);
+        setTreasuryOnly(treasury && !staff);
+        const [body, ministries] = await Promise.all([
+          apiGet<unknown>(treasury && !staff ? "/events/conciliacao" : "/events", stored),
+          leader && !churchStaff ? apiGet<unknown>("/ministries", stored) : Promise.resolve(null),
+        ]);
         if (cancelled) return;
+        if (ministries !== null) {
+          const options = parseMinistryNav(ministries);
+          setLeaderMinistries(options);
+          if (options.length === 1) setCreating(draft => ({ ...draft, ministryId: options[0].id }));
+        }
         setEvents(readDasRows(body, "events").flatMap((row) => {
           const event = toManagedEvent(row);
           return event ? [event] : [];
@@ -73,6 +105,15 @@ export function EventManagementJourney() {
       });
     return () => { cancelled = true; };
   }, [enabled]);
+
+  useEffect(() => {
+    if (!token || phase !== "ready") return;
+    let cancelled = false;
+    void apiGet<unknown>("/events/receiving-accounts", token)
+      .then(body => { if (!cancelled) setPaymentAccounts(readEventPaymentAccounts(body)); })
+      .catch(() => { if (!cancelled) setPaymentAccounts(null); });
+    return () => { cancelled = true; };
+  }, [token, phase]);
 
   const selected = events.find((event) => event.id === selectedId) ?? null;
   const blockReason = selected ? publicationBlockReason(selected) : null;
@@ -107,21 +148,34 @@ export function EventManagementJourney() {
   function createDraft(event: FormEvent) {
     event.preventDefault();
     const startsAt = churchLocalToISO(creating.startsAt);
-    if (creating.name.trim().length < 3 || !/^[a-z0-9-]{3,80}$/.test(creating.slug) || !startsAt) {
+    const slug = creating.slug || eventSlugFromName(creating.name);
+    if (creating.name.trim().length < 3 || !/^[a-z0-9-]{3,80}$/.test(slug) || !startsAt) {
       setNotice("Informe nome, identificador e data válidos.");
       return;
     }
+    if (leaderMinistries && !leaderMinistries.some(ministry => ministry.id === creating.ministryId)) {
+      setNotice("Selecione um dos seus ministérios para cadastrar o evento.");
+      return;
+    }
     void run(async () => {
-      await apiPost("/events", token, {
+      const created = await apiPost<{ id: string }>("/events", token, {
         name: creating.name.trim(),
-        slug: creating.slug.trim(),
+        slug,
         startsAt,
         description: creating.description.trim() || null,
         locationText: creating.locationText.trim() || null,
+        ...(creating.ministryId ? { ministryId: creating.ministryId } : {}),
       });
-      setCreating(EMPTY);
-      setNotice("Rascunho gravado. A agenda pública continua sem este encontro.");
-      await reloadEvents();
+      setCreating({ ...EMPTY, ministryId: creating.ministryId });
+      setNotice("Rascunho gravado. Configure as modalidades e os lotes antes de publicar.");
+      const updated = await reloadEvents();
+      const draft = updated.find(item => item.id === created.id);
+      if (draft) {
+        setSelectedId(draft.id);
+        setEditing({ name: draft.name, slug: draft.slug, description: draft.description, locationText: draft.locationText, startsAt: "" });
+        setRegistrations([]);
+        setReport(null);
+      }
     });
   }
 
@@ -167,7 +221,7 @@ export function EventManagementJourney() {
       startsAt: "",
     });
     if (event.status === "PUBLISHED" || event.status === "CANCELLED") {
-      void run(() => reloadRegistrations(eventId));
+      if (!treasuryOnly) void run(() => reloadRegistrations(eventId));
     }
   }
 
@@ -265,14 +319,21 @@ export function EventManagementJourney() {
   }
 
   return (
-    <AppShell active={null} meta="Eventos e presença">
+    <AppShell active="eventos-gestao" meta="Eventos e presença">
       <EventManagementView
         phase={phase}
         production={production}
+        treasuryOnly={treasuryOnly}
+        leaderMinistries={leaderMinistries}
         notice={notice}
         events={events}
         selected={selected}
         creating={creating}
+        registrationDesk={selected && token && paymentAccounts !== null ? (
+          <EventRegistrationDesk key={selected.id} event={selected} token={token}
+            accounts={paymentAccounts} canReconcile={canReconcile} canManage={!treasuryOnly}
+            onAccountsChanged={async () => setPaymentAccounts(readEventPaymentAccounts(await apiGet("/events/receiving-accounts", token)))} />
+        ) : null}
         editing={editing}
         registrations={registrations}
         report={report}
@@ -312,11 +373,14 @@ function textId(value: unknown) {
 
 export function EventManagementView(props: {
   production?: boolean;
+  treasuryOnly?: boolean;
+  leaderMinistries?: MinistryNavItem[] | null;
   phase: Phase;
   notice: string;
   events: ManagedEvent[];
   selected: ManagedEvent | null;
   creating: Draft;
+  registrationDesk?: React.ReactNode;
   editing: Draft;
   registrations: ManagedRegistration[];
   report: ParticipationView | null;
@@ -348,37 +412,42 @@ export function EventManagementView(props: {
 }) {
   const published = props.selected?.status === "PUBLISHED";
   return <main className={s.page}>
-    <header className={s.header}>
-      <div>
-        {!props.production && <div className={s.kicker}>HOMOLOGAÇÃO</div>}
-        <h1>Agenda, presença e participação</h1>
-        <p>Rascunho, revisão, publicação e presença ficam gravados neste ambiente. Menores não aparecem nesta tela.</p>
-      </div>
-      <a className={s.link} href={withBasePath("/app/relatorios/")}>Relatórios de gestão</a>
-    </header>
-    {props.phase === "disabled" && <p className={s.blocked} role="status">Homologação desabilitada. Nenhum evento foi inventado.</p>}
-    {props.phase === "signed-out" && <p className={s.notice} role="status">Entre na área administrativa para operar eventos reais.</p>}
+    <PageHeader appearance="workspace" heading="h1" title="Agenda, presença e participação"
+      description="Organize eventos, acompanhe inscrições e registre a presença."
+      actions={<>
+        {props.phase === "ready" && !props.treasuryOnly && <a className={ui.workspacePrimary} href="#novo-evento"><UIIcon name="plus" size={18} /> Novo evento</a>}
+        <a className={ui.workspaceSecondary} href={withBasePath("/app/relatorios/")}><UIIcon name="activity" size={18} /> Relatórios de gestão</a>
+      </>} />
+    {props.phase === "disabled" && <p className={s.blocked} role="status">O acesso à gestão de eventos está indisponível neste endereço.</p>}
+    {props.phase === "signed-out" && <p className={s.notice} role="status">Entre com sua conta para organizar eventos.</p>}
     {props.phase === "loading" && <p className={s.notice} role="status">Consultando eventos autorizados…</p>}
     {props.phase === "forbidden" && <p className={s.blocked} role="alert">{props.notice || "Seu perfil não tem autorização para eventos."}</p>}
-    {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Nada foi completado nesta tela."}</p>}
+    {props.phase === "error" && <p className={s.blocked} role="alert">{props.notice || "Não foi possível consultar os eventos. Tente novamente."}</p>}
     {props.notice && props.phase === "ready" && <p className={s.notice} role="status">{props.notice}</p>}
     {props.phase === "ready" && <>
       <section className={s.panel}>
-        <h2>Agenda</h2>
+        <h2 className={s.agendaHeading}><span className={s.agendaMark}><UIIcon name="calendar" size={23} /></span>Agenda</h2>
         <EventAgenda events={props.events} selectedId={props.selected?.id ?? ""} onChoose={props.onChoose} />
       </section>
-      <form className={s.panel} onSubmit={props.onCreate}>
-        <h2>Novo rascunho</h2>
+      {!props.treasuryOnly && <form id="novo-evento" className={s.panel} aria-labelledby="novo-evento-titulo" onSubmit={props.onCreate}>
+        <h2 id="novo-evento-titulo">Cadastrar evento</h2>
         <div className={s.grid}>
           <label>Nome<input value={props.creating.name} onChange={(event) => props.onCreating({ ...props.creating, name: event.target.value })} required minLength={3} maxLength={140}/></label>
-          <label>Identificador<input value={props.creating.slug} onChange={(event) => props.onCreating({ ...props.creating, slug: event.target.value })} required pattern="[a-z0-9-]{3,80}"/></label>
+          {props.leaderMinistries && <label>Ministério
+            <select required value={props.creating.ministryId ?? ""} onChange={event => props.onCreating({ ...props.creating, ministryId: event.target.value })}>
+              <option value="">Selecione seu ministério</option>
+              {props.leaderMinistries.map(ministry => <option key={ministry.id} value={ministry.id}>{ministry.name}</option>)}
+            </select>
+          </label>}
+          <label>Endereço do evento (opcional)<input value={props.creating.slug} placeholder={eventSlugFromName(props.creating.name)} onChange={(event) => props.onCreating({ ...props.creating, slug: event.target.value })} pattern="[a-z0-9-]{3,80}" maxLength={80}/></label>
           <label>Início<input type="datetime-local" value={props.creating.startsAt} onChange={(event) => props.onCreating({ ...props.creating, startsAt: event.target.value })} required/></label>
           <label>Local público<input value={props.creating.locationText} onChange={(event) => props.onCreating({ ...props.creating, locationText: event.target.value })} maxLength={180}/></label>
           <label className={s.wide}>Descrição sem dados pessoais<textarea value={props.creating.description} onChange={(event) => props.onCreating({ ...props.creating, description: event.target.value })} maxLength={1200}/></label>
         </div>
-        <button type="submit" disabled={props.busy}>Gravar rascunho</button>
-      </form>
-      {props.selected && <section className={s.panel}>
+        {props.leaderMinistries?.length === 0 && <p className={s.notice}>Seu acesso ainda não está vinculado a um ministério. Fale com a Secretaria.</p>}
+        <button type="submit" disabled={props.busy || props.leaderMinistries?.length === 0}>Gravar rascunho</button>
+      </form>}
+      {!props.treasuryOnly && props.selected && <section className={s.panel}>
         <h2>Revisar e publicar</h2>
         <p className={s.lede}>{props.selected.name} · {eventStatusLabel(props.selected.status)}</p>
         {props.selected.status === "DRAFT" && <form className={s.grid} onSubmit={props.onSave}>
@@ -394,7 +463,8 @@ export function EventManagementView(props: {
           {props.production ? "Publicar evento" : "Publicar na homologação"}
         </button>
       </section>}
-      {published && props.selected && <section className={s.panel}>
+      {props.registrationDesk}
+      {published && props.selected && !props.registrationDesk && !props.treasuryOnly && <section className={s.panel}>
         <h2>Inscrições e presença</h2>
         {!props.production && <form className={s.grid} onSubmit={props.onRegister}>
           <label>Rótulo fictício<input value={props.participant} onChange={(event) => props.onParticipant(event.target.value)} required/></label>
@@ -411,7 +481,7 @@ export function EventManagementView(props: {
           </article>)}
         </div>
       </section>}
-      {props.selected && <form className={s.panel} onSubmit={props.onReport}>
+      {!props.treasuryOnly && props.selected && <form className={s.panel} onSubmit={props.onReport}>
         <h2>Filtrar e exportar participação</h2>
         <div className={s.grid}>
           <label>Situação<select value={props.statusFilter} onChange={(event) => props.onStatus(event.target.value)}>

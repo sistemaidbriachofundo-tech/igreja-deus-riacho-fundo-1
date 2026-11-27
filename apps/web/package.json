@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
+    "build:production": "node scripts/build-production.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests && node --test scripts/synthetic-auth-policy.test.mjs",
+    "test": "vitest run --passWithNoTests && node --test scripts/synthetic-auth-policy.test.mjs scripts/production-login.test.mjs",
     "stub:auth": "node scripts/synthetic-auth-stub.mjs",
     "postbuild": "node scripts/verify-export.mjs"
   },
@@ -17,6 +18,8 @@
     "@fontsource/inter": "^5.3.0",
     "@fontsource/montserrat": "^5.3.0",
     "@idbrf/shared": "*",
+    "exceljs": "4.4.0",
+    "jsqr": "1.4.0",
     "next": "^15.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

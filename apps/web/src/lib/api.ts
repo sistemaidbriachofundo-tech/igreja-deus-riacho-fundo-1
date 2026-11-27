@@ -46,6 +46,7 @@ export interface AuthUser {
   userId: string;
   personId: string;
   email: string;
+  canManageConnection?: boolean;
   grants: Array<{
     roleCode: string;
     organizationId?: string | null;
@@ -75,11 +76,14 @@ export function isInvalidSession(error: unknown): boolean {
 
 /** Alinhado ao timeout das leituras públicas. Não é um 401. */
 export const API_TIMEOUT_MS = 8_000;
+/** Login e MFA precisam tolerar a inicialização da API antes de cancelar a requisição. */
+const AUTH_TIMEOUT_MS = 20_000;
 /** Evita repetir /auth/me a cada troca de página. O servidor continua autorizando os dados. */
 export const SESSION_FRESH_MS = 120_000;
 export const SESSION_UNAUTHORIZED_EVENT = "idbrf:session-unauthorized";
 
 export type ApiCallOptions = {
+  keepalive?: boolean;
   timeoutMs?: number;
   /** Ignora a confirmação recente e consulta /auth/me de novo. */
   fresh?: boolean;
@@ -98,7 +102,10 @@ export type ApiTiming = {
 const timings: ApiTiming[] = [];
 
 function noteTiming(sample: Omit<ApiTiming, "at">): void {
-  timings.push({ ...sample, at: Date.now() });
+  const path = sample.path
+    .replace(/^\/credentials\/verify\/.+$/, "/credentials/verify/:token")
+    .replace(/^\/public\/registrations\/.+$/, "/public/registrations/:code");
+  timings.push({ ...sample, path, at: Date.now() });
   if (timings.length > 200) timings.shift();
 }
 
@@ -182,6 +189,7 @@ function cloneUser(user: AuthUser): AuthUser {
     userId: user.userId,
     personId: user.personId,
     email: user.email,
+    canManageConnection: user.canManageConnection,
     grants: user.grants.map(grant => ({ ...grant })),
   };
 }
@@ -283,18 +291,22 @@ async function apiFetch(url: string, init: RequestInit, timeoutMs: number): Prom
   }
 }
 
-async function requestJson<T>(
-  method: "GET" | "POST" | "PATCH",
+type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
+async function request<T>(
+  method: ApiMethod,
   path: string,
   token: string | null,
   body: unknown | undefined,
   options: ApiCallOptions | undefined,
+  readBody: (response: Response) => Promise<T>,
 ): Promise<{ data: T; status: number }> {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (method !== "GET") headers["Content-Type"] = "application/json";
-  const init: RequestInit = { method, headers };
-  if (method !== "GET") init.body = body === undefined ? undefined : JSON.stringify(body);
+  const multipart = typeof FormData !== "undefined" && body instanceof FormData;
+  if (method !== "GET" && !multipart) headers["Content-Type"] = "application/json";
+  const init: RequestInit = { method, headers, keepalive: options?.keepalive };
+  if (method !== "GET") init.body = multipart ? body : JSON.stringify(body);
   const res = await apiFetch(`${getApiBaseUrl()}${path}`, init, options?.timeoutMs ?? API_TIMEOUT_MS);
   if (!res.ok) {
     const text = await res.text();
@@ -303,20 +315,21 @@ async function requestJson<T>(
       : `${method} ${path} falhou (${res.status})`;
     throw new ApiRequestError(text || fallback, res.status, kindForStatus(res.status));
   }
-  return { data: await res.json() as T, status: res.status };
+  return { data: await readBody(res), status: res.status };
 }
 
 async function settle<T>(
-  method: "GET" | "POST" | "PATCH",
+  method: ApiMethod,
   path: string,
   token: string | null,
   body: unknown | undefined,
   options: ApiCallOptions | undefined,
   authenticated: boolean,
+  readBody: (response: Response) => Promise<T> = async response => response.status === 204 ? undefined as T : await response.json() as T,
 ): Promise<T> {
   const started = monotonicMs();
   try {
-    const { data, status } = await requestJson<T>(method, path, token, body, options);
+    const { data, status } = await request(method, path, token, body, options, readBody);
     noteTiming({
       method,
       path,
@@ -345,7 +358,10 @@ async function settle<T>(
 }
 
 export function beginLogin(email: string, password: string, options?: ApiCallOptions) {
-  return settle<LoginResult | LoginChallenge>("POST", "/auth/login", null, { email, password }, options, false);
+  return settle<LoginResult | LoginChallenge>(
+    "POST", "/auth/login", null, { email, password },
+    { ...options, timeoutMs: options?.timeoutMs ?? AUTH_TIMEOUT_MS }, false,
+  );
 }
 
 export async function apiLogin(email: string, password: string, options?: ApiCallOptions): Promise<LoginResult> {
@@ -357,12 +373,15 @@ export async function apiLogin(email: string, password: string, options?: ApiCal
 }
 
 export function beginMfaEnrollment(challengeId: string) {
-  return settle<MfaEnrollment>("POST", "/auth/mfa/enroll", null, { challengeId }, undefined, false);
+  return settle<MfaEnrollment>("POST", "/auth/mfa/enroll", null, { challengeId }, { timeoutMs: AUTH_TIMEOUT_MS }, false);
 }
 
 export function verifyLoginChallenge(challenge: LoginChallenge["mfa"], code: string) {
   const path = challenge.enrollmentRequired ? "/auth/mfa/enroll/confirm" : "/auth/mfa/challenge";
-  return settle<LoginResult>("POST", path, null, { challengeId: challenge.challengeId, code }, undefined, false);
+  return settle<LoginResult>(
+    "POST", path, null, { challengeId: challenge.challengeId, code },
+    { timeoutMs: AUTH_TIMEOUT_MS }, false,
+  );
 }
 
 export function mfaFailureMessage(error: unknown): string {
@@ -408,6 +427,14 @@ export async function apiGet<T>(path: string, token: string, options?: ApiCallOp
   finally { if (inflightSession?.promise === promise) inflightSession = null; }
 }
 
+export function apiGetPublic<T>(path: string): Promise<T> {
+  return settle<T>("GET", path, null, undefined, undefined, false);
+}
+
+export function apiPostPublic<T>(path: string, body: unknown): Promise<T> {
+  return settle<T>("POST", path, null, body, undefined, false);
+}
+
 export async function apiPost<T>(path: string, token: string, body?: unknown, options?: ApiCallOptions): Promise<T> {
   return settle<T>("POST", path, token, body, options, true);
 }
@@ -415,6 +442,26 @@ export async function apiPost<T>(path: string, token: string, body?: unknown, op
 /** Alterações restritas via backend com validação de papel e escopo na API. */
 export async function apiPatch<T>(path: string, token: string, body: unknown, options?: ApiCallOptions): Promise<T> {
   return settle<T>("PATCH", path, token, body, options, true);
+}
+
+export function apiDelete<T>(path: string, token: string): Promise<T> {
+  return settle<T>("DELETE", path, token, undefined, undefined, true);
+}
+
+export function apiGetBlob(path: string, token: string): Promise<Blob> {
+  return settle("GET", path, token, undefined, undefined, true, response => response.blob());
+}
+
+export function apiPostForm(path: string, token: string, form: FormData): Promise<void> {
+  return settle("POST", path, token, form, undefined, true, async () => undefined);
+}
+
+export function apiPostFormJson<T>(path: string, token: string, form: FormData): Promise<T> {
+  return settle<T>("POST", path, token, form, undefined, true);
+}
+
+export function apiPutForm(path: string, token: string, form: FormData): Promise<void> {
+  return settle("PUT", path, token, form, undefined, true, async () => undefined);
 }
 
 const TOKEN_KEY = "idbrf_demo_token";

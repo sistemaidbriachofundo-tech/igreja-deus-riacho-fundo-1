@@ -11,10 +11,7 @@ import type { AuthUser } from "../../auth/types/auth-user";
 import { MinistryMembershipGateService } from "./ministry-membership-gate.service";
 import { MemoryMinistryMembershipRepository } from "./ministry-membership.repository";
 import {
-  MINISTRY_AGENDA_MODEL_BLOCKED,
-  MINISTRY_FINANCE_CONTRACT_BLOCKED,
   MINISTRY_MEMBERSHIP_SCHEMA_BLOCKED,
-  MINISTRY_REQUEST_MODEL_BLOCKED,
   MINISTRY_SCOPE_FORBIDDEN,
 } from "./ministry-membership.contract";
 import type { StoredMembership } from "./ministry-membership.model";
@@ -119,14 +116,15 @@ const secretaria = user({
 function setup(repository = new MemoryMinistryMembershipRepository()) {
   const ministries = [jovens, homens, mulheres];
   const prisma = {
-      $queryRaw: jest.fn().mockResolvedValue([]),
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    portalEvent: { findMany: jest.fn().mockResolvedValue([]) },
     ministry: {
       findFirst: jest.fn(async ({ where }: { where: { id: string } }) => {
         return ministries.find((item) => item.id === where.id) ?? null;
       }),
     },
     volunteerInterest: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
@@ -397,18 +395,15 @@ describe("matriz frente B — ministérios", () => {
     const converted = await capture(() =>
       service.convertInterest(liderJovens, jovens.id, "int-jovens"),
     );
-    const agenda = await capture(() => service.readAgenda(liderJovens, jovens.id));
-    const requests = await capture(() => service.readRequests(liderJovens, jovens.id));
-    const balance = await capture(() =>
-      service.readCostCenterBalance(liderJovens, jovens.id),
-    );
+    await expect(service.readAgenda(liderJovens, jovens.id)).resolves.toEqual({
+      blocked: false, scheduleText: jovens.scheduleText, items: [],
+    });
+    await expect(service.readRequests(liderJovens, jovens.id)).resolves.toEqual({ blocked: false, requests: [] });
+    await expect(service.readCostCenterBalance(liderJovens, jovens.id)).resolves.toMatchObject({
+      configured: false, balanceCents: null,
+    });
 
-    expect(listed.ok).toBe(false);
-    expect(admitted.ok).toBe(false);
-    expect(converted.ok).toBe(false);
-    if (listed.ok || admitted.ok || converted.ok || agenda.ok || requests.ok || balance.ok) {
-      return;
-    }
+    if (listed.ok || admitted.ok || converted.ok) throw new Error("Uma operação de vínculo avançou sem tabela");
     expect((listed.error as HttpException).getStatus()).toBe(501);
     expect((listed.error as HttpException).getResponse()).toMatchObject({
       blocked: true,
@@ -422,19 +417,6 @@ describe("matriz frente B — ministérios", () => {
     expect((converted.error as HttpException).getResponse()).toMatchObject({
       blocked: true,
       createdMembership: null,
-    });
-    expect((agenda.error as HttpException).getResponse()).toMatchObject({
-      code: MINISTRY_AGENDA_MODEL_BLOCKED,
-      items: null,
-      scheduleText: jovens.scheduleText,
-    });
-    expect((requests.error as HttpException).getResponse()).toMatchObject({
-      code: MINISTRY_REQUEST_MODEL_BLOCKED,
-      requests: null,
-    });
-    expect((balance.error as HttpException).getResponse()).toMatchObject({
-      code: MINISTRY_FINANCE_CONTRACT_BLOCKED,
-      balance: null,
     });
     expect(repository.members).toHaveLength(0);
     expect(repository.audits).toHaveLength(0);

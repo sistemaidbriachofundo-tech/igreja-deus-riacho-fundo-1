@@ -16,11 +16,28 @@ export interface PilotChurch {
  */
 @Injectable()
 export class PilotService {
+  private resolved?: { scope: PilotChurch; expiresAt: number };
+  private pending?: Promise<PilotChurch>;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getPilotChurch(): Promise<PilotChurch> {
+    if (this.resolved && Date.now() < this.resolved.expiresAt) {
+      return { ...this.resolved.scope };
+    }
+    this.pending ??= this.loadPilotChurch().then(scope => {
+      this.resolved = { scope, expiresAt: Date.now() + 30_000 };
+      return scope;
+    }).finally(() => {
+      this.pending = undefined;
+    });
+    return { ...(await this.pending) };
+  }
+
+  private async loadPilotChurch(): Promise<PilotChurch> {
     const org = await this.prisma.organization.findUnique({
       where: { slug: PILOT_ORG_SLUG },
+      select: { id: true, slug: true },
     });
     if (!org) {
       throw new NotFoundException("Organização piloto não encontrada (rode o seed)");
@@ -33,6 +50,7 @@ export class PilotService {
           slug: PILOT_CHURCH_SLUG,
         },
       },
+      select: { id: true, slug: true, name: true },
     });
     if (!church) {
       throw new NotFoundException(

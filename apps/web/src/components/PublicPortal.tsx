@@ -6,6 +6,7 @@ import { officialLogoAsset } from "../lib/brand";
 import s from "./public-portal.module.css";
 import { MobilePortalMenu } from "./MobilePortalMenu";
 import { PortalDesktopNavigation } from "./PortalDesktopNavigation";
+import { UIIcon } from "./ui/UIIcon";
 import { PortalButton } from "./PortalButton";
 import { PublicHashFocus, PortalSectionLink } from "./PublicSectionLink";
 import d from "./portal-design-system.module.css";
@@ -14,10 +15,10 @@ export { s as portalStyles };
 
 function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
-    <Link href="/" className={`${inverse ? s.brandInverse : s.brand} ${d.brand}`} aria-label="Igreja de Deus no Riacho Fundo I — página inicial">
+    <Link href="/" className={`${inverse ? s.brandInverse : s.brand} ${d.brand}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={withBasePath(officialLogoAsset)} alt="" width={48} height={48} className={s.logo} />
-      <span><strong>IGREJA DE DEUS</strong><small>RIACHO FUNDO I</small></span>
+      <span><strong>IGREJA DE DEUS</strong>{" "}<small>RIACHO FUNDO I</small></span>
     </Link>
   );
 }
@@ -28,14 +29,14 @@ const navigation = [
   { href: "/#agenda", label: "Agenda" },
 ];
 
-export function PortalHeader({ light = false }: { light?: boolean }) {
+export function PortalHeader({ light = false, overlay = false }: { light?: boolean; overlay?: boolean }) {
   return (
-    <header className={d.masthead} id="topo" data-appearance={light ? "light" : "dark"}>
+    <header className={d.masthead} id="topo" data-appearance={light ? "light" : "dark"} data-overlay={overlay || undefined}>
       <div className={d.mastheadInner}>
         <Logo inverse />
         <PortalDesktopNavigation />
         <div className={d.headerControls}>
-          <Link href="/login/" className={d.headerLogin}>Login</Link>
+          <Link href="/login/" className={d.headerLogin}><UIIcon name="badge" size={17} />Login</Link>
           <MobilePortalMenu links={navigation} />
         </div>
       </div>
@@ -69,8 +70,8 @@ export function PortalFooter() {
   );
 }
 
-export function PublicPage({ children, lightHeader = false }: { children: ReactNode; lightHeader?: boolean }) {
-  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
+export function PublicPage({ children, lightHeader = false, overlayHeader = false }: { children: ReactNode; lightHeader?: boolean; overlayHeader?: boolean }) {
+  return <div className={`${s.portal} ${d.theme}`}><a className={s.skipLink} href="#conteudo">Pular para o conteúdo</a><PortalHeader light={lightHeader} overlay={overlayHeader} /><PublicHashFocus />{children}<PortalFooter /></div>;
 }
 
 export function Eyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {

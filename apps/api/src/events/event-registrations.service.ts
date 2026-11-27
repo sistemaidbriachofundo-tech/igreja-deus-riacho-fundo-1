@@ -1,17 +1,34 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
+import { buildWhatsAppUrl } from "@idbrf/shared";
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "crypto";
+import { hasAccess, ROLE_CODES } from "@idbrf/shared";
 import type { AuthUser } from "../auth/types/auth-user";
 import {
   assertMinistryScopedWrite,
   filterRowsForMinistryLeader,
 } from "../common/ministry-access";
+import { queueEventCheckInNotice } from "../mail/check-in-notice";
+import { MailService } from "../mail/mail.service";
+import { smtpSendEnabled } from "../mail/smtp-config";
 import { PrismaService } from "../prisma/prisma.service";
 import { PilotService } from "../pilot/pilot.service";
+import { buildPixCopiaECola } from "./pix-payload";
+
+type PaymentSettlement = {
+  idempotencyKey: string;
+  paymentIntentId: string;
+  status: "CONFIRMED_MOCK" | "FAILED_MOCK";
+  providerRef?: string | null;
+  actorUserId?: string;
+};
 
 const OCCUPYING_STATUSES = ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] as const;
 
@@ -36,6 +53,7 @@ export type LotInput = {
   closesAt?: string | null;
   status?: "DRAFT" | "OPEN" | "CLOSED";
   sortOrder?: number;
+  receivingAccountId?: string | null;
 };
 
 export type RegistrationInput = {
@@ -50,6 +68,8 @@ export type RegistrationInput = {
   guardianDisplayName?: string | null;
   /** Ciência sintética do responsável — obrigatória quando isMinor=true. */
   guardianAcknowledged?: boolean;
+  /** Destino do QR de check-in. Não entra na resposta. */
+  notificationEmail?: string | null;
 };
 
 export type LodgingOptionInput = {
@@ -107,6 +127,7 @@ export class EventRegistrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pilot: PilotService,
+    @Optional() private readonly mail?: MailService,
   ) {}
 
   async createModality(actor: AuthUser, eventId: string, input: ModalityInput) {
@@ -199,6 +220,11 @@ export class EventRegistrationsService {
     if (!["DRAFT", "OPEN", "CLOSED"].includes(status)) {
       throw new BadRequestException("status inválido");
     }
+    const receivingAccountId = await this.resolveReceivingAccount(
+      pilot,
+      input.receivingAccountId,
+      priceCents,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.eventLot.create({
@@ -220,6 +246,7 @@ export class EventRegistrationsService {
               : parseDate(input.closesAt, "closesAt"),
           status,
           sortOrder: input.sortOrder ?? 0,
+          receivingAccountId,
         },
       });
       await tx.auditLog.create({
@@ -548,31 +575,89 @@ export class EventRegistrationsService {
     });
   }
 
-  /**
-   * Público — sem PII real: só rótulos sintéticos + modalidade/lote.
-   * Rejeita cpf/email/telefone/documento.
-   */
   async createPublicRegistration(eventSlug: string, input: RegistrationInput) {
     const pilot = await this.pilot.getPilotChurch();
     this.assertNoRealPii(input as object);
-    const event = await this.prisma.portalEvent.findFirst({
-      where: {
-        organizationId: pilot.organizationId,
-        churchId: pilot.churchId,
-        slug: eventSlug.trim().toLowerCase(),
-        status: "PUBLISHED",
+    const event = await this.findPublishedEvent(pilot, eventSlug);
+    return this.createRegistrationInternal({ pilot, event, input, actorUserId: null, source: "public" });
+  }
+
+  async createMemberRegistration(actor: AuthUser, eventSlug: string, input: RegistrationInput) {
+    const { pilot, person } = await this.requireMember(actor);
+    const event = await this.findPublishedEvent(pilot, eventSlug);
+    return this.createRegistrationInternal({
+      pilot, event, input: {
+        ...input,
+        ...(person.isMinor ? { isMinor: true } : {}),
+      },
+      actorUserId: actor.userId, source: "member", registrantPersonId: person.id,
+    });
+  }
+
+  async listMyRegistrations(actor: AuthUser) {
+    const { pilot, person } = await this.requireMember(actor);
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: { ...pilot, registrantPersonId: person.id },
+      select: {
+        id: true, status: true, paymentStatus: true, guardianAuthStatus: true, partySize: true,
+        event: { select: { name: true, slug: true, startsAt: true, status: true } },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    return { profile: { name: person.displayName, email: actor.email, isMinor: person.isMinor }, registrations };
+  }
+
+  async getMyRegistration(actor: AuthUser, registrationId: string) {
+    const { pilot, person } = await this.requireMember(actor);
+    const row = await this.prisma.eventRegistration.findFirst({
+      where: { ...pilot, registrantPersonId: person.id, id: registrationId },
+      select: {
+        id: true, status: true, guardianAuthStatus: true, checkInCode: true,
+        tickets: { orderBy: { position: "asc" }, select: { position: true, code: true, checkedInAt: true } },
+        event: { select: { name: true, status: true } },
+        paymentIntents: {
+          where: { status: "PENDING", receivingAccountId: { not: null } },
+          select: { amountCents: true, pixCopiaECola: true, pixTxid: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
     });
-    if (!event) {
-      throw new NotFoundException("Evento público não encontrado");
+    if (!row) throw new NotFoundException("Inscrição não encontrada");
+    const pending = row.status === "PENDING_PAYMENT" && row.event.status === "PUBLISHED" ? row.paymentIntents[0] : null;
+    const status = ["CANCELLED", "ARCHIVED"].includes(row.event.status) ? "CANCELLED" : row.status;
+    return {
+      id: row.id, status, guardianAuthStatus: row.guardianAuthStatus, checkInCode: row.checkInCode,
+      eventName: row.event.name, tickets: ["CONFIRMED", "CHECKED_IN"].includes(status) ? row.tickets : [],
+      paymentIntent: pending?.pixCopiaECola ? { ...pending, mode: "CHURCH_PIX" } : null,
+    };
+  }
+
+  private async requireMember(actor: AuthUser) {
+    const { organizationId, churchId } = await this.pilot.getPilotChurch();
+    const pilot = { organizationId, churchId };
+    if (!hasAccess(actor.grants, { ...pilot, roleCodes: [ROLE_CODES.MEMBRO] }) ||
+        (actor.organizationId && actor.organizationId !== organizationId) ||
+        (actor.churchId && actor.churchId !== churchId)) {
+      throw new ForbiddenException("A área de eventos exige acesso de membro nesta congregação.");
     }
-    return this.createRegistrationInternal({
-      pilot,
-      event,
-      input,
-      actorUserId: null,
-      source: "public",
+    const person = await this.prisma.person.findFirst({
+      where: {
+        id: actor.personId, organizationId, status: "ACTIVE",
+        memberships: { some: { organizationId, churchId, status: "ACTIVE" } },
+      },
+      select: { id: true, displayName: true, isMinor: true },
     });
+    if (!person) throw new ForbiddenException("Cadastro de membro indisponível nesta congregação.");
+    return { pilot, person };
+  }
+
+  private async findPublishedEvent({ organizationId, churchId }: { organizationId: string; churchId: string }, slug: string) {
+    const event = await this.prisma.portalEvent.findFirst({
+      where: { organizationId, churchId, slug: slug.trim().toLowerCase(), status: "PUBLISHED" },
+    });
+    if (!event) throw new NotFoundException("Evento público não encontrado");
+    return event;
   }
 
   async getPublicRegistrationStatus(checkInCode: string) {
@@ -587,7 +672,9 @@ export class EventRegistrationsService {
         organizationId: pilot.organizationId,
         churchId: pilot.churchId,
       },
-      include: { event: true },
+      include: { event: true,
+        tickets: { orderBy: { position: "asc" }, select: { position: true, code: true, checkedInAt: true } },
+      },
     });
     if (!row) {
       throw new NotFoundException("Inscrição não encontrada");
@@ -606,41 +693,120 @@ export class EventRegistrationsService {
       transportOptionId: row.transportOptionId,
       // sem displayName/guardian no status público — só operacional
       checkInCode: row.checkInCode,
+      tickets: ["CONFIRMED", "CHECKED_IN"].includes(row.status) ? row.tickets : [],
     };
   }
 
   async checkIn(actor: AuthUser, registrationId: string, checkInCode?: string) {
     const { pilot, registration, event } =
       await this.requireRegistrationWrite(actor, registrationId);
-    if (registration.status === "CANCELLED") {
-      throw new BadRequestException("Inscrição cancelada");
+    if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
+      throw new BadRequestException("checkInCode não confere");
+    }
+    await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
+    this.assertCheckInAllowed(registration);
+
+    if (registration.status === "CHECKED_IN") {
+      return this.toRegistrationDto(registration);
+    }
+
+    return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  /** Check-in pelo código, restrito ao evento informado. Repetir devolve o mesmo registro. */
+  async checkInOnEvent(actor: AuthUser, eventId: string, checkInCode: string) {
+    const { pilot, event } = await this.requireEventWrite(actor, eventId);
+    const code = checkInCode?.trim();
+    if (!code || code.length < 8) {
+      throw new BadRequestException("checkInCode inválido");
+    }
+    if (event.status === "CANCELLED" || event.status === "ARCHIVED") {
+      throw new BadRequestException("O evento está encerrado para check-in.");
+    }
+    const ticket = await this.prisma.eventParticipantTicket?.findFirst({
+      where: { code, registration: { eventId: event.id, organizationId: pilot.organizationId, churchId: pilot.churchId } },
+      select: { id: true, position: true, registrationId: true },
+    });
+    if (ticket) return this.checkInParticipant(actor, pilot, event.id, ticket);
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        checkInCode: code,
+        eventId: event.id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+      },
+    });
+    if (!registration) {
+      throw new NotFoundException("Inscrição não encontrada neste evento");
     }
     if (registration.status === "CHECKED_IN") {
       return this.toRegistrationDto(registration);
     }
-    if (registration.status === "PENDING_PAYMENT") {
-      throw new BadRequestException("Pagamento pendente — check-in bloqueado");
+    await this.assertIndividualTicketIfRequired(registration.id, registration.partySize);
+    this.assertCheckInAllowed(registration);
+    return this.persistCheckIn(actor, pilot, registration, event.id);
+  }
+
+  private async assertIndividualTicketIfRequired(registrationId: string, partySize: number) {
+    if (partySize > 1 && await this.prisma.eventParticipantTicket?.count({ where: { registrationId } })) {
+      throw new BadRequestException("Use o QR individual de cada participante.");
     }
-    if (
-      registration.isMinor &&
-      registration.guardianAuthStatus !== "AUTHORIZED"
-    ) {
-      throw new BadRequestException(
-        "Autorização de responsável pendente — check-in bloqueado",
-      );
-    }
-    if (checkInCode && checkInCode.trim() !== registration.checkInCode) {
-      throw new BadRequestException("checkInCode não confere");
-    }
+  }
+
+  private async checkInParticipant(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    eventId: string,
+    ticket: { id: string; position: number; registrationId: string },
+  ) {
+    return this.prisma.$transaction(async tx => {
+      // Serializa a chegada de participantes e as mudanças de estado da inscrição.
+      await tx.$queryRaw`SELECT id FROM event_registrations WHERE id = ${ticket.registrationId} FOR UPDATE`;
+      const row = await tx.eventRegistration.findUniqueOrThrow({ where: { id: ticket.registrationId } });
+      this.assertCheckInAllowed(row);
+      const now = new Date();
+      const updated = await tx.eventParticipantTicket.updateMany({
+        where: { id: ticket.id, checkedInAt: null }, data: { checkedInAt: now },
+      });
+      const remaining = await tx.eventParticipantTicket.count({ where: { registrationId: row.id, checkedInAt: null } });
+      const registration = remaining === 0 && row.status !== "CHECKED_IN"
+        ? await tx.eventRegistration.update({ where: { id: row.id }, data: { status: "CHECKED_IN", checkedInAt: now } })
+        : row;
+      if (updated.count) await tx.auditLog.create({ data: {
+        actorUserId: actor.userId, action: "event_registration.participant_check_in",
+        resourceType: "event_registration", resourceId: row.id,
+        organizationId: pilot.organizationId, churchId: pilot.churchId, metadata: { eventId, position: ticket.position },
+      } });
+      return { ...this.toRegistrationDto(registration), participantPosition: ticket.position, remaining, alreadyCheckedIn: updated.count === 0 };
+    });
+  }
+
+  private async persistCheckIn(
+    actor: AuthUser,
+    pilot: { organizationId: string; churchId: string },
+    registration: { id: string; status: string; isMinor: boolean; guardianAuthStatus: string },
+    eventId: string,
+  ) {
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.eventRegistration.update({
-        where: { id: registration.id },
+      const transition = await tx.eventRegistration.updateMany({
+        where: {
+          id: registration.id,
+          status: "CONFIRMED",
+          OR: [{ isMinor: false }, { guardianAuthStatus: "AUTHORIZED" }],
+        },
         data: {
           status: "CHECKED_IN",
           checkedInAt: new Date(),
         },
       });
+      const updated = await tx.eventRegistration.findUniqueOrThrow({
+        where: { id: registration.id },
+      });
+      if (transition.count === 0) {
+        this.assertCheckInAllowed(updated);
+        return this.toRegistrationDto(updated);
+      }
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
@@ -649,11 +815,30 @@ export class EventRegistrationsService {
           resourceId: registration.id,
           organizationId: pilot.organizationId,
           churchId: pilot.churchId,
-          metadata: { eventId: event.id },
+          metadata: { eventId },
         },
       });
       return this.toRegistrationDto(updated);
     });
+  }
+
+  private assertCheckInAllowed(registration: {
+    status: string;
+    isMinor: boolean;
+    guardianAuthStatus: string;
+  }): void {
+    if (registration.status === "CANCELLED") {
+      throw new BadRequestException("Inscrição cancelada");
+    }
+    if (registration.status === "CHECKED_IN") return;
+    if (registration.status === "PENDING_PAYMENT") {
+      throw new BadRequestException("Pagamento pendente — check-in bloqueado");
+    }
+    if (registration.isMinor && registration.guardianAuthStatus !== "AUTHORIZED") {
+      throw new BadRequestException(
+        "Autorização de responsável pendente — check-in bloqueado",
+      );
+    }
   }
 
   async cancel(actor: AuthUser, registrationId: string) {
@@ -709,6 +894,9 @@ export class EventRegistrationsService {
     status: "CONFIRMED_MOCK" | "FAILED_MOCK";
     providerRef?: string | null;
   }) {
+    if (process.env.IDBRF_RUNTIME_STAGE === "production") {
+      throw new NotFoundException();
+    }
     const idempotencyKey = params.idempotencyKey?.trim();
     if (!idempotencyKey || idempotencyKey.length < 8) {
       throw new BadRequestException("Idempotency-Key obrigatória");
@@ -726,6 +914,11 @@ export class EventRegistrationsService {
       throw new UnauthorizedException("Assinatura inválida");
     }
 
+    return this.settleEventPayment({ ...params, idempotencyKey });
+  }
+
+  private async settleEventPayment(params: PaymentSettlement) {
+    const { idempotencyKey } = params;
     const existing = await this.prisma.eventPaymentWebhookReceipt.findUnique({
       where: { idempotencyKey },
     });
@@ -752,7 +945,9 @@ export class EventRegistrationsService {
       throw new NotFoundException("PaymentIntent não encontrado");
     }
 
-    const payloadHash = createHash("sha256").update(canonical).digest("hex");
+    const payloadHash = createHash("sha256")
+      .update(`${idempotencyKey}:${params.paymentIntentId}:${params.status}`)
+      .digest("hex");
 
     return this.prisma.$transaction(async (tx) => {
       // Re-check idempotency inside tx
@@ -807,8 +1002,8 @@ export class EventRegistrationsService {
       });
       await tx.auditLog.create({
         data: {
-          actorUserId: null,
-          action: "event_payment.webhook_mock",
+          actorUserId: params.actorUserId ?? null,
+          action: params.actorUserId ? "event_payment.manual_confirm" : "event_payment.webhook_mock",
           resourceType: "event_payment_intent",
           resourceId: intent.id,
           organizationId: intent.organizationId,
@@ -817,6 +1012,7 @@ export class EventRegistrationsService {
             status: params.status,
             idempotent: false,
             registrationId: registration.id,
+            ...(params.actorUserId ? { mode: "EXTERNAL_MANUAL" } : {}),
           },
         },
       });
@@ -828,6 +1024,60 @@ export class EventRegistrationsService {
         registration: this.toRegistrationDto(registration),
       };
     });
+  }
+
+  /** Consulta em lote para a agenda pública, sem carregar inscrições ou contas individuais. */
+  async openPublicRegistrationEvents(eventIds: string[], now = new Date()) {
+    if (!eventIds.length) return new Set<string>();
+    const [catalogs, occupancy] = await Promise.all([
+      this.prisma.portalEvent.findMany({
+        where: { id: { in: eventIds }, status: "PUBLISHED" },
+        select: {
+          id: true,
+          modalities: { select: { id: true, minPartySize: true, capacity: true } },
+          lots: {
+            where: {
+              status: "OPEN",
+              AND: [
+                { OR: [{ opensAt: null }, { opensAt: { lte: now } }] },
+                { OR: [{ closesAt: null }, { closesAt: { gte: now } }] },
+              ],
+            },
+            select: { id: true, modalityId: true, capacity: true, priceCents: true, receivingAccount: { select: { active: true } } },
+          },
+          lodgingOptions: { select: { id: true, capacity: true } },
+          mealOptions: { select: { id: true, capacity: true } },
+          transportOptions: { select: { id: true, capacity: true } },
+        },
+      }),
+      this.prisma.eventRegistration.groupBy({
+        by: ["modalityId", "lotId", "lodgingOptionId", "mealOptionId", "transportOptionId"],
+        where: { eventId: { in: eventIds }, status: { in: [...OCCUPYING_STATUSES] } },
+        _sum: { partySize: true },
+      }),
+    ]);
+    const resources = ["lodgingOptionId", "mealOptionId", "transportOptionId"] as const;
+    const fields = ["modalityId", "lotId", ...resources] as const;
+    const occupied = new Map<string, number>();
+    for (const row of occupancy) {
+      for (const field of fields) {
+        const id = row[field];
+        if (!id) continue;
+        const key = field + ":" + id;
+        occupied.set(key, (occupied.get(key) ?? 0) + (row._sum.partySize ?? 0));
+      }
+    }
+    const hasRoom = (field: typeof fields[number], { id, capacity }: { id: string; capacity: number | null }, size: number) =>
+      capacity === null || capacity - (occupied.get(field + ":" + id) ?? 0) >= size;
+    return new Set(catalogs.filter(event => event.modalities.some(modality => {
+      const size = modality.minPartySize;
+      return hasRoom("modalityId", modality, size)
+        && [event.lodgingOptions, event.mealOptions, event.transportOptions].every((options, index) =>
+          !options.length || options.some(option => hasRoom(resources[index], option, size)))
+        && event.lots.some(lot => (!lot.modalityId || lot.modalityId === modality.id)
+          && (lot.priceCents === 0 || lot.receivingAccount?.active === true)
+          && hasRoom("lotId", lot, size));
+    })).map(event => event.id));
   }
 
   /** Catálogo público (modalidades + lotes OPEN + RF-022 opções) — sem PII. */
@@ -849,7 +1099,7 @@ export class EventRegistrationsService {
         orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
       }),
       this.prisma.eventLot.findMany({
-        where: { eventId, status: "OPEN" },
+        where: { eventId, status: "OPEN", OR: [{ priceCents: 0 }, { receivingAccount: { active: true } }] },
         orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
       }),
       this.prisma.eventLodgingOption.findMany({
@@ -890,7 +1140,15 @@ export class EventRegistrationsService {
       transportOptions: transportOptions.map((o) =>
         this.toResourceOptionDto(o, occTransport.get(o.id) ?? 0),
       ),
-      paymentMode: "MOCK_ONLY" as const,
+      paymentMode: openLots.some((lot) => Boolean(lot.receivingAccountId))
+        ? ("CHURCH_PIX" as const)
+        : ("MOCK_ONLY" as const),
+      settlementPolicy: {
+        kind: "EXTERNAL_MANUAL" as const,
+        pixKeyConfigured: Boolean(process.env.EVENT_MANUAL_PIX_KEY?.trim()),
+        staffConfirmPath: "POST /registrations/:registrationId/confirm-manual-payment",
+        note: "Pagamento fora da plataforma (Pix/transferência). Staff confirma no painel.",
+      },
       /** RF-022 entregue nesta fatia — opções podem estar vazias se staff não configurou. */
       rf022LodgingPending: false,
       requiresLodgingOption: lodgingOptions.length > 0,
@@ -906,10 +1164,12 @@ export class EventRegistrationsService {
       id: string;
       ministryId: string | null;
       status: string;
+      name?: string;
     };
     input: RegistrationInput;
     actorUserId: string | null;
-    source: "staff" | "public";
+    source: "staff" | "public" | "member";
+    registrantPersonId?: string;
   }) {
     const displayName = params.input.displayName?.trim();
     if (!displayName || displayName.length < 2 || displayName.length > 120) {
@@ -968,6 +1228,7 @@ export class EventRegistrationsService {
       modalityId: string | null;
       opensAt: Date | null;
       closesAt: Date | null;
+      receivingAccountId?: string | null;
     } | null = null;
     const lotId = params.input.lotId?.trim() || null;
     if (lotId) {
@@ -1063,11 +1324,19 @@ export class EventRegistrationsService {
 
     const priceCents = lot?.priceCents ?? 0;
     const needsPayment = priceCents > 0;
+    if (params.source !== "staff" && needsPayment && !lot?.receivingAccountId &&
+        process.env.IDBRF_EVENT_PIX_REQUIRED === "true") {
+      throw new BadRequestException("O recebimento deste lote pago ainda não está configurado.");
+    }
+    const notificationEmail = pilotMailbox(params.input.notificationEmail);
+    const pix = needsPayment && lot?.receivingAccountId
+      ? await this.pixInstruction(params.pilot, lot.receivingAccountId, priceCents)
+      : null;
     const checkInCode = randomBytes(16).toString("hex");
     const guardianAuthStatus = isMinor ? "PENDING" : "NOT_REQUIRED";
 
-    return this.prisma.$transaction(async (tx) => {
-      // Re-validate capacity inside transaction (best-effort).
+    const created = await this.prisma.$transaction(async (tx) => {
+      // A transação serializável mantém a última vaga consistente sob concorrência.
       const occModTx = await tx.eventRegistration.aggregate({
         where: {
           eventId: params.event.id,
@@ -1127,6 +1396,8 @@ export class EventRegistrationsService {
           mealOptionId: meal?.id ?? null,
           transportOptionId: transport?.id ?? null,
           displayName,
+          registrantPersonId: params.registrantPersonId,
+          notificationEmail,
           partySize,
           isMinor,
           guardianDisplayName,
@@ -1137,6 +1408,12 @@ export class EventRegistrationsService {
         },
       });
 
+      const tickets = partySize > 1 ? Array.from({ length: partySize }, (_, index) => ({
+        position: index + 1, code: randomBytes(16).toString("hex"),
+      })) : [];
+      if (tickets.length) await tx.eventParticipantTicket.createMany({
+        data: tickets.map(ticket => ({ ...ticket, registrationId: registration.id })),
+      });
       let guardianAuthorization: {
         id: string;
         status: string;
@@ -1173,7 +1450,10 @@ export class EventRegistrationsService {
             amountCents: priceCents,
             currency: lot.currency,
             status: "PENDING",
-            providerRef: `mock_${randomBytes(8).toString("hex")}`,
+            providerRef: pix ? null : `mock_${randomBytes(8).toString("hex")}`,
+            receivingAccountId: pix?.accountId ?? null,
+            pixTxid: pix?.txid ?? null,
+            pixCopiaECola: params.registrantPersonId ? pix?.copiaECola ?? null : null,
           },
         });
       }
@@ -1184,7 +1464,9 @@ export class EventRegistrationsService {
           action:
             params.source === "public"
               ? "event_registration.create_public"
-              : "event_registration.create_staff",
+              : params.source === "member"
+                ? "event_registration.create_member"
+                : "event_registration.create_staff",
           resourceType: "event_registration",
           resourceId: registration.id,
           organizationId: params.pilot.organizationId,
@@ -1204,8 +1486,11 @@ export class EventRegistrationsService {
         },
       });
 
+      const dto = this.toRegistrationDto(registration);
       return {
-        ...this.toRegistrationDto(registration),
+        ...dto,
+        tickets: needsPayment ? [] : tickets,
+        paymentMode: pix ? ("CHURCH_PIX" as const) : dto.paymentMode,
         guardianAuthorization: guardianAuthorization
           ? this.toGuardianAuthDto(guardianAuthorization)
           : null,
@@ -1214,10 +1499,82 @@ export class EventRegistrationsService {
               id: paymentIntent.id,
               status: paymentIntent.status,
               amountCents: paymentIntent.amountCents,
-              mode: "MOCK_ONLY" as const,
+              mode: pix ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
+              ...(pix
+                ? { pixCopiaECola: pix.copiaECola, pixTxid: pix.txid }
+                : { settlement: this.manualSettlementHint(paymentIntent.amountCents) }),
+
             }
           : null,
       };
+    }, { isolationLevel: "Serializable" }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2034") {
+        throw new ConflictException("As vagas foram atualizadas. Confira o lote e tente novamente.");
+      }
+      throw error;
+    });
+    if (created.status === "CONFIRMED" && notificationEmail) {
+      await queueEventCheckInNotice(this.mail, {
+        registrationId: created.id,
+        to: notificationEmail,
+        eventName: params.event.name || "evento",
+        checkInCode: created.checkInCode,
+        tickets: created.tickets,
+      });
+    }
+    return created;
+  }
+
+  /**
+   * Instruções de pagamento externo (Pix/transferência da igreja).
+   * Sem gateway: a pessoa paga fora; staff confirma no painel.
+   */
+  manualSettlementHint(amountCents: number) {
+    const pixKey = process.env.EVENT_MANUAL_PIX_KEY?.trim() || null;
+    const amount = (amountCents / 100).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+    return {
+      kind: "EXTERNAL_MANUAL" as const,
+      amountLabel: amount,
+      pixKey,
+      copyText: pixKey
+        ? `Pagamento do evento (${amount})\nChave Pix: ${pixKey}\nApós pagar, a secretaria confirma a inscrição.`
+        : `Pagamento do evento (${amount}). Use a chave Pix da igreja informada pela secretaria. Após pagar, a inscrição é confirmada manualmente.`,
+      whatsappUrl: buildWhatsAppUrl({
+        text: pixKey
+          ? `Olá! Segue o Pix do evento (${amount}): ${pixKey}`
+          : `Olá! Preciso da chave Pix para o evento (${amount}).`,
+      }),
+      confirmation: "STAFF_CONFIRM_OR_MOCK_WEBHOOK" as const,
+    };
+  }
+
+  /** Staff confirma pagamento já recebido fora da plataforma (sem PSP). */
+  async confirmManualPayment(actor: AuthUser, registrationId: string) {
+    const { pilot, registration } = await this.requireRegistrationWrite(
+      actor,
+      registrationId,
+    );
+    const intent = await this.prisma.eventPaymentIntent.findFirst({
+      where: {
+        registrationId: registration.id,
+        organizationId: pilot.organizationId,
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!intent) {
+      throw new BadRequestException("Nenhum pagamento pendente para esta inscrição");
+    }
+    const idempotencyKey = `manual_${actor.userId}_${intent.id}_${Date.now()}`;
+    return this.settleEventPayment({
+      idempotencyKey,
+      paymentIntentId: intent.id,
+      status: "CONFIRMED_MOCK",
+      providerRef: `manual_staff_${actor.userId.slice(0, 8)}`,
+      actorUserId: actor.userId,
     });
   }
 
@@ -1266,7 +1623,12 @@ export class EventRegistrationsService {
       },
       _sum: { partySize: true },
     });
-    return new Map(rows.map((r) => [r.modalityId, r._sum.partySize ?? 0]));
+    return new Map(
+      rows.map((r: { modalityId: string; _sum: { partySize: number | null } }) => [
+        r.modalityId,
+        r._sum.partySize ?? 0,
+      ]),
+    );
   }
 
   private async occupiedByLot(eventId: string) {
@@ -1281,8 +1643,11 @@ export class EventRegistrationsService {
     });
     return new Map(
       rows
-        .filter((r) => r.lotId)
-        .map((r) => [r.lotId as string, r._sum.partySize ?? 0]),
+        .filter((r: { lotId: string | null }) => r.lotId)
+        .map((r: { lotId: string | null; _sum: { partySize: number | null } }) => [
+          r.lotId as string,
+          r._sum.partySize ?? 0,
+        ]),
     );
   }
 
@@ -1301,8 +1666,11 @@ export class EventRegistrationsService {
     });
     return new Map(
       rows
-        .filter((r) => r[field])
-        .map((r) => [r[field] as string, r._sum.partySize ?? 0]),
+        .filter((r: Record<string, unknown>) => Boolean(r[field]))
+        .map((r: Record<string, unknown> & { _sum: { partySize: number | null } }) => [
+          r[field] as string,
+          r._sum.partySize ?? 0,
+        ]),
     );
   }
 
@@ -1476,6 +1844,7 @@ export class EventRegistrationsService {
       closesAt: Date | null;
       status: string;
       sortOrder: number;
+      receivingAccountId?: string | null;
     },
     occupied = 0,
   ) {
@@ -1495,7 +1864,8 @@ export class EventRegistrationsService {
       closesAt: row.closesAt?.toISOString() ?? null,
       status: row.status,
       sortOrder: row.sortOrder,
-      paymentMode: "MOCK_ONLY" as const,
+      receivingAccountId: row.receivingAccountId ?? null,
+      paymentMode: row.receivingAccountId ? ("CHURCH_PIX" as const) : ("MOCK_ONLY" as const),
     };
   }
 
@@ -1593,6 +1963,75 @@ export class EventRegistrationsService {
       paymentMode: "MOCK_ONLY" as const,
     };
   }
+
+  private async resolveReceivingAccount(
+    pilot: { organizationId: string; churchId: string },
+    receivingAccountId: string | null | undefined,
+    priceCents: number,
+  ): Promise<string | null> {
+    const id = receivingAccountId?.trim() || null;
+    if (!id) return null;
+    if (priceCents <= 0) {
+      throw new BadRequestException("Conta de recebimento só vale para lote pago.");
+    }
+    const account = await this.prisma.churchReceivingAccount.findFirst({
+      where: {
+        id,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        active: true,
+        ledgerAccount: { active: true, type: "ASSET" },
+      },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new BadRequestException("Conta ativa da igreja não encontrada.");
+    }
+    return account.id;
+  }
+
+  private async pixInstruction(
+    pilot: { organizationId: string; churchId: string },
+    receivingAccountId: string,
+    amountCents: number,
+  ) {
+    const account = await this.prisma.churchReceivingAccount.findFirst({
+      where: {
+        id: receivingAccountId,
+        organizationId: pilot.organizationId,
+        churchId: pilot.churchId,
+        active: true,
+      },
+    });
+    if (!account) {
+      throw new BadRequestException("A conta Pix do lote não está ativa.");
+    }
+    const txid = randomBytes(8).toString("hex");
+    return {
+      accountId: account.id,
+      txid,
+      copiaECola: buildPixCopiaECola({
+        pixKey: account.pixKey,
+        merchantName: account.displayName,
+        merchantCity: account.merchantCity,
+        amountCents,
+        txid,
+      }),
+    };
+  }
+}
+
+function pilotMailbox(value: string | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  const email = value.trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email)) {
+    throw new BadRequestException("Informe um e-mail válido para receber a confirmação.");
+  }
+  const live = process.env.EMAIL_TRANSPORT === "smtp" && smtpSendEnabled();
+  if (!live && !email.endsWith("@example.test")) {
+    throw new BadRequestException("Neste ambiente de teste, use um e-mail fictício @example.test.");
+  }
+  return email;
 }
 
 function resourceLabel(
@@ -1625,9 +2064,8 @@ function parseDate(value: string, field: string): Date {
 
 function webhookSecret(): string {
   const fromEnv = process.env.EVENT_PAYMENT_WEBHOOK_SECRET?.trim();
-  if (fromEnv) return fromEnv;
-  // Segredo de demo apenas — nunca gateway live.
-  return "event-payment-mock-dev-secret";
+  if (!fromEnv || fromEnv.length < 32) throw new NotFoundException();
+  return fromEnv;
 }
 
 function signaturesMatch(a: string, b: string): boolean {
